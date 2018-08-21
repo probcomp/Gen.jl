@@ -1,0 +1,3 @@
+module Gen
+
+end # module
