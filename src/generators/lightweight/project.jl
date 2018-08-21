@@ -1,7 +1,7 @@
 mutable struct GFProjectState
     constraints::Any
     trace::GFTrace
-    read_trace::Nullable{Any}
+    read_trace::Union{Some{Any},Nothing}
     score::Float64
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
@@ -47,7 +47,7 @@ function project(gf::GenFunction, args, constraints, read_trace)
     state = GFProjectState(constraints, read_trace, gf.params)
     retval = exec(gf, state, args)
     new_call = CallRecord(state.score, retval, args)
-    state.trace.call = Nullable{CallRecord}(new_call)
+    state.trace.call = new_call
     unvisited_constraints = get_unvisited(state.visitor, state.constraints)
     merge!(state.discard, unvisited_constraints)
     (state.trace, state.discard)

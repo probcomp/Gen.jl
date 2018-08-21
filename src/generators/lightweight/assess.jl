@@ -1,6 +1,6 @@
 mutable struct GFAssessState
     trace::GFTrace
-    read_trace::Nullable{Any}
+    read_trace::Union{Some{Any},Nothing}
     constraints::Any
     score::Float64
     visitor::AddressVisitor

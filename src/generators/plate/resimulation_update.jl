@@ -83,7 +83,7 @@ end
 """
 Update without argument delta information
 """
-function resimulation_update(gen::Plate, args, delta::Void, trace::VectorTrace, constraints, read_trace=nothing)
+function resimulation_update(gen::Plate, args, delta::Nothing, trace::VectorTrace, constraints, read_trace=nothing)
 
     (new_length, prev_length) = get_prev_and_new_lengths(args, trace)
 
@@ -94,7 +94,7 @@ function resimulation_update(gen::Plate, args, delta::Void, trace::VectorTrace, 
     _resimulation_update(gen, args, delta, trace, constraints, read_trace, to_visit, deltas)
 end
 
-function _resimulation_update(gen::Plate, args, delta::Void, trace::VectorTrace, constraints, read_trace, to_visit, deltas)
+function _resimulation_update(gen::Plate, args, delta::Nothing, trace::VectorTrace, constraints, read_trace, to_visit, deltas)
 
     (new_length, prev_length) = get_prev_and_new_lengths(args, trace)
 

@@ -7,7 +7,7 @@ track(value) = value
 
 mutable struct GFBackpropParamsState
     trace::GFTrace
-    read_trace::Nullable{Any}
+    read_trace::Union{Some{Any},Nothing}
     score::TrackedReal
     tape::InstructionTape
     visitor::AddressVisitor
@@ -45,7 +45,7 @@ end
 struct BackpropParamsRecord
     generator::Generator
     subtrace::Any
-    read_trace::Nullable{Any}
+    read_trace::Union{Some{Any},Nothing}
 end
 
 function addr(state::GFBackpropParamsState, gen::Generator{T}, args, addr) where {T}
@@ -99,7 +99,7 @@ function backprop_params(gf::GenFunction, trace::GFTrace, retval_grad, read_trac
     end
 
     # return gradients with respect to inputs
-    # NOTE: if a value isn't tracked the gradient is nothing (Void)
+    # NOTE: if a value isn't tracked the gradient is nothing
     input_grads::Tuple = (map((arg, has_grad) -> has_grad ? deriv(arg) : nothing,
                              args_maybe_tracked, gf.has_argument_grads)...)
     input_grads
@@ -116,8 +116,7 @@ end
     else
         retval_grad = nothing
     end
-    read_trace = isnull(record.read_trace) ? nothing : get(record.read_trace)
-    arg_grads = backprop_params(gen, record.subtrace, retval_grad, read_trace)
+    arg_grads = backprop_params(gen, record.subtrace, retval_grad, record.read_trace)
     for (arg, grad, has_grad) in zip(args_maybe_tracked, arg_grads, has_argument_grads(gen))
         if has_grad && istracked(arg)
             increment_deriv!(arg, grad)

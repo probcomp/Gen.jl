@@ -1,6 +1,6 @@
 mutable struct GFSimulateState
     trace::GFTrace
-    read_trace::Nullable{Any}
+    read_trace::Union{Some{Any},Nothing}
     score::Float64
     visitor::AddressVisitor
     params::Dict{Symbol,Any}

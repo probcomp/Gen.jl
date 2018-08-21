@@ -57,7 +57,7 @@ function process!(ir::BasicBlockIR, state::BBUpdateState, node::AddrChangeNode)
     if haskey(ir.addr_dist_nodes, addr)
         dist_node = ir.addr_dist_nodes[addr]
         # TODO: this implies we cannot access @change for addresses that don't have outputs?
-        constrained = get(dist_node.output) in state.marked
+        constrained = dist_node.output in state.marked
         # return whether the value changed and the previous value
         push!(state.stmts, quote
             $new_trace.$trace_field = ($(QuoteNode(constrained)), $prev_trace.$addr)
@@ -89,7 +89,7 @@ function process!(ir::BasicBlockIR, state::BBUpdateState, node::AddrDistNode)
     if isa(schema, StaticAddressSchema) && addr in keys(schema)
         # constrained to a new value (mark the output)
         if has_output(node)
-            push!(state.marked, get(node.output))
+            push!(state.marked, node.output)
         end
         if !schema[addr].is_primitive
             error("Expected primitive address but got namespace at $addr")
@@ -150,14 +150,14 @@ function process!(ir::BasicBlockIR, state::BBUpdateState, node::AddrGeneratorNod
         # we don't currently statically identify a generator that can absorb
         # arbitrary changes to its arguments)
         if has_output(node)
-            push!(state.marked, get(node.output))
+            push!(state.marked, node.output)
         end
         change_value_ref = :($new_trace.$(value_field(node.change_node)))
-        change = :(isnull($change_value_ref) ? nothing : get($change_value_ref))
+        #change = :(isnull($change_value_ref) ? nothing : get($change_value_ref))
         push!(state.stmts, quote
             ($new_trace.$addr, _, $discard, $(addr_change_variable(addr))) = update(
                 $(QuoteNode(node.gen)), $(Expr(:tuple, args...)),
-                $change, $prev_trace.$addr, $constraints, read_trace)
+                $change_value_ref, $prev_trace.$addr, $constraints, read_trace)
                 #GenLite.get_internal_node_proto(discard, Val($(QuoteNode(addr))))) # TODO deleted
             $call_record = get_call_record($new_trace.$addr)
             $decrement = get_call_record($prev_trace.$addr).score
@@ -181,7 +181,7 @@ function process!(ir::BasicBlockIR, state::BBUpdateState, node::AddrGeneratorNod
 end
 
 ####
-function mark_arguments!(marked, arg_nodes, args_change::Type{Void})
+function mark_arguments!(marked, arg_nodes, args_change::Type{Nothing})
     for arg_node in arg_nodes
         push!(marked, arg_node)
     end
@@ -285,21 +285,21 @@ function codegen_update(gen::Type{T}, new_args, args_change, trace, constraints,
     end
 
     # return value
-    if isnull(ir.output_node)
+    if ir.output_node === nothing
         retval = :nothing
     else
-        if get(ir.output_node) in marked
-            retval = quote $new_trace.$(value_field(get(ir.output_node))) end
+        if ir.output_node in marked
+            retval = quote $new_trace.$(value_field(ir.output_node)) end
         else
             retval = quote $prev_trace.$call_record_field.retval end
         end
     end
 
     # retchange
-    if isnull(ir.retchange_node)
-        retchange = :(Void())
+    if ir.retchange_node === nothing
+        retchange = :(nothing)
     else
-        retchange = Expr(:(.), new_trace, QuoteNode(value_field(get(ir.retchange_node))))
+        retchange = Expr(:(.), new_trace, QuoteNode(value_field(ir.retchange_node)))
     end
 
     # construct new call record and return

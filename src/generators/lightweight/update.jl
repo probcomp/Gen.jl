@@ -2,13 +2,13 @@ mutable struct GFUpdateState
     prev_trace::GFTrace
     trace::GFTrace
     constraints::Any
-    read_trace::Nullable{Any}
+    read_trace::Union{Some{Any},Nothing}
     score::Float64
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
     discard::GenericChoiceTrie
     args_change::Any
-    retchange::Nullable{Any}
+    retchange::Union{Some{Any},Nothing}
     callee_output_changes::HomogenousTrie{Any,Any}
 end
 
@@ -16,14 +16,14 @@ function GFUpdateState(args_change, prev_trace, constraints, read_trace, params)
     visitor = AddressVisitor()
     discard = GenericChoiceTrie()
     GFUpdateState(prev_trace, GFTrace(), constraints, read_trace, 0., visitor,
-                  params, discard, args_change, Nullable{Any}(), HomogenousTrie{Any,Any}())
+                  params, discard, args_change, nothing, HomogenousTrie{Any,Any}())
 end
 
 get_args_change(state::GFUpdateState) = state.args_change
 
 function set_ret_change!(state::GFUpdateState, value)
-    if isnull(state.retchange)
-        state.retchange = Nullable{Any}(value)
+    if state.retchange === nothing
+        state.retchange = value
     else
         error("@retchange! was already used")
     end
@@ -105,9 +105,8 @@ function codegen_update(gen::Type{GenFunction}, new_args, args_change,
     quote
         state = GenLite.GFUpdateState(args_change, trace, constraints, read_trace, gen.params)
         retval = GenLite.exec(gen, state, new_args)
-        retchange = isnull(state.retchange) ? nothing : get(state.retchange)
         new_call = GenLite.CallRecord{Any}(state.score, retval, new_args)
-        state.trace.call = Nullable{CallRecord}(new_call)
+        state.trace.call = new_call
         # discard addresses that were deleted
         unvisited = GenLite.get_unvisited(state.visitor, get_choices(state.prev_trace))
         merge!(state.discard, unvisited)
@@ -118,6 +117,6 @@ function codegen_update(gen::Type{GenFunction}, new_args, args_change,
         # compute the weight
         prev_score = get_call_record(trace).score
         weight = state.score - prev_score
-        (state.trace, weight, state.discard, retchange)
+        (state.trace, weight, state.discard, state.retchange)
     end
 end

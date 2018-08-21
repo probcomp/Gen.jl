@@ -1,6 +1,3 @@
-using PyCall
-@pyimport graphviz as gv
-
 struct ParamInfo
     name::Symbol
     typ::Any
@@ -60,7 +57,7 @@ parents(node::ReadNode) = node.input_nodes
 
 struct AddrDistNode{T} <: ExprNode
     input_nodes::Vector{ValueNode}
-    output::Nullable{ValueNode}
+    output::Union{ValueNode,Nothing}
     dist::Distribution{T}
     address::Symbol
 end
@@ -73,7 +70,7 @@ parents(node::AddrDistNode) = node.input_nodes
 
 struct AddrGeneratorNode{T,U} <: ExprNode
     input_nodes::Vector{ValueNode}
-    output::Nullable{ValueNode} # TODO
+    output::Union{ValueNode,Nothing}
     gen::Generator{T,U}
     address::Symbol
     change_node::ValueNode
@@ -170,9 +167,9 @@ mutable struct BasicBlockIR
     addr_dist_nodes::Dict{Symbol, AddrDistNode}
     addr_gen_nodes::Dict{Symbol, AddrGeneratorNode}
     all_nodes::Set{Node}
-    output_node::Nullable{ValueNode}
-    retchange_node::Nullable{ValueNode}
-    args_change_node::Nullable{ArgsChangeNode}
+    output_node::Union{Some{ValueNode},Nothing}
+    retchange_node::Union{Some{ValueNode},Nothing}
+    args_change_node::Union{Some{ArgsChangeNode},Nothing}
     addr_change_nodes::Set{AddrChangeNode}
     generator_input_change_nodes::Set{ValueNode}
     finished::Bool
@@ -191,9 +188,9 @@ mutable struct BasicBlockIR
         addr_dist_nodes = Dict{Symbol, AddrDistNode}()
         addr_gen_nodes = Dict{Symbol, AddrGeneratorNode}()
         all_nodes = Set{Node}()
-        output_node = Nullable{ValueNode}()
-        retchange_node = Nullable{ValueNode}()
-        args_change_node = Nullable{ArgsChangeNode}()
+        output_node = nothing
+        retchange_node = nothing
+        args_change_node = nothing
         addr_change_nodes = Set{AddrChangeNode}()
         generator_input_change_nodes = Set{ValueNode}()
         finished = false
@@ -245,45 +242,6 @@ end
 
 # NOTE: currently we don't properly support list comprehensions and closures
 # and let (anything that defines a new environment)
-
-function render_graph(ir::BasicBlockIR, fname)
-    # graphviz
-    dot = gv.Digraph() # comment = ?
-    nodes_to_name = Dict{Node,String}()
-    for node in ir.all_nodes
-        io = IOBuffer()
-        print(io, node)
-        nodes_to_name[node] = String(take!(io))
-    end
-    for node in ir.all_nodes
-        if isa(node, ValueNode)
-            shape = "box"
-        else
-            shape = "ellipse"
-        end
-        if node in ir.incremental_nodes
-            color = "lightblue"
-        else
-            color = "lightgray"
-        end
-        if !isnull(ir.output_node) && get(ir.output_node) == node
-            @assert !(node in ir.incremental_nodes)
-            color = "firebrick1"
-        end
-        if !isnull(ir.retchange_node) && get(ir.retchange_node) == node
-            color = "darkolivegreen2"
-        end
-        dot[:node](nodes_to_name[node], nodes_to_name[node], shape=shape, color=color, style="filled")
-        for parent in parents(node)
-            dot[:edge](nodes_to_name[parent], nodes_to_name[node])
-        end
-    end
-    for node in values(ir.addr_gen_nodes)
-        dot[:edge](nodes_to_name[node.change_node], nodes_to_name[node], style="dashed")
-    end
-    dot[:render](fname, view=true)
-end
-
 function add_argument!(ir::BasicBlockIR, name::Symbol, typ)
     @assert !ir.finished
     node = ArgumentValueNode(name, typ)
@@ -377,7 +335,7 @@ function add_addr!(ir::BasicBlockIR, addr::Symbol, dist::Distribution{T}, args::
         incremental_dependency_error(addr)
     end
     value_node = ExprValueNode(name, typ)
-    expr_node = AddrDistNode(input_nodes, Nullable{ValueNode}(value_node), dist, addr)
+    expr_node = AddrDistNode(input_nodes, value_node, dist, addr)
     finish!(value_node, expr_node)
     ir.value_nodes[name] = value_node
     push!(ir.all_nodes, expr_node)
@@ -394,7 +352,7 @@ function add_addr!(ir::BasicBlockIR, addr::Symbol, dist::Distribution{T}, args::
     if any([node in ir.incremental_nodes for node in input_nodes])
         incremental_dependency_error(addr)
     end
-    expr_node = AddrDistNode(input_nodes, Nullable{ValueNode}(), dist, addr)
+    expr_node = AddrDistNode(input_nodes, nothing, dist, addr)
     push!(ir.all_nodes, expr_node)
     ir.addr_dist_nodes[addr] = expr_node
     nothing
@@ -410,9 +368,9 @@ function add_addr!(ir::BasicBlockIR, addr::Symbol, gen::Generator{T,U}, args::Ve
         incremental_dependency_error(addr)
     end
     value_node = ExprValueNode(name, typ)
-    change_node = _get_input_node!(ir, change_expr, Expr(:curly, :Nullable, get_change_type(gen)))
+    change_node = _get_input_node!(ir, change_expr, Expr(:curly, :Union, Expr(:curly, :Some, get_change_type(gen)), :Nothing))
     push!(ir.generator_input_change_nodes, change_node)
-    expr_node = AddrGeneratorNode(input_nodes, Nullable{ValueNode}(value_node), gen, addr, change_node)
+    expr_node = AddrGeneratorNode(input_nodes, value_node, gen, addr, change_node)
     finish!(value_node, expr_node)
     ir.value_nodes[name] = value_node
     push!(ir.all_nodes, expr_node)
@@ -429,9 +387,9 @@ function add_addr!(ir::BasicBlockIR, addr::Symbol, gen::Generator{T,U}, args::Ve
     if any([node in ir.incremental_nodes for node in input_nodes])
         incremental_dependency_error(addr)
     end
-    change_node = _get_input_node!(ir, change_expr, Expr(:curly, :Nullable, get_change_type(gen)))
+    change_node = _get_input_node!(ir, change_expr, Expr(:curly, :Union, Expr(:curly, :Some, get_change_type(gen)), :Nothing))
     push!(ir.generator_input_change_nodes, change_node)
-    expr_node = AddrGeneratorNode(input_nodes, Nullable{ValueNode}(), gen, addr, change_node)
+    expr_node = AddrGeneratorNode(input_nodes, nothing, gen, addr, change_node)
     push!(ir.all_nodes, expr_node)
     ir.addr_gen_nodes[addr] = expr_node
     nothing
@@ -455,7 +413,7 @@ end
 
 function add_argschange!(ir::BasicBlockIR, typ, name::Symbol)
     @assert !ir.finished
-    if !isnull(ir.args_change_node)
+    if ir.args_change_node !== nothing
         error("@argschange can only be called once")
     end
     value_node = ExprValueNode(name, typ)
@@ -465,7 +423,7 @@ function add_argschange!(ir::BasicBlockIR, typ, name::Symbol)
     finish!(value_node, expr_node)
     push!(ir.all_nodes, expr_node)
     push!(ir.incremental_nodes, value_node)
-    ir.args_change_node = Nullable(expr_node)
+    ir.args_change_node = expr_node
     nothing
 end
 
@@ -490,18 +448,18 @@ function add_change!(ir::BasicBlockIR, addr::Symbol, typ, name::Symbol)
 end
 
 function set_return!(ir::BasicBlockIR, name::Symbol)
-    if !isnull(ir.output_node)
+    if ir.output_node !== nothing
         error("Basic block can only have one return statement, found a second: $name")
     end
     value_node = ir.value_nodes[name]
     if value_node in ir.incremental_nodes
         error("Return value cannot depend on @change or @argschange statements")
     end
-    ir.output_node = Nullable(value_node)
+    ir.output_node = value_node
 end
 
 function set_return!(ir::BasicBlockIR, expr::Expr)
-    if !isnull(ir.output_node)
+    if ir.output_node !== nothing
         error("Basic block can only have one return statement, found a second: $name")
     end
     if expr.head != :(::)
@@ -509,19 +467,19 @@ function set_return!(ir::BasicBlockIR, expr::Expr)
     end
     return_expr = expr.args[1]
     typ = expr.args[2]
-    ir.output_node = Nullable(_get_input_node!(ir, return_expr, typ))
+    ir.output_node = _get_input_node!(ir, return_expr, typ)
 end
 
 function set_retchange!(ir::BasicBlockIR, name::Symbol)
-    if !isnull(ir.retchange_node)
+    if ir.retchange_node !== nothing
         error("Basic block can only have one @retchange statement, found a second: $name")
     end
     value_node = ir.value_nodes[name]
-    ir.retchange_node = Nullable(value_node)
+    ir.retchange_node = value_node
 end
 
 function set_retchange!(ir::BasicBlockIR, expr::Expr)
-    if !isnull(ir.retchange_node)
+    if ir.retchange_node !== nothing
         error("Basic block can only have one @retchange statement, found a second: $name")
     end
     if expr.head != :(::)
@@ -529,5 +487,5 @@ function set_retchange!(ir::BasicBlockIR, expr::Expr)
     end
     retchange_expr = expr.args[1]
     typ = expr.args[2]
-    ir.retchange_node = Nullable(_get_input_node!(ir, retchange_expr, typ))
+    ir.retchange_node = _get_input_node!(ir, retchange_expr, typ)
 end

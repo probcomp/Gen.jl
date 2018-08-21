@@ -2,27 +2,27 @@ mutable struct GFRegenerateState
     prev_trace::GFTrace
     trace::GFTrace
     selection::AddressSet
-    read_trace::Nullable{Any}
+    read_trace::Union{Some{Any},Nothing}
     score::Float64
     weight::Float64
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
     args_change::Any
-    retchange::Nullable{Any}
+    retchange::Union{Some{Any},Nothing}
     callee_output_changes::HomogenousTrie{Any,Any}
 end
 
 function GFRegenerateState(args_change, prev_trace, selection, read_trace, params)
     visitor = AddressVisitor()
     GFRegenerateState(prev_trace, GFTrace(), selection, read_trace, 0., 0., visitor,
-                    params, args_change, Nullable{Any}(), HomogenousTrie{Any,Any}())
+                    params, args_change, nothing, HomogenousTrie{Any,Any}())
 end
 
 get_args_change(state::GFRegenerateState) = state.args_change
 
 function set_ret_change!(state::GFRegenerateState, value)
-    if isnull(state.retchange)
-        state.retchange = Nullable{Any}(value)
+    if state.retchange === nothing
+        state.retchange = value
     else
         error("@retchange! was already used")
     end
@@ -103,7 +103,6 @@ function regenerate(gen::GenFunction, new_args, args_change, trace, selection, r
     state = GFRegenerateState(args_change, trace, selection, read_trace, gen.params)
     retval = exec(gen, state, new_args)
     new_call = CallRecord(state.score, retval, new_args)
-    state.trace.call = Nullable{CallRecord}(new_call)
-    retchange = isnull(state.retchange) ? nothing : get(state.retchange)
-    (state.trace, state.weight, retchange)
+    state.trace.call = new_call
+    (state.trace, state.weight, state.retchange)
 end

@@ -1,6 +1,6 @@
 mutable struct GFUngenerateState
     trace::GFTrace
-    read_trace::Nullable{Any}
+    read_trace::Union{Some{Any},Nothing}
     constraints::Any
     weight::Float64
     visitor::AddressVisitor
@@ -13,7 +13,7 @@ end
 
 function addr(state::GFUngenerateState, dist::Distribution{T}, args, addr) where {T}
     visit!(state, addr)
-    call::CallRecord{T} = get_primitive_call(state.trace, addr)
+    call::CallRecord = get_primitive_call(state.trace, addr)
     @assert call.args == args
     retval::T = call.retval
     if has_leaf_node(state.trace, addr)
@@ -34,7 +34,7 @@ function addr(state::GFUngenerateState, gen::Generator{T}, args, addr) where {T}
         constraints = EmptyChoiceTrie()
     end
     weight = ungenerate(gen, subtrace, constraints, state.read_trace)
-    call::CallRecord{T} = get_call_record(subtrace)
+    call::CallRecord = get_call_record(subtrace)
     call.retval::T
 end
 

@@ -3,7 +3,7 @@ mutable struct GFResimulationUpdateState
     trace::GFTrace
     delta::Any
     constraints::Any
-    read_trace::Nullable{Any}
+    read_trace::Union{Some{Any},Nothing}
     score::Float64
     weight::Float64
     visitor::AddressVisitor
@@ -28,9 +28,8 @@ function addr(state::GFResimulationUpdateState, dist::Distribution{T}, args, add
         error("resimulation_update constrain a new address: $addr")
     end
     local retval::T
-    local score::Float64
     if has_previous
-        prev_call::CallRecord{T} = get_primitive_call(state.prev_trace, addr)
+        prev_call::CallRecord = get_primitive_call(state.prev_trace, addr)
         prev_retval::T = prev_call.retval
         if constrained
             retval = get_leaf_node(state.constraints, addr)
@@ -44,7 +43,7 @@ function addr(state::GFResimulationUpdateState, dist::Distribution{T}, args, add
 
     end
     score = logpdf(dist, retval, args...)
-    call = CallRecord{T}(score, retval, args)
+    call = CallRecord(score, retval, args)
     state.trace = assoc_primitive_call(state.trace, addr, call)
     state.score += score
     retval 
@@ -69,7 +68,7 @@ function addr(state::GFResimulationUpdateState, gen::Generator{T}, args, addr, d
     else
         trace = simulate(gen, args, state.read_trace)
     end
-    call::CallRecord{T} = get_call_record(trace)
+    call::CallRecord = get_call_record(trace)
     retval = call.retval
     state.trace = assoc_subtrace(state.trace, addr, trace)
     state.score += call.score
@@ -84,7 +83,7 @@ function resimulation_update(gf::GenFunction, args, delta, prev_trace::GFTrace, 
     state = GFResimulationUpdateState(delta, prev_trace, constraints, read_trace, gf.params)
     retval = exec(gf, state, args)
     new_call = CallRecord(state.score, retval, args)
-    state.trace.call = Nullable{CallRecord}(new_call)
+    state.trace.call = new_call
     prev_score = get_call(prev_trace).score
     unconsumed = get_unvisited(state.visitor, constraints)
     if !isempty(unconsumed)

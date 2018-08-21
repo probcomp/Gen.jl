@@ -99,10 +99,10 @@ function codegen_assess(gen::Type{T}, args, constraints, read_trace) where {T <:
         process!(ir, state, node)
     end
 
-    if isnull(ir.output_node)
+    if ir.output_node === nothing
         retval = :nothing
     else
-        retval = quote $trace.$(value_field(get(ir.output_node))) end
+        retval = quote $trace.$(value_field(ir.output_node)) end
     end
 
     push!(stmts, quote

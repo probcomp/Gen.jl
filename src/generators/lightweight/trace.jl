@@ -5,7 +5,7 @@ using FunctionalCollections
 #######################################
 
 mutable struct GFTrace
-    call::Nullable{CallRecord}
+    call::Union{CallRecord,Nothing}
     primitive_calls::PersistentHashMap{Any,CallRecord}
 
     # values can be a GFTrace, or Any (foreign trace)
@@ -114,7 +114,7 @@ export GFTrace
 # choice trie #
 ###############
 
-get_call_record(trace::GFTrace) = get(trace.call)
+get_call_record(trace::GFTrace) = trace.call
 
 has_choices(trace::GFTrace) = trace.has_choices
 

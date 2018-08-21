@@ -3,7 +3,7 @@ mutable struct GFExtendState
     trace::GFTrace
     delta::Any
     constraints::Any
-    read_trace::Nullable{Any}
+    read_trace::Union{Some{Any},Nothing}
     score::Float64
     weight::Float64
     visitor::AddressVisitor
@@ -25,7 +25,7 @@ function addr(state::GFExtendState, gen::Distribution{T}, args, addr, delta) whe
     end
     local retval::T
     local score::Float64
-    local call::CallRecord{T}
+    local call::CallRecord
     if has_primitive_call(state.prev_trace, addr)
         call = get_primitive_call(state.prev_trace, addr)
         if call.prev_args != args
@@ -37,7 +37,7 @@ function addr(state::GFExtendState, gen::Distribution{T}, args, addr, delta) whe
         retval = rand(dist, args...)
         score = logpdf(dist, args, retval...)
         state.weight += score
-        call = CallRecord{T}(score, retval, args)
+        call = CallRecord(score, retval, args)
     end
     state.trace = assoc_primitive_call(state.trace, addr, call)
     state.score += score
@@ -59,7 +59,7 @@ function addr(state::GFExtendState, gen::Generator{T}, args, addr, delta) where 
     else
         (trace, weight) = generate(gen, args, constraints, state.read_trace)
     end
-    call::CallRecord{T} = get_call_record(trace)
+    call::CallRecord = get_call_record(trace)
     retval::T = call.retval
     state.trace = assoc_composite_call(state.trace, addr, trace)
     state.score += trace.score
@@ -74,7 +74,7 @@ end
 function extend(gf::GenFunction, args, delta, trace::GFTrace, constraints, read_trace=nothing)
     state = GFExtendState(delta, trace, constraints, read_trace, gf.params)
     retval = exec(gf, state, args)
-    new_call = CallRecord(state.score, retval, args)
-    state.trace.call = Nullable(call)
+    call = CallRecord(state.score, retval, args)
+    state.trace.call = call
     (state.trace, state.weight)
 end

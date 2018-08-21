@@ -117,10 +117,10 @@ function read_param(state, name::Symbol)
 end
 
 function read(state, addr)
-    if isnull(state.read_trace)
+    if state.read_trace === nothing
         error("Read trace not provided, attempted to read address $addr")
     end
-    get_leaf_node(get(state.read_trace), addr)
+    get_leaf_node(state.read_trace, addr)
 end
 
 
@@ -235,8 +235,8 @@ include("extend.jl")
 include("project.jl")
 include("regenerate.jl")
 include("ungenerate.jl")
-include("backprop_params.jl")
-include("backprop_trace.jl")
+#include("backprop_params.jl")
+#include("backprop_trace.jl")
 
 export set_param!, get_param, get_param_grad, zero_param_grad!, init_param!
 export @ad

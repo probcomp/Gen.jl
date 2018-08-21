@@ -4,7 +4,7 @@ import ReverseDiff: special_reverse_exec!
 
 mutable struct GFBackpropTraceState
     trace::GFTrace
-    read_trace::Nullable{Any}
+    read_trace::Union{Some{Any},Nothing}
     score::TrackedReal
     tape::InstructionTape
     visitor::AddressVisitor
@@ -81,7 +81,7 @@ struct BackpropTraceRecord
     selection::AddressSet
     value_trie::HomogenousTrie{Any,Float64}
     gradient_trie::HomogenousTrie{Any,Float64}
-    read_trace::Nullable{Any}
+    read_trace::Union{Some{Any},Nothing}
     addr::Any
 end
 
@@ -137,7 +137,7 @@ function backprop_trace(gf::GenFunction, trace::GFTrace, selection::AddressSet,
     fill_value_trie!(state.value_trie, state.tracked_choices)
 
     # return gradients with respect to inputs
-    # NOTE: if a value isn't tracked the gradient is nothing (Void)
+    # NOTE: if a value isn't tracked the gradient is nothing
     input_grads::Tuple = (map((arg, has_grad) -> has_grad ? deriv(arg) : nothing,
                              args_maybe_tracked, gf.has_argument_grads)...)
 
@@ -155,9 +155,8 @@ end
     else
         retval_grad = nothing
     end
-    read_trace = isnull(record.read_trace) ? nothing : get(record.read_trace)
     (arg_grads, value_trie, grad_trie) = backprop_trace(
-        gen, record.subtrace, record.selection, retval_grad, read_trace)
+        gen, record.subtrace, record.selection, retval_grad, record.read_trace)
 
     @assert !has_internal_node(record.gradient_trie, record.addr)
     @assert !has_leaf_node(record.gradient_trie, record.addr)

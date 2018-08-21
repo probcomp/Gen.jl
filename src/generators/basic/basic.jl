@@ -22,7 +22,7 @@ get_change_type(::BasicGenFunction) = MaskedArgChange # TODO make the type param
 
 function mask(bits...)
     parameters = map((bit) -> Val{bit}, bits)
-    MaskedArgChange{Tuple{parameters...},Void}(nothing)
+    MaskedArgChange{Tuple{parameters...},Nothing}(nothing)
 end
 
 #######################
@@ -361,7 +361,7 @@ function generate_trace_type(ir::BasicBlockIR, name)
     addresses = union(keys(ir.addr_dist_nodes), keys(ir.addr_gen_nodes))
     choice_trie_methods = make_choice_trie_methods(
         trace_type_name, values(ir.addr_dist_nodes), values(ir.addr_gen_nodes))
-    retval_type = isnull(ir.output_node) ? :Void : get(ir.output_node).typ
+    retval_type = ir.output_node ===  nothing ? :Nothing : ir.output_node.typ
     defn = esc(quote
 
         # specialized trace implementation
@@ -402,7 +402,7 @@ end
 
 function generate_generator_type(ir::BasicBlockIR, trace_type::Symbol, name::Symbol)
     generator_type = Symbol("BasicBlockGenerator_$name")
-    retval_type = isnull(ir.output_node) ? :Void : get(ir.output_node).typ
+    retval_type = ir.output_node === nothing ? :Nothing : ir.output_node.typ
     defn = esc(quote
         struct $generator_type <: GenLite.BasicGenFunction{$retval_type, $trace_type}
         end
@@ -441,10 +441,10 @@ end
 # helper functions for code generation
 
 has_output(node::ExprNode) = true
-has_output(node::Union{AddrDistNode,AddrGeneratorNode}) = !isnull(node.output)
+has_output(node::Union{AddrDistNode,AddrGeneratorNode}) = node.output !== nothing
 
 function get_value_info(node::Union{AddrDistNode,AddrGeneratorNode})
-    value_node::ValueNode = get(node.output)
+    value_node::ValueNode = node.output
     (value_node.typ, value_field(value_node))
 end
 

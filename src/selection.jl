@@ -68,7 +68,7 @@ function splice(state::SelectionState, fn::SelectionFunction, args::Tuple)
     exec(fn, state, args)
 end
 
-function Base.select(fn::SelectionFunction, args::Tuple, choices::T) where {T}
+function select(fn::SelectionFunction, args::Tuple, choices::T) where {T}
     state = SelectionState(choices, AddressSet(), AddressVisitor())
     value = exec(fn, state, args)
     (state.selection, value)
@@ -76,3 +76,4 @@ end
 
 export @sel
 export @select
+export select
