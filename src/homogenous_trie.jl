@@ -2,7 +2,7 @@
 # HomogenousTrie #
 ##################
 
-struct HomogenousTrie{K,V}
+struct HomogenousTrie{K,V} <: ChoiceTrie
     leaf_nodes::Dict{K,V}
     internal_nodes::Dict{K,HomogenousTrie{K,V}}
 end
@@ -22,15 +22,14 @@ function HomogenousTrie(other)
     trie
 end
 
-# TODO come up with a better printing method (and something cool for Jupyter notebooks)
+# TODO come up with a better printing method (and something nice for Jupyter
+# notebooks)
 import JSON
 Base.println(trie::HomogenousTrie) = JSON.print(trie, 4)
 
 # invariant: all internal nodes are nonempty
 Base.isempty(trie::HomogenousTrie) = isempty(trie.leaf_nodes) && isempty(trie.internal_nodes)
-
 get_leaf_nodes(trie::HomogenousTrie) = trie.leaf_nodes
-
 get_internal_nodes(trie::HomogenousTrie) = trie.internal_nodes
 
 function Base.values(trie::HomogenousTrie)
@@ -152,9 +151,7 @@ function delete_leaf_node!(trie::HomogenousTrie, addr::Pair)
     return isempty(trie.leaf_nodes) && isempty(trie.internal_nodes)
 end
 
-Base.haskey(trie::HomogenousTrie, addr) = has_leaf_node(trie, addr)
 Base.setindex!(trie::HomogenousTrie, value, addr) = set_leaf_node!(trie, addr, value)
-Base.getindex(trie::HomogenousTrie, addr) = get_leaf_node(trie, addr)
 
 function Base.merge!(a::HomogenousTrie{K,V}, b::HomogenousTrie{K,V}) where {K,V}
     merge!(a.leaf_nodes, b.leaf_nodes)
@@ -195,6 +192,7 @@ export set_internal_node!
 export delete_internal_node!
 export set_leaf_node!
 export delete_leaf_node!
+
 
 ##############################
 # some arithmetic operations #

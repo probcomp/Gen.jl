@@ -74,6 +74,15 @@ macro ad(ast)
     parse_gen_function(gen_ast, true)
 end
 
+macro addr(expr::Expr, addr, args_change)
+    if expr.head != :call
+        error("syntax error in @addr at $(expr)")
+    end
+    fn = esc(expr.args[1])
+    args = map(esc, expr.args[2:end])
+    Expr(:call, :addr, esc(state), fn, Expr(:tuple, args...), esc(addr), esc(args_change))
+end
+
 macro gen(ast)
     parse_gen_function(ast, false)
 end

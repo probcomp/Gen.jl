@@ -489,3 +489,22 @@ function set_retchange!(ir::BasicBlockIR, expr::Expr)
     typ = expr.args[2]
     ir.retchange_node = Some(_get_input_node!(ir, retchange_expr, typ))
 end
+
+# some helper functions
+
+has_output(node::ExprNode) = true
+has_output(node::Union{AddrDistNode,AddrGeneratorNode}) = node.output !== nothing
+
+function get_value_info(node::Union{AddrDistNode,AddrGeneratorNode})
+    value_node::ValueNode = node.output
+    (value_node.typ, value_field(value_node))
+end
+
+function get_value_info(node::ExprNode)
+    value_node::ValueNode = node.output
+    (value_node.typ, value_field(value_node))
+end
+
+function get_args(trace::Symbol, node::ExprNode)
+    map(input_node -> Expr(:(.), trace, QuoteNode(value_field(input_node))), node.input_nodes)
+end

@@ -1,33 +1,8 @@
-abstract type BasicGenFunction{T,U} <: Generator{T,U} end
-
-# a method that is executed, at code-generation time on the type
-function get_ir end
+#######################
+# parsing AST into IR #
+#######################
 
 include("ir.jl")
-
-
-########################
-# arg change data type #
-########################
-
-"""
-Example: MaskedArgChange{Tuple{Val{:true},Val{:false}},Something}(something)
-"""
-struct MaskedArgChange{T <: Tuple,U}
-    info::U
-end
-
-get_change_type(::BasicGenFunction) = MaskedArgChange # TODO make the type parameter U part of the BasicGenFunction type parameter?
-# or, users can overload it..
-
-function mask(bits...)
-    parameters = map((bit) -> Val{bit}, bits)
-    MaskedArgChange{Tuple{parameters...},Nothing}(nothing)
-end
-
-#######################
-# basic block parsing #
-#######################
 
 struct BasicBlockParseError <: Exception
     expr::Any
@@ -214,8 +189,7 @@ end
 # basic block trace types #
 ###########################
 
-#
-# the trace has fields:
+# the trace is a mutable struct with fields:
 # - a field for each value node (prefixed with a gensym)
 # - a field for each addr statement (either a subtrace nor a value)
 # - note: there is redundancy between the value nodes and the distribution addr fields
@@ -235,19 +209,13 @@ function value_trace_ref(trace, node::ValueNode)
     Expr(:(.), trace, QuoteNode(fieldname))
 end
 
-struct BasicBlockChoices{T}
+struct BasicBlockChoices{T} <: ChoiceTrie
     trace::T
 end
 
 get_address_schema(::Type{BasicBlockChoices{T}}) where {T} = get_address_schema(T)
-
 has_leaf_node(trie::BasicBlockChoices, addr) = false
-
 has_internal_node(trie::BasicBlockChoices, addr) = false
-
-Base.getindex(trie::BasicBlockChoices, addr) = get_leaf_node(trie, addr)
-
-Base.haskey(trie::BasicBlockChoices, addr) = has_leaf_node(trie, addr)
 
 function make_choice_trie_methods(trace_type, addr_dist_nodes, addr_gen_nodes)
     methods = Expr[]
@@ -409,9 +377,15 @@ function generate_trace_type(ir::BasicBlockIR, name)
     (defn, trace_type_name)
 end
 
+
 #########################
 # basic block generator #
 #########################
+
+abstract type BasicGenFunction{T,U} <: Generator{T,U} end
+
+# a method that is executed, at code-generation time on the type
+function get_ir end
 
 function generate_generator_type(ir::BasicBlockIR, trace_type::Symbol, name::Symbol)
     generator_type = Symbol("BasicBlockGenerator_$name")
@@ -451,24 +425,24 @@ macro compiled(ast)
         quote global const $(esc(name)) = $(esc(generator_type))() end)
 end
 
-# helper functions for code generation
 
-has_output(node::ExprNode) = true
-has_output(node::Union{AddrDistNode,AddrGeneratorNode}) = node.output !== nothing
-
-function get_value_info(node::Union{AddrDistNode,AddrGeneratorNode})
-    value_node::ValueNode = node.output
-    (value_node.typ, value_field(value_node))
+"""
+Example: MaskedArgChange{Tuple{Val{:true},Val{:false}},Something}(something)
+"""
+struct MaskedArgChange{T <: Tuple,U}
+    info::U
 end
 
-function get_value_info(node::ExprNode)
-    value_node::ValueNode = node.output
-    (value_node.typ, value_field(value_node))
+# TODO make the type parameter U part of the BasicGenFunction type parameter?
+get_change_type(::BasicGenFunction) = MaskedArgChange
+
+function mask(bits...)
+    parameters = map((bit) -> Val{bit}, bits)
+    MaskedArgChange{Tuple{parameters...},Nothing}(nothing)
 end
 
-function get_args(trace::Symbol, node::ExprNode)
-    map(input_node -> Expr(:(.), trace, QuoteNode(value_field(input_node))), node.input_nodes)
-end
+export MaskedArgChnage, mask
+
 
 include("simulate.jl")
 include("assess.jl")
@@ -476,5 +450,3 @@ include("generate.jl")
 include("update.jl")
 
 export @compiled
-export MaskedArgChange
-export mask

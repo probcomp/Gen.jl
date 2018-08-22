@@ -39,6 +39,8 @@ export has_choices
 # Generator #
 #############
 
+# TODO make the reads from the read_trace part of the trace. 
+
 """
 Generator with return value type T and trace type U
 """
@@ -105,7 +107,6 @@ it is an error
 """
 function assess end
 
-# TODO make the reads from the read_trace part of the trace
 """
 change of args.
 may not simulate.
@@ -116,7 +117,6 @@ constraints may collide with existing random choices.
 """
 function update end
 
-# TODO make the reads from the read_trace part of the trace
 """
 change of args.
 may simulate.
@@ -127,35 +127,16 @@ constraints may collide with existing random choices, but no new choices may be 
 """
 function resimulation_update end
 
-# TODO make the reads from the read_trace part of the trace
 """
     (new_trace, weight, retcahnge) = regenerate(
         gen::Generator, new_args, args_change, trace, selection::AddressSet, read_trace)
 """
 function regenerate end
 
-
-# TODO make the reads from the read_trace part of the trace
 """
     weight = ungenerate(g::Generator, trace, constraints, read_trace)
 """
 function ungenerate end
-
-# TODO make the reads from the read_trace part of the trace
-"""
-    input_grads::Tuple = backprop_params(g::Generator, trace, retval_grad, read_trace)
-"""
-function backprop_params end
-
-# TODO make the reads from the read_trace part of the trace
-"""
-values and gradient are HomogenousTrie{Any,Float64} (for now, in the future
-they can be some custom data type)
-
-    (input_grads::Tuple, values, gradient) = backprop_trace(
-        g::Generator, trace, selection::AddressSelection, retval_grad, read_trace)
-"""
-function backprop_trace end
 
 export simulate
 export extend
@@ -166,8 +147,7 @@ export assess
 export update
 export regenerate
 export ungenerate
-export backprop_params
-export backprop_trace
+
 
 ###########################
 # incremental computation #

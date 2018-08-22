@@ -1,8 +1,9 @@
-using FunctionalCollections
+using FunctionalCollections: PersistentHashMap, assoc
 
-#######################################
-# Generative function trace (GFTrace) #
-#######################################
+
+#############################
+# generative function trace #
+#############################
 
 mutable struct GFTrace
     call::Union{CallRecord,Nothing}
@@ -19,6 +20,9 @@ function GFTrace()
     call = nothing
     GFTrace(call, primitive_calls, subtraces, false)
 end
+
+get_call_record(trace::GFTrace) = trace.call
+has_choices(trace::GFTrace) = trace.has_choices
 
 function has_primitive_call(trace::GFTrace, addr)
     haskey(trace.primitive_calls, addr)
@@ -107,25 +111,17 @@ function assoc_subtrace(trace::GFTrace, addr::Pair, subtrace)
             has_choices(subtrace) || trace.has_choices)
 end
 
-export GFTrace
 
+##############################################
+# choice trie for generative function traces #
+##############################################
 
-###############
-# choice trie #
-###############
-
-get_call_record(trace::GFTrace) = trace.call
-
-has_choices(trace::GFTrace) = trace.has_choices
-
-get_choices(trace::GFTrace) = GFTraceChoices(trace)
-
-struct GFTraceChoices
+struct GFTraceChoices <: ChoiceTrie
     trace::GFTrace
 end
 
+get_choices(trace::GFTrace) = GFTraceChoices(trace)
 get_address_schema(::Type{GFTraceChoices}) = DynamicAddressSchema()
-
 Base.isempty(choices::GFTraceChoices) = !has_choices(choices.trace)
 
 function has_internal_node(choices::GFTraceChoices, addr::Pair)
@@ -186,6 +182,3 @@ function get_internal_nodes(choices::GFTraceChoices)
     ((key, get_choices(subtrace)) for (key, subtrace) in choices.trace.subtraces
      if has_choices(subtrace))
 end
-
-Base.haskey(choices::GFTraceChoices, addr) = has_leaf_node(choices, addr)
-Base.getindex(choices::GFTraceChoices, addr) = get_leaf_node(choices, addr)

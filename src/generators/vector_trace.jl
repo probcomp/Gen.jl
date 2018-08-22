@@ -1,5 +1,9 @@
 using FunctionalCollections: PersistentVector
 
+#######################################
+# trace for vector of generator calls #
+#######################################
+
 """
 
 U is the type of the subtrace, R is the return value type for the kernel
@@ -23,19 +27,15 @@ end
 # trace API
 
 get_call_record(trace::VectorTrace) = trace.call
-
 has_choices(trace::VectorTrace) = !trace.is_empty
-
 get_choices(trace::VectorTrace) = VectorTraceChoiceTrie(trace)
 
-struct VectorTraceChoiceTrie
+struct VectorTraceChoiceTrie <: ChoiceTrie
     trace::VectorTrace
 end
 
 Base.isempty(choices::VectorTraceChoiceTrie) = choices.trace.is_empty
-
 get_address_schema(::Type{VectorTraceChoiceTrie}) = VectorAddressSchema()
-
 has_internal_node(choices::VectorTraceChoiceTrie, addr) = false
 
 function has_internal_node(choices::VectorTraceChoiceTrie, addr::Int)
@@ -79,5 +79,38 @@ end
 
 get_leaf_nodes(choices::VectorTraceChoiceTrie) = []
 
-Base.haskey(choices::VectorTraceChoiceTrie, addr) = has_leaf_node(choices, addr)
-Base.getindex(choices::VectorTraceChoiceTrie, addr) = get_leaf_node(choices, addr)
+
+##########################################
+# trace for vector of distribution calls #
+##########################################
+
+struct VectorDistTrace{T}
+    values::PersistentVector{T}
+    call::CallRecord{PersistentVector{T}}
+end
+
+function VectorDistTrace{T}() where {T}
+    VectorDistTrace{T}(PersistentVector{T}())
+end
+
+# trace API
+
+get_call_record(trace::VectorDistTrace) = trace.call
+has_choices(trace::VectorDistTrace) = length(trace.values) > 0
+get_choices(trace::VectorDistTrace) = VectorDistTraceChoiceTrie(trace)
+
+struct VectorDistTraceChoiceTrie <: ChoiceTrie
+    trace::VectorDistTrace
+end
+
+Base.isempty(choices::VectorDistTraceChoiceTrie) = !has_choices(choices.trace)
+get_address_schema(::Type{VectorDistTraceChoiceTrie}) = VectorAddressSchema()
+has_internal_node(choices::VectorDistTraceChoiceTrie, addr) = false
+has_leaf_node(choices::VectorDistTraceChoiceTrie, addr) = false
+
+function get_leaf_node(choices::VectorDistTraceChoiceTrie, addr::Int)
+    choices.trace.values[addr]
+end
+
+get_internal_nodes(choices::VectorDistTraceChoiceTrie) = ()
+get_leaf_nodes(choices::VectorDistTraceChoiceTrie) = choices.values
