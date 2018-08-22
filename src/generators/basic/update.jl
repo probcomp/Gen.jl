@@ -95,13 +95,12 @@ function process!(ir::BasicBlockIR, state::BBUpdateState, node::AddrDistNode)
         end
         prev_value = gensym("prev_value")
         push!(state.stmts, quote
-            $new_trace.$addr = get_leaf_node(constraints, Val($(QuoteNode(addr)))) 
+            $new_trace.$addr = static_get_leaf_node(constraints, Val($(QuoteNode(addr)))) 
             $prev_value::$typ = $prev_trace.$addr
             $increment = logpdf($dist, $new_trace.$addr, $(args...))
             $decrement = logpdf($dist, $prev_value, $(prev_args...))
             $score += $increment - $decrement
             $weight += $increment - $decrement
-            #Gen.set_leaf_node!(discard, Val($(QuoteNode(addr))), $prev_value) # TODO populate it later
         end)
         state.discard_leaf_nodes[addr] = prev_value
         if has_output(node)
@@ -135,7 +134,7 @@ function process!(ir::BasicBlockIR, state::BBUpdateState, node::AddrGeneratorNod
     discard = gensym("discard")
     input_nodes_marked = any([input in state.marked for input in node.input_nodes])
     if isa(schema, StaticAddressSchema) && addr in internal_node_keys(schema)
-        constraints = :(get_internal_node(constraints, Val($(QuoteNode(addr)))))
+        constraints = :(static_get_internal_node(constraints, Val($(QuoteNode(addr)))))
         constrained = true
     else
         constrained = false
@@ -149,7 +148,6 @@ function process!(ir::BasicBlockIR, state::BBUpdateState, node::AddrGeneratorNod
             push!(state.marked, node.output)
         end
         change_value_ref = :($new_trace.$(value_field(node.change_node)))
-        #change = :(isnull($change_value_ref) ? nothing : get($change_value_ref))
         push!(state.stmts, quote
             ($new_trace.$addr, _, $discard, $(addr_change_variable(addr))) = update(
                 $(QuoteNode(node.gen)), $(Expr(:tuple, args...)),

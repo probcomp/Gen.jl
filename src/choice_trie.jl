@@ -13,6 +13,14 @@ end
 leaf_node_keys(schema::StaticAddressSchema) = schema.leaf_nodes
 internal_node_keys(schema::StaticAddressSchema) = schema.internal_nodes
 
+# choice tries that have static address schemas should also support faster
+# accessors, which make the address explicit in the type (Val(:foo) instaed of
+# :foo)
+function static_get_leaf_node end
+function static_get_internal_node end
+export static_get_leaf_node
+export static_get_internal_node
+
 struct VectorAddressSchema <: AddressSchema end 
 struct SingleDynamicKeyAddressSchema <: AddressSchema end 
 struct DynamicAddressSchema <: AddressSchema end 
@@ -129,8 +137,12 @@ end
 get_leaf_nodes(trie::StaticChoiceTrie) = pairs(trie.leaf_nodes)
 get_internal_nodes(trie::StaticChoiceTrie) = pairs(trie.internal_nodes)
 
-function has_internal_node(trie::StaticChoiceTrie, ::Val{A}) where {A}
+function _has_internal_node(trie::StaticChoiceTrie, ::Val{A}) where {A}
     haskey(trie.internal_nodes, A)
+end
+
+function has_internal_node(trie::StaticChoiceTrie, key::Symbol)
+    haskey(trie.internal_nodes, key)
 end
 
 function has_internal_node(trie::StaticChoiceTrie, addr::Pair)
@@ -143,8 +155,12 @@ function has_internal_node(trie::StaticChoiceTrie, addr::Pair)
     end
 end
 
-function get_internal_node(trie::StaticChoiceTrie, ::Val{A}) where {A}
+function static_get_internal_node(trie::StaticChoiceTrie, ::Val{A}) where {A}
     trie.internal_nodes[A]
+end
+
+function get_internal_node(trie::StaticChoiceTrie, key::Symbol)
+    trie.internal_nodes[key]
 end
 
 function get_internal_node(trie::StaticChoiceTrie, addr::Pair)
@@ -153,8 +169,12 @@ function get_internal_node(trie::StaticChoiceTrie, addr::Pair)
     get_internal_node(node, rest)
 end
 
-function has_leaf_node(trie::StaticChoiceTrie, ::Val{A}) where {A}
+function _has_leaf_node(trie::StaticChoiceTrie, ::Val{A}) where {A}
     haskey(trie.leaf_nodes, A)
+end
+
+function has_leaf_node(trie::StaticChoiceTrie, key::Symbol)
+    haskey(trie.leaf_nodes, key)
 end
 
 function has_leaf_node(trie::StaticChoiceTrie, addr::Pair)
@@ -167,8 +187,12 @@ function has_leaf_node(trie::StaticChoiceTrie, addr::Pair)
     end
 end
 
-function get_leaf_node(trie::StaticChoiceTrie, ::Val{A}) where {A}
+function static_get_leaf_node(trie::StaticChoiceTrie, ::Val{A}) where {A}
     trie.leaf_nodes[A]
+end
+
+function get_leaf_node(trie::StaticChoiceTrie, key::Symbol)
+    trie.leaf_nodes[key]
 end
 
 function get_leaf_node(trie::StaticChoiceTrie, addr::Pair)
@@ -183,13 +207,13 @@ function StaticChoiceTrie(other::ChoiceTrie)
     internal_keys_and_nodes = collect(get_internal_nodes(other))
     if length(leaf_keys_and_nodes) > 0
         (leaf_keys, leaf_nodes) = collect(zip(leaf_keys_and_nodes...))
-        leaf_keys = map((k) -> typeof(k).parameters[1]::Symbol, leaf_keys)
+        #leaf_keys = map((k) -> typeof(k).parameters[1]::Symbol, leaf_keys)
     else
         (leaf_keys, leaf_nodes) = ((), ())
     end
     if length(internal_keys_and_nodes) > 0
         (internal_keys, internal_nodes) = collect(zip(internal_keys_and_nodes...))
-        internal_keys = map((k) -> typeof(k).parameters[1]::Symbol, internal_keys)
+        #internal_keys = map((k) -> typeof(k).parameters[1]::Symbol, internal_keys)
     else
         (internal_keys, internal_nodes) = ((), ())
     end
@@ -198,16 +222,16 @@ function StaticChoiceTrie(other::ChoiceTrie)
         NamedTuple{internal_keys}(internal_nodes))
 end
 
-function pair(a, b, ::Val{A}, ::Val{B}) where {A,B}
-    StaticChoiceTrie(NamedTuple(), NamedTuple{(A,B)}((a, b)))
+function pair(a, b, key1::Symbol, key2::Symbol)
+    StaticChoiceTrie(NamedTuple(), NamedTuple{(key1,key2)}((a, b)))
 end
 
-function unpair(trie::StaticChoiceTrie, ::Val{A}, ::Val{B}) where {A,B}
+function unpair(trie::StaticChoiceTrie, key1::Symbol, key2::Symbol)
     if length(trie.leaf_nodes) != 0 || length(trie.internal_nodes) > 2
         error("Not a pair")
     end
-    a = haskey(trie.internal_nodes, A) ? trie.internal_nodes[A] : EmptyChoiceTrie()
-    b = haskey(trie.internal_nodes, B) ? trie.internal_nodes[B] : EmptyChoiceTrie()
+    a = haskey(trie.internal_nodes, key1) ? trie.internal_nodes[key1] : EmptyChoiceTrie()
+    b = haskey(trie.internal_nodes, key2) ? trie.internal_nodes[key2] : EmptyChoiceTrie()
     (a, b)
 end
 

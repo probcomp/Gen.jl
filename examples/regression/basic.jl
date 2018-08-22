@@ -110,24 +110,24 @@ end
 # inference operators #
 #######################
 
-@gen function slope_proposal()
-    slope::Float64 = @read(Val(:slope))
-    @addr(normal(slope, 0.5), Val(:slope))
+@compiled @gen function slope_proposal()
+    slope::Float64 = @read(:slope)
+    @addr(normal(slope, 0.5), :slope)
 end
 
-@gen function intercept_proposal()
-    intercept::Float64 = @read(Val(:intercept))
-    @addr(normal(intercept, 0.5), Val(:intercept))
+@compiled @gen function intercept_proposal()
+    intercept::Float64 = @read(:intercept)
+    @addr(normal(intercept, 0.5), :intercept)
 end
 
-@gen function inlier_std_proposal()
-    inlier_std::Float64 = @read(Val(:inlier_std))
-    @addr(normal(inlier_std, 0.5), Val(:inlier_std))
+@compiled @gen function inlier_std_proposal()
+    inlier_std::Float64 = @read(:inlier_std)
+    @addr(normal(inlier_std, 0.5), :inlier_std)
 end
 
-@gen function outlier_std_proposal()
-    outlier_std::Float64 = @read(Val(:outlier_std))
-    @addr(normal(outlier_std, 0.5), Val(:outlier_std))
+@compiled @gen function outlier_std_proposal()
+    outlier_std::Float64 = @read(:outlier_std)
+    @addr(normal(outlier_std, 0.5), :outlier_std)
 end
 
 @compiled @gen function flip_z(z::Bool)
@@ -137,7 +137,7 @@ end
 data_proposal = at_dynamic(flip_z, Int)
 
 @compiled @gen function is_outlier_proposal(i::Int)
-    prev::Bool = @read(Val(:data) => i => Val(:z))
+    prev::Bool = @read(:data => i => :z)
     # TODO introduce shorthand @addr(flip_z(zs[i]), :data => i)
     @addr(data_proposal(i, (prev,)), :data) 
 end
@@ -154,12 +154,9 @@ end
 
 @gen function observer_collapsed(ys::Vector{Float64})
     for (i, y) in enumerate(ys)
-        @addr(dirac(y), Val(:data) => i)
+        @addr(dirac(y), :data => i)
     end
-    #@addr(observe_data(ys), :data)
 end
-
-
 
 Gen.load_generated_functions()
 
@@ -222,17 +219,17 @@ function do_inference(n)
    
         # step on the outliers (collapsed only)
         #for j=1:length(xs)
-            #trace = mh(model, is_outlier_proposal, (j,), trace)
+            #trace = mh(model_collapsed, is_outlier_proposal, (j,), trace)
         #end
     
         score = get_call_record(trace).score
     
         # print
         choices = get_choices(trace)
-        slope = choices[Val(:slope)]
-        intercept = choices[Val(:intercept)]
-        inlier_std = choices[Val(:inlier_std)]
-        outlier_std = choices[Val(:outlier_std)]
+        slope = choices[:slope]
+        intercept = choices[:intercept]
+        inlier_std = choices[:inlier_std]
+        outlier_std = choices[:outlier_std]
         println("score: $score, slope: $slope, intercept: $intercept, inlier_std: $inlier_std, outlier_std: $outlier_std")
     end
 end

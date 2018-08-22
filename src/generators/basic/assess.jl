@@ -36,7 +36,7 @@ function process!(ir::BasicBlockIR, state::BasicBlockAssessState, node::AddrDist
     dist = QuoteNode(node.dist)
     args = get_args(trace, node)
     push!(state.stmts, quote
-        $trace.$addr = get_leaf_node(constraints, Val($(QuoteNode(addr))))
+        $trace.$addr = static_get_leaf_node(constraints, Val($(QuoteNode(addr))))
         $score += logpdf($dist, $trace.$addr, $(args...))
         $trace.$is_empty_field = false
     end)
@@ -56,7 +56,8 @@ function process!(ir::BasicBlockIR, state::BasicBlockAssessState, node::AddrGene
     call_record = gensym("call_record")
     push!(state.stmts, quote
         $trace.$addr = assess($gen, $(Expr(:tuple, args...)),
-            get_internal_node(constraints, Val($(QuoteNode(addr)))), read_trace)
+            static_get_internal_node(constraints, Val($(QuoteNode(addr)))),
+            read_trace)
         $call_record = get_call_record($trace.$addr)
         $score += $call_record.score
         $trace.$is_empty_field = $trace.$is_empty_field && !has_choices($trace.$addr)

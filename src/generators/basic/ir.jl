@@ -41,7 +41,7 @@ parents(::ArgsChangeNode) = []
 struct ReadNode <: ExprNode
     input_nodes::Vector{ValueNode}
     output::ValueNode
-    address::Expr
+    address::Union{Expr,QuoteNode}
 end
 
 function Base.print(io::IO, node::ReadNode)

@@ -39,7 +39,7 @@ function process!(ir::BasicBlockIR, state::BasicBlockGenerateState, node::AddrDi
     if isa(schema, StaticAddressSchema) && (addr in leaf_node_keys(schema))
         increment = gensym("logpdf")
         push!(state.stmts, quote
-            $trace.$addr = get_leaf_node(constraints, Val($(QuoteNode(addr))))
+            $trace.$addr = static_get_leaf_node(constraints, Val($(QuoteNode(addr))))
             $increment = logpdf($dist, $trace.$addr, $(args...))
             $score += $increment
             $weight += $increment
@@ -74,7 +74,8 @@ function process!(ir::BasicBlockIR, state::BasicBlockGenerateState, node::AddrGe
         push!(state.stmts, quote
             ($trace.$addr, $weight_incr) = generate(
                 $gen, $(Expr(:tuple, args...)),
-                get_internal_node(constraints, Val($(QuoteNode(addr)))), read_trace)
+                static_get_internal_node(constraints, Val($(QuoteNode(addr)))),
+                read_trace)
             $weight += $weight_incr
             $call_record = get_call_record($trace.$addr)
             $score += $call_record.score
