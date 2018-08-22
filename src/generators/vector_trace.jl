@@ -1,7 +1,5 @@
 using FunctionalCollections: PersistentVector
 
-# Q: TODO can we infer the trace implementation type U?
-# A: Yes, if the generator also declares its trace type (which it should)
 """
 
 U is the type of the subtrace, R is the return value type for the kernel
@@ -19,8 +17,6 @@ end
 function get_subtrace(trace::VectorTrace{T,U}, i::Int) where {T,U}
     get(trace.subtraces, i)
 end
-
-# TODO perhaps provide some abstract here for generator method implementations to use
 
 # TODO need to manage is_empty
 
@@ -81,7 +77,6 @@ function get_internal_nodes(choices::VectorTraceChoiceTrie)
     [(i, get_choices(choices.trace.subtraces[i])) for i=1:length(choices.trace.subtraces)]
 end
 
-# TODO handle the case when the kernel is a disribution!
 get_leaf_nodes(choices::VectorTraceChoiceTrie) = []
 
 Base.haskey(choices::VectorTraceChoiceTrie, addr) = has_leaf_node(choices, addr)

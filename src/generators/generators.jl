@@ -33,8 +33,10 @@ end
 
 # built-in generator types
 include("vector_trace.jl")
+include("vector_dist_trace.jl")
 include("lightweight/lightweight.jl")
 include("plate/plate.jl")
+include("plate_of_dists/plate_of_dists.jl")
 include("basic/basic.jl")
 include("at_dynamic/at_dynamic.jl")
 

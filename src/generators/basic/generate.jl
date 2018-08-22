@@ -102,6 +102,11 @@ function codegen_generate(gen::Type{T}, args, constraints, read_trace) where {T 
     Core.println("generating generate($gen, constraints: $constraints...)")
     trace_type = get_trace_type(gen)
     schema = get_address_schema(constraints)
+    if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
+        # trie to convert it to a static choice trie
+        return quote generate(gen, args, StaticChoiceTrie(constraints), read_trace) end
+    end
+
     ir = get_ir(gen)
     stmts = Expr[]
 

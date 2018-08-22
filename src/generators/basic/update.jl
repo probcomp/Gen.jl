@@ -198,7 +198,7 @@ function codegen_update(gen::Type{T}, new_args, args_change, trace, constraints,
     schema = get_address_schema(constraints)
     if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
         # trie to convert it to a static choice trie
-        return update(gen, new_args, args_change, trace, StaticChoiceTrie(constraints), read_trace)
+        return quote update(gen, new_args, args_change, trace, StaticChoiceTrie(constraints), read_trace) end
     end
     ir = get_ir(gen)
     stmts = Expr[]

@@ -178,11 +178,21 @@ end
 
 # convert from any other schema that has only Val{:foo} addresses
 function StaticChoiceTrie(other)
-    (leaf_keys, other_leaf_nodes) = collect(zip(get_leaf_nodes(other)...))
-    (internal_keys, other_internal_nodes) = collect(zip(get_internal_nodes(other)...))
-    leaf_nodes = NamedTuple{leaf_keys}(other_leaf_nodes)
-    internal_nodes = NamedTuple{internal_keys}(other_internal_nodes)
-    StaticChoiceTrie(leaf_nodes, internal_nodes)
+    leaf_keys_and_nodes = collect(get_leaf_nodes(other))
+    internal_keys_and_nodes = collect(get_internal_nodes(other))
+    if length(leaf_keys_and_nodes) > 0
+        (leaf_keys, leaf_nodes) = collect(zip(leaf_keys_and_nodes...))
+    else
+        (leaf_keys, leaf_nodes) = ((), ())
+    end
+    if length(internal_keys_and_nodes) > 0
+        (internal_keys, internal_nodes) = collect(zip(internal_keys_and_nodes...))
+    else
+        (internal_keys, internal_nodes) = ((), ())
+    end
+    StaticChoiceTrie(
+        NamedTuple{leaf_keys}(leaf_nodes),
+        NamedTuple{internal_keys}(internal_nodes))
 end
 
 function pair(a, b, ::Val{A}, ::Val{B}) where {A,B}
