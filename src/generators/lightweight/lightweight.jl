@@ -235,8 +235,6 @@ include("extend.jl")
 include("project.jl")
 include("regenerate.jl")
 include("ungenerate.jl")
-#include("backprop_params.jl")
-#include("backprop_trace.jl")
 
 export set_param!, get_param, get_param_grad, zero_param_grad!, init_param!
 export @ad
