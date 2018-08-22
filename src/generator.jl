@@ -138,6 +138,7 @@ function regenerate end
 """
 function ungenerate end
 
+export Generator
 export simulate
 export extend
 export predict

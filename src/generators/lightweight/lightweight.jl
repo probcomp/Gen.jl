@@ -17,6 +17,13 @@ function GenFunction(arg_types::Vector{Type}, julia_function::Function,
                 has_argument_grads, accepts_output_grad)
 end
 
+function (g::GenFunction)(args...)
+    trace = simulate(g, args)
+    call = get_call_record(trace)
+    call.retval
+end
+
+
 exec(gf::GenFunction, state, args::Tuple) = gf.julia_function(state, args...)
 
 get_static_argument_types(gen::GenFunction) = gen.arg_types

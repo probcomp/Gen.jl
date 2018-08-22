@@ -449,6 +449,7 @@ function generate_generator_type(ir::BasicBlockIR, trace_type::Symbol, name::Sym
     defn = esc(quote
         struct $generator_type <: Gen.BasicGenFunction{$retval_type, $trace_type}
         end
+        (gen::$generator_type)(args...) = get_call_record(simulate(gen, args)).retval
         Gen.get_ir(::Type{$generator_type}) = $(QuoteNode(ir))
         #Gen.render_graph(::$generator_type, fname) = Gen.render_graph(Gen.get_ir($generator_type), fname)
         Gen.get_trace_type(::Type{$generator_type}) = $trace_type
