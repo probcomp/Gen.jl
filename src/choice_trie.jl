@@ -20,7 +20,7 @@ export StaticAddressSchema
 export VectorAddressSchema
 export SingleDynamicKeyAddressSchema
 export DynamicAddressSchema
-export EmptyAddressSchem
+export EmptyAddressSchema
 
 #########################
 # Choice trie interface #
@@ -182,11 +182,13 @@ function StaticChoiceTrie(other)
     internal_keys_and_nodes = collect(get_internal_nodes(other))
     if length(leaf_keys_and_nodes) > 0
         (leaf_keys, leaf_nodes) = collect(zip(leaf_keys_and_nodes...))
+        leaf_keys = map((k) -> typeof(k).parameters[1]::Symbol, leaf_keys)
     else
         (leaf_keys, leaf_nodes) = ((), ())
     end
     if length(internal_keys_and_nodes) > 0
         (internal_keys, internal_nodes) = collect(zip(internal_keys_and_nodes...))
+        internal_keys = map((k) -> typeof(k).parameters[1]::Symbol, internal_keys)
     else
         (internal_keys, internal_nodes) = ((), ())
     end

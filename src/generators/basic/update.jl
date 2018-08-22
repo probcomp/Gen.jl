@@ -193,13 +193,9 @@ end
 
 function codegen_update(gen::Type{T}, new_args, args_change, trace, constraints, read_trace) where {T <: BasicGenFunction}
     Core.println("generating update($gen, args_change:$args_change, constraints: $constraints...)")
+    schema = get_address_schema(constraints)
 
     trace_type = get_trace_type(gen)
-    schema = get_address_schema(constraints)
-    if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
-        # trie to convert it to a static choice trie
-        return quote update(gen, new_args, args_change, trace, StaticChoiceTrie(constraints), read_trace) end
-    end
     ir = get_ir(gen)
     stmts = Expr[]
     
@@ -315,7 +311,12 @@ function codegen_update(gen::Type{T}, new_args, args_change, trace, constraints,
 end
 
 push!(Gen.generated_functions, quote
-@generated function Gen.update(gen::Gen.BasicGenFunction, new_args, arg_change, trace, constraints, read_trace=nothing)
-    Gen.codegen_update(gen, new_args, arg_change, trace, constraints, read_trace)
+@generated function Gen.update(gen::Gen.BasicGenFunction, new_args, args_change, trace, constraints, read_trace=nothing)
+    schema = get_address_schema(constraints)
+    if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
+        # trie to convert it to a static choice trie
+        return quote update(gen, new_args, args_change, trace, StaticChoiceTrie(constraints), read_trace) end
+    end
+    Gen.codegen_update(gen, new_args, args_change, trace, constraints, read_trace)
 end
 end)

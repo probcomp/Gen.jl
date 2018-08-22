@@ -110,24 +110,24 @@ end
 # inference operators #
 #######################
 
-@compiled @gen function slope_proposal()
+@gen function slope_proposal()
     slope::Float64 = @read(Val(:slope))
-    @addr(normal(slope, 0.5), :slope)
+    @addr(normal(slope, 0.5), Val(:slope))
 end
 
-@compiled @gen function intercept_proposal()
+@gen function intercept_proposal()
     intercept::Float64 = @read(Val(:intercept))
-    @addr(normal(intercept, 0.5), :intercept)
+    @addr(normal(intercept, 0.5), Val(:intercept))
 end
 
-@compiled @gen function inlier_std_proposal()
+@gen function inlier_std_proposal()
     inlier_std::Float64 = @read(Val(:inlier_std))
-    @addr(normal(inlier_std, 0.5), :inlier_std)
+    @addr(normal(inlier_std, 0.5), Val(:inlier_std))
 end
 
-@compiled @gen function outlier_std_proposal()
+@gen function outlier_std_proposal()
     outlier_std::Float64 = @read(Val(:outlier_std))
-    @addr(normal(outlier_std, 0.5), :outlier_std)
+    @addr(normal(outlier_std, 0.5), Val(:outlier_std))
 end
 
 @compiled @gen function flip_z(z::Bool)
@@ -154,7 +154,7 @@ end
 
 @gen function observer_collapsed(ys::Vector{Float64})
     for (i, y) in enumerate(ys)
-        @addr(dirac(y), :data => i)
+        @addr(dirac(y), Val(:data) => i)
     end
     #@addr(observe_data(ys), :data)
 end
