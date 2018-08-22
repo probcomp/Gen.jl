@@ -5,12 +5,12 @@
 # TODO add discard_proto as an argument?
 function mh(model::Generator, proposal::Generator, proposal_args::Tuple, trace)
     model_args = get_call_record(trace).args
-    forward_trace = simulate(proposal, proposal_args, get_choices(trace))
+    forward_trace = simulate(proposal, proposal_args, Some(get_choices(trace)))
     forward_score = get_call_record(forward_trace).score
     constraints = get_choices(forward_trace)
     (new_trace, weight, discard) = update(
         model, model_args, NoChange(), trace, constraints)
-    backward_trace = assess(proposal, proposal_args, discard, get_choices(new_trace))
+    backward_trace = assess(proposal, proposal_args, discard, Some(get_choices(new_trace)))
     backward_score = get_call_record(backward_trace).score
     if log(rand()) < weight - forward_score + backward_score
         # accept
@@ -47,14 +47,14 @@ function rjmcmc(model, forward, forward_args, backward, backward_args,
                 injective, injective_args, trace, correction)
     model_args = get_call_record(trace).args
     model_score = get_call_record(trace).score
-    forward_trace = simulate(forward, forward_args, get_choices(trace))
+    forward_trace = simulate(forward, forward_args, Some(get_choices(trace)))
     forward_score = get_call_record(forward_trace).score
     input = pair(get_choices(trace), get_choices(forward_trace), MODEL, PROPOSAL)
     (output, logabsdet) = apply(injective, injective_args, input)
     (model_constraints, backward_constraints) = unpair(output, MODEL, PROPOSAL)
     new_trace = assess(model, model_args, model_constraints)
     new_model_score = get_call_record(new_trace).score
-    backward_trace = assess(backward, backward_args, backward_constraints, get_choices(new_trace))
+    backward_trace = assess(backward, backward_args, backward_constraints, Some(get_choices(new_trace)))
     backward_score = get_call_record(backward_trace).score
     alpha = new_model_score - model_score - forward_score + backward_score + logabsdet + correction(new_trace)
     if log(rand()) < alpha

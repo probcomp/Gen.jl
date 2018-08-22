@@ -1,3 +1,27 @@
+###################
+# Address schemas #
+###################
+
+struct StaticAddressSchema
+    # TODO can add type information
+    leaf_nodes::Set{Symbol}
+    internal_nodes::Set{Symbol}
+end
+
+leaf_node_keys(schema::StaticAddressSchema) = schema.leaf_nodes
+internal_node_keys(schema::StaticAddressSchema) = schema.internal_nodes
+
+struct VectorAddressSchema end 
+struct SingleDynamicKeyAddressSchema end 
+struct DynamicAddressSchema end 
+struct EmptyAddressSchema end
+
+export StaticAddressSchema
+export VectorAddressSchema
+export SingleDynamicKeyAddressSchema
+export DynamicAddressSchema
+export EmptyAddressSchem
+
 #########################
 # Choice trie interface #
 #########################
@@ -71,35 +95,44 @@ export get_leaf_nodes
 export print_choices
 
 
-#######################
-# Generic choice trie #
-#######################
+######################
+# static choice trie #
+######################
 
-struct GenericChoiceTrie
-    leaf_nodes::Dict{Any,Any}
-    internal_nodes::Dict{Any,Any}
+struct StaticChoiceTrie{R,S,T,U}
+    leaf_nodes::NamedTuple{R,S}
+    internal_nodes::NamedTuple{T,U}
 end
 
-GenericChoiceTrie() = GenericChoiceTrie(Dict(), Dict())
+# TODO invariant: all internal_nodes are nonempty, but this is not verified at construction time
 
-# invariant: all internal nodes are nonempty
-Base.isempty(trie::GenericChoiceTrie) = isempty(trie.leaf_nodes) && isempty(trie.internal_nodes)
-
-get_leaf_nodes(trie::GenericChoiceTrie) = trie.leaf_nodes
-
-get_internal_nodes(trie::GenericChoiceTrie) = trie.internal_nodes
-
-function Base.values(trie::GenericChoiceTrie)
-    iterators::Vector = collect(map(values, trie.internal_nodes))
-    push!(iterators, values(trie.leaf_nodes))
-    Iterators.flatten(iterators)
+function get_address_schema(::Type{StaticChoiceTrie{R,S,T,U}}) where {R,S,T,U}
+    leaf_nodes = Set{Symbol}()
+    internal_nodes = Set{Symbol}()
+    for (key, _) in zip(R, S.parameters)
+        push!(leaf_nodes, key)
+        #leaf_nodes[key] = typ
+    end
+    for (key, _) in zip(T, U.parameters)
+        push!(internal_nodes, key)
+        #internal_nodes[key] = typ
+    end
+    StaticAddressSchema(leaf_nodes, internal_nodes)
 end
 
-function has_internal_node(trie::GenericChoiceTrie, addr)
-    haskey(trie.internal_nodes, addr)
+function Base.isempty(trie::StaticChoiceTrie)
+    length(trie.leaf_nodes) == 0 && length(trie.internal_nodes) == 0
 end
 
-function has_internal_node(trie::GenericChoiceTrie, addr::Pair)
+get_leaf_nodes(trie::StaticChoiceTrie) = pairs(trie.leaf_nodes)
+
+get_internal_nodes(trie::StaticChoiceTrie) = pairs(trie.internal_nodes)
+
+function has_internal_node(trie::StaticChoiceTrie, ::Val{A}) where {A}
+    haskey(trie.internal_nodes, A)
+end
+
+function has_internal_node(trie::StaticChoiceTrie, addr::Pair)
     (first, rest) = addr
     if haskey(trie.internal_nodes, first)
         node = trie.internal_nodes[first]
@@ -109,41 +142,118 @@ function has_internal_node(trie::GenericChoiceTrie, addr::Pair)
     end
 end
 
-function get_internal_node(trie::GenericChoiceTrie, addr)
-    trie.internal_nodes[addr]
+function get_internal_node(trie::StaticChoiceTrie, ::Val{A}) where {A}
+    trie.internal_nodes[A]
 end
 
-function get_internal_node(trie::GenericChoiceTrie, addr::Pair)
+function get_internal_node(trie::StaticChoiceTrie, addr::Pair)
     (first, rest) = addr
     node = trie.internal_nodes[first]
     get_internal_node(node, rest)
 end
 
-function set_internal_node!(trie::GenericChoiceTrie, addr, new_node)
-    if !isempty(new_node)
-        if haskey(trie.internal_nodes, addr)
-            error("Node already exists at $addr")
-        end
-        trie.internal_nodes[addr] = new_node
+function has_leaf_node(trie::StaticChoiceTrie, ::Val{A}) where {A}
+    haskey(trie.leaf_nodes, A)
+end
+
+function has_leaf_node(trie::StaticChoiceTrie, addr::Pair)
+    (first, rest) = addr
+    if haskey(trie.leaf_nodes, first)
+        node = trie.leaf_nodes[first]
+        has_leaf_node(node, rest)
+    else
+        false
     end
 end
 
-function set_internal_node!(trie::GenericChoiceTrie, addr::Pair, new_node)
+function get_leaf_node(trie::StaticChoiceTrie, ::Val{A}) where {A}
+    trie.leaf_nodes[A]
+end
+
+function get_leaf_node(trie::StaticChoiceTrie, addr::Pair)
+    (first, rest) = addr
+    node = trie.internal_nodes[first]
+    get_leaf_node(node, rest)
+end
+
+# convert from any other schema that has only Val{:foo} addresses
+function StaticChoiceTrie(other)
+    (leaf_keys, other_leaf_nodes) = collect(zip(get_leaf_nodes(other)...))
+    (internal_keys, other_internal_nodes) = collect(zip(get_internal_nodes(other)...))
+    leaf_nodes = NamedTuple{leaf_keys}(other_leaf_nodes)
+    internal_nodes = NamedTuple{internal_keys}(other_internal_nodes)
+    StaticChoiceTrie(leaf_nodes, internal_nodes)
+end
+
+function pair(a, b, ::Val{A}, ::Val{B}) where {A,B}
+    StaticChoiceTrie(NamedTuple(), NamedTuple{(A,B)}((a, b)))
+end
+
+function unpair(trie::StaticChoiceTrie, ::Val{A}, ::Val{B}) where {A,B}
+    if length(trie.leaf_nodes) != 0 || length(trie.internal_nodes) > 2
+        error("Not a pair")
+    end
+    a = haskey(trie.internal_nodes, A) ? trie.internal_nodes[A] : EmptyChoiceTrie()
+    b = haskey(trie.internal_nodes, B) ? trie.internal_nodes[B] : EmptyChoiceTrie()
+    (a, b)
+end
+
+export StaticChoiceTrie
+export pair, unpair
+
+
+#######################
+# Dynamic choice trie #
+#######################
+
+struct DynamicChoiceTrie
+    leaf_nodes::Dict{Any,Any}
+    internal_nodes::Dict{Any,Any}
+end
+
+DynamicChoiceTrie() = DynamicChoiceTrie(Dict(), Dict())
+get_address_schema(::Type{DynamicChoiceTrie}) = DynamicAddressSchema()
+
+# invariant: all internal nodes are nonempty
+Base.isempty(trie::DynamicChoiceTrie) = isempty(trie.leaf_nodes) && isempty(trie.internal_nodes)
+get_leaf_nodes(trie::DynamicChoiceTrie) = trie.leaf_nodes
+get_internal_nodes(trie::DynamicChoiceTrie) = trie.internal_nodes
+
+function Base.values(trie::DynamicChoiceTrie)
+    iterators::Vector = collect(map(values, trie.internal_nodes))
+    push!(iterators, values(trie.leaf_nodes))
+    Iterators.flatten(iterators)
+end
+
+function has_internal_node(trie::DynamicChoiceTrie, addr)
+    haskey(trie.internal_nodes, addr)
+end
+
+function has_internal_node(trie::DynamicChoiceTrie, addr::Pair)
     (first, rest) = addr
     if haskey(trie.internal_nodes, first)
         node = trie.internal_nodes[first]
+        has_internal_node(node, rest)
     else
-        node = GenericChoiceTrie()
-        trie.internal_nodes[first] = node
+        false
     end
-    set_internal_node!(node, rest, new_node)
 end
 
-function has_leaf_node(trie::GenericChoiceTrie, addr)
+function get_internal_node(trie::DynamicChoiceTrie, addr)
+    trie.internal_nodes[addr]
+end
+
+function get_internal_node(trie::DynamicChoiceTrie, addr::Pair)
+    (first, rest) = addr
+    node = trie.internal_nodes[first]
+    get_internal_node(node, rest)
+end
+
+function has_leaf_node(trie::DynamicChoiceTrie, addr)
     haskey(trie.leaf_nodes, addr)
 end
 
-function has_leaf_node(trie::GenericChoiceTrie, addr::Pair)
+function has_leaf_node(trie::DynamicChoiceTrie, addr::Pair)
     (first, rest) = addr
     if haskey(trie.internal_nodes, first)
         node = trie.internal_nodes[first]
@@ -153,38 +263,63 @@ function has_leaf_node(trie::GenericChoiceTrie, addr::Pair)
     end
 end
 
-function get_leaf_node(trie::GenericChoiceTrie, addr)
+function get_leaf_node(trie::DynamicChoiceTrie, addr)
     trie.leaf_nodes[addr]
 end
 
-function get_leaf_node(trie::GenericChoiceTrie, addr::Pair)
+function get_leaf_node(trie::DynamicChoiceTrie, addr::Pair)
     (first, rest) = addr
     node = trie.internal_nodes[first]
     get_leaf_node(node, rest)
 end
 
-function set_leaf_node!(trie::GenericChoiceTrie, addr, value)
+Base.haskey(trie::DynamicChoiceTrie, addr) = has_leaf_node(trie, addr)
+Base.getindex(trie::DynamicChoiceTrie, addr) = get_leaf_node(trie, addr)
+
+
+# mutation (not part of the choice trie interface)
+
+function set_leaf_node!(trie::DynamicChoiceTrie, addr, value)
     trie.leaf_nodes[addr] = value
 end
 
-function set_leaf_node!(trie::GenericChoiceTrie, addr::Pair, value)
+function set_leaf_node!(trie::DynamicChoiceTrie, addr::Pair, value)
     (first, rest) = addr
     if haskey(trie.internal_nodes, first)
         node = trie.internal_nodes[first]
     else
-        node = GenericChoiceTrie()
+        node = DynamicChoiceTrie()
         trie.internal_nodes[first] = node
     end
     node = trie.internal_nodes[first]
     set_leaf_node!(node, rest, value)
 end
 
-Base.setindex!(trie::GenericChoiceTrie, value, addr) = set_leaf_node!(trie, addr, value)
-Base.haskey(trie::GenericChoiceTrie, addr) = has_leaf_node(trie, addr)
-Base.getindex(trie::GenericChoiceTrie, addr) = get_leaf_node(trie, addr)
+function set_internal_node!(trie::DynamicChoiceTrie, addr, new_node)
+    if !isempty(new_node)
+        if haskey(trie.internal_nodes, addr)
+            error("Node already exists at $addr")
+        end
+        trie.internal_nodes[addr] = new_node
+    end
+end
+
+function set_internal_node!(trie::DynamicChoiceTrie, addr::Pair, new_node)
+    (first, rest) = addr
+    if haskey(trie.internal_nodes, first)
+        node = trie.internal_nodes[first]
+    else
+        node = DynamicChoiceTrie()
+        trie.internal_nodes[first] = node
+    end
+    set_internal_node!(node, rest, new_node)
+end
+
+
+Base.setindex!(trie::DynamicChoiceTrie, value, addr) = set_leaf_node!(trie, addr, value)
 
 # b should implement the choice-trie interface
-function Base.merge!(a::GenericChoiceTrie, b)
+function Base.merge!(a::DynamicChoiceTrie, b)
     for (key, value) in get_leaf_nodes(b)
         a.leaf_nodes[key] = value
     end
@@ -201,158 +336,79 @@ function Base.merge!(a::GenericChoiceTrie, b)
     a
 end
 
-get_address_schema(::Type{GenericChoiceTrie}) = DynamicAddressSchema()
-get_internal_node_proto(::GenericChoiceTrie, addr) = GenericChoiceTrie()
 
-export GenericChoiceTrie
+export DynamicChoiceTrie
 
-
-####################################
-# SchemaAnnotatedGenericChoiceTrie #
-####################################
-
-#abstract type WrappedGenericChoiceTrie end
-#
-#struct StaticAddressSchemaChoiceTrie{T} # T will be a Tuple of Val{:symbol} types
-    #trie::GenericChoiceTrie
-#end
-#
-#function get_address_schema(::Type{StaticAddressSchemaChoiceTrie{T,U}}) where {T <: Tuple, U <: Tuple}
-    ## T are the primitive random choice addresses, U are the subtrace addresses
-    #fields = Dict{Symbol,StaticAddressInfo}()
-    #for val_field in T.parameters
-        #addr::Symbol = val_field.parameters[1]
-        #fields[addr] = StaticAddressInfo(true)
-    #end
-    #for val_field in U.parameters
-        #addr::Symbol = val_field.parameters[1]
-        #fields[addr] = StaticAddressInfo(false)
-    #end
-    #StaticAddressSchema(fields)
-#end
-#
-#struct SingleDynamicKeyChoiceTrie
-    #trie::GenericChoiceTrie
-#end
-#
-#get_address_schema(::Type{SingleDynamicKeyChoiceTrie}) = SingleDynamicKeyAddressSchema()
-#
-#function wrap_with_address_schema(trie::GenericChoiceTrie)
-    ## TODO have a special field in generic choice trie that checks if they are all symbols? (so we know if we are static or not)
-    ## TODO have a special field that checks if there is only one address (so we know if we are single-dynamic or not)
-    ## these fields are updated as the trie is constructed (during update or backprop_trace)
-#end
-#
-## unlike the generic choice trie, it is read only
-#Base.isempty(wrapped::WrappedGenericChoiceTrie) = isempty(wrapped.trie)
-#get_leaf_nodes(wrapped::WrappedGenericChoiceTrie) = get_leaf_nodes(wrapped.trie)
-#get_internal_nodes(wrapped::WrappedGenericChoiceTrie) = get_internal_nodes(wrapped.trie)
-#Base.values(wrapped::WrappedGenericChoiceTrie) = values(wrapped.trie)
-#has_internal_node(wrapped::WrappedGenericChoiceTrie, addr) = has_internal_node(wrapped.trie, addr)
-#get_internal_node(wrapped::WrappedGenericChoiceTrie, addr) = get_internal_node(wrapped.trie, addr)
-#has_leaf_node(wrapped::WrappedGenericChoiceTrie, addr) = has_leaf_node(wrapped.trie, addr)
-#get_leaf_node(wrapped::WrappedGenericChoiceTrie, addr) = get_leaf_node(wrapped.trie, addr)
-#Base.haskey(wrapped::WrappedGenericChoiceTrie, addr) = haskey(wrapped.trie, addr)
-#Base.getindex(wrapped::WrappedGenericChoiceTrie, addr) = getindex(wrapped.trie, addr)
 
 #######################################
 ## Vector combinator for choice tries #
 #######################################
 
-# TODO: implement another version that represents a vector of primitive choices
-struct VectorChoiceTrie{T}
-    subtries::Vector{T}
+struct InternalVectorChoiceTrie{T}
+    internal_nodes::Vector{T}
     is_empty::Bool
 end
 
-Base.isempty(choices::VectorChoiceTrie) = choices.is_empty
+# note some internal nodes may be empty
 
-function vectorize(choices::Vector{T}) where {T}
-    is_empty = all(map(isempty, choices))
-    VectorChoiceTrie{T}(choices, is_empty)
+get_address_schema(::Type{InternalVectorChoiceTrie}) = VectorAddressSchema()
+
+function vectorize_internal(nodes::Vector{T}) where {T}
+    is_empty = all(map(isempty, nodes))
+    InternalVectorChoiceTrie(nodes, is_empty)
 end
 
-has_internal_node(choices::VectorChoiceTrie, addr) = false
+Base.isempty(choices::InternalVectorChoiceTrie) = choices.is_empty
+has_internal_node(choices::InternalVectorChoiceTrie, addr) = false
 
-function has_internal_node(choices::VectorChoiceTrie, addr::Int)
-    n = length(choices.subtries)
+function has_internal_node(choices::InternalVectorChoiceTrie, addr::Int)
+    n = length(choices.internal_nodes)
     addr >= 1 && addr <= n
 end
 
-function has_internal_node(choices::VectorChoiceTrie, addr::Pair)
+function has_internal_node(choices::InternalVectorChoiceTrie, addr::Pair)
     (first, rest) = addr
-    subtrie = choices.subtries[first]
-    has_internal_node(subtrie, rest)
+    node = choices.internal_nodes[first]
+    has_internal_node(node, rest)
 end
 
-function get_internal_node(choices::VectorChoiceTrie, addr::Int)
-    choices.subtries[addr]
+function get_internal_node(choices::InternalVectorChoiceTrie, addr::Int)
+    choices.internal_nodes[addr]
 end
 
-function get_internal_node(choices::VectorChoiceTrie, addr::Pair)
+function get_internal_node(choices::InternalVectorChoiceTrie, addr::Pair)
     (first, rest) = addr
-    subtrie = choices.subtries[first]
-    get_internal_node(subtrie, rest)
+    node = choices.internal_nodes[first]
+    get_internal_node(node, rest)
 end
 
-has_leaf_node(choices::VectorChoiceTrie, addr) = false
+has_leaf_node(choices::InternalVectorChoiceTrie, addr) = false
 
-function has_leaf_node(choices::VectorChoiceTrie, addr::Pair)
+function has_leaf_node(choices::InternalVectorChoiceTrie, addr::Pair)
     (first, rest) = addr
-    subtrie = choices.subtries[first]
-    has_leaf_node(subtrie, rest)
+    node = choices.internal_nodes[first]
+    has_leaf_node(node, rest)
 end
 
-function get_leaf_node(choices::VectorChoiceTrie, addr::Pair)
+function get_leaf_node(choices::InternalVectorChoiceTrie, addr::Pair)
     (first, rest) = addr
-    subtrie = choices.subtries[first]
-    get_leaf_node(subtrie, rest)
+    node = choices.internal_nodes[first]
+    get_leaf_node(node, rest)
 end
 
-function get_internal_nodes(choices::VectorChoiceTrie)
-    ((i, choices.subtries[i]) for i=1:length(choices.subtries))
+function get_internal_nodes(choices::InternalVectorChoiceTrie)
+    # TODO need to check they are not empty
+    ((i, choices.internal_nodes[i]) for i=1:length(choices.internal_nodes))
 end
 
-get_leaf_nodes(choices::VectorChoiceTrie) = ()
+get_leaf_nodes(choices::InternalVectorChoiceTrie) = ()
 
-Base.haskey(choices::VectorChoiceTrie, addr) = has_leaf_node(choices, addr)
-Base.getindex(choices::VectorChoiceTrie, addr) = get_leaf_node(choices, addr)
+Base.haskey(choices::InternalVectorChoiceTrie, addr) = has_leaf_node(choices, addr)
+Base.getindex(choices::InternalVectorChoiceTrie, addr) = get_leaf_node(choices, addr)
 
-# TODO create a static version that implements get_address_schema
+export InternalVectorChoiceTrie
+export vectorize_internal
 
-export vectorize
-
-####################################
-# Pair combinator for choice tries #
-####################################
-
-function pair(choices1, choices2, key1, key2)
-    choices = GenericChoiceTrie()
-    set_internal_node!(choices, key1, choices1)
-    set_internal_node!(choices, key2, choices2)
-    choices
-end
-
-function unpair(choices, key1, key2)
-    if length(get_internal_nodes(choices)) > 2
-        error("Choice trie was not a pair")
-    end
-    if has_internal_node(choices, key1)
-        choices1 = get_internal_node(choices, key1)
-    else
-        choices1 = EmptyChoiceTrie()
-    end
-    if has_internal_node(choices, key2)
-        choices2 = get_internal_node(choices, key2)
-    else
-        choices2 = EmptyChoiceTrie()
-    end
-    (choices1, choices2)
-end
-
-# TODO create a static version that implements get_address_schema
-
-export pair, unpair
 
 ###################
 # EmptyChoiceTrie #

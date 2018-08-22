@@ -14,24 +14,19 @@ function simulate_new_trace!(gen::Plate{T,U}, key::Int, state::PlateSimulateStat
     (subtrace, call.retval::T)
 end
 
-# NOTE: we're not actually specializing using the type information yet, 
-# this is equivalent to a dynamic version
-function codegen_simulate(gen::Type{Plate{T,U}}, args, constraints, read_trace=nothing) where {T,U}
-    Core.println("generating simulate() method for plate: $gen")
-    quote
-        len = length(args[1])
-        
-        # collect initial state
-        state = GenLite.PlateSimulateState(0., true, args, read_trace)
-        subtraces = Vector{$U}(len)
-        retvals = Vector{$T}(len)
-        
-        # visit each new application and run generate (or simulate) on it
-        for key=1:len
-            (subtraces[key], retvals[key]) = GenLite.simulate_new_trace!(gen, key, state)
-        end
+function simulate(gen::Plate{T,U}, args, constraints, read_trace=nothing) where {T,U}
+    len = length(args[1])
     
-        call = CallRecord{GenLite.PersistentVector{$T}}(state.score, GenLite.PersistentVector{$T}(retvals), args)
-        GenLite.VectorTrace{$T,$U}(GenLite.PersistentVector{$U}(subtraces), call, state.is_empty)
+    # collect initial state
+    state = Gen.PlateSimulateState(0., true, args, read_trace)
+    subtraces = Vector{U}(undef, len)
+    retvals = Vector{T}(undef, len)
+    
+    # visit each new application and run generate (or simulate) on it
+    for key=1:len
+        (subtraces[key], retvals[key]) = Gen.simulate_new_trace!(gen, key, state)
     end
+
+    call = CallRecord{Gen.PersistentVector{T}}(state.score, Gen.PersistentVector{T}(retvals), args)
+    Gen.VectorTrace{T,U}(Gen.PersistentVector{U}(subtraces), call, state.is_empty)
 end

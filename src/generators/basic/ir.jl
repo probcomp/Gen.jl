@@ -22,7 +22,7 @@ function replace_input_symbols(symbols::Set{Symbol}, symbol::Symbol, trace::Symb
     if symbol in symbols
         return Expr(:(.), trace, QuoteNode(value_field(symbol)))
     else
-        return symbol
+        return Expr(:(.), :Main, QuoteNode(symbol))
     end
 end
 
@@ -455,7 +455,7 @@ function set_return!(ir::BasicBlockIR, name::Symbol)
     if value_node in ir.incremental_nodes
         error("Return value cannot depend on @change or @argschange statements")
     end
-    ir.output_node = value_node
+    ir.output_node = Some(value_node)
 end
 
 function set_return!(ir::BasicBlockIR, expr::Expr)
@@ -467,7 +467,7 @@ function set_return!(ir::BasicBlockIR, expr::Expr)
     end
     return_expr = expr.args[1]
     typ = expr.args[2]
-    ir.output_node = _get_input_node!(ir, return_expr, typ)
+    ir.output_node = Some(_get_input_node!(ir, return_expr, typ))
 end
 
 function set_retchange!(ir::BasicBlockIR, name::Symbol)
@@ -475,7 +475,7 @@ function set_retchange!(ir::BasicBlockIR, name::Symbol)
         error("Basic block can only have one @retchange statement, found a second: $name")
     end
     value_node = ir.value_nodes[name]
-    ir.retchange_node = value_node
+    ir.retchange_node = Some(value_node)
 end
 
 function set_retchange!(ir::BasicBlockIR, expr::Expr)
@@ -487,5 +487,5 @@ function set_retchange!(ir::BasicBlockIR, expr::Expr)
     end
     retchange_expr = expr.args[1]
     typ = expr.args[2]
-    ir.retchange_node = _get_input_node!(ir, retchange_expr, typ)
+    ir.retchange_node = Some(_get_input_node!(ir, retchange_expr, typ))
 end

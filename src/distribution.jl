@@ -1,9 +1,11 @@
 import Distributions
+using SpecialFunctions: lgamma, lbeta
 
 abstract type Distribution{T} end
 get_return_type(::Distribution{T}) where {T} = T
 
 export Distribution
+export random
 export logpdf
 
 #########
@@ -18,11 +20,11 @@ function logpdf(::Dirac, x::Real, y::Real)
     x == y ? 0. : -Inf
 end
 
-function Base.rand(::Dirac, y::Real)
+function random(::Dirac, y::Real)
     y
 end
 
-(::Dirac)(y) = rand(Dirac(), y)
+(::Dirac)(y) = random(Dirac(), y)
 
 get_static_argument_types(::Dirac) = [:Float64]
 
@@ -40,9 +42,9 @@ function logpdf(::Bernoulli, x::Bool, prob::Real)
     x ? log(prob) : log(1. - prob)
 end
 
-Base.rand(::Bernoulli, prob::Real) = rand() < prob
+random(::Bernoulli, prob::Real) = rand() < prob
 
-(::Bernoulli)(prob) = rand(Bernoulli(), prob)
+(::Bernoulli)(prob) = random(Bernoulli(), prob)
 
 get_static_argument_types(::Bernoulli) = [:Float64]
 
@@ -62,11 +64,11 @@ function logpdf(::Normal, x::Real, mu::Real, std::Real)
     -(diff * diff)/ (2.0 * var) - 0.5 * log(2.0 * pi * var)
 end
 
-function Base.rand(::Normal, mu::Real, std::Real)
+function random(::Normal, mu::Real, std::Real)
     mu + std * randn()
 end
 
-(::Normal)(mu, std) = rand(Normal(), mu, std)
+(::Normal)(mu, std) = random(Normal(), mu, std)
 
 get_static_argument_types(::Normal) = [:Float64, :Float64]
 
@@ -89,11 +91,11 @@ function logpdf(::Gamma, x::Real, shape::Real, scale::Real)
     end
 end
 
-function Base.rand(::Gamma, shape::Real, scale::Real)
+function random(::Gamma, shape::Real, scale::Real)
     rand(Distributions.Gamma(shape, scale))
 end
 
-(::Gamma)(shape, scale) = rand(Gamma(), shape, scale)
+(::Gamma)(shape, scale) = random(Gamma(), shape, scale)
 
 get_static_argument_types(::Gamma) = [:Float64, :Float64]
 
@@ -116,11 +118,11 @@ function logpdf(::InverseGamma, x::Real, shape::Real, scale::Real)
     end
 end
 
-function Base.rand(::InverseGamma, shape::Real, scale::Real)
+function random(::InverseGamma, shape::Real, scale::Real)
     rand(Distributions.InverseGamma(shape, scale))
 end
 
-(::InverseGamma)(shape, scale) = rand(InverseGamma(), shape, scale)
+(::InverseGamma)(shape, scale) = random(InverseGamma(), shape, scale)
 
 get_static_argument_types(::InverseGamma) = [:Float64, :Float64]
 
@@ -138,11 +140,11 @@ function logpdf(::Beta, x::Real, alpha::Real, beta::Real)
     (alpha - 1) * log(x) + (beta - 1) * log1p(-x) - lbeta(alpha, beta)
 end
 
-function Base.rand(::Beta, alpha::Real, beta::Real)
+function random(::Beta, alpha::Real, beta::Real)
     rand(Distributions.Beta(alpha, beta))
 end
 
-(::Beta)(alpha, beta) = rand(Beta(), alpha, beta)
+(::Beta)(alpha, beta) = random(Beta(), alpha, beta)
 
 get_static_argument_types(::Beta) = [:Float64, :Float64]
 
@@ -160,11 +162,11 @@ function logpdf(::Categorical, x::Int, probs::AbstractArray{U,1}) where {U <: Re
     log(probs[x])
 end
 
-function Base.rand(::Categorical, probs::AbstractArray{U,1}) where {U <: Real}
+function random(::Categorical, probs::AbstractArray{U,1}) where {U <: Real}
     rand(Distributions.Categorical(probs))
 end
 
-(::Categorical)(probs) = rand(Categorical(), probs)
+(::Categorical)(probs) = random(Categorical(), probs)
 
 get_static_argument_types(::Categorical) = [:(Vector{Float64})]
 
@@ -184,11 +186,11 @@ function logpdf(::UniformDiscrete, x::Int, low::Integer, high::Integer)
     Distributions.logpdf(d, x)
 end
 
-function Base.rand(::UniformDiscrete, low::Integer, high::Integer)
+function random(::UniformDiscrete, low::Integer, high::Integer)
     rand(Distributions.DiscreteUniform(low, high))
 end
 
-(::UniformDiscrete)(low, high) = rand(UniformDiscrete(), low, high)
+(::UniformDiscrete)(low, high) = random(UniformDiscrete(), low, high)
 
 get_static_argument_types(::UniformDiscrete) = [:Float64, :Float64]
 
@@ -208,11 +210,11 @@ function logpdf(::UniformContinuous, x::Real, low::Real, high::Real)
     (x >= low && x <= high) ? -log(high-low) : -Inf
 end
 
-function Base.rand(::UniformContinuous, low::Real, high::Real)
+function random(::UniformContinuous, low::Real, high::Real)
     rand() * (high - low) + low
 end
 
-(::UniformContinuous)(low, high) = rand(UniformContinuous(), low, high)
+(::UniformContinuous)(low, high) = random(UniformContinuous(), low, high)
 
 get_static_argument_types(::UniformContinuous) = [:Float64, :Float64]
 
@@ -230,11 +232,11 @@ function logpdf(::Poisson, x::Integer, lambda::Real)
     x * log(lambda) - lambda - lgamma(x+1)
 end
 
-function Base.rand(::Poisson, lambda::Real)
+function random(::Poisson, lambda::Real)
     rand(Distributions.Poisson(lambda))
 end
 
-(::Poisson)(lambda) = rand(Poisson(), lambda)
+(::Poisson)(lambda) = random(Poisson(), lambda)
 
 get_static_argument_types(::Poisson) = [:Float64]
 

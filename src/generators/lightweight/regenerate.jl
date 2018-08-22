@@ -51,7 +51,7 @@ function addr(state::GFRegenerateState, dist::Distribution{T}, args, addr, args_
         # simulate a new value
         # it does not contribute to the weight
         # retchange indicates that there was a change and gives the previous value
-        retval = rand(dist, args...)
+        retval = random(dist, args...)
         score = logpdf(dist, retval, args...)
         prev_call = get_primitive_call(state.prev_trace, addr)
         retchange = (true, prev_call.retval)
@@ -60,7 +60,7 @@ function addr(state::GFRegenerateState, dist::Distribution{T}, args, addr, args_
         # simulate a new value
         # it does not contribute to the weight
         # retchange is nothing, because the address is new
-        retval = rand(dist, args...)
+        retval = random(dist, args...)
         score = logpdf(dist, retval, args...)
         retchange = nothing
     end

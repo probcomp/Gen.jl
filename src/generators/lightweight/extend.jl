@@ -34,7 +34,7 @@ function addr(state::GFExtendState, gen::Distribution{T}, args, addr, delta) whe
         retval = call.retval
         score = call.score
     else
-        retval = rand(dist, args...)
+        retval = random(dist, args...)
         score = logpdf(dist, args, retval...)
         state.weight += score
         call = CallRecord(score, retval, args)

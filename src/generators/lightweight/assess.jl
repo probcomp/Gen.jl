@@ -43,14 +43,11 @@ end
 
 splice(state::GFAssessState, gf::GenFunction, args::Tuple) = exec(gf, state, args)
 
-function codegen_assess(gen::Type{GenFunction}, args, constraints, read_trace)
-    Core.println("Generating assess method for GenFunction")
-    quote
-        state = GenLite.GFAssessState(constraints, read_trace, gen.params)
-        retval = GenLite.exec(gen, state, args) 
-        # TODO add return type annotation for gen 
-        call = GenLite.CallRecord{Any}(state.score, retval, args)
-        state.trace.call = call
-        state.trace
-    end
+function assess(gen::GenFunction, args, constraints, read_trace=nothing)
+    state = Gen.GFAssessState(constraints, read_trace, gen.params)
+    retval = Gen.exec(gen, state, args) 
+    # TODO add return type annotation for gen 
+    call = Gen.CallRecord{Any}(state.score, retval, args)
+    state.trace.call = call
+    state.trace
 end

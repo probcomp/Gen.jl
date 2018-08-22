@@ -8,7 +8,7 @@ function process!(ir::BasicBlockIR, state::BasicBlockSimulateState, node::ReadNo
     trace = state.trace
     (typ, trace_field) = get_value_info(node)
     push!(state.stmts, quote
-        $trace.$trace_field = get_leaf_node(read_trace, $(expr_read_from_trace(node, trace)))
+        $trace.$trace_field = get_leaf_node(something(read_trace), $(expr_read_from_trace(node, trace)))
     end)
 end
 
@@ -17,7 +17,7 @@ function process!(ir::BasicBlockIR, state::BasicBlockSimulateState, node::JuliaN
     trace = state.trace
     (typ, trace_field) = get_value_info(node)
     push!(state.stmts, quote
-        $trace.$trace_field = ($(expr_read_from_trace(node, trace)))
+        $trace.$trace_field = $(expr_read_from_trace(node, trace))
     end)
 end
 
@@ -36,7 +36,7 @@ function process!(ir::BasicBlockIR, state::BasicBlockSimulateState, node::AddrDi
     dist = QuoteNode(node.dist)
     args = get_args(trace, node)
     push!(state.stmts, quote
-        $trace.$addr = rand($dist, $(args...))
+        $trace.$addr = random($dist, $(args...))
         $score += logpdf($dist, $trace.$addr, $(args...))
         $trace.$is_empty_field = false
     end)
@@ -69,7 +69,6 @@ function process!(ir::BasicBlockIR, state::BasicBlockSimulateState, node::AddrGe
 end
 
 function codegen_simulate(gen::Type{T}, args, read_trace) where {T <: BasicGenFunction}
-    Core.println("Generating simulate for: $gen...")
     trace_type = get_trace_type(gen)
     ir = get_ir(gen)
     stmts = Expr[]
@@ -101,7 +100,7 @@ function codegen_simulate(gen::Type{T}, args, read_trace) where {T <: BasicGenFu
     if ir.output_node === nothing
         retval = :nothing
     else
-        retval = quote $trace.$(value_field(ir.output_node)) end
+        retval = quote $trace.$(value_field(something(ir.output_node))) end
     end
 
     push!(stmts, quote
@@ -110,3 +109,10 @@ function codegen_simulate(gen::Type{T}, args, read_trace) where {T <: BasicGenFu
     end)
     Expr(:block, stmts...)
 end
+
+
+push!(Gen.generated_functions, quote
+@generated function Gen.simulate(gen::Gen.BasicGenFunction, args, read_trace=nothing)
+    Gen.codegen_simulate(gen, args, read_trace)
+end
+end)

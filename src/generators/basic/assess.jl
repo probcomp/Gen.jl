@@ -8,7 +8,7 @@ function process!(ir::BasicBlockIR, state::BasicBlockAssessState, node::ReadNode
     trace = state.trace
     (typ, trace_field) = get_value_info(node)
     push!(state.stmts, quote
-        $trace.$trace_field = get_leaf_node(read_trace, $(expr_read_from_trace(node, trace)))
+        $trace.$trace_field = get_leaf_node(something(read_trace), $(expr_read_from_trace(node, trace)))
     end)
 end
 
@@ -102,7 +102,7 @@ function codegen_assess(gen::Type{T}, args, constraints, read_trace) where {T <:
     if ir.output_node === nothing
         retval = :nothing
     else
-        retval = quote $trace.$(value_field(ir.output_node)) end
+        retval = quote $trace.$(value_field(something(ir.output_node))) end
     end
 
     push!(stmts, quote
@@ -111,3 +111,10 @@ function codegen_assess(gen::Type{T}, args, constraints, read_trace) where {T <:
     end)
     Expr(:block, stmts...)
 end
+
+
+push!(Gen.generated_functions, quote
+@generated function Gen.assess(gen::Gen.BasicGenFunction, args, constraints, read_trace=nothing)
+    Gen.codegen_assess(gen, args, constraints, read_trace)
+end
+end)

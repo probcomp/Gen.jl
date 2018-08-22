@@ -10,7 +10,7 @@ function process!(ir::BasicBlockIR, state::BasicBlockGenerateState, node::ReadNo
     trace = state.trace
     (typ, trace_field) = get_value_info(node)
     push!(state.stmts, quote
-        $trace.$trace_field = get_leaf_node(read_trace, $(expr_read_from_trace(node, trace)))
+        $trace.$trace_field = get_leaf_node(something(read_trace), $(expr_read_from_trace(node, trace)))
     end)
 end
 
@@ -36,10 +36,7 @@ function process!(ir::BasicBlockIR, state::BasicBlockGenerateState, node::AddrDi
     addr = node.address
     dist = QuoteNode(node.dist)
     args = get_args(trace, node)
-    if isa(schema, StaticAddressSchema) && (addr in keys(schema))
-        if !schema[addr].is_primitive
-            error("Expected primitive address but got namespace")
-        end
+    if isa(schema, StaticAddressSchema) && (addr in leaf_node_keys(schema))
         increment = gensym("logpdf")
         push!(state.stmts, quote
             $trace.$addr = get_leaf_node(constraints, Val($(QuoteNode(addr))))
@@ -51,7 +48,7 @@ function process!(ir::BasicBlockIR, state::BasicBlockGenerateState, node::AddrDi
 
     elseif isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema)
         push!(state.stmts, quote
-            $trace.$addr = rand($dist, $(args...))
+            $trace.$addr = random($dist, $(args...))
             $score += logpdf($dist, $trace.$addr, $(args...))
             $trace.$is_empty_field = false
         end)
@@ -72,10 +69,7 @@ function process!(ir::BasicBlockIR, state::BasicBlockGenerateState, node::AddrGe
     gen = QuoteNode(node.gen)
     args = get_args(trace, node)
     call_record = gensym("call_record")
-    if isa(schema, StaticAddressSchema) && (addr in keys(schema))
-        if schema[addr].is_primitive
-            error("Expected namespace but got primitive address")
-        end
+    if isa(schema, StaticAddressSchema) && (addr in internal_node_keys(schema))
         weight_incr = gensym("weight")
         push!(state.stmts, quote
             ($trace.$addr, $weight_incr) = generate(
@@ -143,7 +137,7 @@ function codegen_generate(gen::Type{T}, args, constraints, read_trace) where {T 
     if ir.output_node === nothing
         retval = :nothing
     else
-        retval = quote $trace.$(value_field(ir.output_node)) end
+        retval = quote $trace.$(value_field(something(ir.output_node))) end
     end
 
     push!(stmts, quote
@@ -152,3 +146,9 @@ function codegen_generate(gen::Type{T}, args, constraints, read_trace) where {T 
     end)
     Expr(:block, stmts...)
 end
+
+push!(Gen.generated_functions, quote
+@generated function Gen.generate(gen::Gen.BasicGenFunction, args, constraints, read_trace=nothing)
+    Gen.codegen_generate(gen, args, constraints, read_trace)
+end
+end)

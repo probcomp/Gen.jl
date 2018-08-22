@@ -7,7 +7,7 @@ mutable struct PlateResimulationUpdateState{T,U,V,W,X}
     nodes::V
     deltas::W
     read_trace::X
-    discard::GenericChoiceTrie
+    discard::DynamicChoiceTrie
 end
 
 function resimulation_update_existing_trace!(key::Int, state::PlateResimulationUpdateState, subtraces, retvals)
@@ -105,7 +105,7 @@ function _resimulation_update(gen::Plate, args, delta::Nothing, trace::VectorTra
     end
 
     # collect initial state
-    discard = GenericChoiceTrie()
+    discard = DynamicChoiceTrie()
     state = PlateResimulationUpdateState(gen.kernel, trace.call.score, 0., trace.is_empty, args, nodes, deltas, read_trace, discard)
     subtraces = trace.subtraces
     retvals = trace.call.retvals

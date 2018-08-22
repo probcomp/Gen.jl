@@ -13,37 +13,7 @@
 # which gives:
 #
 #  Pair(:a, Pair(2, Pair(:d, "asdf")))
-#
 
-############################
-# (shallow) address schema #
-############################
-
-struct StaticAddressInfo
-    is_primitive::Bool
-end
-
-# will be produced for a basic block, and for if-else
-# actual keys are wrapped in a value type e.g. Val(:foo) not :foo
-struct StaticAddressSchema 
-    #keys::Set{Symbol}
-    fields::Dict{Symbol, StaticAddressInfo}
-end
-
-Base.keys(schema::StaticAddressSchema) = keys(schema.fields)
-Base.getindex(schema::StaticAddressSchema, key::Symbol) = schema.fields[key]
-
-# some unknown number of integers, will be produced for markov, iid, and plate
-struct VectorAddressSchema end 
-
-# e.g. an integer index (TODO provide the type of the key?)
-struct SingleDynamicKeyAddressSchema end 
-
-# an unknown number of unknown addresses
-struct DynamicAddressSchema end 
-
-# there are no addresses
-struct EmptyAddressSchema end
 
 ##############
 # AddressSet #

@@ -35,23 +35,24 @@ end
 
 function parse_read(expr::Expr)
     @assert expr.head == :macrocall && expr.args[1] == Symbol("@read")
-    if length(expr.args) != 2
+    rest = isa(expr.args[2], LineNumberNode) ? expr.args[3:end] : expr.args[2:end]
+    if length(rest) != 1
         throw(BasicBlockParseError(expr))
     end
-    addr_expr = expr.args[2]
-    addr_expr
+    rest[1] # address
 end
 
 function parse_addr(expr::Expr)
     @assert expr.head == :macrocall && expr.args[1] == Symbol("@addr")
-    if length(expr.args) == 3
+    rest = isa(expr.args[2], LineNumberNode) ? expr.args[3:end] : expr.args[2:end]
+    if length(rest) == 2
         change_expr = nothing
-    elseif length(expr.args) == 4
-        change_expr = expr.args[4]
+    elseif length(rest) == 3
+        change_expr = rest[3]
     else
         throw(BasicBlockParseError(expr))
     end
-    call = expr.args[2]
+    call = rest[1]
     if !isa(call, Expr) || call.head != :call
         throw(BasicBlockParseError(call))
     end
@@ -60,24 +61,30 @@ function parse_addr(expr::Expr)
         error("Cannot pass change values to @addr for distributions")
     end
     args = call.args[2:end]
-    addr = expr.args[3]
-    if isa(addr, Symbol)
-    elseif isa(addr, Expr) && length(addr.args) == 1 && isa(addr.args[1], Symbol)
+    addr = rest[2]
+    if isa(addr, Expr) && length(addr.args) == 1 && isa(addr.args[1], Symbol)
         addr = addr.args[1]
+    elseif isa(addr, QuoteNode)
+        addr = addr.value
     end
     (addr::Symbol, generator_or_dist, args, change_expr)
 end
 
-function parse_change(expr::Expr)
+function parse_change(expr::Expr)   
     @assert expr.head == :macrocall && expr.args[1] == Symbol("@change")
-    if length(expr.args) != 2
-        throw(BasicBlockParseError(statement))
+    rest = isa(expr.args[2], LineNumberNode) ? expr.args[3:end] : expr.args[2:end]
+    if length(rest) != 1
+        throw(BasicBlockParseError(expr))
     end
-    addr = expr.args[2]
+    addr = rest[1]
     if isa(addr, Symbol)
         pass
     elseif isa(addr, Expr) && length(addr.args) == 1 && isa(addr.args[1], Symbol)
         addr = addr.args[1]
+    elseif isa(addr, QuoteNode)
+        addr = addr.value
+    else
+        throw(BasicBlockParseError(addr))
     end
     addr::Symbol
 end
@@ -115,6 +122,9 @@ function generate_ir(args, body)
         add_argument!(ir, name, typ)
     end
     for statement in body.args
+        if isa(statement, LineNumberNode)
+            continue
+        end
         if !isa(statement, Expr)
             throw(BasicBlockParseError(statement))
         end
@@ -180,10 +190,10 @@ end
 
 function basic_gen_parse(ast)
     dsl = Symbol("@compiled")
-    if ast.head != :macrocall || ast.args[1] != Symbol("@gen") || length(ast.args) != 2
+    if ast.head != :macrocall || ast.args[1] != Symbol("@gen")
         error("syntax error in $dsl, expected $dsl @gen function .. end")
     end
-    ast = ast.args[2]
+    ast = isa(ast.args[2], LineNumberNode) ? ast.args[3] : ast.args[2]
     if ast.head != :function
         error("syntax error in $dsl at $(ast) in $(ast.head)")
     end
@@ -243,13 +253,13 @@ function make_choice_trie_methods(trace_type, addr_dist_nodes, addr_gen_nodes)
     methods = Expr[]
 
     push!(methods, quote
-        Base.isempty(trie::GenLite.BasicBlockChoices{$trace_type}) = trie.trace.$is_empty_field
+        Base.isempty(trie::Gen.BasicBlockChoices{$trace_type}) = trie.trace.$is_empty_field
     end)
 
     # get_leaf_nodes
     leaf_addrs = map((node) -> node.address, addr_dist_nodes)
     push!(methods, quote
-        function GenLite.get_leaf_nodes(trie::GenLite.BasicBlockChoices{$trace_type})
+        function Gen.get_leaf_nodes(trie::Gen.BasicBlockChoices{$trace_type})
             $(Expr(:tuple,
                 [quote (Val($(QuoteNode(addr))), trie.trace.$addr) end for addr in leaf_addrs]...))
         end
@@ -258,7 +268,7 @@ function make_choice_trie_methods(trace_type, addr_dist_nodes, addr_gen_nodes)
     # get_internal_nodes
     internal_addrs = map((node) -> node.address, addr_gen_nodes)
     push!(methods, quote
-        function GenLite.get_internal_nodes(trie::GenLite.BasicBlockChoices{$trace_type})
+        function Gen.get_internal_nodes(trie::Gen.BasicBlockChoices{$trace_type})
             $(Expr(:tuple,
                 [quote (Val($(QuoteNode(addr))), trie.trace.$addr) end for addr in leaf_addrs]...))
         end
@@ -269,14 +279,14 @@ function make_choice_trie_methods(trace_type, addr_dist_nodes, addr_gen_nodes)
         addr = node.address
 
         push!(methods, quote
-            function GenLite.has_leaf_node(trie::GenLite.BasicBlockChoices{$trace_type},
+            function Gen.has_leaf_node(trie::Gen.BasicBlockChoices{$trace_type},
                                            ::Val{$(QuoteNode(addr))})
                 true
             end
         end)
 
         push!(methods, quote
-            function GenLite.get_leaf_node(trie::GenLite.BasicBlockChoices{$trace_type},
+            function Gen.get_leaf_node(trie::Gen.BasicBlockChoices{$trace_type},
                                            ::Val{$(QuoteNode(addr))})
                 trie.trace.$addr
             end
@@ -288,7 +298,7 @@ function make_choice_trie_methods(trace_type, addr_dist_nodes, addr_gen_nodes)
         addr = node.address
 
         push!(methods, quote
-            function GenLite.has_leaf_node(trie::GenLite.BasicBlockChoices{$trace_type},
+            function Gen.has_leaf_node(trie::Gen.BasicBlockChoices{$trace_type},
                                            addr::Pair{Val{$(QuoteNode(addr))},T}) where {T}
                 (_, rest) = addr
                 has_leaf_node(trie.trace.$addr, rest)
@@ -296,7 +306,7 @@ function make_choice_trie_methods(trace_type, addr_dist_nodes, addr_gen_nodes)
         end)
 
         push!(methods, quote
-            function GenLite.get_leaf_node(trie::GenLite.BasicBlockChoices{$trace_type},
+            function Gen.get_leaf_node(trie::Gen.BasicBlockChoices{$trace_type},
                                            addr::Pair{Val{$(QuoteNode(addr))},T}) where {T}
                 (_, rest) = addr
                 get_leaf_node(get_choices(trie.trace.$addr), rest)
@@ -304,14 +314,14 @@ function make_choice_trie_methods(trace_type, addr_dist_nodes, addr_gen_nodes)
         end)
 
         push!(methods, quote
-            function GenLite.has_internal_node(trie::GenLite.BasicBlockChoices{$trace_type},
+            function Gen.has_internal_node(trie::Gen.BasicBlockChoices{$trace_type},
                                            ::Val{$(QuoteNode(addr))})
                 true
             end
         end)
 
         push!(methods, quote
-            function GenLite.has_internal_node(trie::GenLite.BasicBlockChoices{$trace_type},
+            function Gen.has_internal_node(trie::Gen.BasicBlockChoices{$trace_type},
                                            addr::Pair{Val{$(QuoteNode(addr))},T}) where {T}
                 (_, rest) = addr
                 has_internal_node(trie.trace.$addr, rest)
@@ -319,14 +329,14 @@ function make_choice_trie_methods(trace_type, addr_dist_nodes, addr_gen_nodes)
         end)
 
         push!(methods, quote
-            function GenLite.get_internal_node(trie::GenLite.BasicBlockChoices{$trace_type},
+            function Gen.get_internal_node(trie::Gen.BasicBlockChoices{$trace_type},
                                            ::Val{$(QuoteNode(addr))})
                 get_choices(trie.trace.$addr)
             end
         end)
 
         push!(methods, quote
-            function GenLite.get_internal_node(trie::GenLite.BasicBlockChoices{$trace_type},
+            function Gen.get_internal_node(trie::Gen.BasicBlockChoices{$trace_type},
                                            addr::Pair{Val{$(QuoteNode(addr))},T}) where {T}
                 (_, rest) = addr
                 get_internal_node(trie.trace.$addr, rest)
@@ -361,7 +371,9 @@ function generate_trace_type(ir::BasicBlockIR, name)
     addresses = union(keys(ir.addr_dist_nodes), keys(ir.addr_gen_nodes))
     choice_trie_methods = make_choice_trie_methods(
         trace_type_name, values(ir.addr_dist_nodes), values(ir.addr_gen_nodes))
-    retval_type = ir.output_node ===  nothing ? :Nothing : ir.output_node.typ
+    retval_type = ir.output_node ===  nothing ? :Nothing : something(ir.output_node).typ
+    leaf_keys = 
+    
     defn = esc(quote
 
         # specialized trace implementation
@@ -381,15 +393,16 @@ function generate_trace_type(ir::BasicBlockIR, name)
             trace
         end
 
-        GenLite.get_call_record(trace::$trace_type_name) = trace.$call_record_field
-        GenLite.has_choices(trace::$trace_type_name) = !trace.$is_empty_field
+        Gen.get_call_record(trace::$trace_type_name) = trace.$call_record_field
+        Gen.has_choices(trace::$trace_type_name) = !trace.$is_empty_field
 
         # choice trie view of the trace
-        GenLite.get_choices(trace::$trace_type_name) = GenLite.BasicBlockChoices(trace)
-        function GenLite.get_address_schema(::Type{$trace_type_name})
-            GenLite.StaticAddressSchema(merge(
-                Dict{Symbol, GenLite.StaticAddressInfo}([$([QuoteNode(addr => GenLite.StaticAddressInfo(true)) for addr in keys(ir.addr_dist_nodes)]...)]),
-                Dict{Symbol, GenLite.StaticAddressInfo}([$([QuoteNode(addr => GenLite.StaticAddressInfo(false)) for addr in keys(ir.addr_gen_nodes)]...)])))
+        Gen.get_choices(trace::$trace_type_name) = Gen.BasicBlockChoices(trace)
+        
+        function Gen.get_address_schema(::Type{$trace_type_name})
+            Gen.StaticAddressSchema(
+                Set{Symbol}([$([QuoteNode(addr) for addr in keys(ir.addr_dist_nodes)]...)]),
+                Set{Symbol}([$([QuoteNode(addr) for addr in keys(ir.addr_gen_nodes)]...)]))
         end
         $(Expr(:block, choice_trie_methods...))
     end)
@@ -402,15 +415,15 @@ end
 
 function generate_generator_type(ir::BasicBlockIR, trace_type::Symbol, name::Symbol)
     generator_type = Symbol("BasicBlockGenerator_$name")
-    retval_type = ir.output_node === nothing ? :Nothing : ir.output_node.typ
+    retval_type = ir.output_node === nothing ? :Nothing : something(ir.output_node).typ
     defn = esc(quote
-        struct $generator_type <: GenLite.BasicGenFunction{$retval_type, $trace_type}
+        struct $generator_type <: Gen.BasicGenFunction{$retval_type, $trace_type}
         end
-        GenLite.get_ir(::Type{$generator_type}) = $(QuoteNode(ir))
-        GenLite.render_graph(::$generator_type, fname) = GenLite.render_graph(GenLite.get_ir($generator_type), fname)
-        GenLite.get_trace_type(::Type{$generator_type}) = $trace_type
-        function GenLite.get_static_argument_types(::$generator_type)
-            [node.typ for node in GenLite.get_ir($generator_type).arg_nodes]
+        Gen.get_ir(::Type{$generator_type}) = $(QuoteNode(ir))
+        #Gen.render_graph(::$generator_type, fname) = Gen.render_graph(Gen.get_ir($generator_type), fname)
+        Gen.get_trace_type(::Type{$generator_type}) = $trace_type
+        function Gen.get_static_argument_types(::$generator_type)
+            [node.typ for node in Gen.get_ir($generator_type).arg_nodes]
         end
     end)
     (defn, generator_type)

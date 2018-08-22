@@ -4,7 +4,7 @@ mutable struct PlateProjectState{U,V,X}
     args::U
     nodes::V
     read_trace::X
-    discard::GenericChoiceTrie
+    discard::DynamicChoiceTrie
 end
 
 function project!(gen::Plate{T,U}, key::Int, state::PlateProjectState) where {T,U}
@@ -36,7 +36,7 @@ function project(gen::Plate{T,U}, args, constraints, read_trace) where {T,U}
     len = length(args[1])
 
     # collect constraints, indexed by key, discard nodes for keys not in trace
-    discard = GenericChoiceTrie()
+    discard = DynamicChoiceTrie()
     nodes = Dict{Int, Any}()
     for (key, node) in get_internal_nodes(constraints)
         project_process_constraints!(nodes, key, node, len, discard)

@@ -112,7 +112,7 @@ may not simulate.
 addresses may be added or deleted.
 constraints may collide with existing random choices.
 
-    (new_trace, weight, discard, retchange) = update(g::Generator, new_args, args_change, trace, constraints, read_trace, discard_prototype)
+    (new_trace, weight, discard, retchange) = update(g::Generator, new_args, args_change, trace, constraints, read_trace)
 """
 function update end
 

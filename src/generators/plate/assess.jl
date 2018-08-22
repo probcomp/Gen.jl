@@ -26,37 +26,33 @@ function check_constraint_key!(key::Int, len::Int)
     end
 end
 
-
-function codegen_assess(gen::Type{Plate{T,U}}, args, constraints, read_trace=nothing) where {T,U}
-    Core.println("generating assess() method for plate $gen, got constraints type: $constraints")
-    quote
-        len = length(args[1])
-        
-        # collect constraints, indexed by key
-        nodes = Vector{Any}(len)
-        for key=1:len
-            nodes[key] = get_internal_node(constraints, key)
-        end
+function assess(gen::Plate{T,U}, args, constraints, read_trace=nothing) where {T,U}
+    len = length(args[1])
     
-        # check no other constraints.. (can be skipped if we're trying to be less strict)
-        for (key, _) in get_internal_nodes(constraints)
-            check_constraint!(key, len)
-        end
-        for (key, _) in get_leaf_nodes(constraints)
-            check_constraint!(key, len)
-        end
-    
-        # collect initial state
-        state = PlateAssessState(0., true, args, nodes, read_trace)
-        subtraces = Vector{U}(len)
-        retvals = Vector{T}(len)
-        
-        # visit each application and assess it
-        for key=1:len
-            (subtraces[key], retvals[key]) = assess_kernel!(gen, key, state)
-        end
-    
-        call = CallRecord{PersistentVector{T}}(state.score, PersistentVector{T}(retvals), args, UnknownChange())
-        VectorTrace{T,U}(PersistentVector{U}(subtraces), call, state.is_empty)
+    # collect constraints, indexed by key
+    nodes = Vector{Any}(len)
+    for key=1:len
+        nodes[key] = get_internal_node(constraints, key)
     end
+
+    # check no other constraints.. (can be skipped if we're trying to be less strict)
+    for (key, _) in get_internal_nodes(constraints)
+        check_constraint!(key, len)
+    end
+    for (key, _) in get_leaf_nodes(constraints)
+        check_constraint!(key, len)
+    end
+
+    # collect initial state
+    state = PlateAssessState(0., true, args, nodes, read_trace)
+    subtraces = Vector{U}(len)
+    retvals = Vector{T}(len)
+    
+    # visit each application and assess it
+    for key=1:len
+        (subtraces[key], retvals[key]) = assess_kernel!(gen, key, state)
+    end
+
+    call = CallRecord{PersistentVector{T}}(state.score, PersistentVector{T}(retvals), args, UnknownChange())
+    VectorTrace{T,U}(PersistentVector{U}(subtraces), call, state.is_empty)
 end

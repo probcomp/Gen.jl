@@ -11,6 +11,8 @@ struct BBUpdateState
     discard_internal_nodes::Dict{Symbol, Symbol} # map from address to value
 end
 
+# TODO support read?
+
 function process!(ir::BasicBlockIR, state::BBUpdateState, node::JuliaNode)
     
     # if any input nodes are marked, mark the output node
@@ -86,13 +88,10 @@ function process!(ir::BasicBlockIR, state::BBUpdateState, node::AddrDistNode)
     decrement = gensym("decrement")
     increment = gensym("increment")
     input_nodes_marked = any([input in state.marked for input in node.input_nodes])
-    if isa(schema, StaticAddressSchema) && addr in keys(schema)
+    if isa(schema, StaticAddressSchema) && addr in leaf_node_keys(schema)
         # constrained to a new value (mark the output)
         if has_output(node)
             push!(state.marked, node.output)
-        end
-        if !schema[addr].is_primitive
-            error("Expected primitive address but got namespace at $addr")
         end
         prev_value = gensym("prev_value")
         push!(state.stmts, quote
@@ -102,7 +101,7 @@ function process!(ir::BasicBlockIR, state::BBUpdateState, node::AddrDistNode)
             $decrement = logpdf($dist, $prev_value, $(prev_args...))
             $score += $increment - $decrement
             $weight += $increment - $decrement
-            #GenLite.set_leaf_node!(discard, Val($(QuoteNode(addr))), $prev_value) # TODO populate it later
+            #Gen.set_leaf_node!(discard, Val($(QuoteNode(addr))), $prev_value) # TODO populate it later
         end)
         state.discard_leaf_nodes[addr] = prev_value
         if has_output(node)
@@ -135,10 +134,7 @@ function process!(ir::BasicBlockIR, state::BBUpdateState, node::AddrGeneratorNod
     call_record = gensym("call_record")
     discard = gensym("discard")
     input_nodes_marked = any([input in state.marked for input in node.input_nodes])
-    if isa(schema, StaticAddressSchema) && addr in keys(schema)
-        if schema[addr].is_primitive
-            error("Expected namespace but got primitive address at $addr")
-        end
+    if isa(schema, StaticAddressSchema) && addr in internal_node_keys(schema)
         constraints = :(get_internal_node(constraints, Val($(QuoteNode(addr)))))
         constrained = true
     else
@@ -158,15 +154,13 @@ function process!(ir::BasicBlockIR, state::BBUpdateState, node::AddrGeneratorNod
             ($new_trace.$addr, _, $discard, $(addr_change_variable(addr))) = update(
                 $(QuoteNode(node.gen)), $(Expr(:tuple, args...)),
                 $change_value_ref, $prev_trace.$addr, $constraints, read_trace)
-                #GenLite.get_internal_node_proto(discard, Val($(QuoteNode(addr))))) # TODO deleted
             $call_record = get_call_record($new_trace.$addr)
             $decrement = get_call_record($prev_trace.$addr).score
             $increment = $call_record.score
             $score += $increment - $decrement
             $weight += $increment - $decrement
-            #GenLite.set_internal_node!(discard, Val($(QuoteNode(addr))), $discard) # TODO popuilate it later
         end)
-        state.discard_internal_nodes[addr] = discard # TODO
+        state.discard_internal_nodes[addr] = discard
         if has_output(node)
             (_, trace_field) = get_value_info(node)
             push!(state.stmts, quote
@@ -203,8 +197,8 @@ function codegen_update(gen::Type{T}, new_args, args_change, trace, constraints,
     trace_type = get_trace_type(gen)
     schema = get_address_schema(constraints)
     if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
+        # trie to convert it to a static choice trie
         return update(gen, new_args, args_change, trace, StaticChoiceTrie(constraints), read_trace)
-        #error("Address schema of type $schema not supported for constraints of basic block")
     end
     ir = get_ir(gen)
     stmts = Expr[]
@@ -222,7 +216,6 @@ function codegen_update(gen::Type{T}, new_args, args_change, trace, constraints,
         $new_trace = copy($prev_trace)
         $score = $prev_trace.$call_record_field.score
         $weight = 0.
-        discard = $discard_proto()
     end)
 
     # record arguments in trace
@@ -244,7 +237,7 @@ function codegen_update(gen::Type{T}, new_args, args_change, trace, constraints,
 
     # visit statements in topological order, generating code
     state = BBUpdateState(score, weight, new_trace, prev_trace, marked,
-                          stmts, schema, discard_proto, addr_visited)
+                          stmts, schema, addr_visited, Dict{Symbol,Symbol}(), Dict{Symbol,Symbol}())
     for node in ir.expr_nodes_sorted
         process!(ir, state, node)
     end
@@ -264,20 +257,28 @@ function codegen_update(gen::Type{T}, new_args, args_change, trace, constraints,
     end
 
     # constructed discard
-    # TODO
-    discard_leaf_node_keys = collect(keys(state.discard_leaf_nodes))
-    discard_leaf_node_values = Symbol[state.discard_leaf_nodes[key] for key in discard_leaf_node_keys]
-    discard_internal_node_keys = collect(keys(state.discard_internal_nodes))
-    #discard_internal_node_keys = Symbol[state.discard_leaf_nodes[key] for key in discard_leaf_node_keys]
+    if length(state.discard_leaf_nodes) > 0
+        (leaf_keys, leaf_nodes) = collect(zip(state.discard_leaf_nodes...))
+    else
+        (leaf_keys, leaf_nodes) = ((), ())
+    end
+    if length(state.discard_internal_nodes) > 0
+        (internal_keys, internal_nodes) = collect(zip(state.discard_internal_nodes...))
+    else
+        (internal_keys, internal_nodes) = ((), ())
+    end
+    leaf_keys = map((k) -> QuoteNode(k), leaf_keys)
+    internal_keys = map((k) -> QuoteNode(k), internal_keys)
     push!(stmts, quote
-        leaf_nodes = NamedTuple{($(discard_leaf_node_keys),)}()
-        StaticChoiceTrie{()}()
+        discard = StaticChoiceTrie(
+            NamedTuple{($(leaf_keys...),)}(($(leaf_nodes...),)),
+            NamedTuple{($(internal_keys...),)}(($(internal_nodes...),)))
     end)
 
     # check that there are no extra constraints
     if isa(schema, StaticAddressSchema)
         addresses = union(keys(ir.addr_dist_nodes), keys(ir.addr_gen_nodes))
-        for addr in keys(schema)
+        for addr in union(leaf_node_keys(schema), internal_node_keys(schema))
             if !(addr in addresses)
                 error("Update did not consume all constraints")
             end
@@ -312,3 +313,9 @@ function codegen_update(gen::Type{T}, new_args, args_change, trace, constraints,
     end)
     Expr(:block, stmts...)
 end
+
+push!(Gen.generated_functions, quote
+@generated function Gen.update(gen::Gen.BasicGenFunction, new_args, arg_change, trace, constraints, read_trace=nothing)
+    Gen.codegen_update(gen, new_args, arg_change, trace, constraints, read_trace)
+end
+end)

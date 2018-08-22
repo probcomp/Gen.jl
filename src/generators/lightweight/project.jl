@@ -5,12 +5,12 @@ mutable struct GFProjectState
     score::Float64
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
-    discard::GenericChoiceTrie
+    discard::DynamicChoiceTrie
 end
 
 function GFProjectState(constraints, read_trace, params)
     visitor = AddressVisitor()
-    discard = GenericChoiceTrie()
+    discard = DynamicChoiceTrie()
     GFProjectState(constraints, GFTrace(), read_trace, 0., visitor, params, discard)
 end
 

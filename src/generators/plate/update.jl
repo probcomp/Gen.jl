@@ -1,11 +1,11 @@
-mutable struct PlateUpdateState{U,V,W,X,Y}
+mutable struct PlateUpdateState{U,V,W,X}
     score::Float64
     is_empty::Bool
     args::U
     nodes::V
     changes::W
     read_trace::X
-    discard::Y
+    discard::DynamicChoiceTrie
 end
 
 function update_existing_trace!(gen::Plate{T,U}, key::Int, state::PlateUpdateState, subtraces, retvals) where {T,U}
@@ -19,8 +19,7 @@ function update_existing_trace!(gen::Plate{T,U}, key::Int, state::PlateUpdateSta
     prev_call = get_call_record(subtrace)
     kernel_args = get_args_for_key(state.args, key)
     (subtrace, _, kernel_discard) = update(
-        gen.kernel, kernel_args, kernel_change, subtrace, node, state.read_trace,
-        get_internal_node_proto(state.discard, key))
+        gen.kernel, kernel_args, kernel_change, subtrace, node, state.read_trace)
     set_internal_node!(state.discard, key, kernel_discard)
     call::CallRecord = get_call_record(subtrace)
     state.score += (call.score - prev_call.score)
@@ -55,44 +54,7 @@ function update_process_constraints!(nodes, to_visit, key, node, new_length)
     error("Update did not consume constraints at key $key")
 end
 
-# No change to arguments
-function _update(gen::Plate{T,U}, args, change::NoChange, trace::VectorTrace{T,U}, constraints, read_trace, discard) where {T,U}
-    to_visit = Set{Int}()
-    changes = Dict{Int, T}()
-    _update(gen, args, trace, constraints, read_trace, to_visit, changes, discard)
-end
-
-# Known change to arguments
-function _update(gen::Plate{T,U}, args, change::PlateChange{T}, trace::VectorTrace{T,U}, constraints, read_trace, discard) where {T,U}
-
-    (new_length, prev_length) = get_prev_and_new_lengths(args, trace)
-
-    # calculate which existing applications to visit
-    to_visit = Set{Int}()
-    changes = Dict{Int, T}()
-    for (i, kernel_change) in zip(change.changed_args, change.sub_changes)
-        if i <= new_length
-            push!(to_visit, i)
-            changes[i] = kernel_change
-        end
-    end
-
-    _update(gen, args, trace, constraints, read_trace, to_visit, changes, discard)
-end
-
-# Unknown change to arguments
-function _update(gen::Plate{T,U}, args, change::Nothing, trace::VectorTrace{T,U}, constraints, read_trace, discard) where {T,U}
-
-    (new_length, prev_length) = get_prev_and_new_lengths(args, trace)
-
-    # visit all existing applications that are preserved
-    to_visit = Set(1:min(prev_length, new_length))
-    changes = Dict{Int, Any}() # not used
-
-    _update(gen, args, trace, constraints, read_trace, to_visit, changes, discard)
-end
-
-function _update(gen::Plate{T,U}, args, prev_trace::VectorTrace{T,U}, constraints, read_trace, to_visit, changes, discard) where {T,U}
+function _update(gen::Plate{T,U}, args, prev_trace::VectorTrace{T,U}, constraints, read_trace, to_visit, changes) where {T,U}
 
     (new_length, prev_length) = get_prev_and_new_lengths(args, prev_trace)
 
@@ -103,7 +65,7 @@ function _update(gen::Plate{T,U}, args, prev_trace::VectorTrace{T,U}, constraint
     end
 
     # discard subtraces of deleted applications
-    #discard = GenericChoiceTrie()
+    discard = DynamicChoiceTrie()
     for key=new_length+1:prev_length
         set_internal_node!(discard, key, get_choices(prev_trace.subtraces[key]))
     end
@@ -133,9 +95,39 @@ function _update(gen::Plate{T,U}, args, prev_trace::VectorTrace{T,U}, constraint
     (trace, weight, state.discard, retchange)
 end
 
-function codegen_update(gen::Type{Plate{T,U}}, new_args, args_change, trace::Type{VectorTrace{T,U}}, constraints, read_trace, discard_proto) where {T,U}
-    Core.println("generating update() method for plate, got constraints type: $constraints, args_change type: $args_change")
-    quote
-        GenLite._update(gen, new_args, args_change, trace, constraints, read_trace, discard_proto)
+# No change to arguments
+function update(gen::Plate{T,U}, args, change::NoChange, trace::VectorTrace{T,U}, constraints, read_trace) where {T,U}
+    to_visit = Set{Int}()
+    changes = Dict{Int, T}()
+    _update(gen, args, trace, constraints, read_trace, to_visit, changes)
+end
+
+# Known change to arguments
+function update(gen::Plate{T,U}, args, change::PlateChange{T}, trace::VectorTrace{T,U}, constraints, read_trace) where {T,U}
+
+    (new_length, prev_length) = get_prev_and_new_lengths(args, trace)
+
+    # calculate which existing applications to visit
+    to_visit = Set{Int}()
+    changes = Dict{Int, T}()
+    for (i, kernel_change) in zip(change.changed_args, change.sub_changes)
+        if i <= new_length
+            push!(to_visit, i)
+            changes[i] = kernel_change
+        end
     end
+
+    _update(gen, args, trace, constraints, read_trace, to_visit, changes)
+end
+
+# Unknown change to arguments
+function update(gen::Plate{T,U}, args, change::Nothing, trace::VectorTrace{T,U}, constraints, read_trace) where {T,U}
+
+    (new_length, prev_length) = get_prev_and_new_lengths(args, trace)
+
+    # visit all existing applications that are preserved
+    to_visit = Set(1:min(prev_length, new_length))
+    changes = Dict{Int, Any}() # not used
+
+    _update(gen, args, trace, constraints, read_trace, to_visit, changes)
 end

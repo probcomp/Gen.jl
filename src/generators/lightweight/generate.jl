@@ -26,7 +26,7 @@ function addr(state::GFGenerateState, dist::Distribution{T}, args, addr, delta) 
     if constrained
         retval = get_leaf_node(state.constraints, addr)
     else
-        retval = rand(dist, args...)
+        retval = random(dist, args...)
     end
     score = logpdf(dist, retval, args...)
     call = CallRecord(score, retval, args)
@@ -57,14 +57,11 @@ end
 
 splice(state::GFGenerateState, gf::GenFunction, args::Tuple) = exec(gf, state, args)
 
-function codegen_generate(gen::Type{GenFunction}, args, constraints, read_trace)
-    Core.println("Generating generate method for GenFunction")
-    quote
-        state = GenLite.GFGenerateState(constraints, read_trace, gen.params)
-        retval = GenLite.exec(gen, state, args) 
-        # TODO add return type annotation for gen
-        call = GenLite.CallRecord{Any}(state.score, retval, args)
-        state.trace.call = call
-        (state.trace, state.weight)
-    end
+function generate(gen::GenFunction, args, constraints, read_trace=nothing)
+    state = GFGenerateState(constraints, read_trace, gen.params)
+    retval = exec(gen, state, args) 
+    # TODO add return type annotation for gen
+    call = CallRecord{Any}(state.score, retval, args)
+    state.trace.call = call
+    (state.trace, state.weight)
 end

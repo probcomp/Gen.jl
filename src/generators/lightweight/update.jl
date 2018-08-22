@@ -6,7 +6,7 @@ mutable struct GFUpdateState
     score::Float64
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
-    discard::GenericChoiceTrie
+    discard::DynamicChoiceTrie
     args_change::Any
     retchange::Union{Some{Any},Nothing}
     callee_output_changes::HomogenousTrie{Any,Any}
@@ -14,7 +14,7 @@ end
 
 function GFUpdateState(args_change, prev_trace, constraints, read_trace, params)
     visitor = AddressVisitor()
-    discard = GenericChoiceTrie()
+    discard = DynamicChoiceTrie()
     GFUpdateState(prev_trace, GFTrace(), constraints, read_trace, 0., visitor,
                   params, discard, args_change, nothing, HomogenousTrie{Any,Any}())
 end
@@ -99,24 +99,20 @@ end
 
 splice(state::GFUpdateState, gen::GenFunction, args::Tuple) = exec(gf, state, args)
 
-function codegen_update(gen::Type{GenFunction}, new_args, args_change,
-                        trace::Type{GFTrace}, constraints, read_trace, discard_proto)
-    Core.println("Generating update method for GenFunctions")
-    quote
-        state = GenLite.GFUpdateState(args_change, trace, constraints, read_trace, gen.params)
-        retval = GenLite.exec(gen, state, new_args)
-        new_call = GenLite.CallRecord{Any}(state.score, retval, new_args)
-        state.trace.call = new_call
-        # discard addresses that were deleted
-        unvisited = GenLite.get_unvisited(state.visitor, get_choices(state.prev_trace))
-        merge!(state.discard, unvisited)
-        if !isempty(GenLite.get_unvisited(state.visitor, constraints))
-            error("Update did not consume all constraints")
-        end
-        
-        # compute the weight
-        prev_score = get_call_record(trace).score
-        weight = state.score - prev_score
-        (state.trace, weight, state.discard, state.retchange)
+function update(gen::GenFunction, new_args, args_change, trace::GFTrace, constraints, read_trace=nothing)
+    state = Gen.GFUpdateState(args_change, trace, constraints, read_trace, gen.params)
+    retval = Gen.exec(gen, state, new_args)
+    new_call = Gen.CallRecord{Any}(state.score, retval, new_args)
+    state.trace.call = new_call
+    # discard addresses that were deleted
+    unvisited = Gen.get_unvisited(state.visitor, get_choices(state.prev_trace))
+    merge!(state.discard, unvisited) # TODO
+    if !isempty(Gen.get_unvisited(state.visitor, constraints))
+        error("Update did not consume all constraints")
     end
+    
+    # compute the weight
+    prev_score = get_call_record(trace).score
+    weight = state.score - prev_score
+    (state.trace, weight, state.discard, state.retchange)
 end

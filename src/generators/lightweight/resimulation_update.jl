@@ -8,12 +8,12 @@ mutable struct GFResimulationUpdateState
     weight::Float64
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
-    discard::GenericChoiceTrie
+    discard::DynamicChoiceTrie
 end
 
 function GFResimulationUpdateState(delta, prev_trace, constraints, read_trace, params)
     visitor = AddressVisitor()
-    discard = GenericChoiceTrie()
+    discard = DynamicChoiceTrie()
     GFResimulationUpdateState(prev_trace, GFTrace(), delta, constraints, read_trace, 0., 0., visitor, params, discard)
 end
 
@@ -39,7 +39,7 @@ function addr(state::GFResimulationUpdateState, dist::Distribution{T}, args, add
         end
         state.weight += (score - prev_call.score)
     else
-        retval = rand(dist, args...)
+        retval = random(dist, args...)
 
     end
     score = logpdf(dist, retval, args...)

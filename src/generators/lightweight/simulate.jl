@@ -16,7 +16,7 @@ set_ret_change!(state::GFSimulateState, value) = begin end
 
 function addr(state::GFSimulateState, dist::Distribution{T}, args, addr, arg_change) where {T}
     visit!(state.visitor, addr)
-    retval::T = rand(dist, args...)
+    retval::T = random(dist, args...)
     score = logpdf(dist, retval, args...)
     call = CallRecord(score, retval, args)
     state.trace = assoc_primitive_call(state.trace, addr, call)
@@ -37,14 +37,11 @@ end
 
 splice(state::GFSimulateState, gf::GenFunction, args::Tuple) = exec(gf, state, args)
 
-function codegen_simulate(gen::Type{GenFunction}, args, read_trace)
-    Core.println("Generating simulate for $gen...")
-    quote
-        state = GenLite.GFSimulateState(read_trace, gen.params)
-        retval = GenLite.exec(gen, state, args) 
-        # TODO add return type annotation for gen functions
-        call = GenLite.CallRecord{Any}(state.score, retval, args)
-        state.trace.call = call
-        state.trace
-    end
+function simulate(gen::GenFunction, args, read_trace=nothing)
+    state = GFSimulateState(read_trace, gen.params)
+    retval = exec(gen, state, args)
+    # TODO add return type annotation for gen functions
+    call = CallRecord{Any}(state.score, retval, args)
+    state.trace.call = call
+    state.trace
 end

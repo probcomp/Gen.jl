@@ -36,7 +36,7 @@ function generate_process_constraints!(nodes, key, node, len)
     error("Constraints under key $key not part of trace")
 end
 
-function runtime_generate(gen::Plate{T,U}, args, constraints, read_trace=nothing) where {T,U}
+function generate(gen::Plate{T,U}, args, constraints, read_trace=nothing) where {T,U}
     len = length(args[1])
     
     # collect constraints, indexed by key, and error if any are not in the trace
@@ -47,8 +47,8 @@ function runtime_generate(gen::Plate{T,U}, args, constraints, read_trace=nothing
 
     # collect initial state
     state = PlateGenerateState(0., 0., true, args, nodes, read_trace)
-    subtraces = Vector{U}(len)
-    retvals = Vector{T}(len)
+    subtraces = Vector{U}(undef, len)
+    retvals = Vector{T}(undef, len)
     
     # visit each new application and run generate (or simulate) on it
     for key=1:len
@@ -58,11 +58,4 @@ function runtime_generate(gen::Plate{T,U}, args, constraints, read_trace=nothing
     call = CallRecord(state.score, PersistentVector{T}(retvals), args)
     trace = VectorTrace{T,U}(PersistentVector{U}(subtraces), call, state.is_empty)
     (trace, state.weight)
-end
-
-function codegen_generate(gen::Type{Plate{T,U}}, args, constraints, read_trace=nothing) where {T,U}
-    Core.println("generating generate() method for plate, got constraints type: $constraints")
-    quote
-        GenLite.runtime_generate(gen, args, constraints, read_trace)        
-    end
 end
