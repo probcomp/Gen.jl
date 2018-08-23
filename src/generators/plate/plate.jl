@@ -15,7 +15,6 @@ accepts_output_grad(plate::Plate) = accepts_output_grad(plate.kernel)
 has_argument_grads(plate::Plate) = has_argument_grads(plate.kernel)
 
 function plate(kernel::Generator{T,U}) where {T,U}
-    println("T: $T, U: $U")
     Plate{T,U}(kernel)
 end
 

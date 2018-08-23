@@ -22,13 +22,30 @@ function has_internal_node(choices::AtDynamicChoices{T,U,K}, addr::K) where {T,U
 end
 function has_internal_node(choices::AtDynamicChoices{T,U,K}, addr::Pair{K,W}) where {T,U,K,W}
     (first, rest) = addr
-    if choices.trace.key == addr
+    if choices.trace.key == first
         subchoices = get_choices(choices.trace.kernel_trace)
         has_internal_node(subchoices, rest)
     else
         throw(KeyError(first))
     end
 end
+function get_internal_node(choices::AtDynamicChoices{T,U,K}, addr::K) where {T,U,K}
+    if choices.trace.key == addr
+        get_choices(choices.trace.kernel_trace)
+    else
+        throw(KeyError(addr))
+    end
+end
+function get_internal_node(choices::AtDynamicChoices{T,U,K}, addr::Pair{K,W}) where {T,U,K,W}
+    (first, rest) = addr
+    if choices.trace.key == first
+        subchoices = get_choices(choices.trace.kernel_trace)
+        get_internal_node(subchoices, rest)
+    else
+        throw(KeyError(first))
+    end
+end
+
 
 function get_internal_nodes(choices::AtDynamicChoices)
     node = (choices.trace.key, get_choices(choices.trace.kernel_trace))
