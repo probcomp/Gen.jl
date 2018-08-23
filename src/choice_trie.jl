@@ -93,7 +93,7 @@ function to_nested_dict(choice_trie::ChoiceTrie)
 end
 
 import JSON
-Base.print(trie::ChoiceTrie) = JSON.print(to_nested_dict(choices), 4)
+Base.print(trie::ChoiceTrie) = JSON.print(to_nested_dict(trie), 4)
 
 export ChoiceTrie
 export get_address_schema

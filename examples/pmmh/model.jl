@@ -5,7 +5,10 @@ using FunctionalCollections: PersistentVector
 # generative model #
 ####################
 
-x_mean(x_prev::Real, t::Int) = (x_prev / 2.) + 25 * (x_prev / (1 + x_prev * x_prev)) + 8 * cos(1.2 * t)
+function x_mean(x_prev::Real, t::Int)
+    (x_prev / 2.) + 25 * (x_prev / (1 + x_prev * x_prev)) + 8 * cos(1.2 * t)
+end
+
 y_mean(x::Real) = (x * x / 20.)
 
 @gen function hmm(var_x, var_y, T::Int)
@@ -26,52 +29,70 @@ end
     @addr(hmm(var_x, var_y, T), :hmm)
 end
 
-####################################
-# handcoded sequential Monte Carlo #
-####################################
-
-include("smc.jl")
-
-struct SMCParams
-    num_particles::Int
-    ess::Float64
-end
-
-struct HandcodedSMC <: StateSpaceSMCScheme{Float64}
-    params::SMCParams
-    var_x::Float64
-    var_y::Float64
-    ys::PersistentVector{Float64}
-end
-
-function init(smc::HandcodedSMC)
-    state = random(normal, 0, 5)
-    log_weight = logpdf(normal, smc.ys[1], y_mean(state), sqrt(smc.var_y))
-    (state, log_weight)
-end
-
-function init_score(smc::HandcodedSMC, state::Float64)
-    logpdf(normal, smc.ys[1], y_mean(state), sqrt(smc.var_y))
-end
-
-function forward(smc::HandcodedSMC, prev_state::Float64, t::Int)
-	state = random(normal, x_mean(prev_state, t), sqrt(smc.var_x))
-    log_weight = logpdf(normal, smc.ys[t], y_mean(state), sqrt(smc.var_y))
-    (state, log_weight)
-end
-
-function forward_score(smc::HandcodedSMC, prev_state::Float64, state::Float64, t::Int)
-	logpdf(normal, state, x_mean(prev_state, t), sqrt(smc.var_x))
-end
-
-get_num_steps(smc::HandcodedSMC) = length(smc.ys)
-get_num_particles(smc::HandcodedSMC) = smc.params.num_particles
-get_ess_threshold(smc::HandcodedSMC) = smc.params.ess
-
+#################################
+# sequential Monte Carlo in hmm #
+#################################
 
 const num_particles = 1000
 const ess = 500
-const smc_params = SMCParams(num_particles, ess)
+
+# implement of SMC using forward simulation as the proposal
+# it's okay to be specialized to the model 'hmm'
+
+@gen function single_step_observer(t::Int, y::Float64)
+    @addr(dirac(y), :y => t)
+end
+
+function logsumexp(arr)
+    min_arr = maximum(arr)
+    min_arr + log(sum(exp.(arr .- min_arr)))
+end
+
+function effective_sample_size(log_weights::Vector{Float64})
+    # assumes weights are normalized
+    log_ess = -logsumexp(2. * log_weights)
+    exp(log_ess)
+end
+
+function smc(var_x, var_y, T::Int, N, ess_threshold, ys::AbstractArray{Float64,1})
+    log_unnormalized_weights = Vector{Float64}(undef, N)
+    log_ml_estimate = 0.
+    obs = get_choices(simulate(single_step_observer, (1, ys[1])))
+    traces = Vector{Gen.GFTrace}(undef, N)
+    next_traces = Vector{Gen.GFTrace}(undef, N)
+    for i=1:N
+        (traces[i], log_unnormalized_weights[i]) = generate(hmm, (var_x, var_y, 1), obs)
+    end
+    num_resamples = 0
+    for t=2:T
+        println(t)
+        log_total_weight = logsumexp(log_unnormalized_weights)
+        log_normalized_weights = log_unnormalized_weights .- log_total_weight
+        if effective_sample_size(log_normalized_weights) < ess_threshold
+            weights = exp.(log_normalized_weights)
+            parents = map((i) -> categorical(weights / sum(weights)), 1:N)
+            log_ml_estimate += log_total_weight - log(N)
+            log_unnormalized_weights = zeros(N)
+            num_resamples += 1
+        else
+            parents = 1:N
+        end
+        obs = get_choices(simulate(single_step_observer, (t, ys[t])))
+        for i=1:N
+            parent = parents[i]
+            # TODO provide some argchange information?
+            (next_traces[i], weight) = extend(hmm, (var_x, var_y, t), nothing, traces[i], obs)
+            log_unnormalized_weights[i] += weight
+        end
+        tmp = traces
+        traces = next_traces
+        next_traces = tmp
+    end
+    log_total_weight = logsumexp(log_unnormalized_weights)
+    log_normalized_weights = log_unnormalized_weights .- log_total_weight
+    log_ml_estimate += log_total_weight - log(N)
+    log_ml_estimate # just return the log ML estimate
+end
 
 ##########################################
 # collapsed generative model (handcoded) #
@@ -126,14 +147,13 @@ Gen.get_concrete_argument_types(CollapsedHMM) = [:Float64, :Float64, :Int, :Int,
 
 function unbiased_logpdf_est(args, ys::PersistentVector{Float64})
     (var_x, var_y, T, num_particles, ess) = args
-	smc_scheme = HandcodedSMC(SMCParams(num_particles, ess), var_x, var_y, ys)
 	local lml_estimate::Float64
-	try
-		smc_result = smc(smc_scheme)
+	#try
+		smc_result = smc(var_x, var_y, T, num_particles, ess, ys)
 		lml_estimate = smc_result.log_ml_estimate
-	catch
-		lml_estimate = -Inf
-	end
+	#catch
+		#lml_estimate = -Inf
+	#end
     retval = PersistentVector{Float64}(ys)
     call = CallRecord(lml_estimate, retval, args)
     vector = VectorDistTrace(retval, call)

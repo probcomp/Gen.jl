@@ -126,8 +126,12 @@ Base.isempty(choices::GFTraceChoices) = !has_choices(choices.trace)
 
 function has_internal_node(choices::GFTraceChoices, addr::Pair)
     (first, rest) = addr
-    subtrace = choices.trace.subtraces[first]
-    has_internal_node(get_choices(subtrace), rest)
+    if haskey(choices.trace.subtraces, first)
+        subtrace = choices.trace.subtraces[first]
+        has_internal_node(get_choices(subtrace), rest)
+    else
+        false
+    end
 end
 
 function has_internal_node(choices::GFTraceChoices, addr)
