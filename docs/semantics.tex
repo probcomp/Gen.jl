@@ -32,7 +32,7 @@
 \newcommand\doubleplus{\mathbin{+\mkern-5mu+}}
 \newcommand{\concat}[0]{\doubleplus}
 \newcommand{\diff}[0]{\setminus}
-\newcommand{\dom}[0]{\mbox{dom}}
+\newcommand{\dom}[1]{\mbox{dom}{~#1}}
 
 \title{Gen Semantics}
 \author{Marco Cusumano-Towner}
@@ -43,98 +43,70 @@
 
 \section{Traces}
 A \emph{trace} is a finite map from addresses to values, which for simplicity, we are elements of some discrete set $V$.
-For traces $s$ and $t$ with disjoint domains $\dom(s)$ and $\dom(t)$, let $u = s \concat t$ denote the trace where $u(i) = s(i)$ for $i \in \dom(s)$ and $u(i) = t(i)$ for $i \in \dom(t)$.
-For two traces $s$ and $t$, let $s \le t$ denote the relation that $\dom(s) \subseteq \dom(t)$ and that $s(i) = t(i)$ for all $i \in \dom(s)$.
-For $s \le t$, let $u = t \diff s$ denote the trace with $u(i) = s(i)$ for each $i \in \dom(t) \setminus \dom(s)$.
+For traces $s$ and $t$ with disjoint domains $\dom{s}$ and $\dom{t}$, let $u = s \concat t$ denote the trace where $u(i) = s(i)$ for $i \in \dom{s}$ and $u(i) = t(i)$ for $i \in \dom{t}$.
+For two traces $s$ and $t$, let $s \le t$ denote the relation that $\dom{s} \subseteq \dom{t}$ and that $s(i) = t(i)$ for all $i \in \dom{s}$.
+For $s \le t$, let $u = t \diff s$ denote the trace with $u(i) = s(i)$ for each $i \in \dom{t} \setminus \dom{s}$.
+Let $t|_S$ denote the restriction of a trace $t$ to a set $S$ of addresses.
 
 \section{Probabilistic Module}
-A \emph{probabilistic module} is a tuple $(X, p, U, q_{gen}, q_{up})$, where $X$ is the set of valid \emph{inputs} to the module, and where $p$, $q_{gen}$ and $q_{up}$ are indexed sets of probability distribution on traces.
+A \emph{probabilistic module} is a tuple $(X, p, U, q_{gen}, q_{fix}, q_{free}, \theta, f)$, where $X$ is the set of valid \emph{inputs} to the module, and where $p$, $q_{gen}$ and $q_{fix}$, $q_{free}$ are indexed sets of probability distribution on traces, where $\theta$ are current parameters of the module (upon which $p$ has an implicit dependence).
 Specifically, $p(t; x) \ge 0$ where $t$ is a trace, and where $x \in X$ and $\sum_t p(t; x) = 1$ for all $x \in X$.
 $p(t; x)$ is the probability of a trace given input $x$.
 Let $T_x = \{t : p(t; x) > 0 \}$ denote the set of \emph{possible traces} for input $x \in X$.
+The function $f : \{(x, t) : x \in X, t \in T_x\} \to Y$ defines the \emph{output value} $y \in Y$ given the inputs and a trace.
 
-\paragraph{Generate}
+% TODO all of the methods will accept arbitary configuration, which is
+% recursively dispatched throughout the call hierarchy during calls to methods.
+% the address selection is one example type of configuration used to configure
+% free_update.
+
+\paragraph{Generate (\code{generate})}
 Let $U_x$ denote a set of traces, called \emph{valid generation constraints}, such that for each $u \in U_x$ there exists some $t \in T_x$ where $u \le t$.
 Note that $U_x$ need not include all such $u$ (i.e. $U_x$ is not necessarily the set of all projections of all traces in $T_x$).
 Then, for each $x \in X, u \in U_x$, we require that $q_{gen}(s; u, x) > 0$ if and only if $s = t \diff u$ for some $t \in T_x$, and $\sum_s q_{gen}(s; u, x) = 1$.
-The \code{generate} method takes as input $x \in X$, $u \in U_x$, and samples $s \sim q_{gen}(\cdot; u, x)$, and returns $t = s \concat u$ and a weight $p(t; x) / q(s; u, x)$.
+Take as input $x \in X$, $u \in U_x$, and sample $s \sim q_{gen}(\cdot; u, x)$, and return $t = s \concat u$ and a weight $p(t; x) / q(s; u, x)$.
+Also return $y = f(x, t)$.
 
-\paragraph{Deterministic Update}
-Given $x, x' \in X$ and a trace $t \in T_x$, and a trace $u$ such that $t' = u \concat (t \setminus u) \in T_{x'}$, the \code{detupdate} method returns $t'$ and a weight $p(t'; x') / p(t; x)$.
+%\paragraph{Propose (\code{propose})}
+%Given $x \in X$ and a set of addresses $S$, sample a trace $t \sim p(\cdot; x)$, and return 
+% TODO
 
-\paragraph{Stochastic Update}
-% stochastic update
-% for every possible trace t there is some set of valid constraint tries, which
-% must have all addresses dom(u) \subseteq \dom(t) (( only existing addresses )).
-% for each, there is a distribution on 
-For every trace $t \in T_x$, there is a set of valid constraints $u \in U_t$ such that 
+\paragraph{Force Update (\code{force\_update})}
+Given $x, x' \in X$ and a trace $t \in T_x$, and a trace $u$ such that $t' = u \concat (t \setminus u) \in T_{x'}$, return $t'$, a weight $p(t'; x') / p(t; x)$, and a \emph{discard trace} $v(i) = t(i)$ for $i \in (\dom{t} \cap \dom{u}) \cup (\dom{t} \setminus \dom{u}) \to V$ where $v(i) = t(i)$.
+Also return $y' = f(x', t')$.
 
-\paragraph{General Update}
+\paragraph{Fix Update (\code{fix\_update})}
+Given $x, x' \in X$ and $t \in T_x$, and trace $u$ such that $\dom(u) \subseteq \dom(t)$, $D_{x,x',t,u} \subseteq \dom(t') \setminus \dom(u)$ is a set of \emph{deleted addresses}, and $q_{fix}(s; t, x, x', u)$ is an indexed set of probability distributions on traces $s$, such that $q_{fix}(s; t, x, x', u) > 0$ implies that $\dom(s) \cap \dom(u) = \varnothing$ and $t' = s \concat u \concat (t|_{D_{x,x',t,u}^C}) \in T_{x'}$ and $q_{fix}(s'; t', x', x, v) > 0$ where $v(i) = t(i)$ for $i \in \dom(u)$, and $t = s' \concat v \concat (t' |_{D_{x',x,v,t'}^C})$.
+Sample $s \sim q_{fix}(\cdot; t, x, x', u)$ and return $t'$, the \emph{discard trace} $v$, and the weight:
+\[
+\frac{p(t'; x')}{p(t; x)} \frac{q_{fix}(s'; t', x', x, v)}{q_{fix}(s; t, x, x', u)}
+\]
+Also return $y' = f(x', t')$.
 
+\paragraph{Free Update (\code{free\_update})}
+Given $x, x' \in X$, and $t \in T_x$, $q_{free}(t'; t, x, x')$ is a distribution on traces such that $q_{free}(t'; t, x, x') > 0$ implies $t' \in T_{x'}$, and such that $q_{free}(t'; t, x, x') > 0$ implies $q_{free}(t; t', x', x) > 0$.
+Sample $t' \sim q_{free}(\cdot; t, x, x')$ and return $t'$, and a weight:
+\[
+    \frac{p(t'; x')}{p(t; x)} \frac{q_{free}(t; t', x', x)}{q_{free}(t'; t, x, x')}
+\]
+Also return $y' = f(x', t')$.
+Note that `regenerate', where we provide a set of addresses that should be resimulated, is an example of this.
 
+\paragraph{Backpropagate to Parameters (\code{backprop\_params})}
+Given $x \in X$ and $t \in T_x$, and $\nabla_y J$, return $\nabla_x (J + \log p(t; x))$ and $\nabla_{\theta} (J + \log p(t; x))$.
 
-%Let $U_x$ denote the set of traces \emph{self-supporting traces}, for which 
-%$q_g(s; u, x)$ for $x \in X, t \in T_x$
+% \paragraph{Backpropagate to Trace (\code{backprop\_trace})}
+% TODO doesn't make sense if values come from a discrete set
 
 Each probabilistic module may also possess an indexed collection of families of distributions for use in \code{generate} and \code{update}.
 Probabilistic modules may also have update procedures that make arbitrary changes to their trace, and return the appropriate weight.
 These two features are not yet implemented.
 
-% NOTE: generative functions are one way of defining a probabilistic module, but there are others.
-
 \section{Untraced Random Choices}
 
-% semantics of the Gen probabilistic module interface
-
-% simulate (with a selection, which is a set of addresses; special case all selected)
-% generate (with constraints, which need to be self-supporting; special case assess) *
-% update1 - deterministic (special case, where we are not allowed to delete choices) *
-% update2 - stochastic (special case extend, not allowed to delete choices)
-% update3 - selection - how does this relate to custom internal proposals?
-% backprop
-
-% the semantics of each generator is defined in terms of some 'abstract
-% generative process' -- something with some state, and the ability to make
-% traced random choices -- standard semantics for a simple traced probabilistic
-% language. this plays the role of the 'joint distribution' (it defines a
-% probability distribution on traces).
-
-% v1: without custom internal proposals, use forward execution in the referent process 
-
-% v2: with custom internal proposal (generate and update2) ; needs to be parameterized by an alternative generative process 
-% 
-%   - for generate, there is some other generative process, which takes as
-%   input the constraint choice trie, and generates addresses, which when
-%   combined with the constraint choice trie, produce a trace of the original
-%   generative process. we require that if a trace is produced by this process
-%   with nonzero probability if and only if the merged trace has nonzero
-%   probability under the original generative process.
-%
-%   - for update2, there is a generative process, which takes as input the
-%   previous trace choice trie, and the constraint choice trie, and generates a
-%   trace such that no addresses overlap with the previous trace, and such that
-%   when this new trace is merged with the constraint choice trie, the
-%   resulting trace has nonzero probability under the original generative
-%   process. also the current trace needs to have some 
-%
-%
-%               [[ previous addrs (constrained) ]]
-%               [[ previous addrs (unconstrained, kept) ]]
-%               [[ previous addrs (unconstrained, deleted) ]]
-%               [[ new addrs ]]
-%
-%               q(new ; previous addrs) - some generative process
-%               p(constrained, unconstrained kept, new) / q(new; previous addrs)
-%
-% there can also be variants of update that don't take any external constrained
-% choices, and just apply some proposal to their trace, and return the local
-% weight (which will be further combined with external weight)
-%
-% v3: with untraced randomness, but not custom internal proposals
-
-% Q: if an inner generator has specific custom update procedure, how do we
-% specify that we want to execute that update? we need to provide side
-% information that gets passed through the entire call hierarchy.
+\section{Generative Functions}
+% an example of a probabilistic module that is composed of other probabilistic modules.
+% give implementations of these various things (as small step semantics?)
 
 \clearpage
 \bibliographystyle{abbrv}
