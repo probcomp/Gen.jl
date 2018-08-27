@@ -38,6 +38,8 @@
 \newcommand{\fix}[0]{\mbox{\scriptsize fix}}
 \newcommand{\free}[0]{\mbox{\scriptsize free}}
 \newcommand{\contained}[0]{\sqsubseteq}
+\newcommand{\auxassign}[0]{\alpha}
+\newcommand{\aux}[0]{\mbox{\scriptsize aux}}
 
 % coordinates for tikz address schematics
 \newcommand{\innerll}[0]{(0.25 + 0.625, 0.625)}
@@ -105,10 +107,10 @@ See \code{backprop\_params} below.
 \paragraph{Generate Method (\code{generate})}
 For each $x \in X$, $U^{gen}_x$ is a set of assignments, called \emph{valid generation constraints}, such that for each $u \in U^{\gen}_x$ there exists some $t \in T_x$ where $u \contained t$.
 $U^{\gen}_x$ need not include all such $u$ (i.e. $U^{\gen}_x$ is not necessarily the set of all projections of all assignments in $T_x$).
-We require that $\emptyassignment \in U^{\gen}_x$.
+We require that $\emptyassignment \in U^{\gen}_x$ and that $T_x \subseteq U^{\gen}_x$.
 For each $x \in X$ and $u \in U^{\gen}_x$, $Q^{\gen}_{x,u}$ is a probability distribution on assignments $s$ such that $Q^{\gen}_{x,u}(s) > 0$ if and only if $t = s \concat u$ for some $t \in T_x$.
 The distribution is normalized ($\sum_s Q^{\gen}_{x,u}(s) = 1$).
-Given $x \in X$ and $u \in U^{\gen}_x$, sample $s \sim Q^{\gen}_{x,u}(\cdot)$, and return $t = s \concat u$ and a weight $P_x(t) / Q_{x,u}(s)$.
+Given $x \in X$ and $u \in U^{\gen}_x$, sample $s \sim Q^{\gen}_{x,u}(\cdot)$, and return $t = s \concat u$ and a weight $P_x(t) / Q^{\gen}_{x,u}(s)$.
 Also return $y = f(x, t)$.
 
 %% generate address schematic %%
@@ -146,6 +148,10 @@ Also return $y = f(x, t)$.
 \end{subfigure}
 \caption{Schematic showing addresses of assignments involved in \code{generate}}
 \end{figure}
+
+\paragraph{Propose Method (\code{propose})}
+Given $x \in X$, and a set of addresses $A$ such that for all $t \in T_x$, $t|_A \in U^{\gen}_x$, sample $t \sim P_x(\cdot)$, then decompose $t = u \concat s$ where $u = t|_A$, and return $u$ and the weight $P_x(t) / Q^{\gen}_{x,u}(s)$.
+Also return $y = f(x, t)$.
 
 
 %%%%%%%%%%%%%%%%%%
@@ -253,7 +259,7 @@ where $s' = t|_{\dom{t} \setminus \dom{t'}}$ contains the part of $t$ that was \
 Also return $y = f(x', t')$.
 
 \begin{lemma} \label{lemma:fix-update-reverse}
-If $x, x' \in X, t \in T_x, u \in U^{\fix}_{x, x', t}$, and $s$ where $Q^{\fix}_{x,x',t,u}(s) > 0$, $v \in U^{\fix}_{x',x,t'}$ and $Q^{\fix}_{x',x,t'}(s') > 0$, then $v \concat s' \concat r' = t$ for $r'(a) = t(a)$ for $a \in (\dom{t} \cap \dom{t'}) \setminus \dom{u}$.
+If $x, x' \in X, t \in T_x, u \in U^{\fix}_{x, x', t}$, and $s$ where $Q^{\fix}_{x,x',t,u}(s) > 0$, $v \in U^{\fix}_{x',x,t'}$ and $Q^{\fix}_{x',x,t'}(s') > 0$, then $v \concat s' \concat r = t$.
 \end{lemma}
 \begin{proof}
 \end{proof}
@@ -354,11 +360,101 @@ Each probabilistic module may also possess an indexed collection of families of 
 Probabilistic modules may also have update procedures that make arbitrary changes to their assignment, and return the appropriate weight.
 These two features are not yet implemented.
 
-\section{Untraced Random Choices}
+\section{Auxiliary Randomness}
+In this section, we generalize the above interface to support \emph{auxiliary random choices}, which permit encapsulation of internal randomness within a probabilistic module.
+Unlike traced assignments ($t$), auxiliary assignments (denoted $\auxassign$) are not exposed as user-readable.
+We replace the generative distribution $P_x(t)$ with a distribution $P_x(\auxassign, t)$ where $\auxassign$ is an assignment with $\dom{\auxassign} \cap \dom{t} = \varnothing$ for all $\auxassign, t$.
+The marginal distribution of $P_x(\auxassign, t)$ is $P_x(t) := \sum_{\auxassign} P_x(\auxassign, t)$.
+We define $T_x$ as $\{t : P_x(t) > 0\}$.
+We replace the function $f$ with $f : \{(x, \auxassign, t) : P_x(\auxassign, t) > 0 \} \to Y$ (i.e. the output value can depend on the auxiliary randomness).
+The module tuple is extended to include a family of distributions on the untraced assignments, denoted $Q^{\aux}_{x,t}(\auxassign)$, where $Q^{\aux}_{x,t}(\auxassign) > 0$ if and only if $P_x(\auxassign, t) > 0$.
+Each of the methods above is adjusted as follows:
+
+\paragraph{Generate Method (\code{generate})}
+In addition to sampling $s \sim Q^{\gen}_{x,u}(\cdot)$, we also sample $\auxassign \sim Q^{\aux}_{x,t}(\cdot)$.
+We return the weight $P_x(\auxassign, t) / (Q^{\gen}_{x,u}(s) Q^{\aux}_{x,t}(\auxassign))$
+We return $t$ and $\auxassign$.
+
+\paragraph{Propose Method (\code{propose})}
+Instead of sampling $t \sim P_x(\cdot)$, we sample jointly $\auxassign, t \sim P_x(\cdot, \cdot)$.
+We return $t$ and $\auxassign$.
+We return the weight $P_x(\auxassign, t) / (Q^{\gen}_{x,u}(s) Q^{\aux}_{x,t}(\auxassign))$
+
+\paragraph{Force Update Method (\code{force\_update})}
+In addition to $x, x', t, u$, we accept $\auxassign$ such that $P_x(\auxassign, t) > 0$.
+After computing $t'$, we sample $\auxassign' \sim Q^{\aux}_{x',t'}(\cdot)$.
+We return the weight:
+\[
+\left( \frac{P_{x'}(\auxassign', t')}{Q^{\aux}_{x',t'}(\auxassign')} \right)
+\bigg/
+\left( \frac{P_x(\auxassign, t)}{Q^{\aux}_{x,t}(\auxassign)} \right)
+\]
+
+\paragraph{Fix Update Method (\code{fix\_update})}
+In addition to $x, x', t, u$, we accept $\auxassign$ such that $P_x(\auxassign, t) > 0$.
+After sampling $s$ and computing $t'$, we sample $\auxassign' \sim Q^{\aux}_{x',t'}(\cdot)$.
+We return $(t, \auxassign)$ in addition to the weight:
+\[
+\left( \frac{P_{x'}(\auxassign', t')}{Q^{\fix}_{x,x',t,u}(s) Q^{\aux}_{x',t'}(\auxassign')} \right)
+\bigg/
+\left( \frac{P_x(\auxassign, t)}{Q^{\fix}_{x',x,t',v}(s') Q^{\aux}_{x,t}(\auxassign)} \right)
+\]
+
+\paragraph{Free Update Method (\code{free\_update})}
+In addition to $x, x', t$, we accept $\auxassign$ such that $P_x(\auxassign, t) > 0$.
+After sampling $t'$, we sample $\auxassign' \sim Q^{\aux}_{x',t'}(\cdot)$.
+We return $(t, \auxassign)$ in addition to the weight:
+\[
+\left( \frac{P_{x'}(\auxassign', t')}{Q^{\free}_{x,x',t}(t') Q^{\aux}_{x',t'}(\auxassign')} \right)
+\bigg/
+\left( \frac{P_x(\auxassign, t)}{Q^{\free}_{x',x,t'}(t') Q^{\aux}_{x,t}(\auxassign)} \right)
+\]
+
+\subsection{Untraced Auxiliary Assignments}
+Because auxiliary assignments are not exposed as user-readable, modules may choose to make use of the following optimization.
+Note that auxiliary assignments are only ever referenced as part of ratios of the form $P_x(t) / Q^{\aux}_{x,t}(\auxassign)$.
+Therefore, modules may compactly summarize the sufficient information about the auxiliary randomness in the form of this ratio.
 
 \section{Generative Functions}
-% an example of a probabilistic module that is composed of other probabilistic modules.
-% give implementations of these various things (as small step semantics?)
+Generative functions are one type of probabilistic module, in which the generative function $P_x$ is defined as a Julia function extended with probabilistic semantics.
+This section informally describes how generative functions implement each of the components of the probabilitsic module interface.
+
+\paragraph{Input type}
+The input type $X$ is the Julia type of the arguments to the function.
+
+\paragraph{Generative Distribution}
+The assignments $t$ generated by a generative function have a hierarchical structure.
+Each \emph{address key} used with the \code{@addr} keyword is either a \emph{primitive address}, which is the address of a single random choice sampled from a probability distribution with known probability mass function, or a \emph{namespace}, under which the assignment of a called probabilistic module is generated.
+The generative distribution $P_x(t)$ is defined by the product of probabilities of primitive addresses taking given values, with the probability of assignments to namespaces determined by the called probabilistic modules.
+Auxiliary randomness $\auxassign$ consists of random choices that are not annotated with \code{@addr}.
+For $Q^{\aux}_{x,t}$ we use forward evaluation, so that $P_x(t) / Q^{\aux}_{x,t}(\auxassign)$ is typically computed simply as a product of probabilities that skips over factors for the auxiliary addresses, due to cancellation of factors.
+
+\paragraph{Output function}
+The output function maps a terminating state of the function to the output value $y$, where the state of the function is a (deterministic) function of $x$, $\auxassign$, and $t$.
+
+\paragraph{Generate Method (\code{generate})}
+For $Q^{\gen}_{x,u}$ we use forward evaluation for primitive addresses, so that the weight is computed as a product of probabilities in $\dom{u}$ only, due to cancellation of factors for addresses in $\dom{s}$.
+For addresses in namespaces we recursively invoke \code{generate}.
+
+\paragraph{Propose Method (\code{propose})}
+See `Generative Method'.
+
+\paragraph{Force Update Method (\code{force\_update})}
+For addresses in namespaces we recursively invoke \code{force\_update}.
+
+\paragraph{Fix Update Method (\code{fix\_update})}
+For $Q^{\fix}_{x,t}$ we use forward simulation of primitive addresses, and we for addresses in namespaces we recursively invoke \code{fix\_update}.
+
+\paragraph{Free Update Method (\code{free\_update})}
+% TODO accepts a set of addresses to resimulate... recursiely calls?
+
+\subsection{Untraced Auxiliary Assignments}
+Because auxiliary assignments are not exposed as user-readable, modules may choose to make use of the following optimization.
+Note that auxiliary assignments are only ever referenced as part of ratios of the form $P_x(t) / Q^{\aux}_{x,t}(\auxassign)$.
+Therefore, modules may compactly summarize the sufficient information about the auxiliary randomness in the form of this ratio.
+
+
+
 
 \clearpage
 \bibliographystyle{abbrv}
