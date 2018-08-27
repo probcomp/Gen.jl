@@ -138,6 +138,12 @@ function regenerate end
 """
 function ungenerate end
 
+"""
+    input_grads::Tuple = backprop_params(g:en:Generator, trace, retval_grad, read_trace)
+"""
+function backprop_params end
+
+
 export Generator
 export simulate
 export extend
@@ -148,6 +154,7 @@ export assess
 export update
 export regenerate
 export ungenerate
+export backprop_params
 
 
 ###########################
