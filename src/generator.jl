@@ -160,6 +160,7 @@ export update
 export regenerate
 export ungenerate
 export backprop_params
+export backprop_trace
 
 
 ###########################
