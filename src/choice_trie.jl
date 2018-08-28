@@ -368,7 +368,37 @@ function Base.merge!(a::DynamicChoiceTrie, b)
     a
 end
 
+function to_array(trie::DynamicChoiceTrie, ::Type{T}) where {T}
+    leaf_keys_sorted = sort(collect(keys(trie.leaf_nodes)))
+    internal_node_keys_sorted = sort(collect(keys(trie.internal_nodes)))
+    arr = Vector{T}(length(leaf_keys_sorted))
+    for (i, key) in enumerate(leaf_keys_sorted)
+        arr[i] = trie.leaf_nodes[key]
+    end
+    for key in internal_node_keys_sorted
+        internal_node_arr = to_array(get_internal_node(trie, key), T)
+        append!(arr, internal_node_arr)
+    end
+    arr
+end
 
+function from_array(proto_trie::DynamicChoiceTrie, arr::Vector{T}) where {T}
+    trie = DynamicChoiceTrie()
+    leaf_keys_sorted = sort(collect(keys(proto_trie.leaf_nodes)))
+    internal_node_keys_sorted = sort(collect(keys(proto_trie.internal_nodes)))
+    for (i, key) in enumerate(leaf_keys_sorted)
+        trie.leaf_nodes[key] = arr[i]
+    end
+    nread = length(leaf_keys_sorted)
+    for key in internal_node_keys_sorted
+        (nread_key, node) = from_array(get_internal_node(trie, key), arr[nread+1:end])
+        nread += nread_key
+        trie.internal_nodes[key] = node
+    end
+    (nread, trie)
+end
+
+export to_array, from_array # TODO Q: make these part of the choice trie interface?, No: They are optional.
 export DynamicChoiceTrie
 
 

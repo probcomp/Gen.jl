@@ -58,10 +58,13 @@ marked_for_ad(arg::Expr) = (arg.head == :macrocall && arg.args[1] == Symbol("@ad
 strip_marked_for_ad(arg::Symbol) = arg
 function strip_marked_for_ad(arg::Expr) 
     if (arg.head == :macrocall && arg.args[1] == Symbol("@ad"))
-        if length(arg.args) != 2
+		if length(arg.args) == 3 && isa(arg.args[2], LineNumberNode)
+			arg.args[3]
+		elseif length(arg.args) == 2
+			arg.args[2]
+		else
             error("Syntax error at $arg")
         end
-        arg.args[2]
     else
         arg
     end
@@ -109,6 +112,7 @@ function parse_gen_function(ast, ad_annotation::Bool)
     function_name = signature.args[1]
     args = signature.args[2:end]
     has_argument_grads = map(marked_for_ad, args)
+	#println("args: $args")
     args = map(strip_marked_for_ad, args)
     arg_types = map(esc, parse_arg_types(args))
     escaped_args = map(esc, args)
@@ -252,6 +256,7 @@ include("project.jl")
 include("regenerate.jl")
 include("ungenerate.jl")
 include("backprop_params.jl")
+include("backprop_trace.jl")
 
 export set_param!, get_param, get_param_grad, zero_param_grad!, init_param!
 export @ad

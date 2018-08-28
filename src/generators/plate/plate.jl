@@ -48,6 +48,8 @@ include("generate.jl")
 include("update.jl")
 include("extend.jl")
 include("project.jl")
+#include("backprop_params.jl")
+include("backprop_trace.jl")
 
 #include("ungenerate.jl")
 

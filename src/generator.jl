@@ -143,6 +143,11 @@ function ungenerate end
 """
 function backprop_params end
 
+"""
+    (input_grads::Tuple, values, gradients) = backprop_trace(gen:Generator, trace, retval_grad, read_trace)
+"""
+function backprop_trace end
+
 
 export Generator
 export simulate
