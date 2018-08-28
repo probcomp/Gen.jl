@@ -179,8 +179,8 @@ end
 
 function has_leaf_node(trie::StaticChoiceTrie, addr::Pair)
     (first, rest) = addr
-    if haskey(trie.leaf_nodes, first)
-        node = trie.leaf_nodes[first]
+    if haskey(trie.internal_nodes, first)
+        node = trie.internal_nodes[first]
         has_leaf_node(node, rest)
     else
         false
@@ -226,18 +226,17 @@ function pair(a, b, key1::Symbol, key2::Symbol)
     StaticChoiceTrie(NamedTuple(), NamedTuple{(key1,key2)}((a, b)))
 end
 
-function unpair(trie::StaticChoiceTrie, key1::Symbol, key2::Symbol)
-    if length(trie.leaf_nodes) != 0 || length(trie.internal_nodes) > 2
+function unpair(trie, key1::Symbol, key2::Symbol)
+    if length(get_leaf_nodes(trie)) != 0 || length(get_internal_nodes(trie)) > 2
         error("Not a pair")
     end
-    a = haskey(trie.internal_nodes, key1) ? trie.internal_nodes[key1] : EmptyChoiceTrie()
-    b = haskey(trie.internal_nodes, key2) ? trie.internal_nodes[key2] : EmptyChoiceTrie()
+    a = has_internal_node(trie, key1) ? get_internal_node(trie, key1) : EmptyChoiceTrie()
+    b = has_internal_node(trie, key2) ? get_internal_node(trie, key2) : EmptyChoiceTrie()
     (a, b)
 end
 
 export StaticChoiceTrie
 export pair, unpair
-
 
 #######################
 # dynamic choice trie #

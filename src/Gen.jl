@@ -6,7 +6,7 @@ module Gen
     include("distribution.jl")
     include("dsl_common.jl")
     include("generators/generators.jl")
-    #include("injective.jl")
+    include("injective.jl")
     include("selection.jl")
     include("inference.jl")
 end # module
