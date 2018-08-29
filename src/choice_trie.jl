@@ -104,6 +104,28 @@ export has_leaf_node
 export get_leaf_node
 export get_leaf_nodes 
 
+function _fill_array! end
+function _from_array end
+
+function to_array(trie::ChoiceTrie, ::Type{T}) where {T}
+    arr = Vector{T}(undef, 32)
+    n = _fill_array!(trie, arr, 0)
+    @assert n <= length(arr)
+    resize!(arr, n)
+    arr
+end
+
+function from_array(proto_trie::ChoiceTrie, arr)
+    (n, trie) = _from_array(proto_trie, arr, 0)
+    if n != length(arr)
+        error("Dimension mismatch: $n, $(length(arr))")
+    end
+    trie
+end
+
+export to_array, from_array
+
+
 
 ######################
 # static choice trie #
@@ -233,6 +255,36 @@ function unpair(trie, key1::Symbol, key2::Symbol)
     a = has_internal_node(trie, key1) ? get_internal_node(trie, key1) : EmptyChoiceTrie()
     b = has_internal_node(trie, key2) ? get_internal_node(trie, key2) : EmptyChoiceTrie()
     (a, b)
+end
+
+function _fill_array!(trie::StaticChoiceTrie, arr::Vector{T}, start_idx::Int) where {T}
+    if length(arr) < start_idx + length(trie.leaf_nodes)
+        resize!(arr, 2 * length(arr))
+    end
+    for (i, value) in enumerate(trie.leaf_nodes)
+        arr[start_idx + i] = value
+    end
+    idx = start_idx + length(trie.leaf_nodes)
+    for (i, node) in enumerate(trie.internal_nodes)
+        n_written = _fill_array!(node, arr, idx)
+        idx += n_written
+    end
+    idx - start_idx
+end
+
+function _from_array(proto_trie::StaticChoiceTrie{R,S,T,U}, arr::Vector{V}, start_idx::Int) where {R,S,T,U,V}
+    n_read = length(proto_trie.leaf_nodes)
+    leaf_nodes_field = NamedTuple{R,S}(view(arr, start_idx+1:start_idx+n_read))
+    idx::Int = start_idx + n_read
+    internal_nodes = [] # TODO improve performance
+    for proto_node in proto_trie.internal_nodes
+        (n_read, node) = _from_array(proto_node, arr, idx)
+        idx += n_read 
+        push!(internal_nodes, node)
+    end
+    internal_nodes_field = NamedTuple{T,U}(internal_nodes)
+    trie = StaticChoiceTrie{R,S,T,U}(leaf_nodes_field, internal_nodes_field)
+    (idx - start_idx, trie)
 end
 
 export StaticChoiceTrie
@@ -367,43 +419,48 @@ function Base.merge!(a::DynamicChoiceTrie, b)
     a
 end
 
-function to_array(trie::DynamicChoiceTrie, ::Type{T}) where {T}
+function _fill_array!(trie::DynamicChoiceTrie, arr::Vector{T}, start_idx::Int) where {T}
+    if length(arr) < start_idx + length(trie.leaf_nodes)
+        resize!(arr, 2 * length(arr))
+    end
     leaf_keys_sorted = sort(collect(keys(trie.leaf_nodes)))
     internal_node_keys_sorted = sort(collect(keys(trie.internal_nodes)))
-    arr = Vector{T}(length(leaf_keys_sorted))
     for (i, key) in enumerate(leaf_keys_sorted)
-        arr[i] = trie.leaf_nodes[key]
+        arr[start_idx + i] = trie.leaf_nodes[key]
     end
+    idx = start_idx + length(trie.leaf_nodes)
     for key in internal_node_keys_sorted
-        internal_node_arr = to_array(get_internal_node(trie, key), T)
-        append!(arr, internal_node_arr)
+        n_written = _fill_array!(get_internal_node(trie, key), arr, idx)
+        idx += n_written
     end
-    arr
+    idx - start_idx
 end
 
-function from_array(proto_trie::DynamicChoiceTrie, arr::Vector{T}) where {T}
+function _from_array(proto_trie::DynamicChoiceTrie, arr::Vector{T}, start_idx::Int) where {T}
+    @assert length(arr) >= start_idx
     trie = DynamicChoiceTrie()
     leaf_keys_sorted = sort(collect(keys(proto_trie.leaf_nodes)))
     internal_node_keys_sorted = sort(collect(keys(proto_trie.internal_nodes)))
     for (i, key) in enumerate(leaf_keys_sorted)
-        trie.leaf_nodes[key] = arr[i]
+        trie.leaf_nodes[key] = arr[start_idx + i]
     end
-    nread = length(leaf_keys_sorted)
+    idx = start_idx + length(trie.leaf_nodes)
     for key in internal_node_keys_sorted
-        (nread_key, node) = from_array(get_internal_node(trie, key), arr[nread+1:end])
-        nread += nread_key
+        (n_read, node) = _from_array(get_internal_node(proto_trie, key), arr, idx)
+        idx += n_read
         trie.internal_nodes[key] = node
     end
-    (nread, trie)
+    (idx - start_idx, trie)
 end
 
-export to_array, from_array # TODO Q: make these part of the choice trie interface?, No: They are optional.
 export DynamicChoiceTrie
 
 
 #######################################
 ## vector combinator for choice tries #
 #######################################
+
+# TODO implement LeafVectorChoiceTrie, which stores a vector of leaf nodes
 
 struct InternalVectorChoiceTrie{T} <: ChoiceTrie
     internal_nodes::Vector{T}
@@ -461,6 +518,27 @@ end
 
 get_leaf_nodes(choices::InternalVectorChoiceTrie) = ()
 
+function _fill_array!(trie::InternalVectorChoiceTrie, arr::Vector{T}, start_idx::Int) where {T}
+    idx = start_idx
+    for key=1:length(trie.internal_nodes)
+        n = _fill_array!(trie.internal_nodes[key], arr, idx)
+        idx += n
+    end
+    idx - start_idx
+end
+
+function _from_array(proto_trie::InternalVectorChoiceTrie{U}, arr::Vector{T}, start_idx::Int) where {T,U}
+    @assert length(arr) >= start_idx
+    nodes = Vector{U}(undef, length(proto_trie.internal_nodes))
+    idx = start_idx
+    for key=1:length(proto_trie.internal_nodes)
+        (n_read, nodes[key]) = _from_array(proto_trie.internal_nodes[key], arr, idx)
+        idx += n_read
+    end
+    trie = InternalVectorChoiceTrie(nodes, proto_trie.is_empty)
+    (idx - start_idx, trie)
+end
+
 export InternalVectorChoiceTrie
 export vectorize_internal
 
@@ -475,5 +553,8 @@ Base.isempty(::EmptyChoiceTrie) = true
 get_address_schema(::Type{EmptyChoiceTrie}) = EmptyAddressSchema()
 get_internal_nodes(::EmptyChoiceTrie) = ()
 get_leaf_nodes(::EmptyChoiceTrie) = ()
+
+_fill_array!(trie::EmptyChoiceTrie, arr::Vector, start_idx::Int) = 0
+_from_array(proto_trie::EmptyChoiceTrie, arr::Vector, start_idx::Int) = (0, EmptyChoiceTrie())
 
 export EmptyChoiceTrie
