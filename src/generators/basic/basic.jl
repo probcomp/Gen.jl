@@ -151,26 +151,39 @@ function generate_ir(args, body)
     ir
 end
 
-function basic_gen_parse(ast)
-    dsl = Symbol("@compiled")
-    if ast.head != :macrocall || ast.args[1] != Symbol("@gen")
-        error("syntax error in $dsl, expected $dsl @gen function .. end")
-    end
+function compiled_gen_parse_inner(ast)
+    @assert isa(ast, Expr) && ast.head == :macrocall && ast.args[1] == Symbol("@gen")
     ast = isa(ast.args[2], LineNumberNode) ? ast.args[3] : ast.args[2]
     if ast.head != :function
-        error("syntax error in $dsl at $(ast) in $(ast.head)")
+        error("syntax error in @compiled at $(ast) in $(ast.head)")
     end
     if length(ast.args) != 2
-        error("syntax error in $dsl at $(ast) in $(ast.args)")
+        error("syntax error in @compile at $(ast) in $(ast.args)")
     end
     signature = ast.args[1]
     body = ast.args[2]
     if signature.head != :call
-        error("syntax error in $dsl at $(ast) in $(signature)")
+        error("syntax error in @compiled at $(ast) in $(signature)")
     end
     name = signature.args[1]
     args = signature.args[2:end]
-    (name, args, body)
+    has_argument_grads = map(marked_for_ad, args)
+    args = map(strip_marked_for_ad, args)
+    (name, args, body, has_argument_grads)
+end
+
+function compiled_gen_parse(ast)
+    if ast.head == :macrocall && ast.args[1] == Symbol("@gen")
+        (name, args, body, args_ad) = compiled_gen_parse_inner(ast)
+        return (name, args, body, false, args_ad)
+    elseif (ast.head == :macrocall && ast.args[1] == Symbol("@ad")
+        && isa(ast.args[2], Expr)
+        && (ast.args[2].head == :macrocall && ast.args[2].args[1] == Symbol("@gen")))
+        (name, args, body, args_ad) = compiled_gen_parse_inner(ast.args[2])
+        return (name, args, body, true, args_ad)
+    else
+        error("syntax error in @compiled, expected @compiled @gen .. or @compiled @ad @gen ..")
+    end
 end
 
 ###########################
@@ -182,6 +195,8 @@ end
 # - a field for each addr statement (either a subtrace nor a value)
 # - note: there is redundancy between the value nodes and the distribution addr fields
 
+const is_empty_field = gensym("is_empty")
+const call_record_field = gensym("call_record")
 const value_node_prefix = gensym("value")
 
 function value_field(name::Symbol)
@@ -201,18 +216,26 @@ struct BasicBlockChoices{T} <: ChoiceTrie
     trace::T
 end
 
+function static_has_leaf_node end
+function static_has_internal_node end
+
 get_address_schema(::Type{BasicBlockChoices{T}}) where {T} = get_address_schema(T)
+Base.isempty(trie::BasicBlockChoices) = getproperty(trie.trace, is_empty_field)
+get_leaf_node(trie::BasicBlockChoices, key::Symbol) = static_get_leaf_node(trie, Val(key))
+get_internal_node(trie::BasicBlockChoices, key::Symbol) = static_get_internal_node(trie, Val(key))
+has_leaf_node(trie::BasicBlockChoices, key::Symbol) = static_has_leaf_node(trie, Val(key))
+has_internal_node(trie::BasicBlockChoices, key::Symbol) = static_has_internal_node(trie, Val(key))
+has_leaf_node(trie::BasicBlockChoices, addr::Pair) = _has_leaf_node(trie, addr)
+get_leaf_node(trie::BasicBlockChoices, addr::Pair) = _get_leaf_node(trie, addr)
+has_internal_node(trie::BasicBlockChoices, addr::Pair) = _has_internal_node(trie, addr)
+get_internal_node(trie::BasicBlockChoices, addr::Pair) = _get_internal_node(trie, addr)
 
 function make_choice_trie_methods(trace_type, addr_dist_nodes, addr_gen_nodes)
     methods = Expr[]
 
-    push!(methods, quote
-        Base.isempty(trie::Gen.BasicBlockChoices{$trace_type}) = trie.trace.$is_empty_field
-    end)
+    ## get_leaf_nodes ##
 
-    # get_leaf_nodes
     leaf_addrs = map((node) -> node.address, addr_dist_nodes)
-
     push!(methods, quote
         function Gen.get_leaf_nodes(trie::Gen.BasicBlockChoices{$trace_type})
             $(Expr(:tuple,
@@ -220,9 +243,9 @@ function make_choice_trie_methods(trace_type, addr_dist_nodes, addr_gen_nodes)
         end
     end)
 
-    # get_internal_nodes
-    internal_addrs = map((node) -> node.address, addr_gen_nodes)
+    ## get_internal_nodes ##
 
+    internal_addrs = map((node) -> node.address, addr_gen_nodes)
     push!(methods, quote
         function Gen.get_internal_nodes(trie::Gen.BasicBlockChoices{$trace_type})
             $(Expr(:tuple,
@@ -233,19 +256,7 @@ function make_choice_trie_methods(trace_type, addr_dist_nodes, addr_gen_nodes)
     for node::AddrDistNode in addr_dist_nodes
         addr = node.address
 
-        push!(methods, quote
-            function Gen._has_leaf_node(trie::Gen.BasicBlockChoices{$trace_type},
-                                           ::Val{$(QuoteNode(addr))})
-                true
-            end
-        end)
-
-        push!(methods, quote
-            function Gen.has_leaf_node(trie::Gen.BasicBlockChoices{$trace_type}, key::Symbol)
-                Gen._has_leaf_node(Val(key))
-            end
-        end)
-
+        ## static_get_leaf_node ##
 
         push!(methods, quote
             function Gen.static_get_leaf_node(trie::Gen.BasicBlockChoices{$trace_type},
@@ -254,9 +265,12 @@ function make_choice_trie_methods(trace_type, addr_dist_nodes, addr_gen_nodes)
             end
         end)
 
+        ## static_has_leaf_node ##
+
         push!(methods, quote
-            function Gen.get_leaf_node(trie::Gen.BasicBlockChoices{$trace_type}, key::Symbol)
-                Gen.static_get_leaf_node(trie, Val(key))
+            function Gen.static_has_leaf_node(trie::Gen.BasicBlockChoices{$trace_type},
+                                           ::Val{$(QuoteNode(addr))})
+                true
             end
         end)
 
@@ -265,102 +279,27 @@ function make_choice_trie_methods(trace_type, addr_dist_nodes, addr_gen_nodes)
     for node::AddrGeneratorNode in addr_gen_nodes
         addr = node.address
 
-        push!(methods, quote
-            function Gen._has_leaf_node(trie::Gen.BasicBlockChoices{$trace_type},
-                                           addr::Pair{Val{$(QuoteNode(addr))},T}) where {T}
-                (_, rest) = addr
-                has_leaf_node(get_choices(trie.trace.$addr), rest)
-            end
-        end)
+        ## static_has_internal_node ##
 
         push!(methods, quote
-            function Gen.has_leaf_node(trie::Gen.BasicBlockChoices{$trace_type}, addr::Pair{Symbol,T}) where {T}
-                (first, rest) = addr
-                node = Gen.static_get_internal_node(trie, Val(first))
-                has_leaf_node(node, rest)
-            end
-        end)
-
-        push!(methods, quote
-            function Gen.static_get_leaf_node(trie::Gen.BasicBlockChoices{$trace_type},
-                                           addr::Pair{Val{$(QuoteNode(addr))},T}) where {T}
-                (_, rest) = addr
-                get_leaf_node(get_choices(trie.trace.$addr), rest)
-            end
-        end)
-
-        push!(methods, quote
-            function Gen.get_leaf_node(trie::Gen.BasicBlockChoices{$trace_type}, addr::Pair{Symbol,T}) where {T}
-                (first, rest) = addr
-                node = Gen.static_get_internal_node(trie, Val(first))
-                get_leaf_node(node, rest)
-            end
-        end)
-
-        push!(methods, quote
-            function Gen._has_internal_node(trie::Gen.BasicBlockChoices{$trace_type},
-                                           ::Val{$(QuoteNode(addr))})
+            function Gen.static_has_internal_node(trie::Gen.BasicBlockChoices{$trace_type},
+                                                  ::Val{$(QuoteNode(addr))})
                 true
             end
         end)
 
-        push!(methods, quote
-            function Gen.has_internal_node(trie::Gen.BasicBlockChoices{$trace_type}, key::Symbol)
-                Gen._has_internal_node(trie, Val(key))
-            end
-        end)
-
-        push!(methods, quote
-            function Gen._has_internal_node(trie::Gen.BasicBlockChoices{$trace_type},
-                                           addr::Pair{Val{$(QuoteNode(addr))},T}) where {T}
-                (_, rest) = addr
-                has_internal_node(trie.trace.$addr, rest)
-            end
-        end)
-
-        push!(methods, quote
-            function Gen._has_internal_node(trie::Gen.BasicBlockChoices{$trace_type}, addr::Pair{Symbol,T}) where {T}
-                (first, rest) = addr
-                node = Gen.static_get_internal_node(trie, Val(first))
-                has_internal_node(node, rest)
-            end
-        end)
+        ## static_get_internal_node ##
 
         push!(methods, quote
             function Gen.static_get_internal_node(trie::Gen.BasicBlockChoices{$trace_type},
-                                           ::Val{$(QuoteNode(addr))})
+                                                  ::Val{$(QuoteNode(addr))})
                 get_choices(trie.trace.$addr)
-            end
-        end)
-
-        push!(methods, quote
-            function Gen.get_internal_node(trie::Gen.BasicBlockChoices{$trace_type}, key::Symbol)
-                Gen.static_get_internal_node(trie, Val(key))
-            end
-        end)
-
-        push!(methods, quote
-            function Gen.static_get_internal_node(trie::Gen.BasicBlockChoices{$trace_type},
-                                           addr::Pair{Val{$(QuoteNode(addr))},T}) where {T}
-                (_, rest) = addr
-                get_internal_node(trie.trace.$addr, rest)
-            end
-        end)
-
-        push!(methods, quote
-            function Gen.get_internal_node(trie::Gen.BasicBlockChoices{$trace_type}, addr::Pair{Symbol,T}) where {T}
-                (first, rest) = addr
-                node = Gen.static_get_internal_node(trie, Val(first))
-                get_internal_node(node, rest)
             end
         end)
     end
 
     methods
 end
-
-const is_empty_field = gensym("is_empty")
-const call_record_field = gensym("call_record")
 
 function generate_trace_type(ir::BasicBlockIR, name)
     trace_type_name = gensym("BasicBlockTrace_$name")
@@ -451,7 +390,8 @@ end
 macro compiled(ast)
 
     # parse the AST
-    (name, args, body) = basic_gen_parse(ast)
+    (name, args, body, output_ad, args_ad) = compiled_gen_parse(ast)
+    # TODO use output_ad and args_ad somewhere
 
     # geneate intermediate data-flow representation
     ir = generate_ir(args, body)

@@ -42,24 +42,8 @@ function has_internal_node(trie::HomogenousTrie, addr)
     haskey(trie.internal_nodes, addr)
 end
 
-function has_internal_node(trie::HomogenousTrie, addr::Pair)
-    (first, rest) = addr
-    if haskey(trie.internal_nodes, first)
-        node = trie.internal_nodes[first]
-        has_internal_node(node, rest)
-    else
-        false
-    end
-end
-
 function get_internal_node(trie::HomogenousTrie, addr)
     trie.internal_nodes[addr]
-end
-
-function get_internal_node(trie::HomogenousTrie, addr::Pair)
-    (first, rest) = addr
-    node = trie.internal_nodes[first]
-    get_internal_node(node, rest)
 end
 
 function set_internal_node!(trie::HomogenousTrie{K,V}, addr, new_node::HomogenousTrie{K,V}) where {K,V}
@@ -99,24 +83,8 @@ function has_leaf_node(trie::HomogenousTrie, addr)
     haskey(trie.leaf_nodes, addr)
 end
 
-function has_leaf_node(trie::HomogenousTrie, addr::Pair)
-    (first, rest) = addr
-    if haskey(trie.internal_nodes, addr)
-        node = trie.internal_nodes[first]
-        has_leaf_node(node, rest)
-    else
-        false
-    end
-end
-
 function get_leaf_node(trie::HomogenousTrie, addr)
     trie.leaf_nodes[addr]
-end
-
-function get_leaf_node(trie::HomogenousTrie, addr::Pair)
-    (first, rest) = addr
-    node = trie.internal_nodes[first]
-    get_leaf_node(node, rest)
 end
 
 function set_leaf_node!(trie::HomogenousTrie, addr, value)

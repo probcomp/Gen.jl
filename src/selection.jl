@@ -39,7 +39,7 @@ struct SelectionState{T}
     visitor::AddressVisitor
 end
 
-function SelectionState{T}(choices::T)
+function SelectionState(choices::T) where {T}
     SelectionState(choices, DynamicAddressSet(), AddressVisitor())
 end
 

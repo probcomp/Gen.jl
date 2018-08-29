@@ -37,13 +37,49 @@ Alias for get_leaf_node
 """
 abstract type ChoiceTrie end
 
-# defaults
 has_internal_node(trie::ChoiceTrie, addr) = false
 get_internal_node(trie::ChoiceTrie, addr) = throw(KeyError(addr))
 has_leaf_node(trie::ChoiceTrie, addr) = false
 get_leaf_node(trie::ChoiceTrie, addr) = throw(KeyError(addr))
 Base.haskey(trie::ChoiceTrie, addr) = has_leaf_node(trie, addr)
 Base.getindex(trie::ChoiceTrie, addr) = get_leaf_node(trie, addr)
+
+# this code will be duplcated in:
+# dynamic choice trie
+# static choice trie
+# basic block trace choices
+
+function _has_leaf_node(choices::T, addr::Pair) where {T <: ChoiceTrie}
+    (first, rest) = addr
+    if has_internal_node(choices, first)
+        node = get_internal_node(choices, first)
+        has_leaf_node(node, rest)
+    else
+        false
+    end
+end
+
+function _get_leaf_node(choices::T, addr::Pair) where {T <: ChoiceTrie}
+    (first, rest) = addr
+    node = get_internal_node(choices, first)
+    get_leaf_node(node, rest)
+end
+
+function _has_internal_node(trie::T, addr::Pair) where {T <: ChoiceTrie}
+    (first, rest) = addr
+    if has_internal_node(trie, first)
+        node = get_internal_node(trie, first)
+        has_internal_node(node, rest)
+    else
+        false
+    end
+end
+
+function _get_internal_node(trie::T, addr::Pair) where {T <: ChoiceTrie}
+    (first, rest) = addr
+    node = get_internal_node(trie, first)
+    get_internal_node(node, rest)
+end
 
 function to_nested_dict(choice_trie::ChoiceTrie)
     dict = Dict()
@@ -128,61 +164,44 @@ end
 
 get_leaf_nodes(trie::StaticChoiceTrie) = pairs(trie.leaf_nodes)
 get_internal_nodes(trie::StaticChoiceTrie) = pairs(trie.internal_nodes)
+has_leaf_node(trie::StaticChoiceTrie, addr::Pair) = _has_leaf_node(trie, addr)
+get_leaf_node(trie::StaticChoiceTrie, addr::Pair) = _get_leaf_node(trie, addr)
+has_internal_node(trie::StaticChoiceTrie, addr::Pair) = _has_internal_node(choices, addr)
+get_internal_node(trie::StaticChoiceTrie, addr::Pair) = _get_internal_node(choices, addr)
+
+# NOTE: there is no static_has_internal_node or static_has_leaf_node because
+# this is known from the static address schema
+
+## has_internal_node ##
 
 function has_internal_node(trie::StaticChoiceTrie, key::Symbol)
     haskey(trie.internal_nodes, key)
 end
 
-function has_internal_node(trie::StaticChoiceTrie, addr::Pair)
-    (first, rest) = addr
-    if haskey(trie.internal_nodes, first)
-        node = trie.internal_nodes[first]
-        has_internal_node(node, rest)
-    else
-        false
-    end
+## has_leaf_node ##
+
+function has_leaf_node(trie::StaticChoiceTrie, key::Symbol)
+    haskey(trie.leaf_nodes, key)
+end
+
+## get_internal_node ##
+
+function get_internal_node(trie::StaticChoiceTrie, key::Symbol)
+    trie.internal_nodes[key]
 end
 
 function static_get_internal_node(trie::StaticChoiceTrie, ::Val{A}) where {A}
     trie.internal_nodes[A]
 end
 
-function get_internal_node(trie::StaticChoiceTrie, key::Symbol)
-    trie.internal_nodes[key]
-end
-
-function get_internal_node(trie::StaticChoiceTrie, addr::Pair)
-    (first, rest) = addr
-    node = trie.internal_nodes[first]
-    get_internal_node(node, rest)
-end
-
-function has_leaf_node(trie::StaticChoiceTrie, key::Symbol)
-    haskey(trie.leaf_nodes, key)
-end
-
-function has_leaf_node(trie::StaticChoiceTrie, addr::Pair)
-    (first, rest) = addr
-    if haskey(trie.internal_nodes, first)
-        node = trie.internal_nodes[first]
-        has_leaf_node(node, rest)
-    else
-        false
-    end
-end
-
-function static_get_leaf_node(trie::StaticChoiceTrie, ::Val{A}) where {A}
-    trie.leaf_nodes[A]
-end
+## get_leaf_node ##
 
 function get_leaf_node(trie::StaticChoiceTrie, key::Symbol)
     trie.leaf_nodes[key]
 end
 
-function get_leaf_node(trie::StaticChoiceTrie, addr::Pair)
-    (first, rest) = addr
-    node = trie.internal_nodes[first]
-    get_leaf_node(node, rest)
+function static_get_leaf_node(trie::StaticChoiceTrie, ::Val{A}) where {A}
+    trie.leaf_nodes[A]
 end
 
 # convert from any other schema that has only Val{:foo} addresses
@@ -288,6 +307,10 @@ get_address_schema(::Type{DynamicChoiceTrie}) = DynamicAddressSchema()
 Base.isempty(trie::DynamicChoiceTrie) = isempty(trie.leaf_nodes) && isempty(trie.internal_nodes)
 get_leaf_nodes(trie::DynamicChoiceTrie) = trie.leaf_nodes
 get_internal_nodes(trie::DynamicChoiceTrie) = trie.internal_nodes
+has_leaf_node(trie::DynamicChoiceTrie, addr::Pair) = _has_leaf_node(trie, addr)
+get_leaf_node(trie::DynamicChoiceTrie, addr::Pair) = _get_leaf_node(trie, addr)
+has_internal_node(trie::DynamicChoiceTrie, addr::Pair) = _has_internal_node(choices, addr)
+get_internal_node(trie::DynamicChoiceTrie, addr::Pair) = _get_internal_node(choices, addr)
 
 function Base.values(trie::DynamicChoiceTrie)
     iterators::Vector = collect(map(values, trie.internal_nodes))
@@ -299,48 +322,16 @@ function has_internal_node(trie::DynamicChoiceTrie, addr)
     haskey(trie.internal_nodes, addr)
 end
 
-function has_internal_node(trie::DynamicChoiceTrie, addr::Pair)
-    (first, rest) = addr
-    if haskey(trie.internal_nodes, first)
-        node = trie.internal_nodes[first]
-        has_internal_node(node, rest)
-    else
-        false
-    end
-end
-
 function get_internal_node(trie::DynamicChoiceTrie, addr)
     trie.internal_nodes[addr]
-end
-
-function get_internal_node(trie::DynamicChoiceTrie, addr::Pair)
-    (first, rest) = addr
-    node = trie.internal_nodes[first]
-    get_internal_node(node, rest)
 end
 
 function has_leaf_node(trie::DynamicChoiceTrie, addr)
     haskey(trie.leaf_nodes, addr)
 end
 
-function has_leaf_node(trie::DynamicChoiceTrie, addr::Pair)
-    (first, rest) = addr
-    if haskey(trie.internal_nodes, first)
-        node = trie.internal_nodes[first]
-        has_leaf_node(node, rest)
-    else
-        false
-    end
-end
-
 function get_leaf_node(trie::DynamicChoiceTrie, addr)
     trie.leaf_nodes[addr]
-end
-
-function get_leaf_node(trie::DynamicChoiceTrie, addr::Pair)
-    (first, rest) = addr
-    node = trie.internal_nodes[first]
-    get_leaf_node(node, rest)
 end
 
 # mutation (not part of the choice trie interface)
@@ -460,37 +451,18 @@ end
 
 Base.isempty(choices::InternalVectorChoiceTrie) = choices.is_empty
 
+has_leaf_node(trie::InternalVectorChoiceTrie, addr::Pair) = _has_leaf_node(trie, addr)
+get_leaf_node(trie::InternalVectorChoiceTrie, addr::Pair) = _get_leaf_node(trie, addr)
+has_internal_node(trie::InternalVectorChoiceTrie, addr::Pair) = _has_internal_node(trie, addr)
+get_internal_node(trie::InternalVectorChoiceTrie, addr::Pair) = _get_internal_node(trie, addr)
+
 function has_internal_node(choices::InternalVectorChoiceTrie, addr::Int)
     n = length(choices.internal_nodes)
     addr >= 1 && addr <= n
 end
 
-function has_internal_node(choices::InternalVectorChoiceTrie, addr::Pair)
-    (first, rest) = addr
-    node = choices.internal_nodes[first]
-    has_internal_node(node, rest)
-end
-
 function get_internal_node(choices::InternalVectorChoiceTrie, addr::Int)
     choices.internal_nodes[addr]
-end
-
-function get_internal_node(choices::InternalVectorChoiceTrie, addr::Pair)
-    (first, rest) = addr
-    node = choices.internal_nodes[first]
-    get_internal_node(node, rest)
-end
-
-function has_leaf_node(choices::InternalVectorChoiceTrie, addr::Pair)
-    (first, rest) = addr
-    node = choices.internal_nodes[first]
-    has_leaf_node(node, rest)
-end
-
-function get_leaf_node(choices::InternalVectorChoiceTrie, addr::Pair)
-    (first, rest) = addr
-    node = choices.internal_nodes[first]
-    get_leaf_node(node, rest)
 end
 
 function get_internal_nodes(choices::InternalVectorChoiceTrie)

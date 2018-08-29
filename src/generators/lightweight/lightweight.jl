@@ -52,24 +52,6 @@ function parse_arg_types(args)
     types
 end
 
-marked_for_ad(arg::Symbol) = false
-marked_for_ad(arg::Expr) = (arg.head == :macrocall && arg.args[1] == Symbol("@ad"))
-
-strip_marked_for_ad(arg::Symbol) = arg
-function strip_marked_for_ad(arg::Expr) 
-    if (arg.head == :macrocall && arg.args[1] == Symbol("@ad"))
-		if length(arg.args) == 3 && isa(arg.args[2], LineNumberNode)
-			arg.args[3]
-		elseif length(arg.args) == 2
-			arg.args[2]
-		else
-            error("Syntax error at $arg")
-        end
-    else
-        arg
-    end
-end
-
 # TODO handle @compiled @ad @gen function and @ad compiled @gen function
 macro ad(ast)
     if ast.head != :macrocall || ast.args[1] != Symbol("@ad") || length(ast.args) != 2
