@@ -63,7 +63,10 @@ function addr(state::GFBackpropTraceState, dist::Distribution{T}, args, addr) wh
     visit!(state.visitor, addr)
     call::CallRecord = get_primitive_call(state.trace, addr)
     retval::T = call.retval
-    if addr in state.selection
+    if has_internal_node(state.selection, addr)
+        error("Got internal node but expected leaf node in selection at $addr")
+    end
+    if has_leaf_node(state.selection, addr)
         tracked_retval = track(retval, state.tape)
         set_leaf_node!(state.tracked_choices, addr, tracked_retval)
         score_tracked = logpdf(dist, tracked_retval, args...)
@@ -86,7 +89,7 @@ end
 
 function addr(state::GFBackpropTraceState, gen::Generator{T}, args, addr, args_change) where {T}
     visit!(state.visitor, addr)
-    if addr in state.selection
+    if has_leaf_node(state.selection, addr)
         error("Cannot select a whole subtrace, tried to select $addr")
     end
     trace = get_subtrace(state.trace, addr)
@@ -103,7 +106,11 @@ function addr(state::GFBackpropTraceState, gen::Generator{T}, args, addr, args_c
     # some of the args may be tracked (see special_reverse_exec!)
     # note: we still need to run backprop_params on gen, even if it does not
     # accept an output gradient, because it may make random choices.
-    selection = state.selection[addr] # this raises an error if addr is in state.selection
+    if has_internal_node(state.selection, addr)
+        selection = get_internal_node(state.selection, addr)
+    else
+        selection = EmptyAddressSet()
+    end
     record = BackpropTraceRecord(gen, trace, selection, state.value_trie,
                                  state.gradient_trie, addr)
     record!(state.tape, SpecialInstruction, record, (args...,), retval_maybe_tracked)

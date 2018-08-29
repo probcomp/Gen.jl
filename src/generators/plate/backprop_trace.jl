@@ -20,7 +20,11 @@ function backprop_trace(gen::Plate{T,U}, trace::VectorTrace{T,U}, selection::Add
     
     for key=1:len
         subtrace = trace.subtraces[key]
-        sub_selection = selection[key]
+        if has_internal_node(selection, key)
+            sub_selection = get_internal_node(selection, key)
+        else
+            sub_selection = EmptyAddressSet()
+        end
         kernel_retval_grad = (retval_grad == nothing) ? nothing : retval_grad[key]
         (kernel_arg_grad::Tuple, kernel_value_trie, kernel_gradient_trie) = backprop_trace(
             gen.kernel, subtrace, sub_selection, kernel_retval_grad)

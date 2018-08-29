@@ -8,7 +8,6 @@ struct CallRecord{T}
     args::Tuple
 end
 
-
 """
     get_call_record(trace)::CallRecord
 """
@@ -20,7 +19,6 @@ function get_call_record end
 If the choice trie returned by get_choices is empty or not.
 """
 function has_choices end
-
 
 """
 get_choices(trace)

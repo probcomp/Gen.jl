@@ -43,8 +43,8 @@ end
     @select(:outlier_std)
 end
 
-@gen function is_outlier_proposal(i::Int)
-    prev = @read(:data => i => :z)
+@gen function is_outlier_proposal(prev, i::Int)
+    prev = prev[:data => i => :z]
     @addr(bernoulli(prev ? 0.0 : 1.0), :data => i => :z)
 end
 

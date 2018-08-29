@@ -81,10 +81,7 @@ function map_optimize(model::Generator, selector::SelectionFunction, selector_ar
     score = get_call_record(trace).score
     while true
         new_values_vec = values_vec + gradient_vec * step_size
-		(nread, values) = from_array(values, new_values_vec)
-		if nread != length(new_values_vec)
-        	error("Length mismatch, got array of length $(length(new_values_vec)) but only $nread items read")
-		end
+		values = from_array(values, new_values_vec)
         # TODO discard and weight are not actually needed, there should be a more specialized variant
         (new_trace, _, discard, _) = update(model, model_args, NoChange(), trace, values)
         new_score = get_call_record(new_trace).score

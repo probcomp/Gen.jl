@@ -1,39 +1,3 @@
-###################
-# address schemas #
-###################
-
-abstract type AddressSchema end
-
-struct StaticAddressSchema <: AddressSchema
-    # TODO can add type information
-    leaf_nodes::Set{Symbol}
-    internal_nodes::Set{Symbol}
-end
-
-leaf_node_keys(schema::StaticAddressSchema) = schema.leaf_nodes
-internal_node_keys(schema::StaticAddressSchema) = schema.internal_nodes
-
-# choice tries that have static address schemas should also support faster
-# accessors, which make the address explicit in the type (Val(:foo) instaed of
-# :foo)
-function static_get_leaf_node end
-function static_get_internal_node end
-export static_get_leaf_node
-export static_get_internal_node
-
-struct VectorAddressSchema <: AddressSchema end 
-struct SingleDynamicKeyAddressSchema <: AddressSchema end 
-struct DynamicAddressSchema <: AddressSchema end 
-struct EmptyAddressSchema <: AddressSchema end
-
-export AddressSchema
-export StaticAddressSchema
-export VectorAddressSchema
-export SingleDynamicKeyAddressSchema
-export DynamicAddressSchema
-export EmptyAddressSchema
-
-
 #########################
 # choice trie interface #
 #########################
@@ -43,31 +7,31 @@ export EmptyAddressSchema
 
 Return a shallow, compile-time address schema.
     
-    Base.isempty(choices)
+    Base.isempty(trie)
 
-Are there any primitive random choices anywhere in the hierarchy?
+Are there any primitive random choice anywhere in the hierarchy?
 
-    has_internal_node(choices, addr)
+    has_internal_node(trie, addr)
 
-    get_internal_node(choices, addr)
+    get_internal_node(trie, addr)
 
-    get_internal_nodes(choices)
+    get_internal_nodes(trie)
 
 Return an iterator over top-level internal nodes
 
-    has_leaf_node(choices, addr)
+    has_leaf_node(trie, addr)
 
-    get_leaf_node(choices, addr)
+    get_leaf_node(trie, addr)
     
-    get_leaf_nodes(choices)
+    get_leaf_nodes(trie)
 
 Return an iterator over top-level leaf nodes
 
-    Base.haskey(choices, addr)
+    Base.haskey(trie, addr)
 
 Alias for has_leaf_node
 
-    Base.getindex(choices, addr)
+    Base.getindex(trie, addr)
 
 Alias for get_leaf_node
 """
@@ -104,6 +68,14 @@ export has_leaf_node
 export get_leaf_node
 export get_leaf_nodes 
 
+# choice tries that have static address schemas should also support faster
+# accessors, which make the address explicit in the type (Val(:foo) instaed of
+# :foo)
+function static_get_leaf_node end
+function static_get_internal_node end
+export static_get_leaf_node
+export static_get_internal_node
+
 function _fill_array! end
 function _from_array end
 
@@ -139,17 +111,15 @@ end
 # TODO invariant: all internal_nodes are nonempty, but this is not verified at construction time
 
 function get_address_schema(::Type{StaticChoiceTrie{R,S,T,U}}) where {R,S,T,U}
-    leaf_nodes = Set{Symbol}()
-    internal_nodes = Set{Symbol}()
+    leaf_keys = Set{Symbol}()
+    internal_keys = Set{Symbol}()
     for (key, _) in zip(R, S.parameters)
-        push!(leaf_nodes, key)
-        #leaf_nodes[key] = typ
+        push!(leaf_keys, key)
     end
     for (key, _) in zip(T, U.parameters)
-        push!(internal_nodes, key)
-        #internal_nodes[key] = typ
+        push!(internal_keys, key)
     end
-    StaticAddressSchema(leaf_nodes, internal_nodes)
+    StaticAddressSchema(leaf_keys, internal_keys)
 end
 
 function Base.isempty(trie::StaticChoiceTrie)
@@ -158,10 +128,6 @@ end
 
 get_leaf_nodes(trie::StaticChoiceTrie) = pairs(trie.leaf_nodes)
 get_internal_nodes(trie::StaticChoiceTrie) = pairs(trie.internal_nodes)
-
-function _has_internal_node(trie::StaticChoiceTrie, ::Val{A}) where {A}
-    haskey(trie.internal_nodes, A)
-end
 
 function has_internal_node(trie::StaticChoiceTrie, key::Symbol)
     haskey(trie.internal_nodes, key)
@@ -189,10 +155,6 @@ function get_internal_node(trie::StaticChoiceTrie, addr::Pair)
     (first, rest) = addr
     node = trie.internal_nodes[first]
     get_internal_node(node, rest)
-end
-
-function _has_leaf_node(trie::StaticChoiceTrie, ::Val{A}) where {A}
-    haskey(trie.leaf_nodes, A)
 end
 
 function has_leaf_node(trie::StaticChoiceTrie, key::Symbol)
@@ -229,13 +191,11 @@ function StaticChoiceTrie(other::ChoiceTrie)
     internal_keys_and_nodes = collect(get_internal_nodes(other))
     if length(leaf_keys_and_nodes) > 0
         (leaf_keys, leaf_nodes) = collect(zip(leaf_keys_and_nodes...))
-        #leaf_keys = map((k) -> typeof(k).parameters[1]::Symbol, leaf_keys)
     else
         (leaf_keys, leaf_nodes) = ((), ())
     end
     if length(internal_keys_and_nodes) > 0
         (internal_keys, internal_nodes) = collect(zip(internal_keys_and_nodes...))
-        #internal_keys = map((k) -> typeof(k).parameters[1]::Symbol, internal_keys)
     else
         (internal_keys, internal_nodes) = ((), ())
     end

@@ -35,8 +35,12 @@ end
 
 struct SelectionState{T}
     choices::T
-    selection::AddressSet
+    selection::DynamicAddressSet
     visitor::AddressVisitor
+end
+
+function SelectionState{T}(choices::T)
+    SelectionState(choices, DynamicAddressSet(), AddressVisitor())
 end
 
 function exec(fn::SelectionFunction, state::SelectionState, args::Tuple)
@@ -48,11 +52,17 @@ end
 
 function addr(state::SelectionState, fn::SelectionFunction, args, addr)
     visit!(state.visitor, addr)
-    node = get_internal_node(state.choices, addr)
-    # initializes and returns a new empty set if one does not already exist?
-    subselection = state.selection[addr]
-    sub_state = SelectionState(node, subselection, AddressVisitor())
-    exec(fn, sub_state, args)
+    if has_internal_node(state.choices, addr)
+        node = get_internal_node(state.choices, addr)
+    else
+        node = EmptyChoiceTrie()
+    end
+    if has_internal_node(state.selection, addr) || has_leaf_node(state.selection, addr)
+        error("Address $addr, or an address under $addr, was already selected")
+    end
+    (selection, value) = select(fn, args, node)
+    set_internal_node!(state.selection, addr, selection)
+    value
 end
 
 function read(state::SelectionState, addr)
@@ -61,7 +71,7 @@ end
 
 function select_addr(state::SelectionState, addr)
     visit!(state.visitor, addr)
-    push!(state.selection, addr)
+    push_leaf_node!(state.selection, addr)
 end
 
 function splice(state::SelectionState, fn::SelectionFunction, args::Tuple)
@@ -69,7 +79,7 @@ function splice(state::SelectionState, fn::SelectionFunction, args::Tuple)
 end
 
 function select(fn::SelectionFunction, args::Tuple, choices::T) where {T}
-    state = SelectionState(choices, AddressSet(), AddressVisitor())
+    state = SelectionState(choices)
     value = exec(fn, state, args)
     (state.selection, value)
 end
