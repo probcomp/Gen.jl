@@ -70,8 +70,8 @@ function parse_lhs(lhs::Symbol)
     (name, :Any)
 end
 
-function generate_ir(args, body)
-    ir = BasicBlockIR()
+function generate_ir(args, body, output_ad, args_ad)
+    ir = BasicBlockIR(output_ad, args_ad)
     if !isa(body, Expr) || body.head != :block
         throw(BasicBlockParseError(body))
     end
@@ -167,23 +167,26 @@ function compiled_gen_parse_inner(ast)
     end
     name = signature.args[1]
     args = signature.args[2:end]
-    has_argument_grads = map(marked_for_ad, args)
+    has_argument_grads = (map(marked_for_ad, args)...,)
     args = map(strip_marked_for_ad, args)
     (name, args, body, has_argument_grads)
 end
 
 function compiled_gen_parse(ast)
+    dump(ast)
     if ast.head == :macrocall && ast.args[1] == Symbol("@gen")
         (name, args, body, args_ad) = compiled_gen_parse_inner(ast)
         return (name, args, body, false, args_ad)
-    elseif (ast.head == :macrocall && ast.args[1] == Symbol("@ad")
-        && isa(ast.args[2], Expr)
-        && (ast.args[2].head == :macrocall && ast.args[2].args[1] == Symbol("@gen")))
-        (name, args, body, args_ad) = compiled_gen_parse_inner(ast.args[2])
-        return (name, args, body, true, args_ad)
-    else
-        error("syntax error in @compiled, expected @compiled @gen .. or @compiled @ad @gen ..")
-    end
+    elseif ast.head == :macrocall && ast.args[1] == Symbol("@ad")
+        sub_ast = isa(ast.args[2], LineNumberNode) ? ast.args[3] : ast.args[2]
+        if (isa(sub_ast, Expr)
+            && sub_ast.head == :macrocall
+            && sub_ast.args[1] == Symbol("@gen"))
+            (name, args, body, args_ad) = compiled_gen_parse_inner(sub_ast)
+            return (name, args, body, true, args_ad)
+        end
+    end 
+    error("syntax error in @compiled, expected @compiled @gen .. or @compiled @ad @gen ..")
 end
 
 ###########################
@@ -383,6 +386,8 @@ function generate_generator_type(ir::BasicBlockIR, trace_type::Symbol, name::Sym
         function Gen.get_static_argument_types(::$generator_type)
             [node.typ for node in Gen.get_ir($generator_type).arg_nodes]
         end
+        Gen.accepts_output_grad(::$generator_type) = $(QuoteNode(ir.output_ad))
+        Gen.has_argument_grads(::$generator_type) = $(QuoteNode(ir.args_ad))
     end)
     (defn, generator_type)
 end
@@ -391,10 +396,9 @@ macro compiled(ast)
 
     # parse the AST
     (name, args, body, output_ad, args_ad) = compiled_gen_parse(ast)
-    # TODO use output_ad and args_ad somewhere
 
     # geneate intermediate data-flow representation
-    ir = generate_ir(args, body)
+    ir = generate_ir(args, body, output_ad, args_ad)
 
     # generate trace type definition
     (trace_type_defn, trace_type) = generate_trace_type(ir, name)
@@ -402,7 +406,6 @@ macro compiled(ast)
     # generate generator type definition
     (generator_type_defn, generator_type) = generate_generator_type(
         ir, trace_type, name)
-
 
     Expr(:block,
         trace_type_defn,

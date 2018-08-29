@@ -145,6 +145,8 @@ parents(node::ParamValueNode) = []
 get_type(node::ParamValueNode) = node.param.typ
 
 mutable struct BasicBlockIR
+    output_ad::Bool
+    args_ad::Tuple
     arg_nodes::Vector{ArgumentValueNode}
     params::Vector{ParamInfo}
     value_nodes::Dict{Symbol, ValueNode}
@@ -165,7 +167,8 @@ mutable struct BasicBlockIR
     incremental_nodes::Set{ValueNode}
 
     expr_nodes_sorted::Vector{ExprNode}
-    function BasicBlockIR()
+
+    function BasicBlockIR(output_ad::Bool, args_ad::Tuple)
         arg_nodes = Vector{ArgumentValueNode}()
         params = Vector{ParamInfo}()
         value_nodes = Dict{Symbol,ValueNode}()
@@ -179,7 +182,8 @@ mutable struct BasicBlockIR
         generator_input_change_nodes = Set{ValueNode}()
         finished = false
         incremental_nodes = Set{ValueNode}()
-        new(arg_nodes, params, value_nodes, addr_dist_nodes,
+        new(output_ad, args_ad,
+            arg_nodes, params, value_nodes, addr_dist_nodes,
                      addr_gen_nodes, all_nodes, output_node, retchange_node,
                      args_change_node, addr_change_nodes,
                      generator_input_change_nodes,
