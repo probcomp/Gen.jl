@@ -257,6 +257,7 @@ function unpair(trie, key1::Symbol, key2::Symbol)
     (a, b)
 end
 
+# TODO make it a generated function?
 function _fill_array!(trie::StaticChoiceTrie, arr::Vector{T}, start_idx::Int) where {T}
     if length(arr) < start_idx + length(trie.leaf_nodes)
         resize!(arr, 2 * length(arr))
@@ -272,19 +273,40 @@ function _fill_array!(trie::StaticChoiceTrie, arr::Vector{T}, start_idx::Int) wh
     idx - start_idx
 end
 
-function _from_array(proto_trie::StaticChoiceTrie{R,S,T,U}, arr::Vector{V}, start_idx::Int) where {R,S,T,U,V}
-    n_read = length(proto_trie.leaf_nodes)
-    leaf_nodes_field = NamedTuple{R,S}(view(arr, start_idx+1:start_idx+n_read))
-    idx::Int = start_idx + n_read
-    internal_nodes = [] # TODO improve performance
-    for proto_node in proto_trie.internal_nodes
-        (n_read, node) = _from_array(proto_node, arr, idx)
-        idx += n_read 
-        push!(internal_nodes, node)
+@generated function _from_array(proto_trie::StaticChoiceTrie{R,S,T,U}, arr::Vector{V}, start_idx::Int) where {R,S,T,U,V}
+    leaf_node_keys = proto_trie.parameters[1]
+    leaf_node_types = proto_trie.parameters[2].parameters
+    internal_node_keys = proto_trie.parameters[3]
+    internal_node_types = proto_trie.parameters[4].parameters
+
+    # leaf nodes
+    leaf_node_refs = Expr[]
+    for (i, key) in enumerate(leaf_node_keys)
+        expr = Expr(:ref, :arr, Expr(:call, :(+), :start_idx, QuoteNode(i)))
+        push!(leaf_node_refs, expr)
     end
-    internal_nodes_field = NamedTuple{T,U}(internal_nodes)
-    trie = StaticChoiceTrie{R,S,T,U}(leaf_nodes_field, internal_nodes_field)
-    (idx - start_idx, trie)
+
+    # internal nodes
+    internal_node_blocks = Expr[]
+    internal_node_names = Symbol[]
+    for (key, typ) in zip(internal_node_keys, internal_node_types)
+        node = gensym()
+        push!(internal_node_names, node)
+        push!(internal_node_blocks, quote
+            (n_read, $node::$typ) = _from_array(proto_trie.internal_nodes.$key, arr, idx)
+            idx += n_read 
+        end)
+    end
+
+    quote
+        n_read = $(QuoteNode(length(leaf_node_keys)))
+        leaf_nodes_field = NamedTuple{R,S}(($(leaf_node_refs...),))
+        idx::Int = start_idx + n_read
+        $(internal_node_blocks...)
+        internal_nodes_field = NamedTuple{T,U}(($(internal_node_names...),))
+        trie = StaticChoiceTrie{R,S,T,U}(leaf_nodes_field, internal_nodes_field)
+        (idx - start_idx, trie)
+    end
 end
 
 export StaticChoiceTrie
