@@ -70,10 +70,9 @@ export mh, rjmcmc
 """
 Backtracking gradient ascent for MAP inference on selected real-valued choices
 """
-function map_optimize(model::Generator, selector::SelectionFunction, selector_args::Tuple,
+function map_optimize(model::Generator, selection::AddressSet,
                       trace; max_step_size=0.1, tau=0.5, min_step_size=1e-16, verbose=false)
     model_args = get_call_record(trace).args
-    (selection, _) = select(selector, selector_args, get_choices(trace))
     (_, values, gradient) = backprop_trace(model, trace, selection, nothing)
     values_vec = to_array(values, Float64)
     gradient_vec = to_array(gradient, Float64)

@@ -88,10 +88,13 @@ function do_inference(n)
     
     # initial trace
     (trace, _) = generate(model, (xs,), observations)
+
+    (slope_intercept_selection,) = Gen.select(slope_intercept_selector, (), get_choices(trace))
+    (std_selection,) = Gen.select(std_selector, (), get_choices(trace))
     
     for i=1:n
-        trace = map_optimize(model, slope_intercept_selector, (), trace, max_step_size=0.1, min_step_size=1e-10)
-        trace = map_optimize(model, std_selector, (), trace, max_step_size=0.1, min_step_size=1e-10)
+        trace = map_optimize(model, slope_intercept_selection, trace, max_step_size=0.1, min_step_size=1e-10)
+        trace = map_optimize(model, std_selection, trace, max_step_size=0.1, min_step_size=1e-10)
     
         # step on the outliers
         for j=1:length(xs)
