@@ -38,7 +38,6 @@ end
 
 parents(::ArgsChangeNode) = []
 
-
 struct AddrDistNode{T} <: ExprNode
     input_nodes::Vector{ValueNode}
     output::Union{ValueNode,Nothing}
@@ -83,6 +82,8 @@ struct JuliaNode <: ExprNode
     input_nodes::Vector{ValueNode}
     output::ValueNode
     expr_or_value::Any
+    # TODO need to generate define a new function when we generate the IR, at macro-expansion time?
+    # we can't define new methods during the JIT pas..
 end
 
 function Base.print(io::IO, node::JuliaNode)
@@ -225,8 +226,10 @@ end
 function finish!(ir::BasicBlockIR)
     ir.finished = true
     ir.expr_nodes_sorted = toposort_expr_nodes(ir.all_nodes)
+    if ir.output_node !== nothing && ir.output_ad
+        error("Compiled Gen function marked for output @ad but there is no return statement")
+    end
 end
-
 
 # NOTE: currently we don't properly support list comprehensions and closures
 # and let (anything that defines a new environment)

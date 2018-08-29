@@ -58,7 +58,7 @@ end
 function parse_lhs(lhs::Expr)
     if lhs.head == :(::)
         name = lhs.args[1]
-        typ = lhs.args[2]
+        typ = lhs.args[2] # these are quoted types
         return (name, typ)
     else
         throw(BasicBlockParseError(lhs))

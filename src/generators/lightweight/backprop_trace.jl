@@ -129,8 +129,7 @@ function backprop_trace(gf::GenFunction, trace::GFTrace, selection::AddressSet, 
             error("Output of $gf accepts gradient but return value was not tracked on AD tape.")
         end
         if retval_grad != nothing
-            # it is not an error if retval_grad is nothing, it means the gradient is zero
-            # this is a convenience that 
+            # it is not an error if retval_grad is nothing, it means the gradient is zero?
             deriv!(retval_maybe_tracked, retval_grad)
         end
     end
