@@ -136,14 +136,6 @@ function read_param(state, name::Symbol)
     state.params[name]
 end
 
-function read(state, addr)
-    if state.read_trace === nothing
-        error("Read trace not provided, attempted to read address $addr")
-    end
-    get_leaf_node(something(state.read_trace), addr)
-end
-
-
 
 #####################
 # static parameters #

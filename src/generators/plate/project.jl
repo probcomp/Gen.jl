@@ -1,16 +1,15 @@
-mutable struct PlateProjectState{U,V,X}
+mutable struct PlateProjectState{U,V}
     score::Float64
     isempty::Bool
     args::U
     nodes::V
-    read_trace::X
     discard::DynamicChoiceTrie
 end
 
 function project!(gen::Plate{T,U}, key::Int, state::PlateProjectState) where {T,U}
     node = haskey(state.nodes, key) ? state.nodes[key] : EmptyChoiceTrie()
     kernel_args = get_args_for_key(state.args, key)
-    (subtrace::U, kernel_discard) = project(gen.kernel, kernel_args, node, state.read_trace)
+    (subtrace::U, kernel_discard) = project(gen.kernel, kernel_args, node)
     set_internal_node!(state.discard, key, kernel_discard)
     call::CallRecord{T} = get_call_record(subtrace)
     state.score += call.score
@@ -31,7 +30,7 @@ function project_process_constraints!(nodes, key, node, len, discard)
     set_internal_node!(discard, key, node)
 end
 
-function project(gen::Plate{T,U}, args, constraints, read_trace) where {T,U}
+function project(gen::Plate{T,U}, args, constraints) where {T,U}
 
     len = length(args[1])
 
@@ -43,7 +42,7 @@ function project(gen::Plate{T,U}, args, constraints, read_trace) where {T,U}
     end
 
     # collect initial state
-    state = PlateProjectState(gen, 0., true, args, nodes, read_trace, discard)
+    state = PlateProjectState(gen, 0., true, args, nodes, discard)
     subtraces = Vector{U}(len)
     retvals = Vector{T}(len)
     

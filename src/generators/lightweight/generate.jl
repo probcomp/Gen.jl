@@ -1,6 +1,5 @@
 mutable struct GFGenerateState
     trace::GFTrace
-    read_trace::Union{Some{Any},Nothing}
     constraints::Any
     score::Float64
     weight::Float64
@@ -8,8 +7,8 @@ mutable struct GFGenerateState
     params::Dict{Symbol,Any}
 end
 
-function GFGenerateState(constraints, read_trace, params::Dict{Symbol,Any})
-    GFGenerateState(GFTrace(), read_trace, constraints, 0., 0., AddressVisitor(), params)
+function GFGenerateState(constraints, params::Dict{Symbol,Any})
+    GFGenerateState(GFTrace(), constraints, 0., 0., AddressVisitor(), params)
 end
 
 get_args_change(state::GFGenerateState) = nothing
@@ -46,7 +45,7 @@ function addr(state::GFGenerateState, gen::Generator{T,U}, args, addr, delta) wh
     else
         constraints = EmptyChoiceTrie()
     end
-    (trace::U, weight) = generate(gen, args, constraints, state.read_trace)
+    (trace::U, weight) = generate(gen, args, constraints)
     call::CallRecord = get_call_record(trace)
     state.trace = assoc_subtrace(state.trace, addr, trace)
     state.trace.has_choices |= has_choices(trace)
@@ -57,8 +56,8 @@ end
 
 splice(state::GFGenerateState, gf::GenFunction, args::Tuple) = exec(gf, state, args)
 
-function generate(gen::GenFunction, args, constraints, read_trace=nothing)
-    state = GFGenerateState(constraints, read_trace, gen.params)
+function generate(gen::GenFunction, args, constraints)
+    state = GFGenerateState(constraints, gen.params)
     retval = exec(gen, state, args) 
     # TODO add return type annotation for gen
     call = CallRecord{Any}(state.score, retval, args)

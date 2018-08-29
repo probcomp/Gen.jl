@@ -1,13 +1,12 @@
 mutable struct GFSimulateState
     trace::GFTrace
-    read_trace::Union{Some{Any},Nothing}
     score::Float64
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
 end
 
-function GFSimulateState(read_trace, params::Dict{Symbol,Any})
-    GFSimulateState(GFTrace(), read_trace, 0., AddressVisitor(), params)
+function GFSimulateState(params::Dict{Symbol,Any})
+    GFSimulateState(GFTrace(), 0., AddressVisitor(), params)
 end
 
 get_args_change(state::GFSimulateState) = nothing
@@ -27,7 +26,7 @@ end
 
 function addr(state::GFSimulateState, gen::Generator{T,U}, args, addr, arg_change) where {T,U}
     visit!(state.visitor, addr)
-    trace::U = simulate(gen, args, state.read_trace)
+    trace::U = simulate(gen, args)
     call::CallRecord = get_call_record(trace)
     state.trace = assoc_subtrace(state.trace, addr, trace)
     state.trace.has_choices = state.trace.has_choices || has_choices(trace)
@@ -37,8 +36,8 @@ end
 
 splice(state::GFSimulateState, gf::GenFunction, args::Tuple) = exec(gf, state, args)
 
-function simulate(gen::GenFunction, args, read_trace=nothing)
-    state = GFSimulateState(read_trace, gen.params)
+function simulate(gen::GenFunction, args)
+    state = GFSimulateState(gen.params)
     retval = exec(gen, state, args)
     # TODO add return type annotation for gen functions
     call = CallRecord{Any}(state.score, retval, args)

@@ -3,9 +3,9 @@ include("model.jl")
 
 # particle marginal metropolis-hastings
 
-@compiled @gen function var_proposal()
-    var_x::Float64 = @read(:var_x)
-    var_y::Float64 = @read(:var_y)
+@compiled @gen function var_proposal(prev)
+    var_x::Float64 = prev[:var_x]
+    var_y::Float64 = prev[:var_y]
     #@addr(normal(var_x, sqrt(0.15)), :var_x)
     #@addr(normal(var_y, sqrt(0.08)), :var_y)
     @addr(normal(var_x, sqrt(0.5)), :var_x)

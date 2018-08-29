@@ -4,14 +4,6 @@ struct BasicBlockAssessState
     stmts::Vector{Expr}
 end
 
-function process!(ir::BasicBlockIR, state::BasicBlockAssessState, node::ReadNode)
-    trace = state.trace
-    (typ, trace_field) = get_value_info(node)
-    push!(state.stmts, quote
-        $trace.$trace_field = get_leaf_node(something(read_trace), $(expr_read_from_trace(node, trace)))
-    end)
-end
-
 function process!(ir::BasicBlockIR, state::BasicBlockAssessState, node::JuliaNode)
     trace = state.trace
     (typ, trace_field) = get_value_info(node)
@@ -56,8 +48,7 @@ function process!(ir::BasicBlockIR, state::BasicBlockAssessState, node::AddrGene
     call_record = gensym("call_record")
     push!(state.stmts, quote
         $trace.$addr = assess($gen, $(Expr(:tuple, args...)),
-            static_get_internal_node(constraints, Val($(QuoteNode(addr)))),
-            read_trace)
+            static_get_internal_node(constraints, Val($(QuoteNode(addr)))))
         $call_record = get_call_record($trace.$addr)
         $score += $call_record.score
         $trace.$is_empty_field = $trace.$is_empty_field && !has_choices($trace.$addr)
@@ -70,7 +61,7 @@ function process!(ir::BasicBlockIR, state::BasicBlockAssessState, node::AddrGene
     end
 end
 
-function codegen_assess(gen::Type{T}, args, constraints, read_trace) where {T <: BasicGenFunction}
+function codegen_assess(gen::Type{T}, args, constraints) where {T <: BasicGenFunction}
     trace_type = get_trace_type(gen)
     schema = get_address_schema(constraints) # TODO use schema to check there are no extra addrs
     ir = get_ir(gen)
@@ -115,7 +106,7 @@ end
 
 
 push!(Gen.generated_functions, quote
-@generated function Gen.assess(gen::Gen.BasicGenFunction, args, constraints, read_trace=nothing)
-    Gen.codegen_assess(gen, args, constraints, read_trace)
+@generated function Gen.assess(gen::Gen.BasicGenFunction, args, constraints)
+    Gen.codegen_assess(gen, args, constraints)
 end
 end)

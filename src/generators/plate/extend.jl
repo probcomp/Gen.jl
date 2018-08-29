@@ -1,11 +1,10 @@
-mutable struct PlateExtendState{U,V,W,X}
+mutable struct PlateExtendState{U,V,W}
     score::Float64
     weight::Float64
     isempty::Bool
     args::U
     nodes::V
     changes::W
-    read_trace::X
 end
 
 function extend_existing_trace!(gen::Plate{T,U}, key::Int, state::PlateExtendState, subtraces, retvals) where {T,U}
@@ -18,7 +17,7 @@ function extend_existing_trace!(gen::Plate{T,U}, key::Int, state::PlateExtendSta
     subtrace::U = state.subtraces[key]
     prev_call = get_call_record(subtrace)
     kernel_args = get_args_for_key(state.args, key)
-    (subtrace, kernel_weight) = extend(gen.kernel, kernel_args, kernel_change, subtrace, node, state.read_trace)
+    (subtrace, kernel_weight) = extend(gen.kernel, kernel_args, kernel_change, subtrace, node)
     state.weight += kernel_weight
     call::CallRecord{T} = get_call_record(subtrace)
     state.score += (call.score - prev_call.score)
@@ -31,7 +30,7 @@ end
 function generate_new_trace!(gen::Plate{T,U}, key::Int, state::PlateExtendState, subtraces, retvals, kernel) where {T,U}
     node = haskey(state.nodes, key) ? state.nodes[key] : EmptyChoiceTrie()
     kernel_args = get_args_for_key(state.args, key)
-    (subtrace::U, kernel_weight) = generate(gen.kernel, kernel_args, node, state.read_trace)
+    (subtrace::U, kernel_weight) = generate(gen.kernel, kernel_args, node)
     state.weight += kernel_weight
     subtraces = push(subtraces, subtrace)
     call::CallRecord{T} = get_call_record(subtrace)
@@ -57,7 +56,7 @@ end
 """
 Extend with argument change information
 """
-function extend(gen::Plate, args, change::PlateChange{T}, trace::VectorTrace, constraints, read_trace=nothing) where {T}
+function extend(gen::Plate, args, change::PlateChange{T}, trace::VectorTrace, constraints) where {T}
 
     (new_length, prev_length) = get_prev_and_new_lengths(args, trace)
     if prev_length < new_length
@@ -72,13 +71,13 @@ function extend(gen::Plate, args, change::PlateChange{T}, trace::VectorTrace, co
         changes[i] = kernel_change
     end
 
-    _extend(gen, args, trace, constraints, read_trace, to_visit, changes)
+    _extend(gen, args, trace, constraints, to_visit, changes)
 end
 
 """
 Extend without argument change information
 """
-function extend(gen::Plate{T,U}, args, change::NoChange, trace::VectorTrace{T,U}, constraints, read_trace=nothing) where {T,U}
+function extend(gen::Plate{T,U}, args, change::NoChange, trace::VectorTrace{T,U}, constraints) where {T,U}
 
     (new_length, prev_length) = get_prev_and_new_lengths(args, trace)
     
@@ -86,11 +85,11 @@ function extend(gen::Plate{T,U}, args, change::NoChange, trace::VectorTrace{T,U}
     to_visit = 1:new_length
     changes = Dict{Int, Any}() # not used
 
-    _extend(gen, args, trace, constraints, read_trace, to_visit, changes)
+    _extend(gen, args, trace, constraints, to_visit, changes)
 end
 
 
-function _extend(gen::Plate, args, trace::VectorTrace, constraints, read_trace, to_visit, changes)
+function _extend(gen::Plate, args, trace::VectorTrace, constraints, to_visit, changes)
 
     (new_length, prev_length) = get_prev_and_new_lengths(args, trace)
     if prev_length < new_length
@@ -104,7 +103,7 @@ function _extend(gen::Plate, args, trace::VectorTrace, constraints, read_trace, 
     end
 
     # collect initial state
-    state = PlateExtendState(trace.call.score, 0., trace.is_empty, args, nodes, changes, read_trace)
+    state = PlateExtendState(trace.call.score, 0., trace.is_empty, args, nodes, changes)
     subtraces = trace.subtraces
     retvals = trace.call.retvals
     

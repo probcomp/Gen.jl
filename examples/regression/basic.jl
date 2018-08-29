@@ -110,23 +110,23 @@ end
 # inference operators #
 #######################
 
-@compiled @gen function slope_proposal()
-    slope::Float64 = @read(:slope)
+@compiled @gen function slope_proposal(prev)
+    slope::Float64 = prev[:slope]
     @addr(normal(slope, 0.5), :slope)
 end
 
-@compiled @gen function intercept_proposal()
-    intercept::Float64 = @read(:intercept)
+@compiled @gen function intercept_proposal(prev)
+    intercept::Float64 = prev[:intercept]
     @addr(normal(intercept, 0.5), :intercept)
 end
 
-@compiled @gen function inlier_std_proposal()
-    inlier_std::Float64 = @read(:inlier_std)
+@compiled @gen function inlier_std_proposal(prev)
+    inlier_std::Float64 = prev[:inlier_std]
     @addr(normal(inlier_std, 0.5), :inlier_std)
 end
 
-@compiled @gen function outlier_std_proposal()
-    outlier_std::Float64 = @read(:outlier_std)
+@compiled @gen function outlier_std_proposal(prev)
+    outlier_std::Float64 = prev[:outlier_std]
     @addr(normal(outlier_std, 0.5), :outlier_std)
 end
 
@@ -136,10 +136,10 @@ end
 
 data_proposal = at_dynamic(flip_z, Int)
 
-@compiled @gen function is_outlier_proposal(i::Int)
-    prev::Bool = @read(:data => i => :z)
+@compiled @gen function is_outlier_proposal(prev, i::Int)
+    prev_z::Bool = prev[:data => i => :z]
     # TODO introduce shorthand @addr(flip_z(zs[i]), :data => i)
-    @addr(data_proposal(i, (prev,)), :data) 
+    @addr(data_proposal(i, (prev_z,)), :data) 
 end
 
 @compiled @gen function observe_datum(y::Float64)
@@ -202,25 +202,31 @@ end
 #println("\n######################################################################\n")
 
 function do_inference(n)
-    observations = get_choices(simulate(observer_collapsed, (ys,)))
+    #observations = get_choices(simulate(observer_collapsed, (ys,)))
+    observations = get_choices(simulate(observer, (ys,)))
 
     # initial trace
-    (trace, weight) = generate(model_collapsed, (xs,), observations)
+    #(trace, weight) = generate(model_collapsed, (xs,), observations)
+    (trace, weight) = generate(model, (xs,), observations)
 
     for i=1:n
     
         # steps on the parameters
         for j=1:5
-            trace = mh(model_collapsed, slope_proposal, (), trace)
-            trace = mh(model_collapsed, intercept_proposal, (), trace)
-            trace = mh(model_collapsed, inlier_std_proposal, (), trace)
-            trace = mh(model_collapsed, outlier_std_proposal, (), trace)
+            #trace = mh(model_collapsed, slope_proposal, (), trace)
+            #trace = mh(model_collapsed, intercept_proposal, (), trace)
+            #trace = mh(model_collapsed, inlier_std_proposal, (), trace)
+            #trace = mh(model_collapsed, outlier_std_proposal, (), trace)
+            trace = mh(model, slope_proposal, (), trace)
+            trace = mh(model, intercept_proposal, (), trace)
+            trace = mh(model, inlier_std_proposal, (), trace)
+            trace = mh(model, outlier_std_proposal, (), trace)
         end
    
-        # step on the outliers (collapsed only)
-        #for j=1:length(xs)
-            #trace = mh(model_collapsed, is_outlier_proposal, (j,), trace)
-        #end
+        # step on the outliers (uncollapsed only)
+        for j=1:length(xs)
+            trace = mh(model, is_outlier_proposal, (j,), trace)
+        end
     
         score = get_call_record(trace).score
     

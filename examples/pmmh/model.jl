@@ -168,7 +168,7 @@ struct CollapsedHMM <: Generator{PersistentVector{Float64},CollapsedHMMTrace} en
 collapsed_hmm = CollapsedHMM()
 get_static_argument_types(::CollapsedHMM) = [:Float64, :Float64, :Int, :Int, :Float64]
 
-#function Gen.simulate(generator::CollapsedHMM, args, constraints, read_trace=nothing)
+#function Gen.simulate(generator::CollapsedHMM, args, constraints)
     #(var_x, var_y, T, num_particles, ess) = args
     #hmm_choices = get_choices(simulate(hmm, (var_x, var_y, T)))
     #xs = Float64[hmm_choices[:x => t] for t=1:T]
@@ -196,8 +196,8 @@ function unbiased_logpdf_est(args, ys::PersistentVector{Float64})
     CollapsedHMMTrace(vector)
 end 
 
-function Gen.generate(generator::CollapsedHMM, args, constraints, read_trace=nothing)
-    (var_x, var_y, T, num_particles, ess) =args 
+function Gen.generate(generator::CollapsedHMM, args, constraints)
+    (var_x, var_y, T, num_particles, ess) = args 
     if isempty(constraints)
         error("Unsupported constraints")
     end
@@ -215,7 +215,7 @@ function Gen.generate(generator::CollapsedHMM, args, constraints, read_trace=not
     (trace, weight)
 end
 
-function Gen.update(generator::CollapsedHMM, new_args, args_change, trace, constraints, args)
+function Gen.update(generator::CollapsedHMM, new_args, args_change, trace, constraints)
     (var_x, var_y, T, num_particles, ess) = new_args
     if !isempty(constraints)
         error("Unsupported constraints")

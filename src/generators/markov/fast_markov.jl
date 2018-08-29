@@ -26,7 +26,7 @@ function get_static_argument_types(markov::FastMarkov)
     [:Int, state_type, params_type]
 end
 
-function generate(gen::FastMarkov{T,U}, args, constraints, read_trace=nothing) where {T,U}
+function generate(gen::FastMarkov{T,U}, args, constraints) where {T,U}
     # NOTE: could be strict and check there are no extra constraints
     # probably we want to have this be an option that can be turned on or off?
     (len, init, params) = args
@@ -43,7 +43,7 @@ function generate(gen::FastMarkov{T,U}, args, constraints, read_trace=nothing) w
             node = EmptyChoiceTrie()
         end
         kernel_args = (key, state, params)
-        (subtrace::U, w) = generate(gen.kernel, kernel_args, node, read_trace)
+        (subtrace::U, w) = generate(gen.kernel, kernel_args, node)
         subtraces[key] = subtrace
         weight += w
         call = get_call_record(subtrace)
@@ -58,7 +58,7 @@ end
 
 # the only change possible is an extension --- cannot revisit existing nodes.
 function extend(gen::FastMarkov{T,U}, args, change::MarkovChange, trace::FastVectorTrace{T,U},
-                constraints, read_trace=nothing) where {T,U}
+                constraints) where {T,U}
     if change.params_changed || change.init_changed
         error("Changing the initial state or params not supported")
     end
@@ -82,7 +82,7 @@ function extend(gen::FastMarkov{T,U}, args, change::MarkovChange, trace::FastVec
         else
             node = EmptyChoiceTrie()
         end
-        (subtrace::U, w) = generate(gen.kernel, kernel_args, node, read_trace)
+        (subtrace::U, w) = generate(gen.kernel, kernel_args, node)
         kernel_call::CallRecord{T} = get_call_record(subtrace)
         states = push(states, kernel_call.retval)
         subtraces = push(subtraces, subtrace)

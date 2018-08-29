@@ -6,14 +6,6 @@ struct BasicBlockGenerateState
     stmts::Vector{Expr}
 end
 
-function process!(ir::BasicBlockIR, state::BasicBlockGenerateState, node::ReadNode)
-    trace = state.trace
-    (typ, trace_field) = get_value_info(node)
-    push!(state.stmts, quote
-        $trace.$trace_field = get_leaf_node(something(read_trace), $(expr_read_from_trace(node, trace)))
-    end)
-end
-
 function process!(ir::BasicBlockIR, state::BasicBlockGenerateState, node::JuliaNode)
     trace = state.trace
     (typ, trace_field) = get_value_info(node)
@@ -74,8 +66,7 @@ function process!(ir::BasicBlockIR, state::BasicBlockGenerateState, node::AddrGe
         push!(state.stmts, quote
             ($trace.$addr, $weight_incr) = generate(
                 $gen, $(Expr(:tuple, args...)),
-                static_get_internal_node(constraints, Val($(QuoteNode(addr)))),
-                read_trace)
+                static_get_internal_node(constraints, Val($(QuoteNode(addr)))))
             $weight += $weight_incr
             $call_record = get_call_record($trace.$addr)
             $score += $call_record.score
@@ -83,7 +74,7 @@ function process!(ir::BasicBlockIR, state::BasicBlockGenerateState, node::AddrGe
         end)
     elseif isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema)
         push!(state.stmts, quote
-            $trace.$addr = simulate($gen, $(Expr(:tuple, args...)), read_trace)
+            $trace.$addr = simulate($gen, $(Expr(:tuple, args...)))
             $call_record = get_call_record($trace.$addr)
             $score += $call_record.score
             $trace.$is_empty_field = $trace.$is_empty_field && !has_choices($trace.$addr)
@@ -99,13 +90,13 @@ function process!(ir::BasicBlockIR, state::BasicBlockGenerateState, node::AddrGe
     end
 end
 
-function codegen_generate(gen::Type{T}, args, constraints, read_trace) where {T <: BasicGenFunction}
+function codegen_generate(gen::Type{T}, args, constraints) where {T <: BasicGenFunction}
     Core.println("generating generate($gen, constraints: $constraints...)")
     trace_type = get_trace_type(gen)
     schema = get_address_schema(constraints)
     if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
         # trie to convert it to a static choice trie
-        return quote generate(gen, args, StaticChoiceTrie(constraints), read_trace) end
+        return quote generate(gen, args, StaticChoiceTrie(constraints)) end
     end
 
     ir = get_ir(gen)
@@ -154,7 +145,7 @@ function codegen_generate(gen::Type{T}, args, constraints, read_trace) where {T 
 end
 
 push!(Gen.generated_functions, quote
-@generated function Gen.generate(gen::Gen.BasicGenFunction, args, constraints, read_trace=nothing)
-    Gen.codegen_generate(gen, args, constraints, read_trace)
+@generated function Gen.generate(gen::Gen.BasicGenFunction, args, constraints)
+    Gen.codegen_generate(gen, args, constraints)
 end
 end)

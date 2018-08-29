@@ -2,7 +2,6 @@ mutable struct GFRegenerateState
     prev_trace::GFTrace
     trace::GFTrace
     selection::AddressSet
-    read_trace::Union{Some{Any},Nothing}
     score::Float64
     weight::Float64
     visitor::AddressVisitor
@@ -12,9 +11,9 @@ mutable struct GFRegenerateState
     callee_output_changes::HomogenousTrie{Any,Any}
 end
 
-function GFRegenerateState(args_change, prev_trace, selection, read_trace, params)
+function GFRegenerateState(args_change, prev_trace, selection, params)
     visitor = AddressVisitor()
-    GFRegenerateState(prev_trace, GFTrace(), selection, read_trace, 0., 0., visitor,
+    GFRegenerateState(prev_trace, GFTrace(), selection, 0., 0., visitor,
                     params, args_change, nothing, HomogenousTrie{Any,Any}())
 end
 
@@ -82,11 +81,11 @@ function addr(state::GFRegenerateState, gen::Generator{T}, args, addr, args_chan
         prev_call = get_call_record(prev_trace)
         selection = state.selection[addr]
         (trace, weight, retchange) = regenerate(
-            gen, args, args_change, prev_trace, selection, state.read_trace)
+            gen, args, args_change, prev_trace, selection)
         state.weight += weight
         set_leaf_node!(state.callee_output_changes, addr, retchange)
     else
-        trace = simulate(gen, args, state.read_trace)
+        trace = simulate(gen, args)
         set_leaf_node!(state.callee_output_changes, addr, nothing)
     end
     call = get_call_record(trace)
@@ -99,8 +98,8 @@ function splice(state::GFRegenerateState, gf::GenFunction, args::Tuple)
     exec(gf, state, args)
 end
 
-function regenerate(gen::GenFunction, new_args, args_change, trace, selection, read_trace=nothing)
-    state = GFRegenerateState(args_change, trace, selection, read_trace, gen.params)
+function regenerate(gen::GenFunction, new_args, args_change, trace, selection)
+    state = GFRegenerateState(args_change, trace, selection, gen.params)
     retval = exec(gen, state, new_args)
     new_call = CallRecord(state.score, retval, new_args)
     state.trace.call = new_call

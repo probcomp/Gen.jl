@@ -1,10 +1,9 @@
-mutable struct PlateGenerateState{U,V,X}
+mutable struct PlateGenerateState{U,V}
     score::Float64
     weight::Float64
     is_empty::Bool
     args::U
     nodes::V
-    read_trace::X
 end
 
 
@@ -13,10 +12,10 @@ function generate_new_trace!(gen::Plate{T,U}, key::Int, state::PlateGenerateStat
     local subtrace::U
     if haskey(state.nodes, key)
         node = state.nodes[key]
-        (subtrace, kernel_weight) = generate(gen.kernel, kernel_args, node, state.read_trace)
+        (subtrace, kernel_weight) = generate(gen.kernel, kernel_args, node)
         state.weight += kernel_weight
     else
-        subtrace = simulate(gen.kernel, kernel_args, state.read_trace)
+        subtrace = simulate(gen.kernel, kernel_args)
     end
     state.is_empty = state.is_empty && !has_choices(subtrace)
     call::CallRecord = get_call_record(subtrace)
@@ -36,7 +35,7 @@ function generate_process_constraints!(nodes, key, node, len)
     error("Constraints under key $key not part of trace")
 end
 
-function generate(gen::Plate{T,U}, args, constraints, read_trace=nothing) where {T,U}
+function generate(gen::Plate{T,U}, args, constraints) where {T,U}
     len = length(args[1])
     
     # collect constraints, indexed by key, and error if any are not in the trace
@@ -46,7 +45,7 @@ function generate(gen::Plate{T,U}, args, constraints, read_trace=nothing) where 
     end
 
     # collect initial state
-    state = PlateGenerateState(0., 0., true, args, nodes, read_trace)
+    state = PlateGenerateState(0., 0., true, args, nodes)
     subtraces = Vector{U}(undef, len)
     retvals = Vector{T}(undef, len)
     

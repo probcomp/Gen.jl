@@ -1,14 +1,13 @@
 mutable struct GFAssessState
     trace::GFTrace
-    read_trace::Union{Some{Any},Nothing}
     constraints::Any
     score::Float64
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
 end
 
-function GFAssessState(constraints, read_trace, params::Dict{Symbol,Any})
-    GFAssessState(GFTrace(), read_trace, constraints, 0., AddressVisitor(), params)
+function GFAssessState(constraints, params::Dict{Symbol,Any})
+    GFAssessState(GFTrace(), constraints, 0., AddressVisitor(), params)
 end
 
 get_args_change(state::GFAssessState) = nothing
@@ -33,7 +32,7 @@ function addr(state::GFAssessState, gen::Generator{T,U}, args, addr, delta) wher
     else
         constraints = EmptyChoiceTrie()
     end
-    trace::U = assess(gen, args, constraints, state.read_trace)
+    trace::U = assess(gen, args, constraints)
     call::CallRecord = get_call_record(trace)
     state.trace = assoc_subtrace(state.trace, addr, trace)
     state.trace.has_choices |= has_choices(trace)
@@ -43,8 +42,8 @@ end
 
 splice(state::GFAssessState, gf::GenFunction, args::Tuple) = exec(gf, state, args)
 
-function assess(gen::GenFunction, args, constraints, read_trace=nothing)
-    state = Gen.GFAssessState(constraints, read_trace, gen.params)
+function assess(gen::GenFunction, args, constraints)
+    state = Gen.GFAssessState(constraints, gen.params)
     retval = Gen.exec(gen, state, args) 
     # TODO add return type annotation for gen 
     call = Gen.CallRecord{Any}(state.score, retval, args)

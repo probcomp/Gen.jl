@@ -1,15 +1,14 @@
-mutable struct PlateAssessState{U,V,X}
+mutable struct PlateAssessState{U,V}
     score::Float64
     is_empty::Bool
     args::U
     nodes::V
-    read_trace::X
 end
 
 function assess_kernel!(gen::Plate{T,U}, key::Int, state::PlateAssessState) where {T,U}
     kernel_args = get_args_for_key(state.args, key)
     node = state.nodes[key]
-    subtrace::U = assess(gen.kernel, kernel_args, node, state.read_trace)
+    subtrace::U = assess(gen.kernel, kernel_args, node)
     state.is_empty = state.is_empty && !has_choices(subtrace)
     call::CallRecord{T} = get_call_record(subtrace)
     state.score += call.score
@@ -26,7 +25,7 @@ function check_constraint_key!(key::Int, len::Int)
     end
 end
 
-function assess(gen::Plate{T,U}, args, constraints, read_trace=nothing) where {T,U}
+function assess(gen::Plate{T,U}, args, constraints) where {T,U}
     len = length(args[1])
     
     # collect constraints, indexed by key
@@ -44,7 +43,7 @@ function assess(gen::Plate{T,U}, args, constraints, read_trace=nothing) where {T
     end
 
     # collect initial state
-    state = PlateAssessState(0., true, args, nodes, read_trace)
+    state = PlateAssessState(0., true, args, nodes)
     subtraces = Vector{U}(len)
     retvals = Vector{T}(len)
     

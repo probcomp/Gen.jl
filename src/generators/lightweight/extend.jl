@@ -3,16 +3,15 @@ mutable struct GFExtendState
     trace::GFTrace
     args_change::Any
     constraints::Any
-    read_trace::Union{Some{Any},Nothing}
     score::Float64
     weight::Float64
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
 end
 
-function GFExtendState(args_change, prev_trace, constraints, read_trace, params)
+function GFExtendState(args_change, prev_trace, constraints, params)
     visitor = AddressVisitor()
-    GFExtendState(prev_trace, GFTrace(), args_change, constraints, read_trace, 0., 0., visitor, params)
+    GFExtendState(prev_trace, GFTrace(), args_change, constraints, 0., 0., visitor, params)
 end
 
 function addr(state::GFExtendState, dist::Distribution{T}, args, addr) where {T}
@@ -60,9 +59,9 @@ function addr(state::GFExtendState, gen::Generator{T}, args, addr, args_change) 
     end
     if has_subtrace(state.prev_trace, addr)
         prev_trace = get_subtrace(state.prev_trace, addr)
-        (trace, weight) = extend(gen, args, args_change, prev_trace, constraints, state.read_trace)
+        (trace, weight) = extend(gen, args, args_change, prev_trace, constraints)
     else
-        (trace, weight) = generate(gen, args, constraints, state.read_trace)
+        (trace, weight) = generate(gen, args, constraints)
     end
     call::CallRecord = get_call_record(trace)
     retval::T = call.retval
@@ -76,8 +75,8 @@ function splice(state::GFExtendState, gen::GenFunction, args::Tuple)
     exec(gf, state, args)
 end
 
-function extend(gf::GenFunction, args, args_change, trace::GFTrace, constraints, read_trace=nothing)
-    state = GFExtendState(args_change, trace, constraints, read_trace, gf.params)
+function extend(gf::GenFunction, args, args_change, trace::GFTrace, constraints)
+    state = GFExtendState(args_change, trace, constraints, gf.params)
     retval = exec(gf, state, args)
     call = CallRecord(state.score, retval, args)
     state.trace.call = call

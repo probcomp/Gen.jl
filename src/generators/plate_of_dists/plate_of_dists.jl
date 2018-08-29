@@ -23,7 +23,7 @@ function get_static_argument_types(plate::PlateOfDist)
     [Expr(:curly, :Vector, typ) for typ in get_static_argument_types(plate.kernel)]
 end
 
-function simulate(gen::PlateOfDist{T}, args, read_trace=nothing) where {T}
+function simulate(gen::PlateOfDist{T}, args) where {T}
     len = length(args[1])
     values = Vector{T}(undef, len)
     score = 0.
@@ -37,7 +37,7 @@ function simulate(gen::PlateOfDist{T}, args, read_trace=nothing) where {T}
     Gen.VectorDistTrace{T}(persist_vec, call)
 end
 
-function generate(gen::PlateOfDist{T}, args, constraints, read_trace=nothing) where {T}
+function generate(gen::PlateOfDist{T}, args, constraints) where {T}
     len = length(args[1])
     values = Vector{T}(undef, len)
     score = 0.
@@ -64,12 +64,7 @@ function generate(gen::PlateOfDist{T}, args, constraints, read_trace=nothing) wh
     (trace, weight)
 end
 
-#function update(gen::PlateOfDist{T}, new_args, args_change::NoChange, trace::VectorDistTrace{T}, constraints, read_trace=nothing) where {T}
-    #to_visit = Set{Int}()
-    #_update(gen, new_args, trace, constraints, read_trace, to_visit)
-#end
-
-function update(gen::PlateOfDist{T}, new_args, args_change::Nothing, trace::VectorDistTrace{T}, constraints, read_trace=nothing) where {T}
+function update(gen::PlateOfDist{T}, new_args, args_change::Nothing, trace::VectorDistTrace{T}, constraints) where {T}
     (new_length, prev_length) = get_prev_and_new_lengths(new_args, trace)
     @assert new_length == prev_length
     # TODO handle increases or decreaeses int e length 
@@ -101,9 +96,5 @@ function update(gen::PlateOfDist{T}, new_args, args_change::Nothing, trace::Vect
     new_trace = Gen.VectorDistTrace{T}(values, call)
     (new_trace, weight, EmptyChoiceTrie(), nothing)
 end
-
-#function _update(gen::PlateOfDist{T}, args, prev_trace::VectorDistTrace{T}, constraints, read_trace, to_visit) where {T}
-#
-#end
 
 export plate

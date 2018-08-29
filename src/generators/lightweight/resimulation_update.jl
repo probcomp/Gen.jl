@@ -3,7 +3,6 @@ mutable struct GFResimulationUpdateState
     trace::GFTrace
     delta::Any
     constraints::Any
-    read_trace::Union{Some{Any},Nothing}
     score::Float64
     weight::Float64
     visitor::AddressVisitor
@@ -11,10 +10,10 @@ mutable struct GFResimulationUpdateState
     discard::DynamicChoiceTrie
 end
 
-function GFResimulationUpdateState(delta, prev_trace, constraints, read_trace, params)
+function GFResimulationUpdateState(delta, prev_trace, constraints, params)
     visitor = AddressVisitor()
     discard = DynamicChoiceTrie()
-    GFResimulationUpdateState(prev_trace, GFTrace(), delta, constraints, read_trace, 0., 0., visitor, params, discard)
+    GFResimulationUpdateState(prev_trace, GFTrace(), delta, constraints, 0., 0., visitor, params, discard)
 end
 
 function addr(state::GFResimulationUpdateState, dist::Distribution{T}, args, addr, delta) where {T}
@@ -62,11 +61,11 @@ function addr(state::GFResimulationUpdateState, gen::Generator{T}, args, addr, d
     local trace::GFTrace
     if has_subtrace(state.prev_trace, addr)
         prev_trace = get_subtrace(state.prev_trace, addr)
-        (trace, weight, discard) = resimulation_update(gen, args, delta, prev_trace, constraints, state.read_trace)
+        (trace, weight, discard) = resimulation_update(gen, args, delta, prev_trace, constraints)
         state.weight += weight
         set_internal_node!(state.discard, addr, discard)
     else
-        trace = simulate(gen, args, state.read_trace)
+        trace = simulate(gen, args)
     end
     call::CallRecord = get_call_record(trace)
     retval = call.retval
@@ -79,8 +78,8 @@ function splice(state::GFResimulationUpdateState, gen::GenFunction, args::Tuple)
     exec(gf, state, args)
 end
 
-function resimulation_update(gf::GenFunction, args, delta, prev_trace::GFTrace, constraints, read_trace)
-    state = GFResimulationUpdateState(delta, prev_trace, constraints, read_trace, gf.params)
+function resimulation_update(gf::GenFunction, args, delta, prev_trace::GFTrace, constraints)
+    state = GFResimulationUpdateState(delta, prev_trace, constraints, gf.params)
     retval = exec(gf, state, args)
     new_call = CallRecord(state.score, retval, args)
     state.trace.call = new_call

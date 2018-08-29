@@ -8,15 +8,6 @@ struct BasicBlockParseError <: Exception
     expr::Any
 end
 
-function parse_read(expr::Expr)
-    @assert expr.head == :macrocall && expr.args[1] == Symbol("@read")
-    rest = isa(expr.args[2], LineNumberNode) ? expr.args[3:end] : expr.args[2:end]
-    if length(rest) != 1
-        throw(BasicBlockParseError(expr))
-    end
-    rest[1] # address
-end
-
 function parse_addr(expr::Expr)
     @assert expr.head == :macrocall && expr.args[1] == Symbol("@addr")
     rest = isa(expr.args[2], LineNumberNode) ? expr.args[3:end] : expr.args[2:end]
@@ -119,10 +110,7 @@ function generate_ir(args, body)
             lhs = statement.args[1]
             rhs = statement.args[2]
             (name, typ) = parse_lhs(lhs)
-            if rhs.head == :macrocall && rhs.args[1] == Symbol("@read")
-                addr_expr = parse_read(rhs)
-                add_read!(ir, addr_expr, typ, name)
-            elseif rhs.head == :macrocall && rhs.args[1] == Symbol("@addr")
+            if rhs.head == :macrocall && rhs.args[1] == Symbol("@addr")
                 (addr, dist_or_gen, args, change_expr) = parse_addr(rhs)
                 if isa(dist_or_gen, Distribution)
                     @assert change_expr == nothing

@@ -7,20 +7,19 @@ track(value) = value
 
 mutable struct GFBackpropParamsState
     trace::GFTrace
-    read_trace::Union{Some{Any},Nothing}
     score::TrackedReal
     tape::InstructionTape
     visitor::AddressVisitor
     tracked_params::Dict{Symbol,Any}
 end
 
-function GFBackpropParamsState(trace::GFTrace, read_trace, tape, gf::GenFunction)
+function GFBackpropParamsState(trace::GFTrace, tape, gf::GenFunction)
     tracked_params = Dict{Symbol,Any}()
     for (name, value) in gf.params
         tracked_params[name] = track(value, tape)
     end
     score = track(0., tape)
-    GFBackpropParamsState(trace, read_trace, score, tape, AddressVisitor(), tracked_params)
+    GFBackpropParamsState(trace, score, tape, AddressVisitor(), tracked_params)
 end
 
 get_args_change(state::GFBackpropParamsState) = nothing
@@ -45,7 +44,6 @@ end
 struct BackpropParamsRecord
     generator::Generator
     subtrace::Any
-    read_trace::Union{Some{Any},Nothing}
 end
 
 function addr(state::GFBackpropParamsState, gen::Generator{T}, args, addr) where {T}
@@ -61,7 +59,7 @@ function addr(state::GFBackpropParamsState, gen::Generator{T}, args, addr) where
     # note: we still need to run backprop_params on gen, even if it does not
     # accept an output gradient, because it may make random choices.
     record!(state.tape, SpecialInstruction,
-        BackpropParamsRecord(gen, subtrace, state.read_trace), (args...,), retval_maybe_tracked)
+        BackpropParamsRecord(gen, subtrace), (args...,), retval_maybe_tracked)
     retval_maybe_tracked 
 end
 
@@ -73,9 +71,9 @@ function maybe_track(arg, has_argument_grad::Bool, tape)
     has_argument_grad ? track(arg, tape) : arg
 end
 
-function backprop_params(gf::GenFunction, trace::GFTrace, retval_grad, read_trace=nothing)
+function backprop_params(gf::GenFunction, trace::GFTrace, retval_grad)
     tape = InstructionTape()
-    state = GFBackpropParamsState(trace, read_trace, tape, gf)
+    state = GFBackpropParamsState(trace, tape, gf)
     call = get_call_record(trace)
     args = call.args
     args_maybe_tracked = (map(maybe_track, args, gf.has_argument_grads, fill(tape, length(args)))...,)
@@ -116,7 +114,7 @@ end
     else
         retval_grad = nothing
     end
-    arg_grads = backprop_params(gen, record.subtrace, retval_grad, record.read_trace)
+    arg_grads = backprop_params(gen, record.subtrace, retval_grad)
     for (arg, grad, has_grad) in zip(args_maybe_tracked, arg_grads, has_argument_grads(gen))
         if has_grad && istracked(arg)
             increment_deriv!(arg, grad)

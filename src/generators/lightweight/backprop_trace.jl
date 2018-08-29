@@ -5,7 +5,6 @@ import ReverseDiff: special_reverse_exec!
 
 mutable struct GFBackpropTraceState
     trace::GFTrace
-    read_trace::Union{Some{Any},Nothing}
     score::TrackedReal
     tape::InstructionTape
     visitor::AddressVisitor
@@ -16,13 +15,13 @@ mutable struct GFBackpropTraceState
     gradient_trie::DynamicChoiceTrie
 end
 
-function GFBackpropTraceState(trace, selection, params, read_trace, tape)
+function GFBackpropTraceState(trace, selection, params, tape)
     score = track(0., tape)
     visitor = AddressVisitor()
     tracked_choices = HomogenousTrie{Any,TrackedReal}()
     value_trie = DynamicChoiceTrie()
     gradient_trie = DynamicChoiceTrie()
-    GFBackpropTraceState(trace, read_trace, score, tape, visitor, params,
+    GFBackpropTraceState(trace, score, tape, visitor, params,
                        selection, tracked_choices, value_trie, gradient_trie)
 end
 
@@ -82,7 +81,6 @@ struct BackpropTraceRecord
     selection::AddressSet
     value_trie::DynamicChoiceTrie
     gradient_trie::DynamicChoiceTrie
-    read_trace::Union{Some{Any},Nothing}
     addr::Any
 end
 
@@ -107,15 +105,14 @@ function addr(state::GFBackpropTraceState, gen::Generator{T}, args, addr, args_c
     # accept an output gradient, because it may make random choices.
     selection = state.selection[addr] # this raises an error if addr is in state.selection
     record = BackpropTraceRecord(gen, trace, selection, state.value_trie,
-                                 state.gradient_trie, state.read_trace, addr)
+                                 state.gradient_trie, addr)
     record!(state.tape, SpecialInstruction, record, (args...,), retval_maybe_tracked)
     retval_maybe_tracked 
 end
 
-function backprop_trace(gf::GenFunction, trace::GFTrace, selection::AddressSet,
-                        retval_grad, read_trace=nothing)
+function backprop_trace(gf::GenFunction, trace::GFTrace, selection::AddressSet, retval_grad)
     tape = InstructionTape()
-    state = GFBackpropTraceState(trace, selection, gf.params, read_trace, tape)
+    state = GFBackpropTraceState(trace, selection, gf.params, tape)
     call = get_call_record(trace)
     args = call.args
     args_maybe_tracked = (map(maybe_track, args, gf.has_argument_grads, fill(tape, length(args)))...,)
@@ -157,7 +154,7 @@ end
         retval_grad = nothing
     end
     (arg_grads, value_trie, grad_trie) = backprop_trace(
-        gen, record.subtrace, record.selection, retval_grad, record.read_trace)
+        gen, record.subtrace, record.selection, retval_grad)
 
     @assert !has_internal_node(record.gradient_trie, record.addr)
     @assert !has_leaf_node(record.gradient_trie, record.addr)

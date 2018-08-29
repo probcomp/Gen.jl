@@ -26,7 +26,7 @@ function get_static_argument_types(markov::Markov)
     [:Int, state_type, params_type]
 end
 
-function generate(gen::Markov{T,U}, args, constraints, read_trace=nothing) where {T,U}
+function generate(gen::Markov{T,U}, args, constraints) where {T,U}
     # NOTE: could be strict and check there are no extra constraints
     # probably we want to have this be an option that can be turned on or off?
     (len, init, params) = args
@@ -43,7 +43,7 @@ function generate(gen::Markov{T,U}, args, constraints, read_trace=nothing) where
             node = EmptyChoiceTrie()
         end
         kernel_args = (key, state, params)
-        (subtrace::U, w) = generate(gen.kernel, kernel_args, node, read_trace)
+        (subtrace::U, w) = generate(gen.kernel, kernel_args, node)
         subtraces[key] = subtrace
         weight += w
         call = get_call_record(subtrace)
@@ -63,7 +63,7 @@ struct MarkovChange
 end
 
 function extend(gen::Markov{T,U}, args, change::MarkovChange, trace::VectorTrace{T,U},
-                constraints, read_trace=nothing) where {T,U}
+                constraints) where {T,U}
     (len, init_state, params) = args
     prev_call = get_call_record(trace)
     prev_args = prev_call.args
@@ -97,7 +97,7 @@ function extend(gen::Markov{T,U}, args, change::MarkovChange, trace::VectorTrace
         end
         local call::CallRecord{T}
         if key > prev_len
-            (subtrace::U, w) = generate(gen.kernel, kernel_args, node, read_trace)
+            (subtrace::U, w) = generate(gen.kernel, kernel_args, node)
             call = get_call_record(subtrace)
             score += call.score
             states = push(states, call.retval)
@@ -107,7 +107,7 @@ function extend(gen::Markov{T,U}, args, change::MarkovChange, trace::VectorTrace
         else
             prev_subtrace::U = subtraces[key]
             prev_score = get_call_record(prev_subtrace).score
-            (subtrace, w, retchange) = extend(gen.kernel, kernel_args, prev_subtrace, node, read_trace)
+            (subtrace, w, retchange) = extend(gen.kernel, kernel_args, prev_subtrace, node)
             call = get_call_record(subtrace)
             score += call.score - prev_score
             @assert length(states) == key

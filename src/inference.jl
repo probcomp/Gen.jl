@@ -2,14 +2,16 @@
 # MCMC #
 ########
 
-function mh(model::Generator, proposal::Generator, proposal_args::Tuple, trace)
+function mh(model::Generator, proposal::Generator, proposal_args_rest::Tuple, trace)
     model_args = get_call_record(trace).args
-    forward_trace = simulate(proposal, proposal_args, Some(get_choices(trace)))
+    proposal_args_forward = (get_choices(trace), proposal_args_rest...,)
+    forward_trace = simulate(proposal, proposal_args_forward)
     forward_score = get_call_record(forward_trace).score
     constraints = get_choices(forward_trace)
     (new_trace, weight, discard) = update(
         model, model_args, NoChange(), trace, constraints)
-    backward_trace = assess(proposal, proposal_args, discard, Some(get_choices(new_trace)))
+    proposal_args_backward = (get_choices(new_trace), proposal_args_rest...,)
+    backward_trace = assess(proposal, proposal_args_backward, discard)
     backward_score = get_call_record(backward_trace).score
     if log(rand()) < weight - forward_score + backward_score
         # accept
@@ -33,18 +35,20 @@ function mh(model::Generator, selector::SelectionFunction, selector_args::Tuple,
     end
 end
 
-function rjmcmc(model, forward, forward_args, backward, backward_args,
+function rjmcmc(model, forward, forward_args_rest, backward, backward_args_rest,
                 injective, injective_args, trace, correction)
     model_args = get_call_record(trace).args
     model_score = get_call_record(trace).score
-    forward_trace = simulate(forward, forward_args, Some(get_choices(trace)))
+    forward_args = (get_choices(trace), forward_args_rest...,)
+    forward_trace = simulate(forward, forward_args)
     forward_score = get_call_record(forward_trace).score
     input = pair(get_choices(trace), get_choices(forward_trace), :model, :proposal)
     (output, logabsdet) = apply(injective, injective_args, input)
     (model_constraints, backward_constraints) = unpair(output, :model, :proposal)
     new_trace = assess(model, model_args, model_constraints)
     new_model_score = get_call_record(new_trace).score
-    backward_trace = assess(backward, backward_args, backward_constraints, Some(get_choices(new_trace)))
+    backward_args = (get_choices(new_trace), backward_args_rest...,)
+    backward_trace = assess(backward, backward_args, backward_constraints)
     backward_score = get_call_record(backward_trace).score
     alpha = new_model_score - model_score - forward_score + backward_score + logabsdet + correction(new_trace)
     if log(rand()) < alpha

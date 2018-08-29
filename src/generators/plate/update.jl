@@ -1,10 +1,9 @@
-mutable struct PlateUpdateState{U,V,W,X}
+mutable struct PlateUpdateState{U,V,W}
     score::Float64
     is_empty::Bool
     args::U
     nodes::V
     changes::W
-    read_trace::X
     discard::DynamicChoiceTrie
 end
 
@@ -19,7 +18,7 @@ function update_existing_trace!(gen::Plate{T,U}, key::Int, state::PlateUpdateSta
     prev_call = get_call_record(subtrace)
     kernel_args = get_args_for_key(state.args, key)
     (subtrace, _, kernel_discard) = update(
-        gen.kernel, kernel_args, kernel_change, subtrace, node, state.read_trace)
+        gen.kernel, kernel_args, kernel_change, subtrace, node)
     set_internal_node!(state.discard, key, kernel_discard)
     call::CallRecord = get_call_record(subtrace)
     state.score += (call.score - prev_call.score)
@@ -32,7 +31,7 @@ end
 function assess_new_trace!(gen::Plate{T,U}, key::Int, state::PlateUpdateState, subtraces, retvals) where {T,U}
     node = haskey(state.nodes, key) ? state.nodes[key] : EmptyChoiceTrie()
     kernel_args = get_args_for_key(state.args, key)
-    subtrace::U = assess(gen.kernel, kernel_args, node, state.read_trace)
+    subtrace::U = assess(gen.kernel, kernel_args, node)
     subtraces = push(subtraces, subtrace)
     call::CallRecord = get_call_record(subtrace)
     state.score += call.score
@@ -54,7 +53,7 @@ function update_process_constraints!(nodes, to_visit, key, node, new_length)
     error("Update did not consume constraints at key $key")
 end
 
-function _update(gen::Plate{T,U}, args, prev_trace::VectorTrace{T,U}, constraints, read_trace, to_visit, changes) where {T,U}
+function _update(gen::Plate{T,U}, args, prev_trace::VectorTrace{T,U}, constraints, to_visit, changes) where {T,U}
 
     (new_length, prev_length) = get_prev_and_new_lengths(args, prev_trace)
 
@@ -71,7 +70,7 @@ function _update(gen::Plate{T,U}, args, prev_trace::VectorTrace{T,U}, constraint
     end
 
     # collect initial state
-    state = PlateUpdateState(prev_trace.call.score, prev_trace.is_empty, args, nodes, changes, read_trace, discard)
+    state = PlateUpdateState(prev_trace.call.score, prev_trace.is_empty, args, nodes, changes, discard)
     subtraces = prev_trace.subtraces
     retvals = prev_trace.call.retval
     
@@ -96,14 +95,14 @@ function _update(gen::Plate{T,U}, args, prev_trace::VectorTrace{T,U}, constraint
 end
 
 # No change to arguments
-function update(gen::Plate{T,U}, args, change::NoChange, trace::VectorTrace{T,U}, constraints, read_trace) where {T,U}
+function update(gen::Plate{T,U}, args, change::NoChange, trace::VectorTrace{T,U}, constraints) where {T,U}
     to_visit = Set{Int}()
     changes = Dict{Int, T}()
-    _update(gen, args, trace, constraints, read_trace, to_visit, changes)
+    _update(gen, args, trace, constraints, to_visit, changes)
 end
 
 # Known change to arguments
-function update(gen::Plate{T,U}, args, change::PlateChange{T}, trace::VectorTrace{T,U}, constraints, read_trace) where {T,U}
+function update(gen::Plate{T,U}, args, change::PlateChange{T}, trace::VectorTrace{T,U}, constraints) where {T,U}
 
     (new_length, prev_length) = get_prev_and_new_lengths(args, trace)
 
@@ -117,11 +116,11 @@ function update(gen::Plate{T,U}, args, change::PlateChange{T}, trace::VectorTrac
         end
     end
 
-    _update(gen, args, trace, constraints, read_trace, to_visit, changes)
+    _update(gen, args, trace, constraints, to_visit, changes)
 end
 
 # Unknown change to arguments
-function update(gen::Plate{T,U}, args, change::Nothing, trace::VectorTrace{T,U}, constraints, read_trace) where {T,U}
+function update(gen::Plate{T,U}, args, change::Nothing, trace::VectorTrace{T,U}, constraints) where {T,U}
 
     (new_length, prev_length) = get_prev_and_new_lengths(args, trace)
 
@@ -129,5 +128,5 @@ function update(gen::Plate{T,U}, args, change::Nothing, trace::VectorTrace{T,U},
     to_visit = Set(1:min(prev_length, new_length))
     changes = Dict{Int, Any}() # not used
 
-    _update(gen, args, trace, constraints, read_trace, to_visit, changes)
+    _update(gen, args, trace, constraints, to_visit, changes)
 end

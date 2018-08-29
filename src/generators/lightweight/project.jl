@@ -1,17 +1,16 @@
 mutable struct GFProjectState
     constraints::Any
     trace::GFTrace
-    read_trace::Union{Some{Any},Nothing}
     score::Float64
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
     discard::DynamicChoiceTrie
 end
 
-function GFProjectState(constraints, read_trace, params)
+function GFProjectState(constraints, params)
     visitor = AddressVisitor()
     discard = DynamicChoiceTrie()
-    GFProjectState(constraints, GFTrace(), read_trace, 0., visitor, params, discard)
+    GFProjectState(constraints, GFTrace(), 0., visitor, params, discard)
 end
 
 function addr(state::GFProjectState, dist::Distribution{T}, args, addr, delta) where {T}
@@ -31,7 +30,7 @@ function addr(state::GFProjectState, gen::Generator{T,U}, args, addr, delta) whe
     else
         constraints = EmptyChoiceTrie()
     end
-    (trace::U, discard) = project(gen, args, constraints, state.read_trace)
+    (trace::U, discard) = project(gen, args, constraints)
     call::CallRecord = get_call_record(trace)
     state.trace = assoc_subtrace(state.trace, addr, trace)
     set_internal_node!(state.discard, addr, discard)
@@ -43,8 +42,8 @@ function splice(state::GFProjectState, gen::GenFunction, args::Tuple)
     exec(gf, state, args)
 end
 
-function project(gf::GenFunction, args, constraints, read_trace)
-    state = GFProjectState(constraints, read_trace, gf.params)
+function project(gf::GenFunction, args, constraints)
+    state = GFProjectState(constraints, gf.params)
     retval = exec(gf, state, args)
     new_call = CallRecord(state.score, retval, args)
     state.trace.call = new_call

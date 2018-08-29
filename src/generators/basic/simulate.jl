@@ -4,15 +4,6 @@ struct BasicBlockSimulateState
     stmts::Vector{Expr}
 end
 
-function process!(ir::BasicBlockIR, state::BasicBlockSimulateState, node::ReadNode)
-    trace = state.trace
-    (typ, trace_field) = get_value_info(node)
-    push!(state.stmts, quote
-        $trace.$trace_field = get_leaf_node(something(read_trace), $(expr_read_from_trace(node, trace)))
-    end)
-end
-
-
 function process!(ir::BasicBlockIR, state::BasicBlockSimulateState, node::JuliaNode)
     trace = state.trace
     (typ, trace_field) = get_value_info(node)
@@ -55,7 +46,7 @@ function process!(ir::BasicBlockIR, state::BasicBlockSimulateState, node::AddrGe
     args = get_args(trace, node)
     call_record = gensym("call_record")
     push!(state.stmts, quote
-        $trace.$addr = simulate($gen, $(Expr(:tuple, args...)), read_trace)
+        $trace.$addr = simulate($gen, $(Expr(:tuple, args...)))
         $call_record = get_call_record($trace.$addr)
         $score += $call_record.score
         $trace.$is_empty_field = $trace.$is_empty_field && !has_choices($trace.$addr)
@@ -68,7 +59,7 @@ function process!(ir::BasicBlockIR, state::BasicBlockSimulateState, node::AddrGe
     end
 end
 
-function codegen_simulate(gen::Type{T}, args, read_trace) where {T <: BasicGenFunction}
+function codegen_simulate(gen::Type{T}, args) where {T <: BasicGenFunction}
     trace_type = get_trace_type(gen)
     ir = get_ir(gen)
     stmts = Expr[]
@@ -112,7 +103,7 @@ end
 
 
 push!(Gen.generated_functions, quote
-@generated function Gen.simulate(gen::Gen.BasicGenFunction, args, read_trace=nothing)
-    Gen.codegen_simulate(gen, args, read_trace)
+@generated function Gen.simulate(gen::Gen.BasicGenFunction, args)
+    Gen.codegen_simulate(gen, args)
 end
 end)

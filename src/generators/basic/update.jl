@@ -11,8 +11,6 @@ struct BBUpdateState
     discard_internal_nodes::Dict{Symbol, Symbol} # map from address to value
 end
 
-# TODO support read?
-
 function process!(ir::BasicBlockIR, state::BBUpdateState, node::JuliaNode)
     
     # if any input nodes are marked, mark the output node
@@ -151,7 +149,7 @@ function process!(ir::BasicBlockIR, state::BBUpdateState, node::AddrGeneratorNod
         push!(state.stmts, quote
             ($new_trace.$addr, _, $discard, $(addr_change_variable(addr))) = update(
                 $(QuoteNode(node.gen)), $(Expr(:tuple, args...)),
-                $change_value_ref, $prev_trace.$addr, $constraints, read_trace)
+                $change_value_ref, $prev_trace.$addr, $constraints)
             $call_record = get_call_record($new_trace.$addr)
             $decrement = get_call_record($prev_trace.$addr).score
             $increment = $call_record.score
@@ -189,7 +187,7 @@ function mark_arguments!(marked, arg_nodes, args_change::Type{T}) where {T <: Ma
 end
 
 
-function codegen_update(gen::Type{T}, new_args, args_change, trace, constraints, read_trace) where {T <: BasicGenFunction}
+function codegen_update(gen::Type{T}, new_args, args_change, trace, constraints) where {T <: BasicGenFunction}
     Core.println("generating update($gen, args_change:$args_change, constraints: $constraints...)")
     schema = get_address_schema(constraints)
 
@@ -309,12 +307,12 @@ function codegen_update(gen::Type{T}, new_args, args_change, trace, constraints,
 end
 
 push!(Gen.generated_functions, quote
-@generated function Gen.update(gen::Gen.BasicGenFunction, new_args, args_change, trace, constraints, read_trace=nothing)
+@generated function Gen.update(gen::Gen.BasicGenFunction, new_args, args_change, trace, constraints)
     schema = get_address_schema(constraints)
     if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
         # trie to convert it to a static choice trie
-        return quote update(gen, new_args, args_change, trace, StaticChoiceTrie(constraints), read_trace) end
+        return quote update(gen, new_args, args_change, trace, StaticChoiceTrie(constraints)) end
     end
-    Gen.codegen_update(gen, new_args, args_change, trace, constraints, read_trace)
+    Gen.codegen_update(gen, new_args, args_change, trace, constraints)
 end
 end)

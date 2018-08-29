@@ -39,8 +39,6 @@ export has_choices
 # Generator #
 #############
 
-# TODO make the reads from the read_trace part of the trace. 
-
 """
 Generator with return value type T and trace type U
 """
@@ -70,32 +68,32 @@ args should be such that it does not delete, or change the distribution of, any
 existing random choice.  constraints impleemnts read-only trie interface, must not collide with any existing random
 choices. may simulate new random choices.
 
-    (new_trace::U, weight, retchange) = extend(g::Generator{T,U}, args, args_change, trace::U, constraints, read_trace)
+    (new_trace::U, weight, retchange) = extend(g::Generator{T,U}, args, args_change, trace::U, constraints)
 """
 function extend end
 
 # TODO add retchange as return value from predict
 """
-    (new_trace::U, retchange) = predict(g::Generator{T,U}, args, args_change, trace::U, read_trace)
+    (new_trace::U, retchange) = predict(g::Generator{T,U}, args, args_change, trace::U)
 """
-function predict(g::Generator, args, args_change, trace, read_trace=nothing)
-    (new_trace, weight, _) = extend(g, args, args_change, trace, EmptyChoiceTrie(), read_trace)
+function predict(g::Generator, args, args_change, trace)
+    (new_trace, weight, _) = extend(g, args, args_change, trace, EmptyChoiceTrie())
     @assert weight == 0.
     new_trace
 end
 
 """
-    (trace::U, weight) = generate(g::Generator{T,U}, args, constraints, read_trace)
+    (trace::U, weight) = generate(g::Generator{T,U}, args, constraints)
 """
 function generate end
 
 """
-    trace = simulate(g::Generator, args, read_trace)
+    trace = simulate(g::Generator, args)
 """
 function simulate end
 
 """
-    (trace, discard) = project(g::Generator, args, constraints, read_trace)
+    (trace, discard) = project(g::Generator, args, constraints)
 """
 function project end
 
@@ -103,7 +101,7 @@ function project end
 choices must contain all random choices, (and no extra random choices, or else
 it is an error
 
-    trace = assess(g::Generator, args, choices, read_trace)
+    trace = assess(g::Generator, args, choices)
 """
 function assess end
 
@@ -113,7 +111,7 @@ may not simulate.
 addresses may be added or deleted.
 constraints may collide with existing random choices.
 
-    (new_trace, weight, discard, retchange) = update(g::Generator, new_args, args_change, trace, constraints, read_trace)
+    (new_trace, weight, discard, retchange) = update(g::Generator, new_args, args_change, trace, constraints)
 """
 function update end
 
@@ -123,28 +121,28 @@ may simulate.
 addresses may be added or deleted.
 constraints may collide with existing random choices, but no new choices may be constrained.
 
-    (new_trace, weight, retchange) = resimulation_update(g::Generator, new_args, args_change, trace, constraints, read_trace)
+    (new_trace, weight, retchange) = resimulation_update(g::Generator, new_args, args_change, trace, constraints)
 """
 function resimulation_update end
 
 """
     (new_trace, weight, retcahnge) = regenerate(
-        gen::Generator, new_args, args_change, trace, selection::AddressSet, read_trace)
+        gen::Generator, new_args, args_change, trace, selection::AddressSet)
 """
 function regenerate end
 
 """
-    weight = ungenerate(g::Generator, trace, constraints, read_trace)
+    weight = ungenerate(g::Generator, trace, constraints)
 """
 function ungenerate end
 
 """
-    input_grads::Tuple = backprop_params(g:en:Generator, trace, retval_grad, read_trace)
+    input_grads::Tuple = backprop_params(gen:Generator, trace, retval_grad)
 """
 function backprop_params end
 
 """
-    (input_grads::Tuple, values, gradients) = backprop_trace(gen:Generator, trace, retval_grad, read_trace)
+    (input_grads::Tuple, values, gradients) = backprop_trace(gen:Generator, trace, selection::AddressSet, retval_grad)
 """
 function backprop_trace end
 

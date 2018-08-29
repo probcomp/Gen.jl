@@ -1,4 +1,4 @@
-mutable struct PlateResimulationUpdateState{T,U,V,W,X}
+mutable struct PlateResimulationUpdateState{T,U,V,W}
     kernel::T
     score::Float64
     weight::Float64
@@ -6,7 +6,6 @@ mutable struct PlateResimulationUpdateState{T,U,V,W,X}
     args::U
     nodes::V
     deltas::W
-    read_trace::X
     discard::DynamicChoiceTrie
 end
 
@@ -21,7 +20,7 @@ function resimulation_update_existing_trace!(key::Int, state::PlateResimulationU
     prev_call = get_call_record(subtrace)
     kernel_args = get_args_for_key(state.args, key)
     (subtrace, kernel_weight, kernel_discard) = resimulation_update(
-        state.kernel, kernel_args, kernel_delta, subtrace, node, state.read_trace)
+        state.kernel, kernel_args, kernel_delta, subtrace, node)
     set_internal_node(state.discard, kernel_discard)
     state.weight += kernel_weight
     call = get_call_record(subtrace)
@@ -34,7 +33,7 @@ end
 
 function simulate_new_trace!(key::Int, state::PlateResimulationUpdateState, subtraces, retvals, kernel)
     kernel_args = get_args_for_key(state.args, key)
-    subtrace  = simulate(gen.kernel, kernel_args, state.read_trace)
+    subtrace  = simulate(gen.kernel, kernel_args)
     subtraces = push(subtraces, subtrace)
     call = get_call_record(subtrace)
     state.score += call.score
@@ -63,7 +62,7 @@ end
 """
 Update with argument delta information
 """
-function resimulation_update(gen::Plate, args, delta::PlateDelta{T}, trace::VectorTrace, constraints, read_trace=nothing) where {T}
+function resimulation_update(gen::Plate, args, delta::PlateDelta{T}, trace::VectorTrace, constraints) where {T}
 
     (new_length, prev_length) = get_prev_and_new_lengths(args, trace)
 
@@ -77,13 +76,13 @@ function resimulation_update(gen::Plate, args, delta::PlateDelta{T}, trace::Vect
         end
     end
 
-    _resimulation_update(gen, args, delta, trace, constraints, read_trace, to_visit, deltas)
+    _resimulation_update(gen, args, delta, trace, constraints, to_visit, deltas)
 end
 
 """
 Update without argument delta information
 """
-function resimulation_update(gen::Plate, args, delta::Nothing, trace::VectorTrace, constraints, read_trace=nothing)
+function resimulation_update(gen::Plate, args, delta::Nothing, trace::VectorTrace, constraints)
 
     (new_length, prev_length) = get_prev_and_new_lengths(args, trace)
 
@@ -91,10 +90,10 @@ function resimulation_update(gen::Plate, args, delta::Nothing, trace::VectorTrac
     to_visit = 1:min(prev_length, new_length)
     deltas = Dict{Int, Any}() # not used
 
-    _resimulation_update(gen, args, delta, trace, constraints, read_trace, to_visit, deltas)
+    _resimulation_update(gen, args, delta, trace, constraints, to_visit, deltas)
 end
 
-function _resimulation_update(gen::Plate, args, delta::Nothing, trace::VectorTrace, constraints, read_trace, to_visit, deltas)
+function _resimulation_update(gen::Plate, args, delta::Nothing, trace::VectorTrace, constraints, to_visit, deltas)
 
     (new_length, prev_length) = get_prev_and_new_lengths(args, trace)
 
@@ -106,7 +105,7 @@ function _resimulation_update(gen::Plate, args, delta::Nothing, trace::VectorTra
 
     # collect initial state
     discard = DynamicChoiceTrie()
-    state = PlateResimulationUpdateState(gen.kernel, trace.call.score, 0., trace.is_empty, args, nodes, deltas, read_trace, discard)
+    state = PlateResimulationUpdateState(gen.kernel, trace.call.score, 0., trace.is_empty, args, nodes, deltas, discard)
     subtraces = trace.subtraces
     retvals = trace.call.retvals
     

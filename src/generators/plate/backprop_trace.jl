@@ -1,4 +1,4 @@
-function backprop_trace(gen::Plate{T,U}, trace::VectorTrace{T,U}, selection::AddressSet, retval_grad, read_trace=nothing) where {T,U}
+function backprop_trace(gen::Plate{T,U}, trace::VectorTrace{T,U}, selection::AddressSet, retval_grad) where {T,U}
 
     call = get_call_record(trace)
     args = call.args
@@ -23,7 +23,7 @@ function backprop_trace(gen::Plate{T,U}, trace::VectorTrace{T,U}, selection::Add
         sub_selection = selection[key]
         kernel_retval_grad = (retval_grad == nothing) ? nothing : retval_grad[key]
         (kernel_arg_grad::Tuple, kernel_value_trie, kernel_gradient_trie) = backprop_trace(
-            gen.kernel, subtrace, sub_selection, kernel_retval_grad, read_trace)
+            gen.kernel, subtrace, sub_selection, kernel_retval_grad)
         set_internal_node!(value_trie, key, kernel_value_trie)
         set_internal_node!(gradient_trie, key, kernel_gradient_trie)
         for (i, grad, has_grad) in zip(1:n_args, kernel_arg_grad, has_grads)

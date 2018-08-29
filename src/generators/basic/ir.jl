@@ -38,22 +38,6 @@ end
 
 parents(::ArgsChangeNode) = []
 
-struct ReadNode <: ExprNode
-    input_nodes::Vector{ValueNode}
-    output::ValueNode
-    address::Union{Expr,QuoteNode}
-end
-
-function Base.print(io::IO, node::ReadNode)
-    write(io, "@read $(node.address)")
-end
-
-function expr_read_from_trace(node::ReadNode, trace::Symbol)
-    input_symbols = Set{Symbol}([node.name for node in node.input_nodes])
-    replace_input_symbols(input_symbols, node.address, trace)
-end
-
-parents(node::ReadNode) = node.input_nodes
 
 struct AddrDistNode{T} <: ExprNode
     input_nodes::Vector{ValueNode}
@@ -304,22 +288,6 @@ function _get_input_node!(ir::BasicBlockIR, name::Symbol, typ)
     node = ir.value_nodes[name]
     #@assert get_type(node) == typ # TODO
     node
-end
-
-function add_read!(ir::BasicBlockIR, expr, typ, name::Symbol)
-    @assert !ir.finished
-    value_node = ExprValueNode(name, typ)
-    input_nodes = map((sym) -> ir.value_nodes[sym],
-                      collect(resolve_symbols_set(ir, expr)))
-    expr_node = ReadNode(input_nodes, value_node, expr)
-    finish!(value_node, expr_node)
-    ir.value_nodes[name] = value_node
-    push!(ir.all_nodes, expr_node)
-    push!(ir.all_nodes, value_node)
-    if any([node in ir.incremental_nodes for node in input_nodes])
-        push!(ir.incremental_nodes, value_node)
-    end
-    nothing
 end
 
 function incremental_dependency_error(addr)

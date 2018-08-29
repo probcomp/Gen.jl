@@ -168,15 +168,15 @@ end
 # height and position moves #
 #############################
 
-@gen function height_proposal(i::Int)
-    prev = @read("h$i")
+@gen function height_proposal(prev, i::Int)
+    prev = prev["h$i"]
     @addr(uniform_continuous(prev/2., prev*2.), "h$i")
 end
 
-@gen function position_proposal(i::Int)
-    k = @read("k")
-    lower = (i == 1) ? 0. : @read("cp$(i-1)")
-    upper = (i == k) ? T : @read("cp$(i+1)")
+@gen function position_proposal(prev, i::Int)
+    k = prev["k"]
+    lower = (i == 1) ? 0. : prev["cp$(i-1)"]
+    upper = (i == k) ? T : prev["cp$(i+1)"]
     @addr(uniform_continuous(lower, upper), "cp$i")
 end
 
@@ -200,15 +200,15 @@ end
 # insert a new change point at i, where 1 <= i <= k+1
 # the current change point at i, and all after, will be shifted right
 # the new change point will be placed between cp$(i-1) and the current cp$i
-@gen function birth_proposal(T, i::Int)
-    k = @read("k")
-    lower = (i == 1) ? 0. : @read("cp$(i-1)")
-    upper = (i == k+1) ? T : @read("cp$i")
+@gen function birth_proposal(prev, T, i::Int)
+    k = prev["k"]
+    lower = (i == 1) ? 0. : prev["cp$(i-1)"]
+    upper = (i == k+1) ? T : prev["cp$i"]
     @addr(uniform_continuous(lower, upper), "new-cp")
     @addr(uniform_continuous(0., 1.), "u")
 end
 
-@gen function death_proposal() end
+@gen function death_proposal(prev) end
 
 function birth_move_new_heights(cur_height, new_cp, prev_cp, next_cp, u)
     d_prev = new_cp - prev_cp

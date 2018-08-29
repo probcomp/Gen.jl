@@ -2,7 +2,6 @@ mutable struct GFUpdateState
     prev_trace::GFTrace
     trace::GFTrace
     constraints::Any
-    read_trace::Union{Some{Any},Nothing}
     score::Float64
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
@@ -12,10 +11,10 @@ mutable struct GFUpdateState
     callee_output_changes::HomogenousTrie{Any,Any}
 end
 
-function GFUpdateState(args_change, prev_trace, constraints, read_trace, params)
+function GFUpdateState(args_change, prev_trace, constraints, params)
     visitor = AddressVisitor()
     discard = DynamicChoiceTrie()
-    GFUpdateState(prev_trace, GFTrace(), constraints, read_trace, 0., visitor,
+    GFUpdateState(prev_trace, GFTrace(), constraints, 0., visitor,
                   params, discard, args_change, nothing, HomogenousTrie{Any,Any}())
 end
 
@@ -83,11 +82,11 @@ function addr(state::GFUpdateState, gen::Generator{T}, args, addr, args_change) 
     if has_subtrace(state.prev_trace, addr)
         prev_trace = get_subtrace(state.prev_trace, addr)
         (trace, _, discard, retchange) = update(gen, args, args_change,
-            prev_trace, constraints, state.read_trace)
+            prev_trace, constraints)
         set_internal_node!(state.discard, addr, discard)
         set_leaf_node!(state.callee_output_changes, addr, retchange)
     else
-        trace = assess(gen, args, constraints, state.read_trace)
+        trace = assess(gen, args, constraints)
         set_leaf_node!(state.callee_output_changes, addr, NoChange())
     end
     call::CallRecord = get_call_record(trace)
@@ -99,8 +98,8 @@ end
 
 splice(state::GFUpdateState, gen::GenFunction, args::Tuple) = exec(gf, state, args)
 
-function update(gen::GenFunction, new_args, args_change, trace::GFTrace, constraints, read_trace=nothing)
-    state = Gen.GFUpdateState(args_change, trace, constraints, read_trace, gen.params)
+function update(gen::GenFunction, new_args, args_change, trace::GFTrace, constraints)
+    state = Gen.GFUpdateState(args_change, trace, constraints, gen.params)
     retval = Gen.exec(gen, state, new_args)
     new_call = Gen.CallRecord{Any}(state.score, retval, new_args)
     state.trace.call = new_call

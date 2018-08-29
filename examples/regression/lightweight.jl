@@ -41,28 +41,28 @@ end
 # inference operators #
 #######################
 
-@gen function slope_proposal()
-    slope = @read(:slope)
+@gen function slope_proposal(prev)
+    slope = prev[:slope]
     @addr(normal(slope, 0.5), :slope)
 end
 
-@gen function intercept_proposal()
-    intercept = @read(:intercept)
+@gen function intercept_proposal(prev)
+    intercept = prev[:intercept]
     @addr(normal(intercept, 0.5), :intercept)
 end
 
-@gen function inlier_std_proposal()
-    inlier_std = @read(:inlier_std)
+@gen function inlier_std_proposal(prev)
+    inlier_std = prev[:inlier_std]
     @addr(normal(inlier_std, 0.5), :inlier_std)
 end
 
-@gen function outlier_std_proposal()
-    outlier_std = @read(:outlier_std)
+@gen function outlier_std_proposal(prev)
+    outlier_std = prev[:outlier_std]
     @addr(normal(outlier_std, 0.5), :outlier_std)
 end
 
-@gen function is_outlier_proposal(i::Int)
-    prev = @read(:data => i => :z)
+@gen function is_outlier_proposal(prev, i::Int)
+    prev = prev[:data => i => :z]
     @addr(bernoulli(prev ? 0.0 : 1.0), :data => i => :z)
 end
 
