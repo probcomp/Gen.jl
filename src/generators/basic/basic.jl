@@ -221,8 +221,8 @@ struct BasicBlockChoices{T} <: ChoiceTrie
     trace::T
 end
 
-function static_has_leaf_node end
-function static_has_internal_node end
+static_has_leaf_node(::BasicBlockChoices, addr) = false
+static_has_internal_node(::BasicBlockChoices, addr) = false
 
 get_address_schema(::Type{BasicBlockChoices{T}}) where {T} = get_address_schema(T)
 Base.isempty(trie::BasicBlockChoices) = getproperty(trie.trace, is_empty_field)
@@ -513,6 +513,6 @@ include("simulate.jl")
 include("assess.jl")
 include("generate.jl")
 include("update.jl")
-include("backprop_trace.jl")
+include("backprop.jl")
 
 export @compiled

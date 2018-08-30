@@ -79,6 +79,25 @@ macro gen(ast)
     parse_gen_function(ast, false)
 end
 
+function args_for_gf_julia_fn(args, has_argument_grads)
+    # if an argument is marked for AD, we change remove the type annotation for
+    # the Julia function implementation, because we use reverse mode AD using
+    # boxed tracked values. we don't give any type information about the argument.
+    escaped_args = []
+    for (arg, has_grad) in zip(args, has_argument_grads)
+        if has_grad
+            if isa(arg, Expr) && arg.head == :(::)
+                push!(escaped_args, esc(arg.args[1]))
+            elseif isa(arg, Symbol)
+                push!(escaped_args, esc(arg))
+            end
+        else
+            push!(escaped_args, esc(arg))
+        end
+    end
+    escaped_args
+end
+
 function parse_gen_function(ast, ad_annotation::Bool)
     if ast.head != :function
         error("syntax error at $(ast) in $(ast.head)")
@@ -91,23 +110,26 @@ function parse_gen_function(ast, ad_annotation::Bool)
     if signature.head != :call
         error("syntax error at $(ast) in $(signature)")
     end
-    function_name = signature.args[1]
     args = signature.args[2:end]
     has_argument_grads = map(marked_for_ad, args)
-	#println("args: $args")
     args = map(strip_marked_for_ad, args)
-    arg_types = map(esc, parse_arg_types(args))
-    escaped_args = map(esc, args)
+
+    # julia function definition
+    escaped_args = args_for_gf_julia_fn(args, has_argument_grads)
     gf_args = [esc(state), escaped_args...]
-    
+    julia_fn_defn = Expr(:function,
+        Expr(:tuple, gf_args...),
+        esc(body))
+
+    # create generator and assign it a name
+    generator_name = signature.args[1]
+    arg_types = map(esc, parse_arg_types(args))
     Expr(:block,
         Expr(:(=), 
-            esc(function_name),
+            esc(generator_name),
             Expr(:call, :GenFunction,
                 quote Type[$(arg_types...)] end,
-                Expr(:function, Expr(:tuple, gf_args...), esc(body)),
-                has_argument_grads,
-                ad_annotation)))
+                julia_fn_defn, has_argument_grads, ad_annotation)))
 end
 
 function address_not_found_error_msg(addr)

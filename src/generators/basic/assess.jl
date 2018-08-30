@@ -107,6 +107,11 @@ end
 
 push!(Gen.generated_functions, quote
 @generated function Gen.assess(gen::Gen.BasicGenFunction, args, constraints)
+    schema = get_address_schema(constraints)
+    if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
+        # try to convert it to a static choice trie
+        return quote assess(gen, args, StaticChoiceTrie(constraints)) end
+    end
     Gen.codegen_assess(gen, args, constraints)
 end
 end)

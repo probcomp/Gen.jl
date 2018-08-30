@@ -334,6 +334,7 @@ end
 function add_addr!(ir::BasicBlockIR, addr::Symbol, gen::Generator{T,U}, args::Vector, typ, name::Symbol, change_expr) where {T,U}
     @assert !ir.finished
     types = get_static_argument_types(gen)
+    # NOTE: these could be abstract types....
     input_nodes = ValueNode[
         _get_input_node!(ir, expr, typ) for (expr, typ) in zip(args, types)]
     if any([node in ir.incremental_nodes for node in input_nodes])

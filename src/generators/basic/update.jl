@@ -310,7 +310,7 @@ push!(Gen.generated_functions, quote
 @generated function Gen.update(gen::Gen.BasicGenFunction, new_args, args_change, trace, constraints)
     schema = get_address_schema(constraints)
     if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
-        # trie to convert it to a static choice trie
+        # try to convert it to a static choice trie
         return quote update(gen, new_args, args_change, trace, StaticChoiceTrie(constraints)) end
     end
     Gen.codegen_update(gen, new_args, args_change, trace, constraints)
