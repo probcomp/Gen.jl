@@ -129,6 +129,9 @@ export AddressSet
 struct EmptyAddressSet <: AddressSet end
 get_address_schema(::Type{EmptyAddressSet}) = EmptyAddressSchema()
 
+export EmptyAddressSet
+
+
 ######################
 # static address set #
 ######################

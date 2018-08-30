@@ -85,6 +85,12 @@ function codegen_assess(gen::Type{T}, args, constraints) where {T <: BasicGenFun
         push!(stmts, quote $trace.$(value_field(arg_node)) = $(arg_node.name) end)
     end
 
+    # record parameters in trace
+    for param in ir.params
+        value_node = ir.value_nodes[param.name]
+        push!(stmts, quote $trace.$(value_field(value_node)) = gen.params[$(QuoteNode(param.name))] end)
+    end
+
     # process expression nodes in topological order
     state = BasicBlockAssessState(trace, score, stmts)
     for node in ir.expr_nodes_sorted

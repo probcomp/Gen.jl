@@ -74,6 +74,26 @@ function parse_lhs(lhs::Symbol)
     (name, :Any)
 end
 
+function parse_param(expr)
+    @assert expr.head == :macrocall && expr.args[1] == Symbol("@param")
+    rest = isa(expr.args[2], LineNumberNode) ? expr.args[3:end] : expr.args[2:end]
+    if length(rest) != 1
+        throw(BasicBlockParseError(rest))
+    end
+    decl = rest[1]
+    if isa(decl, Symbol)
+        name = decl
+        typ = Any
+    elseif isa(decl, Expr) && decl.head == :(::)
+        name = decl.args[1]
+        typ = Main.eval(decl.args[2])
+    else
+        throw(BasicBlockParseError(rest[1]))
+    end
+    (name, typ)
+end
+
+
 function generate_ir(args, body, output_ad, args_ad)
     ir = BasicBlockIR(output_ad, args_ad)
     if !isa(body, Expr) || body.head != :block
@@ -100,6 +120,9 @@ function generate_ir(args, body, output_ad, args_ad)
         end
         if statement.head == :line
             continue
+        elseif statement.head == :macrocall && statement.args[1] == Symbol("@param")
+            (name, typ) = parse_param(statement)
+            add_param!(ir, name, typ)
         elseif statement.head == :macrocall && statement.args[1] == Symbol("@addr")
             # an @addr statement without a left-hand-side
             (addr, dist_or_gen, args, change_expr) = parse_addr(statement)
@@ -380,7 +403,11 @@ function generate_generator_type(ir::BasicBlockIR, trace_type::Symbol, name::Sym
     retval_type = ir.output_node === nothing ? :Nothing : something(ir.output_node).typ
     defn = esc(quote
         struct $generator_type <: Gen.BasicGenFunction{$retval_type, $trace_type}
+            params_grad::Dict{Symbol,Any}
+            params::Dict{Symbol,Any}
         end
+        $generator_type() = $generator_type(Dict{Symbol,Any}(), Dict{Symbol,Any}())
+
         (gen::$generator_type)(args...) = get_call_record(simulate(gen, args)).retval
         Gen.get_ir(::Type{$generator_type}) = $(QuoteNode(ir))
         #Gen.render_graph(::$generator_type, fname) = Gen.render_graph(Gen.get_ir($generator_type), fname)
@@ -395,8 +422,8 @@ function generate_generator_type(ir::BasicBlockIR, trace_type::Symbol, name::Sym
     (defn, generator_type)
 end
 
+# TODO refactor and simplify:
 function generate_gradient_fn(node::JuliaNode, gradient_fn::Symbol)
-    Core.println("generating gradient_fn: $gradient_fn")
     if isa(node.expr_or_value, Expr) || isa(node.expr_or_value, Symbol)
         input_nodes = node.input_nodes
         inputs_do_ad = map((in_node) -> is_differentiable(get_type(in_node)), node.input_nodes)
@@ -491,6 +518,46 @@ macro compiled(ast)
 end
 
 
+#####################
+# static parameters #
+#####################
+
+# V1: just use a dictionary
+# V2: create specialized fields.
+
+# note that parameters will be cached (as specialized fields) in the trace;
+# user will need to use assess() after changing the parameters to get a trace
+# that has the new values of the parameters, before doing e.g. backprop()
+
+# for V1, just during simulate and assess, the parameters will be read from
+# dictionaries
+
+function set_param!(gf::BasicGenFunction, name::Symbol, value)
+    gf.params[name] = value
+end
+
+function get_param(gf::BasicGenFunction, name::Symbol)
+    gf.params[name]
+end
+
+function get_param_grad(gf::BasicGenFunction, name::Symbol)
+    gf.params_grad[name]
+end
+
+function zero_param_grad!(gf::BasicGenFunction, name::Symbol)
+    gf.params_grad[name] = zero(gf.params[name])
+end
+
+function init_param!(gf::BasicGenFunction, name::Symbol, value)
+    set_param!(gf, name, value)
+    zero_param_grad!(gf, name)
+end
+
+
+######################
+# change propagation #
+######################
+
 """
 Example: MaskedArgChange{Tuple{Val{:true},Val{:false}},Something}(something)
 """
@@ -506,8 +573,7 @@ function mask(bits...)
     MaskedArgChange{Tuple{parameters...},Nothing}(nothing)
 end
 
-export MaskedArgChnage, mask
-
+export MaskedArgChange, mask
 
 include("simulate.jl")
 include("assess.jl")

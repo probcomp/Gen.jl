@@ -156,6 +156,7 @@ macro param(expr_or_symbol)
     end
     Expr(:(=), esc(name), Expr(:call, :read_param, esc(state), QuoteNode(name)))
 end
+
 function set_param!(gf::GenFunction, name::Symbol, value)
     gf.params[name] = value
 end

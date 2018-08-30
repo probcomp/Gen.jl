@@ -191,20 +191,28 @@ function codegen_backprop_params(gen::Type{T}, trace, retval_grad) where {T <: B
 
     # initialize the gradient variable for the output node
     if ir.output_node !== nothing && ir.output_ad
-        grad_var = grad_vars[ir.output_node]
+        grad_var = grad_vars[something(ir.output_node)]
         push!(stmts, quote
             $grad_var = retval_grad
         end)
     end
 
     # visit statements in reverse topological order, generating code
-    state = BBBackpropParamsState(gen, :trace, stmts, schema, value_refs, grad_vars)
+    state = BBBackpropParamsState(gen, :trace, stmts, value_refs, grad_vars)
     for node in reverse(ir.expr_nodes_sorted)
         process!(state, node)
     end
 
+    # increment gradient accumulators for parameters
+    for param in ir.params
+        value_node = ir.value_nodes[param.name]
+        grad_var = grad_vars[value_node]
+        push!(stmts, quote
+            gen.params_grad[$(QuoteNode(param.name))] += $grad_var
+        end)
+    end
+
     # gradients with respect to inputs
-    input_grads_var = gensym("input_grads")
     input_grads = []
     for (node, has_grad) in zip(ir.arg_nodes, ir.args_ad)
         if has_grad
@@ -214,10 +222,7 @@ function codegen_backprop_params(gen::Type{T}, trace, retval_grad) where {T <: B
         end
     end
     push!(stmts, quote
-        $input_grads_var = ($(input_grads...),)
-    end)
-    push!(stmts, quote
-        return ($input_grads_var, $values, $gradients)
+        return ($(input_grads...),)
     end)
     Expr(:block, stmts...)
 end
@@ -347,7 +352,7 @@ function codegen_backprop_trace(gen::Type{T}, trace, selection, retval_grad) whe
 
     # initialize the gradient variable for the output node
     if ir.output_node !== nothing && ir.output_ad
-        grad_var = grad_vars[ir.output_node]
+        grad_var = grad_vars[something(ir.output_node)]
         push!(stmts, quote
             $grad_var = retval_grad
         end)
