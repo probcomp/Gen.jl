@@ -85,6 +85,12 @@ function codegen_assess(gen::Type{T}, args, constraints) where {T <: BasicGenFun
         push!(stmts, quote $trace.$(value_field(arg_node)) = $(arg_node.name) end)
     end
 
+    # record parameters in trace
+    for param in ir.params
+        value_node = ir.value_nodes[param.name]
+        push!(stmts, quote $trace.$(value_field(value_node)) = gen.params[$(QuoteNode(param.name))] end)
+    end
+
     # process expression nodes in topological order
     state = BasicBlockAssessState(trace, score, stmts)
     for node in ir.expr_nodes_sorted
@@ -107,6 +113,11 @@ end
 
 push!(Gen.generated_functions, quote
 @generated function Gen.assess(gen::Gen.BasicGenFunction, args, constraints)
+    schema = get_address_schema(constraints)
+    if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
+        # try to convert it to a static choice trie
+        return quote assess(gen, args, StaticChoiceTrie(constraints)) end
+    end
     Gen.codegen_assess(gen, args, constraints)
 end
 end)

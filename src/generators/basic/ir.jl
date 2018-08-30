@@ -133,7 +133,10 @@ get_type(node::ExprValueNode) = node.typ
 
 struct ParamValueNode <: ValueNode
     param::ParamInfo
+    name::Symbol
 end
+
+ParamValueNode(param::ParamInfo) = ParamValueNode(param, param.name)
 
 function Base.print(io::IO, node::ParamValueNode)
     write(io, "Param $(node.param.name)  $(node.param.typ)")
@@ -223,7 +226,7 @@ end
 function finish!(ir::BasicBlockIR)
     ir.finished = true
     ir.expr_nodes_sorted = toposort_expr_nodes(ir.all_nodes)
-    if ir.output_node !== nothing && ir.output_ad
+    if ir.output_node === nothing && ir.output_ad
         error("Compiled Gen function marked for output @ad but there is no return statement")
     end
 end
@@ -240,6 +243,9 @@ end
 
 function add_param!(ir::BasicBlockIR, name::Symbol, typ)
     @assert !ir.finished
+    if !(typ <: AbstractFloat) || (typ <: Array{T} where {T <: AbstractFloat})
+        error("@param type $typ is not <: AbstractFloat or <: Array{T} where {T <: AbstractFloat}")
+    end
     param_info = ParamInfo(name, typ)
     push!(ir.params, param_info)
     node = ParamValueNode(param_info)
@@ -334,6 +340,7 @@ end
 function add_addr!(ir::BasicBlockIR, addr::Symbol, gen::Generator{T,U}, args::Vector, typ, name::Symbol, change_expr) where {T,U}
     @assert !ir.finished
     types = get_static_argument_types(gen)
+    # NOTE: these could be abstract types....
     input_nodes = ValueNode[
         _get_input_node!(ir, expr, typ) for (expr, typ) in zip(args, types)]
     if any([node in ir.incremental_nodes for node in input_nodes])

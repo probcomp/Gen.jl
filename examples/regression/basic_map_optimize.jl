@@ -53,7 +53,7 @@ end
 #########
 
 @compiled @gen function datum(x::Float64, @ad(inlier_std::Float64), @ad(outlier_std::Float64),
-                                          @ad(slope::Float64), @ad(intercept::Float64))
+                                @ad(slope::Float64), @ad(intercept::Float64))
     is_outlier::Bool = @addr(bernoulli(0.5), :z)
     std::Float64 = is_outlier ? inlier_std : outlier_std
     y::Float64 = @addr(normal(x * slope + intercept, std), :y)
@@ -85,10 +85,9 @@ end
     intercept_change::Union{Tuple{Bool,Float64},Nothing} = @change(:intercept)
     change::Union{NoChange,Nothing} = compute_data_change(
         inlier_std_change, outlier_std_change, slope_change, intercept_change)
-    ys::PersistentVector{Float64} = @addr(data(xs, fill(inlier_std, n), fill(outlier_std, n),
+    @addr(data(xs, fill(inlier_std, n), fill(outlier_std, n),
                                                    fill(slope, n), fill(intercept, n)),
                                           :data, change)
-    return ys
 end
 
 #######################
@@ -162,18 +161,18 @@ datum_trace = simulate(datum, (1., 2., 3., 4., 5.))
 slope_intercept_static_sel = StaticAddressSet(slope_intercept_selection)
 std_static_sel = StaticAddressSet(std_selection)
 
-println("\n######################################################################\n")
-println("backprop_trace(model, ...)")
-println(strip_lineinfo(
-    Gen.codegen_backprop_trace(typeof(model), typeof(trace), typeof(slope_intercept_static_sel), Nothing)))
-println("\n######################################################################\n")
+#println("\n######################################################################\n")
+#println("backprop_trace(model, ...)")
+#println(strip_lineinfo(
+    #Gen.codegen_backprop_trace(typeof(model), typeof(trace), typeof(slope_intercept_static_sel), Nothing)))
+#println("\n######################################################################\n")
 
-println("\n######################################################################\n")
-println("backprop_trace(datum, ...)")
-println(strip_lineinfo(
-    Gen.codegen_backprop_trace(typeof(datum), typeof(datum_trace),
-           Gen.EmptyAddressSet, Nothing)))
-println("\n######################################################################\n")
+#println("\n######################################################################\n")
+#println("backprop_trace(datum, ...)")
+#println(strip_lineinfo(
+    #Gen.codegen_backprop_trace(typeof(datum), typeof(datum_trace),
+           #Gen.EmptyAddressSet, Nothing)))
+#println("\n######################################################################\n")
 
 
 function do_inference(n)
