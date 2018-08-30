@@ -19,7 +19,7 @@ function plate(kernel::Generator{T,U}) where {T,U}
 end
 
 function get_static_argument_types(plate::Plate)
-    [Expr(:curly, :Vector, typ) for typ in get_static_argument_types(plate.kernel)]
+    [Vector{typ} for typ in get_static_argument_types(plate.kernel)]
 end
 
 function get_args_for_key(args::Tuple, key::Int)

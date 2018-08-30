@@ -20,7 +20,7 @@ function plate(kernel::Distribution{T}) where {T}
 end
 
 function get_static_argument_types(plate::PlateOfDist)
-    [Expr(:curly, :Vector, typ) for typ in get_static_argument_types(plate.kernel)]
+    [Vector{typ} for typ in get_static_argument_types(plate.kernel)]
 end
 
 function simulate(gen::PlateOfDist{T}, args) where {T}

@@ -52,24 +52,6 @@ function parse_arg_types(args)
     types
 end
 
-marked_for_ad(arg::Symbol) = false
-marked_for_ad(arg::Expr) = (arg.head == :macrocall && arg.args[1] == Symbol("@ad"))
-
-strip_marked_for_ad(arg::Symbol) = arg
-function strip_marked_for_ad(arg::Expr) 
-    if (arg.head == :macrocall && arg.args[1] == Symbol("@ad"))
-		if length(arg.args) == 3 && isa(arg.args[2], LineNumberNode)
-			arg.args[3]
-		elseif length(arg.args) == 2
-			arg.args[2]
-		else
-            error("Syntax error at $arg")
-        end
-    else
-        arg
-    end
-end
-
 # TODO handle @compiled @ad @gen function and @ad compiled @gen function
 macro ad(ast)
     if ast.head != :macrocall || ast.args[1] != Symbol("@ad") || length(ast.args) != 2
@@ -205,27 +187,32 @@ end
 ##################
 
 struct AddressVisitor
-    visited::AddressSet
+    visited::DynamicAddressSet
 end
 
-AddressVisitor() = AddressVisitor(AddressSet())
+AddressVisitor() = AddressVisitor(DynamicAddressSet())
 
 function visit!(visitor::AddressVisitor, addr)
-    push!(visitor.visited, addr)
+    push_leaf_node!(visitor.visited, addr)
 end
 
 function _diff(trie, addrs::AddressSet)
     diff_trie = HomogenousTrie{Any,Any}()
 
     for (key_field, value) in get_leaf_nodes(trie)
-        if !(key_field in addrs)
+        if !has_leaf_node(addrs, key_field)
             set_leaf_node!(diff_trie, key_field, value)
         end
     end
 
     for (key_field, node) in get_internal_nodes(trie)
-        if !(key_field in addrs)
-            diff_node = _diff(node, addrs[key_field])
+        if !has_leaf_node(addrs, key_field)
+            if has_internal_node(addrs, key_field)
+                sub_addrs = get_internal_node(addrs, key_field)
+            else
+                sub_addrs = EmptyAddressSet()
+            end
+            diff_node = _diff(node, sub_addrs)
             if !isempty(diff_node)
                 set_internal_node!(diff_trie, key_field, diff_sub_trie)
             end

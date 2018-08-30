@@ -43,8 +43,8 @@ end
     @select(:outlier_std)
 end
 
-@gen function is_outlier_proposal(i::Int)
-    prev = @read(:data => i => :z)
+@gen function is_outlier_proposal(prev, i::Int)
+    prev = prev[:data => i => :z]
     @addr(bernoulli(prev ? 0.0 : 1.0), :data => i => :z)
 end
 
@@ -82,6 +82,10 @@ end
 # run experiment #
 ##################
 
+trace = simulate(model, (xs,))
+datum_trace = simulate(datum, (1., 2., 3., 4., 5.))
+(slope_intercept_selection,) = Gen.select(slope_intercept_selector, (), get_choices(trace))
+(std_selection,) = Gen.select(std_selector, (), get_choices(trace))
 
 function do_inference(n)
     observations = get_choices(simulate(observer, (ys,)))
@@ -90,8 +94,10 @@ function do_inference(n)
     (trace, _) = generate(model, (xs,), observations)
     
     for i=1:n
-        trace = map_optimize(model, slope_intercept_selector, (), trace, max_step_size=0.1, min_step_size=1e-10)
-        trace = map_optimize(model, std_selector, (), trace, max_step_size=0.1, min_step_size=1e-10)
+        for j=1:5
+            trace = map_optimize(model, slope_intercept_selection, trace, max_step_size=0.1, min_step_size=1e-10)
+            trace = map_optimize(model, std_selection, trace, max_step_size=0.1, min_step_size=1e-10)
+        end
     
         # step on the outliers
         for j=1:length(xs)
@@ -110,5 +116,5 @@ function do_inference(n)
     end
 end
 
-@time do_inference(10000)
-@time do_inference(10000)
+@time do_inference(100)
+@time do_inference(100)

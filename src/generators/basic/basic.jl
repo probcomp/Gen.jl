@@ -2,6 +2,10 @@
 # parsing AST into IR #
 #######################
 
+function is_differentiable(typ::Type)
+    typ <: AbstractFloat || typ <: AbstractArray{T} where {T <: AbstractFloat}
+end
+
 include("ir.jl")
 
 struct BasicBlockParseError <: Exception
@@ -58,7 +62,7 @@ end
 function parse_lhs(lhs::Expr)
     if lhs.head == :(::)
         name = lhs.args[1]
-        typ = lhs.args[2]
+        typ = Main.eval(lhs.args[2]) # TODO use of eval..
         return (name, typ)
     else
         throw(BasicBlockParseError(lhs))
@@ -70,18 +74,18 @@ function parse_lhs(lhs::Symbol)
     (name, :Any)
 end
 
-function generate_ir(args, body)
-    ir = BasicBlockIR()
+function generate_ir(args, body, output_ad, args_ad)
+    ir = BasicBlockIR(output_ad, args_ad)
     if !isa(body, Expr) || body.head != :block
         throw(BasicBlockParseError(body))
     end
     for arg in args
         if isa(arg, Symbol)
             name = arg
-            typ = :Any
+            typ = Any
         elseif isa(arg, Expr) && arg.head == :(::)
             name = arg.args[1]
-            typ = arg.args[2]
+            typ = Main.eval(arg.args[2]) # TODO use of eval..
         else
             throw(BasicBlockParseError(body))
         end
@@ -144,33 +148,47 @@ function generate_ir(args, body)
             set_retchange!(ir, retchange_expr)
         else
             throw(BasicBlockParseError(statement))
-            # TODO make LHS optional for @addr..
         end
     end
     finish!(ir)
     ir
 end
 
-function basic_gen_parse(ast)
-    dsl = Symbol("@compiled")
-    if ast.head != :macrocall || ast.args[1] != Symbol("@gen")
-        error("syntax error in $dsl, expected $dsl @gen function .. end")
-    end
+function compiled_gen_parse_inner(ast)
+    @assert isa(ast, Expr) && ast.head == :macrocall && ast.args[1] == Symbol("@gen")
     ast = isa(ast.args[2], LineNumberNode) ? ast.args[3] : ast.args[2]
     if ast.head != :function
-        error("syntax error in $dsl at $(ast) in $(ast.head)")
+        error("syntax error in @compiled at $(ast) in $(ast.head)")
     end
     if length(ast.args) != 2
-        error("syntax error in $dsl at $(ast) in $(ast.args)")
+        error("syntax error in @compile at $(ast) in $(ast.args)")
     end
     signature = ast.args[1]
     body = ast.args[2]
     if signature.head != :call
-        error("syntax error in $dsl at $(ast) in $(signature)")
+        error("syntax error in @compiled at $(ast) in $(signature)")
     end
     name = signature.args[1]
     args = signature.args[2:end]
-    (name, args, body)
+    has_argument_grads = (map(marked_for_ad, args)...,)
+    args = map(strip_marked_for_ad, args)
+    (name, args, body, has_argument_grads)
+end
+
+function compiled_gen_parse(ast)
+    if ast.head == :macrocall && ast.args[1] == Symbol("@gen")
+        (name, args, body, args_ad) = compiled_gen_parse_inner(ast)
+        return (name, args, body, false, args_ad)
+    elseif ast.head == :macrocall && ast.args[1] == Symbol("@ad")
+        sub_ast = isa(ast.args[2], LineNumberNode) ? ast.args[3] : ast.args[2]
+        if (isa(sub_ast, Expr)
+            && sub_ast.head == :macrocall
+            && sub_ast.args[1] == Symbol("@gen"))
+            (name, args, body, args_ad) = compiled_gen_parse_inner(sub_ast)
+            return (name, args, body, true, args_ad)
+        end
+    end 
+    error("syntax error in @compiled, expected @compiled @gen .. or @compiled @ad @gen ..")
 end
 
 ###########################
@@ -182,6 +200,8 @@ end
 # - a field for each addr statement (either a subtrace nor a value)
 # - note: there is redundancy between the value nodes and the distribution addr fields
 
+const is_empty_field = gensym("is_empty")
+const call_record_field = gensym("call_record")
 const value_node_prefix = gensym("value")
 
 function value_field(name::Symbol)
@@ -201,18 +221,26 @@ struct BasicBlockChoices{T} <: ChoiceTrie
     trace::T
 end
 
+function static_has_leaf_node end
+function static_has_internal_node end
+
 get_address_schema(::Type{BasicBlockChoices{T}}) where {T} = get_address_schema(T)
+Base.isempty(trie::BasicBlockChoices) = getproperty(trie.trace, is_empty_field)
+get_leaf_node(trie::BasicBlockChoices, key::Symbol) = static_get_leaf_node(trie, Val(key))
+get_internal_node(trie::BasicBlockChoices, key::Symbol) = static_get_internal_node(trie, Val(key))
+has_leaf_node(trie::BasicBlockChoices, key::Symbol) = static_has_leaf_node(trie, Val(key))
+has_internal_node(trie::BasicBlockChoices, key::Symbol) = static_has_internal_node(trie, Val(key))
+has_leaf_node(trie::BasicBlockChoices, addr::Pair) = _has_leaf_node(trie, addr)
+get_leaf_node(trie::BasicBlockChoices, addr::Pair) = _get_leaf_node(trie, addr)
+has_internal_node(trie::BasicBlockChoices, addr::Pair) = _has_internal_node(trie, addr)
+get_internal_node(trie::BasicBlockChoices, addr::Pair) = _get_internal_node(trie, addr)
 
 function make_choice_trie_methods(trace_type, addr_dist_nodes, addr_gen_nodes)
     methods = Expr[]
 
-    push!(methods, quote
-        Base.isempty(trie::Gen.BasicBlockChoices{$trace_type}) = trie.trace.$is_empty_field
-    end)
+    ## get_leaf_nodes ##
 
-    # get_leaf_nodes
     leaf_addrs = map((node) -> node.address, addr_dist_nodes)
-
     push!(methods, quote
         function Gen.get_leaf_nodes(trie::Gen.BasicBlockChoices{$trace_type})
             $(Expr(:tuple,
@@ -220,9 +248,9 @@ function make_choice_trie_methods(trace_type, addr_dist_nodes, addr_gen_nodes)
         end
     end)
 
-    # get_internal_nodes
-    internal_addrs = map((node) -> node.address, addr_gen_nodes)
+    ## get_internal_nodes ##
 
+    internal_addrs = map((node) -> node.address, addr_gen_nodes)
     push!(methods, quote
         function Gen.get_internal_nodes(trie::Gen.BasicBlockChoices{$trace_type})
             $(Expr(:tuple,
@@ -233,19 +261,7 @@ function make_choice_trie_methods(trace_type, addr_dist_nodes, addr_gen_nodes)
     for node::AddrDistNode in addr_dist_nodes
         addr = node.address
 
-        push!(methods, quote
-            function Gen._has_leaf_node(trie::Gen.BasicBlockChoices{$trace_type},
-                                           ::Val{$(QuoteNode(addr))})
-                true
-            end
-        end)
-
-        push!(methods, quote
-            function Gen.has_leaf_node(trie::Gen.BasicBlockChoices{$trace_type}, key::Symbol)
-                Gen._has_leaf_node(Val(key))
-            end
-        end)
-
+        ## static_get_leaf_node ##
 
         push!(methods, quote
             function Gen.static_get_leaf_node(trie::Gen.BasicBlockChoices{$trace_type},
@@ -254,9 +270,12 @@ function make_choice_trie_methods(trace_type, addr_dist_nodes, addr_gen_nodes)
             end
         end)
 
+        ## static_has_leaf_node ##
+
         push!(methods, quote
-            function Gen.get_leaf_node(trie::Gen.BasicBlockChoices{$trace_type}, key::Symbol)
-                Gen.static_get_leaf_node(trie, Val(key))
+            function Gen.static_has_leaf_node(trie::Gen.BasicBlockChoices{$trace_type},
+                                           ::Val{$(QuoteNode(addr))})
+                true
             end
         end)
 
@@ -265,102 +284,27 @@ function make_choice_trie_methods(trace_type, addr_dist_nodes, addr_gen_nodes)
     for node::AddrGeneratorNode in addr_gen_nodes
         addr = node.address
 
-        push!(methods, quote
-            function Gen._has_leaf_node(trie::Gen.BasicBlockChoices{$trace_type},
-                                           addr::Pair{Val{$(QuoteNode(addr))},T}) where {T}
-                (_, rest) = addr
-                has_leaf_node(get_choices(trie.trace.$addr), rest)
-            end
-        end)
+        ## static_has_internal_node ##
 
         push!(methods, quote
-            function Gen.has_leaf_node(trie::Gen.BasicBlockChoices{$trace_type}, addr::Pair{Symbol,T}) where {T}
-                (first, rest) = addr
-                node = Gen.static_get_internal_node(trie, Val(first))
-                has_leaf_node(node, rest)
-            end
-        end)
-
-        push!(methods, quote
-            function Gen.static_get_leaf_node(trie::Gen.BasicBlockChoices{$trace_type},
-                                           addr::Pair{Val{$(QuoteNode(addr))},T}) where {T}
-                (_, rest) = addr
-                get_leaf_node(get_choices(trie.trace.$addr), rest)
-            end
-        end)
-
-        push!(methods, quote
-            function Gen.get_leaf_node(trie::Gen.BasicBlockChoices{$trace_type}, addr::Pair{Symbol,T}) where {T}
-                (first, rest) = addr
-                node = Gen.static_get_internal_node(trie, Val(first))
-                get_leaf_node(node, rest)
-            end
-        end)
-
-        push!(methods, quote
-            function Gen._has_internal_node(trie::Gen.BasicBlockChoices{$trace_type},
-                                           ::Val{$(QuoteNode(addr))})
+            function Gen.static_has_internal_node(trie::Gen.BasicBlockChoices{$trace_type},
+                                                  ::Val{$(QuoteNode(addr))})
                 true
             end
         end)
 
-        push!(methods, quote
-            function Gen.has_internal_node(trie::Gen.BasicBlockChoices{$trace_type}, key::Symbol)
-                Gen._has_internal_node(trie, Val(key))
-            end
-        end)
-
-        push!(methods, quote
-            function Gen._has_internal_node(trie::Gen.BasicBlockChoices{$trace_type},
-                                           addr::Pair{Val{$(QuoteNode(addr))},T}) where {T}
-                (_, rest) = addr
-                has_internal_node(trie.trace.$addr, rest)
-            end
-        end)
-
-        push!(methods, quote
-            function Gen._has_internal_node(trie::Gen.BasicBlockChoices{$trace_type}, addr::Pair{Symbol,T}) where {T}
-                (first, rest) = addr
-                node = Gen.static_get_internal_node(trie, Val(first))
-                has_internal_node(node, rest)
-            end
-        end)
+        ## static_get_internal_node ##
 
         push!(methods, quote
             function Gen.static_get_internal_node(trie::Gen.BasicBlockChoices{$trace_type},
-                                           ::Val{$(QuoteNode(addr))})
+                                                  ::Val{$(QuoteNode(addr))})
                 get_choices(trie.trace.$addr)
-            end
-        end)
-
-        push!(methods, quote
-            function Gen.get_internal_node(trie::Gen.BasicBlockChoices{$trace_type}, key::Symbol)
-                Gen.static_get_internal_node(trie, Val(key))
-            end
-        end)
-
-        push!(methods, quote
-            function Gen.static_get_internal_node(trie::Gen.BasicBlockChoices{$trace_type},
-                                           addr::Pair{Val{$(QuoteNode(addr))},T}) where {T}
-                (_, rest) = addr
-                get_internal_node(trie.trace.$addr, rest)
-            end
-        end)
-
-        push!(methods, quote
-            function Gen.get_internal_node(trie::Gen.BasicBlockChoices{$trace_type}, addr::Pair{Symbol,T}) where {T}
-                (first, rest) = addr
-                node = Gen.static_get_internal_node(trie, Val(first))
-                get_internal_node(node, rest)
             end
         end)
     end
 
     methods
 end
-
-const is_empty_field = gensym("is_empty")
-const call_record_field = gensym("call_record")
 
 function generate_trace_type(ir::BasicBlockIR, name)
     trace_type_name = gensym("BasicBlockTrace_$name")
@@ -370,22 +314,20 @@ function generate_trace_type(ir::BasicBlockIR, name)
         # (ir.incremental_nodes) in the trace, but these can be removed for
         # performance optimization
         typ = get_type(node)
-        push!(fields, Expr(:(::), value_field(node), typ))
+        push!(fields, Expr(:(::), value_field(node), QuoteNode(typ)))
     end
     for (addr, node) in ir.addr_dist_nodes
-        typ_value::Type = get_return_type(node.dist)
-        push!(fields, Expr(:(::), node.address, QuoteNode(typ_value)))
+        typ::Type = get_return_type(node.dist)
+        push!(fields, Expr(:(::), node.address, QuoteNode(typ)))
     end
     for (addr, node) in ir.addr_gen_nodes
-        typ_value::Type = get_trace_type(node.gen)
-        push!(fields, Expr(:(::), node.address, QuoteNode(typ_value)))
+        typ::Type = get_trace_type(node.gen)
+        push!(fields, Expr(:(::), node.address, QuoteNode(typ)))
     end
     addresses = union(keys(ir.addr_dist_nodes), keys(ir.addr_gen_nodes))
     choice_trie_methods = make_choice_trie_methods(
         trace_type_name, values(ir.addr_dist_nodes), values(ir.addr_gen_nodes))
-    retval_type = ir.output_node ===  nothing ? :Nothing : something(ir.output_node).typ
-    leaf_keys = 
-    
+    retval_type = QuoteNode(ir.output_node ===  nothing ? Nothing : something(ir.output_node).typ)
     defn = esc(quote
 
         # specialized trace implementation
@@ -428,10 +370,12 @@ end
 
 abstract type BasicGenFunction{T,U} <: Generator{T,U} end
 
-# a method that is executed, at code-generation time on the type
+# a method on the generator type that is executed during expansion of
+# generator API generated functions
 function get_ir end
+function get_grad_fn end
 
-function generate_generator_type(ir::BasicBlockIR, trace_type::Symbol, name::Symbol)
+function generate_generator_type(ir::BasicBlockIR, trace_type::Symbol, name::Symbol, node_to_gradient)
     generator_type = Symbol("BasicBlockGenerator_$name")
     retval_type = ir.output_node === nothing ? :Nothing : something(ir.output_node).typ
     defn = esc(quote
@@ -444,29 +388,105 @@ function generate_generator_type(ir::BasicBlockIR, trace_type::Symbol, name::Sym
         function Gen.get_static_argument_types(::$generator_type)
             [node.typ for node in Gen.get_ir($generator_type).arg_nodes]
         end
+        Gen.accepts_output_grad(::$generator_type) = $(QuoteNode(ir.output_ad))
+        Gen.has_argument_grads(::$generator_type) = $(QuoteNode(ir.args_ad))
+        Gen.get_grad_fn(::Type{$generator_type}, node::Gen.JuliaNode) = $(QuoteNode(node_to_gradient))[node]
     end)
     (defn, generator_type)
+end
+
+function generate_gradient_fn(node::JuliaNode, gradient_fn::Symbol)
+    Core.println("generating gradient_fn: $gradient_fn")
+    if isa(node.expr_or_value, Expr) || isa(node.expr_or_value, Symbol)
+        input_nodes = node.input_nodes
+        inputs_do_ad = map((in_node) -> is_differentiable(get_type(in_node)), node.input_nodes)
+        untracked_inputs = [gensym("untracked_$(in_node.name)") for in_node in node.input_nodes]
+        maybe_tracked_inputs = [in_node.name for in_node in node.input_nodes]
+        track_stmts = Expr[]
+        grad_exprs = Expr[]
+        grad_exprs_noop = Expr[]
+        tape = gensym("tape")
+        for (untracked, maybe_tracked, do_ad) in zip(untracked_inputs, maybe_tracked_inputs, inputs_do_ad)
+            if do_ad
+                push!(track_stmts, quote $maybe_tracked = ReverseDiff.track($untracked, $tape) end)
+                push!(grad_exprs, quote ReverseDiff.deriv($maybe_tracked) end)
+                push!(grad_exprs_noop, quote zero($untracked) end)
+            else
+                push!(track_stmts, quote $maybe_tracked = $untracked end)
+                push!(grad_exprs, quote nothing end)
+                push!(grad_exprs_noop, quote nothing end)
+            end
+        end
+        output_grad = gensym("output_grad")
+        given_output_value = gensym("given_output_value")
+        output_value_maybe_tracked = gensym("output_value_maybe_tracked")
+        err_msg = QuoteNode("julia expression was not differentiable: $(node.expr_or_value)")
+        quote
+            function $gradient_fn($output_grad, $given_output_value, $(untracked_inputs...))
+                $tape = ReverseDiff.InstructionTape()
+                $(track_stmts...)
+                $output_value_maybe_tracked = $(node.expr_or_value)
+                @assert isapprox(ReverseDiff.value($output_value_maybe_tracked), $given_output_value)
+                if $output_grad !== nothing
+                    if ReverseDiff.istracked($output_value_maybe_tracked)
+                        ReverseDiff.deriv!($output_value_maybe_tracked, $output_grad)
+                        ReverseDiff.reverse_pass!($tape)
+                        return ($(grad_exprs...),)
+                    else
+                        # the expression was not differentiable (output value was not tracked)
+                        # but the output has a given gradient value, indicating it is floating pt..
+                        error(err_msg)
+                        # TODO warning, error, or silent?
+                    end
+                else
+                    # output_grad is nothing (i.e. not a floating point value)
+                    return ($(grad_exprs_noop...),)
+                end
+            end
+        end
+    else
+        # it is a constant value
+        @assert length(node.input_nodes) == 0
+        quote
+            $gradient_fn(output_grad, given_output_value) = ()
+        end
+    end
+end
+
+function generate_gradient_functions(ir::BasicBlockIR)
+    gradient_function_defns = Expr[]
+    node_to_gradient = Dict{JuliaNode,Symbol}()
+    for node::JuliaNode in filter((node) -> isa(node, JuliaNode), ir.all_nodes)
+        gradient_fn = gensym("julia_grad_$(node.output.name)")
+        gradient_fn_defn = esc(generate_gradient_fn(node, gradient_fn))
+        push!(gradient_function_defns, gradient_fn_defn)
+        node_to_gradient[node] = gradient_fn
+    end
+    (gradient_function_defns, node_to_gradient)
 end
 
 macro compiled(ast)
 
     # parse the AST
-    (name, args, body) = basic_gen_parse(ast)
+    (name, args, body, output_ad, args_ad) = compiled_gen_parse(ast)
 
     # geneate intermediate data-flow representation
-    ir = generate_ir(args, body)
+    ir = generate_ir(args, body, output_ad, args_ad)
+
+    # generate gradient functions
+    (gradient_function_defns, node_to_gradient) = generate_gradient_functions(ir)
 
     # generate trace type definition
     (trace_type_defn, trace_type) = generate_trace_type(ir, name)
 
     # generate generator type definition
     (generator_type_defn, generator_type) = generate_generator_type(
-        ir, trace_type, name)
-
+        ir, trace_type, name, node_to_gradient)
 
     Expr(:block,
         trace_type_defn,
         generator_type_defn,
+        gradient_function_defns...,
         quote global const $(esc(name)) = $(esc(generator_type))() end)
 end
 
@@ -493,5 +513,6 @@ include("simulate.jl")
 include("assess.jl")
 include("generate.jl")
 include("update.jl")
+include("backprop_trace.jl")
 
 export @compiled

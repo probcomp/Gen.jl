@@ -34,7 +34,10 @@ end
 function addr(state::GFRegenerateState, dist::Distribution{T}, args, addr, args_change) where {T}
     visit!(state.visitor, addr)
     has_previous = has_primitive_call(state.prev_trace, addr)
-    in_selection = addr in state.selection
+    if has_internal_node(state.selection, addr)
+        error("Got internal node but expected leaf node in selection at $addr")
+    end
+    in_selection = has_leaf_node(state.selection, addr)
     local retval::T
     if has_previous && !in_selection
         # there was a previous value, and it was not in the selection
@@ -79,7 +82,11 @@ function addr(state::GFRegenerateState, gen::Generator{T}, args, addr, args_chan
         end
         prev_trace = get_subtrace(state.prev_trace, addr) 
         prev_call = get_call_record(prev_trace)
-        selection = state.selection[addr]
+        if has_internal_node(state.selection, addr)
+            selection = get_internal_node(state.selection, addr)
+        else
+            selection = EmptyAddressSet()
+        end
         (trace, weight, retchange) = regenerate(
             gen, args, args_change, prev_trace, selection)
         state.weight += weight

@@ -1,6 +1,6 @@
 struct ParamInfo
     name::Symbol
-    typ::Any
+    typ::Type
 end
 
 abstract type Node end
@@ -37,7 +37,6 @@ function Base.print(io::IO, node::ArgsChangeNode)
 end
 
 parents(::ArgsChangeNode) = []
-
 
 struct AddrDistNode{T} <: ExprNode
     input_nodes::Vector{ValueNode}
@@ -96,11 +95,10 @@ function expr_read_from_trace(node::JuliaNode, trace::Symbol)
     replace_input_symbols(input_symbols, node.expr_or_value, trace)
 end
 
-
 # value nodes
 struct ArgumentValueNode <: ValueNode
     name::Symbol
-    typ::Any
+    typ::Type
 end
 
 function Base.print(io::IO, node::ArgumentValueNode)
@@ -112,7 +110,7 @@ get_type(node::ArgumentValueNode) = node.typ
 
 mutable struct ExprValueNode <: ValueNode
     name::Symbol
-    typ::Any
+    typ::Type
     finished::Bool
     source::ExprNode
     function ExprValueNode(name, typ)
@@ -145,6 +143,8 @@ parents(node::ParamValueNode) = []
 get_type(node::ParamValueNode) = node.param.typ
 
 mutable struct BasicBlockIR
+    output_ad::Bool
+    args_ad::Tuple
     arg_nodes::Vector{ArgumentValueNode}
     params::Vector{ParamInfo}
     value_nodes::Dict{Symbol, ValueNode}
@@ -165,7 +165,8 @@ mutable struct BasicBlockIR
     incremental_nodes::Set{ValueNode}
 
     expr_nodes_sorted::Vector{ExprNode}
-    function BasicBlockIR()
+
+    function BasicBlockIR(output_ad::Bool, args_ad::Tuple)
         arg_nodes = Vector{ArgumentValueNode}()
         params = Vector{ParamInfo}()
         value_nodes = Dict{Symbol,ValueNode}()
@@ -179,7 +180,8 @@ mutable struct BasicBlockIR
         generator_input_change_nodes = Set{ValueNode}()
         finished = false
         incremental_nodes = Set{ValueNode}()
-        new(arg_nodes, params, value_nodes, addr_dist_nodes,
+        new(output_ad, args_ad,
+            arg_nodes, params, value_nodes, addr_dist_nodes,
                      addr_gen_nodes, all_nodes, output_node, retchange_node,
                      args_change_node, addr_change_nodes,
                      generator_input_change_nodes,
@@ -221,8 +223,10 @@ end
 function finish!(ir::BasicBlockIR)
     ir.finished = true
     ir.expr_nodes_sorted = toposort_expr_nodes(ir.all_nodes)
+    if ir.output_node !== nothing && ir.output_ad
+        error("Compiled Gen function marked for output @ad but there is no return statement")
+    end
 end
-
 
 # NOTE: currently we don't properly support list comprehensions and closures
 # and let (anything that defines a new environment)
@@ -336,7 +340,7 @@ function add_addr!(ir::BasicBlockIR, addr::Symbol, gen::Generator{T,U}, args::Ve
         incremental_dependency_error(addr)
     end
     value_node = ExprValueNode(name, typ)
-    change_node = _get_input_node!(ir, change_expr, Expr(:curly, :Union, Expr(:curly, :Some, get_change_type(gen)), :Nothing))
+    change_node = _get_input_node!(ir, change_expr, Union{Some{get_change_type(gen)}, Nothing})
     push!(ir.generator_input_change_nodes, change_node)
     expr_node = AddrGeneratorNode(input_nodes, value_node, gen, addr, change_node)
     finish!(value_node, expr_node)
@@ -355,7 +359,7 @@ function add_addr!(ir::BasicBlockIR, addr::Symbol, gen::Generator{T,U}, args::Ve
     if any([node in ir.incremental_nodes for node in input_nodes])
         incremental_dependency_error(addr)
     end
-    change_node = _get_input_node!(ir, change_expr, Expr(:curly, :Union, Expr(:curly, :Some, get_change_type(gen)), :Nothing))
+    change_node = _get_input_node!(ir, change_expr, Union{Some{get_change_type(gen)}, Nothing})
     push!(ir.generator_input_change_nodes, change_node)
     expr_node = AddrGeneratorNode(input_nodes, nothing, gen, addr, change_node)
     push!(ir.all_nodes, expr_node)
