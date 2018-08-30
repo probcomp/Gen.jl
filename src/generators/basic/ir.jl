@@ -1,6 +1,6 @@
 struct ParamInfo
     name::Symbol
-    typ::Any
+    typ::Type
 end
 
 abstract type Node end
@@ -82,8 +82,6 @@ struct JuliaNode <: ExprNode
     input_nodes::Vector{ValueNode}
     output::ValueNode
     expr_or_value::Any
-    # TODO need to generate define a new function when we generate the IR, at macro-expansion time?
-    # we can't define new methods during the JIT pas..
 end
 
 function Base.print(io::IO, node::JuliaNode)
@@ -97,11 +95,10 @@ function expr_read_from_trace(node::JuliaNode, trace::Symbol)
     replace_input_symbols(input_symbols, node.expr_or_value, trace)
 end
 
-
 # value nodes
 struct ArgumentValueNode <: ValueNode
     name::Symbol
-    typ::Any
+    typ::Type
 end
 
 function Base.print(io::IO, node::ArgumentValueNode)
@@ -113,7 +110,7 @@ get_type(node::ArgumentValueNode) = node.typ
 
 mutable struct ExprValueNode <: ValueNode
     name::Symbol
-    typ::Any
+    typ::Type
     finished::Bool
     source::ExprNode
     function ExprValueNode(name, typ)
@@ -343,7 +340,7 @@ function add_addr!(ir::BasicBlockIR, addr::Symbol, gen::Generator{T,U}, args::Ve
         incremental_dependency_error(addr)
     end
     value_node = ExprValueNode(name, typ)
-    change_node = _get_input_node!(ir, change_expr, Expr(:curly, :Union, Expr(:curly, :Some, get_change_type(gen)), :Nothing))
+    change_node = _get_input_node!(ir, change_expr, Union{Some{get_change_type(gen)}, Nothing})
     push!(ir.generator_input_change_nodes, change_node)
     expr_node = AddrGeneratorNode(input_nodes, value_node, gen, addr, change_node)
     finish!(value_node, expr_node)
@@ -362,7 +359,7 @@ function add_addr!(ir::BasicBlockIR, addr::Symbol, gen::Generator{T,U}, args::Ve
     if any([node in ir.incremental_nodes for node in input_nodes])
         incremental_dependency_error(addr)
     end
-    change_node = _get_input_node!(ir, change_expr, Expr(:curly, :Union, Expr(:curly, :Some, get_change_type(gen)), :Nothing))
+    change_node = _get_input_node!(ir, change_expr, Union{Some{get_change_type(gen)}, Nothing})
     push!(ir.generator_input_change_nodes, change_node)
     expr_node = AddrGeneratorNode(input_nodes, nothing, gen, addr, change_node)
     push!(ir.all_nodes, expr_node)

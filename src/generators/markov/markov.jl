@@ -23,7 +23,7 @@ function get_static_argument_types(markov::Markov)
     # 1 total number of time steps
     # 2 initial state (this must also be the return type of the kernel, not currently checked)
     # 3 parameters (shared across all time steps)
-    [:Int, state_type, params_type]
+    [Int, state_type, params_type]
 end
 
 function generate(gen::Markov{T,U}, args, constraints) where {T,U}

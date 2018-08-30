@@ -26,7 +26,7 @@ end
 
 (::Dirac)(y) = random(Dirac(), y)
 
-get_static_argument_types(::Dirac) = [:Float64]
+get_static_argument_types(::Dirac) = [Float64]
 
 export dirac
 
@@ -42,11 +42,18 @@ function logpdf(::Bernoulli, x::Bool, prob::Real)
     x ? log(prob) : log(1. - prob)
 end
 
+function logpdf_grad(::Bernoulli, x::Bool, prob::Real)
+    prob_grad = x ? 1. / prob : -1. / (1-prob)
+    (nothing, prob_grad)
+end
+
 random(::Bernoulli, prob::Real) = rand() < prob
 
 (::Bernoulli)(prob) = random(Bernoulli(), prob)
 
-get_static_argument_types(::Bernoulli) = [:Float64]
+has_output_grad(::Bernoulli) = false
+has_argument_grads(::Bernoulli) = (true,)
+get_static_argument_types(::Bernoulli) = [Float64]
 
 export bernoulli
 
@@ -64,13 +71,24 @@ function logpdf(::Normal, x::Real, mu::Real, std::Real)
     -(diff * diff)/ (2.0 * var) - 0.5 * log(2.0 * pi * var)
 end
 
+function logpdf_grad(::Normal, x::Real, mu::Real, std::Real)
+    precision = 1. / (std * std)
+    diff = mu - x
+    deriv_x = diff * precision
+    deriv_mu = -deriv_x
+    deriv_sigma = -0.5 * precision * (1. - precision * (diff * diff))
+    (deriv_x, deriv_mu, deriv_sigma)
+end
+
 function random(::Normal, mu::Real, std::Real)
     mu + std * randn()
 end
 
 (::Normal)(mu, std) = random(Normal(), mu, std)
 
-get_static_argument_types(::Normal) = [:Float64, :Float64]
+has_output_grad(::Normal) = true
+has_argument_grads(::Normal) = (true, true)
+get_static_argument_types(::Normal) = [Float64, Float64]
 
 export normal
 
@@ -97,7 +115,7 @@ end
 
 (::Gamma)(shape, scale) = random(Gamma(), shape, scale)
 
-get_static_argument_types(::Gamma) = [:Float64, :Float64]
+get_static_argument_types(::Gamma) = [Float64, Float64]
 
 export gamma
 
@@ -124,7 +142,7 @@ end
 
 (::InverseGamma)(shape, scale) = random(InverseGamma(), shape, scale)
 
-get_static_argument_types(::InverseGamma) = [:Float64, :Float64]
+get_static_argument_types(::InverseGamma) = [Float64, Float64]
 
 export inv_gamma
 
@@ -146,7 +164,7 @@ end
 
 (::Beta)(alpha, beta) = random(Beta(), alpha, beta)
 
-get_static_argument_types(::Beta) = [:Float64, :Float64]
+get_static_argument_types(::Beta) = [Float64, Float64]
 
 export beta
 
@@ -168,7 +186,7 @@ end
 
 (::Categorical)(probs) = random(Categorical(), probs)
 
-get_static_argument_types(::Categorical) = [:(Vector{Float64})]
+get_static_argument_types(::Categorical) = [Vector{Float64}]
 
 export categorical
 
@@ -192,7 +210,7 @@ end
 
 (::UniformDiscrete)(low, high) = random(UniformDiscrete(), low, high)
 
-get_static_argument_types(::UniformDiscrete) = [:Float64, :Float64]
+get_static_argument_types(::UniformDiscrete) = [Float64, Float64]
 
 export uniform_discrete
 
@@ -216,7 +234,7 @@ end
 
 (::UniformContinuous)(low, high) = random(UniformContinuous(), low, high)
 
-get_static_argument_types(::UniformContinuous) = [:Float64, :Float64]
+get_static_argument_types(::UniformContinuous) = [Float64, Float64]
 
 export uniform_continuous, uniform
 
@@ -238,6 +256,6 @@ end
 
 (::Poisson)(lambda) = random(Poisson(), lambda)
 
-get_static_argument_types(::Poisson) = [:Float64]
+get_static_argument_types(::Poisson) = [Float64]
 
 export poisson

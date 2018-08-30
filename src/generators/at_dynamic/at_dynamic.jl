@@ -70,7 +70,7 @@ function at_dynamic(kernel::Generator{T,U}, ::Type{K}) where {T,U,K}
 end
 
 function get_static_argument_types(gen::AtDynamic{T,U,K}) where {T,U,K}
-    [:($K), Expr(:curly, :Tuple, get_static_argument_types(gen.kernel)...)]
+    [K, Tuple{get_static_argument_types(gen.kernel)...}]
 end
 
 include("simulate.jl")

@@ -40,9 +40,9 @@ end
 end
 
 function mala_move(trace, tau::Float64, addrs)
-    selection = AddressSet()
+    selection = DynamicAddressSet()
     for addr in addrs
-        push!(selection, addr)
+        Gen.push_leaf_node!(selection, addr)
     end
     (_, values, gradients) = backprop_trace(model, trace, selection, nothing)
     forward_trace = simulate(mala_proposal, (values, gradients, tau, addrs))
@@ -63,9 +63,9 @@ function mala_move(trace, tau::Float64, addrs)
     end
 end
 
-@gen function is_outlier_proposal(i::Int)
-    prev = @read(:data => i => :z)
-    @addr(bernoulli(prev ? 0.0 : 1.0), :data => i => :z)
+@gen function is_outlier_proposal(prev, i::Int)
+    prev_z = prev[:data => i => :z]
+    @addr(bernoulli(prev_z ? 0.0 : 1.0), :data => i => :z)
 end
 
 @gen function observer(ys::Vector{Float64})
@@ -129,5 +129,5 @@ function do_inference(n)
     end
 end
 
-@time do_inference(10000)
-@time do_inference(10000)
+@time do_inference(100)
+@time do_inference(100)
