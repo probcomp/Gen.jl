@@ -5,3 +5,5 @@
 *.swp
 *.aux
 *.log
+docs/build/
+docs/site/
