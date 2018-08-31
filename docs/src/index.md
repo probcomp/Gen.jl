@@ -30,9 +30,9 @@ Above we have used a generative function to implement a simulation.
 However, what distinguishes generative functions from plain-old simulators is their 
  ability to be *traced*.
 When we *trace* a generative function, we record the random choices that it makes, as well as additional data about the evaluation of the function.
-This capability makes it possible to do implement algorithms for probabilistic inference.
+This capability makes it possible to implement algorithms for probabilistic inference.
 To trace a random choice, we need to give it a unique *address*, using the `@addr` keyword.
-Here we give addresses to each of the three random choices:
+Here we give addresses to each of the random choices:
 
 ```julia
 @gen function regression_model(xs::Vector{Float64})
@@ -65,7 +65,7 @@ choices = get_choices(trace)
 ```
 
 The `get_choices` method returns a *choice trie*, which is a trie (prefix tree) that contains the values of random choices.
-Printing the choice trie gives a pretty printed representation (incidentally based on JSON):
+Printing the choice trie gives a pretty printed representation:
 
 ```julia
 print(choices)
