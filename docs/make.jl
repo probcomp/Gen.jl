@@ -4,7 +4,8 @@ makedocs(
     format = :html,
     sitename = "Gen",
     pages = [
-        "index.md"
+        "index.md",
+        "documentation.md"
     ]
 )
 
