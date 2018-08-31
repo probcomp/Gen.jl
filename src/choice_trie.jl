@@ -92,8 +92,44 @@ function to_nested_dict(choice_trie::ChoiceTrie)
     dict
 end
 
-import JSON
-Base.print(trie::ChoiceTrie) = JSON.print(to_nested_dict(trie), 4)
+function _print(io::IO, trie::ChoiceTrie, pre, vert_bars::Tuple)
+    VERT = '\u2502'
+    PLUS = '\u251C'
+    HORZ = '\u2500'
+    LAST = '\u2514'
+    indent_vert = vcat(Char[' ' for _ in 1:pre], Char[VERT, '\n'])
+    indent_vert_last = vcat(Char[' ' for _ in 1:pre], Char[VERT, '\n'])
+    indent = vcat(Char[' ' for _ in 1:pre], Char[PLUS, HORZ, HORZ, ' '])
+    indent_last = vcat(Char[' ' for _ in 1:pre], Char[LAST, HORZ, HORZ, ' '])
+    for i in vert_bars
+        indent_vert[i] = VERT
+        indent[i] = VERT
+        indent_last[i] = VERT
+    end
+    indent_vert_str = join(indent_vert)
+    indent_vert_last_str = join(indent_vert_last)
+    indent_str = join(indent)
+    indent_last_str = join(indent_last)
+    leaf_nodes = collect(get_leaf_nodes(trie))
+    internal_nodes = collect(get_internal_nodes(trie))
+    n = length(leaf_nodes) + length(internal_nodes)
+    cur = 1
+    for (key, value) in leaf_nodes
+        print(io, indent_vert_str)
+        print(io, (cur == n ? indent_last_str : indent_str) * "$(repr(key)) : $value\n")
+        cur += 1
+    end
+    for (key, node) in internal_nodes
+        print(io, indent_vert_str)
+        print(io, (cur == n ? indent_last_str : indent_str) * "$(repr(key))\n")
+        _print(io, node, pre + 4, cur == n ? (vert_bars...,) : (vert_bars..., pre+1))
+        cur += 1
+    end
+end
+
+function Base.print(io::IO, trie::ChoiceTrie)
+    _print(io, trie, 0, ())
+end
 
 export ChoiceTrie
 export get_address_schema
