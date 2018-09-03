@@ -67,7 +67,7 @@ function InjectiveApplyState(input)
     tape = InstructionTape()
     tracked_reads = HomogenousTrie{Any,TrackedReal}()
     tracked_writes = HomogenousTrie{Any,TrackedReal}()
-    copied = AddressSet()
+    copied = DynamicAddressSet()
     visitor = AddressVisitor()
     InjectiveApplyState(input, output, tape, tracked_reads, tracked_writes, copied, visitor)
 end
@@ -117,7 +117,7 @@ function copy(state::InjectiveApplyState, input_addr, output_addr)
     end
     value = get_leaf_node(state.input, input_addr)
     set_leaf_node!(state.output, output_addr, value)
-    push!(state.copied, input_addr)
+    push_leaf_node!(state.copied, input_addr)
     nothing
 end
 
@@ -133,7 +133,7 @@ function copyall(state::InjectiveApplyState, input_addr, output_addr)
     end
     node = get_internal_node(state.input, input_addr)
     set_internal_node!(state.output, output_addr, node)
-    push!(state.copied, input_addr)
+    push_leaf_node!(state.copied, input_addr)
     nothing
 end
 

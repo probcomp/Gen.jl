@@ -169,14 +169,16 @@ end
 #############################
 
 @gen function height_proposal(prev, i::Int)
-    prev = prev["h$i"]
-    @addr(uniform_continuous(prev/2., prev*2.), "h$i")
+    prev_choices = get_choices(prev)
+    height = prev_choices["h$i"]
+    @addr(uniform_continuous(height/2., height*2.), "h$i")
 end
 
 @gen function position_proposal(prev, i::Int)
-    k = prev["k"]
-    lower = (i == 1) ? 0. : prev["cp$(i-1)"]
-    upper = (i == k) ? T : prev["cp$(i+1)"]
+    prev_choices = get_choices(prev)
+    k = prev_choices["k"]
+    lower = (i == 1) ? 0. : prev_choices["cp$(i-1)"]
+    upper = (i == k) ? T : prev_choices["cp$(i+1)"]
     @addr(uniform_continuous(lower, upper), "cp$i")
 end
 
@@ -201,9 +203,10 @@ end
 # the current change point at i, and all after, will be shifted right
 # the new change point will be placed between cp$(i-1) and the current cp$i
 @gen function birth_proposal(prev, T, i::Int)
-    k = prev["k"]
-    lower = (i == 1) ? 0. : prev["cp$(i-1)"]
-    upper = (i == k+1) ? T : prev["cp$i"]
+    prev_choices = get_choices(prev)
+    k = prev_choices["k"]
+    lower = (i == 1) ? 0. : prev_choices["cp$(i-1)"]
+    upper = (i == k+1) ? T : prev_choices["cp$i"]
     @addr(uniform_continuous(lower, upper), "new-cp")
     @addr(uniform_continuous(0., 1.), "u")
 end

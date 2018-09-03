@@ -437,16 +437,11 @@ function set_return!(ir::BasicBlockIR, name::Symbol)
     ir.output_node = Some(value_node)
 end
 
-function set_return!(ir::BasicBlockIR, expr::Expr)
+function set_return!(ir::BasicBlockIR, expr::Expr, typ::Type)
     if ir.output_node !== nothing
         error("Basic block can only have one return statement, found a second: $name")
     end
-    if expr.head != :(::)
-        error("Explicit type assert required for return expressions")
-    end
-    return_expr = expr.args[1]
-    typ = expr.args[2]
-    ir.output_node = Some(_get_input_node!(ir, return_expr, typ))
+    ir.output_node = Some(_get_input_node!(ir, expr, typ))
 end
 
 function set_retchange!(ir::BasicBlockIR, name::Symbol)
@@ -457,16 +452,11 @@ function set_retchange!(ir::BasicBlockIR, name::Symbol)
     ir.retchange_node = Some(value_node)
 end
 
-function set_retchange!(ir::BasicBlockIR, expr::Expr)
+function set_retchange!(ir::BasicBlockIR, expr::Expr, typ::Type)
     if ir.retchange_node !== nothing
         error("Basic block can only have one @retchange statement, found a second: $name")
     end
-    if expr.head != :(::)
-        error("Explicit type assert required for @retchange expressions")
-    end
-    retchange_expr = expr.args[1]
-    typ = expr.args[2]
-    ir.retchange_node = Some(_get_input_node!(ir, retchange_expr, typ))
+    ir.retchange_node = Some(_get_input_node!(ir, expr, typ))
 end
 
 # some helper functions

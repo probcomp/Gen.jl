@@ -111,35 +111,51 @@ end
 #######################
 
 @compiled @gen function slope_proposal(prev)
-    slope::Float64 = prev[:slope]
+    slope::Float64 = get_choices(prev)[:slope]
     @addr(normal(slope, 0.5), :slope)
 end
 
 @compiled @gen function intercept_proposal(prev)
-    intercept::Float64 = prev[:intercept]
+    intercept::Float64 = get_choices(prev)[:intercept]
     @addr(normal(intercept, 0.5), :intercept)
 end
 
 @compiled @gen function inlier_std_proposal(prev)
-    inlier_std::Float64 = prev[:inlier_std]
+    inlier_std::Float64 = get_choices(prev)[:inlier_std]
     @addr(normal(inlier_std, 0.5), :inlier_std)
 end
 
 @compiled @gen function outlier_std_proposal(prev)
-    outlier_std::Float64 = prev[:outlier_std]
+    outlier_std::Float64 = get_choices(prev)[:outlier_std]
     @addr(normal(outlier_std, 0.5), :outlier_std)
 end
 
-@compiled @gen function flip_z(z::Bool)
-    @addr(bernoulli(z ? 0.0 : 1.0), :z)
+@compiled @gen function flip_z(prob::Float64)
+    @addr(bernoulli(prob), :z)
 end
 
 data_proposal = at_dynamic(flip_z, Int)
 
+function logsumexp(arr)
+    min_arr = maximum(arr)
+    min_arr + log(sum(exp.(arr .- min_arr)))
+end
+
+function compute_prob_true(prev, i::Int)
+    prev_args = get_call_record(prev).args
+    constraints = DynamicChoiceTrie()
+    constraints[:data => i => :z] = true
+    (tmp1,) =  update(model, prev_args, NoChange(), prev, constraints)
+    constraints[:data => i => :z] = false
+    (tmp2,) = update(model, prev_args, NoChange(), prev, constraints)
+    log_prob_true = get_call_record(tmp1).score 
+    log_prob_false = get_call_record(tmp2).score
+    prob_true = exp(log_prob_true - logsumexp([log_prob_true, log_prob_false]))
+end
+
 @compiled @gen function is_outlier_proposal(prev, i::Int)
-    prev_z::Bool = prev[:data => i => :z]
-    # TODO introduce shorthand @addr(flip_z(zs[i]), :data => i)
-    @addr(data_proposal(i, (prev_z,)), :data) 
+    prob_true::Float64 = compute_prob_true(prev, i)
+    @addr(data_proposal(i, (prob_true,)), :data)
 end
 
 @compiled @gen function observe_datum(y::Float64)

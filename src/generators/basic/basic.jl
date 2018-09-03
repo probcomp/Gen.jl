@@ -71,7 +71,7 @@ end
 
 function parse_lhs(lhs::Symbol)
     name = lhs
-    (name, :Any)
+    (name, Any)
 end
 
 function parse_param(expr)
@@ -131,6 +131,7 @@ function generate_ir(args, body, output_ad, args_ad)
                 add_addr!(ir, addr, dist_or_gen, args)
             else
                 # change_expr may be nothing, indicating nothing is known
+                println("addr: $addr")
                 add_addr!(ir, addr, dist_or_gen, args, change_expr)
             end
         elseif statement.head == :(=)
@@ -161,14 +162,30 @@ function generate_ir(args, body, output_ad, args_ad)
             if length(statement.args) != 1
                 throw(BasicBlockParseError(statement))
             end
-            return_expr = statement.args[1]
-            set_return!(ir, return_expr)
+            expr = statement.args[1]
+            if isa(expr, Symbol)
+                set_return!(ir, expr)
+            elseif isa(expr, Expr) && expr.head == :(::)
+                expr_value = expr.args[1]
+                typ = Main.eval(expr.args[2])
+                set_return!(ir, expr_value, typ)
+            else
+                throw(BasicBlockParseError(statement))
+            end
         elseif statement.head == :macrocall && statement.args[1] == Symbol("@retchange")
             if length(statement.args) != 2
                 throw(BasicBlockParseError(statement))
             end
-            retchange_expr = statement.args[2]
-            set_retchange!(ir, retchange_expr)
+            expr = statement.args[2]
+            if isa(expr, Symbol)
+                set_retchange!(ir, expr)
+            elseif isa(expr, Expr) && expr.head == :(::)
+                expr_value = expr.args[1]
+                typ = Main.eval(expr.args[2])
+                set_retchange!(ir, expr_value, typ)
+            else
+                throw(BasicBlockParseError(statement))
+            end
         else
             throw(BasicBlockParseError(statement))
         end

@@ -166,7 +166,7 @@ Gen.get_internal_nodes(trie::CollapsedHMMChoices) = ((:y, trie.y_choices),)
 
 struct CollapsedHMM <: Generator{PersistentVector{Float64},CollapsedHMMTrace} end
 collapsed_hmm = CollapsedHMM()
-get_static_argument_types(::CollapsedHMM) = [:Float64, :Float64, :Int, :Int, :Float64]
+get_static_argument_types(::CollapsedHMM) = [Float64, Float64, Int, Int, Float64]
 
 #function Gen.simulate(generator::CollapsedHMM, args, constraints)
     #(var_x, var_y, T, num_particles, ess) = args

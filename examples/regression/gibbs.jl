@@ -20,16 +20,20 @@ end
     return y
 end
 
+data = plate(datum)
+
 @gen function model(xs::Vector{Float64})
     inlier_std = @addr(Gen.gamma(1, 1), :inlier_std)
     outlier_std = @addr(Gen.gamma(1, 1), :outlier_std)
     slope = @addr(normal(0, 2), :slope)
     intercept = @addr(normal(0, 2), :intercept)
     params = Params(0.5, inlier_std, outlier_std, slope, intercept)
-    ys = Vector{Float64}(undef, length(xs))
-    for (i, x) in enumerate(xs)
-        ys[i] = @addr(datum(x, params), :data => i)
+    if all([@change(addr) == NoChange() for addr in [:slope, :intercept, :inlier_std, :outlier_std]])
+        change = NoChange()
+    else
+        change = nothing
     end
+    ys = @addr(data(xs, fill(params, length(xs))), :data, change)
     return ys
 end
 
@@ -37,24 +41,42 @@ end
 # inference operators #
 #######################
 
-@sel function slope_sel() @select(:slope) end
-@sel function intercept_sel() @select(:intercept) end
-@sel function inlier_std_sel() @select(:inlier_std) end
-@sel function outlier_std_sel() @select(:outlier_std) end
-
-@sel function params()
-    @select(:slope)
-    @select(:intercept)
+@gen function slope_proposal(prev)
+    slope = get_choices(prev)[:slope]
+    @addr(normal(slope, 0.5), :slope)
 end
 
-@sel function variances()
-    @select(:inlier_std)
-    @select(:outlier_std)
+@gen function intercept_proposal(prev)
+    intercept = get_choices(prev)[:intercept]
+    @addr(normal(intercept, 0.5), :intercept)
+end
+
+@gen function inlier_std_proposal(prev)
+    inlier_std = get_choices(prev)[:inlier_std]
+    @addr(normal(inlier_std, 0.5), :inlier_std)
+end
+
+@gen function outlier_std_proposal(prev)
+    outlier_std = get_choices(prev)[:outlier_std]
+    @addr(normal(outlier_std, 0.5), :outlier_std)
+end
+
+function logsumexp(arr)
+    min_arr = maximum(arr)
+    min_arr + log(sum(exp.(arr .- min_arr)))
 end
 
 @gen function is_outlier_proposal(prev, i::Int)
-    prev = get_choices(prev)[:data => i => :z]
-    @addr(bernoulli(prev ? 0.0 : 1.0), :data => i => :z)
+    prev_args = get_call_record(prev).args
+    constraints = DynamicChoiceTrie()
+    constraints[:data => i => :z] = true
+    (tmp1,) =  update(model, prev_args, NoChange(), prev, constraints)
+    constraints[:data => i => :z] = false
+    (tmp2,) = update(model, prev_args, NoChange(), prev, constraints)
+    log_prob_true = get_call_record(tmp1).score 
+    log_prob_false = get_call_record(tmp2).score
+    prob_true = exp(log_prob_true - logsumexp([log_prob_true, log_prob_false]))
+    @addr(bernoulli(prob_true), :data => i => :z)
 end
 
 @gen function observer(ys::Vector{Float64})
@@ -102,10 +124,10 @@ function do_inference(n)
     
         # steps on the parameters
         for j=1:5
-            trace = mh(model, slope_sel, (), trace)
-            trace = mh(model, intercept_sel, (), trace)
-            trace = mh(model, inlier_std_sel, (), trace)
-            trace = mh(model, outlier_std_sel, (), trace)
+            trace = mh(model, slope_proposal, (), trace)
+            trace = mh(model, intercept_proposal, (), trace)
+            trace = mh(model, inlier_std_proposal, (), trace)
+            trace = mh(model, outlier_std_proposal, (), trace)
         end
     
         # step on the outliers

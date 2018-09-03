@@ -10,7 +10,8 @@ end
 
 function markov(kernel::Generator{T,U}) where {T,U}
     kernel_arg_types = get_static_argument_types(kernel)
-    if length(kernel_arg_types) != 3 || kernel_arg_types[1] != :Int
+    println(kernel_arg_types)
+    if length(kernel_arg_types) != 3 || kernel_arg_types[1] != Int
         error("markov requires a kernel with arguments (t::Int, state, params)")
     end
     Markov{T,U}(kernel)

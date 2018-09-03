@@ -112,7 +112,7 @@ function inference_network(image, W1, b1, W2, b2, W3, b3)
     output_layer(W3, b3, h2)
 end
 
-@gen function proposal(prev)
+@gen function proposal(prev_choices)
     @param W1::Matrix{Float64}
     @param b1::Vector{Float64}
     @param W2::Matrix{Float64}
@@ -120,7 +120,7 @@ end
     @param W3::Matrix{Float64}
     @param b3::Vector{Float64}
 
-    image = prev["image"][:]
+    image = prev_choices["image"][:]
 
     # inference network
     outputs = inference_network(image, W1, b1, W2, b2, W3, b3)

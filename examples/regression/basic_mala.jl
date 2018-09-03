@@ -121,7 +121,7 @@ end
 data_proposal = at_dynamic(flip_z, Int)
 
 @compiled @gen function is_outlier_proposal(prev, i::Int)
-    prev_z::Bool = prev[:data => i => :z]
+    prev_z::Bool = get_choices(prev)[:data => i => :z]
     # TODO introduce shorthand @addr(flip_z(zs[i]), :data => i)
     @addr(data_proposal(i, (prev_z,)), :data) 
 end
