@@ -60,7 +60,106 @@ function rjmcmc(model, forward, forward_args_rest, backward, backward_args_rest,
     end
 end
 
-export mh, rjmcmc
+function sample_momenta(mass, n::Int)
+    Float64[random(normal, 0, mass) for _=1:n]
+end
+
+function assess_momenta(momenta, mass)
+    logprob = 0.
+    for val in momenta
+        logprob += logpdf(normal, val, 0, mass)
+    end
+    logprob
+end
+
+function hmc(model::Generator{T,U}, selection::AddressSet, trace::U;
+             mass=0.1, L=10, eps=0.1) where {T,U}
+    prev_model_score = get_call_record(trace).score
+    model_args = get_call_record(trace).args
+
+    # run leapfrog dynamics
+    new_trace = trace
+    local prev_momenta_score::Float64
+    local momenta::Vector{Float64}
+    for step=1:L
+
+        # half step on momenta
+        (_, values_trie, gradient_trie) = backprop_trace(model, new_trace, selection, nothing)
+        values = to_array(values_trie, Float64)
+        gradient = to_array(gradient_trie, Float64)
+        if step == 1
+            momenta = sample_momenta(mass, length(values))
+            prev_momenta_score = assess_momenta(momenta, mass)
+        else
+            momenta += (eps / 2) * gradient
+        end
+
+        # full step on positions
+        values_trie = from_array(values_trie, values + eps * momenta)
+
+        # half step on momenta
+        (new_trace, _, _) = update(model, model_args, NoChange(), new_trace, values_trie)
+        (_, _, gradient_trie) = backprop_trace(model, new_trace, selection, nothing)
+        gradient = to_array(gradient_trie, Float64)
+        momenta += (eps / 2) * gradient
+    end
+
+    # assess new model score (negative potential energy)
+    new_model_score = get_call_record(new_trace).score
+
+    # assess new momenta score (negative kinetic energy)
+    new_momenta_score = assess_momenta(-momenta, mass)
+
+    # accept or reject
+    alpha = new_model_score - prev_model_score + new_momenta_score - prev_momenta_score
+    if log(rand()) < alpha
+        new_trace
+    else
+        trace
+    end
+end
+
+function mala(model::Generator{T,U}, selection::AddressSet, trace::U, tau) where {T,U}
+    model_args = get_call_record(trace).args
+    std = sqrt(2 * tau)
+
+    # forward proposal
+    (_, values_trie, gradient_trie) = backprop_trace(model, trace, selection, nothing)
+    values = to_array(values_trie, Float64)
+    gradient = to_array(gradient_trie, Float64)
+    forward_mu = values + tau * gradient
+    forward_score = 0.
+    proposed_values = Vector{Float64}(undef, length(values))
+    for i=1:length(values)
+        proposed_values[i] = random(normal, forward_mu[i], std)
+        forward_score += logpdf(normal, proposed_values[i], forward_mu[i], std)
+    end
+
+    # evaluate model weight
+    constraints = from_array(values_trie, proposed_values)
+    (new_trace, weight, discard) = update(
+        model, model_args, NoChange(), trace, constraints)
+
+    # backward proposal
+    (_, _, backward_gradient_trie) = backprop_trace(model, new_trace, selection, nothing)
+    backward_gradient = to_array(backward_gradient_trie, Float64)
+    @assert length(backward_gradient) == length(values)
+    backward_score = 0.
+    backward_mu  = proposed_values + tau * backward_gradient
+    for i=1:length(values)
+        backward_score += logpdf(normal, values[i], backward_mu[i], std)
+    end
+
+    # accept or reject
+    alpha = weight - forward_score + backward_score
+    if log(rand()) < alpha
+        return new_trace
+    else
+        return trace
+    end
+end
+
+export mh, rjmcmc, hmc, mala
 
 
 ##############################
@@ -80,7 +179,7 @@ function map_optimize(model::Generator, selection::AddressSet,
     score = get_call_record(trace).score
     while true
         new_values_vec = values_vec + gradient_vec * step_size
-		values = from_array(values, new_values_vec)
+        values = from_array(values, new_values_vec)
         # TODO discard and weight are not actually needed, there should be a more specialized variant
         (new_trace, _, discard, _) = update(model, model_args, NoChange(), trace, values)
         new_score = get_call_record(new_trace).score

@@ -71,48 +71,11 @@ end
     return ys
 end
 
-
 #######################
 # inference operators #
 #######################
 
-@compiled @gen function mala_proposal(values, gradients, tau)
-    std::Float64 = sqrt(2*tau)
-    @addr(normal(values[:slope] + tau * gradients[:slope], std), :slope)
-    @addr(normal(values[:intercept] + tau * gradients[:intercept], std), :intercept)
-    @addr(normal(values[:inlier_std] + tau * gradients[:inlier_std], std), :inlier_std)
-    @addr(normal(values[:outlier_std] + tau * gradients[:outlier_std], std), :outlier_std)
-end
-
-function make_mala_selection()
-    set = DynamicAddressSet()
-    for addr in [:slope, :intercept, :inlier_std, :outlier_std]
-        Gen.push_leaf_node!(set, addr)
-    end
-    StaticAddressSet(set)
-end
-
-const mala_selection = make_mala_selection()
-
-function mala_move(trace, tau::Float64)
-    (_, values, gradients) = backprop_trace(model, trace, mala_selection, nothing)
-    forward_trace = simulate(mala_proposal, (values, gradients, tau))
-    forward_score = get_call_record(forward_trace).score
-    constraints = get_choices(forward_trace)
-    model_args = get_call_record(trace).args
-    (new_trace, weight, discard) = update(
-        model, model_args, NoChange(), trace, constraints)
-    backward_trace = assess(mala_proposal, (values, gradients, tau), discard)
-    backward_score = get_call_record(backward_trace).score
-    alpha = weight - forward_score + backward_score
-    if log(rand()) < alpha
-        # accept
-        return new_trace
-    else
-        # reject
-        return trace
-    end
-end
+#mala_move = generate_mala_move(model, [:slope, :intercept, :inlier_std, :outlier_std])
 
 @compiled @gen function flip_z(z::Bool)
     @addr(bernoulli(z ? 0.0 : 1.0), :z)
@@ -164,6 +127,12 @@ end
 # run experiment #
 ##################
 
+dyn_selection = DynamicAddressSet()
+push_leaf_node!(dyn_selection, :slope)
+push_leaf_node!(dyn_selection, :intercept)
+push_leaf_node!(dyn_selection, :inlier_std)
+push_leaf_node!(dyn_selection, :outlier_std)
+selection = StaticAddressSet(dyn_selection)
 
 function do_inference(n)
     observations = get_choices(simulate(observer, (ys,)))
@@ -172,7 +141,9 @@ function do_inference(n)
     (trace, _) = generate(model, (xs,), observations)
     
     for i=1:n
-        trace = mala_move(trace, 0.001)
+        trace = mala(model, selection, trace, 0.0001)
+        trace = hmc(model, selection, trace)
+
     
         # step on the outliers
         for j=1:length(xs)
@@ -191,5 +162,5 @@ function do_inference(n)
     end
 end
 
-@time do_inference(100)
-@time do_inference(100)
+@time do_inference(1000)
+@time do_inference(1000)
