@@ -278,4 +278,10 @@ function generate_mala_move(model, addrs)
 
     return (trace, tau::Float64) -> mh(model, mala_proposal, (tau,), trace)
 end
+
+```
+
+We can then use the generate the MALA move for a speciic model and specific addresses using:
+```julia
+mala_move = generate_mala_move(model, [:slope, :intercept, :inlier_std, :outlier_std])
 ```
