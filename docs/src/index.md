@@ -213,3 +213,69 @@ print(choices)
 ## Change Propagation
 
 ## Higher-Order Probabilistic Modules
+
+## Using metaprogramming to implement new inference algorithms
+
+Many Monte Carlo inference algorithms, like Hamiltonian Monte Carlo (HMC) and Metropolis-Adjusted Langevin Algorithm (MALA) are instances of general inference algorithm templates like Metropolis-Hastings, with specialized proposal distributions.
+These algorithms can therefore be implemented with high-performance for a model if a compiled generative function defining the proposal is constructed manually.
+However, it is also possible to write a generic implementation that automatically generates the generative function for the proposal using Julia's metaprogramming capabilities.
+This section shows a simple example of writing a procedure that generates the code needed for a MALA update applied to an arbitrary set of top-level static addresses.
+
+First, we write out a non-generic implementation of MALA.
+MALA uses a proposal that tends to propose values in the direction of the gradient.
+The procedure will be hardcoded to act on a specific set of addresses for a model called `model`.
+
+```julia
+set = DynamicAddressSet()
+for addr in [:slope, :intercept, :inlier_std, :outlier_std]
+    Gen.push_leaf_node!(set, addr)
+end
+mala_selection = StaticAddressSet(set)
+
+@compiled @gen function mala_proposal(prev, tau)
+    std::Float64 = sqrt(2*tau)
+    gradients::StaticChoiceTrie = backprop_trace(model, prev, mala_selection, nothing)[3]
+    @addr(normal(get_choices(prev)[:slope] + tau * gradients[:slope], std), :slope)
+    @addr(normal(get_choices(prev)[:intercept] + tau * gradients[:intercept], std), :intercept)
+    @addr(normal(get_choices(prev)[:inlier_std] + tau * gradients[:inlier_std], std), :inlier_std)
+    @addr(normal(get_choices(prev)[:outlier_std] + tau * gradients[:outlier_std], std), :outlier_std)
+end
+
+mala_move(trace, tau::Float64) = mh(model, mala_proposal, (tau,), trace)
+```
+
+Next, we write a generic version that takes a set of addresses and generates the implementation for that set.
+This version only works on a set of static top-level addresses.
+
+```julia
+function generate_mala_move(model, addrs)
+
+    # create selection
+    set = DynamicAddressSet()
+    for addr in addrs
+        Gen.push_leaf_node!(set, addr)
+    end
+    selection = StaticAddressSet(set)
+
+    # generate proposal function
+    stmts = Expr[]
+    for addr in addrs
+        quote_addr = QuoteNode(addr)
+        push!(stmts, :(
+            @addr(normal(get_choices(prev)[$quote_addr] + tau * gradients[$quote_addr], std),
+                  $quote_addr)
+        ))
+    end
+    mala_proposal_name = gensym("mala_proposal")
+    mala_proposal = eval(quote
+        @compiled @gen function $mala_proposal_name(prev, tau)
+            gradients::StaticChoiceTrie = backprop_trace(
+                model, prev, $(QuoteNode(selection)), nothing)[3]
+            std::Float64 = sqrt(2*tau)
+            $(stmts...)
+        end
+    end)
+
+    return (trace, tau::Float64) -> mh(model, mala_proposal, (tau,), trace)
+end
+```
