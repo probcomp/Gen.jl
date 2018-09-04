@@ -81,17 +81,6 @@ function _get_internal_node(trie::T, addr::Pair) where {T <: ChoiceTrie}
     get_internal_node(node, rest)
 end
 
-function to_nested_dict(choice_trie::ChoiceTrie)
-    dict = Dict()
-    for (key, value) in get_leaf_nodes(choice_trie)
-        dict[key] = value
-    end
-    for (key, node) in get_internal_nodes(choice_trie)
-        dict[key] = to_nested_dict(node)
-    end
-    dict
-end
-
 function _print(io::IO, trie::ChoiceTrie, pre, vert_bars::Tuple)
     VERT = '\u2502'
     PLUS = '\u251C'
