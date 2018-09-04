@@ -314,3 +314,4 @@ get_leaf_nodes(addrs::DynamicAddressSet) = addrs.leaf_nodes
 get_internal_nodes(addrs::DynamicAddressSet) = addrs.internal_nodes
 
 export DynamicAddressSet
+export push_leaf_node!, set_internal_node!
