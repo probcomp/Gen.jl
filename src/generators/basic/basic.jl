@@ -294,7 +294,7 @@ function make_choice_trie_methods(trace_type, addr_dist_nodes, addr_gen_nodes)
     push!(methods, quote
         function Gen.get_internal_nodes(trie::Gen.BasicBlockChoices{$trace_type})
             $(Expr(:tuple,
-                [quote ($(QuoteNode(addr)), trie.trace.$addr) end for addr in internal_addrs]...))
+                [quote ($(QuoteNode(addr)), get_choices(trie.trace.$addr)) end for addr in internal_addrs]...))
         end
     end)
 
