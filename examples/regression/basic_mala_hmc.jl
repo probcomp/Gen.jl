@@ -71,44 +71,11 @@ end
     return ys
 end
 
-# we should be able to compile a MALA algorithm from some form of spec
-# V1) compile for a static set of top-level addresses
-
-function generate_mala_move(model, addrs)
-
-    # create selection
-    set = DynamicAddressSet()
-    for addr in addrs
-        Gen.push_leaf_node!(set, addr)
-    end
-    selection = StaticAddressSet(set)
-
-    # generate proposal function
-    stmts = Expr[]
-    for addr in addrs
-        quote_addr = QuoteNode(addr)
-        push!(stmts, :(
-            @addr(normal(get_choices(prev)[$quote_addr] + tau * gradients[$quote_addr], std),
-                  $quote_addr)
-        ))
-    end
-    mala_proposal_name = gensym("mala_proposal")
-    mala_proposal = eval(quote
-        @compiled @gen function $mala_proposal_name(prev, tau)
-            gradients::StaticChoiceTrie = backprop_trace(model, prev, $(QuoteNode(selection)), nothing)[3]
-            std::Float64 = sqrt(2*tau)
-            $(stmts...)
-        end
-    end)
-
-    return (trace, tau::Float64) -> mh(model, mala_proposal, (tau,), trace)
-end
-
 #######################
 # inference operators #
 #######################
 
-mala_move = generate_mala_move(model, [:slope, :intercept, :inlier_std, :outlier_std])
+#mala_move = generate_mala_move(model, [:slope, :intercept, :inlier_std, :outlier_std])
 
 @compiled @gen function flip_z(z::Bool)
     @addr(bernoulli(z ? 0.0 : 1.0), :z)
@@ -160,6 +127,12 @@ end
 # run experiment #
 ##################
 
+dyn_selection = DynamicAddressSet()
+push_leaf_node!(dyn_selection, :slope)
+push_leaf_node!(dyn_selection, :intercept)
+push_leaf_node!(dyn_selection, :inlier_std)
+push_leaf_node!(dyn_selection, :outlier_std)
+selection = StaticAddressSet(dyn_selection)
 
 function do_inference(n)
     observations = get_choices(simulate(observer, (ys,)))
@@ -168,7 +141,9 @@ function do_inference(n)
     (trace, _) = generate(model, (xs,), observations)
     
     for i=1:n
-        trace = mala_move(trace, 0.001)
+        trace = mala(model, selection, trace, 0.0001)
+        trace = hmc(model, selection, trace)
+
     
         # step on the outliers
         for j=1:length(xs)
