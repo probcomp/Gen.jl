@@ -154,9 +154,9 @@ mutable struct BasicBlockIR
     addr_dist_nodes::Dict{Symbol, AddrDistNode}
     addr_gen_nodes::Dict{Symbol, AddrGeneratorNode}
     all_nodes::Set{Node}
-    output_node::Union{Some{ValueNode},Nothing}
-    retchange_node::Union{Some{ValueNode},Nothing}
-    args_change_node::Union{Some{ArgsChangeNode},Nothing}
+    output_node::Union{ValueNode,Nothing}
+    retchange_node::Union{ValueNode,Nothing}
+    args_change_node::Union{ArgsChangeNode,Nothing}
     addr_change_nodes::Set{AddrChangeNode}
     generator_input_change_nodes::Set{ValueNode}
     finished::Bool
@@ -295,9 +295,20 @@ function _get_input_node!(ir::BasicBlockIR, expr, typ)
 end
 
 function _get_input_node!(ir::BasicBlockIR, name::Symbol, typ)
-    node = ir.value_nodes[name]
-    #@assert get_type(node) == typ # TODO
-    node
+    if haskey(ir.value_nodes, name)
+        node = ir.value_nodes[name]
+        #@assert get_type(node) == typ # TODO
+        node
+    else
+        # this is a symbol defined in the top-level environment
+        value_node = ExprValueNode(name, typ)
+        expr_node = JuliaNode(ValueNode[], value_node, name)
+        ir.value_nodes[name] = value_node
+        push!(ir.all_nodes, value_node)
+        finish!(value_node, expr_node)
+        push!(ir.all_nodes, expr_node)
+        value_node
+    end
 end
 
 function incremental_dependency_error(addr)
@@ -347,6 +358,7 @@ function add_addr!(ir::BasicBlockIR, addr::Symbol, gen::Generator{T,U}, args::Ve
         incremental_dependency_error(addr)
     end
     value_node = ExprValueNode(name, typ)
+    # TODO make it not Some{}
     change_node = _get_input_node!(ir, change_expr, Union{Some{get_change_type(gen)}, Nothing})
     push!(ir.generator_input_change_nodes, change_node)
     expr_node = AddrGeneratorNode(input_nodes, value_node, gen, addr, change_node)
@@ -434,14 +446,14 @@ function set_return!(ir::BasicBlockIR, name::Symbol)
     if value_node in ir.incremental_nodes
         error("Return value cannot depend on @change or @argschange statements")
     end
-    ir.output_node = Some(value_node)
+    ir.output_node = value_node
 end
 
 function set_return!(ir::BasicBlockIR, expr::Expr, typ::Type)
     if ir.output_node !== nothing
         error("Basic block can only have one return statement, found a second: $name")
     end
-    ir.output_node = Some(_get_input_node!(ir, expr, typ))
+    ir.output_node = _get_input_node!(ir, expr, typ)
 end
 
 function set_retchange!(ir::BasicBlockIR, name::Symbol)
@@ -449,14 +461,14 @@ function set_retchange!(ir::BasicBlockIR, name::Symbol)
         error("Basic block can only have one @retchange statement, found a second: $name")
     end
     value_node = ir.value_nodes[name]
-    ir.retchange_node = Some(value_node)
+    ir.retchange_node = value_node
 end
 
 function set_retchange!(ir::BasicBlockIR, expr::Expr, typ::Type)
     if ir.retchange_node !== nothing
         error("Basic block can only have one @retchange statement, found a second: $name")
     end
-    ir.retchange_node = Some(_get_input_node!(ir, expr, typ))
+    ir.retchange_node = _get_input_node!(ir, expr, typ)
 end
 
 # some helper functions
