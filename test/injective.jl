@@ -25,7 +25,6 @@
     (expected,) = logabsdet(J)
 
     (output, logdet) = apply(foo, (), input)
-    println(logdet)
     @test isapprox(logdet, expected)
 
 end
