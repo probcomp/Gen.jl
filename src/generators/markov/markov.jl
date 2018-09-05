@@ -18,7 +18,7 @@ function markov(kernel::Generator{T,U}) where {T,U}
 end
 
 function get_static_argument_types(markov::Markov)
-    kernel_arg_types = get_static_argument_types(kernel)
+    kernel_arg_types = get_static_argument_types(markov.kernel)
     state_type = kernel_arg_types[2]
     params_type = kernel_arg_types[3]
     # 1 total number of time steps
@@ -55,6 +55,11 @@ function generate(gen::Markov{T,U}, args, constraints) where {T,U}
     call = CallRecord(score, PersistentVector{T}(states), args)
     trace = VectorTrace{T,U}(PersistentVector{U}(subtraces), call, is_empty)
     (trace, weight)
+end
+
+function simulate(gen::Markov{T,U}, args) where {T,U}
+    (trace, weight) = generate(gen, args, EmptyChoiceTrie())
+    trace
 end
 
 struct MarkovChange
