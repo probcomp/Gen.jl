@@ -1,6 +1,3 @@
-using Gen
-using Test
-
 @testset "force update" begin
 
     @gen function bar()
@@ -129,5 +126,39 @@ end
 
     # test retchange (should be nothing by default)
     @test retchange === nothing
+end
+
+@testset "regenerate" begin
+
+    @gen function bar()
+        @addr(normal(0, 1), :a)
+    end
+
+    @gen function baz()
+        @addr(normal(0, 1), :b)
+    end
+
+    @gen function foo()
+        if @addr(bernoulli(0.4), :branch)
+            @addr(normal(0, 1), :x)
+            @addr(bar(), :u)
+        else
+            @addr(normal(0, 1), :y)
+            @addr(baz(), :v)
+        end
+    end
+
+    # get a trace which follows the first branch
+    constraints = DynamicChoiceTrie()
+    constraints[:branch] = true
+    (trace,) = generate(foo, (), constraints)
+    x = get_choices(trace)[:x]
+    a = get_choices(trace)[:u => :a]
+
+    # resimulate branch
+    selection = DynamicAddressSet()
+    push_leaf_node!(selection, :branch)
+    # TODO
+
 end
 
