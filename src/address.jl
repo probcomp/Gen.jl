@@ -91,7 +91,7 @@ abstract type AddressSet end
 has_internal_node(::AddressSet, addr) = false
 get_internal_node(::AddressSet, addr) = throw(KeyError(addr))
 has_leaf_node(::AddressSet, addr) = false
-Base.in(set::AddressSet, addr) = has_leaf_node(set, addr)
+Base.in(addr, set::AddressSet) = has_leaf_node(set, addr)
 Base.getindex(set::AddressSet, addr) = get_internal_node(set, addr)
 Base.haskey(set::AddressSet, addr) = has_internal_node(set, addr)
 

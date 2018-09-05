@@ -28,7 +28,7 @@ function Gen.logpdf(::MinUniformContinuous, x::Float64, lower::T, upper::U, k::I
     if x > lower && x < upper
         (k-1) * log(upper - x) + log(k) - k * log(upper - lower)
     else
-        error("Outside of support: x = $x and $x <= $lower or $x >= $upper")
+        -Inf
     end
 end
 
@@ -53,17 +53,18 @@ function compute_total(bounds, rates)
         error("Number of bounds does not match number of rates")
     end
     total = 0.
+    bounds_ascending = true
     for i=1:num_intervals
         lower = bounds[i]
         upper = bounds[i+1]
         rate = rates[i]
         len = upper - lower
         if len <= 0
-            error("bounds not ascending")
+            bounds_ascending = false
         end
         total += len * rate
     end
-    total
+    (total, bounds_ascending)
 end
 
 struct PiecewiseHomogenousPoissonProcess <: Distribution{Vector{Float64}} end
@@ -83,7 +84,12 @@ function Gen.logpdf(::PiecewiseHomogenousPoissonProcess, x::Vector{Float64}, bou
         end
         lpdf += log(rates[cur])
     end
-    lpdf - compute_total(bounds, rates)
+    (total, bounds_ascending) = compute_total(bounds, rates)
+    if bounds_ascending
+        lpdf - total
+    else
+        -Inf
+    end
 end
 
 function Gen.random(::PiecewiseHomogenousPoissonProcess, bounds::Vector{Float64}, rates::Vector{Float64})
@@ -222,7 +228,7 @@ function birth_move_new_heights(cur_height, new_cp, prev_cp, next_cp, u)
     log_cur_height = log(cur_height)
     log_ratio = log(1 - u) - log(u)
     new_h_prev = exp(log_cur_height - (d_prev / d_total) * log_ratio)
-    new_h_next = exp(log_cur_height - (d_next / d_total) * log_ratio) # TODO checkme
+    new_h_next = exp(log_cur_height + (d_next / d_total) * log_ratio)
     @assert new_h_prev > 0.
     @assert new_h_next > 0.
     (new_h_prev, new_h_next)
@@ -349,9 +355,52 @@ function death_move(trace)
         trace, correction)
 end
 
-##################
-# MCMC inference #
-##################
+##########################
+# Generic MCMC inference #
+##########################
+
+function resimulation_mh(selection, trace)
+    model_args = get_call_record(trace).args
+    (new_trace, weight) = regenerate(model, model_args, NoChange(), trace, selection)
+    if log(rand()) < weight
+        # accept
+        return (new_trace, true)
+    else
+        # reject
+        return (trace, false)
+    end
+end
+
+k_selection = DynamicAddressSet()
+push_leaf_node!(k_selection, "k")
+
+function generic_mcmc_step(trace)
+    k = get_choices(trace)["k"]
+    if k > 0
+        prob_h = 1./3
+        prob_p = 1./3
+        prob_change_k = 1./3
+    else
+        prob_h = 0.
+        prob_p = 0.
+        prob_change_k = 1
+    end
+    move_type = random(categorical, [prob_h, prob_p, prob_change_k])
+    if move_type == 1
+        (trace, accept) = height_move(trace)
+        return (trace, nothing)
+    elseif move_type == 2
+        (trace, accept) = position_move(trace)
+        return (trace, nothing)
+    else
+        return resimulation_mh(k_selection, trace)
+    end
+end
+
+
+#########################
+# RJMCMC MCMC inference #
+#########################0
 
 function mcmc_step(trace)
     k = get_choices(trace)["k"]
@@ -368,13 +417,15 @@ function mcmc_step(trace)
     end
     move_type = random(categorical, [prob_h, prob_p, prob_b, prob_d])
     if move_type == 1
-        height_move(trace)
+        (trace, accept) = height_move(trace)
+        return (trace, nothing)
     elseif move_type == 2
-        position_move(trace)
+        (trace, accept) = position_move(trace)
+        return (trace, nothing)
     elseif move_type == 3
-        birth_move(trace)
+        return birth_move(trace)
     elseif move_type == 4
-        death_move(trace)
+        return death_move(trace)
     else
         error("Unknown move type $move_type")
     end
@@ -386,7 +437,8 @@ function do_mcmc(T, num_steps::Int)
         if iter % 1000 == 0
             println("iter $iter of $num_steps, k: $(get_choices(trace)["k"])")
         end
-        trace = mcmc_step(trace)
+        #trace = mcmc_step(trace)
+        (trace, accept) = generic_mcmc_step(trace)
     end
     trace
 end
@@ -397,6 +449,9 @@ end
 ########################
 
 Gen.load_generated_functions()
+
+import Random
+Random.seed!(1)
 
 # load data set
 import CSV
@@ -461,7 +516,7 @@ function plot_posterior_mean_rate()
             if iter % 1000 == 0
                 println("iter $iter of $num_steps, k: $(get_choices(trace)["k"])")
             end
-            trace = mcmc_step(trace)
+            (trace, accept) = mcmc_step(trace)
             if iter > 4000
                 num_samples += 1
                 rate_vector = get_rate_vector(trace, test_points)
@@ -486,11 +541,87 @@ function plot_posterior_mean_rate()
     plt.savefig("posterior_mean_rate.pdf")
 end
 
-println("showing prior samples...")
-show_prior_samples()
+function plot_trace_plot()
+    # show the number of clusters
+    (trace, _) = generate(model, (T,), observations)
+    num_clusters_vec = Int[]
+    burn_in = 20000
+    for iter=1:burn_in + 5000
+        (trace, accept) = mcmc_step(trace)
+        if iter > burn_in
+            push!(num_clusters_vec, get_choices(trace)["k"])
+        end
+    end
+    plt.figure()
+    plt.plot(num_clusters_vec)
+    ax = plt.gca()
+    plt.savefig("trace_plot_rjmcmc.pdf")
+end
 
-println("showing posterior samples...")
-show_posterior_samples()
+function plot_trace_plot()
+    plt.figure(figsize=(8, 4))
 
-println("estimating posterior mean rate...")
-plot_posterior_mean_rate()
+    # generic
+    (trace, _) = generate(model, (T,), observations)
+    num_clusters_vec = Int[]
+    burn_in = 20000
+    total_trans_dim = 0
+    accepted_trans_dim = 0
+    for iter=1:burn_in + 5000
+        (trace, accept) = generic_mcmc_step(trace)
+        if iter > burn_in
+            push!(num_clusters_vec, get_choices(trace)["k"])
+            if accept !== nothing
+                if accept
+                    accepted_trans_dim += 1
+                end
+                total_trans_dim += 1
+            end
+        end
+    end
+    println("generic acceptance rate: $(accepted_trans_dim / total_trans_dim)")
+    plt.subplot(2, 1, 1)
+    plt.plot(num_clusters_vec, "r")
+
+    # reversible jump
+    (trace, _) = generate(model, (T,), observations)
+    height1 = Float64[]
+    num_clusters_vec = Int[]
+    burn_in = 20000
+    total_trans_dim = 0
+    accepted_trans_dim = 0
+    for iter=1:burn_in + 5000
+        (trace, accept) = mcmc_step(trace)
+        if iter > burn_in
+            push!(num_clusters_vec, get_choices(trace)["k"])
+            if accept !== nothing
+                if accept
+                    accepted_trans_dim += 1
+                end
+                total_trans_dim += 1
+            end
+        end
+    end
+    println("rjmcmc acceptance rate: $(accepted_trans_dim / total_trans_dim)")
+    plt.subplot(2, 1, 2)
+    plt.plot(num_clusters_vec, "b")
+
+    ax = plt.gca()
+    plt.savefig("trace_plot.pdf")
+end
+
+
+
+#println("showing prior samples...")
+#show_prior_samples()
+
+#println("showing posterior samples...")
+#show_posterior_samples()
+
+#println("estimating posterior mean rate...")
+#plot_posterior_mean_rate()
+
+println("making trace plot...")
+plot_trace_plot()
+
+
