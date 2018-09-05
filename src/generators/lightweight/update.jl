@@ -87,7 +87,7 @@ function addr(state::GFUpdateState, gen::Generator{T}, args, addr, args_change) 
         set_leaf_node!(state.callee_output_changes, addr, retchange)
     else
         trace = assess(gen, args, constraints)
-        set_leaf_node!(state.callee_output_changes, addr, NoChange())
+        set_leaf_node!(state.callee_output_changes, addr, nothing)
     end
     call::CallRecord = get_call_record(trace)
     retval::T = call.retval
