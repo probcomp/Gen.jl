@@ -1,4 +1,5 @@
 struct BBUpdateState
+    fix_update::Bool
     score::Symbol
     weight::Symbol
     new_trace::Symbol
@@ -145,9 +146,10 @@ function process!(ir::BasicBlockIR, state::BBUpdateState, node::AddrGeneratorNod
         if has_output(node)
             push!(state.marked, node.output)
         end
+        update_method = state.fix_update ? :fix_update : :update
         change_value_ref = :($new_trace.$(value_field(node.change_node)))
         push!(state.stmts, quote
-            ($new_trace.$addr, _, $discard, $(addr_change_variable(addr))) = update(
+            ($new_trace.$addr, _, $discard, $(addr_change_variable(addr))) = $update_method(
                 $(QuoteNode(node.gen)), $(Expr(:tuple, args...)),
                 $change_value_ref, $prev_trace.$addr, $constraints)
             $call_record = get_call_record($new_trace.$addr)
@@ -187,8 +189,8 @@ function mark_arguments!(marked, arg_nodes, args_change::Type{T}) where {T <: Ma
 end
 
 
-function codegen_update(gen::Type{T}, new_args, args_change, trace, constraints) where {T <: BasicGenFunction}
-    Core.println("generating update($gen, args_change:$args_change, constraints: $constraints...)")
+function codegen_update(fix_update::Bool, gen::Type{T}, new_args, args_change, trace, constraints) where {T <: BasicGenFunction}
+    #Core.println("generating update($gen, args_change:$args_change, constraints: $constraints...)")
     schema = get_address_schema(constraints)
 
     trace_type = get_trace_type(gen)
@@ -228,7 +230,7 @@ function codegen_update(gen::Type{T}, new_args, args_change, trace, constraints)
     end
 
     # visit statements in topological order, generating code
-    state = BBUpdateState(score, weight, new_trace, prev_trace, marked,
+    state = BBUpdateState(fix_update, score, weight, new_trace, prev_trace, marked,
                           stmts, schema, addr_visited, Dict{Symbol,Symbol}(), Dict{Symbol,Symbol}())
     for node in ir.expr_nodes_sorted
         process!(ir, state, node)
@@ -313,6 +315,15 @@ push!(Gen.generated_functions, quote
         # try to convert it to a static choice trie
         return quote update(gen, new_args, args_change, trace, StaticChoiceTrie(constraints)) end
     end
-    Gen.codegen_update(gen, new_args, args_change, trace, constraints)
+    Gen.codegen_update(false, gen, new_args, args_change, trace, constraints)
+end
+
+@generated function Gen.fix_update(gen::Gen.BasicGenFunction, new_args, args_change, trace, constraints)
+    schema = get_address_schema(constraints)
+    if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
+        # try to convert it to a static choice trie
+        return quote fix_update(gen, new_args, args_change, trace, StaticChoiceTrie(constraints)) end
+    end
+    Gen.codegen_update(true, gen, new_args, args_change, trace, constraints)
 end
 end)
