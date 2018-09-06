@@ -1,4 +1,3 @@
-# TODO put these in a namespace somehow and remove bb_
 const bb_score = gensym("score")
 const bb_weight = gensym("weight")
 const bb_new_trace = gensym("trace")
@@ -217,7 +216,7 @@ function generate_generator_output_statement!(stmts::Vector{Expr}, node::AddrGen
     end
 end
 
-function generate_generator_call_statement!(state::BBUpdateState, addr:Symbol, node::AddrGeneratorNode)
+function generate_generator_call_statement!(state::BBUpdateState, addr::Symbol, node::AddrGeneratorNode)
     push!(state.stmts, quote
         ($bb_new_trace.$addr, _, $discard, $(addr_change_variable(addr))) = update(
             $(QuoteNode(node.gen)), $(Expr(:tuple, args...)),
@@ -230,7 +229,7 @@ function generate_generator_call_statement!(state::BBUpdateState, addr:Symbol, n
     end)
 end
 
-function generate_generator_call_statement!(state::BBFixUpdateStatement, addr:Symbol, node::AddrGeneratorNode, constraints)
+function generate_generator_call_statement!(state::BBFixUpdateState, addr::Symbol, node::AddrGeneratorNode, constraints)
     args = get_args(bb_new_trace, node)
     prev_args = get_args(:trace, node)
     change_value_ref = :($bb_new_trace.$(value_field(node.change_node)))
@@ -298,8 +297,6 @@ function process!(ir::BasicBlockIR, state::BBExtendState, node::AddrGeneratorNod
         end)
     end
 end
-
-####
 
 function generate_init_statements!(stmts::Vector{Expr})
     push!(stmts, quote
