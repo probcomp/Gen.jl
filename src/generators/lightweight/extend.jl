@@ -65,8 +65,8 @@ function addr(state::GFExtendState, gen::Generator{T}, args, addr, args_change) 
     end
     call::CallRecord = get_call_record(trace)
     retval::T = call.retval
-    state.trace = assoc_composite_call(state.trace, addr, trace)
-    state.score += trace.score
+    state.trace = assoc_subtrace(state.trace, addr, trace)
+    state.score += call.score
     state.weight += weight
     retval 
 end

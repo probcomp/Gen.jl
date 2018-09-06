@@ -11,10 +11,10 @@ struct BBUpdateState
     discard_internal_nodes::Dict{Symbol, Symbol}
 end
 
-function BBUpdateState(stmts::Vector{Expr}, schema::Union{StaticAddressSchema,EmptyAddressSchema}, args_change)
+function BBUpdateState(stmts::Vector{Expr}, ir::BasicBlockIR, schema::Union{StaticAddressSchema,EmptyAddressSchema}, args_change_type)
     addr_visited = Set{Symbol}()
     marked = Set{ValueNode}()
-    mark_arguments!(marked, ir, args_change)
+    mark_arguments!(marked, ir, args_change_type)
     mark_input_change_nodes!(marked, ir)
     discard_leaf_node = Dict{Symbol,Symbol}()
     discard_internal_node = Dict{Symbol,Symbol}()
@@ -30,10 +30,10 @@ struct BBFixUpdateState
     discard_internal_nodes::Dict{Symbol, Symbol}
 end
 
-function BBFixUpdateState(stmts::Vector{Expr}, schema::Union{StaticAddressSchema,EmptyAddressSchema}, args_change)
+function BBFixUpdateState(stmts::Vector{Expr}, ir::BasicBlockIR, schema::Union{StaticAddressSchema,EmptyAddressSchema}, args_change_type)
     addr_visited = Set{Symbol}()
     marked = Set{ValueNode}()
-    mark_arguments!(marked, ir, args_change)
+    mark_arguments!(marked, ir, args_change_type)
     mark_input_change_nodes!(marked, ir)
     discard_leaf_node = Dict{Symbol,Symbol}()
     discard_internal_node = Dict{Symbol,Symbol}()
@@ -47,10 +47,10 @@ struct BBExtendState
     addr_visited::Set{Symbol}
 end
 
-function BBExtendState(stmts::Vector{Expr}, schema::Union{StaticAddressSchema,EmptyAddressSchema})
+function BBExtendState(stmts::Vector{Expr}, ir::BasicBlockIR, schema::Union{StaticAddressSchema,EmptyAddressSchema}, args_change_type)
     addr_visited = Set{Symbol}()
     marked = Set{ValueNode}()
-    mark_arguments!(marked, ir, args_change)
+    mark_arguments!(marked, ir, args_change_type)
     mark_input_change_nodes!(marked, ir)
     BBExtendState(marked, stmts, schema, addr_visited)
 end
@@ -207,53 +207,65 @@ function get_constraints(schema::Union{StaticAddressSchema,EmptyAddressSchema}, 
     (constrained, constraints)
 end
 
-function generate_generator_output_statement!(stmts::Vector{Expr}, node::AddrGeneratorNode)
+function generate_generator_output_statement!(stmts::Vector{Expr}, node::AddrGeneratorNode, addr::Symbol)
     if has_output(node)
-        (_, trace_field) = get_value_info(node)
+        (_, output_value_field) = get_value_info(node)
         push!(stmts, quote
-            $bb_new_trace.$trace_field = $call_record.retval
+            $bb_new_trace.$output_value_field = get_call_record($bb_new_trace.$addr).retval
         end)
     end
 end
 
-function generate_generator_call_statement!(state::BBUpdateState, addr::Symbol, node::AddrGeneratorNode)
+function generate_generator_call_statement!(state::BBUpdateState, addr::Symbol, node::AddrGeneratorNode, constraints)
+    args = get_args(bb_new_trace, node)
+    prev_args = get_args(:trace, node)
+    change_value_ref = :($bb_new_trace.$(value_field(node.change_node)))
+    discard = gensym("discard")
     push!(state.stmts, quote
         ($bb_new_trace.$addr, _, $discard, $(addr_change_variable(addr))) = update(
             $(QuoteNode(node.gen)), $(Expr(:tuple, args...)),
             $change_value_ref, trace.$addr, $constraints)
-        $call_record = get_call_record($bb_new_trace.$addr)
-        $decrement = get_call_record(trace.$addr).score
-        $increment = $call_record.score
-        $bb_score += $increment - $decrement
-        $bb_weight += $increment - $decrement
     end)
+    state.discard_internal_nodes[addr] = discard
 end
 
 function generate_generator_call_statement!(state::BBFixUpdateState, addr::Symbol, node::AddrGeneratorNode, constraints)
     args = get_args(bb_new_trace, node)
     prev_args = get_args(:trace, node)
     change_value_ref = :($bb_new_trace.$(value_field(node.change_node)))
+    discard = gensym("discard")
     push!(state.stmts, quote
-        ($bb_new_trace.$addr, _, $discard, $(addr_change_variable(addr))) = update(
+        ($bb_new_trace.$addr, _, $discard, $(addr_change_variable(addr))) = fix_update(
+            $(QuoteNode(node.gen)), $(Expr(:tuple, args...)),
+            $change_value_ref, trace.$addr, $constraints)
+    end)
+    state.discard_internal_nodes[addr] = discard
+end
+
+function generate_generator_call_statement!(state::BBExtendState, addr::Symbol, node::AddrGeneratorNode, constraints)
+    args = get_args(bb_new_trace, node)
+    prev_args = get_args(:trace, node)
+    change_value_ref = :($bb_new_trace.$(value_field(node.change_node)))
+    push!(state.stmts, quote
+        ($bb_new_trace.$addr, _, $(addr_change_variable(addr))) = extend(
             $(QuoteNode(node.gen)), $(Expr(:tuple, args...)),
             $change_value_ref, trace.$addr, $constraints)
     end)
 end
 
+
 function generate_generator_score_and_weight_statements!(stmts::Vector{Expr}, addr::Symbol)
     decrement = gensym("decrement")
     increment = gensym("increment")
-    call_record = gensym("call_record")
     push!(stmts, quote
-        $call_record = get_call_record($bb_new_trace.$addr)
         $decrement = get_call_record(trace.$addr).score
-        $increment = $call_record.score
+        $increment = get_call_record($bb_new_trace.$addr).score
         $bb_score += $increment - $decrement
         $bb_weight += $increment - $decrement
     end)
 end
 
-function process_generator_update_marked!(state::Union{BBUpdateState,BBFixUpdateState}, node::AddrGeneratorNode)
+function process_generator_update_marked!(state::Union{BBUpdateState,BBFixUpdateState,BBExtendState}, node::AddrGeneratorNode)
     # return value could change (even if just the input nodes are marked,
     # we don't currently statically identify a generator that can absorb
     # arbitrary changes to its arguments)
@@ -262,18 +274,16 @@ function process_generator_update_marked!(state::Union{BBUpdateState,BBFixUpdate
     end
 end
 
-function process!(ir::BasicBlockIR, state::Union{BBUpdateState,BBFixUpdateState}, node::AddrGeneratorNode, method::Symbol)
+function process!(ir::BasicBlockIR, state::Union{BBUpdateState,BBFixUpdateState}, node::AddrGeneratorNode)
     addr = node.address
     push!(state.addr_visited, addr)
-    discard = gensym("discard")
     input_nodes_marked = any([input in state.marked for input in node.input_nodes])
     (constrained, constraints) = get_constraints(state.schema, addr)
     if constrained || input_nodes_marked
         process_generator_update_marked!(state, node)
         generate_generator_call_statement!(state, addr, node, constraints)
-        generate_generator_score_and_weight_statements!(stmts, addr)
-        state.discard_internal_nodes[addr] = discard
-        generate_generator_output_statement!(state.stmts, node)
+        generate_generator_score_and_weight_statements!(state.stmts, addr)
+        generate_generator_output_statement!(state.stmts, node, addr)
     else
         push!(state.stmts, quote
             $(addr_change_variable(addr)) = NoChange()
@@ -281,7 +291,7 @@ function process!(ir::BasicBlockIR, state::Union{BBUpdateState,BBFixUpdateState}
     end
 end
 
-function process!(ir::BasicBlockIR, state::BBExtendState, node::AddrGeneratorNode, method::Symbol)
+function process!(ir::BasicBlockIR, state::BBExtendState, node::AddrGeneratorNode)
     addr = node.address
     push!(state.addr_visited, addr)
     input_nodes_marked = any([input in state.marked for input in node.input_nodes])
@@ -289,8 +299,8 @@ function process!(ir::BasicBlockIR, state::BBExtendState, node::AddrGeneratorNod
     if constrained || input_nodes_marked
         process_generator_update_marked!(state, node)
         generate_generator_call_statement!(state, addr, node, constraints)
-        generate_generator_score_and_weight_statements!(stmts, addr)
-        generate_generator_output_statement!(state.stmts, node)
+        generate_generator_score_and_weight_statements!(state.stmts, addr)
+        generate_generator_output_statement!(state.stmts, node, addr)
     else
         push!(state.stmts, quote
             $(addr_change_variable(addr)) = NoChange()
@@ -318,9 +328,8 @@ function generate_arg_statements!(stmts::Vector{Expr}, ir::BasicBlockIR)
     end
 end
 
-function generate_expr_node_statements!(stmts::Vector{Expr}, ir::BasicBlockIR, schema, mode)
-    state = BBUpdateState(mode, stmts, schema)
-    # visit statements in topological order, generating code
+function generate_expr_node_statements!(state::Union{BBUpdateState,BBFixUpdateState,BBExtendState}, ir::BasicBlockIR)
+    # visit statements in topological order, generating code for each one
     for node in ir.expr_nodes_sorted
         process!(ir, state, node)
     end
@@ -342,14 +351,14 @@ function generate_is_empty!(stmts::Vector{Expr}, ir::BasicBlockIR)
     end
 end
 
-function generate_discard!(stmts::Vector{Expr}, state::BBUpdateState)
-    if length(state.discard_leaf_nodes) > 0
-        (leaf_keys, leaf_nodes) = collect(zip(state.discard_leaf_nodes...))
+function generate_discard!(stmts::Vector{Expr}, discard_leaf_nodes, discard_internal_nodes)
+    if length(discard_leaf_nodes) > 0
+        (leaf_keys, leaf_nodes) = collect(zip(discard_leaf_nodes...))
     else
         (leaf_keys, leaf_nodes) = ((), ())
     end
-    if length(state.discard_internal_nodes) > 0
-        (internal_keys, internal_nodes) = collect(zip(state.discard_internal_nodes...))
+    if length(discard_internal_nodes) > 0
+        (internal_keys, internal_nodes) = collect(zip(discard_internal_nodes...))
     else
         (internal_keys, internal_nodes) = ((), ())
     end
@@ -375,7 +384,7 @@ function check_no_extra_constraints(schema::EmptyAddressSchema, ir::BasicBlockIR
 end
 
 
-function generate_call_record!(stmts::Vector{Expr}, ir::BasicBlockIR)
+function generate_call_record!(stmts::Vector{Expr}, ir::BasicBlockIR, marked::Set{ValueNode})
 
     # return value
     if ir.output_node === nothing
@@ -415,43 +424,46 @@ function generate_extend_return_statement!(stmts::Vector{Expr}, ir::BasicBlockIR
     push!(stmts, quote return ($bb_new_trace, $bb_weight, $retchange) end)
 end
 
-function codegen_update(gen::Type{T}, new_args, args_change, trace, constraints) where {T <: BasicGenFunction}
-    schema = get_address_schema(constraints)
-    ir = get_ir(gen)
+function codegen_update(gen_type::Type{T}, new_args_type, args_change_type, trace_type, constraints_type) where {T <: BasicGenFunction}
+    schema = get_address_schema(constraints_type)
+    ir = get_ir(gen_type)
     stmts = Expr[]
-    generate_init_stmts!(stmts)
+    generate_init_statements!(stmts)
     generate_arg_statements!(stmts, ir)
-    generate_expr_node_statements!(stmts, ir, schema, bb_update_mode)
+    state = BBUpdateState(stmts, ir, schema, args_change_type)
+    generate_expr_node_statements!(state, ir)
     generate_is_empty!(stmts, ir)
-    generate_discard!(stmts, state)
-    generate_call_record!(stmts, ir)
+    generate_discard!(stmts, state.discard_leaf_nodes, state.discard_internal_nodes)
+    generate_call_record!(stmts, ir, state.marked)
     generate_update_return_statement!(stmts, ir)
     return Expr(:block, stmts...)
 end
 
-function codegen_fix_update(gen::Type{T}, new_args, args_change, trace, constraints) where {T <: BasicGenFunction}
-    schema = get_address_schema(constraints)
-    ir = get_ir(gen)
+function codegen_fix_update(gen_type::Type{T}, new_args_type, args_change_type, trace_type, constraints_type) where {T <: BasicGenFunction}
+    schema = get_address_schema(constraints_type)
+    ir = get_ir(gen_type)
     stmts = Expr[]
-    generate_init_stmts!(stmts)
+    generate_init_statements!(stmts)
     generate_arg_statements!(stmts, ir)
-    generate_expr_node_statements!(stmts, ir, schema, bb_fix_update_mode)
+    state = BBFixUpdate(stmts, ir, schema, args_change_type)
+    generate_expr_node_statements!(state, ir)
     generate_is_empty!(stmts, ir)
-    generate_discard!(stmts, state)
-    generate_call_record!(stmts, ir)
+    generate_discard!(stmts, state.discard_leaf_nodes, state.discard_internal_nodes)
+    generate_call_record!(stmts, ir, state.marked)
     generate_update_return_statement!(stmts, ir)
     return Expr(:block, stmts...)
 end
 
-function codegen_extend(gen::Type{T}, new_args, args_change, trace, constraints) where {T <: BasicGenFunction}
-    schema = get_address_schema(constraints)
-    ir = get_ir(gen)
+function codegen_extend(gen_type::Type{T}, new_args_type, args_change_type, trace_type, constraints_type) where {T <: BasicGenFunction}
+    schema = get_address_schema(constraints_type)
+    ir = get_ir(gen_type)
     stmts = Expr[]
-    generate_init_stmts!(stmts)
+    generate_init_statements!(stmts)
     generate_arg_statements!(stmts, ir)
-    generate_expr_node_statements!(stmts, ir, schema, bb_fix_update_mode)
+    state = BBExtendState(stmts, ir, schema, args_change_type)
+    generate_expr_node_statements!(state, ir)
     generate_is_empty!(stmts, ir)
-    generate_call_record!(stmts, ir)
+    generate_call_record!(stmts, ir, state.marked)
     generate_extend_return_statement!(stmts, ir)
     return Expr(:block, stmts...)
 end
@@ -464,7 +476,7 @@ push!(Gen.generated_functions, quote
         # try to convert it to a static choice trie
         return quote update(gen, new_args, args_change, trace, StaticChoiceTrie(constraints)) end
     end
-    Gen.codegen_update(Gen.bb_update_mode, gen, new_args, args_change, trace, constraints)
+    Gen.codegen_update(gen, new_args, args_change, trace, constraints)
 end
 end)
 

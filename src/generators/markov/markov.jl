@@ -27,6 +27,10 @@ function get_static_argument_types(markov::Markov)
     [Int, state_type, params_type]
 end
 
+############
+# generate #
+############
+
 function generate(gen::Markov{T,U}, args, constraints) where {T,U}
     # NOTE: could be strict and check there are no extra constraints
     # probably we want to have this be an option that can be turned on or off?
@@ -62,10 +66,23 @@ function simulate(gen::Markov{T,U}, args) where {T,U}
     trace
 end
 
+##################################
+# update, fix_update, and extend #
+##################################
+
+# TODO update
+# TODO fix_update
+
 struct MarkovChange
     len_changed::Bool
     init_changed::Bool
     params_changed::Bool
+end
+
+function extend(gen::Markov{T,U}, args, change::Nothing, trace::VectorTrace{T,U},
+                constraints) where {T,U}
+    change = MarkovChange(true, true, true)
+    extend(gen, args, change, trace, constraints)
 end
 
 function extend(gen::Markov{T,U}, args, change::MarkovChange, trace::VectorTrace{T,U},
@@ -127,6 +144,13 @@ function extend(gen::Markov{T,U}, args, change::MarkovChange, trace::VectorTrace
     trace = VectorTrace(subtraces, call, is_empty)
     (trace, weight, nothing)
 end
+
+##################
+# backprop_trace #
+##################
+
+
+
 
 export markov
 export MarkovChange

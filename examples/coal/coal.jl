@@ -364,10 +364,10 @@ function resimulation_mh(selection, trace)
     (new_trace, weight) = regenerate(model, model_args, NoChange(), trace, selection)
     if log(rand()) < weight
         # accept
-        return (new_trace, true)
+        return new_trace
     else
         # reject
-        return (trace, false)
+        return trace
     end
 end
 
@@ -387,13 +387,11 @@ function generic_mcmc_step(trace)
     end
     move_type = random(categorical, [prob_h, prob_p, prob_change_k])
     if move_type == 1
-        (trace, accept) = height_move(trace)
-        return (trace, nothing)
+        height_move(trace)
     elseif move_type == 2
-        (trace, accept) = position_move(trace)
-        return (trace, nothing)
+        position_move(trace)
     else
-        return resimulation_mh(k_selection, trace)
+        resimulation_mh(k_selection, trace)
     end
 end
 
@@ -417,15 +415,13 @@ function mcmc_step(trace)
     end
     move_type = random(categorical, [prob_h, prob_p, prob_b, prob_d])
     if move_type == 1
-        (trace, accept) = height_move(trace)
-        return (trace, nothing)
+        height_move(trace)
     elseif move_type == 2
-        (trace, accept) = position_move(trace)
-        return (trace, nothing)
+        position_move(trace)
     elseif move_type == 3
-        return birth_move(trace)
+        birth_move(trace)
     elseif move_type == 4
-        return death_move(trace)
+        death_move(trace)
     else
         error("Unknown move type $move_type")
     end
@@ -438,7 +434,7 @@ function do_mcmc(T, num_steps::Int)
             println("iter $iter of $num_steps, k: $(get_choices(trace)["k"])")
         end
         #trace = mcmc_step(trace)
-        (trace, accept) = generic_mcmc_step(trace)
+        trace = generic_mcmc_step(trace)
     end
     trace
 end
@@ -516,7 +512,7 @@ function plot_posterior_mean_rate()
             if iter % 1000 == 0
                 println("iter $iter of $num_steps, k: $(get_choices(trace)["k"])")
             end
-            (trace, accept) = mcmc_step(trace)
+            trace = mcmc_step(trace)
             if iter > 4000
                 num_samples += 1
                 rate_vector = get_rate_vector(trace, test_points)
@@ -565,21 +561,12 @@ function plot_trace_plot()
     (trace, _) = generate(model, (T,), observations)
     num_clusters_vec = Int[]
     burn_in = 20000
-    total_trans_dim = 0
-    accepted_trans_dim = 0
     for iter=1:burn_in + 5000
-        (trace, accept) = generic_mcmc_step(trace)
+        trace = generic_mcmc_step(trace)
         if iter > burn_in
             push!(num_clusters_vec, get_choices(trace)["k"])
-            if accept !== nothing
-                if accept
-                    accepted_trans_dim += 1
-                end
-                total_trans_dim += 1
-            end
         end
     end
-    println("generic acceptance rate: $(accepted_trans_dim / total_trans_dim)")
     plt.subplot(2, 1, 1)
     plt.plot(num_clusters_vec, "r")
 
@@ -588,21 +575,12 @@ function plot_trace_plot()
     height1 = Float64[]
     num_clusters_vec = Int[]
     burn_in = 20000
-    total_trans_dim = 0
-    accepted_trans_dim = 0
     for iter=1:burn_in + 5000
-        (trace, accept) = mcmc_step(trace)
+        trace = mcmc_step(trace)
         if iter > burn_in
             push!(num_clusters_vec, get_choices(trace)["k"])
-            if accept !== nothing
-                if accept
-                    accepted_trans_dim += 1
-                end
-                total_trans_dim += 1
-            end
         end
     end
-    println("rjmcmc acceptance rate: $(accepted_trans_dim / total_trans_dim)")
     plt.subplot(2, 1, 2)
     plt.plot(num_clusters_vec, "b")
 
@@ -623,5 +601,3 @@ end
 
 println("making trace plot...")
 plot_trace_plot()
-
-

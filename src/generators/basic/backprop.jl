@@ -347,7 +347,7 @@ function codegen_backprop_trace(gen::Type{T}, trace, selection, retval_grad) whe
 end
 
 push!(Gen.generated_functions, quote
-@generated function Gen.backprop_trace(gen::Gen.BasicGenFunction, trace, selection, retval_grad)
+@generated function Gen.backprop_trace(gen::Gen.BasicGenFunction{T,U}, trace::U, selection, retval_grad) where {T,U}
     schema = get_address_schema(selection)
     if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
         # try to convert it to a static address set
