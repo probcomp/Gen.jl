@@ -41,6 +41,14 @@ function check_length(len::Int)
     end
 end
 
+accepts_output_grad(gen::Markov) = false # TODO add support for this
+
+# does not have grad for len
+# does not have grad for initial state (TODO add support for this)
+# may or may not has grad for parameters, depending the kernel
+has_argument_grads(gen::Markov) = (false, false, has_argument_grads(gen.kernel)[3:end]...)
+
+
 ############
 # generate #
 ############
@@ -85,7 +93,6 @@ end
 # update, fix_update, and extend #
 ##################################
 
-# TODO update
 # TODO fix_update
 
 struct MarkovChange
@@ -265,6 +272,46 @@ end
 ##################
 
 
+function backprop_trace(gen::Markov{T,U}, trace::VectorTrace{T,U},
+                        selection::AddressSet, retval_grad) where {T,U}
+    args = get_call_record(trace).args
+    (len, init, params) = unpack_args(args)
+    has_grads = has_argument_grads(gen.kernel)
+    if has_grads[1]
+        error("Cannot compute gradients for length of markov module")
+    end
+    if has_grads[2]
+        # we ignore this, since the module must be absorbing, so we don't need to compute the grads
+    end
+    param_has_grad = has_grads[3:end]
+
+    # initialize parameter gradient accumulators
+    param_grads = [
+        has_grad ? zero(param) : nothing for (param, has_grad) in zip(params, param_has_grad)]
+
+    value_trie = DynamicChoiceTrie()
+    gradient_trie = DynamicChoiceTrie()
+
+    # NOTE: order does not matter
+    for (key, sub_selection) in get_internal_nodes(selection)
+        subtrace = trace.subtraces[key]
+        kernel_retval_grad = nothing
+        (kernel_arg_grad::Tuple, kernel_value_trie, kernel_gradient_trie) = backprop_trace(
+            gen.kernel, subtrace, sub_selection, kernel_retval_grad)
+        @assert length(kernel_arg_grad) >= 3
+        @assert kernel_arg_grad[1] === nothing
+        set_internal_node!(value_trie, key, kernel_value_trie)
+        set_internal_node!(gradient_trie, key, kernel_gradient_trie)
+        for (i, kernel_param_grad) in enumerate(kernel_arg_grad[3:end])
+            if param_has_grad[i]
+                @assert kernel_param_grad !== nothing
+                param_grads[i] += kernel_param_grad
+            end
+        end
+    end
+    arg_grad = (nothing, nothing, param_grads...)
+    ((arg_grad...,), value_trie, gradient_trie)
+end
 
 
 export markov
