@@ -479,10 +479,16 @@ function generate_gradient_fn(node::JuliaNode, gradient_fn::Symbol)
                         ReverseDiff.reverse_pass!($tape)
                         return ($(grad_exprs...),)
                     else
-                        # the expression was not differentiable (output value was not tracked)
-                        # but the output has a given gradient value, indicating it is floating pt..
-                        error(err_msg)
-                        # TODO warning, error, or silent?
+                        # the output value was not tracked
+
+                        # this could indicate that the expresssion was not
+                        # differentiable, which should probably be an error
+
+                        # or, it could indicate that the expression was a constant
+
+                        # TODO revisit
+
+                        return ($(grad_exprs_noop...),)
                     end
                 else
                     # output_grad is nothing (i.e. not a floating point value)

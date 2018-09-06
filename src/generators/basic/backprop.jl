@@ -282,7 +282,7 @@ function process!(state::BBBackpropTraceState, node::AddrGeneratorNode)
     subtrace = Expr(:(.), :trace, QuoteNode(addr))
     has_selection = isa(state.schema, StaticAddressSchema) && addr in internal_node_keys(state.schema)
     if has_selection
-        selection = Expr(:call, :static_get_internal_node, selection, QuoteNode(Val(addr)))
+        selection = Expr(:call, :static_get_internal_node, :selection, QuoteNode(Val(addr)))
         value_trie = gensym("value_trie_$addr")
         gradient_trie = gensym("gradient_trie_$addr")
         push!(state.internal_nodes, InternalNode(addr, value_trie, gradient_trie))
