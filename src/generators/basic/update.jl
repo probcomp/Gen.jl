@@ -445,7 +445,7 @@ function codegen_fix_update(gen_type::Type{T}, new_args_type, args_change_type, 
     stmts = Expr[]
     generate_init_statements!(stmts)
     generate_arg_statements!(stmts, ir)
-    state = BBFixUpdate(stmts, ir, schema, args_change_type)
+    state = BBFixUpdateState(stmts, ir, schema, args_change_type)
     generate_expr_node_statements!(state, ir)
     generate_is_empty!(stmts, ir)
     generate_discard!(stmts, state.discard_leaf_nodes, state.discard_internal_nodes)
