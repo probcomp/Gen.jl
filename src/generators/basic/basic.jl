@@ -539,7 +539,7 @@ macro compiled(ast)
         trace_type_defn,
         generator_type_defn,
         gradient_function_defns...,
-        quote global const $(esc(name)) = $(esc(generator_type))() end)
+        quote $(esc(name)) = $(esc(generator_type))() end)
 end
 
 
