@@ -1,3 +1,5 @@
+using LinearAlgebra: logabsdet
+
 @testset "injective" begin
 
     @inj function foo()

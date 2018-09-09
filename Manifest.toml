@@ -33,9 +33,9 @@ version = "1.1.0"
 
 [[DataStructures]]
 deps = ["InteractiveUtils", "REPL", "Random", "Serialization", "Test"]
-git-tree-sha1 = "6e72a9098f5774601c8c8d6a4511a68270594910"
+git-tree-sha1 = "2afbbd0294306b0b74a753c196be50b35edb625c"
 uuid = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
-version = "0.11.0"
+version = "0.11.1"
 
 [[Dates]]
 deps = ["Printf"]
@@ -62,16 +62,16 @@ deps = ["LinearAlgebra", "Random", "Serialization", "Sockets"]
 uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 
 [[Distributions]]
-deps = ["Distributed", "LinearAlgebra", "PDMats", "Printf", "QuadGK", "Random", "SpecialFunctions", "Statistics", "StatsBase", "StatsFuns", "Test"]
-git-tree-sha1 = "c43dc10a52598ad76d61f8907b3b30f159ca146f"
+deps = ["Distributed", "LinearAlgebra", "PDMats", "Pkg", "Printf", "QuadGK", "Random", "SpecialFunctions", "Statistics", "StatsBase", "StatsFuns", "Test"]
+git-tree-sha1 = "07f0e38d8a9c8151af4d843500de1bf0baa59dca"
 uuid = "31c24e10-a181-5473-b8eb-7969acd0382f"
-version = "0.16.2"
+version = "0.16.3"
 
 [[ForwardDiff]]
 deps = ["CommonSubexpressions", "DiffResults", "DiffRules", "InteractiveUtils", "LinearAlgebra", "NaNMath", "Pkg", "Random", "SparseArrays", "SpecialFunctions", "StaticArrays", "Test"]
-git-tree-sha1 = "0dd11038da4efce9ce457b1cf47a52eaf6251bd3"
+git-tree-sha1 = "8425a7d4e060bc2ded32d090bce910a187d6cce7"
 uuid = "f6369f11-7733-5829-9624-2563aa707210"
-version = "0.8.5"
+version = "0.9.0"
 
 [[FunctionWrappers]]
 deps = ["Compat", "Pkg"]
@@ -113,10 +113,10 @@ deps = ["Base64"]
 uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
 
 [[Missings]]
-deps = ["Dates", "InteractiveUtils", "SparseArrays", "Test"]
-git-tree-sha1 = "196528fa1df03df435025f52f9c1ff8356f94738"
+deps = ["Compat"]
+git-tree-sha1 = "866fb034899be6055dcb6cb1a70fbda379bb0b55"
 uuid = "e1d29d7a-bbdc-5cf2-9ac0-f12de2c33e28"
-version = "0.3.0"
+version = "0.2.10"
 
 [[Mmap]]
 uuid = "a63ad114-7e13-5084-954f-fe012c677804"
@@ -143,9 +143,9 @@ uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 
 [[QuadGK]]
 deps = ["DataStructures", "LinearAlgebra", "Test"]
-git-tree-sha1 = "7d61ca207f021be6574b365a1a077bea04935f19"
+git-tree-sha1 = "7e8dff9c205f36eceaf6e62a43ff851637ca45fc"
 uuid = "1fd47b50-473d-5c70-9696-f719f8f3bcdc"
-version = "2.0.1"
+version = "2.0.2"
 
 [[REPL]]
 deps = ["InteractiveUtils", "Markdown", "Sockets"]
