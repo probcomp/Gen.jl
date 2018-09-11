@@ -2,25 +2,26 @@ struct BasicBlockGenerateState
     trace::Symbol
     score::Symbol
     weight::Symbol
-    schema::Union{StaticAddressSchema,EmptyAddressSchema}
-    stmts::Vector{Expr}
+    schema::Union{StaticAddressSchema, EmptyAddressSchema}
+    stmts::Vector{Any}
 end
 
 function process!(ir::BasicBlockIR, state::BasicBlockGenerateState, node::JuliaNode)
     trace = state.trace
-    (typ, trace_field) = get_value_info(node)
-    push!(state.stmts, quote
-        $trace.$trace_field = ($(expr_read_from_trace(node, trace)))
-    end)
+    (_, trace_field) = get_value_info(node)
+    if node.line !== nothing
+        push!(state.stmts, node.line)
+    end
+    push!(state.stmts, Expr(:(=),
+        Expr(:(.), trace, QuoteNode(trace_field)),
+        expr_read_from_trace(node, trace)))
 end
 
 function process!(ir::BasicBlockIR, state::BasicBlockGenerateState,
                   node::Union{ArgsChangeNode,AddrChangeNode})
     trace = state.trace
-    (typ, trace_field) = get_value_info(node)
-    push!(state.stmts, quote
-        $trace.$trace_field = nothing
-    end)
+    (_, trace_field) = get_value_info(node)
+    push!(state.stmts, Expr(:(=), Expr(:(.), trace, QuoteNode(trace_field)), QuoteNode(nothing)))
 end
 
 function process!(ir::BasicBlockIR, state::BasicBlockGenerateState, node::AddrDistNode)
@@ -30,28 +31,30 @@ function process!(ir::BasicBlockIR, state::BasicBlockGenerateState, node::AddrDi
     args = get_args(trace, node)
     if isa(schema, StaticAddressSchema) && (addr in leaf_node_keys(schema))
         increment = gensym("logpdf")
-        push!(state.stmts, quote
-            $trace.$addr = static_get_leaf_node(constraints, Val($(QuoteNode(addr))))
-            $increment = logpdf($dist, $trace.$addr, $(args...))
-            $score += $increment
-            $weight += $increment
-            $trace.$is_empty_field = false
-        end)
-
+        push!(state.stmts, node.line)
+        push!(state.stmts, Expr(:(=), Expr(:(.), trace, QuoteNode(addr)), Expr(:call, :static_get_leaf_node, :constraints, Expr(:call, :Val, QuoteNode(addr)))))
+        push!(state.stmts, node.line)
+        push!(state.stmts, Expr(:(=), increment, Expr(:call, :logpdf, dist, Expr(:(.), trace, QuoteNode(addr)), args...)))
+        push!(state.stmts, node.line)
+        push!(state.stmts, Expr(:(+=), score, increment))
+        push!(state.stmts, node.line)
+        push!(state.stmts, Expr(:(+=), weight, increment))
+        push!(state.stmts, node.line)
+        push!(state.stmts, Expr(:(=), Expr(:(.), trace, QuoteNode(is_empty_field)), QuoteNode(false)))
     elseif isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema)
-        push!(state.stmts, quote
-            $trace.$addr = random($dist, $(args...))
-            $score += logpdf($dist, $trace.$addr, $(args...))
-            $trace.$is_empty_field = false
-        end)
+        push!(state.stmts, node.line)
+        push!(state.stmts, Expr(:(=), Expr(:(.), trace, QuoteNode(addr)), Expr(:call, :random, dist, args...)))
+        push!(state.stmts, node.line)
+        push!(state.stmts, Expr(:(+=), score, Expr(:call, :logpdf, dist, Expr(:(.), trace, QuoteNode(addr)), args...)))
     else
         error("Basic block does not currently support $schema constraints")
     end
+    push!(state.stmts, node.line)
+    push!(state.stmts, Expr(:(=), Expr(:(.), trace, QuoteNode(is_empty_field)), QuoteNode(false)))
     if has_output(node)
         (_, trace_field) = get_value_info(node)
-        push!(state.stmts, quote
-            $trace.$trace_field = $trace.$addr
-        end)
+        push!(state.stmts, node.line)
+        push!(state.stmts, Expr(:(=), Expr(:(.), trace, QuoteNode(trace_field)), Expr(:(.), trace, QuoteNode(addr))))
     end
 end
 
@@ -63,35 +66,35 @@ function process!(ir::BasicBlockIR, state::BasicBlockGenerateState, node::AddrGe
     call_record = gensym("call_record")
     if isa(schema, StaticAddressSchema) && (addr in internal_node_keys(schema))
         weight_incr = gensym("weight")
-        push!(state.stmts, quote
-            ($trace.$addr, $weight_incr) = generate(
-                $gen, $(Expr(:tuple, args...)),
-                static_get_internal_node(constraints, Val($(QuoteNode(addr)))))
-            $weight += $weight_incr
-            $call_record = get_call_record($trace.$addr)
-            $score += $call_record.score
-            $trace.$is_empty_field = $trace.$is_empty_field && !has_choices($trace.$addr)
-        end)
+        push!(state.stmts, node.line)
+        push!(state.stmts, Expr(:(=),
+            Expr(:tuple, Expr(:(.), trace, QuoteNode(addr)), weight_incr),
+            Expr(:call, :generate, gen, Expr(:tuple, args...), Expr(:call, :static_get_internal_node, :constraints, Expr(:call, :Val, QuoteNode(addr))))))
+        push!(state.stmts, node.line)
+        push!(state.stmts, Expr(:(+=), weight, weight_incr))
     elseif isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema)
-        push!(state.stmts, quote
-            $trace.$addr = simulate($gen, $(Expr(:tuple, args...)))
-            $call_record = get_call_record($trace.$addr)
-            $score += $call_record.score
-            $trace.$is_empty_field = $trace.$is_empty_field && !has_choices($trace.$addr)
-        end)
+        push!(state.stmts, node.line)
+        push!(state.stmts, Expr(:(=), Expr(:(.), trace, QuoteNode(addr)), Expr(:call, :simulate, gen, Expr(:tuple, args...))))
     else
-        error("Basic block does not currently support $schema constraints")
+        err = "Basic block does not currently support constraints: " * String(schema)
+        error(err)
     end
+    push!(state.stmts, node.line)
+    push!(state.stmts, Expr(:(=), call_record, Expr(:call, :get_call_record, Expr(:(.), trace, QuoteNode(addr)))))
+    push!(state.stmts, node.line)
+    push!(state.stmts, Expr(:(+=), score, Expr(:(.), call_record, QuoteNode(:score))))
+    push!(state.stmts, node.line)
+    push!(state.stmts, Expr(:(=),
+        Expr(:(.), trace, QuoteNode(is_empty_field)),
+        Expr(:(&&), Expr(:(.), trace, QuoteNode(is_empty_field)), Expr(:call, :!, Expr(:call, :has_choices, Expr(:(.), trace, QuoteNode(addr)))))))
     if has_output(node)
         (_, trace_field) = get_value_info(node)
-        push!(state.stmts, quote
-            $trace.$trace_field = $call_record.retval
-        end)
+        push!(state.stmts, node.line)
+        push!(state.stmts, Expr(:(=), Expr(:(.), trace, QuoteNode(trace_field)), Expr(:(.), call_record, QuoteNode(:retval))))
     end
 end
 
 function codegen_generate(gen::Type{T}, args, constraints) where {T <: BasicGenFunction}
-    Core.println("generating generate($gen, constraints: $constraints...)")
     trace_type = get_trace_type(gen)
     schema = get_address_schema(constraints)
     if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
@@ -100,18 +103,16 @@ function codegen_generate(gen::Type{T}, args, constraints) where {T <: BasicGenF
     end
 
     ir = get_ir(gen)
-    stmts = Expr[]
+    stmts = []
 
     # initialize trace and score and weight
     trace = gensym("trace")
     score = gensym("score")
     weight = gensym("weight")
-    push!(stmts, quote
-        $trace = $trace_type()
-        $score = 0.
-        $weight = 0.
-        $trace.$is_empty_field = true
-    end)
+    push!(stmts, Expr(:(=), trace, Expr(:call, trace_type)))
+    push!(stmts, Expr(:(=), score, QuoteNode(0.)))
+    push!(stmts, Expr(:(=), weight, QuoteNode(0.)))
+    push!(stmts, Expr(:(=), Expr(:(.), trace, QuoteNode(is_empty_field)), QuoteNode(true)))
 
     # unpack arguments
     arg_names = Symbol[arg_node.name for arg_node in ir.arg_nodes]
@@ -119,7 +120,7 @@ function codegen_generate(gen::Type{T}, args, constraints) where {T <: BasicGenF
 
     # record arguments in trace
     for arg_node in ir.arg_nodes
-        push!(stmts, quote $trace.$(value_field(arg_node)) = $(arg_node.name) end)
+        push!(stmts, Expr(:(=), Expr(:(.), trace, QuoteNode(value_field(arg_node))), arg_node.name))
     end
 
     # process expression nodes in topological order
@@ -134,13 +135,11 @@ function codegen_generate(gen::Type{T}, args, constraints) where {T <: BasicGenF
     if ir.output_node === nothing
         retval = :nothing
     else
-        retval = quote $trace.$(value_field(something(ir.output_node))) end
+        retval = Expr(:(.), trace, QuoteNode(value_field(something(ir.output_node))))
     end
 
-    push!(stmts, quote
-        $trace.$call_record_field = CallRecord($score, $retval, args)
-        return ($trace, $weight)
-    end)
+    push!(stmts, Expr(:(=), Expr(:(.), trace, QuoteNode(call_record_field)), Expr(:call, :CallRecord, score, retval, :args)))
+    push!(stmts, Expr(:return, Expr(:tuple, trace, weight)))
     Expr(:block, stmts...)
 end
 

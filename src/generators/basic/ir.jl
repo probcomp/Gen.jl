@@ -43,6 +43,7 @@ struct AddrDistNode{T} <: ExprNode
     output::Union{ValueNode,Nothing}
     dist::Distribution{T}
     address::Symbol
+    line::LineNumberNode
 end
 
 function Base.print(io::IO, node::AddrDistNode)
@@ -57,6 +58,7 @@ struct AddrGeneratorNode{T,U} <: ExprNode
     gen::Generator{T,U}
     address::Symbol
     change_node::ValueNode
+    line::LineNumberNode
 end
 
 function Base.print(io::IO, node::AddrGeneratorNode)
@@ -82,6 +84,7 @@ struct JuliaNode <: ExprNode
     input_nodes::Vector{ValueNode}
     output::ValueNode
     expr_or_value::Any
+    line::Union{LineNumberNode,Nothing}
 end
 
 function Base.print(io::IO, node::JuliaNode)
@@ -285,7 +288,7 @@ function _get_input_node!(ir::BasicBlockIR, expr, typ)
     push!(ir.all_nodes, value_node)
     input_nodes = map((sym) -> ir.value_nodes[sym],
                       collect(resolve_symbols_set(ir, expr)))
-    expr_node = JuliaNode(input_nodes, value_node, expr)
+    expr_node = JuliaNode(input_nodes, value_node, expr, nothing)
     finish!(value_node, expr_node)
     push!(ir.all_nodes, expr_node)
     if any([node in ir.incremental_nodes for node in input_nodes])
@@ -302,7 +305,7 @@ function _get_input_node!(ir::BasicBlockIR, name::Symbol, typ)
     else
         # this is a symbol defined in the top-level environment
         value_node = ExprValueNode(name, typ)
-        expr_node = JuliaNode(ValueNode[], value_node, name)
+        expr_node = JuliaNode(ValueNode[], value_node, name, nothing)
         ir.value_nodes[name] = value_node
         push!(ir.all_nodes, value_node)
         finish!(value_node, expr_node)
@@ -315,7 +318,7 @@ function incremental_dependency_error(addr)
     error("@addr argument cannot depend on @change or @argschange statements (address $addr)")
 end
 
-function add_addr!(ir::BasicBlockIR, addr::Symbol, dist::Distribution{T}, args::Vector, typ, name::Symbol) where {T}
+function add_addr!(ir::BasicBlockIR, addr::Symbol, line::LineNumberNode, dist::Distribution{T}, args::Vector, typ, name::Symbol) where {T}
     @assert !ir.finished
     types = get_static_argument_types(dist)
     input_nodes = ValueNode[
@@ -324,7 +327,7 @@ function add_addr!(ir::BasicBlockIR, addr::Symbol, dist::Distribution{T}, args::
         incremental_dependency_error(addr)
     end
     value_node = ExprValueNode(name, typ)
-    expr_node = AddrDistNode(input_nodes, value_node, dist, addr)
+    expr_node = AddrDistNode(input_nodes, value_node, dist, addr, line)
     finish!(value_node, expr_node)
     ir.value_nodes[name] = value_node
     push!(ir.all_nodes, expr_node)
@@ -333,7 +336,7 @@ function add_addr!(ir::BasicBlockIR, addr::Symbol, dist::Distribution{T}, args::
     nothing
 end
 
-function add_addr!(ir::BasicBlockIR, addr::Symbol, dist::Distribution{T}, args::Vector) where {T}
+function add_addr!(ir::BasicBlockIR, addr::Symbol, line::LineNumberNode, dist::Distribution{T}, args::Vector) where {T}
     @assert !ir.finished
     types = get_static_argument_types(dist)
     input_nodes = ValueNode[
@@ -341,14 +344,14 @@ function add_addr!(ir::BasicBlockIR, addr::Symbol, dist::Distribution{T}, args::
     if any([node in ir.incremental_nodes for node in input_nodes])
         incremental_dependency_error(addr)
     end
-    expr_node = AddrDistNode(input_nodes, nothing, dist, addr)
+    expr_node = AddrDistNode(input_nodes, nothing, dist, addr, line)
     push!(ir.all_nodes, expr_node)
     ir.addr_dist_nodes[addr] = expr_node
     nothing
 end
 
 
-function add_addr!(ir::BasicBlockIR, addr::Symbol, gen::Generator{T,U}, args::Vector, typ, name::Symbol, change_expr) where {T,U}
+function add_addr!(ir::BasicBlockIR, addr::Symbol, line::LineNumberNode, gen::Generator{T,U}, args::Vector, typ, name::Symbol, change_expr) where {T,U}
     @assert !ir.finished
     types = get_static_argument_types(gen)
     # NOTE: these could be abstract types....
@@ -361,7 +364,7 @@ function add_addr!(ir::BasicBlockIR, addr::Symbol, gen::Generator{T,U}, args::Ve
     # TODO make it not Some{}
     change_node = _get_input_node!(ir, change_expr, Union{Some{get_change_type(gen)}, Nothing})
     push!(ir.generator_input_change_nodes, change_node)
-    expr_node = AddrGeneratorNode(input_nodes, value_node, gen, addr, change_node)
+    expr_node = AddrGeneratorNode(input_nodes, value_node, gen, addr, change_node, line)
     finish!(value_node, expr_node)
     ir.value_nodes[name] = value_node
     push!(ir.all_nodes, expr_node)
@@ -370,7 +373,7 @@ function add_addr!(ir::BasicBlockIR, addr::Symbol, gen::Generator{T,U}, args::Ve
     nothing
 end
 
-function add_addr!(ir::BasicBlockIR, addr::Symbol, gen::Generator{T,U}, args::Vector, change_expr) where {T,U}
+function add_addr!(ir::BasicBlockIR, addr::Symbol, line::LineNumberNode, gen::Generator{T,U}, args::Vector, change_expr) where {T,U}
     @assert !ir.finished
     types = get_static_argument_types(gen)
     input_nodes = ValueNode[
@@ -380,20 +383,20 @@ function add_addr!(ir::BasicBlockIR, addr::Symbol, gen::Generator{T,U}, args::Ve
     end
     change_node = _get_input_node!(ir, change_expr, Union{Some{get_change_type(gen)}, Nothing})
     push!(ir.generator_input_change_nodes, change_node)
-    expr_node = AddrGeneratorNode(input_nodes, nothing, gen, addr, change_node)
+    expr_node = AddrGeneratorNode(input_nodes, nothing, gen, addr, change_node, line)
     push!(ir.all_nodes, expr_node)
     ir.addr_gen_nodes[addr] = expr_node
     nothing
 end
 
-function add_julia!(ir::BasicBlockIR, expr, typ, name::Symbol)
+function add_julia!(ir::BasicBlockIR, expr, typ, name::Symbol, line::LineNumberNode)
     @assert !ir.finished
     value_node = ExprValueNode(name, typ)
     ir.value_nodes[name] = value_node
     push!(ir.all_nodes, value_node)
     input_nodes = map((sym) -> ir.value_nodes[sym],
                       collect(resolve_symbols_set(ir, expr)))
-    expr_node = JuliaNode(input_nodes, value_node, expr)
+    expr_node = JuliaNode(input_nodes, value_node, expr, line)
     finish!(value_node, expr_node)
     push!(ir.all_nodes, expr_node)
     if any([node in ir.incremental_nodes for node in input_nodes])

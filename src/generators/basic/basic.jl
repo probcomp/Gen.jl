@@ -14,7 +14,8 @@ end
 
 function parse_addr(expr::Expr)
     @assert expr.head == :macrocall && expr.args[1] == Symbol("@addr")
-    rest = isa(expr.args[2], LineNumberNode) ? expr.args[3:end] : expr.args[2:end]
+    line::LineNumberNode = expr.args[2]
+    rest = expr.args[3:end]
     if length(rest) == 2
         change_expr = nothing
     elseif length(rest) == 3
@@ -26,7 +27,7 @@ function parse_addr(expr::Expr)
     if !isa(call, Expr) || call.head != :call
         throw(BasicBlockParseError(call))
     end
-    generator_or_dist = Main.eval(call.args[1]) # TODO use of eval...
+    generator_or_dist = Main.eval(call.args[1])
     if isa(generator_or_dist, Distribution) && change_expr != nothing
         error("Cannot pass change values to @addr for distributions")
     end
@@ -37,7 +38,7 @@ function parse_addr(expr::Expr)
     elseif isa(addr, QuoteNode)
         addr = addr.value
     end
-    (addr::Symbol, generator_or_dist, args, change_expr)
+    (addr::Symbol, generator_or_dist, args, change_expr, line)
 end
 
 function parse_change(expr::Expr)   
@@ -62,7 +63,7 @@ end
 function parse_lhs(lhs::Expr)
     if lhs.head == :(::)
         name = lhs.args[1]
-        typ = Main.eval(lhs.args[2]) # TODO use of eval..
+        typ = Main.eval(lhs.args[2])
         return (name, typ)
     else
         throw(BasicBlockParseError(lhs))
@@ -105,46 +106,46 @@ function generate_ir(args, body, output_ad, args_ad)
             typ = Any
         elseif isa(arg, Expr) && arg.head == :(::)
             name = arg.args[1]
-            typ = Main.eval(arg.args[2]) # TODO use of eval..
+            typ = Main.eval(arg.args[2])
         else
             throw(BasicBlockParseError(body))
         end
         add_argument!(ir, name, typ)
     end
+    local line::LineNumberNode
     for statement in body.args
         if isa(statement, LineNumberNode)
+            line = statement
             continue
         end
         if !isa(statement, Expr)
             throw(BasicBlockParseError(statement))
         end
-        if statement.head == :line
-            continue
-        elseif statement.head == :macrocall && statement.args[1] == Symbol("@param")
+        if statement.head == :macrocall && statement.args[1] == Symbol("@param")
             (name, typ) = parse_param(statement)
             add_param!(ir, name, typ)
         elseif statement.head == :macrocall && statement.args[1] == Symbol("@addr")
             # an @addr statement without a left-hand-side
-            (addr, dist_or_gen, args, change_expr) = parse_addr(statement)
+            (addr, dist_or_gen, args, change_expr, line) = parse_addr(statement)
             if isa(dist_or_gen, Distribution)
                 @assert change_expr == nothing
-                add_addr!(ir, addr, dist_or_gen, args)
+                add_addr!(ir, addr, line, dist_or_gen, args)
             else
                 # change_expr may be nothing, indicating nothing is known
-                add_addr!(ir, addr, dist_or_gen, args, change_expr)
+                add_addr!(ir, addr, line, dist_or_gen, args, change_expr)
             end
         elseif statement.head == :(=)
             lhs = statement.args[1]
             rhs = statement.args[2]
             (name, typ) = parse_lhs(lhs)
             if rhs.head == :macrocall && rhs.args[1] == Symbol("@addr")
-                (addr, dist_or_gen, args, change_expr) = parse_addr(rhs)
+                (addr, dist_or_gen, args, change_expr, line) = parse_addr(rhs)
                 if isa(dist_or_gen, Distribution)
                     @assert change_expr == nothing
-                    add_addr!(ir, addr, dist_or_gen, args, typ, name)
+                    add_addr!(ir, addr, line, dist_or_gen, args, typ, name)
                 else
                     # change_expr may be nothing, indicating nothing is known
-                    add_addr!(ir, addr, dist_or_gen, args, typ, name, change_expr)
+                    add_addr!(ir, addr, line, dist_or_gen, args, typ, name, change_expr)
                 end
             elseif rhs.head == :macrocall && rhs.args[1] == Symbol("@argschange")
                 if (length(rhs.args) == 2 && isa(rhs.args[2], LineNumberNode)) || length(rhs.args) == 1
@@ -157,7 +158,7 @@ function generate_ir(args, body, output_ad, args_ad)
                 addr = parse_change(rhs)
                 add_change!(ir, addr, typ, name)
             else
-                add_julia!(ir, rhs, typ, name)
+                add_julia!(ir, rhs, typ, name, line)
             end
         elseif statement.head == :return
             if length(statement.args) != 1
