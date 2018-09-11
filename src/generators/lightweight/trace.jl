@@ -30,6 +30,9 @@ end
 
 function has_primitive_call(trace::GFTrace, addr::Pair)
     (first, rest) = addr
+    if !haskey(trace.subtraces, first)
+        return false
+    end
     subtrace::GFTrace = get(trace.subtraces, first)
     has_primitive_call(subtrace, rest)
 end

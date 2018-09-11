@@ -334,8 +334,8 @@ get_leaf_nodes(trie::DynamicChoiceTrie) = trie.leaf_nodes
 get_internal_nodes(trie::DynamicChoiceTrie) = trie.internal_nodes
 has_leaf_node(trie::DynamicChoiceTrie, addr::Pair) = _has_leaf_node(trie, addr)
 get_leaf_node(trie::DynamicChoiceTrie, addr::Pair) = _get_leaf_node(trie, addr)
-has_internal_node(trie::DynamicChoiceTrie, addr::Pair) = _has_internal_node(choices, addr)
-get_internal_node(trie::DynamicChoiceTrie, addr::Pair) = _get_internal_node(choices, addr)
+has_internal_node(trie::DynamicChoiceTrie, addr::Pair) = _has_internal_node(trie, addr)
+get_internal_node(trie::DynamicChoiceTrie, addr::Pair) = _get_internal_node(trie, addr)
 
 function Base.values(trie::DynamicChoiceTrie)
     iterators::Vector = collect(map(values, trie.internal_nodes))

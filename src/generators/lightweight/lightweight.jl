@@ -237,7 +237,7 @@ function _diff(trie, addrs::AddressSet)
             end
             diff_node = _diff(node, sub_addrs)
             if !isempty(diff_node)
-                set_internal_node!(diff_trie, key_field, diff_sub_trie)
+                set_internal_node!(diff_trie, key_field, diff_node)
             end
         end
     end
@@ -252,6 +252,7 @@ end
 include("simulate.jl")
 include("assess.jl")
 include("generate.jl")
+include("fix_update.jl")
 include("update.jl")
 include("extend.jl")
 include("project.jl")

@@ -1,6 +1,3 @@
-using Gen
-using Test
-
 @testset "static choice trie to/from array" begin
     inner_leaf_nodes = NamedTuple{(:a, :b), Tuple{Float64,Float64}}((1.0, 2.0))
     inner_internal_nodes = NamedTuple{(), Tuple{}}(())

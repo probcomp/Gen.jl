@@ -161,6 +161,84 @@ end
 
 export mh, rjmcmc, hmc, mala
 
+######################
+# particle filtering #
+######################
+
+function logsumexp(arr)
+    min_arr = maximum(arr)
+    min_arr + log(sum(exp.(arr .- min_arr)))
+end
+
+function effective_sample_size(log_weights::Vector{Float64})
+    # assumes weights are normalized
+    log_ess = -logsumexp(2. * log_weights)
+    exp(log_ess)
+end
+
+"""
+the first argument to model should be an integer, starting from 1, that indicates the step
+get_observations is a function of the step that returns a choice trie
+rejuvenation_move is a function of the step and the previous trace, that returns a new trace
+"""
+function particle_filter(model::Generator{T,U}, num_steps::Int,
+                         num_particles::Int, ess_threshold::Real,
+                         get_observations::Function,
+                         rejuvenation_move::Function=(t,trace) -> trace) where {T,U}
+
+    log_unnormalized_weights = Vector{Float64}(undef, num_particles)
+    log_ml_estimate = 0.
+    observations = get_observations(1)
+    traces = Vector{T}(undef, num_particles)
+    next_traces = Vector{T}(undef, num_particles)
+    for i=1:num_particles
+        (traces[i], log_unnormalized_weights[i]) = generate(model, (1,), observations)
+    end
+    for step=2:num_steps
+
+        # rejuvenation moves
+        for i=1:num_particles
+            traces[i] = rejuvenation_move(step, traces[i])
+        end
+
+        # compute new weights
+        log_total_weight = logsumexp(log_unnormalized_weights)
+        log_normalized_weights = log_unnormalized_weights .- log_total_weight
+
+        # resample
+        if effective_sample_size(log_normalized_weights) < ess_threshold
+            weights = exp.(log_normalized_weights)
+            parents = rand(Distributions.Categorical(weights / sum(weights)), num_particles)
+            log_ml_estimate += log_total_weight - log(num_particles)
+            log_unnormalized_weights = zeros(num_particles)
+        else
+            parents = 1:num_particles
+        end
+
+        # extend by one time step
+        observations = get_observations(step)
+        args_change = nothing
+        for i=1:num_particles
+            parent = parents[i]
+            (next_traces[i], weight) = extend(model, (step,), args_change, traces[i], observations)
+            log_unnormalized_weights[i] += weight
+        end
+        tmp = traces
+        traces = next_traces
+        next_traces = tmp
+    end
+
+    # finalize estimate of log marginal likelihood
+    log_total_weight = logsumexp(log_unnormalized_weights)
+    log_normalized_weights = log_unnormalized_weights .- log_total_weight
+    log_ml_estimate += log_total_weight - log(num_particles)
+    return (traces, log_normalized_weights, log_ml_estimate)
+end
+
+export particle_filter
+
+
+
 
 ##############################
 # Maximum a posteriori (MAP) #

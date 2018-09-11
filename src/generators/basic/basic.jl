@@ -148,10 +148,12 @@ function generate_ir(args, body, output_ad, args_ad)
                     add_addr!(ir, addr, dist_or_gen, args, typ, name, change_expr)
                 end
             elseif rhs.head == :macrocall && rhs.args[1] == Symbol("@argschange")
-                if length(rhs.args) != 1
+                if (length(rhs.args) == 2 && isa(rhs.args[2], LineNumberNode)) || length(rhs.args) == 1
+                    add_argschange!(ir, typ, name)
+                else
+                    dump(rhs)
                     throw(BasicBlockParseError(statement))
                 end
-                add_argschange!(ir, typ, name)
             elseif rhs.head == :macrocall && rhs.args[1] == Symbol("@change")
                 addr = parse_change(rhs)
                 add_change!(ir, addr, typ, name)
@@ -367,7 +369,7 @@ function generate_trace_type(ir::BasicBlockIR, name)
     addresses = union(keys(ir.addr_dist_nodes), keys(ir.addr_gen_nodes))
     choice_trie_methods = make_choice_trie_methods(
         trace_type_name, values(ir.addr_dist_nodes), values(ir.addr_gen_nodes))
-    retval_type = QuoteNode(ir.output_node ===  nothing ? Nothing : something(ir.output_node).typ)
+    retval_type = QuoteNode(ir.output_node ===  nothing ? Nothing : ir.output_node.typ)
     defn = esc(quote
 
         # specialized trace implementation
@@ -417,7 +419,7 @@ function get_grad_fn end
 
 function generate_generator_type(ir::BasicBlockIR, trace_type::Symbol, name::Symbol, node_to_gradient)
     generator_type = Symbol("BasicBlockGenerator_$name")
-    retval_type = ir.output_node === nothing ? :Nothing : something(ir.output_node).typ
+    retval_type = ir.output_node === nothing ? :Nothing : ir.output_node.typ
     defn = esc(quote
         struct $generator_type <: Gen.BasicGenFunction{$retval_type, $trace_type}
             params_grad::Dict{Symbol,Any}
@@ -477,10 +479,16 @@ function generate_gradient_fn(node::JuliaNode, gradient_fn::Symbol)
                         ReverseDiff.reverse_pass!($tape)
                         return ($(grad_exprs...),)
                     else
-                        # the expression was not differentiable (output value was not tracked)
-                        # but the output has a given gradient value, indicating it is floating pt..
-                        error(err_msg)
-                        # TODO warning, error, or silent?
+                        # the output value was not tracked
+
+                        # this could indicate that the expresssion was not
+                        # differentiable, which should probably be an error
+
+                        # or, it could indicate that the expression was a constant
+
+                        # TODO revisit
+
+                        return ($(grad_exprs_noop...),)
                     end
                 else
                     # output_grad is nothing (i.e. not a floating point value)
@@ -531,7 +539,7 @@ macro compiled(ast)
         trace_type_defn,
         generator_type_defn,
         gradient_function_defns...,
-        quote global const $(esc(name)) = $(esc(generator_type))() end)
+        quote $(esc(name)) = $(esc(generator_type))() end)
 end
 
 

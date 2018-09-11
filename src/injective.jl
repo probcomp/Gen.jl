@@ -1,5 +1,6 @@
 import ReverseDiff
 import ReverseDiff: TrackedReal, InstructionTape, seed!, unseed!, reverse_pass!, deriv
+using LinearAlgebra: logabsdet
 
 ##########################
 # injective function DSL #

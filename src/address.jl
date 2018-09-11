@@ -91,7 +91,7 @@ abstract type AddressSet end
 has_internal_node(::AddressSet, addr) = false
 get_internal_node(::AddressSet, addr) = throw(KeyError(addr))
 has_leaf_node(::AddressSet, addr) = false
-Base.in(set::AddressSet, addr) = has_leaf_node(set, addr)
+Base.in(addr, set::AddressSet) = has_leaf_node(set, addr)
 Base.getindex(set::AddressSet, addr) = get_internal_node(set, addr)
 Base.haskey(set::AddressSet, addr) = has_internal_node(set, addr)
 
@@ -128,6 +128,7 @@ export AddressSet
 
 struct EmptyAddressSet <: AddressSet end
 get_address_schema(::Type{EmptyAddressSet}) = EmptyAddressSchema()
+Base.isempty(::EmptyAddressSet) = true
 
 export EmptyAddressSet
 
@@ -141,6 +142,10 @@ export EmptyAddressSet
 # U the tuple type of internal nodes
 struct StaticAddressSet{R,T,U} <: AddressSet
     internal_nodes::NamedTuple{T,U}
+end
+
+function Base.isempty(set::StaticAddressSet{R,T,U}) where {R,T,U}
+    length(R) == 0 && all(isempty(node) for node in set.internal_nodes)
 end
 
 function get_address_schema(::Type{StaticAddressSet{R,T,U}}) where {R,T,U}
@@ -226,10 +231,10 @@ struct DynamicAddressSet <: AddressSet
     internal_nodes::Dict{Any,AddressSet}
 end
 
-Base.isempty(set::DynamicAddressSet) = isempty(leaf_nodes) && isempty(internal_nodes)
-#function Base.isempty(set::DynamicAddressSet)
-    #isempty(set.leaf_nodes) && all(map(isempty, values(set.internal_nodes)))
-#end
+# invariant: all internal nodes are nonempty
+function Base.isempty(set::DynamicAddressSet)
+    isempty(set.leaf_nodes) && isempty(set.internal_nodes)
+end
 
 DynamicAddressSet() = DynamicAddressSet(Set{Any}(), Dict{Any,DynamicAddressSet}())
 

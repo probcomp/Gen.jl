@@ -62,13 +62,24 @@ Return a vector of Types indicating the statically known concrete argument types
 function get_concrete_argument_types end
 
 """
-args should be such that it does not delete, or change the distribution of, any
-existing random choice.  constraints impleemnts read-only trie interface, must not collide with any existing random
-choices. may simulate new random choices.
+    (new_trace, weight, discard, retchange) = fix_update(gen::Generator, new_args, args_change, trace, constraints)
+"""
+function fix_update end
+
+"""
+Optional Generator method; special case of `fix_update` whree addresses cannot be deleted.
+
+Exists for performance optimization.
 
     (new_trace::U, weight, retchange) = extend(g::Generator{T,U}, args, args_change, trace::U, constraints)
 """
-function extend end
+function extend(gen::Generator{T,U}, new_args, args_change, trace::U, constraints) where {T,U}
+    (new_trace, weight, discard, retchange) = fix_update(gen, new_args, args_change, trace, constraints)
+    if !isempty(discard)
+        error("Some addresses were deleted within extend on generator $gen")
+    end
+    (new_trace, weight, retchange)
+end
 
 # TODO add retchange as return value from predict
 """
@@ -85,10 +96,17 @@ end
 """
 function generate end
 
+# TODO will be removed
 """
     trace = simulate(g::Generator, args)
 """
-function simulate end
+function simulate(gen::Generator, args)
+    (trace, weight) = generate(gen, args, EmptyChoiceTrie())
+    if weight != 0.
+        error("Got nonzero weight during simulate.")
+    end
+    trace
+end
 
 """
     (trace, discard) = project(g::Generator, args, constraints)
@@ -119,9 +137,9 @@ may simulate.
 addresses may be added or deleted.
 constraints may collide with existing random choices, but no new choices may be constrained.
 
-    (new_trace, weight, retchange) = resimulation_update(g::Generator, new_args, args_change, trace, constraints)
+    (new_trace, weight, retchange) = fix_update(g::Generator, new_args, args_change, trace, constraints)
 """
-function resimulation_update end
+function fix_update end
 
 """
     (new_trace, weight, retcahnge) = regenerate(
@@ -152,6 +170,7 @@ export predict
 export generate
 export project
 export assess
+export fix_update
 export update
 export regenerate
 export ungenerate
