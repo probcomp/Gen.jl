@@ -85,6 +85,7 @@ end
             @addr(normal(0, 1), :y)
             @addr(baz(), :v)
         end
+        @addr(normal(0, 1), :z)
     end
 
     # get a trace which follows the first branch
@@ -93,34 +94,44 @@ end
     (trace,) = generate(foo, (), constraints)
     x = get_choices(trace)[:x]
     a = get_choices(trace)[:u => :a]
+    z = get_choices(trace)[:z]
 
-    # force to follow the second branch
+    # force to follow the second branch, and change z
     y = 1.123
     b = -2.1
+    z_new = 0.4
     constraints = DynamicChoiceTrie()
     constraints[:branch] = false
+    constraints[:z] = z_new
     (new_trace, weight, discard, retchange) = fix_update(
         foo, (), nothing, trace, constraints)
 
     # test discard
     @test get_leaf_node(discard, :branch) == true
-    @test length(collect(get_leaf_nodes(discard))) == 1
+    @test get_leaf_node(discard, :z) == z
+    @test length(collect(get_leaf_nodes(discard))) == 2
     @test length(collect(get_internal_nodes(discard))) == 0
 
     # test new trace
     new_choices = get_choices(new_trace)
     @test get_leaf_node(new_choices, :branch) == false
+    @test get_leaf_node(new_choices, :z) == z_new
     y = get_leaf_node(new_choices, :y)
     b = get_leaf_node(new_choices, :v => :b)
-    @test length(collect(get_leaf_nodes(new_choices))) == 2
+    @test length(collect(get_leaf_nodes(new_choices))) == 3
     @test length(collect(get_internal_nodes(new_choices))) == 1
 
     # test score and weight
     expected_new_score = (
         logpdf(bernoulli, false, 0.4) +
         logpdf(normal, y, 0, 1) +
-        logpdf(normal, b, 0, 1))
-    expected_weight = logpdf(bernoulli, false, 0.4) - logpdf(bernoulli, true, 0.4)
+        logpdf(normal, b, 0, 1) +
+        logpdf(normal, z_new, 0, 1))
+    expected_weight = (
+        logpdf(bernoulli, false, 0.4)
+        - logpdf(bernoulli, true, 0.4)
+        + logpdf(normal, z_new, 0, 1)
+        - logpdf(normal, z, 0, 1))
     @test isapprox(expected_new_score, get_call_record(new_trace).score)
     @test isapprox(expected_weight, weight)
 
