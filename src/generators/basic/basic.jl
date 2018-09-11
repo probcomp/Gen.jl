@@ -131,7 +131,6 @@ function generate_ir(args, body, output_ad, args_ad)
                 add_addr!(ir, addr, dist_or_gen, args)
             else
                 # change_expr may be nothing, indicating nothing is known
-                println("addr: $addr")
                 add_addr!(ir, addr, dist_or_gen, args, change_expr)
             end
         elseif statement.head == :(=)
