@@ -221,10 +221,14 @@ function generate_generator_call_statement!(state::BBUpdateState, addr::Symbol, 
     prev_args = get_args(:trace, node)
     change_value_ref = :($bb_new_trace.$(value_field(node.change_node)))
     discard = gensym("discard")
+    weight = gensym("weight")
     push!(state.stmts, quote
-        ($bb_new_trace.$addr, _, $discard, $(addr_change_variable(addr))) = update(
+        ($bb_new_trace.$addr, $weight, $discard, $(addr_change_variable(addr))) = update(
             $(QuoteNode(node.gen)), $(Expr(:tuple, args...)),
             $change_value_ref, trace.$addr, $constraints)
+    end)
+    push!(state.stmts, quote
+        $bb_weight += $weight
     end)
     state.discard_internal_nodes[addr] = discard
 end
@@ -234,10 +238,14 @@ function generate_generator_call_statement!(state::BBFixUpdateState, addr::Symbo
     prev_args = get_args(:trace, node)
     change_value_ref = :($bb_new_trace.$(value_field(node.change_node)))
     discard = gensym("discard")
+    weight = gensym("weight")
     push!(state.stmts, quote
-        ($bb_new_trace.$addr, _, $discard, $(addr_change_variable(addr))) = fix_update(
+        ($bb_new_trace.$addr, $weight, $discard, $(addr_change_variable(addr))) = fix_update(
             $(QuoteNode(node.gen)), $(Expr(:tuple, args...)),
             $change_value_ref, trace.$addr, $constraints)
+    end)
+    push!(state.stmts, quote
+        $bb_weight += $weight
     end)
     state.discard_internal_nodes[addr] = discard
 end
@@ -246,22 +254,24 @@ function generate_generator_call_statement!(state::BBExtendState, addr::Symbol, 
     args = get_args(bb_new_trace, node)
     prev_args = get_args(:trace, node)
     change_value_ref = :($bb_new_trace.$(value_field(node.change_node)))
+    weight = gensym("weight")
     push!(state.stmts, quote
-        ($bb_new_trace.$addr, _, $(addr_change_variable(addr))) = extend(
+        ($bb_new_trace.$addr, $weight, $(addr_change_variable(addr))) = extend(
             $(QuoteNode(node.gen)), $(Expr(:tuple, args...)),
             $change_value_ref, trace.$addr, $constraints)
     end)
+    push!(state.stmts, quote
+        $bb_weight += $weight
+    end)
 end
 
-
-function generate_generator_score_and_weight_statements!(stmts::Vector{Expr}, addr::Symbol)
+function generate_generator_score_statements!(stmts::Vector{Expr}, addr::Symbol)
     decrement = gensym("decrement")
     increment = gensym("increment")
     push!(stmts, quote
         $decrement = get_call_record(trace.$addr).score
         $increment = get_call_record($bb_new_trace.$addr).score
         $bb_score += $increment - $decrement
-        $bb_weight += $increment - $decrement
     end)
 end
 
@@ -282,7 +292,7 @@ function process!(ir::BasicBlockIR, state::Union{BBUpdateState,BBFixUpdateState}
     if constrained || input_nodes_marked
         process_generator_update_marked!(state, node)
         generate_generator_call_statement!(state, addr, node, constraints)
-        generate_generator_score_and_weight_statements!(state.stmts, addr)
+        generate_generator_score_statements!(state.stmts, addr)
         generate_generator_output_statement!(state.stmts, node, addr)
     else
         push!(state.stmts, quote
@@ -299,7 +309,7 @@ function process!(ir::BasicBlockIR, state::BBExtendState, node::AddrGeneratorNod
     if constrained || input_nodes_marked
         process_generator_update_marked!(state, node)
         generate_generator_call_statement!(state, addr, node, constraints)
-        generate_generator_score_and_weight_statements!(state.stmts, addr)
+        generate_generator_score_statements!(state.stmts, addr)
         generate_generator_output_statement!(state.stmts, node, addr)
     else
         push!(state.stmts, quote
