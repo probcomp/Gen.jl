@@ -25,5 +25,6 @@ ENV             PATH="$PATH:/julia/bin"
 
 ADD             . /probcomp/Gen
 
+RUN             julia -e 'using Pkg'
 RUN             julia -e 'Pkg.develop(PackageSpec(path="file:///probcomp/Gen"))'
 RUN				julia -e 'Pkg.test("Gen")'
