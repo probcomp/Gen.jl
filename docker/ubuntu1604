@@ -27,3 +27,7 @@ ADD             . /probcomp/Gen
 
 RUN             julia -e 'using Pkg; Pkg.develop(PackageSpec(path="/probcomp/Gen"))'
 RUN				julia -e 'Pkg.test("Gen")'
+
+RUN             julia -e 'Pkg.add("FunctionalCollections")'
+RUN             julia -e 'Pkg.add("Distributions")'
+RUN             julia -e 'include("/probcomp/Gen/examples/run_examples.jl")'
