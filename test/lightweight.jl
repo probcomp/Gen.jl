@@ -1,3 +1,9 @@
+@testset "lightweight gen function" begin
+
+##########
+# update #
+##########
+
 @testset "force update" begin
 
     @gen function bar()
@@ -66,6 +72,11 @@
     # test retchange (should be nothing by default)
     @test retchange === nothing
 end
+
+
+##############
+# fix_update #
+##############
 
 @testset "fix update" begin
 
@@ -138,6 +149,11 @@ end
     # test retchange (should be nothing by default)
     @test retchange === nothing
 end
+
+
+###############
+# free_update #
+###############
 
 @testset "regenerate" begin
 
@@ -220,3 +236,4 @@ end
 
 end
 
+end
