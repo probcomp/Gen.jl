@@ -34,6 +34,10 @@ Alias for has_leaf_node
     Base.getindex(trie, addr)
 
 Alias for get_leaf_node
+
+    merge(trie1, trie2)
+
+Merge two choice tries.
 """
 abstract type ChoiceTrie end
 
@@ -157,6 +161,29 @@ function from_array(proto_trie::ChoiceTrie, arr)
 end
 
 export to_array, from_array
+
+function Base.merge(trie1::ChoiceTrie, trie2::ChoiceTrie)
+    trie = DynamicChoiceTrie()
+    for (key, value) in get_leaf_nodes(trie1)
+        trie.leaf_nodes[key] = value
+    end
+    for (key, node) in get_internal_nodes(trie1)
+        trie.internal_nodes[key] = node
+    end
+    for (key, value) in get_leaf_nodes(trie2)
+        if haskey(trie.leaf_nodes, key) || haskey(trie.internal_nodes, key)
+            error("Choice tries both have key $key")
+        end
+        trie.leaf_nodes[key] = value
+    end
+    for (key, node) in get_internal_nodes(trie2)
+        if haskey(trie.leaf_nodes, key) || haskey(trie.internal_nodes, key)
+            error("Choice tries both have key $key")
+        end
+        trie.internal_nodes[key] = node
+    end
+    return trie
+end
 
 
 
@@ -310,6 +337,46 @@ end
         internal_nodes_field = NamedTuple{T,U}(($(internal_node_names...),))
         trie = StaticChoiceTrie{R,S,T,U}(leaf_nodes_field, internal_nodes_field)
         (idx - start_idx, trie)
+    end
+end
+
+@generated function Base.merge(trie1::StaticChoiceTrie{R,S,T,U},
+                               trie2::StaticChoiceTrie{W,X,Y,Z}) where {R,S,T,U,W,X,Y,Z}
+
+    # unpack first trie type parameters
+    leaf_node_keys1 = trie1.parameters[1]
+    leaf_node_types1 = trie1.parameters[2].parameters
+    internal_node_keys1 = trie1.parameters[3]
+    internal_node_types1 = trie1.parameters[4].parameters
+    keys1 = (leaf_node_keys1..., internal_node_keys1...,)
+
+    # unpack second trie type parameters
+    leaf_node_keys2 = trie2.parameters[1]
+    leaf_node_types2 = trie2.parameters[2].parameters
+    internal_node_keys2 = trie2.parameters[3]
+    internal_node_types2 = trie2.parameters[4].parameters
+    keys2 = (leaf_node_keys2..., internal_node_keys2...,)
+
+    # check the keys do not intersect
+    if !isempty(intersect(keys1, keys2))
+        error("Attempted to merge two choice tries with intersecting keys: $keys1, $keys2")
+    end
+
+    # merge them
+    leaf_node_keys = (leaf_node_keys1..., leaf_node_keys2...,)
+    leaf_node_types = map(QuoteNode, (leaf_node_types1..., leaf_node_types2...,))
+    internal_node_keys = (internal_node_keys1..., internal_node_keys2...,)
+    internal_node_types = map(QuoteNode, (internal_node_types1..., internal_node_types2...,))
+    leaf_node_values = Expr(:tuple,
+        [Expr(:(.), :(trie1.leaf_nodes), QuoteNode(key)) for key in leaf_node_keys1]...,
+        [Expr(:(.), :(trie2.leaf_nodes), QuoteNode(key)) for key in leaf_node_keys2]...)
+    internal_node_values = Expr(:tuple,
+        [Expr(:(.), :(trie1.internal_nodes), QuoteNode(key)) for key in internal_node_keys1]...,
+        [Expr(:(.), :(trie2.internal_nodes), QuoteNode(key)) for key in internal_node_keys2]...)
+    quote
+        leaf_nodes = NamedTuple{$(QuoteNode(leaf_node_keys)), Tuple{$(leaf_node_types...)}}($leaf_node_values)
+        internal_nodes = NamedTuple{$(QuoteNode(internal_node_keys)), Tuple{$(internal_node_types...)}}($internal_node_values)
+        StaticChoiceTrie(leaf_nodes, internal_nodes)
     end
 end
 
