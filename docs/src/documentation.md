@@ -1,5 +1,25 @@
 # Gen Documentation
 
+## Choice Trie
+
+### Static Choice Trie
+
+A `StaticChoiceTrie` contains only symbols as its keys for leaf nodes and for internal nodes.
+A `StaticChoiceTrie` has type parameters`R` and `T` that are tuples of `Symbol`s that are the keys of the leaf nodes and internal nodes respectively, so that code can be generated that is specialized to the particular set of keys in the trie:
+
+```julia
+struct StaticChoiceTrie{R,S,T,U} <: ChoiceTrie
+    leaf_nodes::NamedTuple{R,S}
+    internal_nodes::NamedTuple{T,U}
+end 
+```
+
+A `StaticChoiceTrie` with leaf symbols `:a` and `:b` and internal key `:c` can be constructed using syntax like:
+```julia
+trie = StaticChoiceTrie((a=1, b=2), (c=inner_trie,))
+```
+
+
 ## Distributions
 
 Probability distributions are singleton types whose supertype is `Distribution{T}`, where `T` indicates the data type of the random sample.
