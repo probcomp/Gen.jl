@@ -8,6 +8,8 @@ function logsumexp(x1::Real, x2::Real)
     max_arr + log(exp(x1 - max_arr) + exp(x2 - max_arr))
 end
 
+export logsumexp
+
 
 ########
 # MCMC #
@@ -199,8 +201,7 @@ function importance_sampling(model::Generator{T,U}, model_args::Tuple,
     for i=1:num_samples
         proposal_trace = simulate(proposal, proposal_args)
         proposal_score = get_call_record(proposal_trace).score
-        proposal_choices = get_choices(proposal_trace)
-        constraints = merge(proposal, observations)
+        constraints = merge(observations, get_choices(proposal_trace))
         traces[i] = assess(model, model_args, constraints)
         model_score = get_call_record(traces[i]).score
         log_weights[i] = model_score - proposal_score
