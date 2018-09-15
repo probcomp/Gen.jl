@@ -1,5 +1,5 @@
 import Distributions
-using SpecialFunctions: lgamma, lbeta
+using SpecialFunctions: lgamma, lbeta, digamma
 
 
 #########################
@@ -212,8 +212,14 @@ function logpdf(::Beta, x::Real, alpha::Real, beta::Real)
 end
 
 function logpdf_grad(::Beta, x::Real, alpha::Real, beta::Real)
-    error("Not Implemented")
-    (nothing, nothing, nothing)
+    if 0 <= x <= 1
+        deriv_x = (alpha - 1) / x - (beta - 1) / (1 - x)
+        deriv_alpha = log(x) - (digamma(alpha) - digamma(alpha + beta))
+        deriv_beta = log1p(-x) - (digamma(beta) - digamma(alpha + beta))
+    else
+        error("x is outside of support: $x")
+    end
+    (deriv_x, deriv_alpha, deriv_beta)
 end
 
 function random(::Beta, alpha::Real, beta::Real)
@@ -222,8 +228,8 @@ end
 
 (::Beta)(alpha, beta) = random(Beta(), alpha, beta)
 
-has_output_grad(::Beta) = false
-has_argument_grads(::Beta) = (false, false)
+has_output_grad(::Beta) = true
+has_argument_grads(::Beta) = (true, true)
 get_static_argument_types(::Beta) = [Float64, Float64]
 
 export beta
