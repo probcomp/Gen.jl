@@ -178,7 +178,7 @@ function process!(state::BBBackpropParamsState, node::AddrDistNode)
 
     # get gradient of log density with respect to output and inputs
     input_value_refs = [state.value_refs[in_node] for in_node in node.input_nodes]
-    output_value_ref = state.value_refs[node.output]
+    output_value_ref = Expr(:(.), :trace, QuoteNode(node.address))# state.value_refs[node.output]
     output_grad_incr = gensym("incr")
     input_grad_incrs = [gensym("incr") for _ in node.input_nodes]
     push!(state.stmts, quote
