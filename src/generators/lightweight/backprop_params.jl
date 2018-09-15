@@ -3,7 +3,7 @@ using ReverseDiff: InstructionTape, TrackedReal, seed!, unseed!, reverse_pass!, 
 import ReverseDiff: special_reverse_exec!, track
 
 # if a value can't be tracked, return the untracked value instead, silently
-track(value) = value
+track(value, tape::InstructionTape) = value
 
 mutable struct GFBackpropParamsState
     trace::GFTrace
