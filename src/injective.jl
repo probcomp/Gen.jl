@@ -34,11 +34,11 @@ macro inj(ast)
 end
 
 macro write(value, addr)
-    Expr(:call, :write, esc(state), esc(value), esc(addr))
+    Expr(:call, :write_to_addr, esc(state), esc(value), esc(addr))
 end
 
 macro copy(input_addr, output_addr)
-    Expr(:call, :copy, esc(state), esc(input_addr), esc(output_addr))
+    Expr(:call, :copy_addr, esc(state), esc(input_addr), esc(output_addr))
 end
 
 macro swap(value, input_addr, output_addr)
@@ -97,13 +97,13 @@ function read(state::InjectiveApplyState, addr)
     end
 end
 
-function write(state::InjectiveApplyState, value, addr)
+function write_to_addr(state::InjectiveApplyState, value, addr)
     visit!(state.visitor, addr)
     set_leaf_node!(state.output, addr, value)
     nothing
 end
 
-function write(state::InjectiveApplyState, tracked_value::TrackedReal, addr)
+function write_to_addr(state::InjectiveApplyState, tracked_value::TrackedReal, addr)
     visit!(state.visitor, addr)
     # TODO what if user tries to write same tracked value to two diff addrs?
     set_leaf_node!(state.tracked_writes, addr, tracked_value)
@@ -111,7 +111,7 @@ function write(state::InjectiveApplyState, tracked_value::TrackedReal, addr)
     nothing
 end
 
-function copy(state::InjectiveApplyState, input_addr, output_addr)
+function copy_addr(state::InjectiveApplyState, input_addr, output_addr)
     visit!(state.visitor, output_addr)
     if !has_leaf_node(state.input, input_addr)
         error("Value at $input_addr not found in input ($(state.input))")
