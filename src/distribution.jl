@@ -15,6 +15,7 @@ get_return_type(::Distribution{T}) where {T} = T
 export Distribution
 export random
 export logpdf
+export logpdf_grad
 
 
 #########
