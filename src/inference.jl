@@ -386,7 +386,7 @@ struct SGDTrainConf
 end
 
 function sgd_train_batch(teacher::Generator{T,U}, teacher_args::Tuple,
-                         batch_learner::Generator{V,W}, conf::SGDTrainConf,
+                         batch_student::Generator{V,W}, conf::SGDTrainConf,
                          verbose=false) where {T,U,V,W}
 
     for batch=1:conf.num_batch
@@ -403,13 +403,13 @@ function sgd_train_batch(teacher::Generator{T,U}, teacher_args::Tuple,
         # train on this batch
         for minibatch=1:conf.num_minibatch
             permuted = Random.randperm(conf.batch_size)
-            minibatch = permuted[1:conf.minibatch_size]
-            choices_arr = training_choices[minibatch]
+            minibatch_idx = permuted[1:conf.minibatch_size]
+            choices_arr = training_choices[minibatch_idx]
             input = conf.input_extractor(choices_arr)
             constraints = conf.constraint_extractor(choices_arr)
-            learner_trace = assess(batch_learner, input, constraints)
-            avg_score = get_call_record(learner_trace).score / conf.minibatch_size
-            backprop_params(batch_learner, learner_trace, nothing)
+            student_trace = assess(batch_student, input, constraints)
+            avg_score = get_call_record(student_trace).score / conf.minibatch_size
+            backprop_params(batch_student, student_trace, nothing)
             conf.minibatch_callback(batch, minibatch, avg_score, verbose)
         end
 
