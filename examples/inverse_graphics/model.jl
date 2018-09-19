@@ -5,7 +5,7 @@ using FileIO
 using ImageMagick
 using Compat
 using Compat.Base64
-using Images#, ImageView
+using Images
 using ImageFiltering
 
 const letters = String["A", "B", "C"]
@@ -143,6 +143,6 @@ end
     @addr(normal(x_mu, x_std), "x")
     @addr(normal(y_mu, y_std), "y")
     @addr(normal(r_mu, r_std), "angle")
-    @addr(Gen.beta(size_alpha, size_beta), "size")
+    @addr(beta(size_alpha, size_beta), "size")
     @addr(categorical(letter_dist), "letter")
 end
