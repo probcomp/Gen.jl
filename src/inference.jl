@@ -369,3 +369,52 @@ function map_optimize(model::Generator, selection::AddressSet,
 end
 
 export map_optimize
+
+################
+# SGD training #
+################
+
+struct SGDTrainConf
+    num_batch::Int
+    batch_size::Int
+    num_minibatch::Int
+    minibatch_size::Int
+    input_extractor::Function
+    constraint_extractor::Function
+    minibatch_callback::Function
+    batch_callback::Function
+end
+
+function sgd_train_batch(teacher::Generator{T,U}, teacher_args::Tuple,
+                         batch_learner::Generator{V,W}, conf::SGDTrainConf,
+                         verbose=false) where {T,U,V,W}
+
+    for batch=1:conf.num_batch
+
+        # generate training batch
+        training_choices = Vector{Any}(undef, conf.batch_size)
+        for i=1:conf.batch_size
+            training_choices[i] = get_choices(simulate(teacher, teacher_args))
+            if verbose && (i % 100 == 0)
+                println("batch $batch, generating training data $i of $(conf.batch_size))")
+            end
+        end
+
+        # train on this batch
+        for minibatch=1:conf.num_minibatch
+            permuted = Random.randperm(conf.batch_size)
+            minibatch = permuted[1:conf.minibatch_size]
+            choices_arr = training_choices[minibatch]
+            input = conf.input_extractor(choices_arr)
+            constraints = conf.constraint_extractor(choices_arr)
+            learner_trace = assess(batch_learner, input, constraints)
+            avg_score = get_call_record(learner_trace).score / conf.minibatch_size
+            backprop_params(batch_learner, learner_trace, nothing)
+            conf.minibatch_callback(batch, minibatch, avg_score, verbose)
+        end
+
+        conf.batch_callback(batch, verbose)
+    end
+end
+
+export sgd_train_batch, SGDTrainConf
