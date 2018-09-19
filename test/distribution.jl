@@ -1,12 +1,22 @@
 function finite_diff(f::Function, args::Tuple, i::Int, dx::Float64)
-    pos_args = [args...]
+    pos_args = Any[args...]
     pos_args[i] += dx
-    neg_args = [args...]
+    neg_args = Any[args...]
     neg_args[i] -= dx
     return (f(pos_args...) - f(neg_args...)) / (2. * dx)
 end
 
 const dx = 1e-6
+
+@testset "bernoulli" begin
+    f = (x::Bool, prob::Float64) -> logpdf(Gen.Bernoulli(), x, prob)
+    args = (false, 0.3,)
+    actual = logpdf_grad(Gen.Bernoulli(), args...)
+    @test isapprox(actual[2], finite_diff(f, args, 2, dx))
+    args = (true, 0.3,)
+    actual = logpdf_grad(Gen.Bernoulli(), args...)
+    @test isapprox(actual[2], finite_diff(f, args, 2, dx))
+end
 
 @testset "beta" begin
     f = (x, alpha, beta) -> logpdf(Gen.Beta(), x, alpha, beta)
