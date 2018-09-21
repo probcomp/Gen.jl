@@ -75,6 +75,7 @@ function generate(gen::Markov{T,U}, args, constraints) where {T,U}
         weight += w
         call = get_call_record(subtrace)
         states[key] = call.retval
+        state = call.retval
         score += call.score
         is_empty = is_empty && !has_choices(subtrace)
     end
