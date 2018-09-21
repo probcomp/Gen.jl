@@ -167,20 +167,32 @@ function Base.merge(trie1::ChoiceTrie, trie2::ChoiceTrie)
     for (key, value) in get_leaf_nodes(trie1)
         trie.leaf_nodes[key] = value
     end
-    for (key, node) in get_internal_nodes(trie1)
+    for (key, node1) in get_internal_nodes(trie1)
+        if has_internal_node(trie2, key)
+            node2 = get_internal_node(trie2, key)
+            node = merge(node1, node2)
+        else
+            node = node1
+        end
         trie.internal_nodes[key] = node
     end
     for (key, value) in get_leaf_nodes(trie2)
-        if haskey(trie.leaf_nodes, key) || haskey(trie.internal_nodes, key)
-            error("Choice tries both have key $key")
+        if haskey(trie.leaf_nodes, key)
+            error("trie1 has leaf node at $key and trie2 has leaf node at $key")
+        end
+        if haskey(trie.internal_nodes, key)
+            error("trie1 has internal node at $key and trie2 has leaf node at $key")
         end
         trie.leaf_nodes[key] = value
     end
     for (key, node) in get_internal_nodes(trie2)
-        if haskey(trie.leaf_nodes, key) || haskey(trie.internal_nodes, key)
-            error("Choice tries both have key $key")
+        if haskey(trie.leaf_nodes, key)
+            error("trie1 has leaf node at $key and trie2 has internal node at $key")
         end
-        trie.internal_nodes[key] = node
+        if !haskey(trie.internal_nodes, key)
+            # otherwise it should already be included
+            trie.internal_nodes[key] = node
+        end
     end
     return trie
 end
@@ -357,27 +369,62 @@ end
     internal_node_types2 = trie2.parameters[4].parameters
     keys2 = (leaf_node_keys2..., internal_node_keys2...,)
 
-    # check the keys do not intersect
-    if !isempty(intersect(keys1, keys2))
-        error("Attempted to merge two choice tries with intersecting keys: $keys1, $keys2")
+    # leaf vs leaf collision is an error
+    colliding_leaf_leaf_keys = intersect(leaf_node_keys1, leaf_node_keys2)
+    if !isempty(colliding_leaf_leaf_keys)
+        error("trie1 and trie2 both have leaf nodes at key(s): $colliding_leaf_leaf_keys")
     end
 
-    # merge them
+    # leaf vs internal collision is an error
+    colliding_leaf_internal_keys = intersect(leaf_node_keys1, internal_node_keys2)
+    if !isempty(colliding_leaf_internal_keys)
+        error("trie1 has leaf node and trie2 has internal node at key(s): $colliding_leaf_internal_keys")
+    end
+
+    # internal vs leaf collision is an error
+    colliding_internal_leaf_keys = intersect(internal_node_keys1, leaf_node_keys2)
+    if !isempty(colliding_internal_leaf_keys)
+        error("trie1 has internal node and trie2 has leaf node at key(s): $colliding_internal_leaf_keys")
+    end
+
+    # internal vs internal collision is not an error, recursively call merge
+    colliding_internal_internal_keys = (intersect(internal_node_keys1, internal_node_keys2)...,)
+    internal_node_keys1_exclusive = (setdiff(internal_node_keys1, internal_node_keys2)...,)
+    internal_node_keys2_exclusive = (setdiff(internal_node_keys2, internal_node_keys1)...,)
+
+    # leaf nodes named tuple
     leaf_node_keys = (leaf_node_keys1..., leaf_node_keys2...,)
     leaf_node_types = map(QuoteNode, (leaf_node_types1..., leaf_node_types2...,))
-    internal_node_keys = (internal_node_keys1..., internal_node_keys2...,)
-    internal_node_types = map(QuoteNode, (internal_node_types1..., internal_node_types2...,))
     leaf_node_values = Expr(:tuple,
-        [Expr(:(.), :(trie1.leaf_nodes), QuoteNode(key)) for key in leaf_node_keys1]...,
-        [Expr(:(.), :(trie2.leaf_nodes), QuoteNode(key)) for key in leaf_node_keys2]...)
+        [Expr(:(.), :(trie1.leaf_nodes), QuoteNode(key))
+            for key in leaf_node_keys1]...,
+        [Expr(:(.), :(trie2.leaf_nodes), QuoteNode(key))
+            for key in leaf_node_keys2]...)
+    leaf_nodes = Expr(:call,
+        Expr(:curly, :NamedTuple,
+            QuoteNode(leaf_node_keys),
+            Expr(:curly, :Tuple, leaf_node_types...)),
+        leaf_node_values)
+
+    # internal nodes named tuple
+    internal_node_keys = (internal_node_keys1_exclusive...,
+                          internal_node_keys2_exclusive...,
+                          colliding_internal_internal_keys...)
     internal_node_values = Expr(:tuple,
-        [Expr(:(.), :(trie1.internal_nodes), QuoteNode(key)) for key in internal_node_keys1]...,
-        [Expr(:(.), :(trie2.internal_nodes), QuoteNode(key)) for key in internal_node_keys2]...)
-    quote
-        leaf_nodes = NamedTuple{$(QuoteNode(leaf_node_keys)), Tuple{$(leaf_node_types...)}}($leaf_node_values)
-        internal_nodes = NamedTuple{$(QuoteNode(internal_node_keys)), Tuple{$(internal_node_types...)}}($internal_node_values)
-        StaticChoiceTrie(leaf_nodes, internal_nodes)
-    end
+        [Expr(:(.), :(trie1.internal_nodes), QuoteNode(key))
+            for key in internal_node_keys1_exclusive]...,
+        [Expr(:(.), :(trie2.internal_nodes), QuoteNode(key))
+            for key in internal_node_keys2_exclusive]...,
+        [Expr(:call, :merge,
+                Expr(:(.), :(trie1.internal_nodes), QuoteNode(key)),
+                Expr(:(.), :(trie2.internal_nodes), QuoteNode(key)))
+            for key in colliding_internal_internal_keys]...)
+    internal_nodes = Expr(:call,
+        Expr(:curly, :NamedTuple, QuoteNode(internal_node_keys)),
+        internal_node_values)
+
+    # construct choice trie from named tuples
+    Expr(:call, :StaticChoiceTrie, leaf_nodes, internal_nodes)
 end
 
 export StaticChoiceTrie

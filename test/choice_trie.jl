@@ -75,10 +75,14 @@ end
     set_leaf_node!(trie1, :a, 1.)
     set_leaf_node!(trie1, :b, 2.)
     set_internal_node!(trie1, :c, inner)
+    set_internal_node!(trie1, :shared, inner)
     trie2 = DynamicChoiceTrie()
     set_leaf_node!(trie2, :d, 3.)
     set_internal_node!(trie2, :e, inner)
     set_internal_node!(trie2, :f, inner)
+    inner2 = DynamicChoiceTrie()
+    set_leaf_node!(inner2, :y, 4.)
+    set_internal_node!(trie2, :shared, inner2)
     trie = merge(trie1, trie2)
     @test trie[:a] == 1.
     @test trie[:b] == 2.
@@ -86,15 +90,19 @@ end
     @test trie[:c => :x] == 1
     @test trie[:e => :x] == 1
     @test trie[:f => :x] == 1
-    @test length(get_internal_nodes(trie)) == 3
+    @test trie[:shared => :x] == 1
+    @test trie[:shared => :y] == 4.
+    @test length(get_internal_nodes(trie)) == 4
     @test length(get_leaf_nodes(trie)) == 3
 end
 
 @testset "static choice trie merge" begin
     inner = DynamicChoiceTrie()
     set_leaf_node!(inner, :x, 1)
-    trie1 = StaticChoiceTrie((a=1., b=2.), (c=inner,))
-    trie2 = StaticChoiceTrie((d=3.,), (e=inner, f=inner))
+    inner2 = DynamicChoiceTrie()
+    set_leaf_node!(inner2, :y, 4.)
+    trie1 = StaticChoiceTrie((a=1., b=2.), (c=inner, shared=inner))
+    trie2 = StaticChoiceTrie((d=3.,), (e=inner, f=inner, shared=inner2))
     trie = merge(trie1, trie2)
     @test trie[:a] == 1.
     @test trie[:b] == 2.
@@ -102,6 +110,8 @@ end
     @test trie[:c => :x] == 1
     @test trie[:e => :x] == 1
     @test trie[:f => :x] == 1
-    @test length(get_internal_nodes(trie)) == 3
+    @test trie[:shared => :x] == 1
+    @test trie[:shared => :y] == 4.
+    @test length(get_internal_nodes(trie)) == 4
     @test length(get_leaf_nodes(trie)) == 3
 end
