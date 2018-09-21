@@ -35,8 +35,9 @@ end
 
 
 function check_length(len::Int)
-    if len < 1
-        error("markov got length of $len < 1")
+    #if len < 1
+    if len < 0
+        error("markov got length of $len < 0")
     end
 end
 
