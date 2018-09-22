@@ -303,16 +303,14 @@ end
     Random.seed!(0)
 
     num_particles = 10000
-    ess_threshold = 5000
+    ess_threshold = 10000 # make sure we exercise resampling
     (_, _, log_ml_est) = particle_filter(model, (),
                     num_steps, num_particles, ess_threshold,
                     get_init_observations_and_proposal_args,
                     get_step_observations_and_proposal_args,
-                    proposal_init, proposal_step)
+                    proposal_init, proposal_step; verbose=true)
 
     expected_log_ml = log(hmm_forward_alg(prior, emission_dists, transition_dists, obs_x))
-    println("expected: $expected_log_ml")
-    println("actual: $log_ml_est")
     @assert isapprox(expected_log_ml, log_ml_est, atol=0.01)
 end
 
