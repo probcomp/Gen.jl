@@ -28,9 +28,9 @@ end
 
 function unpack_args(args::Tuple)
     len = args[1]
-    init = args[2]
+    init_state = args[2]
     params = args[3:end]
-    (len, init, params)
+    (len, init_state, params)
 end
 
 
@@ -56,13 +56,13 @@ has_argument_grads(gen::Markov) = (false, false, has_argument_grads(gen.kernel)[
 function generate(gen::Markov{T,U}, args, constraints) where {T,U}
     # NOTE: could be strict and check there are no extra constraints
     # probably we want to have this be an option that can be turned on or off?
-    (len, init, params) = unpack_args(args)
+    (len, init_state, params) = unpack_args(args)
     check_length(len)
     states = Vector{T}(undef, len)
     subtraces = Vector{U}(undef, len)
     weight = 0.
     score = 0.
-    state::T = init
+    state::T = init_state
     is_empty = false
     for key=1:len
         if has_internal_node(constraints, key)
@@ -110,7 +110,7 @@ end
 
 function extend(gen::Markov{T,U}, args, change::MarkovChange, trace::VectorTrace{T,U},
                 constraints) where {T,U}
-    (len, init, params) = unpack_args(args)
+    (len, init_state, params) = unpack_args(args)
     check_length(len)
     prev_call = get_call_record(trace)
     prev_args = prev_call.args
@@ -154,7 +154,9 @@ function extend(gen::Markov{T,U}, args, change::MarkovChange, trace::VectorTrace
         else
             prev_subtrace::U = subtraces[key]
             prev_score = get_call_record(prev_subtrace).score
-            (subtrace, w, retchange) = extend(gen.kernel, kernel_args, prev_subtrace, node)
+            kernel_args_change = nothing # TODO permit user to pass through change info to kernel
+            (subtrace, w, retchange) = extend(
+                gen.kernel, kernel_args, kernel_args_change, prev_subtrace, node)
             call = get_call_record(subtrace)
             score += call.score - prev_score
             @assert length(states) == key
@@ -177,7 +179,7 @@ end
 
 function update(gen::Markov{T,U}, args, change::MarkovChange,
                 trace::VectorTrace{T,U}, constraints) where {T,U}
-    (len, init, params) = unpack_args(args)
+    (len, init_state, params) = unpack_args(args)
     check_length(len)
     prev_call = get_call_record(trace)
     prev_args = prev_call.args
@@ -221,7 +223,7 @@ function update(gen::Markov{T,U}, args, change::MarkovChange,
     score = prev_call.score
     is_empty = !has_choices(trace)
     for key in sort(collect(to_visit))
-        state = key > 1 ? states[key-1] : init
+        state = key > 1 ? states[key-1] : init_state
         kernel_args = (key, state, params...)
         if has_internal_node(constraints, key)
             node = get_internal_node(constraints, key)
@@ -276,7 +278,7 @@ end
 function backprop_trace(gen::Markov{T,U}, trace::VectorTrace{T,U},
                         selection::AddressSet, retval_grad) where {T,U}
     args = get_call_record(trace).args
-    (len, init, params) = unpack_args(args)
+    (len, init_state, params) = unpack_args(args)
     has_grads = has_argument_grads(gen.kernel)
     if has_grads[1]
         error("Cannot compute gradients for length of markov module")
