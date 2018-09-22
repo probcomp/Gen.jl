@@ -1,5 +1,6 @@
 using Gen
 using Test
+import Random
 
 include("choice_trie.jl")
 include("lightweight.jl")

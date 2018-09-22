@@ -325,6 +325,73 @@ function particle_filter(model::Generator{T,U}, num_steps::Int,
     return (traces, log_normalized_weights, log_ml_estimate)
 end
 
+function particle_filter(model::Generator{T,U}, model_args_rest::Tuple,
+                         num_steps::Int, num_particles::Int, ess_threshold::Real,
+                         get_init_observations_and_proposal_args::Function,
+                         get_step_observations_and_proposal_args::Function,
+                         init_proposal::Generator, step_proposal::Generator;
+                         verbose::Bool=false) where {T,U}
+
+    log_unnormalized_weights = Vector{Float64}(undef, num_particles)
+    log_ml_estimate = 0.
+    (observations, proposal_args) = get_init_observations_and_proposal_args()
+    traces = Vector{U}(undef, num_particles)
+    next_traces = Vector{U}(undef, num_particles)
+    for i=1:num_particles
+        proposal_trace = simulate(init_proposal, proposal_args)
+        proposal_score = get_call_record(proposal_trace).score
+        constraints = merge(observations, get_choices(proposal_trace))
+        (traces[i], model_weight) = generate(model, (1, model_args_rest...), constraints)
+        log_unnormalized_weights[i] = model_weight - proposal_score
+    end
+
+    for step=2:num_steps
+
+        # compute new weights
+        log_total_weight = logsumexp(log_unnormalized_weights)
+        log_normalized_weights = log_unnormalized_weights .- log_total_weight
+        #println("log_normalized_weights: $log_normalized_weights")
+        ess = effective_sample_size(log_normalized_weights)
+        #println("step $step, ess: $ess")
+
+        # resample
+        if ess < ess_threshold
+            weights = exp.(log_normalized_weights)
+            parents = rand(Distributions.Categorical(weights / sum(weights)), num_particles)
+            log_ml_estimate += log_total_weight - log(num_particles)
+            log_unnormalized_weights = zeros(num_particles)
+        else
+            parents = 1:num_particles
+        end
+
+        # extend by one time step
+        args_change = nothing
+        for i=1:num_particles
+            parent = parents[i]
+            parent_trace = traces[parent]
+            (observations, proposal_args) = get_step_observations_and_proposal_args(step, parent_trace)
+            proposal_trace = simulate(step_proposal, proposal_args)
+            proposal_score = get_call_record(proposal_trace).score
+            constraints = merge(observations, get_choices(proposal_trace))
+            (next_traces[i], model_weight) = extend(
+                model, (step, model_args_rest...), args_change, parent_trace, constraints)
+            log_weight = model_weight - proposal_score
+            log_unnormalized_weights[i] += log_weight
+        end
+        tmp = traces
+        traces = next_traces
+        next_traces = tmp
+    end
+
+    # finalize estimate of log marginal likelihood
+    log_total_weight = logsumexp(log_unnormalized_weights)
+    log_normalized_weights = log_unnormalized_weights .- log_total_weight
+    log_ml_estimate += log_total_weight - log(num_particles)
+    return (traces, log_normalized_weights, log_ml_estimate)
+end
+
+
+
 export particle_filter
 
 
