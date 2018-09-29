@@ -30,7 +30,7 @@ function addr(state::GFAssessState, gen::Generator{T,U}, args, addr, delta) wher
     if has_internal_node(state.constraints, addr)
         constraints = get_internal_node(state.constraints, addr)
     else
-        constraints = EmptyChoiceTrie()
+        constraints = EmptyAssignment()
     end
     trace::U = assess(gen, args, constraints)
     call::CallRecord = get_call_record(trace)

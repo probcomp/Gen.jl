@@ -1,6 +1,6 @@
-@testset "static choice trie to/from array" begin
-    inner = StaticChoiceTrie((a=1., b=2.),NamedTuple())
-    outer = StaticChoiceTrie((c=3.,), (d=inner, e=inner))
+@testset "static assignment to/from array" begin
+    inner = StaticAssignment((a=1., b=2.),NamedTuple())
+    outer = StaticAssignment((c=3.,), (d=inner, e=inner))
     
     arr = to_array(outer, Float64)
     @test to_array(outer, Float64) == Float64[3.0, 1.0, 2.0, 1.0, 2.0]
@@ -21,10 +21,10 @@
     @test length(get_internal_nodes(inner2)) == 0
 end
 
-@testset "dynamic choice trie to/from array" begin
-    outer = DynamicChoiceTrie()
+@testset "dynamic assignment to/from array" begin
+    outer = DynamicAssignment()
     set_leaf_node!(outer, :c, 3.)
-    inner = DynamicChoiceTrie()
+    inner = DynamicAssignment()
     set_leaf_node!(inner, :a, 1.)
     set_leaf_node!(inner, :b, 2.)
     set_internal_node!(outer, :d, inner)
@@ -49,8 +49,8 @@ end
     @test length(get_internal_nodes(inner2)) == 0
 end
 
-@testset "internal node vector choice trie to/from array" begin
-    inner = DynamicChoiceTrie()
+@testset "internal node vector assignment to/from array" begin
+    inner = DynamicAssignment()
     set_leaf_node!(inner, :a, 1.)
     set_leaf_node!(inner, :b, 2.)
     outer = vectorize_internal([inner, inner, inner])
@@ -68,19 +68,19 @@ end
     @test length(get_internal_nodes(trie)) == 3
 end
 
-@testset "dynamic choice trie merge" begin
-    inner = DynamicChoiceTrie()
+@testset "dynamic assignment merge" begin
+    inner = DynamicAssignment()
     set_leaf_node!(inner, :x, 1)
-    trie1 = DynamicChoiceTrie()
+    trie1 = DynamicAssignment()
     set_leaf_node!(trie1, :a, 1.)
     set_leaf_node!(trie1, :b, 2.)
     set_internal_node!(trie1, :c, inner)
     set_internal_node!(trie1, :shared, inner)
-    trie2 = DynamicChoiceTrie()
+    trie2 = DynamicAssignment()
     set_leaf_node!(trie2, :d, 3.)
     set_internal_node!(trie2, :e, inner)
     set_internal_node!(trie2, :f, inner)
-    inner2 = DynamicChoiceTrie()
+    inner2 = DynamicAssignment()
     set_leaf_node!(inner2, :y, 4.)
     set_internal_node!(trie2, :shared, inner2)
     trie = merge(trie1, trie2)
@@ -96,13 +96,13 @@ end
     @test length(get_leaf_nodes(trie)) == 3
 end
 
-@testset "static choice trie merge" begin
-    inner = DynamicChoiceTrie()
+@testset "static assignment merge" begin
+    inner = DynamicAssignment()
     set_leaf_node!(inner, :x, 1)
-    inner2 = DynamicChoiceTrie()
+    inner2 = DynamicAssignment()
     set_leaf_node!(inner2, :y, 4.)
-    trie1 = StaticChoiceTrie((a=1., b=2.), (c=inner, shared=inner))
-    trie2 = StaticChoiceTrie((d=3.,), (e=inner, f=inner, shared=inner2))
+    trie1 = StaticAssignment((a=1., b=2.), (c=inner, shared=inner))
+    trie2 = StaticAssignment((d=3.,), (e=inner, f=inner, shared=inner2))
     trie = merge(trie1, trie2)
     @test trie[:a] == 1.
     @test trie[:b] == 2.

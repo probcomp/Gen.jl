@@ -13,7 +13,7 @@
     end
 
     y = 2.
-    observations = DynamicChoiceTrie()
+    observations = DynamicAssignment()
     set_leaf_node!(observations, :y, y)
     
     n = 4
@@ -24,7 +24,7 @@
     @test isapprox(logsumexp(log_weights), 0., atol=1e-14)
     @test !isnan(lml_est)
     for trace in traces
-        @test get_choices(trace)[:y] == y
+        @test get_assignment(trace)[:y] == y
     end
 
     (traces, log_weights, lml_est) = importance_sampling(model, (), observations, proposal, (), n)
@@ -33,18 +33,18 @@
     @test isapprox(logsumexp(log_weights), 0., atol=1e-14)
     @test !isnan(lml_est)
     for trace in traces
-        @test get_choices(trace)[:y] == y
+        @test get_assignment(trace)[:y] == y
     end
 
     (trace, lml_est) = importance_resampling(model, (), observations, n)
     @test isapprox(logsumexp(log_weights), 0., atol=1e-14)
     @test !isnan(lml_est)
-    @test get_choices(trace)[:y] == y
+    @test get_assignment(trace)[:y] == y
 
     (trace, lml_est) = importance_resampling(model, (), observations, proposal, (), n)
     @test isapprox(logsumexp(log_weights), 0., atol=1e-14)
     @test !isnan(lml_est)
-    @test get_choices(trace)[:y] == y
+    @test get_assignment(trace)[:y] == y
 end
 
 
@@ -107,7 +107,7 @@ end
     input_extractor = (samples::Vector) -> (Bool[s[:z] for s in samples],)
 
     function constraint_extractor(samples::Vector)
-        constraints = DynamicChoiceTrie()
+        constraints = DynamicAssignment()
         for (i, s) in enumerate(samples)
             constraints[i => :x] = s[:x]
             constraints[i => :y] = s[:y]
@@ -133,12 +133,12 @@ end
     init_param!(batch_student, :theta5, 0.)
 
     # check gradients using finite differences on a simulated batch
-    choices_arr = Vector{Any}(undef, 100)
+    assignments = Vector{Any}(undef, 100)
     for i=1:100
-        choices_arr[i] = get_choices(simulate(teacher, ()))
+        assignments[i] = get_assignment(simulate(teacher, ()))
     end
-    input = input_extractor(choices_arr)
-    constraints = constraint_extractor(choices_arr)
+    input = input_extractor(assignments)
+    constraints = constraint_extractor(assignments)
     student_trace = assess(batch_student, input, constraints)
     backprop_params(batch_student, student_trace, nothing)
     for name in [:theta1, :theta2, :theta3, :theta4, :theta5]
@@ -280,21 +280,21 @@ end
     end
 
     function get_init_observations_and_proposal_args()
-        observations = DynamicChoiceTrie()
+        observations = DynamicAssignment()
         observations[:init => :x] = obs_x[1]
         init_proposal_args = (obs_x[1],)
         (observations, init_proposal_args)
     end
 
     function get_step_observations_and_proposal_args(step::Int, prev_trace)
-        @assert !has_internal_node(get_choices(prev_trace), :markov => (step - 1))
+        @assert !has_internal_node(get_assignment(prev_trace), :markov => (step - 1))
         @assert step > 1
         if step == 2
-            prev_z = get_choices(prev_trace)[:init => :z]
+            prev_z = get_assignment(prev_trace)[:init => :z]
         else
-            prev_z = get_choices(prev_trace)[:markov => (step - 2) => :z]
+            prev_z = get_assignment(prev_trace)[:markov => (step - 2) => :z]
         end
-        observations = DynamicChoiceTrie()
+        observations = DynamicAssignment()
         observations[:markov => (step - 1) => :x] = obs_x[step]
         step_proposal_args = (step - 1, prev_z, obs_x[step])
         (observations, step_proposal_args)

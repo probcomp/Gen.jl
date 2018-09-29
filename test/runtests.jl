@@ -2,7 +2,7 @@ using Gen
 using Test
 import Random
 
-include("choice_trie.jl")
+include("assignment.jl")
 include("lightweight.jl")
 include("basic.jl")
 include("injective.jl")

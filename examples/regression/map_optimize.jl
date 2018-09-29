@@ -44,7 +44,7 @@ end
 end
 
 @gen function is_outlier_proposal(prev, i::Int)
-    prev = get_choices(prev)[:data => i => :z]
+    prev = get_assignment(prev)[:data => i => :z]
     @addr(bernoulli(prev ? 0.0 : 1.0), :data => i => :z)
 end
 
@@ -84,11 +84,11 @@ end
 
 trace = simulate(model, (xs,))
 datum_trace = simulate(datum, (1., 2., 3., 4., 5.))
-(slope_intercept_selection,) = Gen.select(slope_intercept_selector, (), get_choices(trace))
-(std_selection,) = Gen.select(std_selector, (), get_choices(trace))
+(slope_intercept_selection,) = Gen.select(slope_intercept_selector, (), get_assignment(trace))
+(std_selection,) = Gen.select(std_selector, (), get_assignment(trace))
 
 function do_inference(n)
-    observations = get_choices(simulate(observer, (ys,)))
+    observations = get_assignment(simulate(observer, (ys,)))
     
     # initial trace
     (trace, _) = generate(model, (xs,), observations)
@@ -107,11 +107,11 @@ function do_inference(n)
         score = get_call_record(trace).score
     
         # print
-        choices = get_choices(trace)
-        slope = choices[:slope]
-        intercept = choices[:intercept]
-        inlier_std = choices[:inlier_std]
-        outlier_std = choices[:outlier_std]
+        assignment = get_assignment(trace)
+        slope = assignment[:slope]
+        intercept = assignment[:intercept]
+        inlier_std = assignment[:inlier_std]
+        outlier_std = assignment[:outlier_std]
         println("score: $score, slope: $slope, intercept: $intercept, inlier_std: $inlier_std, outlier_std: $outlier_std")
     end
 end

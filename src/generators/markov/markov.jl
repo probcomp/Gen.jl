@@ -68,7 +68,7 @@ function generate(gen::Markov{T,U}, args, constraints) where {T,U}
         if has_internal_node(constraints, key)
             node = get_internal_node(constraints, key)
         else
-            node = EmptyChoiceTrie()
+            node = EmptyAssignment()
         end
         kernel_args = (key, state, params...)
         (subtrace::U, w) = generate(gen.kernel, kernel_args, node)
@@ -86,7 +86,7 @@ function generate(gen::Markov{T,U}, args, constraints) where {T,U}
 end
 
 function simulate(gen::Markov{T,U}, args) where {T,U}
-    (trace, weight) = generate(gen, args, EmptyChoiceTrie())
+    (trace, weight) = generate(gen, args, EmptyAssignment())
     trace
 end
 
@@ -140,7 +140,7 @@ function extend(gen::Markov{T,U}, args, change::MarkovChange, trace::VectorTrace
         if has_internal_node(constraints, key)
             node = get_internal_node(constraints, key)
         else
-            node = EmptyChoiceTrie()
+            node = EmptyAssignment()
         end
         local call::CallRecord{T}
         if key > prev_len
@@ -189,10 +189,10 @@ function update(gen::Markov{T,U}, args, change::MarkovChange,
     states::PersistentVector{T} = trace.call.retval
 
     # discard deleted applications
-    discard = DynamicChoiceTrie()
+    discard = DynamicAssignment()
     if prev_len > len
         for key=len+1:prev_len
-            set_internal_node!(discard, key, get_choices(get_subtrace(trace, key)))
+            set_internal_node!(discard, key, get_assignment(get_subtrace(trace, key)))
         end
         n_delete = prev_len - len
         for i=1:n_delete
@@ -228,7 +228,7 @@ function update(gen::Markov{T,U}, args, change::MarkovChange,
         if has_internal_node(constraints, key)
             node = get_internal_node(constraints, key)
         else
-            node = EmptyChoiceTrie()
+            node = EmptyAssignment()
         end
         prev_subtrace::U = subtraces[key]
         prev_score = get_call_record(prev_subtrace).score
@@ -251,7 +251,7 @@ function update(gen::Markov{T,U}, args, change::MarkovChange,
         if has_internal_node(constraints, key)
             node = get_internal_node(constraints, key)
         else
-            node = EmptyChoiceTrie()
+            node = EmptyAssignment()
         end
         subtrace::U = assess(gen.kernel, kernel_args, node)
         call = get_call_record(subtrace)
@@ -292,8 +292,8 @@ function backprop_trace(gen::Markov{T,U}, trace::VectorTrace{T,U},
     param_grads = [
         has_grad ? zero(param) : nothing for (param, has_grad) in zip(params, param_has_grad)]
 
-    value_trie = DynamicChoiceTrie()
-    gradient_trie = DynamicChoiceTrie()
+    value_trie = DynamicAssignment()
+    gradient_trie = DynamicAssignment()
 
     # NOTE: order does not matter
     for (key, sub_selection) in get_internal_nodes(selection)

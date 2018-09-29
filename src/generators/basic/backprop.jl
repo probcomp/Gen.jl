@@ -312,10 +312,10 @@ function choice_trie_construction(leaf_nodes_set, internal_nodes_set)
     internal_values = map((node) -> node.values_var, internal_nodes)
     internal_gradients = map((node) -> node.gradients_var, internal_nodes)
     quote
-        $backprop_values_trie = StaticChoiceTrie(
+        $backprop_values_trie = StaticAssignment(
             NamedTuple{($(quoted_leaf_keys...),)}(($(leaf_values...),)),
             NamedTuple{($(quoted_internal_keys...),)}(($(internal_values...),)))
-        $backprop_gradients_trie = StaticChoiceTrie(
+        $backprop_gradients_trie = StaticAssignment(
             NamedTuple{($(quoted_leaf_keys...),)}(($(leaf_gradients...),)),
             NamedTuple{($(quoted_internal_keys...),)}(($(internal_gradients...),)))
     end

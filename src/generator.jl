@@ -16,20 +16,20 @@ function get_call_record end
 """
     has_choices(trace)::Bool
 
-If the choice trie returned by get_choices is empty or not.
+If the assignment returned by get_assignment is empty or not.
 """
 function has_choices end
 
 """
-get_choices(trace)
+get_assignment(trace)
 
-Return a value implementing the choice trie interface
+Return a value implementing the assignment interface
 """
-function get_choices end
+function get_assignment end
 
 export CallRecord
 export get_call_record
-export get_choices
+export get_assignment
 export has_choices
 
 
@@ -86,7 +86,7 @@ end
     (new_trace::U, retchange) = predict(g::Generator{T,U}, args, args_change, trace::U)
 """
 function predict(g::Generator, args, args_change, trace)
-    (new_trace, weight, _) = extend(g, args, args_change, trace, EmptyChoiceTrie())
+    (new_trace, weight, _) = extend(g, args, args_change, trace, EmptyAssignment())
     @assert weight == 0.
     new_trace
 end
@@ -101,7 +101,7 @@ function generate end
     trace = simulate(g::Generator, args)
 """
 function simulate(gen::Generator, args)
-    (trace, weight) = generate(gen, args, EmptyChoiceTrie())
+    (trace, weight) = generate(gen, args, EmptyAssignment())
     if weight != 0.
         error("Got nonzero weight during simulate.")
     end

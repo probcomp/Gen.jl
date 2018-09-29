@@ -28,56 +28,56 @@ end
 
 get_call_record(trace::VectorTrace) = trace.call
 has_choices(trace::VectorTrace) = !trace.is_empty
-get_choices(trace::VectorTrace) = VectorTraceChoiceTrie(trace)
+get_assignment(trace::VectorTrace) = VectorTraceAssignment(trace)
 
-struct VectorTraceChoiceTrie <: ChoiceTrie
+struct VectorTraceAssignment <: Assignment
     trace::VectorTrace
 end
 
-Base.isempty(choices::VectorTraceChoiceTrie) = choices.trace.is_empty
-get_address_schema(::Type{VectorTraceChoiceTrie}) = VectorAddressSchema()
-has_internal_node(choices::VectorTraceChoiceTrie, addr) = false
+Base.isempty(assignment::VectorTraceAssignment) = assignment.trace.is_empty
+get_address_schema(::Type{VectorTraceAssignment}) = VectorAddressSchema()
+has_internal_node(assignment::VectorTraceAssignment, addr) = false
 
-function has_internal_node(choices::VectorTraceChoiceTrie, addr::Int)
-    n = length(choices.trace.subtraces)
+function has_internal_node(assignment::VectorTraceAssignment, addr::Int)
+    n = length(assignment.trace.subtraces)
     addr >= 1 && addr <= n
 end
 
-function has_internal_node(choices::VectorTraceChoiceTrie, addr::Pair)
+function has_internal_node(assignment::VectorTraceAssignment, addr::Pair)
     (first, rest) = addr
-    subchoices = get_choices(choices.trace.subtraces[first])
-    has_internal_node(subchoices, rest)
+    sub_assignment = get_assignment(assignment.trace.subtraces[first])
+    has_internal_node(sub_assignment, rest)
 end
 
-function get_internal_node(choices::VectorTraceChoiceTrie, addr::Int)
-    get_choices(choices.trace.subtraces[addr])
+function get_internal_node(assignment::VectorTraceAssignment, addr::Int)
+    get_assignment(assignment.trace.subtraces[addr])
 end
 
-function get_internal_node(choices::VectorTraceChoiceTrie, addr::Pair)
+function get_internal_node(assignment::VectorTraceAssignment, addr::Pair)
     (first, rest) = addr
-    subchoices = get_choices(choices.trace.subtraces[first])
-    get_internal_node(subchoices, rest)
+    sub_assignment = get_assignment(assignment.trace.subtraces[first])
+    get_internal_node(sub_assignment, rest)
 end
 
-has_leaf_node(choices::VectorTraceChoiceTrie, addr) = false
+has_leaf_node(assignment::VectorTraceAssignment, addr) = false
 
-function has_leaf_node(choices::VectorTraceChoiceTrie, addr::Pair)
+function has_leaf_node(assignment::VectorTraceAssignment, addr::Pair)
     (first, rest) = addr
-    subchoices = get_choices(choices.trace.subtraces[first])
-    has_leaf_node(subchoices, rest)
+    sub_assignment = get_assignment(assignment.trace.subtraces[first])
+    has_leaf_node(sub_assignment, rest)
 end
 
-function get_leaf_node(choices::VectorTraceChoiceTrie, addr::Pair)
+function get_leaf_node(assignment::VectorTraceAssignment, addr::Pair)
     (first, rest) = addr
-    subchoices = get_choices(choices.trace.subtraces[first])
-    get_leaf_node(subchoices, rest)
+    sub_assignment = get_assignment(assignment.trace.subtraces[first])
+    get_leaf_node(sub_assignment, rest)
 end
 
-function get_internal_nodes(choices::VectorTraceChoiceTrie)
-    [(i, get_choices(choices.trace.subtraces[i])) for i=1:length(choices.trace.subtraces)]
+function get_internal_nodes(assignment::VectorTraceAssignment)
+    [(i, get_assignment(assignment.trace.subtraces[i])) for i=1:length(assignment.trace.subtraces)]
 end
 
-get_leaf_nodes(choices::VectorTraceChoiceTrie) = []
+get_leaf_nodes(assignment::VectorTraceAssignment) = []
 
 
 ##########################################
@@ -97,20 +97,20 @@ end
 
 get_call_record(trace::VectorDistTrace) = trace.call
 has_choices(trace::VectorDistTrace) = length(trace.values) > 0
-get_choices(trace::VectorDistTrace) = VectorDistTraceChoiceTrie(trace)
+get_assignment(trace::VectorDistTrace) = VectorDistTraceAssignment(trace)
 
-struct VectorDistTraceChoiceTrie <: ChoiceTrie
+struct VectorDistTraceAssignment <: Assignment
     trace::VectorDistTrace
 end
 
-Base.isempty(choices::VectorDistTraceChoiceTrie) = !has_choices(choices.trace)
-get_address_schema(::Type{VectorDistTraceChoiceTrie}) = VectorAddressSchema()
-has_internal_node(choices::VectorDistTraceChoiceTrie, addr) = false
-has_leaf_node(choices::VectorDistTraceChoiceTrie, addr) = false
+Base.isempty(assignment::VectorDistTraceAssignment) = !has_choices(assignment.trace)
+get_address_schema(::Type{VectorDistTraceAssignment}) = VectorAddressSchema()
+has_internal_node(assignment::VectorDistTraceAssignment, addr) = false
+has_leaf_node(assignment::VectorDistTraceAssignment, addr) = false
 
-function get_leaf_node(choices::VectorDistTraceChoiceTrie, addr::Int)
-    choices.trace.values[addr]
+function get_leaf_node(assignment::VectorDistTraceAssignment, addr::Int)
+    assignment.trace.values[addr]
 end
 
-get_internal_nodes(choices::VectorDistTraceChoiceTrie) = ()
-get_leaf_nodes(choices::VectorDistTraceChoiceTrie) = choices.values
+get_internal_nodes(assignment::VectorDistTraceAssignment) = ()
+get_leaf_nodes(assignment::VectorDistTraceAssignment) = assignment.values

@@ -2,7 +2,7 @@
 
 Gen is an extensible and reasonably performant probabilistic computing platform that makes it easier to develop probabilistic inference and learning applications.
 
-## Generative Functions, Traces, and Choice Tries
+## Generative Functions, Traces, and Assignments
 
 Stochastic generative processes are represented in Gen as *generative functions*.
 Generative functions are Julia functions that have been annotated using the `@gen` macro.
@@ -58,17 +58,17 @@ trace = simulate(model, (xs,))
 ```
 
 The trace that is returned is a form of stack trace of the generative function that contains, among other things, the values for the random choices that were annotated with `@addr`.
-To extract the values of the random choices from a trace, we use the method `get_choices`:
+To extract the values of the random choices from a trace, we use the method `get_assignment`:
 
 ```julia
-choices = get_choices(trace)
+assignment = get_assignment(trace)
 ```
 
-The `get_choices` method returns a *choice trie*, which is a trie (prefix tree) that contains the values of random choices.
-Printing the choice trie gives a pretty printed representation:
+The `get_assignment` method returns a *assignment*, which is a trie (prefix tree) that contains the values of random choices.
+Printing the assignment gives a pretty printed representation:
 
 ```julia
-print(choices)
+print(assignment)
 ```
 
 ```
@@ -109,12 +109,12 @@ end
 end
 ```
 
-This results in a hierarchical choice trie:
+This results in a hierarchical assignment:
 
 ```julia
 trace = simulate(model, (xs,))
-choices = get_choices(trace)
-print(choices)
+assignment = get_assignment(trace)
+print(assignment)
 ```
 
 ```
@@ -142,21 +142,21 @@ print(choices)
     └── "y" : -7.561723378403817
 ```
 
-We can read values from a choice trie using the following syntax:
+We can read values from a assignment using the following syntax:
 ```julia
-choices["intercept"]
+assignment["intercept"]
 ```
 
 To read the value at a hierarchical address, we provide a `Pair` where the first element of the pair is the first part ofthe hierarchical address, and the second element is the rest of the address.
 For example:
 ```julia
-choices[1 => "y"]
+assignment[1 => "y"]
 ```
 
 Julia provides the operator `=>` for constructing `Pair` values.
 Long hierarchical addresses can be constructed by chaining this operator, which associates right:
 ```julia
-choices[1 => "y" => :foo => :bar]
+assignment[1 => "y" => :foo => :bar]
 ```
 
 Generative functions can also write to hierarchical addresses directly:
@@ -175,8 +175,8 @@ end
 
 ```julia
 trace = simulate(model, (xs,))
-choices = get_choices(trace)
-print(choices)
+assignment = get_assignment(trace)
+print(assignment)
 ```
 
 ```
@@ -235,10 +235,10 @@ mala_selection = StaticAddressSet(set)
 @compiled @gen function mala_proposal(prev, tau)
     std::Float64 = sqrt(2*tau)
     gradients::StaticChoiceTrie = backprop_trace(model, prev, mala_selection, nothing)[3]
-    @addr(normal(get_choices(prev)[:slope] + tau * gradients[:slope], std), :slope)
-    @addr(normal(get_choices(prev)[:intercept] + tau * gradients[:intercept], std), :intercept)
-    @addr(normal(get_choices(prev)[:inlier_std] + tau * gradients[:inlier_std], std), :inlier_std)
-    @addr(normal(get_choices(prev)[:outlier_std] + tau * gradients[:outlier_std], std), :outlier_std)
+    @addr(normal(get_assignment(prev)[:slope] + tau * gradients[:slope], std), :slope)
+    @addr(normal(get_assignment(prev)[:intercept] + tau * gradients[:intercept], std), :intercept)
+    @addr(normal(get_assignment(prev)[:inlier_std] + tau * gradients[:inlier_std], std), :inlier_std)
+    @addr(normal(get_assignment(prev)[:outlier_std] + tau * gradients[:outlier_std], std), :outlier_std)
 end
 
 mala_move(trace, tau::Float64) = mh(model, mala_proposal, (tau,), trace)
@@ -262,7 +262,7 @@ function generate_mala_move(model, addrs)
     for addr in addrs
         quote_addr = QuoteNode(addr)
         push!(stmts, :(
-            @addr(normal(get_choices(prev)[$quote_addr] + tau * gradients[$quote_addr], std),
+            @addr(normal(get_assignment(prev)[$quote_addr] + tau * gradients[$quote_addr], std),
                   $quote_addr)
         ))
     end

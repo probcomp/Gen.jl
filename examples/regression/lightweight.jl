@@ -42,27 +42,27 @@ end
 #######################
 
 @gen function slope_proposal(prev)
-    slope = get_choices(prev)[:slope]
+    slope = get_assignment(prev)[:slope]
     @addr(normal(slope, 0.5), :slope)
 end
 
 @gen function intercept_proposal(prev)
-    intercept = get_choices(prev)[:intercept]
+    intercept = get_assignment(prev)[:intercept]
     @addr(normal(intercept, 0.5), :intercept)
 end
 
 @gen function inlier_std_proposal(prev)
-    inlier_std = get_choices(prev)[:inlier_std]
+    inlier_std = get_assignment(prev)[:inlier_std]
     @addr(normal(inlier_std, 0.5), :inlier_std)
 end
 
 @gen function outlier_std_proposal(prev)
-    outlier_std = get_choices(prev)[:outlier_std]
+    outlier_std = get_assignment(prev)[:outlier_std]
     @addr(normal(outlier_std, 0.5), :outlier_std)
 end
 
 @gen function is_outlier_proposal(prev, i::Int)
-    prev = get_choices(prev)[:data => i => :z]
+    prev = get_assignment(prev)[:data => i => :z]
     @addr(bernoulli(prev ? 0.0 : 1.0), :data => i => :z)
 end
 
@@ -102,7 +102,7 @@ end
 
 
 function do_inference(n)
-    observations = get_choices(simulate(observer, (ys,)))
+    observations = get_assignment(simulate(observer, (ys,)))
     
     # initial trace
     (trace, _) = generate(model, (xs,), observations)
@@ -125,11 +125,11 @@ function do_inference(n)
         score = get_call_record(trace).score
     
         # print
-        choices = get_choices(trace)
-        slope = choices[:slope]
-        intercept = choices[:intercept]
-        inlier_std = choices[:inlier_std]
-        outlier_std = choices[:outlier_std]
+        assignment = get_assignment(trace)
+        slope = assignment[:slope]
+        intercept = assignment[:intercept]
+        inlier_std = assignment[:inlier_std]
+        outlier_std = assignment[:outlier_std]
         println("score: $score, slope: $slope, intercept: $intercept, inlier_std: $inlier_std, outlier_std: $outlier_std")
     end
 end

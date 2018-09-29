@@ -92,22 +92,22 @@ end
 #######################
 
 @compiled @gen function slope_proposal(prev)
-    slope::Float64 = get_choices(prev)[:slope]
+    slope::Float64 = get_assignment(prev)[:slope]
     @addr(normal(slope, 0.5), :slope)
 end
 
 @compiled @gen function intercept_proposal(prev)
-    intercept::Float64 = get_choices(prev)[:intercept]
+    intercept::Float64 = get_assignment(prev)[:intercept]
     @addr(normal(intercept, 0.5), :intercept)
 end
 
 @compiled @gen function inlier_std_proposal(prev)
-    inlier_std::Float64 = get_choices(prev)[:inlier_std]
+    inlier_std::Float64 = get_assignment(prev)[:inlier_std]
     @addr(normal(inlier_std, 0.5), :inlier_std)
 end
 
 @compiled @gen function outlier_std_proposal(prev)
-    outlier_std::Float64 = get_choices(prev)[:outlier_std]
+    outlier_std::Float64 = get_assignment(prev)[:outlier_std]
     @addr(normal(outlier_std, 0.5), :outlier_std)
 end
 
@@ -123,7 +123,7 @@ function logsumexp(arr)
 end
 
 @compiled @gen function is_outlier_proposal(prev, i::Int)
-	prev_z::Bool = get_choices(prev)[:data => i => :z]
+	prev_z::Bool = get_assignment(prev)[:data => i => :z]
     @addr(data_proposal(i, (prev_z ? 0.0 : 1.0,)), :data)
 end
 
@@ -172,7 +172,7 @@ end
 ######################
 
 function do_inference_collapsed(n)
-    observations = get_choices(simulate(observer_collapsed, (ys,)))
+    observations = get_assignment(simulate(observer_collapsed, (ys,)))
 
     # initial trace
     (trace, weight) = generate(model_collapsed, (xs,), observations)
@@ -186,16 +186,16 @@ function do_inference_collapsed(n)
             trace = mh(model_collapsed, inlier_std_proposal, (), trace)
             trace = mh(model_collapsed, outlier_std_proposal, (), trace)
         end
-		choices = get_choices(trace)
-		println((choices[:inlier_std], choices[:outlier_std], choices[:slope], choices[:intercept]))
+		assignment = get_assignment(trace)
+		println((assignment[:inlier_std], assignment[:outlier_std], assignment[:slope], assignment[:intercept]))
     end
 
-	choices = get_choices(trace)
-    return (choices[:inlier_std], choices[:outlier_std], choices[:slope], choices[:intercept])
+	assignment = get_assignment(trace)
+    return (assignment[:inlier_std], assignment[:outlier_std], assignment[:slope], assignment[:intercept])
 end
 
 function do_inference(n)
-    observations = get_choices(simulate(observer, (ys,)))
+    observations = get_assignment(simulate(observer, (ys,)))
 
     # initial trace
     (trace, weight) = generate(model, (xs,), observations)
@@ -214,12 +214,12 @@ function do_inference(n)
         for j=1:length(xs)
             trace = mh(model, is_outlier_proposal, (j,), trace)
         end
-		choices = get_choices(trace)
-		println((choices[:inlier_std], choices[:outlier_std], choices[:slope], choices[:intercept]))
+		assignment = get_assignment(trace)
+		println((assignment[:inlier_std], assignment[:outlier_std], assignment[:slope], assignment[:intercept]))
     end
 
-    choices = get_choices(trace)
-    return (choices[:inlier_std], choices[:outlier_std], choices[:slope], choices[:intercept])
+    assignment = get_assignment(trace)
+    return (assignment[:inlier_std], assignment[:outlier_std], assignment[:slope], assignment[:intercept])
 end
 
 

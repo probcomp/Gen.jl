@@ -259,32 +259,32 @@ function value_trace_ref(trace, node::ValueNode)
     Expr(:(.), trace, QuoteNode(fieldname))
 end
 
-struct BasicBlockChoices{T} <: ChoiceTrie
+struct BasicBlockAssignment{T} <: Assignment
     trace::T
 end
 
-static_has_leaf_node(::BasicBlockChoices, addr) = false
-static_has_internal_node(::BasicBlockChoices, addr) = false
+static_has_leaf_node(::BasicBlockAssignment, addr) = false
+static_has_internal_node(::BasicBlockAssignment, addr) = false
 
-get_address_schema(::Type{BasicBlockChoices{T}}) where {T} = get_address_schema(T)
-Base.isempty(trie::BasicBlockChoices) = getproperty(trie.trace, is_empty_field)
-get_leaf_node(trie::BasicBlockChoices, key::Symbol) = static_get_leaf_node(trie, Val(key))
-get_internal_node(trie::BasicBlockChoices, key::Symbol) = static_get_internal_node(trie, Val(key))
-has_leaf_node(trie::BasicBlockChoices, key::Symbol) = static_has_leaf_node(trie, Val(key))
-has_internal_node(trie::BasicBlockChoices, key::Symbol) = static_has_internal_node(trie, Val(key))
-has_leaf_node(trie::BasicBlockChoices, addr::Pair) = _has_leaf_node(trie, addr)
-get_leaf_node(trie::BasicBlockChoices, addr::Pair) = _get_leaf_node(trie, addr)
-has_internal_node(trie::BasicBlockChoices, addr::Pair) = _has_internal_node(trie, addr)
-get_internal_node(trie::BasicBlockChoices, addr::Pair) = _get_internal_node(trie, addr)
+get_address_schema(::Type{BasicBlockAssignment{T}}) where {T} = get_address_schema(T)
+Base.isempty(trie::BasicBlockAssignment) = getproperty(trie.trace, is_empty_field)
+get_leaf_node(trie::BasicBlockAssignment, key::Symbol) = static_get_leaf_node(trie, Val(key))
+get_internal_node(trie::BasicBlockAssignment, key::Symbol) = static_get_internal_node(trie, Val(key))
+has_leaf_node(trie::BasicBlockAssignment, key::Symbol) = static_has_leaf_node(trie, Val(key))
+has_internal_node(trie::BasicBlockAssignment, key::Symbol) = static_has_internal_node(trie, Val(key))
+has_leaf_node(trie::BasicBlockAssignment, addr::Pair) = _has_leaf_node(trie, addr)
+get_leaf_node(trie::BasicBlockAssignment, addr::Pair) = _get_leaf_node(trie, addr)
+has_internal_node(trie::BasicBlockAssignment, addr::Pair) = _has_internal_node(trie, addr)
+get_internal_node(trie::BasicBlockAssignment, addr::Pair) = _get_internal_node(trie, addr)
 
-function make_choice_trie_methods(trace_type, addr_dist_nodes, addr_gen_nodes)
+function make_assignment_methods(trace_type, addr_dist_nodes, addr_gen_nodes)
     methods = Expr[]
 
     ## get_leaf_nodes ##
 
     leaf_addrs = map((node) -> node.address, addr_dist_nodes)
     push!(methods, quote
-        function Gen.get_leaf_nodes(trie::Gen.BasicBlockChoices{$trace_type})
+        function Gen.get_leaf_nodes(trie::Gen.BasicBlockAssignment{$trace_type})
             $(Expr(:tuple,
                 [quote ($(QuoteNode(addr)), trie.trace.$addr) end for addr in leaf_addrs]...))
         end
@@ -294,9 +294,9 @@ function make_choice_trie_methods(trace_type, addr_dist_nodes, addr_gen_nodes)
 
     internal_addrs = map((node) -> node.address, addr_gen_nodes)
     push!(methods, quote
-        function Gen.get_internal_nodes(trie::Gen.BasicBlockChoices{$trace_type})
+        function Gen.get_internal_nodes(trie::Gen.BasicBlockAssignment{$trace_type})
             $(Expr(:tuple,
-                [quote ($(QuoteNode(addr)), get_choices(trie.trace.$addr)) end for addr in internal_addrs]...))
+                [quote ($(QuoteNode(addr)), get_assignment(trie.trace.$addr)) end for addr in internal_addrs]...))
         end
     end)
 
@@ -306,7 +306,7 @@ function make_choice_trie_methods(trace_type, addr_dist_nodes, addr_gen_nodes)
         ## static_get_leaf_node ##
 
         push!(methods, quote
-            function Gen.static_get_leaf_node(trie::Gen.BasicBlockChoices{$trace_type},
+            function Gen.static_get_leaf_node(trie::Gen.BasicBlockAssignment{$trace_type},
                                            ::Val{$(QuoteNode(addr))})
                 trie.trace.$addr
             end
@@ -315,7 +315,7 @@ function make_choice_trie_methods(trace_type, addr_dist_nodes, addr_gen_nodes)
         ## static_has_leaf_node ##
 
         push!(methods, quote
-            function Gen.static_has_leaf_node(trie::Gen.BasicBlockChoices{$trace_type},
+            function Gen.static_has_leaf_node(trie::Gen.BasicBlockAssignment{$trace_type},
                                            ::Val{$(QuoteNode(addr))})
                 true
             end
@@ -329,7 +329,7 @@ function make_choice_trie_methods(trace_type, addr_dist_nodes, addr_gen_nodes)
         ## static_has_internal_node ##
 
         push!(methods, quote
-            function Gen.static_has_internal_node(trie::Gen.BasicBlockChoices{$trace_type},
+            function Gen.static_has_internal_node(trie::Gen.BasicBlockAssignment{$trace_type},
                                                   ::Val{$(QuoteNode(addr))})
                 true
             end
@@ -338,9 +338,9 @@ function make_choice_trie_methods(trace_type, addr_dist_nodes, addr_gen_nodes)
         ## static_get_internal_node ##
 
         push!(methods, quote
-            function Gen.static_get_internal_node(trie::Gen.BasicBlockChoices{$trace_type},
+            function Gen.static_get_internal_node(trie::Gen.BasicBlockAssignment{$trace_type},
                                                   ::Val{$(QuoteNode(addr))})
-                get_choices(trie.trace.$addr)
+                get_assignment(trie.trace.$addr)
             end
         end)
     end
@@ -367,7 +367,7 @@ function generate_trace_type(ir::BasicBlockIR, name)
         push!(fields, Expr(:(::), node.address, QuoteNode(typ)))
     end
     addresses = union(keys(ir.addr_dist_nodes), keys(ir.addr_gen_nodes))
-    choice_trie_methods = make_choice_trie_methods(
+    assignment_methods = make_assignment_methods(
         trace_type_name, values(ir.addr_dist_nodes), values(ir.addr_gen_nodes))
     retval_type = QuoteNode(ir.output_node ===  nothing ? Nothing : ir.output_node.typ)
     defn = esc(quote
@@ -392,15 +392,15 @@ function generate_trace_type(ir::BasicBlockIR, name)
         Gen.get_call_record(trace::$trace_type_name) = trace.$call_record_field
         Gen.has_choices(trace::$trace_type_name) = !trace.$is_empty_field
 
-        # choice trie view of the trace
-        Gen.get_choices(trace::$trace_type_name) = Gen.BasicBlockChoices(trace)
+        # assignment view of the trace
+        Gen.get_assignment(trace::$trace_type_name) = Gen.BasicBlockAssignment(trace)
         
         function Gen.get_address_schema(::Type{$trace_type_name})
             Gen.StaticAddressSchema(
                 Set{Symbol}([$([QuoteNode(addr) for addr in keys(ir.addr_dist_nodes)]...)]),
                 Set{Symbol}([$([QuoteNode(addr) for addr in keys(ir.addr_gen_nodes)]...)]))
         end
-        $(Expr(:block, choice_trie_methods...))
+        $(Expr(:block, assignment_methods...))
     end)
     (defn, trace_type_name)
 end

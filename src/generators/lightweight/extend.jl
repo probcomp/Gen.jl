@@ -23,7 +23,7 @@ function set_ret_change!(state::GFExtendState, value)
     if state.retchange === nothing
         state.retchange = value
     else
-        error("@retchange! was already used")
+        lightweight_retchange_already_set_err()
     end
 end
 
@@ -31,22 +31,26 @@ function get_addr_change(state::GFExtendState, addr)
     get_leaf_node(state.callee_output_changes, addr)
 end
 
+function extend_no_change_err(addr)
+    error("Attempted to change value of random choice at $addr during extend")
+end
+
 function addr(state::GFExtendState, dist::Distribution{T}, args, addr) where {T}
     visit!(state.visitor, addr)
     has_previous = has_primitive_call(state.prev_trace, addr)
     constrained = has_leaf_node(state.constraints, addr)
     if has_previous && constrained
-        error("Cannot change value of random choice at $addr")
+        extend_no_change_err(addr)
     end
     if has_internal_node(state.constraints, addr)
-        error("Got namespace of choices for a primitive distribution at $addr")
+        lightweight_got_internal_node_err(addr)
     end
     local retval::T
     local call::CallRecord
     if has_previous
         call = get_primitive_call(state.prev_trace, addr)
         if call.args != args
-            error("Cannot change arguments to a random choice in extend")
+            extend_no_change_err(addr)
         end
         retval = call.retval
         score = call.score
@@ -80,9 +84,9 @@ function addr(state::GFExtendState, gen::Generator{T}, args, addr, args_change) 
     if has_internal_node(state.constraints, addr)
         constraints = get_internal_node(state.constraints, addr)
     elseif has_leaf_node(state.constraints, addr)
-        error("Expected namespace of choices, but got single choice at $addr")
+        lightweight_got_leaf_node_err(addr)
     else
-        constraints = EmptyChoiceTrie()
+        constraints = EmptyAssignment()
     end
     if has_subtrace(state.prev_trace, addr)
         prev_trace = get_subtrace(state.prev_trace, addr)

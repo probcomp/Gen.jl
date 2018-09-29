@@ -145,13 +145,13 @@ end
 
 function addr(state::InjectiveApplyState, fn::InjectiveFunction, args, output_addr)
     visit!(state.visitor, output_addr)
-    sub_choices = HomogenousTrie{Any,Any}()
+    sub_assignment = HomogenousTrie{Any,Any}()
     sub_tracked_writes = HomogenousTrie{Any,TrackedReal}()
     visitor = AddressVisitor()
-    sub_state = InjectiveApplyState(state.input, sub_choices,
+    sub_state = InjectiveApplyState(state.input, sub_assignment,
         state.tape, state.tracked_reads, sub_tracked_writes, state.copied, visitor)
     value = exec(fn, sub_state, args)
-    set_internal_node!(state.output, output_addr, sub_choices)
+    set_internal_node!(state.output, output_addr, sub_assignment)
     set_internal_node!(state.tracked_writes, output_addr, sub_tracked_writes)
     value
 end

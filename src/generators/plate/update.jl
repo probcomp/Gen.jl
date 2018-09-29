@@ -4,11 +4,11 @@ mutable struct PlateUpdateState{U,V,W}
     args::U
     nodes::V
     changes::W
-    discard::DynamicChoiceTrie
+    discard::DynamicAssignment
 end
 
 function update_existing_trace!(gen::Plate{T,U}, key::Int, state::PlateUpdateState, subtraces, retvals) where {T,U}
-    node = haskey(state.nodes, key) ? state.nodes[key] : EmptyChoiceTrie()
+    node = haskey(state.nodes, key) ? state.nodes[key] : EmptyAssignment()
     if haskey(state.changes, key)
         kernel_change = state.changes[key]
     else
@@ -29,7 +29,7 @@ function update_existing_trace!(gen::Plate{T,U}, key::Int, state::PlateUpdateSta
 end
 
 function assess_new_trace!(gen::Plate{T,U}, key::Int, state::PlateUpdateState, subtraces, retvals) where {T,U}
-    node = haskey(state.nodes, key) ? state.nodes[key] : EmptyChoiceTrie()
+    node = haskey(state.nodes, key) ? state.nodes[key] : EmptyAssignment()
     kernel_args = get_args_for_key(state.args, key)
     subtrace::U = assess(gen.kernel, kernel_args, node)
     subtraces = push(subtraces, subtrace)
@@ -64,9 +64,9 @@ function _update(gen::Plate{T,U}, args, prev_trace::VectorTrace{T,U}, constraint
     end
 
     # discard subtraces of deleted applications
-    discard = DynamicChoiceTrie()
+    discard = DynamicAssignment()
     for key=new_length+1:prev_length
-        set_internal_node!(discard, key, get_choices(prev_trace.subtraces[key]))
+        set_internal_node!(discard, key, get_assignment(prev_trace.subtraces[key]))
     end
 
     # collect initial state
