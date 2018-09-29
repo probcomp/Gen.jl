@@ -45,7 +45,6 @@ splice(state::GFAssessState, gf::GenFunction, args::Tuple) = exec(gf, state, arg
 function assess(gen::GenFunction, args, constraints)
     state = Gen.GFAssessState(constraints, gen.params)
     retval = Gen.exec(gen, state, args) 
-    # TODO check that there were no unvisited constraints
     unconsumed = get_unvisited(state.visitor, constraints)
     if !isempty(unconsumed)
         error("Update did not consume all constraints: $unconsumed")
