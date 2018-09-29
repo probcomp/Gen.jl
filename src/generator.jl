@@ -132,16 +132,6 @@ constraints may collide with existing random choices.
 function update end
 
 """
-change of args.
-may simulate.
-addresses may be added or deleted.
-constraints may collide with existing random choices, but no new choices may be constrained.
-
-    (new_trace, weight, retchange) = fix_update(g::Generator, new_args, args_change, trace, constraints)
-"""
-function fix_update end
-
-"""
     (new_trace, weight, retcahnge) = regenerate(
         gen::Generator, new_args, args_change, trace, selection::AddressSet)
 """
