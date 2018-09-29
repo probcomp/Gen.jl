@@ -20,7 +20,7 @@ function mh(model::Generator, proposal::Generator, proposal_args_rest::Tuple, tr
     proposal_args_forward = (trace, proposal_args_rest...,)
     forward_trace = simulate(proposal, proposal_args_forward)
     forward_score = get_call_record(forward_trace).score
-    constraints = get_choices(forward_trace)
+    constraints = get_assignment(forward_trace)
     (new_trace, weight, discard) = update(
         model, model_args, NoChange(), trace, constraints)
     proposal_args_backward = (new_trace, proposal_args_rest...,)
@@ -36,7 +36,7 @@ function mh(model::Generator, proposal::Generator, proposal_args_rest::Tuple, tr
 end
 
 function mh(model::Generator, selector::SelectionFunction, selector_args::Tuple, trace)
-    (selection, _) = select(selector, selector_args, get_choices(trace))
+    (selection, _) = select(selector, selector_args, get_assignment(trace))
     model_args = get_call_record(trace).args
     (new_trace, weight) = regenerate(model, model_args, NoChange(), trace, selection)
     if log(rand()) < weight
@@ -55,7 +55,7 @@ function rjmcmc(model, forward, forward_args_rest, backward, backward_args_rest,
     forward_args = (trace, forward_args_rest...,)
     forward_trace = simulate(forward, forward_args)
     forward_score = get_call_record(forward_trace).score
-    input = pair(get_choices(trace), get_choices(forward_trace), :model, :proposal)
+    input = pair(get_assignment(trace), get_assignment(forward_trace), :model, :proposal)
     (output, logabsdet) = apply(injective, injective_args, input)
     (model_constraints, backward_constraints) = unpair(output, :model, :proposal)
     new_trace = assess(model, model_args, model_constraints)
@@ -179,7 +179,7 @@ export mh, rjmcmc, hmc, mala
 #######################
 
 function importance_sampling(model::Generator{T,U}, model_args::Tuple,
-                             observations::ChoiceTrie,
+                             observations::Assignment,
                              num_samples::Int) where {T,U}
     traces = Vector{U}(num_samples)
     log_weights = Vector{Float64}(num_samples)
@@ -193,7 +193,7 @@ function importance_sampling(model::Generator{T,U}, model_args::Tuple,
 end
 
 function importance_sampling(model::Generator{T,U}, model_args::Tuple,
-                             observations::ChoiceTrie,
+                             observations::Assignment,
                              proposal::Generator, proposal_args::Tuple,
                              num_samples::Int) where {T,U}
     traces = Vector{U}(num_samples)
@@ -201,7 +201,7 @@ function importance_sampling(model::Generator{T,U}, model_args::Tuple,
     for i=1:num_samples
         proposal_trace = simulate(proposal, proposal_args)
         proposal_score = get_call_record(proposal_trace).score
-        constraints = merge(observations, get_choices(proposal_trace))
+        constraints = merge(observations, get_assignment(proposal_trace))
         traces[i] = assess(model, model_args, constraints)
         model_score = get_call_record(traces[i]).score
         log_weights[i] = model_score - proposal_score
@@ -213,11 +213,12 @@ function importance_sampling(model::Generator{T,U}, model_args::Tuple,
 end
 
 function importance_resampling(model::Generator{T,U}, model_args::Tuple,
-                               observations::ChoiceTrie,
-                               num_samples::Int)  where {T,U,V,W}
+                               observations::Assignment,
+                               num_samples::Int; verbose=false)  where {T,U,V,W}
     (model_trace::U, log_weight) = generate(model, model_args, observations)
     log_total_weight = log_weight
     for i=2:num_samples
+        verbose && println("sample: $i of $num_samples")
         (cand_model_trace, log_weight) = generate(model, model_args, observations)
         log_total_weight = logsumexp(log_total_weight, log_weight)
         if bernoulli(exp(log_weight - log_total_weight))
@@ -229,18 +230,19 @@ function importance_resampling(model::Generator{T,U}, model_args::Tuple,
 end
 
 function importance_resampling(model::Generator{T,U}, model_args::Tuple,
-                               observations::ChoiceTrie,
+                               observations::Assignment,
                                proposal::Generator{V,W}, proposal_args::Tuple,
-                               num_samples::Int)  where {T,U,V,W}
+                               num_samples::Int; verbose=false)  where {T,U,V,W}
     proposal_trace::W = simulate(proposal, proposal_args)
     proposal_score = get_call_record(proposal_trace).score
-    constraints::ChoiceTrie = merge(observations, get_choices(proposal_trace))
+    constraints::Assignment = merge(observations, get_assignment(proposal_trace))
     (model_trace::U, model_score) = generate(model, model_args, constraints)
     log_total_weight = model_score - proposal_score
     for i=2:num_samples
+        verbose && println("sample: $i of $num_samples")
         proposal_trace = simulate(proposal, proposal_args)
         proposal_score = get_call_record(proposal_trace).score
-        constraints = merge(observations, get_choices(proposal_trace))
+        constraints = merge(observations, get_assignment(proposal_trace))
         (cand_model_trace, model_score) = generate(model, model_args, constraints)
         log_weight = model_score - proposal_score
         log_total_weight = logsumexp(log_total_weight, log_weight)
@@ -325,6 +327,76 @@ function particle_filter(model::Generator{T,U}, num_steps::Int,
     return (traces, log_normalized_weights, log_ml_estimate)
 end
 
+function particle_filter(model::Generator{T,U}, model_args_rest::Tuple,
+                         num_steps::Int, num_particles::Int, ess_threshold::Real,
+                         get_init_observations_and_proposal_args::Function,
+                         get_step_observations_and_proposal_args::Function,
+                         init_proposal::Generator, step_proposal::Generator;
+                         verbose::Bool=false) where {T,U}
+
+    log_unnormalized_weights = Vector{Float64}(undef, num_particles)
+    log_ml_estimate = 0.
+    (observations, proposal_args) = get_init_observations_and_proposal_args()
+    traces = Vector{U}(undef, num_particles)
+    next_traces = Vector{U}(undef, num_particles)
+    for i=1:num_particles
+        proposal_trace = simulate(init_proposal, proposal_args)
+        proposal_score = get_call_record(proposal_trace).score
+        constraints = merge(observations, get_assignment(proposal_trace))
+        (traces[i], model_weight) = generate(model, (1, model_args_rest...), constraints) # make this assess when debugging?
+        log_unnormalized_weights[i] = model_weight - proposal_score
+    end
+
+    local parents::Vector{Int}
+    for step=2:num_steps
+
+        # compute new weights
+        log_total_weight = logsumexp(log_unnormalized_weights)
+        log_normalized_weights = log_unnormalized_weights .- log_total_weight
+        ess = effective_sample_size(log_normalized_weights)
+        verbose && println("step: $step, ess: $ess")
+
+        # resample
+        if ess < ess_threshold
+            verbose && println("resampling..")
+            weights = exp.(log_normalized_weights)
+            parents = rand(Distributions.Categorical(weights / sum(weights)), num_particles)
+            log_ml_estimate += log_total_weight - log(num_particles)
+            log_unnormalized_weights = zeros(num_particles)
+        else
+            parents = collect(1:num_particles)
+        end
+
+        # extend by one time step
+        args_change = nothing # TODO establish a convention for args change (only the step argument changes)
+        for i=1:num_particles
+            parent = parents[i]
+            parent_trace = traces[parent]
+            (observations, proposal_args) = get_step_observations_and_proposal_args(step, parent_trace)
+            proposal_trace = simulate(step_proposal, proposal_args)
+            proposal_score = get_call_record(proposal_trace).score
+            constraints = merge(observations, get_assignment(proposal_trace))
+            (next_traces[i], model_weight) = extend(
+                model, (step, model_args_rest...), args_change, parent_trace, constraints)
+            log_weight = model_weight - proposal_score
+            log_unnormalized_weights[i] += log_weight
+        end
+        tmp = traces
+        traces = next_traces
+        next_traces = tmp
+    end
+
+    # finalize estimate of log marginal likelihood
+    log_total_weight = logsumexp(log_unnormalized_weights)
+    log_normalized_weights = log_unnormalized_weights .- log_total_weight
+    ess = effective_sample_size(log_normalized_weights)
+    log_ml_estimate += log_total_weight - log(num_particles)
+    verbose && println("final ess: $ess, final log_ml_est: $log_ml_estimate")
+    return (traces, log_normalized_weights, log_ml_estimate)
+end
+
+
+
 export particle_filter
 
 
@@ -392,9 +464,9 @@ function sgd_train_batch(teacher::Generator{T,U}, teacher_args::Tuple,
     for batch=1:conf.num_batch
 
         # generate training batch
-        training_choices = Vector{Any}(undef, conf.batch_size)
+        training_assignment = Vector{Any}(undef, conf.batch_size)
         for i=1:conf.batch_size
-            training_choices[i] = get_choices(simulate(teacher, teacher_args))
+            training_assignment[i] = get_assignment(simulate(teacher, teacher_args))
             if verbose && (i % 100 == 0)
                 println("batch $batch, generating training data $i of $(conf.batch_size))")
             end
@@ -404,9 +476,9 @@ function sgd_train_batch(teacher::Generator{T,U}, teacher_args::Tuple,
         for minibatch=1:conf.num_minibatch
             permuted = Random.randperm(conf.batch_size)
             minibatch_idx = permuted[1:conf.minibatch_size]
-            choices_arr = training_choices[minibatch_idx]
-            input = conf.input_extractor(choices_arr)
-            constraints = conf.constraint_extractor(choices_arr)
+            assignments = training_assignment[minibatch_idx]
+            input = conf.input_extractor(assignments)
+            constraints = conf.constraint_extractor(assignments)
             student_trace = assess(batch_student, input, constraints)
             avg_score = get_call_record(student_trace).score / conf.minibatch_size
             backprop_params(batch_student, student_trace, nothing)

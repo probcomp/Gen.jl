@@ -12,11 +12,11 @@ end
 function do_inference(input_image)
 
     # construct trace containing observed image
-    observations = DynamicChoiceTrie()
+    observations = DynamicAssignment()
     observations["image"] = input_image
 
     # fill in latent variables using proposal
-    latents = get_choices(simulate(proposal, (observations,)))
+    latents = get_assignment(simulate(proposal, (observations,)))
     x = latents["x"]
     y = latents["y"]
     s = latents["size"]

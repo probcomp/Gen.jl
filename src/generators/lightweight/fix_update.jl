@@ -6,7 +6,7 @@ mutable struct GFFixUpdateState
     weight::Float64
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
-    discard::DynamicChoiceTrie
+    discard::DynamicAssignment
     args_change::Any
     retchange::Union{Some{Any},Nothing}
     callee_output_changes::HomogenousTrie{Any,Any}
@@ -14,7 +14,7 @@ end
 
 function GFFixUpdateState(args_change, prev_trace, constraints, params)
     visitor = AddressVisitor()
-    discard = DynamicChoiceTrie()
+    discard = DynamicAssignment()
     GFFixUpdateState(prev_trace, GFTrace(), constraints, 0., 0., visitor,
                      params, discard, args_change, nothing,
                      HomogenousTrie{Any,Any}())
@@ -26,7 +26,7 @@ function set_ret_change!(state::GFFixUpdateState, value)
     if state.retchange === nothing
         state.retchange = value
     else
-        error("@retchange! was already used")
+        lightweight_retchange_already_set_err()
     end
 end
 
@@ -39,7 +39,7 @@ function addr(state::GFFixUpdateState, dist::Distribution{T}, args, addr) where 
     constrained = has_leaf_node(state.constraints, addr)
     has_previous = has_primitive_call(state.prev_trace, addr)
     if has_internal_node(state.constraints, addr)
-        error("Got namespace of choices for a primitive distribution at $addr")
+        lightweight_got_internal_node_err(addr)
     end
     if constrained && !has_previous
         error("fix_update constrain a new address: $addr")
@@ -72,9 +72,9 @@ function addr(state::GFFixUpdateState, gen::Generator{T}, args, addr, args_chang
     if has_internal_node(state.constraints, addr)
         constraints = get_internal_node(state.constraints, addr)
     elseif has_leaf_node(state.constraints, addr)
-        error("Expected namespace of choices, but got single choice at $addr")
+        lightweight_got_leaf_node_err(addr)
     else
-        constraints = EmptyChoiceTrie()
+        constraints = EmptyAssignment()
     end
     local retval::T
     local trace::GFTrace

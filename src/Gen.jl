@@ -1,6 +1,6 @@
 module Gen
     include("address.jl")
-    include("choice_trie.jl")
+    include("assignment.jl")
     include("homogenous_trie.jl")
     include("generator.jl")
     include("distribution.jl")

@@ -11,16 +11,16 @@ mutable struct GFBackpropTraceState
     params::Dict{Symbol,Any}
     selection::AddressSet
     tracked_choices::HomogenousTrie{Any,TrackedReal}
-    value_trie::DynamicChoiceTrie
-    gradient_trie::DynamicChoiceTrie
+    value_trie::DynamicAssignment
+    gradient_trie::DynamicAssignment
 end
 
 function GFBackpropTraceState(trace, selection, params, tape)
     score = track(0., tape)
     visitor = AddressVisitor()
     tracked_choices = HomogenousTrie{Any,TrackedReal}()
-    value_trie = DynamicChoiceTrie()
-    gradient_trie = DynamicChoiceTrie()
+    value_trie = DynamicAssignment()
+    gradient_trie = DynamicAssignment()
     GFBackpropTraceState(trace, score, tape, visitor, params,
                        selection, tracked_choices, value_trie, gradient_trie)
 end
@@ -29,7 +29,7 @@ get_args_change(state::GFBackpropTraceState) = nothing
 get_addr_change(state::GFBackpropTraceState, addr) = nothing
 set_ret_change!(state::GFBackpropTraceState, value) = begin end
 
-function fill_gradient_trie!(gradient_trie::DynamicChoiceTrie,
+function fill_gradient_trie!(gradient_trie::DynamicAssignment,
                              tracked_trie::HomogenousTrie{Any,TrackedReal})
     for (key, tracked) in get_leaf_nodes(tracked_trie)
         set_leaf_node!(gradient_trie, key, deriv(tracked))
@@ -38,13 +38,13 @@ function fill_gradient_trie!(gradient_trie::DynamicChoiceTrie,
     # choices and the generator invocations, as enforced by the visitor
     for (key, node) in get_internal_nodes(tracked_trie)
         @assert !has_leaf_node(gradient_trie, key) && !has_internal_node(gradient_trie, key)
-        gradient_trie_node = DynamicChoiceTrie()
+        gradient_trie_node = DynamicAssignment()
         fill_gradient_trie!(gradient_trie_node, node)
         set_internal_node!(gradient_trie, key, gradient_trie_node)
     end
 end
 
-function fill_value_trie!(value_trie::DynamicChoiceTrie,
+function fill_value_trie!(value_trie::DynamicAssignment,
                           tracked_trie::HomogenousTrie{Any,TrackedReal})
     for (key, tracked) in get_leaf_nodes(tracked_trie)
         set_leaf_node!(value_trie, key, ReverseDiff.value(tracked))
@@ -53,7 +53,7 @@ function fill_value_trie!(value_trie::DynamicChoiceTrie,
     # choices and the generator invocations, as enforced by the visitor
     for (key, node) in get_internal_nodes(tracked_trie)
         @assert !has_leaf_node(value_trie, key) && !has_internal_node(value_trie, key)
-        value_trie_node = DynamicChoiceTrie()
+        value_trie_node = DynamicAssignment()
         fill_value_trie!(value_trie_node, node)
         set_internal_node!(value_trie, key, value_trie_node)
     end
@@ -82,8 +82,8 @@ struct BackpropTraceRecord
     generator::Generator
     subtrace::Any
     selection::AddressSet
-    value_trie::DynamicChoiceTrie
-    gradient_trie::DynamicChoiceTrie
+    value_trie::DynamicAssignment
+    gradient_trie::DynamicAssignment
     addr::Any
 end
 

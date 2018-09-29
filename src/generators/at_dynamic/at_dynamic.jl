@@ -8,51 +8,51 @@ struct AtDynamicTrace{T,U,K}
     key::K
 end
 
-struct AtDynamicChoices{T,U,K} <: ChoiceTrie
+struct AtDynamicAssignment{T,U,K} <: Assignment
     trace::AtDynamicTrace{T,U,K}
 end
 
 get_call_record(trace::AtDynamicTrace) = trace.call
 has_choices(trace::AtDynamicTrace) = has_choices(trace.kernel_trace)
-get_choices(trace::AtDynamicTrace) = AtDynamicChoices(trace)
-Base.isempty(choices::AtDynamicChoices) = !has_choices(choices.trace.kernel_trace)
-get_address_schema(::Type{AtDynamicChoices}) = SingleDynamicKeyAddressSchema()
-function has_internal_node(choices::AtDynamicChoices{T,U,K}, addr::K) where {T,U,K}
-    choices.trace.key == addr
+get_assignment(trace::AtDynamicTrace) = AtDynamicAssignment(trace)
+Base.isempty(assignment::AtDynamicAssignment) = !has_choices(assignment.trace.kernel_trace)
+get_address_schema(::Type{AtDynamicAssignment}) = SingleDynamicKeyAddressSchema()
+function has_internal_node(assignment::AtDynamicAssignment{T,U,K}, addr::K) where {T,U,K}
+    assignment.trace.key == addr
 end
-function has_internal_node(choices::AtDynamicChoices{T,U,K}, addr::Pair{K,W}) where {T,U,K,W}
+function has_internal_node(assignment::AtDynamicAssignment{T,U,K}, addr::Pair{K,W}) where {T,U,K,W}
     (first, rest) = addr
-    if choices.trace.key == first
-        subchoices = get_choices(choices.trace.kernel_trace)
-        has_internal_node(subchoices, rest)
+    if assignment.trace.key == first
+        sub_assignment = get_assignment(assignment.trace.kernel_trace)
+        has_internal_node(sub_assignment, rest)
     else
         throw(KeyError(first))
     end
 end
-function get_internal_node(choices::AtDynamicChoices{T,U,K}, addr::K) where {T,U,K}
-    if choices.trace.key == addr
-        get_choices(choices.trace.kernel_trace)
+function get_internal_node(assignment::AtDynamicAssignment{T,U,K}, addr::K) where {T,U,K}
+    if assignment.trace.key == addr
+        get_assignment(assignment.trace.kernel_trace)
     else
         throw(KeyError(addr))
     end
 end
-function get_internal_node(choices::AtDynamicChoices{T,U,K}, addr::Pair{K,W}) where {T,U,K,W}
+function get_internal_node(assignment::AtDynamicAssignment{T,U,K}, addr::Pair{K,W}) where {T,U,K,W}
     (first, rest) = addr
-    if choices.trace.key == first
-        subchoices = get_choices(choices.trace.kernel_trace)
-        get_internal_node(subchoices, rest)
+    if assignment.trace.key == first
+        sub_assignment = get_assignment(assignment.trace.kernel_trace)
+        get_internal_node(sub_assignment, rest)
     else
         throw(KeyError(first))
     end
 end
 
 
-function get_internal_nodes(choices::AtDynamicChoices)
-    node = (choices.trace.key, get_choices(choices.trace.kernel_trace))
+function get_internal_nodes(assignment::AtDynamicAssignment)
+    node = (assignment.trace.key, get_assignment(assignment.trace.kernel_trace))
     (node,)
 end
 
-function get_leaf_nodes(choices::AtDynamicChoices)
+function get_leaf_nodes(assignment::AtDynamicAssignment)
     # TODO what about wrapping a distribuion, instead of a a generator (cf Plate)
     ()
 end

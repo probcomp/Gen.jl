@@ -4,16 +4,16 @@ mutable struct GFProjectState
     score::Float64
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
-    discard::DynamicChoiceTrie
+    discard::DynamicAssignment
 end
 
 function GFProjectState(constraints, params)
     visitor = AddressVisitor()
-    discard = DynamicChoiceTrie()
+    discard = DynamicAssignment()
     GFProjectState(constraints, GFTrace(), 0., visitor, params, discard)
 end
 
-function addr(state::GFProjectState, dist::Distribution{T}, args, addr, delta) where {T}
+function addr(state::GFProjectState, dist::Distribution{T}, args, addr) where {T}
     visit!(state.visitor, addr)
     retval::T = get_leaf_node(state.constraints, addr)
     score = logpdf(dist, retval, args...)
@@ -23,12 +23,14 @@ function addr(state::GFProjectState, dist::Distribution{T}, args, addr, delta) w
     retval 
 end
 
-function addr(state::GFProjectState, gen::Generator{T,U}, args, addr, delta) where {T,U}
+function addr(state::GFProjectState, gen::Generator{T,U}, args, addr, args_change) where {T,U}
     visit!(state.visitor, addr)
     if has_internal_node(state.constraints, addr)
         constraints = get_internal_node(state.constraints, addr) 
+    elseif has_leaf_node(state.constraints, addr)
+        lightweight_got_leaf_node_err(addr)
     else
-        constraints = EmptyChoiceTrie()
+        constraints = EmptyAssignment()
     end
     (trace::U, discard) = project(gen, args, constraints)
     call::CallRecord = get_call_record(trace)

@@ -30,7 +30,7 @@ function addr(state::GFAssessState, gen::Generator{T,U}, args, addr, delta) wher
     if has_internal_node(state.constraints, addr)
         constraints = get_internal_node(state.constraints, addr)
     else
-        constraints = EmptyChoiceTrie()
+        constraints = EmptyAssignment()
     end
     trace::U = assess(gen, args, constraints)
     call::CallRecord = get_call_record(trace)
@@ -45,7 +45,6 @@ splice(state::GFAssessState, gf::GenFunction, args::Tuple) = exec(gf, state, arg
 function assess(gen::GenFunction, args, constraints)
     state = Gen.GFAssessState(constraints, gen.params)
     retval = Gen.exec(gen, state, args) 
-    # TODO check that there were no unvisited constraints
     unconsumed = get_unvisited(state.visitor, constraints)
     if !isempty(unconsumed)
         error("Update did not consume all constraints: $unconsumed")

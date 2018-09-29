@@ -117,7 +117,7 @@ w1_selection = DynamicAddressSet()
 push_leaf_node!(w1_selection, :w1)
 
 function fixed_dim_move(trace)
-    if get_choices(trace)[:branch]
+    if get_assignment(trace)[:branch]
         (trace, accept) = resimulation_mh(one_cluster_params, trace)
         mala(model, one_cluster_params, trace, 0.01)
     else
@@ -209,7 +209,7 @@ end
 
 correction = (new_trace) -> 0.
 function rjmcmc_transdim_move(trace)
-    branch = get_choices(trace)[:branch]
+    branch = get_assignment(trace)[:branch]
     n = get_call_record(trace).args[1]
     if branch
         rjmcmc(model,
@@ -255,7 +255,7 @@ const n = length(ys)
 function plot_trace_plot()
     plt.figure(figsize=(6, 5))
 
-    observations = DynamicChoiceTrie()
+    observations = DynamicAssignment()
     for (i, y) in enumerate(ys)
         observations["y-$i"] = y
     end
@@ -270,7 +270,7 @@ function plot_trace_plot()
         trace = fixed_dim_move(trace)
         score = get_call_record(trace).score
         if iter > burn_in
-            push!(model_choice_vec, get_choices(trace)[:branch])
+            push!(model_choice_vec, get_assignment(trace)[:branch])
             push!(scores, score)
         end
         println("iter: $iter, score: $score")
@@ -290,7 +290,7 @@ function plot_trace_plot()
         trace = fixed_dim_move(trace)
         score = get_call_record(trace).score
         if iter > burn_in
-            push!(model_choice_vec, get_choices(trace)[:branch])
+            push!(model_choice_vec, get_assignment(trace)[:branch])
             push!(scores, score)
         end
         println("iter: $iter, score: $score")

@@ -3,11 +3,11 @@ mutable struct PlateProjectState{U,V}
     isempty::Bool
     args::U
     nodes::V
-    discard::DynamicChoiceTrie
+    discard::DynamicAssignment
 end
 
 function project!(gen::Plate{T,U}, key::Int, state::PlateProjectState) where {T,U}
-    node = haskey(state.nodes, key) ? state.nodes[key] : EmptyChoiceTrie()
+    node = haskey(state.nodes, key) ? state.nodes[key] : EmptyAssignment()
     kernel_args = get_args_for_key(state.args, key)
     (subtrace::U, kernel_discard) = project(gen.kernel, kernel_args, node)
     set_internal_node!(state.discard, key, kernel_discard)
@@ -35,7 +35,7 @@ function project(gen::Plate{T,U}, args, constraints) where {T,U}
     len = length(args[1])
 
     # collect constraints, indexed by key, discard nodes for keys not in trace
-    discard = DynamicChoiceTrie()
+    discard = DynamicAssignment()
     nodes = Dict{Int, Any}()
     for (key, node) in get_internal_nodes(constraints)
         project_process_constraints!(nodes, key, node, len, discard)

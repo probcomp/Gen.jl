@@ -15,11 +15,11 @@ get_args_change(state::GFGenerateState) = nothing
 get_addr_change(state::GFGenerateState, addr) = nothing
 set_ret_change!(state::GFGenerateState, value) = begin end
 
-function addr(state::GFGenerateState, dist::Distribution{T}, args, addr, delta) where {T}
+function addr(state::GFGenerateState, dist::Distribution{T}, args, addr) where {T}
     visit!(state.visitor, addr)
     constrained = has_leaf_node(state.constraints, addr)
     if has_internal_node(state.constraints, addr)
-        error("Got namespace of choices for a primitive distribution at $addr")
+        lightweight_got_internal_node_err(addr)
     end
     local retval::T
     if constrained
@@ -38,12 +38,12 @@ function addr(state::GFGenerateState, dist::Distribution{T}, args, addr, delta) 
     retval
 end
 
-function addr(state::GFGenerateState, gen::Generator{T,U}, args, addr, delta) where {T,U}
+function addr(state::GFGenerateState, gen::Generator{T,U}, args, addr, args_change) where {T,U}
     visit!(state.visitor, addr)
     if has_internal_node(state.constraints, addr)
         constraints = get_internal_node(state.constraints, addr)
     else
-        constraints = EmptyChoiceTrie()
+        constraints = EmptyAssignment()
     end
     (trace::U, weight) = generate(gen, args, constraints)
     call::CallRecord = get_call_record(trace)

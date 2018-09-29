@@ -8,7 +8,7 @@ mutable struct PlateExtendState{U,V,W}
 end
 
 function extend_existing_trace!(gen::Plate{T,U}, key::Int, state::PlateExtendState, subtraces, retvals) where {T,U}
-    node = haskey(state.nodes, key) ? state.nodes[key] : EmptyChoiceTrie()
+    node = haskey(state.nodes, key) ? state.nodes[key] : EmptyAssignment()
     if haskey(state.changes, key)
         kernel_change = state.changes[key]
     else
@@ -28,7 +28,7 @@ function extend_existing_trace!(gen::Plate{T,U}, key::Int, state::PlateExtendSta
 end
 
 function generate_new_trace!(gen::Plate{T,U}, key::Int, state::PlateExtendState, subtraces, retvals, kernel) where {T,U}
-    node = haskey(state.nodes, key) ? state.nodes[key] : EmptyChoiceTrie()
+    node = haskey(state.nodes, key) ? state.nodes[key] : EmptyAssignment()
     kernel_args = get_args_for_key(state.args, key)
     (subtrace::U, kernel_weight) = generate(gen.kernel, kernel_args, node)
     state.weight += kernel_weight

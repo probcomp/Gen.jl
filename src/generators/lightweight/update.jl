@@ -5,7 +5,7 @@ mutable struct GFUpdateState
     score::Float64
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
-    discard::DynamicChoiceTrie
+    discard::DynamicAssignment
     args_change::Any
     retchange::Union{Some{Any},Nothing}
     callee_output_changes::HomogenousTrie{Any,Any}
@@ -13,7 +13,7 @@ end
 
 function GFUpdateState(args_change, prev_trace, constraints, params)
     visitor = AddressVisitor()
-    discard = DynamicChoiceTrie()
+    discard = DynamicAssignment()
     GFUpdateState(prev_trace, GFTrace(), constraints, 0., visitor,
                   params, discard, args_change, nothing, HomogenousTrie{Any,Any}())
 end
@@ -24,7 +24,7 @@ function set_ret_change!(state::GFUpdateState, value)
     if state.retchange === nothing
         state.retchange = value
     else
-        error("@retchange! was already used")
+        lightweight_retchange_already_set_err()
     end
 end
 
@@ -37,7 +37,7 @@ function addr(state::GFUpdateState, dist::Distribution{T}, args, addr) where {T}
     constrained = has_leaf_node(state.constraints, addr)
     has_previous = has_primitive_call(state.prev_trace, addr)
     if has_internal_node(state.constraints, addr)
-        error("Got namespace of choices for a primitive distribution at $addr")
+        lightweight_got_internal_node_err(addr)
     end
     local retval::T
     if has_previous
@@ -75,9 +75,9 @@ function addr(state::GFUpdateState, gen::Generator{T}, args, addr, args_change) 
     if has_internal_node(state.constraints, addr)
         constraints = get_internal_node(state.constraints, addr)
     elseif has_leaf_node(state.constraints, addr)
-        error("Expected namespace of choices, but got single choice at $addr")
+        lightweight_got_leaf_node_err(addr)
     else
-        constraints = EmptyChoiceTrie()
+        constraints = EmptyAssignment()
     end
     if has_subtrace(state.prev_trace, addr)
         prev_trace = get_subtrace(state.prev_trace, addr)
@@ -104,8 +104,8 @@ function update(gen::GenFunction, new_args, args_change, trace::GFTrace, constra
     new_call = Gen.CallRecord{Any}(state.score, retval, new_args)
     state.trace.call = new_call
     # discard addresses that were deleted
-    unvisited = Gen.get_unvisited(state.visitor, get_choices(state.prev_trace))
-    merge!(state.discard, unvisited) # TODO
+    unvisited = Gen.get_unvisited(state.visitor, get_assignment(state.prev_trace))
+    merge!(state.discard, unvisited) # TODO use merge()?
     if !isempty(Gen.get_unvisited(state.visitor, constraints))
         error("Update did not consume all constraints")
     end

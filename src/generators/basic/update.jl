@@ -202,7 +202,7 @@ function get_constraints(schema::Union{StaticAddressSchema,EmptyAddressSchema}, 
         constrained = true
     else
         constrained = false
-        constraints = :(EmptyChoiceTrie())
+        constraints = :(EmptyAssignment())
     end
     (constrained, constraints)
 end
@@ -375,7 +375,7 @@ function generate_discard!(stmts::Vector{Expr}, discard_leaf_nodes, discard_inte
     leaf_keys = map((k) -> QuoteNode(k), leaf_keys)
     internal_keys = map((k) -> QuoteNode(k), internal_keys)
     push!(stmts, quote
-        discard = StaticChoiceTrie(
+        discard = StaticAssignment(
             NamedTuple{($(leaf_keys...),)}(($(leaf_nodes...),)),
             NamedTuple{($(internal_keys...),)}(($(internal_nodes...),)))
     end)
@@ -483,8 +483,8 @@ push!(Gen.generated_functions, quote
 @generated function Gen.update(gen::Gen.BasicGenFunction{T,U}, new_args, args_change, trace::U, constraints) where {T,U}
     schema = get_address_schema(constraints)
     if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
-        # try to convert it to a static choice trie
-        return quote update(gen, new_args, args_change, trace, StaticChoiceTrie(constraints)) end
+        # try to convert it to a static assignment
+        return quote update(gen, new_args, args_change, trace, StaticAssignment(constraints)) end
     end
     Gen.codegen_update(gen, new_args, args_change, trace, constraints)
 end
@@ -494,8 +494,8 @@ push!(Gen.generated_functions, quote
 @generated function Gen.fix_update(gen::Gen.BasicGenFunction{T,U}, new_args, args_change, trace::U, constraints) where {T,U}
     schema = get_address_schema(constraints)
     if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
-        # try to convert it to a static choice trie
-        return quote fix_update(gen, new_args, args_change, trace, StaticChoiceTrie(constraints)) end
+        # try to convert it to a static assignment
+        return quote fix_update(gen, new_args, args_change, trace, StaticAssignment(constraints)) end
     end
     Gen.codegen_fix_update(gen, new_args, args_change, trace, constraints)
 end
@@ -505,8 +505,8 @@ push!(Gen.generated_functions, quote
 @generated function Gen.extend(gen::Gen.BasicGenFunction{T,U}, new_args, args_change, trace::U, constraints) where {T,U}
     schema = get_address_schema(constraints)
     if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
-        # try to convert it to a static choice trie
-        return quote extend(gen, new_args, args_change, trace, StaticChoiceTrie(constraints)) end
+        # try to convert it to a static assignment
+        return quote extend(gen, new_args, args_change, trace, StaticAssignment(constraints)) end
     end
     Gen.codegen_extend(gen, new_args, args_change, trace, constraints)
 end

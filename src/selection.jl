@@ -34,13 +34,13 @@ macro select(addr)
 end
 
 struct SelectionState{T}
-    choices::T
+    assignment::T
     selection::DynamicAddressSet
     visitor::AddressVisitor
 end
 
-function SelectionState(choices::T) where {T}
-    SelectionState(choices, DynamicAddressSet(), AddressVisitor())
+function SelectionState(assignment::T) where {T}
+    SelectionState(assignment, DynamicAddressSet(), AddressVisitor())
 end
 
 function exec(fn::SelectionFunction, state::SelectionState, args::Tuple)
@@ -52,10 +52,10 @@ end
 
 function addr(state::SelectionState, fn::SelectionFunction, args, addr)
     visit!(state.visitor, addr)
-    if has_internal_node(state.choices, addr)
-        node = get_internal_node(state.choices, addr)
+    if has_internal_node(state.assignment, addr)
+        node = get_internal_node(state.assignment, addr)
     else
-        node = EmptyChoiceTrie()
+        node = EmptyAssignment()
     end
     if has_internal_node(state.selection, addr) || has_leaf_node(state.selection, addr)
         error("Address $addr, or an address under $addr, was already selected")
@@ -66,7 +66,7 @@ function addr(state::SelectionState, fn::SelectionFunction, args, addr)
 end
 
 function read(state::SelectionState, addr)
-    get_leaf_node(state.choices, addr)
+    get_leaf_node(state.assignment, addr)
 end
 
 function select_addr(state::SelectionState, addr)
@@ -78,8 +78,8 @@ function splice(state::SelectionState, fn::SelectionFunction, args::Tuple)
     exec(fn, state, args)
 end
 
-function select(fn::SelectionFunction, args::Tuple, choices::T) where {T}
-    state = SelectionState(choices)
+function select(fn::SelectionFunction, args::Tuple, assignment::T) where {T}
+    state = SelectionState(assignment)
     value = exec(fn, state, args)
     (state.selection, value)
 end

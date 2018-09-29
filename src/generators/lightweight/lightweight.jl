@@ -249,6 +249,18 @@ function get_unvisited(visitor::AddressVisitor, choices)
     _diff(choices, visitor.visited)
 end
 
+function lightweight_got_internal_node_err(addr)
+    error("Expected a value at address $addr but trace contained an assignment")
+end
+
+function lightweight_got_leaf_node_err(addr)
+    error("Expected an assignment at address $addr but trace contained a value")
+end
+
+function lightweight_retchange_already_set_err()
+    error("@retchange! was already used")
+end
+
 include("simulate.jl")
 include("assess.jl")
 include("generate.jl")

@@ -24,16 +24,16 @@ Gen.load_generated_functions()
 @testset "update" begin
 
 # get a trace which follows the first branch
-constraints = DynamicChoiceTrie()
+constraints = DynamicAssignment()
 constraints[:a => :branch] = true
 (trace,) = generate(foo, (), constraints)
-x = get_choices(trace)[:a => :x]
-b = get_choices(trace)[:b]
-c = get_choices(trace)[:c]
+x = get_assignment(trace)[:a => :x]
+b = get_assignment(trace)[:b]
+c = get_assignment(trace)[:c]
 
 # force to follow the second branch
 b_new = 0.123
-constraints = DynamicChoiceTrie()
+constraints = DynamicAssignment()
 constraints[:a => :branch] = false
 constraints[:b] = b_new
 constraints[:a => :y] = 2.3
@@ -48,12 +48,12 @@ constraints[:a => :y] = 2.3
 @test length(collect(get_internal_nodes(discard))) == 1
 
 # test new trace
-new_choices = get_choices(new_trace)
-@test get_leaf_node(new_choices, :a => :branch) == false
-@test get_leaf_node(new_choices, :b) == b_new
-@test length(collect(get_leaf_nodes(new_choices))) == 2
-@test length(collect(get_internal_nodes(new_choices))) == 1
-y = new_choices[:a => :y]
+new_assignment = get_assignment(new_trace)
+@test get_leaf_node(new_assignment, :a => :branch) == false
+@test get_leaf_node(new_assignment, :b) == b_new
+@test length(collect(get_leaf_nodes(new_assignment))) == 2
+@test length(collect(get_internal_nodes(new_assignment))) == 1
+y = new_assignment[:a => :y]
 
 # test score and weight
 prev_score = (
@@ -83,16 +83,16 @@ end
 @testset "fix_update" begin
 
 # get a trace which follows the first branch
-constraints = DynamicChoiceTrie()
+constraints = DynamicAssignment()
 constraints[:a => :branch] = true
 (trace,) = generate(foo, (), constraints)
-x = get_choices(trace)[:a => :x]
-b = get_choices(trace)[:b]
-c = get_choices(trace)[:c]
+x = get_assignment(trace)[:a => :x]
+b = get_assignment(trace)[:b]
+c = get_assignment(trace)[:c]
 
 # force to follow the second branch and change b
 b_new = 0.123
-constraints = DynamicChoiceTrie()
+constraints = DynamicAssignment()
 constraints[:a => :branch] = false
 constraints[:b] = b_new
 (new_trace, weight, discard, retchange) = fix_update(
@@ -105,12 +105,12 @@ constraints[:b] = b_new
 @test length(collect(get_internal_nodes(discard))) == 1
 
 # test new trace
-new_choices = get_choices(new_trace)
-@test get_leaf_node(new_choices, :a => :branch) == false
-@test get_leaf_node(new_choices, :b) == b_new
-@test length(collect(get_leaf_nodes(new_choices))) == 2
-@test length(collect(get_internal_nodes(new_choices))) == 1
-y = new_choices[:a => :y]
+new_assignment = get_assignment(new_trace)
+@test get_leaf_node(new_assignment, :a => :branch) == false
+@test get_leaf_node(new_assignment, :b) == b_new
+@test length(collect(get_leaf_nodes(new_assignment))) == 2
+@test length(collect(get_internal_nodes(new_assignment))) == 1
+y = new_assignment[:a => :y]
 
 # test score and weight
 expected_new_score = (

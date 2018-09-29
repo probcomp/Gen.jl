@@ -2,7 +2,7 @@
 # HomogenousTrie #
 ##################
 
-struct HomogenousTrie{K,V} <: ChoiceTrie
+struct HomogenousTrie{K,V} <: Assignment
     leaf_nodes::Dict{K,V}
     internal_nodes::Dict{K,HomogenousTrie{K,V}}
 end

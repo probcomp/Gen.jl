@@ -98,8 +98,8 @@ function codegen_generate(gen::Type{T}, args, constraints) where {T <: BasicGenF
     trace_type = get_trace_type(gen)
     schema = get_address_schema(constraints)
     if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
-        # trie to convert it to a static choice trie
-        return quote generate(gen, args, StaticChoiceTrie(constraints)) end
+        # trie to convert it to a static assignment
+        return quote generate(gen, args, StaticAssignment(constraints)) end
     end
 
     ir = get_ir(gen)

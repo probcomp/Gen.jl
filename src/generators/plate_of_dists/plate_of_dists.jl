@@ -94,7 +94,7 @@ function update(gen::PlateOfDist{T}, new_args, args_change::Nothing, trace::Vect
     # TODO handle retchange
     call = CallRecord(score, values, new_args)
     new_trace = Gen.VectorDistTrace{T}(values, call)
-    (new_trace, weight, EmptyChoiceTrie(), nothing)
+    (new_trace, weight, EmptyAssignment(), nothing)
 end
 
 export plate

@@ -93,7 +93,7 @@ end
 function smc(var_x, var_y, T::Int, N, ess_threshold, ys::AbstractArray{Float64,1})
     log_unnormalized_weights = Vector{Float64}(undef, N)
     log_ml_estimate = 0.
-    obs = get_choices(simulate(single_step_observer2, (1, (ys[1],))))
+    obs = get_assignment(simulate(single_step_observer2, (1, (ys[1],))))
     traces = Vector{Gen.get_trace_type(hmm2)}(undef, N)
     next_traces = Vector{Gen.get_trace_type(hmm2)}(undef, N)
     args = (1, State(NaN, NaN), Params(var_x, var_y))
@@ -116,7 +116,7 @@ function smc(var_x, var_y, T::Int, N, ess_threshold, ys::AbstractArray{Float64,1
         else
             parents = 1:N
         end
-        obs = get_choices(simulate(single_step_observer2, (t, (ys[t],))))
+        obs = get_assignment(simulate(single_step_observer2, (t, (ys[t],))))
         args = (t, State(NaN, NaN), Params(var_x, var_y))
         for i=1:N
             parent = parents[i]
@@ -138,8 +138,8 @@ end
 # collapsed generative model (handcoded) #
 ##########################################
 
-using Gen: VectorDistTrace, VectorDistTraceChoiceTrie
-import Gen: get_call_record, has_choices, get_choices, simulate, assess, get_static_argument_types
+using Gen: VectorDistTrace, VectorDistTraceAssignment
+import Gen: get_call_record, has_choices, get_assignment, simulate, assess, get_static_argument_types
 
 struct CollapsedHMMTrace
     vector::VectorDistTrace{Float64}
@@ -148,21 +148,21 @@ end
 
 get_call_record(trace::CollapsedHMMTrace) = trace.vector.call
 has_choices(trace::CollapsedHMMTrace) = length(trace.vector.call.retval) > 0
-get_choices(trace::CollapsedHMMTrace) = CollapsedHMMChoices(get_choices(trace.vector))
+get_assignment(trace::CollapsedHMMTrace) = CollapsedHMMAssignment(get_assignment(trace.vector))
 
-struct CollapsedHMMChoices <: ChoiceTrie
-    y_choices::VectorDistTraceChoiceTrie
+struct CollapsedHMMAssignment <: Assignment
+    y_assignment::VectorDistTraceAssignment
 end
 
 # addrs are: :y => i
 
-Base.isempty(trie::CollapsedHMMChoices) = (length(trie.trace.call.retval) > 0)
-Gen.get_address_schema(::Type{CollapsedHMMChoices}) = DynamicAddressSchema()
-Gen.has_internal_node(trie::CollapsedHMMChoices, addr) = (addr == :y)
-function Gen.get_internal_node(trie::CollapsedHMMChoices, addr)
-    addr == :y ? trie.y_choices : throw(KeyError(addr))
+Base.isempty(assignment::CollapsedHMMAssignment) = (length(assignment.trace.call.retval) > 0)
+Gen.get_address_schema(::Type{CollapsedHMMAssignment}) = DynamicAddressSchema()
+Gen.has_internal_node(assignment::CollapsedHMMAssignment, addr) = (addr == :y)
+function Gen.get_internal_node(assignment::CollapsedHMMAssignment, addr)
+    addr == :y ? assignment.y_assignment : throw(KeyError(addr))
 end
-Gen.get_internal_nodes(trie::CollapsedHMMChoices) = ((:y, trie.y_choices),)
+Gen.get_internal_nodes(assignment::CollapsedHMMAssignment) = ((:y, assignment.y_assignment),)
 
 struct CollapsedHMM <: Generator{PersistentVector{Float64},CollapsedHMMTrace} end
 collapsed_hmm = CollapsedHMM()
@@ -170,7 +170,7 @@ get_static_argument_types(::CollapsedHMM) = [Float64, Float64, Int, Int, Float64
 
 #function Gen.simulate(generator::CollapsedHMM, args, constraints)
     #(var_x, var_y, T, num_particles, ess) = args
-    #hmm_choices = get_choices(simulate(hmm, (var_x, var_y, T)))
+    #hmm_choices = get_assignment(simulate(hmm, (var_x, var_y, T)))
     #xs = Float64[hmm_choices[:x => t] for t=1:T]
     #ys = Float64[hmm_choices[:y => t] for t=1:T]
     #smc_scheme = HandcodedSMC(SMCParams(num_particles, ess), var_x, var_y, ys)
@@ -231,7 +231,7 @@ function Gen.update(generator::CollapsedHMM, new_args, args_change, trace, const
         new_trace = unbiased_logpdf_est(new_args, ys)
         weight = get_call_record(new_trace).score - get_call_record(trace).score
     end
-    (new_trace, weight, EmptyChoiceTrie(), nothing)
+    (new_trace, weight, EmptyAssignment(), nothing)
 end
 
 @compiled @gen function model_collapsed(T::Int)

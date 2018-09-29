@@ -15,8 +15,8 @@ function backprop_trace(gen::Plate{T,U}, trace::VectorTrace{T,U}, selection::Add
         end
     end
     
-    value_trie = DynamicChoiceTrie()
-    gradient_trie = DynamicChoiceTrie()
+    value_trie = DynamicAssignment()
+    gradient_trie = DynamicAssignment()
     
     for key=1:len
         subtrace = trace.subtraces[key]

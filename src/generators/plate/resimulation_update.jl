@@ -6,11 +6,11 @@ mutable struct PlateFixUpdateState{T,U,V,W}
     args::U
     nodes::V
     deltas::W
-    discard::DynamicChoiceTrie
+    discard::DynamicAssignment
 end
 
 function fix_update_existing_trace!(key::Int, state::PlateFixUpdateState, subtraces, retvals)
-    node = haskey(state.nodes, key) ? state.nodes[key] : EmptyChoiceTrie()
+    node = haskey(state.nodes, key) ? state.nodes[key] : EmptyAssignment()
     if haskey(state.deltas, key)
         kernel_delta = state.deltas[key]
     else
@@ -104,7 +104,7 @@ function _fix_update(gen::Plate, args, delta::Nothing, trace::VectorTrace, const
     end
 
     # collect initial state
-    discard = DynamicChoiceTrie()
+    discard = DynamicAssignment()
     state = PlateFixUpdateState(gen.kernel, trace.call.score, 0., trace.is_empty, args, nodes, deltas, discard)
     subtraces = trace.subtraces
     retvals = trace.call.retvals

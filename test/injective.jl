@@ -18,7 +18,7 @@ using LinearAlgebra: logabsdet
     y = -1.213
     z = 1.095
 
-    input = DynamicChoiceTrie()
+    input = DynamicAssignment()
     input[:x] = x
     input[:y] = y
     input[:z] = z
