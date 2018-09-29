@@ -214,10 +214,11 @@ end
 
 function importance_resampling(model::Generator{T,U}, model_args::Tuple,
                                observations::ChoiceTrie,
-                               num_samples::Int)  where {T,U,V,W}
+                               num_samples::Int; verbose=false)  where {T,U,V,W}
     (model_trace::U, log_weight) = generate(model, model_args, observations)
     log_total_weight = log_weight
     for i=2:num_samples
+        verbose && println("sample: $i of $num_samples")
         (cand_model_trace, log_weight) = generate(model, model_args, observations)
         log_total_weight = logsumexp(log_total_weight, log_weight)
         if bernoulli(exp(log_weight - log_total_weight))
@@ -231,13 +232,14 @@ end
 function importance_resampling(model::Generator{T,U}, model_args::Tuple,
                                observations::ChoiceTrie,
                                proposal::Generator{V,W}, proposal_args::Tuple,
-                               num_samples::Int)  where {T,U,V,W}
+                               num_samples::Int; verbose=false)  where {T,U,V,W}
     proposal_trace::W = simulate(proposal, proposal_args)
     proposal_score = get_call_record(proposal_trace).score
     constraints::ChoiceTrie = merge(observations, get_choices(proposal_trace))
     (model_trace::U, model_score) = generate(model, model_args, constraints)
     log_total_weight = model_score - proposal_score
     for i=2:num_samples
+        verbose && println("sample: $i of $num_samples")
         proposal_trace = simulate(proposal, proposal_args)
         proposal_score = get_call_record(proposal_trace).score
         constraints = merge(observations, get_choices(proposal_trace))
@@ -341,10 +343,11 @@ function particle_filter(model::Generator{T,U}, model_args_rest::Tuple,
         proposal_trace = simulate(init_proposal, proposal_args)
         proposal_score = get_call_record(proposal_trace).score
         constraints = merge(observations, get_choices(proposal_trace))
-        (traces[i], model_weight) = generate(model, (1, model_args_rest...), constraints)
+        (traces[i], model_weight) = generate(model, (1, model_args_rest...), constraints) # make this assess when debugging?
         log_unnormalized_weights[i] = model_weight - proposal_score
     end
 
+    local parents::Vector{Int}
     for step=2:num_steps
 
         # compute new weights
@@ -361,7 +364,7 @@ function particle_filter(model::Generator{T,U}, model_args_rest::Tuple,
             log_ml_estimate += log_total_weight - log(num_particles)
             log_unnormalized_weights = zeros(num_particles)
         else
-            parents = 1:num_particles
+            parents = collect(1:num_particles)
         end
 
         # extend by one time step
