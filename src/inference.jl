@@ -181,14 +181,14 @@ export mh, rjmcmc, hmc, mala
 function importance_sampling(model::Generator{T,U}, model_args::Tuple,
                              observations::Assignment,
                              num_samples::Int) where {T,U}
-    traces = Vector{U}(num_samples)
-    log_weights = Vector{Float64}(num_samples)
+    traces = Vector{U}(undef, num_samples)
+    log_weights = Vector{Float64}(undef, num_samples)
     for i=1:num_samples
         (traces[i], log_weights[i]) = generate(model, model_args, observations)
     end
     log_total_weight = logsumexp(log_weights)
     log_ml_estimate = log_total_weight - log(num_samples)
-    log_normalized_weights = log_weights - log_total_weight
+    log_normalized_weights = log_weights .- log_total_weight
     return (traces, log_normalized_weights, log_ml_estimate)
 end
 
@@ -196,8 +196,8 @@ function importance_sampling(model::Generator{T,U}, model_args::Tuple,
                              observations::Assignment,
                              proposal::Generator, proposal_args::Tuple,
                              num_samples::Int) where {T,U}
-    traces = Vector{U}(num_samples)
-    log_weights = Vector{Float64}(num_samples)
+    traces = Vector{U}(undef, num_samples)
+    log_weights = Vector{Float64}(undef, num_samples)
     for i=1:num_samples
         proposal_trace = simulate(proposal, proposal_args)
         proposal_score = get_call_record(proposal_trace).score
