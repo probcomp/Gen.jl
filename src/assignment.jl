@@ -471,6 +471,7 @@ end
 # mutation (not part of the assignment interface)
 
 function set_leaf_node!(assignment::DynamicAssignment, addr, value)
+    delete!(assignment.internal_nodes, addr)
     assignment.leaf_nodes[addr] = value
 end
 
@@ -487,10 +488,9 @@ function set_leaf_node!(assignment::DynamicAssignment, addr::Pair, value)
 end
 
 function set_internal_node!(assignment::DynamicAssignment, addr, new_node)
+    delete!(assignment.leaf_nodes, addr)
+    delete!(assignment.internal_nodes, addr)
     if !isempty(new_node)
-        if haskey(assignment.internal_nodes, addr)
-            error("Node already exists at $addr")
-        end
         assignment.internal_nodes[addr] = new_node
     end
 end
