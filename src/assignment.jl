@@ -477,6 +477,11 @@ end
 
 function set_leaf_node!(assignment::DynamicAssignment, addr::Pair, value)
     (first, rest) = addr
+    if haskey(assignment.leaf_nodes, first)
+        # we are not writing to the address directly, so we error instead of
+        # delete the existing node.
+        error("Tried to create assignment at $first but there was already a value there.")
+    end
     if haskey(assignment.internal_nodes, first)
         node = assignment.internal_nodes[first]
     else
@@ -497,6 +502,11 @@ end
 
 function set_internal_node!(assignment::DynamicAssignment, addr::Pair, new_node)
     (first, rest) = addr
+    if haskey(assignment.leaf_nodes, first)
+        # we are not writing to the address directly, so we error instead of
+        # delete the existing node.
+        error("Tried to create assignment at $first but there was already a value there.")
+    end
     if haskey(assignment.internal_nodes, first)
         node = assignment.internal_nodes[first]
     else
