@@ -115,3 +115,60 @@ end
     @test length(get_internal_nodes(trie)) == 4
     @test length(get_leaf_nodes(trie)) == 3
 end
+
+@testset "dynamic assignment overwrite" begin
+
+    # overwrite leaf node with leaf node
+    assignment = DynamicAssignment()
+    assignment[:x] = 1
+    assignment[:x] = 2
+    @test assignment[:x] == 2
+    @test !has_internal_node(assignment, :x)
+
+    # overwrite leaf node with an (empty) internal node
+    assignment = DynamicAssignment()
+    assignment[:x] = 1
+    node = DynamicAssignment(); node[:y] = 2
+    set_internal_node!(assignment, :x, node)
+    @test !has_leaf_node(assignment, :x)
+    @test has_internal_node(assignment, :x)
+
+    # overwrite internal node node with a leaf node
+    assignment = DynamicAssignment()
+    assignment[:x => :y] = 1
+    assignment[:x] = 2
+    @test !has_internal_node(assignment, :x)
+    @test assignment[:x] == 2
+
+    # overwrite internal node node with internal node
+    assignment = DynamicAssignment()
+    assignment[:x => :y] = 1
+    node = DynamicAssignment(); node[:z] = 2
+    set_internal_node!(assignment, :x,  node)
+    @test has_internal_node(assignment, :x)
+    @test !has_leaf_node(assignment, :x => :y)
+    @test assignment[:x => :z] == 2
+
+    # illegal set address under leaf node
+    assignment = DynamicAssignment()
+    assignment[:x] = 1
+    threw = false
+    try
+        assignment[:x => :y] = 2
+    catch
+        threw = true
+    end
+    @test threw
+
+    # illegal set address under leaf node
+    assignment = DynamicAssignment()
+    assignment[:x] = 1
+    node = DynamicAssignment(); node[:z] = 2
+    threw = false
+    try
+        set_internal_node!(assignment, :x => :y, node)
+    catch
+        threw = true
+    end
+    @test threw
+end
