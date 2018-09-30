@@ -418,7 +418,7 @@ function get_ir end
 function get_grad_fn end
 
 function generate_generator_type(ir::BasicBlockIR, trace_type::Symbol, name::Symbol, node_to_gradient)
-    generator_type = Symbol("BasicBlockGenerator_$name")
+    generator_type = gensym("BasicBlockGenerator_$name")
     retval_type = ir.output_node === nothing ? :Nothing : ir.output_node.typ
     defn = esc(quote
         struct $generator_type <: Gen.BasicGenFunction{$retval_type, $trace_type}
