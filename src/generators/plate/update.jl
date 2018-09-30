@@ -102,7 +102,7 @@ function update(gen::Plate{T,U}, args, change::NoChange, trace::VectorTrace{T,U}
 end
 
 # Known change to arguments
-function update(gen::Plate{T,U}, args, change::PlateChange{T}, trace::VectorTrace{T,U}, constraints) where {T,U}
+function update(gen::Plate{T,U}, args, change::PlateChange, trace::VectorTrace{T,U}, constraints) where {T,U}
 
     (new_length, prev_length) = get_prev_and_new_lengths(args, trace)
 

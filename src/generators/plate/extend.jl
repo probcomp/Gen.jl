@@ -56,7 +56,7 @@ end
 """
 Extend with argument change information
 """
-function extend(gen::Plate, args, change::PlateChange{T}, trace::VectorTrace, constraints) where {T}
+function extend(gen::Plate, args, change::PlateChange, trace::VectorTrace, constraints) where {T}
 
     (new_length, prev_length) = get_prev_and_new_lengths(args, trace)
     if prev_length < new_length
