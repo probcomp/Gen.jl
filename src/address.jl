@@ -165,7 +165,7 @@ get_leaf_nodes(::StaticAddressSet{R,T,U}) where {R,T,U} = R
 get_internal_nodes(set::StaticAddressSet) = pairs(set.internal_nodes)
 
 function has_internal_node(set::StaticAddressSet, key::Symbol)
-    set.internal_nodes[key]
+    haskey(set.internal_nodes, key)
 end
 
 function has_internal_node(set::StaticAddressSet, addr::Pair)
