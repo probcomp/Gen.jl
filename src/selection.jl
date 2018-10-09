@@ -84,6 +84,17 @@ function select(fn::SelectionFunction, args::Tuple, assignment::T) where {T}
     (state.selection, value)
 end
 
+
+# alternative syntax for constructing selection from a flat list of addresses
+
+function select(addrs...)
+    set = DynamicAddressSet()
+    for addr in addrs
+        push_leaf_node!(set, addr)
+    end
+    return set
+end
+
 export @sel
 export @select
 export select
