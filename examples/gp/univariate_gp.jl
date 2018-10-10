@@ -10,7 +10,8 @@ using Distributions: MvNormal
 struct UnivariateGPTrace
     mean_function::Function
     cov_function::Function
-    cov_cholesky::Matrix{Float64} # chol(K + noise * I)
+    cov_cholesky::Matrix{Float64} # L = chol(K + noise * I)
+    alpha::Vector{Float64} # L' \ (L \ y)
     noise::Float64
     inputs::Vector{Float64}
     outputs::Vector{Float64}
@@ -85,7 +86,7 @@ function Gen.simulate(::UnivariateGP, args::Tuple)
     # compute the score, which is also the weight
     score = compute_log_marg_lik(outputs, alpha, L)
     
-    trace = UnivariateGPTrace(mean_function, cov_function, L,
+    trace = UnivariateGPTrace(mean_function, cov_function, L, alpha,
                               noise, inputs, outputs, score)
     return trace
 end
@@ -109,7 +110,7 @@ function Gen.generate(::UnivariateGP, args::Tuple, constraints::Assignment)
     score = compute_log_marg_lik(outputs, alpha, L)
     weight = score
     
-    trace = UnivariateGPTrace(mean_function, cov_function, L,
+    trace = UnivariateGPTrace(mean_function, cov_function, L, alpha,
                               noise, inputs, outputs, score)
     return (trace, weight)
 end
@@ -128,27 +129,43 @@ function Gen.fix_update(::UnivariateGP, args, arg_change::GPArgChangeInfo,
 
     # get previous inputs and outputs
     prev_args = get_call_record(trace).args
-    (_, _, prev_inputs, _) = prev_args
+    (_, _, _, prev_inputs) = prev_args
     prev_num_inputs = length(prev_inputs)
-    num_inputs = length(inputs)
+    @assert inputs[1:prev_num_inputs] == prev_inputs
     prev_outputs = trace.outputs
 
-    # new test inputs
-    added_inputs = inputs[prev_num_inputs+1:num_inputs]
-
-    # TODO compute distribution on new outputs, update L, etc.
+    # sample new outputs
+    num_inputs = length(inputs)
+    means = map(mean_function, inputs)
+    cov_matrix = compute_cov_matrix(cov_function, inputs, noise)
+    cov_matrix_11 = cov_matrix[1:prev_num_inputs, 1:prev_num_inputs]
+    cov_matrix_22 = cov_matrix[prev_num_inputs+1:num_inputs, prev_num_inputs+1:num_inputs]
+    cov_matrix_12 = cov_matrix[1:prev_num_inputs, prev_num_inputs+1:num_inputs]
+    cov_matrix_21 = cov_matrix[prev_num_inputs+1:num_inputs, 1:prev_num_inputs]
+    @assert cov_matrix_12 == cov_matrix_21'
+    mu1 = means[1:prev_num_inputs]
+    mu2 = means[prev_num_inputs+1:num_inputs]
+    conditional_mu = mu2 + cov_matrix_21 * (cov_matrix_11 \ (prev_outputs - mu1))
+    conditional_cov_matrix = cov_matrix_22 - cov_matrix_21 * (cov_matrix_11 \ cov_matrix_12)
+    conditional_cov_matrix = 0.5 * conditional_cov_matrix + 0.5 * conditional_cov_matrix'
     
+    new_outputs = rand(MvNormal(conditional_mu, conditional_cov_matrix))
+    outputs = vcat(prev_outputs, new_outputs)
+    
+    # compute information for the trace
+    L = chol(cov_matrix)
+    alpha = L' \ (L \ outputs)
+    score = compute_log_marg_lik(outputs, alpha, L)
+
     weight = 0.
     discard = EmptyAssignment()
+    new_trace = UnivariateGPTrace(mean_function, cov_function, L, alpha,
+                                  noise, inputs, outputs, score)
     retchange = nothing
-    new_trace = UnivariateGPTrace(mean_function, cov_function, L,
-                                  inputs, outputs)
     return (new_trace, weight, discard, retchange)
 end
 
-# TODO for MCMC over the GP..
-
-function Gen.update(::UnivariateGP, args, change::GPArgChangeInfo,
+function Gen.update(::UnivariateGP, args, arg_change::GPArgChangeInfo,
                 trace::UnivariateGPTrace, constraints::Assignment)
     (mean_function::Function, cov_function::Function, noise, inputs) = args
     num_inputs = length(inputs)
@@ -161,6 +178,8 @@ function Gen.update(::UnivariateGP, args, change::GPArgChangeInfo,
         error("Not implemented")
     end
 
+    outputs = trace.outputs
+
     # gp may have changed. compute new mean vector and covariance matrix.
     means = map(mean_function, inputs)
     cov_matrix = compute_cov_matrix(cov_function, inputs, noise)
@@ -172,8 +191,9 @@ function Gen.update(::UnivariateGP, args, change::GPArgChangeInfo,
 
     discard = EmptyAssignment()
     weight = score - get_call_record(trace).score
-    new_trace = UnivariateGPTrace(mean_function, cov_function, L,
-                                  inputs, outputs, score)
+    new_trace = UnivariateGPTrace(mean_function, cov_function, L, alpha,
+                                  noise, inputs, outputs, score)
+    retchange = nothing
     return (new_trace, weight, discard, retchange)
 end
 
