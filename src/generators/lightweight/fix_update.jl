@@ -51,11 +51,14 @@ function addr(state::GFFixUpdateState, dist::Distribution{T}, args, addr) where 
         if constrained
             retval = get_leaf_node(state.constraints, addr)
             set_leaf_node!(state.discard, addr, prev_retval)
+            retchange = (true, prev_call.retval)
         else
             retval = prev_retval
+            retchange = NoChange()
         end
     else
         retval = random(dist, args...)
+        retchange = nothing
     end
     score = logpdf(dist, retval, args...)
     call = CallRecord(score, retval, args)
@@ -64,6 +67,7 @@ function addr(state::GFFixUpdateState, dist::Distribution{T}, args, addr) where 
     if has_previous
         state.weight += score - prev_call.score
     end
+    set_leaf_node!(state.callee_output_changes, addr, retchange)
     retval 
 end
 
