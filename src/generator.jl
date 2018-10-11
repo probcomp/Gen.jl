@@ -172,5 +172,22 @@ export backprop_trace
 # incremental computation #
 ###########################
 
+# @change(addr) inside gen functions
+
+# Nothing means that either we are in generate/simulate, or that the address
+# not exist in the previous trace
+
+# NoChange indicates the value existed previously, and the value definitely did
+# not change
+
+# If a distribution returns Some{T} where T is the output type, the value might
+# have changed, and the value is the previous value
+
+# If a Generator returns Some{T} where T is any type, the value may or may not
+# have changed, depending on the semantics of the value inside the Some.
+
 struct NoChange end
-export NoChange
+
+const ChangeInfo = Union{Nothing,NoChange,Some{T}} where {T}
+
+export NoChange, ChangeInfo

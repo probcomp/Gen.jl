@@ -130,7 +130,7 @@ function process!(ir::BasicBlockIR, state::Union{BBUpdateState,BBFixUpdateState,
         constrained = dist_node.output in state.marked
         # return whether the value changed and the previous value
         push!(state.stmts, quote
-            $bb_new_trace.$trace_field = ($(QuoteNode(constrained)), trace.$addr)
+            $bb_new_trace.$trace_field = $(constrained ? :(Some(trace.$addr)) : NoChange())
         end)
     else
         if !haskey(ir.addr_gen_nodes, addr)

@@ -7,15 +7,15 @@ mutable struct GFUpdateState
     params::Dict{Symbol,Any}
     discard::DynamicAssignment
     args_change::Any
-    retchange::Union{Some{Any},Nothing}
-    callee_output_changes::HomogenousTrie{Any,Any}
+    retchange::ChangeInfo
+    callee_output_changes::HomogenousTrie{Any,ChangeInfo}
 end
 
 function GFUpdateState(args_change, prev_trace, constraints, params)
     visitor = AddressVisitor()
     discard = DynamicAssignment()
     GFUpdateState(prev_trace, GFTrace(), constraints, 0., visitor,
-                  params, discard, args_change, nothing, HomogenousTrie{Any,Any}())
+                  params, discard, args_change, nothing, HomogenousTrie{Any,ChangeInfo}())
 end
 
 get_args_change(state::GFUpdateState) = state.args_change
@@ -52,7 +52,7 @@ function addr(state::GFUpdateState, dist::Distribution{T}, args, addr) where {T}
     end
     if constrained && has_previous
         # there was a change and this was the previous value
-        retchange = (true, prev_call.retval)
+        retchange = Some(prev_call.retval)
     elseif has_previous
         retchange = NoChange()
     else

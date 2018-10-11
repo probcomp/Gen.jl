@@ -7,14 +7,14 @@ mutable struct GFRegenerateState
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
     args_change::Any
-    retchange::Union{Some{Any},Nothing}
-    callee_output_changes::HomogenousTrie{Any,Any}
+    retchange::ChangeInfo
+    callee_output_changes::HomogenousTrie{Any,ChangeInfo}
 end
 
 function GFRegenerateState(args_change, prev_trace, selection, params)
     visitor = AddressVisitor()
     GFRegenerateState(prev_trace, GFTrace(), selection, 0., 0., visitor,
-                    params, args_change, nothing, HomogenousTrie{Any,Any}())
+                    params, args_change, nothing, HomogenousTrie{Any,ChangeInfo}())
 end
 
 get_args_change(state::GFRegenerateState) = state.args_change
@@ -52,16 +52,14 @@ function addr(state::GFRegenerateState, dist::Distribution{T}, args, addr, args_
         # there was a previous value, and it was in the selection
         # simulate a new value
         # it does not contribute to the weight
-        # retchange indicates that there was a change and gives the previous value
         retval = random(dist, args...)
         score = logpdf(dist, retval, args...)
         prev_call = get_primitive_call(state.prev_trace, addr)
-        retchange = (true, prev_call.retval)
+        retchange = Some(prev_call.retval)
     else
         # there is no previous value
         # simulate a new value
         # it does not contribute to the weight
-        # retchange is nothing, because the address is new
         retval = random(dist, args...)
         score = logpdf(dist, retval, args...)
         retchange = nothing

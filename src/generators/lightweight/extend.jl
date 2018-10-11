@@ -7,14 +7,14 @@ mutable struct GFExtendState
     weight::Float64
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
-    retchange::Union{Some{Any},Nothing}
-    callee_output_changes::HomogenousTrie{Any,Any}
+    retchange::ChangeInfo
+    callee_output_changes::HomogenousTrie{Any,ChangeInfo}
 end
 
 function GFExtendState(args_change, prev_trace, constraints, params)
     visitor = AddressVisitor()
     GFExtendState(prev_trace, GFTrace(), args_change, constraints, 0., 0.,
-        visitor, params, nothing, HomogenousTrie{Any,Any}())
+        visitor, params, nothing, HomogenousTrie{Any,ChangeInfo}())
 end
 
 get_args_change(state::GFExtendState) = state.args_change
@@ -68,7 +68,7 @@ function addr(state::GFExtendState, dist::Distribution{T}, args, addr) where {T}
     state.score += score
     if constrained && has_previous
         # there was a change and this was the previous value
-        retchange = (true, prev_call.retval)
+        retchange = Some(prev_call.retval)
     elseif has_previous
         retchange = NoChange()
     else

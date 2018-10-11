@@ -212,6 +212,28 @@ print(assignment)
 
 ## Change Propagation
 
+Getting good asymptotic scaling for iterative local search algorithms like MCMC or MAP optimization relies in the ability to perform incremental computation when evaluating a proposed change to the random choices in a trace.
+Specifically, when incrementally adjusting a trace inside the `update`, `fix_update`, or `extend` methods, a probabilistic module can take advantage of knowledge of the change made to the arguments of the module (if there was any change) as well as knowledge of which addresses are constrained (i.e. changed) to avoid unecessary computation, and to compute detailed information about the change to its own return value, if any.
+
+First, generative function can query the *change status* for an address, using the syntax below, where `:foo` is an address:
+```julia
+    change = @change(:foo)
+```
+The value of a `@change` expression has one of the following types:
+
+- `Nothing`: No information is available about the possible change. This value is also returned when the generative function is evaluated in a context in which there is no previous trace (e.g. the `generate` API method).
+
+- `NoChange`: This indicates that there was no change.
+
+- `Some{T}`: For distribution call addresses, `T` is the output type of the distribution, and `something(change)` will retrieve the value of the address in the previous trace. For module call addresses, `T` is an arbitrary type determined by the callee.
+
+In addition to querying how an address may have changed, a generative function can also query how its own arguments may have changed, using the `@argschange()` macro.
+It is up to the generative function to determine the set of acceptable `@argschange()` values, provided that `NoChange` and `Nothing` are accepted.
+
+Finally, a generative function may return information about the change made to its return value using an `@retchange(change)` expression, where `change` is a value of type `Union{Nothing,NoChange,Some{T}} where {T}`.
+A value of `NoChange` indicates that the return value did not change, a value of `Nothing` indicates no information is available (this is the default if `@retchange` is not called in the function).
+
+
 ## Higher-Order Probabilistic Modules
 
 ## Using metaprogramming to implement new inference algorithms

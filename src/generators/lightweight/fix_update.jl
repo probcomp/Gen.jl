@@ -8,8 +8,8 @@ mutable struct GFFixUpdateState
     params::Dict{Symbol,Any}
     discard::DynamicAssignment
     args_change::Any
-    retchange::Union{Some{Any},Nothing}
-    callee_output_changes::HomogenousTrie{Any,Any}
+    retchange::ChangeInfo
+    callee_output_changes::HomogenousTrie{Any,ChangeInfo}
 end
 
 function GFFixUpdateState(args_change, prev_trace, constraints, params)
@@ -17,7 +17,7 @@ function GFFixUpdateState(args_change, prev_trace, constraints, params)
     discard = DynamicAssignment()
     GFFixUpdateState(prev_trace, GFTrace(), constraints, 0., 0., visitor,
                      params, discard, args_change, nothing,
-                     HomogenousTrie{Any,Any}())
+                     HomogenousTrie{Any,ChangeInfo}())
 end
 
 get_args_change(state::GFFixUpdateState) = state.args_change
@@ -51,7 +51,7 @@ function addr(state::GFFixUpdateState, dist::Distribution{T}, args, addr) where 
         if constrained
             retval = get_leaf_node(state.constraints, addr)
             set_leaf_node!(state.discard, addr, prev_retval)
-            retchange = (true, prev_call.retval)
+            retchange = Some(prev_call.retval)
         else
             retval = prev_retval
             retchange = NoChange()

@@ -24,7 +24,7 @@ end
 data = plate(datum)
 
 function compute_data_change(inlier_std_change, outlier_std_change, slope_change, intercept_change)
-    if all([c !== nothing && (c == NoChange() || !c[1]) for c in [
+    if all([c == NoChange() for c in [
             inlier_std_change, outlier_std_change, slope_change, intercept_change]])
         NoChange()
     else
@@ -39,10 +39,10 @@ end
     slope::Float64 = @addr(normal(0, 2), :slope)
     intercept::Float64 = @addr(normal(0, 2), :intercept)
     params::Params = Params(0.5, inlier_std, outlier_std, slope, intercept)
-    inlier_std_change::Union{Tuple{Bool,Float64},Nothing} = @change(:inlier_std)
-    outlier_std_change::Union{Tuple{Bool,Float64},Nothing} = @change(:outlier_std)
-    slope_change::Union{Tuple{Bool,Float64},Nothing} = @change(:slope)
-    intercept_change::Union{Tuple{Bool,Float64},Nothing} = @change(:intercept)
+    inlier_std_change::Union{Some{Float64},NoChange,Nothing} = @change(:inlier_std)
+    outlier_std_change::Union{Some{Float64},NoChange,Nothing} = @change(:outlier_std)
+    slope_change::Union{Some{Float64},NoChange,Nothing} = @change(:slope)
+    intercept_change::Union{Some{Float64},NoChange,Nothing} = @change(:intercept)
     change::Union{NoChange,Nothing} = compute_data_change(
         inlier_std_change, outlier_std_change, slope_change, intercept_change)
     ys::PersistentVector{Float64} = @addr(data(xs, fill(params, n)), :data, change)
@@ -229,6 +229,7 @@ end
 
 using Test
 
+println("uncollapsed")
 (inlier_std, outlier_std, slope, intercept) = do_inference(100)
 max_std = max(inlier_std, outlier_std)
 min_std = min(inlier_std, outlier_std)
@@ -237,6 +238,7 @@ min_std = min(inlier_std, outlier_std)
 @test isapprox(slope, -1, atol=1e-1)
 @test isapprox(intercept, 2, atol=2e-1)
 
+println("collapsed")
 (inlier_std, outlier_std, slope, intercept) = do_inference_collapsed(100)
 max_std = max(inlier_std, outlier_std)
 min_std = min(inlier_std, outlier_std)

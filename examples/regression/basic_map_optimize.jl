@@ -63,7 +63,7 @@ end
 data = plate(datum)
 
 function compute_data_change(inlier_std_change, outlier_std_change, slope_change, intercept_change)
-    if all([c !== nothing && (c == NoChange() || !c[1]) for c in [
+    if all([c == NoChange() for c in [
             inlier_std_change, outlier_std_change, slope_change, intercept_change]])
         NoChange()
     else
@@ -79,10 +79,10 @@ end
     outlier_std::Float64 = exp(outlier_log_std)
     slope::Float64 = @addr(normal(0, 2), :slope)
     intercept::Float64 = @addr(normal(0, 2), :intercept)
-    inlier_std_change::Union{Tuple{Bool,Float64},Nothing} = @change(:inlier_std)
-    outlier_std_change::Union{Tuple{Bool,Float64},Nothing} = @change(:outlier_std)
-    slope_change::Union{Tuple{Bool,Float64},Nothing} = @change(:slope)
-    intercept_change::Union{Tuple{Bool,Float64},Nothing} = @change(:intercept)
+    inlier_std_change::Union{NoChange,Some{Float64},Nothing} = @change(:inlier_std)
+    outlier_std_change::Union{NoChange,Some{Float64},Nothing} = @change(:outlier_std)
+    slope_change::Union{NoChange,Some{Float64},Nothing} = @change(:slope)
+    intercept_change::Union{NoChange,Some{Float64},Nothing} = @change(:intercept)
     change::Union{NoChange,Nothing} = compute_data_change(
         inlier_std_change, outlier_std_change, slope_change, intercept_change)
     @addr(data(xs, fill(inlier_std, n), fill(outlier_std, n),
