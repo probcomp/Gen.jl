@@ -1,22 +1,22 @@
 # Gen Documentation
 
-## Choice Trie
+## Assignment
 
-### Static Choice Trie
+### Static Assignment
 
-A `StaticChoiceTrie` contains only symbols as its keys for leaf nodes and for internal nodes.
-A `StaticChoiceTrie` has type parameters`R` and `T` that are tuples of `Symbol`s that are the keys of the leaf nodes and internal nodes respectively, so that code can be generated that is specialized to the particular set of keys in the trie:
+A `StaticAssignment` contains only symbols as its keys for leaf nodes and for internal nodes.
+A `StaticAssignment` has type parameters`R` and `T` that are tuples of `Symbol`s that are the keys of the leaf nodes and internal nodes respectively, so that code can be generated that is specialized to the particular set of keys in the trie:
 
 ```julia
-struct StaticChoiceTrie{R,S,T,U} <: ChoiceTrie
+struct StaticAssignment{R,S,T,U} <: Assignment
     leaf_nodes::NamedTuple{R,S}
     internal_nodes::NamedTuple{T,U}
 end 
 ```
 
-A `StaticChoiceTrie` with leaf symbols `:a` and `:b` and internal key `:c` can be constructed using syntax like:
+A `StaticAssignment` with leaf symbols `:a` and `:b` and internal key `:c` can be constructed using syntax like:
 ```julia
-trie = StaticChoiceTrie((a=1, b=2), (c=inner_trie,))
+trie = StaticAssignment((a=1, b=2), (c=inner_trie,))
 ```
 
 
