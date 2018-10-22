@@ -12,7 +12,7 @@ end
 
 get_args_change(state::GFAssessState) = nothing
 get_addr_change(state::GFAssessState, addr) = nothing
-set_ret_change!(state::GFAssessState, value) = begin end
+set_ret_change!(state::GFAssessState, value) = nothing
 
 function addr(state::GFAssessState, dist::Distribution{T}, args, addr, delta) where {T}
     visit!(state.visitor, addr)
@@ -49,8 +49,6 @@ function assess(gen::GenFunction, args, constraints)
     if !isempty(unconsumed)
         error("Update did not consume all constraints: $unconsumed")
     end
-
-    # TODO add return type annotation for gen 
     call = Gen.CallRecord{Any}(state.score, retval, args)
     state.trace.call = call
     state.trace

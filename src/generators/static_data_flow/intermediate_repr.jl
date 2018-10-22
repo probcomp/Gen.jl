@@ -3,30 +3,32 @@ struct ParamInfo
     typ::Type
 end
 
+###########################################
+## data-flow intermediate representation ##
+###########################################
+#
+# directed acyclic graph with ValueNodes and ExprNodes
+#
+# Types of ValueNodes
+# - ExprValueNode (the output of an ExprNode)
+# - ParamValueNode (static parameter value)
+# - ArgumentValueNode
+#
+# Types of ExprNodes
+# - JuliaNode
+# - AddrDistNode
+# - AddrGeneratorNode 
+# - ArgsChangeNode (argdiff)
+# - AddrChangeNode (retdiff from distribution or generator)
+
 abstract type Node end
 abstract type ExprNode <: Node end
 abstract type ValueNode <: Node end
 
-# utility
 
-function replace_input_symbols(symbols::Set{Symbol}, value, trace::Symbol)
-    value
-end
-
-function replace_input_symbols(symbols::Set{Symbol}, expr::Expr, trace::Symbol)
-    args = [replace_input_symbols(symbols, arg, trace) for arg in expr.args]
-    Expr(expr.head, args...)
-end
-
-function replace_input_symbols(symbols::Set{Symbol}, symbol::Symbol, trace::Symbol)
-    if symbol in symbols
-        return Expr(:(.), trace, QuoteNode(value_field(symbol)))
-    else
-        return Expr(:(.), :Main, QuoteNode(symbol))
-    end
-end
-
-# statement nodes
+##################
+# ArgsChangeNode #
+##################
 
 struct ArgsChangeNode <: ExprNode
     output::ValueNode
@@ -38,10 +40,14 @@ end
 
 parents(::ArgsChangeNode) = []
 
+
+################
+# AddrDistNode #
+################
+
 struct AddrDistNode{T} <: ExprNode
     input_nodes::Vector{ValueNode}
-    #output::Union{ValueNode,Nothing} # TODO always have an output nod
-    output::ValueNode # TODO always have an output nod
+    output::ValueNode
     dist::Distribution{T}
     address::Symbol
     line::LineNumberNode
@@ -53,10 +59,14 @@ end
 
 parents(node::AddrDistNode) = node.input_nodes
 
+
+#####################
+# AddrGeneratorNode #
+#####################
+
 struct AddrGeneratorNode{T,U} <: ExprNode
     input_nodes::Vector{ValueNode}
-    #output::Union{ValueNode,Nothing} # TODO always have an output node
-    output::ValueNode # TODO always have an output node
+    output::ValueNode
     gen::Generator{T,U}
     address::Symbol
     change_node::ValueNode
@@ -68,6 +78,11 @@ function Base.print(io::IO, node::AddrGeneratorNode)
 end
 
 parents(node::AddrGeneratorNode) = vcat([node.change_node], node.input_nodes)
+
+
+##################
+# AddrChangeNode #
+##################
 
 struct AddrChangeNode <: ExprNode
     address::Symbol
@@ -82,6 +97,11 @@ end
 # so that the @change will be placed after its @addr node
 parents(node::AddrChangeNode) = [node.addr_node]
 
+
+#############
+# JuliaNode #
+#############
+
 struct JuliaNode <: ExprNode
     input_nodes::Vector{ValueNode}
     output::ValueNode
@@ -95,12 +115,11 @@ end
 
 parents(node::JuliaNode) = node.input_nodes
 
-function expr_read_from_trace(node::JuliaNode, trace::Symbol)
-    input_symbols = Set{Symbol}([node.name for node in node.input_nodes])
-    replace_input_symbols(input_symbols, node.expr_or_value, trace)
-end
 
-# value nodes
+#####################
+# ArgumentValueNode #
+#####################
+
 struct ArgumentValueNode <: ValueNode
     name::Symbol
     typ::Type
@@ -112,6 +131,11 @@ end
 
 parents(node::ArgumentValueNode) = []
 get_type(node::ArgumentValueNode) = node.typ
+
+
+#################
+# ExprValueNode #
+#################
 
 mutable struct ExprValueNode <: ValueNode
     name::Symbol
@@ -136,6 +160,11 @@ end
 parents(node::ExprValueNode) = [node.source]
 get_type(node::ExprValueNode) = node.typ
 
+
+##################
+# ParamValueNode #
+#################3
+
 struct ParamValueNode <: ValueNode
     param::ParamInfo
     name::Symbol
@@ -150,7 +179,12 @@ end
 parents(node::ParamValueNode) = []
 get_type(node::ParamValueNode) = node.param.typ
 
-mutable struct BasicBlockIR
+
+################
+# DataFlowIR #
+################
+
+mutable struct DataFlowIR
     output_ad::Bool
     args_ad::Tuple
     arg_nodes::Vector{ArgumentValueNode}
@@ -174,7 +208,7 @@ mutable struct BasicBlockIR
 
     expr_nodes_sorted::Vector{ExprNode}
 
-    function BasicBlockIR(output_ad::Bool, args_ad::Tuple)
+    function DataFlowIR(output_ad::Bool, args_ad::Tuple)
         arg_nodes = Vector{ArgumentValueNode}()
         params = Vector{ParamInfo}()
         value_nodes = Dict{Symbol,ValueNode}()
@@ -228,7 +262,7 @@ function toposort_expr_nodes(nodes)
     convert(Vector{ExprNode}, sort(expr_nodes, by=(node) -> priorities[node]))
 end
 
-function finish!(ir::BasicBlockIR)
+function finish!(ir::DataFlowIR)
     ir.finished = true
     ir.expr_nodes_sorted = toposort_expr_nodes(ir.all_nodes)
     if ir.output_node === nothing && ir.output_ad
@@ -236,9 +270,13 @@ function finish!(ir::BasicBlockIR)
     end
 end
 
+function get_output_type(ir::DataFlowIR)
+    ir.output_node === nothing ? Nothing : ir.output_node.typ
+end
+
 # NOTE: currently we don't properly support list comprehensions and closures
 # and let (anything that defines a new environment)
-function add_argument!(ir::BasicBlockIR, name::Symbol, typ)
+function add_argument!(ir::DataFlowIR, name::Symbol, typ)
     @assert !ir.finished
     node = ArgumentValueNode(name, typ)
     push!(ir.arg_nodes, node)
@@ -246,7 +284,7 @@ function add_argument!(ir::BasicBlockIR, name::Symbol, typ)
     ir.value_nodes[name] = node
 end
 
-function add_param!(ir::BasicBlockIR, name::Symbol, typ)
+function add_param!(ir::DataFlowIR, name::Symbol, typ)
     @assert !ir.finished
     if !(typ <: AbstractFloat) || (typ <: Array{T} where {T <: AbstractFloat})
         error("@param type $typ is not <: AbstractFloat or <: Array{T} where {T <: AbstractFloat}")
@@ -261,7 +299,7 @@ function add_param!(ir::BasicBlockIR, name::Symbol, typ)
     push!(ir.all_nodes, node)
 end
 
-function resolve_symbols_set(ir::BasicBlockIR, symbol::Symbol)
+function resolve_symbols_set(ir::DataFlowIR, symbol::Symbol)
     symbols = Set{Symbol}()
     if haskey(ir.value_nodes, symbol)
         push!(symbols, symbol)
@@ -269,9 +307,9 @@ function resolve_symbols_set(ir::BasicBlockIR, symbol::Symbol)
     symbols
 end
 
-resolve_symbols_set(ir::BasicBlockIR, expr) = Set{Symbol}()
+resolve_symbols_set(ir::DataFlowIR, expr) = Set{Symbol}()
 
-function resolve_symbols_set(ir::BasicBlockIR, expr::Expr)
+function resolve_symbols_set(ir::DataFlowIR, expr::Expr)
     symbols = Set{Symbol}()
     if expr.head == :(.)
         union!(symbols, resolve_symbols_set(ir, expr.args[1]))
@@ -283,7 +321,7 @@ function resolve_symbols_set(ir::BasicBlockIR, expr::Expr)
     symbols
 end
 
-function _get_input_node!(ir::BasicBlockIR, expr, typ)
+function _get_input_node!(ir::DataFlowIR, expr, typ)
     name = gensym()
     value_node = ExprValueNode(name, typ)
     ir.value_nodes[name] = value_node
@@ -299,10 +337,9 @@ function _get_input_node!(ir::BasicBlockIR, expr, typ)
     value_node
 end
 
-function _get_input_node!(ir::BasicBlockIR, name::Symbol, typ)
+function _get_input_node!(ir::DataFlowIR, name::Symbol, typ)
     if haskey(ir.value_nodes, name)
         node = ir.value_nodes[name]
-        #@assert get_type(node) == typ # TODO
         node
     else
         # this is a symbol defined in the top-level environment
@@ -320,7 +357,7 @@ function incremental_dependency_error(addr)
     error("@addr argument cannot depend on @change or @argschange statements (address $addr)")
 end
 
-function add_addr!(ir::BasicBlockIR, addr::Symbol, line::LineNumberNode,
+function add_addr!(ir::DataFlowIR, addr::Symbol, line::LineNumberNode,
                    dist::Distribution{T}, args::Vector,
                    typ::Type, name::Symbol) where {T}
     @assert !ir.finished
@@ -340,12 +377,12 @@ function add_addr!(ir::BasicBlockIR, addr::Symbol, line::LineNumberNode,
     nothing
 end
 
-function add_addr!(ir::BasicBlockIR, addr::Symbol, line::LineNumberNode,
+function add_addr!(ir::DataFlowIR, addr::Symbol, line::LineNumberNode,
                    dist::Distribution{T}, args::Vector) where {T}
     add_addr!(ir, addr, line, dist, args, get_return_type(dist), gensym())
 end
 
-function add_addr!(ir::BasicBlockIR, addr::Symbol, line::LineNumberNode,
+function add_addr!(ir::DataFlowIR, addr::Symbol, line::LineNumberNode,
                    gen::Generator{T,U}, args::Vector,
                    typ::Type, name::Symbol, change_expr) where {T,U}
     @assert !ir.finished
@@ -357,7 +394,6 @@ function add_addr!(ir::BasicBlockIR, addr::Symbol, line::LineNumberNode,
         incremental_dependency_error(addr)
     end
     value_node = ExprValueNode(name, typ)
-    # TODO make it not Some{}
     change_node = _get_input_node!(ir, change_expr, Union{Some{get_change_type(gen)}, Nothing})
     push!(ir.generator_input_change_nodes, change_node)
     expr_node = AddrGeneratorNode(input_nodes, value_node, gen, addr, change_node, line)
@@ -369,13 +405,13 @@ function add_addr!(ir::BasicBlockIR, addr::Symbol, line::LineNumberNode,
     nothing
 end
 
-function add_addr!(ir::BasicBlockIR, addr::Symbol, line::LineNumberNode,
+function add_addr!(ir::DataFlowIR, addr::Symbol, line::LineNumberNode,
                    gen::Generator{T,U}, args::Vector, change_expr) where {T,U}
     typ = get_return_type(gen)
     add_addr!(ir, addr, line, gen, args, typ, gensym(), change_expr)
 end
 
-function add_julia!(ir::BasicBlockIR, expr, typ, name::Symbol, line::LineNumberNode)
+function add_julia!(ir::DataFlowIR, expr, typ, name::Symbol, line::LineNumberNode)
     @assert !ir.finished
     value_node = ExprValueNode(name, typ)
     ir.value_nodes[name] = value_node
@@ -391,7 +427,7 @@ function add_julia!(ir::BasicBlockIR, expr, typ, name::Symbol, line::LineNumberN
     value_node
 end
 
-function add_argschange!(ir::BasicBlockIR, typ, name::Symbol)
+function add_argschange!(ir::DataFlowIR, typ, name::Symbol)
     @assert !ir.finished
     if ir.args_change_node !== nothing
         error("@argschange can only be called once")
@@ -407,7 +443,7 @@ function add_argschange!(ir::BasicBlockIR, typ, name::Symbol)
     nothing
 end
 
-function add_change!(ir::BasicBlockIR, addr::Symbol, typ, name::Symbol)
+function add_change!(ir::DataFlowIR, addr::Symbol, typ, name::Symbol)
     @assert !ir.finished
     value_node = ExprValueNode(name, typ)
     ir.value_nodes[name] = value_node
@@ -427,7 +463,7 @@ function add_change!(ir::BasicBlockIR, addr::Symbol, typ, name::Symbol)
     nothing
 end
 
-function set_return!(ir::BasicBlockIR, name::Symbol)
+function set_return!(ir::DataFlowIR, name::Symbol)
     if ir.output_node !== nothing
         error("Basic block can only have one return statement, found a second: $name")
     end
@@ -438,14 +474,14 @@ function set_return!(ir::BasicBlockIR, name::Symbol)
     ir.output_node = value_node
 end
 
-function set_return!(ir::BasicBlockIR, expr::Expr, typ::Type)
+function set_return!(ir::DataFlowIR, expr::Expr, typ::Type)
     if ir.output_node !== nothing
         error("Basic block can only have one return statement, found a second: $name")
     end
     ir.output_node = _get_input_node!(ir, expr, typ)
 end
 
-function set_retchange!(ir::BasicBlockIR, name::Symbol)
+function set_retchange!(ir::DataFlowIR, name::Symbol)
     if ir.retchange_node !== nothing
         error("Basic block can only have one @retchange statement, found a second: $name")
     end
@@ -453,28 +489,9 @@ function set_retchange!(ir::BasicBlockIR, name::Symbol)
     ir.retchange_node = value_node
 end
 
-function set_retchange!(ir::BasicBlockIR, expr::Expr, typ::Type)
+function set_retchange!(ir::DataFlowIR, expr::Expr, typ::Type)
     if ir.retchange_node !== nothing
         error("Basic block can only have one @retchange statement, found a second: $name")
     end
     ir.retchange_node = _get_input_node!(ir, expr, typ)
-end
-
-# some helper functions
-
-has_output(node::ExprNode) = true
-has_output(node::Union{AddrDistNode,AddrGeneratorNode}) = node.output !== nothing
-
-function get_value_info(node::Union{AddrDistNode,AddrGeneratorNode})
-    value_node::ValueNode = node.output
-    (value_node.typ, value_field(value_node))
-end
-
-function get_value_info(node::ExprNode)
-    value_node::ValueNode = node.output
-    (value_node.typ, value_field(value_node))
-end
-
-function get_args(trace::Symbol, node::ExprNode)
-    map(input_node -> Expr(:(.), trace, QuoteNode(value_field(input_node))), node.input_nodes)
 end

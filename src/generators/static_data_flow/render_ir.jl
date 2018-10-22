@@ -1,7 +1,7 @@
 using PyCall
 @pyimport graphviz as gv
 
-function render_graph(ir::BasicBlockIR, fname)
+function render_graph(ir::DataFlowIR, fname)
     # graphviz
     dot = gv.Digraph() # comment = ?
     nodes_to_name = Dict{Node,String}()

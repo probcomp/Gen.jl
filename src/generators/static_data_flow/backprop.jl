@@ -1,5 +1,5 @@
 #############################################
-# BBBackpropTraceState (for backprop_trace) #
+# StaticDataFlowBackpropTraceState (for backprop_trace) #
 #############################################
 
 struct SelectedLeafNode
@@ -14,9 +14,9 @@ struct InternalNode
     gradients_var::Symbol
 end
 
-struct BBBackpropTraceState
+struct StaticDataFlowBackpropTraceState
     generator_type::Type
-    ir::BasicBlockIR
+    ir::DataFlowIR
     trace::Symbol
     stmts::Vector{Expr}
     schema::Union{StaticAddressSchema,EmptyAddressSchema}
@@ -26,31 +26,31 @@ struct BBBackpropTraceState
     internal_nodes::Set{InternalNode}
 end
 
-function BBBackpropTraceState(generator_type, trace, stmts, schema, value_refs, grad_vars)
+function StaticDataFlowBackpropTraceState(generator_type, trace, stmts, schema, value_refs, grad_vars)
     leaf_nodes = Set{SelectedLeafNode}()
     internal_nodes = Set{InternalNode}()
     ir = get_ir(generator_type)
-    BBBackpropTraceState(generator_type, ir, trace, stmts, schema, value_refs, grad_vars,
+    StaticDataFlowBackpropTraceState(generator_type, ir, trace, stmts, schema, value_refs, grad_vars,
         leaf_nodes, internal_nodes)
 end
 
 
-###############################################
-# BBBackpropParamsState (for backprop_params) #
-###############################################
+###########################################################
+# StaticDataFlowBackpropParamsState (for backprop_params) #
+###########################################################
 
-struct BBBackpropParamsState
+struct StaticDataFlowBackpropParamsState
     generator_type::Type
-    ir::BasicBlockIR
+    ir::DataFlowIR
     trace::Symbol
     stmts::Vector{Expr}
     value_refs::Dict{ValueNode,Expr}
     grad_vars::Dict{ValueNode,Symbol}
 end
 
-function BBBackpropParamsState(generator_type, trace, stmts, value_refs, grad_vars)
+function StaticDataFlowBackpropParamsState(generator_type, trace, stmts, value_refs, grad_vars)
     ir = get_ir(generator_type)
-    BBBackpropParamsState(generator_type, ir, trace, stmts, value_refs, grad_vars)
+    StaticDataFlowBackpropParamsState(generator_type, ir, trace, stmts, value_refs, grad_vars)
 end
 
 
@@ -58,7 +58,7 @@ end
 # code shared by backprop_trace and backprop_params #
 #####################################################
 
-function process!(state::Union{BBBackpropParamsState,BBBackpropTraceState}, node::JuliaNode)
+function process!(state::Union{StaticDataFlowBackpropParamsState,StaticDataFlowBackpropTraceState}, node::JuliaNode)
     
     # if the output node is not floating point, don't do anything
     if !haskey(state.grad_vars, node.output)
@@ -66,14 +66,14 @@ function process!(state::Union{BBBackpropParamsState,BBBackpropTraceState}, node
     end 
 
     # call gradient function
-    input_value_refs = [state.value_refs[in_node] for in_node in node.input_nodes]
-    output_value_ref = state.value_refs[node.output]
+    inputs = [state.value_refs[in_node] for in_node in node.input_nodes]
+    output = state.value_refs[node.output]
     input_grad_increments = [gensym("incr") for _ in node.input_nodes]
     output_grad_var = state.grad_vars[node.output]
     gradient_fn = get_grad_fn(state.generator_type, node)
     push!(state.stmts, quote
         ($(input_grad_increments...),) = $gradient_fn(
-            $output_grad_var, $output_value_ref, $(input_value_refs...))
+            $output_grad_var, $output, $(inputs...))
     end)
 
     # increment input gradients
@@ -88,15 +88,15 @@ function process!(state::Union{BBBackpropParamsState,BBBackpropTraceState}, node
     end
 end
 
-function process!(state::Union{BBBackpropParamsState,BBBackpropTraceState}, node::ArgsChangeNode)
+function process!(state::Union{StaticDataFlowBackpropParamsState,StaticDataFlowBackpropTraceState}, node::ArgsChangeNode)
     # skip
 end
 
-function process!(state::Union{BBBackpropParamsState,BBBackpropTraceState}, node::AddrChangeNode)
+function process!(state::Union{StaticDataFlowBackpropParamsState,StaticDataFlowBackpropTraceState}, node::AddrChangeNode)
     # skip
 end
 
-function initialize_backprop!(ir::BasicBlockIR, stmts::Vector{Expr})
+function initialize_backprop!(ir::DataFlowIR, stmts::Vector{Expr})
 
     # create a gradient variable for each value node, initialize them to zero.
     value_refs = Dict{ValueNode,Expr}()
@@ -125,7 +125,7 @@ function initialize_backprop!(ir::BasicBlockIR, stmts::Vector{Expr})
     (value_refs, grad_vars)
 end
 
-function input_gradients(ir::BasicBlockIR, grad_vars)
+function input_gradients(ir::DataFlowIR, grad_vars)
     input_grads_var = gensym("input_grads")
     input_grads = []
     for (node, has_grad) in zip(ir.arg_nodes, ir.args_ad)
@@ -158,15 +158,13 @@ function increment_output_gradient!(stmts, node::AddrDistNode, grad_vars, increm
     # NOTE: if the output has a gradient, then it must be a float...
     # but it may be a float and the may not hae a gradient, currently this is
     # silent; could warn?
-    if has_output_grad(node.dist)
-        if !haskey(grad_vars, node.output)
-            error("Distribution $(node.dist) has AD but the return value is not floating point, node: $node")
-        end
-        output_grad_var = grad_vars[node.output]
-        push!(stmts, quote
-            $output_grad_var += $increment
-        end)
+    if !haskey(grad_vars, node.output)
+        error("Distribution $(node.dist) has AD but the return value is not floating point, node: $node")
     end
+    output_grad_var = grad_vars[node.output]
+    push!(stmts, quote
+        $output_grad_var += $increment
+    end)
 end
 
 
@@ -174,23 +172,22 @@ end
 # backprop_params #
 ###################
 
-function process!(state::BBBackpropParamsState, node::AddrDistNode)
+function process!(state::StaticDataFlowBackpropParamsState, node::AddrDistNode)
 
     # get gradient of log density with respect to output and inputs
-    input_value_refs = [state.value_refs[in_node] for in_node in node.input_nodes]
-    output_value_ref = Expr(:(.), :trace, QuoteNode(node.address))# state.value_refs[node.output]
+    inputs = [state.value_refs[in_node] for in_node in node.input_nodes]
+    output = state.value_refs[node.output]
     output_grad_incr = gensym("incr")
     input_grad_incrs = [gensym("incr") for _ in node.input_nodes]
     push!(state.stmts, quote
         ($output_grad_incr, $(input_grad_incrs...),) = Gen.logpdf_grad(
-            $(QuoteNode(node.dist)), $output_value_ref, $(input_value_refs...))
+            $(QuoteNode(node.dist)), $output, $(inputs...))
     end)
-
     increment_output_gradient!(state.stmts, node, state.grad_vars, output_grad_incr)
     increment_input_gradients!(state.stmts, node, node.dist, state.grad_vars, input_grad_incrs)
 end
 
-function process!(state::BBBackpropParamsState, node::AddrGeneratorNode)
+function process!(state::StaticDataFlowBackpropParamsState, node::AddrGeneratorNode)
 
     # get gradients from generator 
     output_do_ad = accepts_output_grad(node.gen)
@@ -205,7 +202,7 @@ function process!(state::BBBackpropParamsState, node::AddrGeneratorNode)
     increment_input_gradients!(state.stmts, node, node.gen, state.grad_vars, input_grad_incrs)
 end
 
-function codegen_backprop_params(gen::Type{T}, trace, retval_grad) where {T <: BasicGenFunction}
+function codegen_backprop_params(gen::Type{T}, trace, retval_grad) where {T <: StaticDataFlowGenerator}
     ir = get_ir(gen)
     stmts = Expr[]
 
@@ -214,7 +211,7 @@ function codegen_backprop_params(gen::Type{T}, trace, retval_grad) where {T <: B
     (value_refs, grad_vars) = initialize_backprop!(ir, stmts)
 
     # visit statements in reverse topological order
-    state = BBBackpropParamsState(gen, :trace, stmts, value_refs, grad_vars)
+    state = StaticDataFlowBackpropParamsState(gen, :trace, stmts, value_refs, grad_vars)
     for node in reverse(ir.expr_nodes_sorted)
         process!(state, node)
     end
@@ -236,7 +233,7 @@ function codegen_backprop_params(gen::Type{T}, trace, retval_grad) where {T <: B
 end
 
 push!(Gen.generated_functions, quote
-@generated function Gen.backprop_params(gen::Gen.BasicGenFunction, trace, retval_grad)
+@generated function Gen.backprop_params(gen::Gen.StaticDataFlowGenerator, trace, retval_grad)
     Gen.codegen_backprop_params(gen, trace, retval_grad)
 end
 end)
@@ -246,16 +243,16 @@ end)
 # backprop_trace #
 ##################
 
-function process!(state::BBBackpropTraceState, node::AddrDistNode)
+function process!(state::StaticDataFlowBackpropTraceState, node::AddrDistNode)
 
     # get gradient of log density with respect to output and inputs
-    input_value_refs = [state.value_refs[in_node] for in_node in node.input_nodes]
-    output_value_ref = state.value_refs[node.output]
+    inputs = [state.value_refs[in_node] for in_node in node.input_nodes]
+    output = state.value_refs[node.output]
     output_grad_incr = gensym("incr")
     input_grad_incrs = [gensym("incr") for _ in node.input_nodes]
     push!(state.stmts, quote
         ($output_grad_incr, $(input_grad_incrs...),) = Gen.logpdf_grad(
-            $(QuoteNode(node.dist)), $output_value_ref, $(input_value_refs...))
+            $(QuoteNode(node.dist)), $output, $(inputs...))
     end)
 
     increment_output_gradient!(state.stmts, node, state.grad_vars, output_grad_incr)
@@ -268,11 +265,11 @@ function process!(state::BBBackpropTraceState, node::AddrDistNode)
             error("Selected a random choice that is not floating point for gradient: $node")
         end
         output_grad_var = state.grad_vars[node.output]
-        push!(state.leaf_nodes, SelectedLeafNode(addr, Expr(:(.), :trace, QuoteNode(addr)), output_grad_var))
+        push!(state.leaf_nodes, SelectedLeafNode(addr, value, output_grad_var))
     end
 end
 
-function process!(state::BBBackpropTraceState, node::AddrGeneratorNode)
+function process!(state::StaticDataFlowBackpropTraceState, node::AddrGeneratorNode)
 
     # get gradients from generator and handle selection
     output_do_ad = accepts_output_grad(node.gen)
@@ -321,7 +318,7 @@ function choice_trie_construction(leaf_nodes_set, internal_nodes_set)
     end
 end
 
-function codegen_backprop_trace(gen::Type{T}, trace, selection, retval_grad) where {T <: BasicGenFunction}
+function codegen_backprop_trace(gen::Type{T}, trace, selection, retval_grad) where {T <: StaticDataFlowGenerator}
     schema = get_address_schema(selection)
     ir = get_ir(gen)
     stmts = Expr[]
@@ -331,7 +328,7 @@ function codegen_backprop_trace(gen::Type{T}, trace, selection, retval_grad) whe
     (value_refs, grad_vars) = initialize_backprop!(ir, stmts)
 
     # visit statements in reverse topological order
-    state = BBBackpropTraceState(gen, :trace, stmts, schema, value_refs, grad_vars)
+    state = StaticDataFlowBackpropTraceState(gen, :trace, stmts, schema, value_refs, grad_vars)
     for node in reverse(ir.expr_nodes_sorted)
         process!(state, node)
     end
@@ -347,7 +344,7 @@ function codegen_backprop_trace(gen::Type{T}, trace, selection, retval_grad) whe
 end
 
 push!(Gen.generated_functions, quote
-@generated function Gen.backprop_trace(gen::Gen.BasicGenFunction{T,U}, trace::U, selection, retval_grad) where {T,U}
+@generated function Gen.backprop_trace(gen::Gen.StaticDataFlowGenerator{T,U}, trace::U, selection, retval_grad) where {T,U}
     schema = get_address_schema(selection)
     if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
         # try to convert it to a static address set

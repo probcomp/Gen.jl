@@ -1,10 +1,10 @@
-struct BasicBlockAssessState
+struct StaticDataFlowAssessState
     trace::Symbol
     score::Symbol
     stmts::Vector{Expr}
 end
 
-function process!(ir::BasicBlockIR, state::BasicBlockAssessState, node::JuliaNode)
+function process!(ir::DataFlowIR, state::StaticDataFlowAssessState, node::JuliaNode)
     trace = state.trace
     (typ, trace_field) = get_value_info(node)
     push!(state.stmts, quote
@@ -12,7 +12,7 @@ function process!(ir::BasicBlockIR, state::BasicBlockAssessState, node::JuliaNod
     end)
 end
 
-function process!(ir::BasicBlockIR, state::BasicBlockAssessState,
+function process!(ir::DataFlowIR, state::StaticDataFlowAssessState,
                   node::Union{ArgsChangeNode,AddrChangeNode})
     trace = state.trace
     (typ, trace_field) = get_value_info(node)
@@ -22,25 +22,20 @@ function process!(ir::BasicBlockIR, state::BasicBlockAssessState,
 end
 
 
-function process!(ir::BasicBlockIR, state::BasicBlockAssessState, node::AddrDistNode)
+function process!(ir::DataFlowIR, state::StaticDataFlowAssessState, node::AddrDistNode)
     trace, score = (state.trace, state.score)
     addr = node.address
     dist = QuoteNode(node.dist)
     args = get_args(trace, node)
+    value = value_trace_ref(trace, node.output)
     push!(state.stmts, quote
-        $trace.$addr = static_get_leaf_node(constraints, Val($(QuoteNode(addr))))
-        $score += logpdf($dist, $trace.$addr, $(args...))
+        $value = static_get_leaf_node(constraints, Val($(QuoteNode(addr))))
+        $score += logpdf($dist, $value, $(args...))
         $trace.$is_empty_field = false
     end)
-    if has_output(node)
-        (_, trace_field) = get_value_info(node)
-        push!(state.stmts, quote
-            $trace.$trace_field = $trace.$addr
-        end)
-    end
 end
 
-function process!(ir::BasicBlockIR, state::BasicBlockAssessState, node::AddrGeneratorNode)
+function process!(ir::DataFlowIR, state::StaticDataFlowAssessState, node::AddrGeneratorNode)
     trace, score = (state.trace, state.score)
     addr = node.address
     gen = QuoteNode(node.gen)
@@ -53,15 +48,13 @@ function process!(ir::BasicBlockIR, state::BasicBlockAssessState, node::AddrGene
         $score += $call_record.score
         $trace.$is_empty_field = $trace.$is_empty_field && !has_choices($trace.$addr)
     end)
-    if has_output(node)
-        (_, trace_field) = get_value_info(node)
-        push!(state.stmts, quote
-            $trace.$trace_field = $call_record.retval
-        end)
-    end
+    (_, trace_field) = get_value_info(node)
+    push!(state.stmts, quote
+        $trace.$trace_field = $call_record.retval
+    end)
 end
 
-function codegen_assess(gen::Type{T}, args, constraints) where {T <: BasicGenFunction}
+function codegen_assess(gen::Type{T}, args, constraints) where {T <: StaticDataFlowGenerator}
     trace_type = get_trace_type(gen)
     schema = get_address_schema(constraints) # TODO use schema to check there are no extra addrs
     ir = get_ir(gen)
@@ -92,7 +85,7 @@ function codegen_assess(gen::Type{T}, args, constraints) where {T <: BasicGenFun
     end
 
     # process expression nodes in topological order
-    state = BasicBlockAssessState(trace, score, stmts)
+    state = StaticDataFlowAssessState(trace, score, stmts)
     for node in ir.expr_nodes_sorted
         process!(ir, state, node)
     end
@@ -112,7 +105,7 @@ end
 
 
 push!(Gen.generated_functions, quote
-@generated function Gen.assess(gen::Gen.BasicGenFunction, args, constraints)
+@generated function Gen.assess(gen::Gen.StaticDataFlowGenerator, args, constraints)
     schema = get_address_schema(constraints)
     if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
         # try to convert it to a static choice trie

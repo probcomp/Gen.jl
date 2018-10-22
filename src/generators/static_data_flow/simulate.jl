@@ -1,10 +1,10 @@
-struct BasicBlockSimulateState
+struct StaticDataFlowSimulateState
     trace::Symbol
     score::Symbol
     stmts::Vector{Expr}
 end
 
-function process!(ir::BasicBlockIR, state::BasicBlockSimulateState, node::JuliaNode)
+function process!(ir::DataFlowIR, state::StaticDataFlowSimulateState, node::JuliaNode)
     trace = state.trace
     (typ, trace_field) = get_value_info(node)
     push!(state.stmts, quote
@@ -12,7 +12,7 @@ function process!(ir::BasicBlockIR, state::BasicBlockSimulateState, node::JuliaN
     end)
 end
 
-function process!(ir::BasicBlockIR, state::BasicBlockSimulateState,
+function process!(ir::DataFlowIR, state::StaticDataFlowSimulateState,
                   node::Union{ArgsChangeNode,AddrChangeNode})
     trace = state.trace
     (typ, trace_field) = get_value_info(node)
@@ -21,25 +21,20 @@ function process!(ir::BasicBlockIR, state::BasicBlockSimulateState,
     end)
 end
 
-function process!(ir::BasicBlockIR, state::BasicBlockSimulateState, node::AddrDistNode)
+function process!(ir::DataFlowIR, state::StaticDataFlowSimulateState, node::AddrDistNode)
     trace, score = state.trace, state.score
     addr = node.address
     dist = QuoteNode(node.dist)
     args = get_args(trace, node)
+    value = value_trace_ref(trace, node.output)
     push!(state.stmts, quote
-        $trace.$addr = random($dist, $(args...))
-        $score += logpdf($dist, $trace.$addr, $(args...))
+        $value = random($dist, $(args...))
+        $score += logpdf($dist, $value, $(args...))
         $trace.$is_empty_field = false
     end)
-    if has_output(node)
-        (_, trace_field) = get_value_info(node)
-        push!(state.stmts, quote
-            $trace.$trace_field = $trace.$addr
-        end)
-    end
 end
 
-function process!(ir::BasicBlockIR, state::BasicBlockSimulateState, node::AddrGeneratorNode)
+function process!(ir::DataFlowIR, state::StaticDataFlowSimulateState, node::AddrGeneratorNode)
     trace, score = state.trace, state.score
     addr = node.address
     gen = QuoteNode(node.gen)
@@ -51,15 +46,13 @@ function process!(ir::BasicBlockIR, state::BasicBlockSimulateState, node::AddrGe
         $score += $call_record.score
         $trace.$is_empty_field = $trace.$is_empty_field && !has_choices($trace.$addr)
     end)
-    if has_output(node)
-        (_, trace_field) = get_value_info(node)
-        push!(state.stmts, quote
-            $trace.$trace_field = $call_record.retval
-        end)
-    end
+    (_, trace_field) = get_value_info(node)
+    push!(state.stmts, quote
+        $trace.$trace_field = $call_record.retval
+    end)
 end
 
-function codegen_simulate(gen::Type{T}, args) where {T <: BasicGenFunction}
+function codegen_simulate(gen::Type{T}, args) where {T <: StaticDataFlowGenerator}
     trace_type = get_trace_type(gen)
     ir = get_ir(gen)
     stmts = Expr[]
@@ -89,7 +82,7 @@ function codegen_simulate(gen::Type{T}, args) where {T <: BasicGenFunction}
     end
 
     # process expression nodes in topological order
-    state = BasicBlockSimulateState(trace, score, stmts)
+    state = StaticDataFlowSimulateState(trace, score, stmts)
     for node in ir.expr_nodes_sorted
         process!(ir, state, node)
     end
@@ -109,7 +102,7 @@ end
 
 
 push!(Gen.generated_functions, quote
-@generated function Gen.simulate(gen::Gen.BasicGenFunction, args)
+@generated function Gen.simulate(gen::Gen.StaticDataFlowGenerator, args)
     Gen.codegen_simulate(gen, args)
 end
 end)

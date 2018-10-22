@@ -12,7 +12,8 @@ include("lightweight/lightweight.jl")
 include("plate/plate.jl")
 include("plate_of_dists/plate_of_dists.jl")
 include("markov/markov.jl")
-include("basic/basic.jl")
+include("static_data_flow/static_data_flow.jl")
+include("ssa_basic_block/ssa_basic_block.jl")
 include("at_dynamic/at_dynamic.jl")
 
 export load_generated_functions
