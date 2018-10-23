@@ -120,7 +120,7 @@ end
     elseif node_type == CHANGE_NODE
         @assert length(children_inputs) == 2
         loc = @addr(normal(0, 3), :changept)
-        node = ChangeNode(children_inputs[1], children_inputs[2], loc)
+        node = ChangepointNode(children_inputs[1], children_inputs[2], loc)
     else
         error("unknown node type $node_type")
     end
@@ -133,7 +133,7 @@ tree = Tree(production_kernel, aggregation_kernel, Nothing, Int, Node, 2)
     root_node::Node = @addr(tree(nothing), :tree)
 end
 
-for i=1:20
+for i=1:100
     trace = simulate(model, ())
     println(get_assignment(trace))
 end

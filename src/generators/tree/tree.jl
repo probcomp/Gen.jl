@@ -132,9 +132,27 @@ function Tree(production_kernel::Generator{X,S}, aggregation_kernel::Generator{Y
     Tree{S,T,U,V,W,X,Y}(production_kernel, aggregation_kernel, max_branch)
 end
 
-get_child(parent::Int, child_num::Int, max_branch::Int) = (parent * max_branch) - 2 + child_num
+get_child(parent::Int, child_num::Int, max_branch::Int) = (parent * max_branch) - 1 + child_num
 get_parent(child::Int, max_branch::Int) = div(child - 2, max_branch) + 1
 get_child_num(child::Int, max_branch::Int) = (child - 2) % max_branch + 1
+
+@assert get_child(1, 1, 2) == 2
+@assert get_child(1, 2, 2) == 3
+@assert get_child(2, 1, 2) == 4
+@assert get_child(2, 2, 2) == 5
+@assert get_child(3, 1, 2) == 6
+
+@assert get_parent(2, 2) == 1
+@assert get_parent(3, 2) == 1
+@assert get_parent(4, 2) == 2
+@assert get_parent(5, 2) == 2
+@assert get_parent(6, 2) == 3
+
+@assert get_child_num(2, 2) == 1
+@assert get_child_num(3, 2) == 2
+@assert get_child_num(4, 2) == 1
+@assert get_child_num(5, 2) == 2
+@assert get_child_num(6, 2) == 1
 
 struct TreeProductionRetDiff{DV,DU}
     vdiff::DV
@@ -209,16 +227,41 @@ function generate(gen::Tree{S,T,U,V,W}, args::Tuple{U}, constraints) where {S,T,
     return (trace, weight)
 end
 
-function update(gen::Tree{S,T,U,V,W}, new_args::Tuple{U}, argdiff::Union{Nothing,NoChange,Some{DU}},
+# TODO we assume that argdiff is NoChange; others are not yet implemented
+# it would have type Union{Nothing,NoChange,Some{DU}}
+# if argdiff is not NoChange() then we always need to visit the root production node
+
+function update(gen::Tree{S,T,U,V,W}, new_args::Tuple{U}, argdiff::NoChange,
                 trace::TreeTrace{S,T,U,V,W}, constraints) where {S,T,U,V,W,DU}
 
-    # production phase
-    # TODO
+    # unpack constraints
+    production_nodes = Dict{Int, Any}()
+    for (addr, node) in get_internal_nodes(constraints)
+        idx::Int = addr[1]
+        if addr[2] == Val(:production)
+            production_nodes[idx] = node
+        elseif addr[2] == Val(:aggregation)
+            aggregation_nodes[idx] = node
+        else
+            error("Unknown address: $addr")
+        end
+    end
+    if length(get_leaf_nodes(constraints)) > 0
+        error("Unknown address: $(first(get_leaf_nodes(constraints))[1])")
+    end
+
+    # production phase (TODO: needs to be a priority queue..)
+    to_visit = sort(collect(keys(production_nodes)))
+    while !isempty(to_visit)
+
+        # NOTE: depending on retdiff, we may need to mark other children for re-execution.
+        # but, we should be able to do this within the loop, since the children have no other parents.
+    end
 
     # aggregation phase
     # TODO
 
-    return (trace, weight, discard, retdiff)
+    return (new_trace, weight, discard, retdiff)
 end
 
 export Tree
