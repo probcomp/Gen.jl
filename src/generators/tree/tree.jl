@@ -1,3 +1,5 @@
+import DataStructures: PriorityQueue
+
 ##################
 # tree generator #
 ##################
@@ -33,8 +35,8 @@
 ##############
 
 struct TreeTrace{S,T,U,V,W}
-    production_traces::Dict{Int,S}
-    aggregation_traces::Dict{Int,T}
+    production_traces::PersistentHashMap{Int,S}
+    aggregation_traces::PersistentHashMap{Int,T}
     max_branch::Int
     score::Float64
     has_choices::Bool
@@ -166,8 +168,8 @@ end
 
 function generate(gen::Tree{S,T,U,V,W}, args::Tuple{U}, constraints) where {S,T,U,V,W}
     (root_production_input::U,) = args
-    production_traces = Dict{Int,S}()
-    aggregation_traces = Dict{Int,T}()
+    production_traces = PersistentHashMap{Int,S}()
+    aggregation_traces = PersistentHashMap{Int,T}()
     weight = 0.
     score = 0.
     trace_has_choices = false
@@ -194,7 +196,7 @@ function generate(gen::Tree{S,T,U,V,W}, args::Tuple{U}, constraints) where {S,T,
         end
         (subtrace, subweight) = generate(gen.production_kern, (input,), subconstraints)
         score += get_call_record(subtrace).score
-        production_traces[cur] = subtrace
+        production_traces = assoc(production_traces, cur, subtrace)
         weight += subweight
         children_inputs::Vector{U} = get_call_record(subtrace).retval[2]
         for child_num in 1:length(children_inputs)
@@ -217,7 +219,7 @@ function generate(gen::Tree{S,T,U,V,W}, args::Tuple{U}, constraints) where {S,T,
         end
         (subtrace, subweight) = generate(gen.aggregation_kern, (vinput, winputs), subconstraints)
         score += get_call_record(subtrace).score
-        aggregation_traces[cur] = subtrace
+        aggregation_traces = assoc(aggregation_traces, cur, subtrace)
         weight += subweight
         trace_has_choices = trace_has_choices || has_choices(subtrace)
     end
@@ -233,6 +235,9 @@ end
 
 function update(gen::Tree{S,T,U,V,W}, new_args::Tuple{U}, argdiff::NoChange,
                 trace::TreeTrace{S,T,U,V,W}, constraints) where {S,T,U,V,W,DU}
+
+    production_traces = trace.production_traces
+    aggregation_traces = trace.aggregation_traces
 
     # unpack constraints
     production_nodes = Dict{Int, Any}()
@@ -250,18 +255,26 @@ function update(gen::Tree{S,T,U,V,W}, new_args::Tuple{U}, argdiff::NoChange,
         error("Unknown address: $(first(get_leaf_nodes(constraints))[1])")
     end
 
-    # production phase (TODO: needs to be a priority queue..)
-    to_visit = sort(collect(keys(production_nodes)))
+    # production phase
+    to_visit = PriorityQueue{Int,Int}()
+    for key in keys(production_nodes)
+        enqueue!(to_visit, key, key)
+    end
     while !isempty(to_visit)
-
-        # NOTE: depending on retdiff, we may need to mark other children for re-execution.
-        # but, we should be able to do this within the loop, since the children have no other parents.
+        cur = dequeue!(to_visit)
+        if haskey(production_traces, cur)
+            # TODO recursive call update on it; depending on retdiff, maybe add some of its children to the queue
+        else
+            # TODO use assess to generate a new trace; add all its children to the queue
+        end
     end
 
     # aggregation phase
-    # TODO
+    # TODO visit all nodes marked during production phae, and any with constraints, and any new ones
 
     return (new_trace, weight, discard, retdiff)
 end
+
+function 
 
 export Tree
