@@ -139,8 +139,13 @@ for i=1:100
 end
 
 
+# TODO backpropagation
 
-
-
-
-
+# to support backpropagation of the likelihood with respect to real-valued
+# parameters in the covariance function, we will need to invent a data
+# structure to store the gradient with respect to the covariance function. this
+# could be a tree-structured object that closely mirrors the tree of the
+# covariance function object itself. the GP function and the aggregation kernel
+# module will both need to know about this specialized gradient object (the GP
+# function will produce it as a return value from backprop, and the aggregation
+# kernel function will accept it as an input to backprop)
