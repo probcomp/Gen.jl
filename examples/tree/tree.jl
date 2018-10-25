@@ -75,27 +75,35 @@ const CHANGE_NODE = 6
 
 const node_dist = Float64[0.4, 0.4, 0.2/4, 0.2/4, 0.2/4, 0.2/4]
 
+const node_type_to_num_children = Dict(
+    INPUT_NODE => 0,
+    CONSTANT_NODE => 0,
+    PLUS_NODE => 2,
+    MINUS_NODE => 2,
+    TIMES_NODE => 2,
+    CHANGE_NODE => 2)
+
 # input type U: Nothing
 # V = Int (what type of node we are?)
 # return type: Tuple{Node,Vector{Nothing}}
 
 @gen function production_kernel(_::Nothing)
     node_type = @addr(categorical(node_dist), :type)
-    if node_type == INPUT_NODE
-        num_children = 0
-    elseif node_type == CONSTANT_NODE
-        num_children = 0
-    elseif node_type == PLUS_NODE
-        num_children = 2
-    elseif node_type == MINUS_NODE
-        num_children = 2
-    elseif node_type == TIMES_NODE
-        num_children = 2
-    elseif node_type == CHANGE_NODE
-        num_children = 2
+    num_children = node_type_to_num_children[node_type]
+
+    # compute retdiff
+    typediff::Union{Nothing,NoChange,Some{Int}} = @diff(:type)
+    if typediff == nothing
+        @retdiff!(nothing)
+    elseif typediff == NoChange()
+        @retdiff!(NoChange())
     else
-        error("unknown node type $node_type")
+        prev_node_type = something(typediff)
+        prev_num_children = node_type_to_num_children[prev_node_type] # note: could store in aux
+        udiffs = Dict(i => nothing for i=1:min(prev_num_children,num_children))
+        @retdiff!(Some(TreeProductionRetDiff{Nothing,Nothing}(nothing,udiffs)))
     end
+
     return (node_type, Nothing[nothing for _=1:num_children])
 end
 
@@ -124,13 +132,29 @@ end
     else
         error("unknown node type $node_type")
     end
+    
+    # compute retdiff (here, we always overapproximate and say there may have been a change)
+    # (this means we always visit every aggregation node on the path to the root)
+    argdiff::Union{Nothing,TreeAggregationArgDiff{Nothing,Nothing}} = @argdiff()
+    if argdiff == nothing
+        @retdiff!(nothing)
+    else
+        @retdiff!(Some(nothing))
+    end
+
     return node
 end
 
-tree = Tree(production_kernel, aggregation_kernel, Nothing, Int, Node, 2)
+# U = Nothing; DU = Nothing
+# V = Int; DV = Nothing
+# W = Node; DW = Nothing
+tree = Tree(production_kernel, aggregation_kernel, 2, Nothing, Int, Node, Nothing, Nothing, Nothing)
+println(typeof(tree))
+
+## test generate ##
 
 @gen function model()
-    root_node::Node = @addr(tree(nothing), :tree)
+    root_node::Node = @addr(tree(nothing, 1), :tree)
 end
 
 for i=1:100
@@ -138,6 +162,28 @@ for i=1:100
     println(get_assignment(trace))
 end
 
+## test update ##
+
+@gen function proposal(root::Int)
+    @addr(tree(nothing, root), :tree)
+end
+
+trace = simulate(model, ())
+
+println("\nprevious trace:")
+println(get_assignment(trace))
+
+
+proposal_trace = simulate(proposal, (1,))
+
+println("\nproposal trace:")
+println(get_assignment(proposal_trace))
+
+(new_trace, weight, discard, retdiff) = update(model, (),
+        NoChange(), trace, get_assignment(proposal_trace))
+
+println("\nnew trace:")
+println(get_assignment(new_trace))
 
 # TODO backpropagation
 
