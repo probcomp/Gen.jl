@@ -6,72 +6,86 @@ mutable struct GFUpdateState
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
     discard::DynamicAssignment
-    args_change::Any
-    retchange::ChangeInfo
-    callee_output_changes::HomogenousTrie{Any,ChangeInfo}
+    argdiff::Any
+    retdiff::Any
+    choicediffs::HomogenousTrie{Any,Any}
+    calldiffs::HomogenousTrue{Any,Any}
 end
 
-function GFUpdateState(args_change, prev_trace, constraints, params)
+function GFUpdateState(argdiff, prev_trace, constraints, params)
     visitor = AddressVisitor()
     discard = DynamicAssignment()
     GFUpdateState(prev_trace, GFTrace(), constraints, 0., visitor,
-                  params, discard, args_change, nothing, HomogenousTrie{Any,ChangeInfo}())
+                  params, discard, argdiff, GenFunctionDefaultRetDiff(),
+                  HomogenousTrie{Any,Any}(), HomogenousTrie{Any,Any}())
 end
 
-get_args_change(state::GFUpdateState) = state.args_change
-
-function set_ret_change!(state::GFUpdateState, value)
-    if state.retchange === nothing
-        state.retchange = value
-    else
-        lightweight_retchange_already_set_err()
-    end
-end
-
-function get_addr_change(state::GFUpdateState, addr)
-    get_leaf_node(state.callee_output_changes, addr)
-end
+get_arg_diff(state::GFUpdateState) = state.argdiff
+set_ret_diff!(state::GFUpdateState, value) = state.retdiff = value
+get_choice_diff(state::GFUpdateState, addr) = get_leaf_node(state.choicediffs, addr)
+get_call_diff(state::GFUpdateState, addr) = get_leaf_node(state.calldiffs, addr)
 
 function addr(state::GFUpdateState, dist::Distribution{T}, args, addr) where {T}
+    local retval::T
+    local prev_retval::T
+
+    # check that address was not already visited, and mark it as visited
     visit!(state.visitor, addr)
-    constrained = has_leaf_node(state.constraints, addr)
+
+    # check for previous choice at this address
     has_previous = has_primitive_call(state.prev_trace, addr)
+    if has_previous
+        prev_retval = get_primitive_call(state.prev_trace, addr)
+    end
+
+    # check for constraints at this address
+    constrained = has_leaf_node(state.constraints, addr)
     if has_internal_node(state.constraints, addr)
         lightweight_got_internal_node_err(addr)
     end
-    local retval::T
-    if has_previous
-        prev_call::CallRecord = get_primitive_call(state.prev_trace, addr)
-    end
+    
+    # obtain return value from previous trace or constraints
     if constrained
         retval = get_leaf_node(state.constraints, addr)
     elseif has_previous
-        retval = prev_call.retval
+        retval = prev_retval
     else
         error("Constraint not given for new address: $addr")
     end
+
+    # record the previous value as discarded if it is replaced
     if constrained && has_previous
-        # there was a change and this was the previous value
-        retchange = Some(prev_call.retval)
-    elseif has_previous
-        retchange = NoChange()
-    else
-        # retchange is null, because the address is new
-        retchange = nothing
+        set_leaf_node!(state.discard, addr, prev_retval)
     end
+
+    # choicediff
+    if constrained && has_previous
+        choicediff = PrevChoiceDiff(prev_retval)
+    elseif has_previous
+        choicediff = NoChoiceDiff()
+    else
+        choicediff = NewChoiceDiff()
+    end
+    set_leaf_node!(state.choicediffs, addr, choicediff)
+
+    # update trace and score
     score = logpdf(dist, retval, args...)
     call = CallRecord(score, retval, args)
     state.trace = assoc_primitive_call(state.trace, addr, call)
     state.score += score
-    if constrained && has_previous
-        set_leaf_node!(state.discard, addr, prev_call.retval)
-    end
-    set_leaf_node!(state.callee_output_changes, addr, retchange)
-    retval 
+
+    return retval 
 end
 
-function addr(state::GFUpdateState, gen::Generator{T}, args, addr, args_change) where {T}
+function addr(state::GFUpdateState, gen::Generator{T,U}, args, addr, argdiff) where {T,U}
+    local prev_trace::U
+    local trace::U
+    local retval::T
+
+    # check address was not already visited, and mark it as visited
     visit!(state.visitor, addr)
+
+    # check for constraints at this address
     if has_internal_node(state.constraints, addr)
         constraints = get_internal_node(state.constraints, addr)
     elseif has_leaf_node(state.constraints, addr)
@@ -79,27 +93,34 @@ function addr(state::GFUpdateState, gen::Generator{T}, args, addr, args_change) 
     else
         constraints = EmptyAssignment()
     end
+
     if has_subtrace(state.prev_trace, addr)
+
+        # address already populated
         prev_trace = get_subtrace(state.prev_trace, addr)
-        (trace, _, discard, retchange) = update(gen, args, args_change,
+        (trace, _, discard, retdiff) = update(gen, args, argdiff,
             prev_trace, constraints)
         set_internal_node!(state.discard, addr, discard)
-        set_leaf_node!(state.callee_output_changes, addr, retchange)
+        set_leaf_node!(state.calldiffs, addr, CustomCallDiff(retdiff))
     else
+
+        # address is new
         trace = assess(gen, args, constraints)
-        set_leaf_node!(state.callee_output_changes, addr, nothing)
+        set_leaf_node!(state.calldiffs, addr, NewCallDiff())
     end
-    call::CallRecord = get_call_record(trace)
-    retval::T = call.retval
+
+    # update trace and score
+    retval = get_call_record(trace).retval
     state.trace = assoc_subtrace(state.trace, addr, trace)
     state.score += call.score
-    retval 
+
+    return retval 
 end
 
 splice(state::GFUpdateState, gen::GenFunction, args::Tuple) = exec(gf, state, args)
 
-function update(gen::GenFunction, new_args, args_change, trace::GFTrace, constraints)
-    state = Gen.GFUpdateState(args_change, trace, constraints, gen.params)
+function update(gen::GenFunction, new_args, argdiff, trace::GFTrace, constraints)
+    state = Gen.GFUpdateState(argdiff, trace, constraints, gen.params)
     retval = Gen.exec(gen, state, new_args)
     new_call = Gen.CallRecord{Any}(state.score, retval, new_args)
     state.trace.call = new_call
@@ -113,5 +134,5 @@ function update(gen::GenFunction, new_args, args_change, trace::GFTrace, constra
     # compute the weight
     prev_score = get_call_record(trace).score
     weight = state.score - prev_score
-    (state.trace, weight, state.discard, state.retchange)
+    (state.trace, weight, state.discard, state.retdiff)
 end
