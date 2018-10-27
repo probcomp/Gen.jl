@@ -7,15 +7,17 @@ Generator that makes many independent application of a kernel generator,
 similar to 'map'.  The arguments are a tuple of vectors, each of of length N,
 where N is the nubmer of applications of the kernel.
 """
-struct Plate{T,U} <: Generator{PersistentVector{T},VectorTrace{T,U}}
+struct Plate{T,U,V,W} <: Generator{PersistentVector{T},VectorTrace{T,U}}
     kernel::Generator{T,U}
+    kernel_noargdiff::V
+    kernel_unknownargdiff::W
 end
 
 accepts_output_grad(plate::Plate) = accepts_output_grad(plate.kernel)
 has_argument_grads(plate::Plate) = has_argument_grads(plate.kernel)
 
-function plate(kernel::Generator{T,U}) where {T,U}
-    Plate{T,U}(kernel)
+function plate(kernel::Generator{T,U}, noargdiff::V=, unknownargdiff::W=) where {T,U,V,W}
+    Plate{T,U,V,W}(kernel, noargdiff, unknownargdiff)
 end
 
 function get_static_argument_types(plate::Plate)
@@ -33,14 +35,51 @@ function get_prev_and_new_lengths(args, trace)
     (new_length, prev_length)
 end
 
-struct PlateChange{T}
+export plate
 
-    # the subset of kernel args which may have changed
-    changed_args::Vector{Int}
- 
-    # the deltas to pass to each changed invocation of the kernel
-    sub_changes::Vector{T}
+###########
+# argdiff #
+###########
+
+# accepts: NoArgDiff, UnknownArgDiff, and PlateCustomArgDiff
+
+"""
+The number of applications may have changed. Custom argdiffs are provided for
+retained applications whose arguments may have changed.
+"""
+struct PlateCustomArgDiff{T}
+    retained_argdiffs::Dict{Int,T} 
 end
+
+# if there is no argdiff provided, 
+
+# NOTE: the kernel function must accept noargdiff and unknownargdiff as argdiffs
+
+
+###########
+# retdiff #
+###########
+
+"""
+The return value of the plate has not changed.
+"""
+struct PlateNoRetDiff end
+isnoretdiff(::PlateNoRetDiff) = true
+
+"""
+The number of applications may have changed. retdiff values are provided for
+retained applications for which isnoretdiff() = false.
+"""
+struct PlateCustomRetDiff{T}
+    retained_retdiffs::Dict{Int,T}
+end
+isnoretdiff(::PlateCustomRetDiff) = false
+
+
+
+###############################
+# generator interface methods #
+###############################
 
 include("simulate.jl")
 include("assess.jl")
@@ -48,10 +87,5 @@ include("generate.jl")
 include("update.jl")
 include("extend.jl")
 include("project.jl")
-#include("backprop_params.jl")
 include("backprop_trace.jl")
 
-#include("ungenerate.jl")
-
-export plate
-export PlateChange
