@@ -42,9 +42,7 @@ function addr(state::GFExtendState, dist::Distribution{T}, args, addr) where {T}
     if has_previous && constrained
         extend_no_change_err(addr)
     end
-    if has_internal_node(state.constraints, addr)
-        lightweight_got_internal_node_err(addr)
-    end
+    lightweight_check_no_internal_node(state.constraints, addr)
     local retval::T
     local call::CallRecord
     if has_previous
@@ -81,10 +79,9 @@ end
 
 function addr(state::GFExtendState, gen::Generator{T}, args, addr, args_change) where {T}
     visit!(state.visitor, addr)
+    lightweight_check_no_leaf_node(state.constraints, addr)
     if has_internal_node(state.constraints, addr)
         constraints = get_internal_node(state.constraints, addr)
-    elseif has_leaf_node(state.constraints, addr)
-        lightweight_got_leaf_node_err(addr)
     else
         constraints = EmptyAssignment()
     end

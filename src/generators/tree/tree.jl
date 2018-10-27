@@ -166,7 +166,7 @@ get_child_num(child::Int, max_branch::Int) = (child - 2) % max_branch + 1
 # NOTE: if the number of children changed, there are only fields for retained children
 # NOTE: if a field does not appear for a given child, then it is NoChange
 struct TreeProductionRetDiff{DV,DU}
-    vdiff::DV
+    vdiff::Union{NoChange,DV}
     udiffs::Dict{Int,DU} # map from child_num to retdiff
 end
 
@@ -174,7 +174,7 @@ end
 # NOTE: if the number of children changed, there are only fields for retained children
 # NOTE: if a field does not appear for a given child, then it is NoChange
 struct TreeAggregationArgDiff{DV,DW}
-    vdiff::DV
+    vdiff::Union{NoChange,DV}
     wdiffs::Dict{Int,DW} # map from child_num to argdiff
 end
 
@@ -226,6 +226,10 @@ function get_aggregation_constraints(constraints::Assignment, cur::Int)
     end
 end
 
+############
+# generate #
+############
+
 function generate(gen::Tree{S,T,U,V,W,X,Y,DV,DU,DW}, args::Tuple{U,Int},
                   constraints) where {S,T,U,V,W,X,Y,DV,DU,DW}
     (root_production_input::U, root_idx::Int) = args
@@ -276,6 +280,30 @@ function generate(gen::Tree{S,T,U,V,W,X,Y,DV,DU,DW}, args::Tuple{U,Int},
     return (trace, weight)
 end
 
+##########
+# update #
+##########
+
+struct NodeQueue{T}
+    ordering::T
+    pq::PriorityQueue{Int,Int}
+end
+
+function NodeQueue(ordering)
+    pq = PriorityQueue{Int,Int}(ordering)
+    NodeQueue(ordering, pq)
+end
+
+function Base.push!(queue::NodeQueue, node::Int)
+    if !haskey(queue.pq, node)
+        enqueue!(queue.pq, node, node)
+    end
+end
+Base.pop!(queue::NodeQueue) = dequeue!(queue.pq)
+Base.in(node::Int, queue::NodeQueue) = haskey(queue.pq, node)
+Base.isempty(queue::NodeQueue) = isempty(queue.pq)
+
+
 function tree_unpack_constraints(constraints::Assignment)
     production_constraints = Dict{Int, Any}()
     aggregation_constraints = Dict{Int, Any}()
@@ -308,8 +336,43 @@ function dissoc_subtree(production_traces::PersistentHashMap{Int,S},
     return (dissoc(production_traces, root), removed_score)
 end
 
+function get_production_argdiff(production_retdiffs::Dict{Int,TreeProductionRetDiff{DV,DU}},
+                                root_idx::Int, root_argdiff::Union{NoChange,DU}, cur::Int,
+                                max_branch::Int) where {DV,DU}
+    if cur == root_idx
+        return root_argdiff
+    else
+        parent = get_parent(cur, max_branch)
+        if !haskey(production_retdiffs, parent)
+            return NoChange()
+        else
+            child_num = get_child_num(cur, max_branch)
+            return production_retdiffs[parent].udiffs[child_num]::DU
+        end
+    end
+end
+
+function get_aggregation_argdiff(production_retdiffs::Dict{Int,TreeProductionRetDiff{DV,DU}},
+                                 aggregation_retdiffs::Dict{Int,DW},
+                                 production_traces, cur::Int) where {DU,DV,DW}
+    if haskey(production_retdiffs, cur)
+        vdiff = production_retdiffs[cur].vdiff::DV
+    else
+        vdiff = NoChange()
+    end
+    new_num_children = get_num_children(production_traces[cur])
+    prev_num_children = idx_to_prev_num_children[cur]
+    wdiffs = Dict{Int,DW}() # values have type DW
+    for child_num=1:min(prev_num_children,new_num_children)
+        if haskey(aggregation_retdiffs, child_num)
+            wdiffs[child_num] = aggregation_retdiffs[child_num]::DW
+        end
+    end
+    TreeAggregationArgDiff(vdiff, wdiffs)
+end
+
 function update(gen::Tree{S,T,U,V,W,X,Y,DV,DU,DW}, new_args::Tuple{U,Int},
-                argdiff::Union{NoChange,DU}, trace::TreeTrace{S,T,U,V,W},
+                root_argdiff::Union{NoChange,DU}, trace::TreeTrace{S,T,U,V,W},
                 constraints) where {S,T,U,V,W,X,Y,DV,DU,DW}
 
     (root_production_input::U, root_idx::Int) = new_args
@@ -327,26 +390,25 @@ function update(gen::Tree{S,T,U,V,W,X,Y,DV,DU,DW}, new_args::Tuple{U,Int},
     score = trace.score
     weight = 0.
 
-    # TODO
     trace_has_choices = true # TODO wrong
 
     # initialize set of production nodes to visit
     # visit nodes in forward order (starting with root)
-    prod_to_visit = PriorityQueue{Int,Int}()
-    for key in keys(production_constraints)
-        enqueue!(prod_to_visit, key, key)
+    prod_to_visit = NodeQueue(Base.Order.Forward)
+    for node in keys(production_constraints)
+        push!(prod_to_visit, node)
     end
 
     # if the root argdiff is not NoChange then we visit the root production node
-    if argdiff != NoChange() && !haskey(prod_to_visit, root_idx)
-        enqueue!(prod_to_visit, root_idx, root_idx)
+    if root_argdiff != NoChange() && !(root_idx in prod_to_visit)
+        push!(prod_to_visit, root_idx)
     end
 
     # initialize set of aggregation nodes to visit
     # visit nodes in reverse order (starting with leaves)
-    agg_to_visit = PriorityQueue{Int,Int}(Base.Order.Reverse) 
-    for key in keys(aggregation_constraints)
-        enqueue!(agg_to_visit, key, key)
+    agg_to_visit = NodeQueue(Base.Order.Reverse)
+    for node in keys(aggregation_constraints)
+        push!(agg_to_visit, node)
     end
     
     # production phase
@@ -354,28 +416,18 @@ function update(gen::Tree{S,T,U,V,W,X,Y,DV,DU,DW}, new_args::Tuple{U,Int},
     idx_to_prev_num_children = Dict{Int,Int}() # only store for nodes that are retained
     while !isempty(prod_to_visit)
         local subtrace::S
-        local subargdiff::Union{NoChange,DU}
-        local subretdiff::Union{NoChange,Some{TreeProductionRetDiff{DV,DU}}}
 
-        cur = dequeue!(prod_to_visit)
+        cur = pop!(prod_to_visit)
         subconstraints = get_production_constraints(constraints, cur)
         input = (get_production_input(gen, cur, production_traces, root_production_input)::U,)
 
         if haskey(production_traces, cur)
             # the node exists already
+            local subargdiff::Union{NoChange,DU}
+            local subretdiff::TreeProductionRetDiff{DV,DU}
 
             # get argdiff for this production node
-            if cur == root_idx
-                subargdiff = argdiff
-            else
-                parent = get_parent(cur, gen.max_branch)
-                if !haskey(production_retdiffs, parent)
-                    subargdiff = NoChange() # it was NoChange, or the parent was not revisited
-                else
-                    child_num = get_child_num(cur, max_branch)
-                    subargdiff = production_retdiffs[parent].udiffs[child_num]
-                end
-            end
+            subargdiff = get_production_argdiff(production_retdiffs, root_idx, root_argdiff, cur, gen.max_branch)
 
             # call update on production kernel
             (subtrace, subweight, subdiscard, subretdiff) = update(gen.production_kern,
@@ -384,6 +436,7 @@ function update(gen::Tree{S,T,U,V,W,X,Y,DV,DU,DW}, new_args::Tuple{U,Int},
             new_num_children = length(get_call_record(subtrace).retval[2])
             idx_to_prev_num_children[cur] = prev_num_children
             set_internal_node!(discard, (cur, Val(:production)), subdiscard)
+            production_retdiffs[cur] = subretdiff
 
             # update trace, weight, and score
             production_traces = assoc(production_traces, cur, subtrace)
@@ -403,31 +456,22 @@ function update(gen::Tree{S,T,U,V,W,X,Y,DV,DU,DW}, new_args::Tuple{U,Int},
             # mark new children for processing
             for child_num=prev_num_children+1:new_num_children
                 child = get_child(cur, child_num, gen.max_branch)
-                enqueue!(prod_to_visit, child, child)
+                push!(prod_to_visit, child)
             end
 
-            # handle retdiff
-            if subretdiff != NoChange()
-                production_retdiffs[cur] = something(subretdiff)
-
-                # maybe mark existing children for processing, depending on their argdiff
-                for child_num=1:min(prev_num_children,new_num_children)
+            # maybe mark existing children for processing, depending on their argdiff
+            for (child_num, child_argdiff) in subretdiff.udiffs
+                @assert child_num <= min(prev_num_children,new_num_children)
+                if child_argdiff != NoChange()
                     child = get_child(cur, child_num, gen.max_branch)
-                    if something(subretdiff).udiffs[child_num] != NoChange()
-                        if !haskey(prod_to_visit, child)
-                            enqueue!(prod_to_visit, child, child)
-                        end
-                    end
+                    push!(prod_to_visit, child)
                 end
+            end
 
-                # mark corresponding aggregation node for processing if v has
-                # changed, or if the number of children has changed
-                if something(subretdiff).vdiff != NoChange() || prev_num_children != new_num_children
-                    if !haskey(agg_to_visit, cur)
-                        enqueue!(agg_to_visit, cur, cur)
-                    end
-                end
-
+            # mark corresponding aggregation node for processing if v has
+            # changed, or if the number of children has changed
+            if subretdiff.vdiff != NoChange() || prev_num_children != new_num_children
+                push!(agg_to_visit, cur)
             end
 
         else
@@ -440,14 +484,12 @@ function update(gen::Tree{S,T,U,V,W,X,Y,DV,DU,DW}, new_args::Tuple{U,Int},
             score += get_call_record(subtrace).score
 
             # mark corresponding aggregation node for processsing
-            if !haskey(agg_to_visit, cur)
-                enqueue!(agg_to_visit, cur, cur)
-            end
+            push!(agg_to_visit, cur)
 
             # mark children (which are all new) for processing
             for child_num=1:get_num_children(subtrace)
                 child = get_child(cur, child_num, gen.max_branch)
-                enqueue!(prod_to_visit, child, child)
+                push!(prod_to_visit, child)
             end
         end
     end
@@ -462,60 +504,45 @@ function update(gen::Tree{S,T,U,V,W,X,Y,DV,DU,DW}, new_args::Tuple{U,Int},
     # note: we already deleted aggregation nodes that are to be deleted above
 
     aggregation_retdiffs = Dict{Int,DW}() # NoChanges are omitted
-    local retdiff::Any
+    retdiff::Union{NoChange,DW} = NoChange()
+    local subtrace::T
+    local subargdiff::TreeAggregationArgDiff{DV,DW}
+    local subretdiff::Union{NoChange,DW}
     while !isempty(agg_to_visit)
-        local subtrace::T
-        local subretdiff::Union{NoChange,Some{DW}}
 
-        cur = dequeue!(agg_to_visit)
+        cur = pop!(agg_to_visit)
         subconstraints = get_aggregation_constraints(constraints, cur)
         input::Tuple{V,Vector{W}} = get_aggregation_input(
             gen, cur, production_traces, aggregation_traces)
 
+        # if the node exists already
         if haskey(aggregation_traces, cur)
-            # the node exists already
 
             # get argdiff for this aggregation node
-            local vdiff::Union{NoChange,DV}
-            if haskey(production_retdiffs, cur)
-                vdiff = production_retdiffs[cur].vdiff
-            else
-                vdiff = NoChange()
-            end
-            new_num_children = get_num_children(production_traces[cur])
-            prev_num_children = idx_to_prev_num_children[cur]
-            wdiffs = Dict{Int,DW}() # values have type DW
-            for child_num=1:min(prev_num_children,new_num_children)
-                if haskey(aggregation_retdiffs, child_num)
-                    wdiffs[child_num] = aggregation_retdiffs[child_num]
-                end
-            end
-            subargdiff = TreeAggregationArgDiff(vdiff, wdiffs)
+            subargdiff = get_aggregation_argdiff(production_retdiffs, aggregation_retdiffs, production_traces, cur)
 
             # call update on aggregation kernel
             (subtrace, subweight, subdiscard, subretdiff) = update(gen.aggregation_kern,
                 input, subargdiff, aggregation_traces[cur], subconstraints)
-            set_internal_node!(discard, (cur, Val(:aggregation)), subdiscard)
 
-            # update trace, weight, and score
+            # update trace, weight, and score, and discard
             aggregation_traces = assoc(aggregation_traces, cur, subtrace)
             weight += subweight
             score += subweight
+            set_internal_node!(discard, (cur, Val(:aggregation)), subdiscard)
     
             # take action based on our subretdiff
             if cur == root_idx
                 retdiff = subretdiff
             else
                 if subretdiff != NoChange()
-                    aggregation_retdiffs[cur] = something(subretdiff)
-                    if !haskey(agg_to_visit, parent)
-                        enqueue!(agg_to_visit, parent, parent)
-                    end
+                    aggregation_retdiffs[cur] = subretdiff
+                    push!(agg_to_visit, parent)
                 end
             end
 
+        # if the node does not exist (but its children do, since we created them already)
         else
-            # the node does not exist (but its children do, since we created them already)
             subtrace = assess(gen.aggregation_kern, input, subconstraints)
 
             # update trace, weight, and score
@@ -525,12 +552,12 @@ function update(gen::Tree{S,T,U,V,W,X,Y,DV,DU,DW}, new_args::Tuple{U,Int},
 
             # the parent should have been marked during production phase
             @assert cur != 1
-            parent = get_parent(cur, gen.max_branch)
-            @assert haskey(agg_to_visit, parent)
+            @assert haskey(agg_to_visit, get_parent(cur, gen.max_branch))
         end
         
     end
 
+    # TODO trace_has_choices isn't being updated properly
     new_trace = TreeTrace{S,T,U,V,W}(production_traces, aggregation_traces, gen.max_branch,
                                      score, trace_has_choices, root_idx)
     

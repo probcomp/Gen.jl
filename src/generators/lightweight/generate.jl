@@ -11,22 +11,24 @@ function GFGenerateState(constraints, params::Dict{Symbol,Any})
     GFGenerateState(GFTrace(), constraints, 0., 0., AddressVisitor(), params)
 end
 
-get_args_change(state::GFGenerateState) = nothing
-get_addr_change(state::GFGenerateState, addr) = nothing
-set_ret_change!(state::GFGenerateState, value) = begin end
-
 function addr(state::GFGenerateState, dist::Distribution{T}, args, addr) where {T}
-    visit!(state.visitor, addr)
-    constrained = has_leaf_node(state.constraints, addr)
-    if has_internal_node(state.constraints, addr)
-        lightweight_got_internal_node_err(addr)
-    end
     local retval::T
+
+    # check that address was not already visited, and mark it as visited
+    visit!(state.visitor, addr)
+
+    # check for constraints at this address
+    lightweight_check_no_internal_node(state.constraints, addr)
+    constrained = has_leaf_node(state.constraints, addr)
+
+    # either obtain return value from constraints, or sample one
     if constrained
         retval = get_leaf_node(state.constraints, addr)
     else
         retval = random(dist, args...)
     end
+
+    # update trace, score, and weight
     score = logpdf(dist, retval, args...)
     call = CallRecord(score, retval, args)
     state.trace = assoc_primitive_call(state.trace, addr, call)
@@ -35,23 +37,36 @@ function addr(state::GFGenerateState, dist::Distribution{T}, args, addr) where {
     if constrained
         state.weight += score
     end
-    retval
+
+    return retval
 end
 
-function addr(state::GFGenerateState, gen::Generator{T,U}, args, addr, args_change) where {T,U}
+function addr(state::GFGenerateState, gen::Generator{T,U}, args, addr) where {T,U}
+    local retval::T
+
+    # check address was not already visited, and mark it as visited
     visit!(state.visitor, addr)
+
+    # check for constraints at this address
+    lightweight_check_no_leaf_node(state.constraints, addr)
     if has_internal_node(state.constraints, addr)
         constraints = get_internal_node(state.constraints, addr)
     else
         constraints = EmptyAssignment()
     end
+
+    # generate subtrace and retrieve return value
     (trace::U, weight) = generate(gen, args, constraints)
-    call::CallRecord = get_call_record(trace)
+    retval = get_call_record(trace).retval
+    score = get_call_record(trace).score
+
+    # update trace, score, and weight
     state.trace = assoc_subtrace(state.trace, addr, trace)
     state.trace.has_choices |= has_choices(trace)
-    state.score += call.score
+    state.score += score
     state.weight += weight
-    call.retval::T
+
+    return retval
 end
 
 splice(state::GFGenerateState, gf::GenFunction, args::Tuple) = exec(gf, state, args)

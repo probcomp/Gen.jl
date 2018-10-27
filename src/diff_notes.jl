@@ -4,10 +4,18 @@
 
 # depends completely on the generative function.
 # the generative function may provide custom data types.
-# there are no common data types implemented at the moment.
+
+# generative functions may optionally expect these arg diff types.
+
+struct NoArgDiff end
+const noargdiff = NoArgDiff()
+
+struct UnknownArgDiff end
+const unknownargdiff = UnknownArgDiff()
+
+export noargdiff, unknownargdiff
 
 # NOTE: argdiff values NEED NOT implement any is-no-difference function.
-
 
 ############
 # @retdiff #
@@ -30,6 +38,9 @@ Every retdiff value must implement this function?
 function isnoretdiff end
 
 isnoretdiff(retdiff::Bool) = retdiff
+
+export isnoretdiff
+export isnew, isnodiff, isunknowndiff
 
 
 #############
@@ -60,6 +71,7 @@ isnew(::UnknownCallDiff) = true
 isnodiff(::UnknownCallDiff) = false
 isunknowndiff(::UnknownCallDiff) = false
 
+# TODO should we check isnodiff on the sub-value?
 """
 Custom information about the difference in the return values.
 """
@@ -105,40 +117,9 @@ isnodiff(::PrevChoiceDiff) = false
 
 # valid argdiff values:
 
-"""
-The number of applications, and the arguments to each, are unchanged.
-"""
-struct PlateNoArgDiff end
-
-"""
-The number of applications and/or their arguments may have changed.
-"""
-struct PlateUnknownArgDiff end
-
-"""
-The number of applications may have changed. Custom argdiffs are provided for
-retained applications whose arguments may have changed.
-"""
-struct PlateCustomArgDiff{T}
-    retained_argdiffs::Dict{Int,T} 
-end
 
 # possible retdiff values:
 
-"""
-The return value of the plate has not changed.
-"""
-struct PlateNoRetDiff end
-isnoretdiff(::PlateNoRetDiff) = true
-
-"""
-The number of applications may have changed. retdiff values are provided for
-retained applications for which isnoretdiff() = false.
-"""
-struct PlateCustomRetDiff{T}
-    retained_retdiffs::Dict{Int,T}
-end
-isnoretdiff(::PlateCustomRetDiff) = false
 
 # the nested function can have arbitrary argdiff and retdiff values.
 
@@ -155,81 +136,70 @@ isnoretdiff(::PlateCustomRetDiff) = false
 # which isnoretdiff() = false.
 
 
+###############################
+## tree higher order function #
+###############################
+#
+#"""
+#The return value did not change.
+#"""
+#struct TreeNoRetDiff end
+#isnoretdiff(::PlateNoRetDiff) = true
+#
+## NOTE: we might also return a custom DW retdiff type (which could itself have isnoretdiff = true)
+#
+#
+### production function ##
+#
+## the production function accepts argdiff values of type DU.
+#
+## the retdiff values returned from the production function must have type:
+#
+#"""
+#The v in the return value has vdiff (which may have isnoretdiff = true or
+#false).  The number of children may have changed. For children that were
+#retained, and for which their u value may have changed, we provide a custom
+#udiff value, for which isnoretdiff() = false (otherwise we would not include
+#it; we can assert this).
+#"""
+#struct TreeProductionRetDiff{DV,DU}
+    #vdiff::DV
+    #udiffs::Dict{Int,DU}
+#end
+#
+## the type DV must implement isnoretdiff().
+#
+## the tree will test vdiff for isnoretdiff, and take control flow actions
+## accordingly
+#
+#
+### aggregation function ##
+#
+## the aggregation function must accept argdiff values with type:
+#
+#"""
+#The v has vdiff (which may have isnoretdiff = true or false).
+#The number of children may have changed.
+#For retained children for which isnoretdiff(dw) = false, include the dw values.
+#"""
+#struct TreeAggregationArgDiff{DV,DW}
+    #vdiff::DV
+    #wdiffs::Dict{Int,DW}
+#end
+#
+## the DV used in TreeProductionRetDiff and TreeAggregationArgDiff must be the same.
+#
+## the aggregation function must must return retdiff values of type DW. this
+## type must implement isnoretdiff.
+#
+## when computing the argdiff for an aggregation node, the tree will only
+## include DWs for those retained children for which isnoretdiff(dw) = false.
+#
+#
+#
 ##############################
-# tree higher order function #
+## lightweight gen functions #
 ##############################
-
-"""
-The return value did not change.
-"""
-struct TreeNoRetDiff end
-isnoretdiff(::PlateNoRetDiff) = true
-
-# NOTE: we might also return a custom DW retdiff type (which could itself have isnoretdiff = true)
-
-
-## production function ##
-
-# the production function accepts argdiff values of type DU.
-
-# the retdiff values returned from the production function must have type:
-
-"""
-The v in the return value has vdiff (which may have isnoretdiff = true or
-false).  The number of children may have changed. For children that were
-retained, and for which their u value may have changed, we provide a custom
-udiff value, for which isnoretdiff() = false (otherwise we would not include
-it; we can assert this).
-"""
-struct TreeProductionRetDiff{DV,DU}
-    vdiff::DV
-    udiffs::Dict{Int,DU}
-end
-
-# the type DV must implement isnoretdiff().
-
-# the tree will test vdiff for isnoretdiff, and take control flow actions
-# accordingly
-
-
-## aggregation function ##
-
-# the aggregation function must accept argdiff values with type:
-
-"""
-The v has vdiff (which may have isnoretdiff = true or false).
-The number of children may have changed.
-For retained children for which isnoretdiff(dw) = false, include the dw values.
-"""
-struct TreeAggregationArgDiff{DV,DW}
-    vdiff::DV
-    wdiffs::Dict{Int,DW}
-end
-
-# the DV used in TreeProductionRetDiff and TreeAggregationArgDiff must be the same.
-
-# the aggregation function must must return retdiff values of type DW. this
-# type must implement isnoretdiff.
-
-# when computing the argdiff for an aggregation node, the tree will only
-# include DWs for those retained children for which isnoretdiff(dw) = false.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+#
+#struct GenFunctionDefaultRetDiff end
+#isnoretdiff(::GenFunctionDefaultRetDiff) = false

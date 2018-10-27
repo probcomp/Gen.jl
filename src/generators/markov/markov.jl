@@ -192,7 +192,7 @@ function update(gen::Markov{T,U}, args, change::MarkovChange,
     discard = DynamicAssignment()
     if prev_len > len
         for key=len+1:prev_len
-            set_internal_node!(discard, key, get_assignment(get_subtrace(trace, key)))
+            set_internal_node!(discard, key, get_assignment(trace[key]))
         end
         n_delete = prev_len - len
         for i=1:n_delete

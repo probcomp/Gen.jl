@@ -15,13 +15,12 @@ function addr(state::GFUngenerateState, dist::Distribution{T}, args, addr) where
     call::CallRecord = get_primitive_call(state.trace, addr)
     @assert call.args == args
     retval::T = call.retval
+    lightweight_check_no_internal_node(state.constraints, addr)
     if has_leaf_node(state.trace, addr)
         if retval != get_leaf_node(state.trace, addr)
             error("constraints and trace do not match at $addr")
         end
         state.weight += retval.score
-    elseif has_internal_node(state.trace, addr)
-        lightweight_got_internal_node_err(addr)
     end
     retval
 end
@@ -29,10 +28,9 @@ end
 function addr(state::GFUngenerateState, gen::Generator{T}, args, addr) where {T}
     visit!(state, addr)
     subtrace = get_subtrace(state.trace, addr)
+    lightweight_check_no_leaf_node(state.constraints, addr)
     if has_internal_node(state.constraints, addr)
         constraints = get_internal_node(state.constraints, addr)
-    elseif has_leaf_node(state.constraints, addr)
-        lightweight_got_leaf_node_err(addr)
     else
         constraints = EmptyAssignment()
     end

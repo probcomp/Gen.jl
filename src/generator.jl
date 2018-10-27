@@ -96,7 +96,6 @@ end
 """
 function generate end
 
-# TODO will be removed
 """
     trace = simulate(g::Generator, args)
 """
@@ -172,6 +171,33 @@ export backprop_trace
 # incremental computation #
 ###########################
 
+#struct ArgDiff{T}
+    #ismissing::Bool
+    #diff::Union{Nothing,T}
+#end
+#
+#struct GeneratorDiff{T}
+    #
+#end
+#
+#struct RandomChoiceDiff{T}
+    #ismissing::Bool
+    #issame::Bool # the return value of the statement did not change
+    #isnew::Bool # the address did not previously exist
+    #diff::Union{Nothing,T}
+#end
+#
+#Diff(diff::T) = Diff(false, false, false, diff)
+#same(::Type{T}) where {T} = Diff{T}(true, false, false, nothing)
+#
+#issame(diff::Diff{T}) where {T} = diff.issame
+#isnew(diff::Diff{T}) where {T} = diff.isnew
+#isdiff(diff::Diff{T}) where {T} = !ismissing(diff) && !issame(diff) && !isnew(diff) 
+#Base.get(diff::Diff{T}) where {T} = diff.diff
+
+
+
+
 # @change(addr) inside gen functions
 
 # Nothing means that either we are in generate/simulate, or that the address
@@ -186,8 +212,19 @@ export backprop_trace
 # If a Generator returns Some{T} where T is any type, the value may or may not
 # have changed, depending on the semantics of the value inside the Some.
 
+#struct MissingDiff end
+#struct NoDiff end
+#
+#struct Diff{M<:Bool,S<:Bool,T}
+    #missing::M
+    #same::S
+    #value::Union{Nothing,T}
+#end
+#
+#abstract type Diff{T} end
+
 struct NoChange end
 
-const ChangeInfo = Union{Nothing,NoChange,Some{T}} where {T}
+const ChangeInfo = Union{Nothing,NoChange,T} where {T}
 
 export NoChange, ChangeInfo

@@ -9,11 +9,7 @@ function GFSimulateState(params::Dict{Symbol,Any})
     GFSimulateState(GFTrace(), 0., AddressVisitor(), params)
 end
 
-get_args_change(state::GFSimulateState) = nothing
-get_addr_change(state::GFSimulateState, addr) = nothing
-set_ret_change!(state::GFSimulateState, value) = begin end
-
-function addr(state::GFSimulateState, dist::Distribution{T}, args, addr, arg_change) where {T}
+function addr(state::GFSimulateState, dist::Distribution{T}, args, addr) where {T}
     visit!(state.visitor, addr)
     retval::T = random(dist, args...)
     score = logpdf(dist, retval, args...)
@@ -24,7 +20,7 @@ function addr(state::GFSimulateState, dist::Distribution{T}, args, addr, arg_cha
     retval
 end
 
-function addr(state::GFSimulateState, gen::Generator{T,U}, args, addr, arg_change) where {T,U}
+function addr(state::GFSimulateState, gen::Generator{T,U}, args, addr) where {T,U}
     visit!(state.visitor, addr)
     trace::U = simulate(gen, args)
     call::CallRecord = get_call_record(trace)

@@ -86,26 +86,28 @@ const node_type_to_num_children = Dict(
 # input type U: Nothing
 # V = Int (what type of node we are?)
 # return type: Tuple{Node,Vector{Nothing}}
+# retdiff type:
+#    Union{Nothing,TreeProductionRetDiff{Nothing,Nothing}}
+#    > Nothing is reserved for cases when there is no previous trace (this will be not needed in future)
+#    > in all other cases, a TreeProductionRetDiff is returned; if there is no change, then the children dictionary will be empty
+
+# TODO lightweight gen functions currently require retdiff to have type Union{Nothing, NoChange, Some{T}}
 
 @gen function production_kernel(_::Nothing)
     node_type = @addr(categorical(node_dist), :type)
     num_children = node_type_to_num_children[node_type]
 
     # compute retdiff
-    typediff::Union{Nothing,NoChange,Some{Int}} = @diff(:type)
-    if typediff == nothing
-        @retdiff!(nothing)
-    elseif typediff == NoChange()
-        @retdiff!(NoChange())
-    else
-        prev_node_type = something(typediff)
-        prev_num_children = node_type_to_num_children[prev_node_type] # note: could store in aux
-        udiffs = Dict(i => nothing for i=1:min(prev_num_children,num_children))
-        @retdiff!(Some(TreeProductionRetDiff{Nothing,Nothing}(nothing,udiffs)))
-    end
+    @diff @retdiff!(TreeProductionRetDiff{Nothing,Nothing}(NoChange(),Dict{Int,Nothing}()))
 
     return (node_type, Nothing[nothing for _=1:num_children])
 end
+
+# retdiff type:
+#   Union{Nothing,NoChange}
+#   > Nothing is returned when there is no previous trace (this will not be needed in the future)
+#   > We could return NoChange in certain cases, but we do not
+#   > Nothing also happens to be the DW value, which expresses that there may have been a change.
 
 @gen function aggregation_kernel(node_type::Int, children_inputs::Vector{Node})
     local node::Node
@@ -133,15 +135,6 @@ end
         error("unknown node type $node_type")
     end
     
-    # compute retdiff (here, we always overapproximate and say there may have been a change)
-    # (this means we always visit every aggregation node on the path to the root)
-    argdiff::Union{Nothing,TreeAggregationArgDiff{Nothing,Nothing}} = @argdiff()
-    if argdiff == nothing
-        @retdiff!(nothing)
-    else
-        @retdiff!(Some(nothing))
-    end
-
     return node
 end
 
@@ -149,7 +142,6 @@ end
 # V = Int; DV = Nothing
 # W = Node; DW = Nothing
 tree = Tree(production_kernel, aggregation_kernel, 2, Nothing, Int, Node, Nothing, Nothing, Nothing)
-println(typeof(tree))
 
 ## test generate ##
 
