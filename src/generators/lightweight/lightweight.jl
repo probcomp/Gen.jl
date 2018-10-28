@@ -69,13 +69,13 @@ macro ad(ast)
     parse_gen_function(gen_ast, true)
 end
 
-macro addr(expr::Expr, addr, args_change)
+macro addr(expr::Expr, addr, addrdiff)
     if expr.head != :call
         error("syntax error in @addr at $(expr)")
     end
     fn = esc(expr.args[1])
     args = map(esc, expr.args[2:end])
-    Expr(:call, :addr, esc(state), fn, Expr(:tuple, args...), esc(addr), esc(args_change))
+    Expr(:call, :addr, esc(state), fn, Expr(:tuple, args...), esc(addr), esc(addrdiff))
 end
 
 macro gen(ast)
@@ -111,7 +111,7 @@ function transform_body_for_non_update(ast::Expr)
         if length(ast.args) == 5
             @assert isa(ast.args[2], LineNumberNode)
             # remove the last argument
-            ast.args = ast.args[1:4]
+            ast = Expr(ast.head, ast.args[1:4]...)
         end
     end
 

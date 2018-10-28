@@ -83,31 +83,72 @@ const node_type_to_num_children = Dict(
     TIMES_NODE => 2,
     CHANGE_NODE => 2)
 
-# input type U: Nothing
-# V = Int (what type of node we are?)
-# return type: Tuple{Node,Vector{Nothing}}
-# retdiff type:
-#    Union{Nothing,TreeProductionRetDiff{Nothing,Nothing}}
-#    > Nothing is reserved for cases when there is no previous trace (this will be not needed in future)
-#    > in all other cases, a TreeProductionRetDiff is returned; if there is no change, then the children dictionary will be empty
 
-# TODO lightweight gen functions currently require retdiff to have type Union{Nothing, NoChange, Some{T}}
+
+##########################################
+# data types for incremental computation #
+##########################################
+
+# no information is passed from the parent to each child
+const U = Nothing
+const u = nothing
+const DU = Nothing
+
+"""
+Data type indicating whether the node type changed or not.
+"""
+struct DV
+    node_type_same::Bool
+end
+Gen.isnodiff(dv::DV) = dv.node_type_same
+
+"""
+Indicates whether the covariance function may have changed or not.
+"""
+struct DW
+    issame::Bool
+end
+Gen.isnodiff(dw::DW) = dw.issame
+
+
+#####################
+# production kernel #
+#####################
+
+# input type Nothing (U=Nothing)
+# argdiff type: Nothing (DU=Nothing)
+# return type: Tuple{Int,Vector{Nothing}} (V=Int,U=Nothing)
+# retdiff type: 
 
 @gen function production_kernel(_::Nothing)
     node_type = @addr(categorical(node_dist), :type)
     num_children = node_type_to_num_children[node_type]
 
     # compute retdiff
-    @diff @retdiff!(TreeProductionRetDiff{Nothing,Nothing}(NoChange(),Dict{Int,Nothing}()))
+    # none of the arguments to existing children change, because arguments are always nothing
+    @diff begin
+        @assert @argdiff() === noargdiff
+        @assert !isnew(@choicediff(:type)) # always sampled
+        if isnodiff(@choicediff(:type))
+            dv = DV(true)
+        else
+            dv = DV(prev(@choicediff(:type)) == node_type)
+        end
+        @retdiff(TreeProductionRetDiff{DV,DU}(dv,Dict{Int,DU}()))
+    end
 
-    return (node_type, Nothing[nothing for _=1:num_children])
+    return (node_type, U[u for _=1:num_children])
 end
 
-# retdiff type:
-#   Union{Nothing,NoChange}
-#   > Nothing is returned when there is no previous trace (this will not be needed in the future)
-#   > We could return NoChange in certain cases, but we do not
-#   > Nothing also happens to be the DW value, which expresses that there may have been a change.
+
+######################
+# aggregation kernel #
+######################
+
+# input type: Tuple{Int,Vector{Node}} (V=Int,W=Node)
+# argdiff type:TreeAggregationArgDiff{Nothing,Nothing} (DV=Nothing,DW=Nothing)
+# return type: Node (W=Node)
+# retdiff type: Nothing (DW)
 
 @gen function aggregation_kernel(node_type::Int, children_inputs::Vector{Node})
     local node::Node
@@ -134,6 +175,21 @@ end
     else
         error("unknown node type $node_type")
     end
+
+    @diff begin
+        argdiff::TreeAggregationArgDiff{DV,DW} = @argdiff()
+        issame = (
+            # node type is the same
+            isnodiff(argdiff.dv)
+
+            # all children nodes are the same (isnodiff(dw) for all children)
+            && length(argdiff.dws) == 0
+
+            # parameters have not changed
+            && ((node_type == CONSTANT_NODE && isnodiff(@choicediff(:const))) ||
+                (node_type == CHANGE_NODE && isnodiff(@choicediff(:changept)))))
+        @retdiff(DW(issame))
+   end
     
     return node
 end
@@ -141,13 +197,16 @@ end
 # U = Nothing; DU = Nothing
 # V = Int; DV = Nothing
 # W = Node; DW = Nothing
-tree = Tree(production_kernel, aggregation_kernel, 2, Nothing, Int, Node, Nothing, Nothing, Nothing)
+tree = Tree(production_kernel, aggregation_kernel, 2, U, Int, Node, DV, DU, DW)
 
 ## test generate ##
 
-@gen function model()
-    root_node::Node = @addr(tree(nothing, 1), :tree)
-end
+model_expr = :(@gen function model()
+    root_node::Node = @addr(tree(u, 1), :tree, noargdiff)
+end)
+
+println(macroexpand(model_expr))
+eval(model_expr)
 
 for i=1:100
     trace = simulate(model, ())
@@ -157,25 +216,27 @@ end
 ## test update ##
 
 @gen function proposal(root::Int)
-    @addr(tree(nothing, root), :tree)
+    @addr(tree(u, root), :tree, noargdiff)
 end
 
-trace = simulate(model, ())
-
-println("\nprevious trace:")
-println(get_assignment(trace))
-
-
-proposal_trace = simulate(proposal, (1,))
-
-println("\nproposal trace:")
-println(get_assignment(proposal_trace))
-
-(new_trace, weight, discard, retdiff) = update(model, (),
-        NoChange(), trace, get_assignment(proposal_trace))
-
-println("\nnew trace:")
-println(get_assignment(new_trace))
+for i=1:100
+    trace = simulate(model, ())
+    
+    println("\nprevious trace:")
+    println(get_assignment(trace))
+    
+    
+    proposal_trace = simulate(proposal, (1,))
+    
+    println("\nproposal trace:")
+    println(get_assignment(proposal_trace))
+    
+    (new_trace, weight, discard, retdiff) = update(model, (),
+            noargdiff, trace, get_assignment(proposal_trace))
+    
+    println("\nnew trace:")
+    println(get_assignment(new_trace))
+end
 
 # TODO backpropagation
 

@@ -12,6 +12,14 @@ get_arg_diff(state) = state.argdiff
 # calldiff #
 ############
 
+function isnew end
+function isnodiff end
+function isunknowndiff end
+
+export isnew
+export isnodiff
+export isunknowndiff
+
 # values that are returned to the gen function incremental computation path
 
 """
@@ -23,6 +31,7 @@ struct NewCallDiff end
 isnew(::NewCallDiff) = true
 isnodiff(::NewCallDiff) = false
 isunknowndiff(::NewCallDiff) = false
+export NewCallDiff
 
 """
     NoCallDiff()
@@ -33,6 +42,7 @@ struct NoCallDiff end
 isnew(::NoCallDiff) = false
 isnodiff(::NoCallDiff) = true
 isunknowndiff(::NoCallDiff) = false
+export NoCallDiff
 
 """
     UnknownCallDiff()
@@ -43,6 +53,7 @@ struct UnknownCallDiff end
 isnew(::UnknownCallDiff) = true
 isnodiff(::UnknownCallDiff) = false
 isunknowndiff(::UnknownCallDiff) = false
+export UnknownCallDiff
 
 """
     CustomCallDiff(retdiff)
@@ -55,6 +66,7 @@ end
 isnew(::CustomCallDiff) = false
 isnodiff(::CustomCallDiff) = false
 isunknowndiff(::CustomCallDiff) = false
+export CustomCallDiff
 
 
 get_call_diff(state, key) = get_leaf_node(state.calldiffs, key)
@@ -63,6 +75,8 @@ get_call_diff(state, key) = get_leaf_node(state.calldiffs, key)
 ##############
 # choicediff #
 ##############
+
+
 
 """
     NewChoiceDiff()
@@ -94,7 +108,9 @@ struct PrevChoiceDiff{T}
 end
 isnew(::PrevChoiceDiff) = false
 isnodiff(::PrevChoiceDiff) = false
+prev(diff::PrevChoiceDiff) = diff.prev
 export PrevChoiceDiff
+export prev
 
 
 function set_choice_diff_no_prev!(state, key)
