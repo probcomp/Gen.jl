@@ -5,7 +5,6 @@ module Gen
     include("generator.jl")
     include("distribution.jl")
     include("dsl_common.jl")
-    include("diff_notes.jl") # TODO rename it
     include("generators/generators.jl")
     include("injective.jl")
     include("selection.jl")

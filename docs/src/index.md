@@ -212,7 +212,25 @@ print(assignment)
 
 ## Change Propagation
 
-Getting good asymptotic scaling for iterative local search algorithms like MCMC or MAP optimization relies in the ability to perform incremental computation when evaluating a proposed change to the random choices in a trace.
+Getting good asymptotic scaling for iterative local search algorithms like MCMC or MAP optimization relies on the ability to update a trace efficiently, when a small number of random choice(s) are changed, or when there is a small change to the arguments of the function.
+
+To support this, generative functions use *argdiffs* and *retdiffs*, which describe the change made to the arguments of the generative function, relative to the arguments in the previous trace, and the change to the return value of a generative function, relative to the return value in the previous trace.
+The update generative function API methods `update`, `fix_update`, and `extend` accept the argdiff value, alongside the new arguments to the function, the previous trace, and other parameters; and return the new trace and the retdiff value.
+
+### Argdiffs
+
+An argument difference value, or *argdiff*, is associated with a pair of argument tuples `args::Tuple` and `new_args::Tuple`.
+The update methods for a generative function accept different types of argdiff values, that depend on the generative function.
+Two singleton data types are provided for expressing that there is no difference to the argument (`noargdiff::NoArgDiff`) and that there is an unknown difference in the arguments (`unknownargdiff::UnknownArgDiff`).
+Generative functions may or may not accept these types as argdiffs, depending on the generative function.
+
+### Retdiffs
+
+A retdiff value, 
+
+### Custom incremental computation in embedded modeling DSL
+
+to perform incremental computation when evaluating a proposed change to the random choices in a trace.
 Specifically, when incrementally adjusting a trace inside the `update`, `fix_update`, or `extend` methods, a probabilistic module can take advantage of knowledge of the change made to the arguments of the module (if there was any change) as well as knowledge of which addresses are constrained (i.e. changed) to avoid unecessary computation, and to compute detailed information about the change to its own return value, if any.
 
 First, generative function can query the *change status* for an address, using the syntax below, where `:foo` is an address:

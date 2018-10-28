@@ -65,13 +65,13 @@ function mark_input_change_nodes!(marked::Set{ValueNode}, ir::BasicBlockIR)
     end
 end
 
-function mark_arguments!(marked::Set{ValueNode}, ir::BasicBlockIR, args_change::Type{Nothing})
+function mark_arguments!(marked::Set{ValueNode}, ir::BasicBlockIR, args_change::Type{UnknownArgDiff})
     for arg_node in ir.arg_nodes
         push!(marked, arg_node)
     end
 end
 
-function mark_arguments!(marked::Set{ValueNode}, ir::BasicBlockIR, args_change::Type{NoChange}) end
+function mark_arguments!(marked::Set{ValueNode}, ir::BasicBlockIR, args_change::Type{NoArgDiff}) end
 
 function mark_arguments!(marked::Set{ValueNode}, ir::BasicBlockIR, args_change::Type{T}) where {T <: MaskedArgChange}
     mask = args_change.parameters[1].parameters
@@ -130,7 +130,7 @@ function process!(ir::BasicBlockIR, state::Union{BBUpdateState,BBFixUpdateState,
         constrained = dist_node.output in state.marked
         # return whether the value changed and the previous value
         push!(state.stmts, quote
-            $bb_new_trace.$trace_field = $(constrained ? :(Some(trace.$addr)) : NoChange())
+            $bb_new_trace.$trace_field = $(constrained ? :(PrevChoiceDiff(trace.$addr)) : NoChoiceDiff())
         end)
     else
         if !haskey(ir.addr_gen_nodes, addr)
@@ -296,7 +296,7 @@ function process!(ir::BasicBlockIR, state::Union{BBUpdateState,BBFixUpdateState}
         generate_generator_output_statement!(state.stmts, node, addr)
     else
         push!(state.stmts, quote
-            $(addr_change_variable(addr)) = NoChange()
+            $(addr_change_variable(addr)) = noargdiff
         end)
     end
 end
@@ -313,7 +313,7 @@ function process!(ir::BasicBlockIR, state::BBExtendState, node::AddrGeneratorNod
         generate_generator_output_statement!(state.stmts, node, addr)
     else
         push!(state.stmts, quote
-            $(addr_change_variable(addr)) = NoChange()
+            $(addr_change_variable(addr)) = noargdiff
         end)
     end
 end
@@ -418,7 +418,7 @@ end
 
 function generate_update_return_statement!(stmts::Vector{Expr}, ir::BasicBlockIR)
     if ir.retchange_node === nothing
-        retchange = :(nothing)
+        retchange = :(GenFunctionDefaultRetDiff())
     else
         retchange = Expr(:(.), bb_new_trace, QuoteNode(value_field(ir.retchange_node)))
     end
@@ -427,7 +427,7 @@ end
 
 function generate_extend_return_statement!(stmts::Vector{Expr}, ir::BasicBlockIR)
     if ir.retchange_node === nothing
-        retchange = :(nothing)
+        retchange = :(GenFunctionDefaultRetDiff())
     else
         retchange = Expr(:(.), bb_new_trace, QuoteNode(value_field(ir.retchange_node)))
     end
@@ -480,7 +480,7 @@ end
 
 
 push!(Gen.generated_functions, quote
-@generated function Gen.update(gen::Gen.BasicGenFunction{T,U}, new_args, args_change, trace::U, constraints) where {T,U}
+@generated function Gen.update(gen::Gen.BasicGenFunction{T,U}, new_args, args_change::Union{Gen.NoArgDiff,Gen.UnknownArgDiff,Gen.MaskedArgChange}, trace::U, constraints) where {T,U}
     schema = get_address_schema(constraints)
     if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
         # try to convert it to a static assignment
@@ -491,7 +491,7 @@ end
 end)
 
 push!(Gen.generated_functions, quote
-@generated function Gen.fix_update(gen::Gen.BasicGenFunction{T,U}, new_args, args_change, trace::U, constraints) where {T,U}
+@generated function Gen.fix_update(gen::Gen.BasicGenFunction{T,U}, new_args, args_change::Union{Gen.NoArgDiff,Gen.UnknownArgDiff,Gen.MaskedArgChange}, trace::U, constraints) where {T,U}
     schema = get_address_schema(constraints)
     if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
         # try to convert it to a static assignment
@@ -502,7 +502,7 @@ end
 end)
 
 push!(Gen.generated_functions, quote
-@generated function Gen.extend(gen::Gen.BasicGenFunction{T,U}, new_args, args_change, trace::U, constraints) where {T,U}
+@generated function Gen.extend(gen::Gen.BasicGenFunction{T,U}, new_args, args_change::Union{Gen.NoArgDiff,Gen.UnknownArgDiff,Gen.MaskedArgChange}, trace::U, constraints) where {T,U}
     schema = get_address_schema(constraints)
     if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
         # try to convert it to a static assignment

@@ -118,22 +118,20 @@ end
 # retdiff #
 ###########
 
-# the kernel function must always return the same retdiff value (or a value that has isnoretdiff)
-
 """
 The return value of the plate has not changed.
 """
 struct PlateNoRetDiff end
-isnoretdiff(::PlateNoRetDiff) = true
+isnodiff(::PlateNoRetDiff) = true
 
 """
 The number of applications may have changed. retdiff values are provided for
-retained applications for which isnoretdiff() = false.
+retained applications for which isnodiff() = false.
 """
 struct PlateCustomRetDiff
     retained_retdiffs::Dict{Int,Any}
 end
-isnoretdiff(::PlateCustomRetDiff) = false
+isnodiff(::PlateCustomRetDiff) = false
 
 
 

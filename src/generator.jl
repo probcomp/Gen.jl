@@ -44,7 +44,7 @@ abstract type Generator{T,U} end
 
 get_return_type(::Generator{T,U}) where {T,U} = T
 get_trace_type(::Generator{T,U}) where {T,U} = U
-get_change_type(::Generator) = :Any
+get_change_type(::Generator) = Any
 
 """
 Return a boolean indicating whether a gradient of the output is accepted.
@@ -167,64 +167,32 @@ export backprop_params
 export backprop_trace
 
 
-###########################
-# incremental computation #
-###########################
+##################
+# argdiff values #
+##################
 
-#struct ArgDiff{T}
-    #ismissing::Bool
-    #diff::Union{Nothing,T}
-#end
-#
-#struct GeneratorDiff{T}
-    #
-#end
-#
-#struct RandomChoiceDiff{T}
-    #ismissing::Bool
-    #issame::Bool # the return value of the statement did not change
-    #isnew::Bool # the address did not previously exist
-    #diff::Union{Nothing,T}
-#end
-#
-#Diff(diff::T) = Diff(false, false, false, diff)
-#same(::Type{T}) where {T} = Diff{T}(true, false, false, nothing)
-#
-#issame(diff::Diff{T}) where {T} = diff.issame
-#isnew(diff::Diff{T}) where {T} = diff.isnew
-#isdiff(diff::Diff{T}) where {T} = !ismissing(diff) && !issame(diff) && !isnew(diff) 
-#Base.get(diff::Diff{T}) where {T} = diff.diff
+# these are data types that generative functions may accept. the built-in
+# higher order functions accept these types for their argdiff values. user
+# generative functions may or may not accept these.
+
+struct NoArgDiff end
+const noargdiff = NoArgDiff()
+
+struct UnknownArgDiff end
+const unknownargdiff = UnknownArgDiff()
+
+export noargdiff, unknownargdiff
 
 
+############
+# retdiffs #
+############
 
+"""
+Every retdiff value must implement this function.
+"""
+function isnoretdiff end
 
-# @change(addr) inside gen functions
+isnoretdiff(retdiff::Bool) = retdiff
 
-# Nothing means that either we are in generate/simulate, or that the address
-# not exist in the previous trace
-
-# NoChange indicates the value existed previously, and the value definitely did
-# not change
-
-# If a distribution returns Some{T} where T is the output type, the value might
-# have changed, and the value is the previous value
-
-# If a Generator returns Some{T} where T is any type, the value may or may not
-# have changed, depending on the semantics of the value inside the Some.
-
-#struct MissingDiff end
-#struct NoDiff end
-#
-#struct Diff{M<:Bool,S<:Bool,T}
-    #missing::M
-    #same::S
-    #value::Union{Nothing,T}
-#end
-#
-#abstract type Diff{T} end
-
-struct NoChange end
-
-const ChangeInfo = Union{Nothing,NoChange,T} where {T}
-
-export NoChange, ChangeInfo
+export isnoretdiff

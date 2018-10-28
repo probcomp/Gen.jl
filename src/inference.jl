@@ -22,7 +22,7 @@ function mh(model::Generator, proposal::Generator, proposal_args_rest::Tuple, tr
     forward_score = get_call_record(forward_trace).score
     constraints = get_assignment(forward_trace)
     (new_trace, weight, discard) = update(
-        model, model_args, NoChange(), trace, constraints)
+        model, model_args, noargdiff, trace, constraints)
     proposal_args_backward = (new_trace, proposal_args_rest...,)
     backward_trace = assess(proposal, proposal_args_backward, discard)
     backward_score = get_call_record(backward_trace).score
@@ -38,7 +38,7 @@ end
 function mh(model::Generator, selector::SelectionFunction, selector_args::Tuple, trace)
     (selection, _) = select(selector, selector_args, get_assignment(trace))
     model_args = get_call_record(trace).args
-    (new_trace, weight) = regenerate(model, model_args, NoChange(), trace, selection)
+    (new_trace, weight) = regenerate(model, model_args, noargdiff, trace, selection)
     if log(rand()) < weight
         # accept
         return new_trace
@@ -111,7 +111,7 @@ function hmc(model::Generator{T,U}, selection::AddressSet, trace::U;
         values_trie = from_array(values_trie, values + eps * momenta)
 
         # half step on momenta
-        (new_trace, _, _) = update(model, model_args, NoChange(), new_trace, values_trie)
+        (new_trace, _, _) = update(model, model_args, noargdiff, new_trace, values_trie)
         (_, _, gradient_trie) = backprop_trace(model, new_trace, selection, nothing)
         gradient = to_array(gradient_trie, Float64)
         momenta += (eps / 2) * gradient
@@ -151,7 +151,7 @@ function mala(model::Generator{T,U}, selection::AddressSet, trace::U, tau) where
     # evaluate model weight
     constraints = from_array(values_trie, proposed_values)
     (new_trace, weight, discard) = update(
-        model, model_args, NoChange(), trace, constraints)
+        model, model_args, noargdiff, trace, constraints)
 
     # backward proposal
     (_, _, backward_gradient_trie) = backprop_trace(model, new_trace, selection, nothing)
@@ -421,7 +421,7 @@ function map_optimize(model::Generator, selection::AddressSet,
         new_values_vec = values_vec + gradient_vec * step_size
         values = from_array(values, new_values_vec)
         # TODO discard and weight are not actually needed, there should be a more specialized variant
-        (new_trace, _, discard, _) = update(model, model_args, NoChange(), trace, values)
+        (new_trace, _, discard, _) = update(model, model_args, noargdiff, trace, values)
         new_score = get_call_record(new_trace).score
         change = new_score - score
         if verbose

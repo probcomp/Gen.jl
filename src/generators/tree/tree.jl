@@ -566,3 +566,62 @@ end
 
 export Tree
 export TreeAggregationArgDiff, TreeProductionRetDiff
+
+###################################
+## notes on argdiffs and retdiffs #
+###################################
+#
+#"""
+#The return value did not change.
+#"""
+#struct TreeNoRetDiff end
+#isnoretdiff(::PlateNoRetDiff) = true
+#
+## NOTE: we might also return a custom DW retdiff type (which could itself have isnoretdiff = true)
+#
+#
+### production function ##
+#
+## the production function accepts argdiff values of type DU.
+#
+## the retdiff values returned from the production function must have type:
+#
+#"""
+#The v in the return value has vdiff (which may have isnoretdiff = true or
+#false).  The number of children may have changed. For children that were
+#retained, and for which their u value may have changed, we provide a custom
+#udiff value, for which isnoretdiff() = false (otherwise we would not include
+#it; we can assert this).
+#"""
+#struct TreeProductionRetDiff{DV,DU}
+    #vdiff::DV
+    #udiffs::Dict{Int,DU}
+#end
+#
+## the type DV must implement isnoretdiff().
+#
+## the tree will test vdiff for isnoretdiff, and take control flow actions
+## accordingly
+#
+#
+### aggregation function ##
+#
+## the aggregation function must accept argdiff values with type:
+#
+#"""
+#The v has vdiff (which may have isnoretdiff = true or false).
+#The number of children may have changed.
+#For retained children for which isnoretdiff(dw) = false, include the dw values.
+#"""
+#struct TreeAggregationArgDiff{DV,DW}
+    #vdiff::DV
+    #wdiffs::Dict{Int,DW}
+#end
+#
+## the DV used in TreeProductionRetDiff and TreeAggregationArgDiff must be the same.
+#
+## the aggregation function must must return retdiff values of type DW. this
+## type must implement isnoretdiff.
+#
+## when computing the argdiff for an aggregation node, the tree will only
+## include DWs for those retained children for which isnoretdiff(dw) = false.

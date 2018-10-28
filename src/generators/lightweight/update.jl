@@ -1,25 +1,91 @@
-##########################################
-# argdiff, choicediff, calldiff, retdiff #
-##########################################
+###########
+# argdiff #
+###########
 
-# TODO clearly describe the diff policies!
-
-struct GenFunctionDefaultRetDiff end
-isnoretdiff(::GenFunctionDefaultRetDiff) = false
-
-export GenFunctionDefaultRetDiff
+# what argdiff types are accepted by a generative function depends on the
+# generative function.
 
 get_arg_diff(state) = state.argdiff
-set_ret_diff!(state, value) = state.retdiff = value
-get_choice_diff(state, key) = get_leaf_node(state.choicediffs, key)
+
+
+############
+# calldiff #
+############
+
+# values that are returned to the gen function incremental computation path
+
+"""
+There was no previous call at this address.
+"""
+struct NewCallDiff end
+isnew(::NewCallDiff) = true
+isnodiff(::NewCallDiff) = false
+isunknowndiff(::NewCallDiff) = false
+
+"""
+The two return values are equal.
+"""
+struct NoCallDiff end 
+isnew(::NoCallDiff) = false
+isnodiff(::NoCallDiff) = true
+isunknowndiff(::NoCallDiff) = false
+
+"""
+No information about the difference in the return values was provided.
+"""
+struct UnknownCallDiff end
+isnew(::UnknownCallDiff) = true
+isnodiff(::UnknownCallDiff) = false
+isunknowndiff(::UnknownCallDiff) = false
+
+"""
+Custom information about the difference in the return values.
+"""
+struct CustomCallDiff{T}
+    value::T
+end
+isnew(::CustomCallDiff) = false
+isnodiff(::CustomCallDiff) = false
+isunknowndiff(::CustomCallDiff) = false
+
+
 get_call_diff(state, key) = get_leaf_node(state.calldiffs, key)
 
-function set_choice_diff_no_prev!(state, key::Int)
+
+##############
+# choicediff #
+##############
+
+"""
+There was no previous random choice at this address.
+"""
+struct NewChoiceDiff end
+isnew(::NewChoiceDiff) = true
+isnodiff(::NewChoiceDiff) = false
+
+"""
+The value of the random choice has not changed.
+"""
+struct NoChoiceDiff end 
+isnew(::NoChoiceDiff) = false
+isnodiff(::NoChoiceDiff) = true
+
+"""
+The value of the choice may have changed, and this is the previous value.
+"""
+struct PrevChoiceDiff{T}
+    prev::T
+end
+isnew(::PrevChoiceDiff) = false
+isnodiff(::PrevChoiceDiff) = false
+
+
+function set_choice_diff_no_prev!(state, key)
     choicediff = NewChoiceDiff()
     set_leaf_node!(state.choicediffs, key, choicediff)
 end
 
-function set_choice_diff!(state, key::Int, value_changed::Bool,
+function set_choice_diff!(state, key, value_changed::Bool,
                           prev_retval::T) where {T}
     if value_changed
         choicediff = PrevChoiceDiff(prev_retval)
@@ -29,6 +95,27 @@ function set_choice_diff!(state, key::Int, value_changed::Bool,
     set_leaf_node!(state.choicediffs, key, choicediff)
 end
 
+get_choice_diff(state, key) = get_leaf_node(state.choicediffs, key)
+
+
+###########
+# retdiff #
+###########
+
+# @retdiff(<value<)
+
+# generative functions can return arbitrary retdiff values, provided the type
+# implemnets the isnodiff() function.
+
+"""
+The default retdiff value from a generative function, if @retdiff is not called
+"""
+struct GenFunctionDefaultRetDiff end
+isnodiff(::GenFunctionDefaultRetDiff) = false
+
+set_ret_diff!(state, value) = state.retdiff = value
+
+export GenFunctionDefaultRetDiff
 
 
 ################
@@ -146,7 +233,11 @@ function addr(state::GFUpdateState, gen::Generator{T,U}, args, key, argdiff) whe
 
     # update calldiffs
     if has_previous
-        set_leaf_node!(state.calldiffs, key, CustomCallDiff(retdiff))
+        if isnodiff(retdiff)
+            set_leaf_node!(state.calldiffs, key, NoCallDiff())
+        else
+            set_leaf_node!(state.calldiffs, key, CustomCallDiff(retdiff))
+        end
     else
         set_leaf_node!(state.calldiffs, key, NewCallDiff())
     end
@@ -311,7 +402,11 @@ function addr(state::GFFixUpdateState, gen::Generator{T,U}, args, key, argdiff) 
 
     # update calldiffs
     if has_previous
-        set_leaf_node!(state.calldiffs, key, CustomCallDiff(retdiff))
+        if isnodiff(retdiff)
+            set_leaf_node!(state.calldiffs, key, NoCallDiff())
+        else
+            set_leaf_node!(state.calldiffs, key, CustomCallDiff(retdiff))
+        end
     else
         set_leaf_node!(state.calldiffs, key, NewCallDiff())
     end
@@ -439,7 +534,7 @@ function addr(state::GFRegenerateState, gen::Generator{T,U}, args, key, argdiff)
     visit!(state.visitor, key)
 
     # check whether the key was selected
-    if has_leaf_node(key, state.selection)
+    if has_leaf_node(state.selection, key)
         error("Entire sub-traces cannot be selected, tried to select $key")
     end
     if has_internal_node(state.selection, key)
@@ -466,7 +561,11 @@ function addr(state::GFRegenerateState, gen::Generator{T,U}, args, key, argdiff)
 
     # update calldiffs
     if has_previous
-        set_leaf_node!(state.calldiffs, key, CustomCallDiff(retdiff))
+        if isnodiff(retdiff)
+            set_leaf_node!(state.calldiffs, key, NoCallDiff())
+        else
+            set_leaf_node!(state.calldiffs, key, CustomCallDiff(retdiff))
+        end
     else
         set_leaf_node!(state.calldiffs, key, NewCallDiff())
     end
@@ -607,7 +706,11 @@ function addr(state::GFExtendState, gen::Generator{T}, args, key, argdiff) where
 
     # update calldiffs
     if has_previous
-        set_leaf_node!(state.calldiffs, key, CustomCallDiff(retdiff))
+        if isnodiff(retdiff)
+            set_leaf_node!(state.calldiffs, key, NoCallDiff())
+        else
+            set_leaf_node!(state.calldiffs, key, CustomCallDiff(retdiff))
+        end
     else
         set_leaf_node!(state.calldiffs, key, NewCallDiff())
     end
