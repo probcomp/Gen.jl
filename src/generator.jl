@@ -191,8 +191,8 @@ export noargdiff, unknownargdiff
 """
 Every retdiff value must implement this function.
 """
-function isnoretdiff end
+function isnodiff end
 
-isnoretdiff(retdiff::Bool) = retdiff
+isnodiff(retdiff::Bool) = retdiff
 
-export isnoretdiff
+export isnodiff

@@ -15,7 +15,9 @@ get_arg_diff(state) = state.argdiff
 # values that are returned to the gen function incremental computation path
 
 """
-There was no previous call at this address.
+    NewCallDiff()
+
+Singleton indicating that there was previously no call at this address.
 """
 struct NewCallDiff end
 isnew(::NewCallDiff) = true
@@ -23,7 +25,9 @@ isnodiff(::NewCallDiff) = false
 isunknowndiff(::NewCallDiff) = false
 
 """
-The two return values are equal.
+    NoCallDiff()
+
+Singleton indicating that the return value of the call has not changed.
 """
 struct NoCallDiff end 
 isnew(::NoCallDiff) = false
@@ -31,7 +35,9 @@ isnodiff(::NoCallDiff) = true
 isunknowndiff(::NoCallDiff) = false
 
 """
-No information about the difference in the return values was provided.
+    UnknownCallDiff()
+
+Singleton indicating that there was a previous call at this address, but that no information is known about the change to the return value.
 """
 struct UnknownCallDiff end
 isnew(::UnknownCallDiff) = true
@@ -39,10 +45,12 @@ isnodiff(::UnknownCallDiff) = false
 isunknowndiff(::UnknownCallDiff) = false
 
 """
-Custom information about the difference in the return values.
+    CustomCallDiff(retdiff)
+
+Wrapper around a retdiff value, indicating that there was a previous call at this address, and that `isnodiff(retdiff) = false` (otherwise `NoCallDiff()` would have been returned).
 """
 struct CustomCallDiff{T}
-    value::T
+    retdiff::T
 end
 isnew(::CustomCallDiff) = false
 isnodiff(::CustomCallDiff) = false
@@ -57,27 +65,36 @@ get_call_diff(state, key) = get_leaf_node(state.calldiffs, key)
 ##############
 
 """
-There was no previous random choice at this address.
+    NewChoiceDiff()
+
+Singleton indicating that there was previously no random choice at this address.
 """
 struct NewChoiceDiff end
 isnew(::NewChoiceDiff) = true
 isnodiff(::NewChoiceDiff) = false
+export NewChoiceDiff
 
 """
-The value of the random choice has not changed.
+    NoChoiceDiff()
+
+Singleton indicating that the value of the random choice did not change.
 """
 struct NoChoiceDiff end 
 isnew(::NoChoiceDiff) = false
 isnodiff(::NoChoiceDiff) = true
+export NoChoiceDiff 
 
 """
-The value of the choice may have changed, and this is the previous value.
+    PrevChoiceDiff(prev)
+
+Wrapper around the previous value of the random choice indicating that it may have changed.
 """
 struct PrevChoiceDiff{T}
     prev::T
 end
 isnew(::PrevChoiceDiff) = false
 isnodiff(::PrevChoiceDiff) = false
+export PrevChoiceDiff
 
 
 function set_choice_diff_no_prev!(state, key)
