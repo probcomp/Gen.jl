@@ -71,7 +71,7 @@ function addr(state::GFUpdateState, dist::Distribution{T}, args, key) where {T}
     constrained = has_leaf_node(state.constraints, key)
     lightweight_check_no_internal_node(state.constraints, key)
     
-    # obtain return value from previous trace or constraints
+    # get return value and logpdf
     local retval::T
     if constrained
         retval = get_leaf_node(state.constraints, key)
@@ -80,23 +80,25 @@ function addr(state::GFUpdateState, dist::Distribution{T}, args, key) where {T}
     else
         error("Constraint not given for new key: $key")
     end
+    score = logpdf(dist, retval, args...)
 
     # record the previous value as discarded if it is replaced
     if constrained && has_previous
         set_leaf_node!(state.discard, key, prev_retval)
     end
 
-    # choicediff
+    # update choicediffs
     if has_previous
         set_choice_diff!(state, key, constrained, prev_retval) 
     else
         set_choice_diff_no_prev!(state, key)
     end
 
-    # update trace and score
-    score = logpdf(dist, retval, args...)
+    # update trace
     call = CallRecord(score, retval, args)
     state.trace = assoc_primitive_call(state.trace, key, call)
+
+    # update score
     state.score += score
 
     return retval 
@@ -119,28 +121,38 @@ function addr(state::GFUpdateState, gen::Generator{T,U}, args, key, argdiff) whe
         constraints = EmptyAssignment()
     end
 
-    # get new trace
+    # get subtrace
     local prev_trace::U
     local trace::U
-    if has_subtrace(state.prev_trace, key)
-
-        # key already populated
+    has_previous = has_subtrace(state.prev_trace, key)
+    if has_previous
         prev_trace = get_subtrace(state.prev_trace, key)
         (trace, _, discard, retdiff) = update(gen, args, argdiff,
             prev_trace, constraints)
-        set_internal_node!(state.discard, key, discard)
-        set_leaf_node!(state.calldiffs, key, CustomCallDiff(retdiff))
     else
-
-        # key is new
         trace = assess(gen, args, constraints)
-        set_leaf_node!(state.calldiffs, key, NewCallDiff())
     end
 
-    # update trace and score
+    # get return value
     local retval::T
     retval = get_call_record(trace).retval
+
+    # update discard
+    if has_previous
+        set_internal_node!(state.discard, key, discard)
+    end
+
+    # update calldiffs
+    if has_previous
+        set_leaf_node!(state.calldiffs, key, CustomCallDiff(retdiff))
+    else
+        set_leaf_node!(state.calldiffs, key, NewCallDiff())
+    end
+ 
+    # update trace
     state.trace = assoc_subtrace(state.trace, key, trace)
+
+    # update score
     state.score += get_call_record(trace).score
 
     return retval 
@@ -154,7 +166,7 @@ function update(gen::GenFunction, new_args, argdiff, trace::GFTrace, constraints
     new_call = CallRecord{Any}(state.score, retval, new_args)
     state.trace.call = new_call
 
-    # discard addresses that were deleted
+    # discard keys that were deleted
     unvisited = get_unvisited(state.visitor, get_assignment(state.prev_trace))
     merge!(state.discard, unvisited) # TODO use merge()?
     if !isempty(get_unvisited(state.visitor, constraints))
@@ -212,7 +224,6 @@ function addr(state::GFFixUpdateState, dist::Distribution{T}, args, key) where {
     # check for constraints at this key
     constrained = has_leaf_node(state.constraints, key)
     lightweight_check_no_internal_node(state.constraints, key)
-    
     if constrained && !has_previous
         error("fix_update attempted to constrain a new key: $key")
     end
@@ -222,7 +233,7 @@ function addr(state::GFFixUpdateState, dist::Distribution{T}, args, key) where {
         set_leaf_node!(state.discard, key, prev_retval)
     end
 
-    # obtain return value from previous trace, constraints, or by sampling
+    # get return value and logpdf
     local retval::T
     if constrained
         retval = get_leaf_node(state.constraints, key)
@@ -231,18 +242,20 @@ function addr(state::GFFixUpdateState, dist::Distribution{T}, args, key) where {
     else
         retval = random(dist, args...)
     end
+    score = logpdf(dist, retval, args...)
 
-    # choicediff
+    # update choicediffs
     if has_previous
         set_choice_diff!(state, key, constrained, prev_retval) 
     else
         set_choice_diff_no_prev!(state, key)
     end
 
-    # update trace and score
-    score = logpdf(dist, retval, args...)
+    # update trace
     call = CallRecord(score, retval, args)
     state.trace = assoc_primitive_call(state.trace, key, call)
+
+    # update score
     state.score += score
 
     # update weight
@@ -270,33 +283,47 @@ function addr(state::GFFixUpdateState, gen::Generator{T,U}, args, key, argdiff) 
         constraints = EmptyAssignment()
     end
 
-    # get new trace
+    # get subtrace
     local prev_trace::U
     local trace::U
-    if has_subtrace(state.prev_trace, key)
-
-        # key already populated
+    has_previous = has_subtrace(state.prev_trace, key)
+    if has_previous
         prev_trace = get_subtrace(state.prev_trace, key)
         (trace, weight, discard, retdiff) = fix_update(gen, args, argdiff,
             prev_trace, constraints)
-        state.weight += weight
-        set_internal_node!(state.discard, key, discard)
-        set_leaf_node!(state.calldiffs, key, CustomCallDiff(retdiff))
     else
-
-        # key is new
         if has_internal_node(state.constraints, key)
             error("fix_update attempted to constrain new key: $key")
         end
         trace = simulate(gen, args)
+    end
+
+    # get return value
+    local retval::T
+    retval = get_call_record(trace).retval
+
+    # update discard
+    if has_previous
+        set_internal_node!(state.discard, key, discard)
+    end
+
+    # update calldiffs
+    if has_previous
+        set_leaf_node!(state.calldiffs, key, CustomCallDiff(retdiff))
+    else
         set_leaf_node!(state.calldiffs, key, NewCallDiff())
     end
 
-    # update trace and score
-    local retval::T
-    retval = get_call_record(trace).retval
+    # update trace, score, and weight
     state.trace = assoc_subtrace(state.trace, key, trace)
+
+    # update score
     state.score += get_call_record(trace).score
+
+    # update weight
+    if has_previous
+        state.weight += weight
+    end
     
     return retval
 end
@@ -361,41 +388,41 @@ function addr(state::GFRegenerateState, dist::Distribution{T}, args, key) where 
     end
     in_selection = has_leaf_node(state.selection, key)
 
-    # obtain return value from previous trace, or by sampling
+    # get return value and logpdf
     local retval::T
     if has_previous && in_selection
         # there was a previous value, and it was in the selection
-        # simulate a new value
-        # it does not contribute to the weight
+        # simulate a new value; it does not contribute to the weight
         retval = random(dist, args...)
     elseif has_previous
         # there was a previous value, and it was not in the selection
-        # use the previous value
-        # it contributes to the weight
-        prev_call = get_primitive_call(state.prev_trace, key)
-        retval = prev_call.retval
+        # use the previous value; it contributes to the weight
+        retval = prev_retval
     else
         # there is no previous value
-        # simulate a new value
-        # it does not contribute to the weight
+        # simulate a new valuel; it does not contribute to the weight
         retval = random(dist, args...)
     end
+    score = logpdf(dist, retval, args...)
 
-    # choicediff
+    # update choicediffs
     if has_previous
         set_choice_diff!(state, key, in_selection, prev_retval) 
     else
         set_choice_diff_no_prev!(state, key)
     end
 
-    # update trace, score, and weight
-    score = logpdf(dist, retval, args...)
-    if has_previous && !in_selection
-        state.weight += score - prev_call.score
-    end
-    state.score += score
+    # update trace
     call = CallRecord(score, retval, args)
     state.trace = assoc_primitive_call(state.trace, key, call)
+
+    # update score
+    state.score += score
+
+    # update weight
+    if has_previous && !in_selection
+        state.weight += score - prev_score
+    end
 
     return retval
 end
@@ -404,36 +431,56 @@ function addr(state::GFRegenerateState, gen::Generator, args, key)
     addr(state, gen, args, key, UnknownArgDiff())
 end
 
-function addr(state::GFRegenerateState, gen::Generator{T}, args, key, argdiff) where {T}
+function addr(state::GFRegenerateState, gen::Generator{T,U}, args, key, argdiff) where {T,U}
 
     # check that key was not already visited, and mark it as visited
     visit!(state.visitor, key)
 
-    # check for previous 
+    # check whether the key was selected
+    if has_leaf_node(key, state.selection)
+        error("Entire sub-traces cannot be selected, tried to select $key")
+    end
+    if has_internal_node(state.selection, key)
+        selection = get_internal_node(state.selection, key)
+    else
+        selection = EmptyAddressSet()
+    end
+
+    # get subtrace
+    local prev_retval::T
+    local trace::U
     has_previous = has_subtrace(state.prev_trace, key)
     if has_previous
-        if key in state.selection
-            error("Entire sub-traces cannot be selected, tried to select $key")
-        end
         prev_trace = get_subtrace(state.prev_trace, key) 
-        prev_call = get_call_record(prev_trace)
-        if has_internal_node(state.selection, key)
-            selection = get_internal_node(state.selection, key)
-        else
-            selection = EmptyAddressSet()
-        end
         (trace, weight, retdiff) = regenerate(
             gen, args, argdiff, prev_trace, selection)
-        state.weight += weight
-        set_leaf_node!(state.calldiffs, key, CustomCallDiff(retdiff))
     else
         trace = simulate(gen, args)
+    end
+
+    # get return value
+    local retval::T
+    retval = get_call_record(trace).retval
+
+    # update calldiffs
+    if has_previous
+        set_leaf_node!(state.calldiffs, key, CustomCallDiff(retdiff))
+    else
         set_leaf_node!(state.calldiffs, key, NewCallDiff())
     end
-    call = get_call_record(trace)
-    state.score += call.score
+
+    # update trace
     state.trace = assoc_subtrace(state.trace, key, trace)
-    call.retval::T
+
+    # update score
+    state.score += get_call_record(trace).score
+
+    # update weight
+    if has_previous
+        state.weight += weight
+    end
+
+    return retval
 end
 
 splice(state::GFRegenerateState, gf::GenFunction, args::Tuple) = exec_for_update(gf, state, args)
@@ -491,39 +538,39 @@ function addr(state::GFExtendState, dist::Distribution{T}, args, key) where {T}
     constrained = has_leaf_node(state.constraints, key)
     lightweight_check_no_internal_node(state.constraints, key)
     if has_previous && constrained
-        error("Attempted to change value of random choice at $key during extend")
+        error("Extend attempted to change value of random choice at $key")
     end
 
-    # obtain return value from previous trace, constraints, or by sampling
+    # get return value and logpdf
     local retval::T
     if has_previous
         retval = prev_retval
-        score = logpdf(dist, retval, args...)
-        state.weight += score - prev_score
     elseif constrained
         retval = get_leaf_node(state.constraints, key)
-        score = logpdf(dist, retval, args...)
-        state.weight += score
     else
         retval = random(dist, args...)
-        score = logpdf(dist, retval, args...)
     end
-    call = CallRecord(score, retval, args)
+    score = logpdf(dist, retval, args...)
 
-    # update trace, score, and weight
-    state.trace = assoc_primitive_call(state.trace, key, call)
-    state.score += score
-    if has_previous
-        state.weight += score - prev_score
-    elseif constrained
-        state.weight += score
-    end
-
-    # choicediff
+    # update choicediffs
     if has_previous
         set_choice_diff!(state, key, in_selection, prev_retval) 
     else
         set_choice_diff_no_prev!(state, key)
+    end
+
+    # update trace
+    call = CallRecord(score, retval, args)
+    state.trace = assoc_primitive_call(state.trace, key, call)
+
+    # update score
+    state.score += score
+    
+    # update weight
+    if has_previous
+        state.weight += score - prev_score
+    elseif constrained
+        state.weight += score
     end
 
     return retval 
@@ -535,33 +582,41 @@ function addr(state::GFExtendState, gen::Generator{T}, args, key, argdiff) where
     visit!(state.visitor, key)
 
     # check for constraints at this key
-    lightweight_check_no_leaf_node(state.constraints, addr)
-    if has_internal_node(state.constraints, addr)
-        constraints = get_internal_node(state.constraints, addr)
+    lightweight_check_no_leaf_node(state.constraints, key)
+    if has_internal_node(state.constraints, key)
+        constraints = get_internal_node(state.constraints, key)
     else
         constraints = EmptyAssignment()
     end
 
-    # get new trace
+    # get subtrace
     local prev_trace::U
     local trace::U
-    if has_subtrace(state.prev_trace, addr)
-
-        # key already populated
-        prev_trace = get_subtrace(state.prev_trace, addr)
+    if has_subtrace(state.prev_trace, key)
+        prev_trace = get_subtrace(state.prev_trace, key)
         (trace, weight, retdiff) = extend(gen, args, argdiff, prev_trace, constraints)
-        set_leaf_node!(state.calldiffs, key, CustomCallDiff(retdiff))
     else
-
-        # key is new
         (trace, weight) = generate(gen, args, constraints)
     end
 
-    # update trace, score, and weight
+    # get return value
     local retval::T
     retval = get_call_record(trace).retval
-    state.trace = assoc_subtrace(state.trace, addr, trace)
+
+    # update calldiffs
+    if has_previous
+        set_leaf_node!(state.calldiffs, key, CustomCallDiff(retdiff))
+    else
+        set_leaf_node!(state.calldiffs, key, NewCallDiff())
+    end
+
+    # update trace
+    state.trace = assoc_subtrace(state.trace, key, trace)
+
+    # update score
     state.score += call.score
+
+    # update weight
     state.weight += weight
 
     return retval 
