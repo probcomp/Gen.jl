@@ -2,6 +2,8 @@
 # argdiff, choicediff, calldiff, retdiff #
 ##########################################
 
+# TODO clearly describe the diff policies!
+
 struct GenFunctionDefaultRetDiff end
 isnoretdiff(::GenFunctionDefaultRetDiff) = false
 

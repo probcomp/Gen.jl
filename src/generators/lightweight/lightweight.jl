@@ -256,9 +256,6 @@ macro retdiff(value)
     Expr(:call, :set_ret_diff!, esc(state), esc(value))
 end
 
-struct GenFunctionDefaultRetDiff end
-isnoretdiff(::GenFunctionDefaultRetDiff) = false
-
 ##################
 # AddressVisitor #
 ##################
@@ -319,14 +316,9 @@ function lightweight_retchange_already_set_err()
     error("@retdiff! was already used")
 end
 
-include("simulate.jl")
-include("assess.jl")
 include("generate.jl")
-include("fix_update.jl")
 include("update.jl")
-include("extend.jl")
 include("project.jl")
-include("regenerate.jl")
 include("ungenerate.jl")
 include("backprop_params.jl")
 include("backprop_trace.jl")
