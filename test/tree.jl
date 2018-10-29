@@ -41,8 +41,6 @@ using Gen: get_child, get_child_num, get_parent
     @test get_child(3, 2, 3) == 9
     @test get_child(3, 3, 3) == 10
     @test get_child(4, 1, 3) == 11
-    @test get_child(4, 2, 3) == 12
-    @test get_child(4, 3, 3) == 13
     @test get_child_num(2, 3) == 1
     @test get_child_num(3, 3) == 2
     @test get_child_num(4, 3) == 3
@@ -53,8 +51,6 @@ using Gen: get_child, get_child_num, get_parent
     @test get_child_num(9, 3) == 2
     @test get_child_num(10, 3) == 3
     @test get_child_num(11, 3) == 1
-    @test get_child_num(12, 3) == 2
-    @test get_child_num(13, 3) == 3
     @test get_parent(2, 3) == 1
     @test get_parent(3, 3) == 1
     @test get_parent(4, 3) == 1
@@ -65,8 +61,6 @@ using Gen: get_child, get_child_num, get_parent
     @test get_parent(9, 3) == 3
     @test get_parent(10, 3) == 3
     @test get_parent(11, 3) == 4
-    @test get_parent(12, 3) == 4
-    @test get_parent(13, 3) == 4
 end
 
 # singleton type for change to the production rule (contains no information); (DV)
