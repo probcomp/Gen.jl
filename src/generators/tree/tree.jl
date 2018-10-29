@@ -139,27 +139,22 @@ function Tree(production_kernel::Generator{X,S}, aggregation_kernel::Generator{Y
     Tree{S,T,U,V,W,X,Y,DV,DU,DW}(production_kernel, aggregation_kernel, max_branch)
 end
 
-get_child(parent::Int, child_num::Int, max_branch::Int) = (parent * max_branch) - 1 + child_num
-get_parent(child::Int, max_branch::Int) = div(child - 2, max_branch) + 1
-get_child_num(child::Int, max_branch::Int) = (child - 2) % max_branch + 1
+function get_child(parent::Int, child_num::Int, max_branch::Int)
+    @assert child_num >= 1 && child_num <= max_branch
+    (parent - 1) * max_branch + child_num + 1
+end
 
-@assert get_child(1, 1, 2) == 2
-@assert get_child(1, 2, 2) == 3
-@assert get_child(2, 1, 2) == 4
-@assert get_child(2, 2, 2) == 5
-@assert get_child(3, 1, 2) == 6
+function get_child_num(child::Int, max_branch::Int)
+    @assert max_branch > 0
+    (child - 2) % max_branch + 1
+end
 
-@assert get_parent(2, 2) == 1
-@assert get_parent(3, 2) == 1
-@assert get_parent(4, 2) == 2
-@assert get_parent(5, 2) == 2
-@assert get_parent(6, 2) == 3
+function get_parent(child::Int, max_branch::Int)
+    @assert max_branch > 0
+    child_num = get_child_num(child, max_branch)
+    div(child - 1 - child_num, max_branch) + 1
+end
 
-@assert get_child_num(2, 2) == 1
-@assert get_child_num(3, 2) == 2
-@assert get_child_num(4, 2) == 1
-@assert get_child_num(5, 2) == 2
-@assert get_child_num(6, 2) == 1
 
 """
     TreeProductionRetDiff{DV,DU}(dv::DV, dus::Dict{Int,DU})
@@ -417,7 +412,6 @@ function update(gen::Tree{S,T,U,V,W,X,Y,DV,DU,DW}, new_args::Tuple{U,Int},
 
     (root_production_input::U, root_idx::Int) = new_args
     if root_idx != get_call_record(trace).args[2]
-        # TODO maybe we can actually permit this? does not seem needed
         error("Cannot change root_idx argument") 
     end
 
