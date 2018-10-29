@@ -86,6 +86,7 @@ If a particular partial derivative does not exist, that field of the tuple retur
 dirac
 bernoulli
 normal
+mvnormal
 gamma
 inv_gamma
 beta
