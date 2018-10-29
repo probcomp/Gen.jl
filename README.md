@@ -1,6 +1,8 @@
 # Gen
 
-A probabilistic programming platform for applied probabilistic modeling and inference
+A probabilistic programming platform for applied probabilistic modeling and inference.
+
+Currently works with Julia 0.7.0
 
 Warning: This is unstable research software.
 
