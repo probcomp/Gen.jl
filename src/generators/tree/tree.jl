@@ -396,14 +396,18 @@ function get_aggregation_argdiff(production_retdiffs::Dict{Int,TreeProductionRet
         dv = noargdiff
     end
     new_num_children = get_num_children(production_traces[cur])
-    prev_num_children = idx_to_prev_num_children[cur]
+    if haskey(idx_to_prev_num_children, cur)
+        prev_num_children = idx_to_prev_num_children[cur]
+    else
+        prev_num_children = new_num_children
+    end
     dws = Dict{Int,DW}() # values have type DW
     for child_num=1:min(prev_num_children,new_num_children)
         if haskey(aggregation_retdiffs, child_num)
             dws[child_num] = aggregation_retdiffs[child_num]::DW
         end
     end
-    TreeAggregationArgDiff(dv, dws)
+    TreeAggregationArgDiff{DV,DW}(dv, dws)
 end
 
 function update(gen::Tree{S,T,U,V,W,X,Y,DV,DU,DW}, new_args::Tuple{U,Int},
@@ -443,10 +447,13 @@ function update(gen::Tree{S,T,U,V,W,X,Y,DV,DU,DW}, new_args::Tuple{U,Int},
     for node in keys(aggregation_constraints)
         push!(agg_to_visit, node)
     end
+
+    # only store for nodes that are retained
+    # if a value is not present for a retained node, then the number of children of that node did not change
+    idx_to_prev_num_children = Dict{Int,Int}()
     
     # production phase
     production_retdiffs = Dict{Int,TreeProductionRetDiff{DV,DU}}() # elements with no difference are ommitted
-    idx_to_prev_num_children = Dict{Int,Int}() # only store for nodes that are retained
     while !isempty(prod_to_visit)
         local subtrace::S
 
@@ -494,6 +501,7 @@ function update(gen::Tree{S,T,U,V,W,X,Y,DV,DU,DW}, new_args::Tuple{U,Int},
                     production_traces, aggregation_traces, child, gen.max_branch)
                 score -= removed_score
                 num_has_choices -= removed_num_has_choices
+                weight -= removed_score
             end
 
             # mark new children for processing

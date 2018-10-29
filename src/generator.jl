@@ -177,11 +177,11 @@ export backprop_trace
 
 struct NoArgDiff end
 const noargdiff = NoArgDiff()
+export NoArgDiff, noargdiff
 
 struct UnknownArgDiff end
 const unknownargdiff = UnknownArgDiff()
-
-export noargdiff, unknownargdiff
+export UnknownArgDiff, unknownargdiff
 
 
 ############
