@@ -10,11 +10,11 @@ struct TreeTrace{S,T,U,V,W}
     aggregation_traces::PersistentHashMap{Int,T}
     max_branch::Int
     score::Float64
-    has_choices::Bool
     root_idx::Int
+    num_has_choices::Int
 end
 
-has_choices(trace::TreeTrace) = trace.has_choices
+has_choices(trace::TreeTrace) = trace.num_has_choices > 0
 
 function get_call_record(trace::TreeTrace{S,T,U,V,W}) where {S,T,U,V,W}
     root_prod_trace = trace.production_traces[1]
@@ -37,7 +37,7 @@ end
 get_assignment(trace::TreeTrace) = TreeTraceAssignment(trace)
 
 function Base.isempty(assignment::TreeTraceAssignment)
-    !assignment.trace.has_choices
+    !has_choices(assignment.trace)
 end
 
 get_address_schema(::Type{TreeTraceAssignment}) = DynamicAddressSchema()
@@ -253,7 +253,7 @@ function generate(gen::Tree{S,T,U,V,W,X,Y,DV,DU,DW}, args::Tuple{U,Int},
     aggregation_traces = PersistentHashMap{Int,T}()
     weight = 0.
     score = 0.
-    trace_has_choices = false
+    num_has_choices = 0
     
     # production phase
     # does not matter in which order we visit (since children are inserted after parents)
@@ -273,7 +273,9 @@ function generate(gen::Tree{S,T,U,V,W,X,Y,DV,DU,DW}, args::Tuple{U,Int},
         for child_num in 1:length(children_inputs)
             push!(prod_to_visit, get_child(cur, child_num, gen.max_branch))
         end
-        trace_has_choices = trace_has_choices || has_choices(subtrace)
+        if has_choices(subtrace)
+            num_has_choices += 1
+        end
     end
 
     # aggregation phase
@@ -288,11 +290,13 @@ function generate(gen::Tree{S,T,U,V,W,X,Y,DV,DU,DW}, args::Tuple{U,Int},
         score += get_call_record(subtrace).score
         aggregation_traces = assoc(aggregation_traces, cur, subtrace)
         weight += subweight
-        trace_has_choices = trace_has_choices || has_choices(subtrace)
+        if has_choices(subtrace)
+            num_has_choices += 1
+        end
     end
 
     trace = TreeTrace{S,T,U,V,W}(production_traces, aggregation_traces, gen.max_branch,
-                      score, trace_has_choices, root_idx)
+                      score, root_idx, num_has_choices)
     return (trace, weight)
 end
 
@@ -342,21 +346,27 @@ end
 function dissoc_subtree(production_traces::PersistentHashMap{Int,S},
                         aggregation_traces::PersistentHashMap{Int,T},
                         root::Int, max_branch::Int) where {S,T}
-
-    # TODO error
+    num_has_choices = 0
     production_subtrace = production_traces[root]
     aggregation_subtrace = aggregation_traces[root]
+    if has_choices(production_subtrace)
+        num_has_choices += 1
+    end
+    if has_choices(aggregation_subtrace)
+        num_has_choices += 1
+    end
     num_children = get_num_children(production_subtrace)
     removed_score = get_call_record(production_subtrace).score + get_call_record(aggregation_subtrace).score
     for child_num=1:num_children
-        child = get_child(cur, child_num, max_branch)
-        (production_traces, aggregation_traces, child_removed_score) = dissoc_subtree(
+        child = get_child(root, child_num, max_branch)
+        (production_traces, aggregation_traces, child_removed_score, child_num_has_choices) = dissoc_subtree(
             production_traces, aggregation_traces, child, max_branch)
         removed_score += child_removed_score
+        num_has_choices += child_num_has_choices
     end
     production_traces = dissoc(production_traces, root)
     aggregation_traces = dissoc(aggregation_traces, root)
-    return (production_traces, aggregation_traces, removed_score)
+    return (production_traces, aggregation_traces, removed_score, num_has_choices)
 end
 
 function get_production_argdiff(production_retdiffs::Dict{Int,TreeProductionRetDiff{DV,DU}},
@@ -371,7 +381,12 @@ function get_production_argdiff(production_retdiffs::Dict{Int,TreeProductionRetD
         else
             @assert haskey(production_retdiffs, parent)
             child_num = get_child_num(cur, max_branch)
-            return production_retdiffs[parent].dus[child_num]::DU
+            dus = production_retdiffs[parent].dus
+            if haskey(dus, child_num)
+                return dus[child_num]::DU
+            else
+                return noargdiff
+            end
         end
     end
 end
@@ -414,8 +429,7 @@ function update(gen::Tree{S,T,U,V,W,X,Y,DV,DU,DW}, new_args::Tuple{U,Int},
     # initial score from previous trace
     score = trace.score
     weight = 0.
-
-    trace_has_choices = true # TODO wrong
+    num_has_choices = trace.num_has_choices
 
     # initialize set of production nodes to visit
     # visit nodes in forward order (starting with root)
@@ -456,8 +470,9 @@ function update(gen::Tree{S,T,U,V,W,X,Y,DV,DU,DW}, new_args::Tuple{U,Int},
                                                 root_argdiff, cur, gen.max_branch)
 
             # call update on production kernel
+            prev_subtrace = production_traces[cur]
             (subtrace, subweight, subdiscard, subretdiff) = update(gen.production_kern,
-                input, subargdiff, production_traces[cur], subconstraints)
+                input, subargdiff, prev_subtrace, subconstraints)
             prev_num_children = get_num_children(production_traces[cur])
             new_num_children = length(get_call_record(subtrace).retval[2])
             idx_to_prev_num_children[cur] = prev_num_children
@@ -469,14 +484,22 @@ function update(gen::Tree{S,T,U,V,W,X,Y,DV,DU,DW}, new_args::Tuple{U,Int},
             weight += subweight
             score += subweight
 
+            # update num_has_choices
+            if has_choices(prev_subtrace) && !has_choices(subtrace)
+                num_has_choices -= 1
+            elseif !has_choices(prev_subtrace) && has_choices(subtrace)
+                num_has_choices += 1
+            end
+
             # delete children (and their descendants), both production and aggregation nodes
             for child_num=new_num_children+1:prev_num_children
                 child = get_child(cur, child_num, gen.max_branch)
                 set_internal_node!(discard, (child, Val(:production)), get_assignment(production_traces[child]))
                 set_internal_node!(discard, (child, Val(:aggregation)), get_assignment(aggregation_traces[child]))
-                (production_traces, aggregation_traces, removed_score ) = dissoc_subtree(
-                    production_traces, aggregation_traces, cur, gen.max_branch)
+                (production_traces, aggregation_traces, removed_score, removed_num_has_choices) = dissoc_subtree(
+                    production_traces, aggregation_traces, child, gen.max_branch)
                 score -= removed_score
+                num_has_choices -= removed_num_has_choices
             end
 
             # mark new children for processing
@@ -507,6 +530,11 @@ function update(gen::Tree{S,T,U,V,W,X,Y,DV,DU,DW}, new_args::Tuple{U,Int},
             production_traces = assoc(production_traces, cur, subtrace)
             weight += get_call_record(subtrace).score
             score += get_call_record(subtrace).score
+
+            # update num_has_choices
+            if has_choices(subtrace)
+                num_has_choices += 1
+            end
 
             # mark corresponding aggregation node for processsing
             push!(agg_to_visit, cur)
@@ -549,22 +577,30 @@ function update(gen::Tree{S,T,U,V,W,X,Y,DV,DU,DW}, new_args::Tuple{U,Int},
                                                  idx_to_prev_num_children, production_traces, cur)
 
             # call update on aggregation kernel
-            (subtrace, subweight, subdiscard, dw) = update(gen.aggregation_kern,
-                input, subargdiff, aggregation_traces[cur], subconstraints)
+            prev_subtrace = aggregation_traces[cur]
+            (subtrace, subweight, subdiscard, subretdiff) = update(gen.aggregation_kern,
+                input, subargdiff, prev_subtrace, subconstraints)
 
             # update trace, weight, and score, and discard
             aggregation_traces = assoc(aggregation_traces, cur, subtrace)
             weight += subweight
             score += subweight
             set_internal_node!(discard, (cur, Val(:aggregation)), subdiscard)
-    
+
+            # update num_has_choices
+            if has_choices(prev_subtrace) && !has_choices(subtrace)
+                num_has_choices -= 1
+            elseif !has_choices(prev_subtrace) && has_choices(subtrace)
+                num_has_choices += 1
+            end
+ 
             # take action based on our subretdiff
             if cur == root_idx
-                retdiff = dw
+                retdiff = subretdiff
             else
-                if !isnodiff(dw)
+                if !isnodiff(subretdiff)
                     aggregation_retdiffs[cur] = subretdiff
-                    push!(agg_to_visit, parent)
+                    push!(agg_to_visit, get_parent(cur, gen.max_branch))
                 end
             end
 
@@ -577,6 +613,11 @@ function update(gen::Tree{S,T,U,V,W,X,Y,DV,DU,DW}, new_args::Tuple{U,Int},
             weight += get_call_record(subtrace).score
             score += get_call_record(subtrace).score
 
+            # update num_has_choices
+            if has_choices(subtrace)
+                num_has_choices += 1
+            end
+
             # the parent should have been marked during production phase
             @assert cur != 1
             @assert get_parent(cur, gen.max_branch) in agg_to_visit
@@ -584,9 +625,8 @@ function update(gen::Tree{S,T,U,V,W,X,Y,DV,DU,DW}, new_args::Tuple{U,Int},
         
     end
 
-    # TODO trace_has_choices isn't being updated properly
     new_trace = TreeTrace{S,T,U,V,W}(production_traces, aggregation_traces, gen.max_branch,
-                                     score, trace_has_choices, root_idx)
+                                     score, root_idx, num_has_choices)
     
     return (new_trace, weight, discard, retdiff)
 end
