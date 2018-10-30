@@ -126,7 +126,7 @@ function addr(state::GFAssessState, gen::Generator{T,U}, args, key) where {T,U}
     state.trace = assoc_subtrace(state.trace, key, trace)
 
     # update score
-    state.score += get_call_record(call).score
+    state.score += get_call_record(trace).score
 
     return retval
 end
