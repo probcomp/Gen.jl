@@ -284,7 +284,7 @@ function addr(state::GFUpdateState, gen::Generator{T,U}, args, key, argdiff) whe
     return retval 
 end
 
-splice(state::GFUpdateState, gen::GenFunction, args::Tuple) = exec_for_update(gf, state, args)
+splice(state::GFUpdateState, gen::GenFunction, args::Tuple) = exec_for_update(gen, state, args)
 
 function update(gen::GenFunction, new_args, argdiff, trace::GFTrace, constraints)
     state = GFUpdateState(argdiff, trace, constraints, gen.params)

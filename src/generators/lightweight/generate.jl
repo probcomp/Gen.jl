@@ -138,7 +138,7 @@ function assess(gen::GenFunction, args, constraints)
     retval = Gen.exec(gen, state, args) 
     unconsumed = get_unvisited(state.visitor, constraints)
     if !isempty(unconsumed)
-        error("Update did not consume all constraints: $unconsumed")
+        error("Assess did not consume all constraints: $unconsumed")
     end
     # TODO add return type annotation for gen 
     call = Gen.CallRecord{Any}(state.score, retval, args)
