@@ -446,27 +446,6 @@ end
 savefig("inference.png")
 
 
-# TODO show predictions ...
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # TODO backpropagation
 
 # to support backpropagation of the likelihood with respect to real-valued
