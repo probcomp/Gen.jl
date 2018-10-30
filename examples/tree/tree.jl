@@ -1,242 +1,471 @@
 using Gen
+using LinearAlgebra: eye
 
-#################################
-# covariance function AST nodes #
-#################################
+#############################
+# covariance function nodes #
+#############################
 
 abstract type Node end
 
-struct InputSymbolNode <: Node
-end
-eval_ast(node::InputSymbolNode, x::Float64) = x
-size(::InputSymbolNode) = 1
+abstract type LeafNode <: Node end
 
-struct ConstantNode{T} <: Node
-    value::T
-end
-eval_ast(node::ConstantNode, x::Float64) = node.value
-size(::ConstantNode) = 1
+pick_random_node(node::LeafNode, cur::Int, max_branch::Int) = cur
+
+size(::LeafNode) = 1
 
 abstract type BinaryOpNode <: Node end
-function eval_ast(node::BinaryOpNode, x::Float64)
-    eval_op(node, eval_ast(node.left, x), eval_ast(node.right, x))
-end
+
 size(node::BinaryOpNode) = node.size
 
-struct ChangepointNode <: BinaryOpNode
-    loc::Float64
-    left::Node
-    right::Node
-    size::Int
-end
-ChangepointNode(left, right, loc) = ChangepointNode(loc, left, right, size(left) + size(right) + 1)
-function eval_ast(node::ChangepointNode, x::Float64)
-    if x < node.loc
-        eval_ast(node.left, x)
+function pick_random_node(node::BinaryOpNode, cur::Int, max_branch::Int)
+    if bernoulli(0.5)
+        # pick this node
+        cur
     else
-        eval_ast(node.right, x)
+        # recursively pick from the subtrees
+        if bernoulli(0.5)
+            pick_random_node(node.left, Gen.get_child(cur, 1, max_branch), max_branch)
+        else
+            pick_random_node(node.right, Gen.get_child(cur, 2, max_branch), max_branch)
+        end
     end
 end
-    
-struct PlusNode <: BinaryOpNode
+
+"""
+Constant kernel
+"""
+struct Constant <: LeafNode
+    param::Float64
+end
+
+eval_cov(node::Constant, x1, x2) = node.param
+
+function eval_cov_mat(node::Constant, xs::Vector{Float64})
+    n = length(xs)
+    fill(node.param, (n, n))
+end
+
+"""
+Linear kernel
+"""
+struct Linear <: LeafNode
+    param::Float64
+end
+
+eval_cov(node::Linear, x1, x2) = (x1 - node.param) * (x2 - node.param)
+
+function eval_cov_mat(node::Linear, xs::Vector{Float64})
+    xs_minus_param = xs .- node.param
+    xs_minus_param * xs_minus_param'
+end
+
+
+"""
+Squared exponential kernel
+"""
+struct SquaredExponential <: LeafNode
+    length_scale::Float64
+end
+
+function eval_cov(node::SquaredExponential, x1, x2)
+    exp(-0.5 * (x1 - x2) * (x1 - x2) / node.length_scale)
+end
+
+function eval_cov_mat(node::SquaredExponential, xs::Vector{Float64})
+    diff = xs .- xs'
+    exp.(-0.5 .* diff .* diff ./ node.length_scale)
+end
+
+
+"""
+Periodic kernel
+"""
+struct Periodic <: LeafNode
+    scale::Float64
+    period::Float64
+end
+
+function eval_cov(node::Periodic, x1, x2)
+    freq = 2 * pi / node.period
+    exp((-1/node.scale) * (sin(freq * abs(x1 - x2)))^2)
+end
+
+function eval_cov_mat(node::Periodic, xs::Vector{Float64})
+    freq = 2 * pi / node.period
+    abs_diff = abs.(xs .- xs')
+    exp.((-1/node.scale) .* (sin.(freq .* abs_diff)).^2)
+end
+
+
+"""
+Plus node
+"""
+struct Plus <: BinaryOpNode
     left::Node
     right::Node
     size::Int
 end
-PlusNode(left, right) = PlusNode(left, right, size(left) + size(right) + 1)
-eval_op(::PlusNode, a, b) = a + b
 
-struct MinusNode <: BinaryOpNode
+Plus(left, right) = Plus(left, right, size(left) + size(right) + 1)
+
+function eval_cov(node::Plus, x1, x2)
+    eval_cov(node.left, x1, x2) + eval_cov(node.right, x1, x2)
+end
+
+function eval_cov_mat(node::Plus, xs::Vector{Float64})
+    eval_cov_mat(node.left, xs) .+ eval_cov_mat(node.right, xs)
+end
+
+
+"""
+Times node
+"""
+struct Times <: BinaryOpNode
     left::Node
     right::Node
     size::Int
 end
-MinusNode(left, right) = MinusNode(left, right, size(left) + size(right) + 1)
-eval_op(::MinusNode, a, b) = a - b
 
-struct TimesNode <: BinaryOpNode
-    left::Node
-    right::Node
-    size::Int
+Times(left, right) = Times(left, right, size(left) + size(right) + 1)
+
+function eval_cov(node::Times, x1, x2)
+    eval_cov(node.left, x1, x2) * eval_cov(node.right, x1, x2)
 end
-TimesNode(left, right) = TimesNode(left, right, size(left) + size(right) + 1)
-eval_op(::TimesNode, a, b) = a * b
 
-#########
-# model #
-#########
+function eval_cov_mat(node::Times, xs::Vector{Float64})
+    eval_cov_mat(node.left, xs) .* eval_cov_mat(node.right, xs)
+end
 
-const INPUT_NODE = 1
-const CONSTANT_NODE = 2
-const PLUS_NODE = 3
-const MINUS_NODE = 4
-const TIMES_NODE = 5
-const CHANGE_NODE = 6
 
-const node_dist = Float64[0.4, 0.4, 0.2/4, 0.2/4, 0.2/4, 0.2/4]
+const CONSTANT = 1 # 0.2
+const LINEAR = 2 # 0.2
+const SQUARED_EXP = 3 # 0.2
+const PERIODIC = 4 # 0.2
+const PLUS = 5 # binary 0.1
+const TIMES = 6 # binary 0.1
+
+const node_dist = Float64[0.2, 0.2, 0.2, 0.2, 0.1, 0.1]
 
 const node_type_to_num_children = Dict(
-    INPUT_NODE => 0,
-    CONSTANT_NODE => 0,
-    PLUS_NODE => 2,
-    MINUS_NODE => 2,
-    TIMES_NODE => 2,
-    CHANGE_NODE => 2)
+    CONSTANT => 0,
+    LINEAR => 0,
+    SQUARED_EXP => 0,
+    PERIODIC => 0,
+    PLUS => 2,
+    TIMES => 2)
 
 
+###########################################
+# tree for generating covariance function #
+###########################################
 
-##########################################
-# data types for incremental computation #
-##########################################
+# tree
 
-# no information is passed from the parent to each child
-const U = Nothing
-const u = nothing
-const DU = Nothing
+# production kernel
+# input type Nothing (U=Nothing)
+# argdiff type: Union{NoArgDiff,Nothing} (DU=Nothing)
+# return type: Tuple{Int,Vector{Nothing}} (V=Int,U=Nothing)
+# retdiff type: TreeProductionRetDiff{NodeTypeDiff,Nothing}
+
+# aggregation kernel
+# input type: Tuple{Int,Vector{Node}} (V=Int,W=Node)
+# argdiff type:TreeAggregationArgDiff{NodeTypeDiff,CovNodeDiff} (DV=NodeTypeDiff,DW=CovNodeDiff)
+# return type: Node (W=Node)
+# retdiff type: CovNodeDiff
+
+# U = Nothing; DU = Nothing
+# V = Int; DV = NodeTypeDiff
+# W = Node; DW = CovNodeDiff
 
 """
-Data type indicating whether the node type changed or not.
+Indicates whether the node type may have changed or not.
 """
-struct DV
+struct NodeTypeDiff
     node_type_same::Bool
 end
-Gen.isnodiff(dv::DV) = dv.node_type_same
+Gen.isnodiff(node_type_diff::NodeTypeDiff) = node_type_diff.node_type_same
 
 """
 Indicates whether the covariance function may have changed or not.
 """
-struct DW
+struct CovNodeDiff
     issame::Bool
 end
-Gen.isnodiff(dw::DW) = dw.issame
-
-
-#####################
-# production kernel #
-#####################
-
-# input type Nothing (U=Nothing)
-# argdiff type: Nothing (DU=Nothing)
-# return type: Tuple{Int,Vector{Nothing}} (V=Int,U=Nothing)
-# retdiff type: 
+Gen.isnodiff(cov_node_diff::CovNodeDiff) = cov_node_diff.issame
 
 @gen function production_kernel(_::Nothing)
     node_type = @addr(categorical(node_dist), :type)
     num_children = node_type_to_num_children[node_type]
 
-    # compute retdiff
-    # none of the arguments to existing children change, because arguments are always nothing
     @diff begin
         @assert @argdiff() === noargdiff
-        @assert !isnew(@choicediff(:type)) # always sampled
-        if isnodiff(@choicediff(:type))
-            dv = DV(true)
+        type_diff = @choicediff(:type)
+        @assert !isnew(type_diff) # always sampled
+        if isnodiff(type_diff)
+            dv = NodeTypeDiff(true)
         else
-            dv = DV(prev(@choicediff(:type)) == node_type)
+            dv = NodeTypeDiff(prev(type_diff) == node_type)
         end
-        @retdiff(TreeProductionRetDiff{DV,DU}(dv,Dict{Int,DU}()))
+        @retdiff(TreeProductionRetDiff{NodeTypeDiff,Nothing}(dv,Dict{Int,Nothing}()))
     end
 
-    return (node_type, U[u for _=1:num_children])
+    return (node_type, [nothing for _=1:num_children])
 end
 
-
-######################
-# aggregation kernel #
-######################
-
-# input type: Tuple{Int,Vector{Node}} (V=Int,W=Node)
-# argdiff type:TreeAggregationArgDiff{Nothing,Nothing} (DV=Nothing,DW=Nothing)
-# return type: Node (W=Node)
-# retdiff type: Nothing (DW)
-
-@gen function aggregation_kernel(node_type::Int, children_inputs::Vector{Node})
+@gen function aggregation_kernel(node_type::Int, children::Vector{Node})
     local node::Node
-    if node_type == INPUT_NODE
-        @assert length(children_inputs) == 0
-        node = InputSymbolNode()
-    elseif node_type == CONSTANT_NODE
-        @assert length(children_inputs) == 0
-        param = @addr(normal(0, 3), :const)
-        node = ConstantNode(param)
-    elseif node_type == PLUS_NODE
-        @assert length(children_inputs) == 2
-        node = PlusNode(children_inputs[1], children_inputs[2])
-    elseif node_type == MINUS_NODE
-        @assert length(children_inputs) == 2
-        node = MinusNode(children_inputs[1], children_inputs[2])
-    elseif node_type == TIMES_NODE
-        @assert length(children_inputs) == 2
-        node = TimesNode(children_inputs[1], children_inputs[2])
-    elseif node_type == CHANGE_NODE
-        @assert length(children_inputs) == 2
-        loc = @addr(normal(0, 3), :changept)
-        node = ChangepointNode(children_inputs[1], children_inputs[2], loc)
+
+    # constant kernel
+    if node_type == CONSTANT
+        @assert length(children) == 0
+        param = @addr(uniform_continuous(0, 1), :param) # TODO change prior?
+        node = Constant(param)
+
+    # linear kernel
+    elseif node_type == LINEAR
+        @assert length(children) == 0
+        param = @addr(uniform_continuous(0, 1), :param) # TODO change prior?
+        node = Linear(param)
+
+    # squared exponential kernel
+    elseif node_type == SQUARED_EXP
+        @assert length(children) == 0
+        length_scale = 0.01 + @addr(uniform_continuous(0, 1), :length_scale) # TODO change prior?
+        node = SquaredExponential(length_scale)
+
+    # periodic kernel
+    elseif node_type == PERIODIC
+        @assert length(children) == 0
+        scale = 0.01 + @addr(uniform_continuous(0, 1), :scale) # TODO change prior?
+        period = 0.01 + @addr(uniform_continuous(0, 1), :period) # TODO change prior?
+        node = Periodic(scale, period)
+
+    # plus combinator
+    elseif node_type == PLUS
+        @assert length(children) == 2
+        node = Plus(children[1], children[2])
+
+    # times combinator
+    elseif node_type == TIMES
+        @assert length(children) == 2
+        node = Times(children[1], children[2])
+
+    # unknown
     else
         error("unknown node type $node_type")
     end
 
     @diff begin
-        argdiff::TreeAggregationArgDiff{DV,DW} = @argdiff()
+        argdiff::TreeAggregationArgDiff{NodeTypeDiff,CovNodeDiff} = @argdiff()
+        @assert !(isa(argdiff.dv, NodeTypeDiff) && isnodiff(argdiff.dv))
         issame = (
             # node type is the same
-            isnodiff(argdiff.dv)
+            (argdiff.dv === noargdiff)
 
             # all children nodes are the same (isnodiff(dw) for all children)
             && length(argdiff.dws) == 0
 
             # parameters have not changed
-            && ((node_type == CONSTANT_NODE && isnodiff(@choicediff(:const))) ||
-                (node_type == CHANGE_NODE && isnodiff(@choicediff(:changept)))))
-        @retdiff(DW(issame))
+            && ((node_type == PLUS) ||
+                (node_type == TIMES) ||
+                (node_type == CONSTANT
+                    && isnodiff(@choicediff(:param))) ||
+                (node_type == LINEAR
+                    && isnodiff(@choicediff(:param))) ||
+                (node_type == SQUARED_EXP
+                    && isnodiff(@choicediff(:length_scale))) ||
+                (node_type == PERIODIC
+                    && isnodiff(@choicediff(:scale))
+                    && isnodiff(@choicediff(:period)))))
+
+        #@retdiff(CovNodeDiff(issame)) # TODO this was causing bugs..
+        @retdiff(CovNodeDiff(false))
    end
     
     return node
 end
 
-# U = Nothing; DU = Nothing
-# V = Int; DV = Nothing
-# W = Node; DW = Nothing
-tree = Tree(production_kernel, aggregation_kernel, 2, U, Int, Node, DV, DU, DW)
+const max_branch = 2
+const cov_fn_generator = Tree(production_kernel, aggregation_kernel, max_branch,
+                              Nothing, Int, Node,
+                              NodeTypeDiff, Nothing, CovNodeDiff)
 
-## test generate ##
-
-model_expr = :(@gen function model()
-    root_node::Node = @addr(tree(u, 1), :tree, noargdiff)
-end)
-
-println(macroexpand(model_expr))
-eval(model_expr)
-
-for i=1:100
-    trace = simulate(model, ())
-    println(get_assignment(trace))
+function compute_cov_matrix(covariance_fn, noise, xs)
+    n = length(xs)
+    cov_matrix = Matrix{Float64}(undef, n, n)
+    for i=1:n
+        for j=1:n
+            cov_matrix[i, j] = eval_cov(covariance_fn, xs[i], xs[j])
+        end
+        cov_matrix[i, i] += noise
+    end
+    return cov_matrix
 end
 
-## test update ##
-
-@gen function proposal(root::Int)
-    @addr(tree(u, root), :tree, noargdiff)
+function compute_cov_matrix_vectorized(covariance_fn, noise, xs)
+    n = length(xs)
+    eval_cov_mat(covariance_fn, xs) + noise * eye(n)
 end
 
-for i=1:100
-    trace = simulate(model, ())
-    
-    println("\nprevious trace:")
-    println(get_assignment(trace))
-    
-    
-    proposal_trace = simulate(proposal, (1,))
-    
-    println("\nproposal trace:")
-    println(get_assignment(proposal_trace))
-    
-    (new_trace, weight, discard, retdiff) = update(model, (),
-            noargdiff, trace, get_assignment(proposal_trace))
-    
-    println("\nnew trace:")
-    println(get_assignment(new_trace))
+@gen function model(xs::Vector{Float64})
+    n = length(xs)
+
+    # sample covariance function
+    covariance_fn::Node = @addr(cov_fn_generator(nothing, 1), :tree, noargdiff)
+    #$println(covariance_fn)
+
+    # sample diagonal noise
+    noise = @addr(gamma(1, 1), :noise) + 0.01
+
+    # compute covariance matrix
+    cov_matrix = compute_cov_matrix_vectorized(covariance_fn, noise, xs)
+
+    # sample from multivariate normal   
+    @addr(mvnormal(zeros(n), cov_matrix), :ys)
+
+    return covariance_fn
 end
+
+function compute_log_likelihood(covariance_fn, noise, xs, ys)
+    n = length(xs)
+    cov_matrix = compute_cov_matrix_vectorized(covariance_fn, noise, xs)
+    logpdf(mvnormal, ys, zeros(n), cov_matrix)
+end
+
+#########################
+# sample some data sets #
+#########################
+
+using PyPlot
+xs = collect(range(0, stop=1, length=50))
+
+import Random
+Random.seed!(0)
+
+#figure(figsize=(16,16))
+#for i=1:16
+    #trace = simulate(model, (xs,))
+    #ys = get_assignment(trace)[:ys]
+    #subplot(4, 4, i)
+    #plot(xs, ys)
+    #gca()[:set_xlim]((0, 1))
+    #gca()[:set_ylim]((-3, 3))
+#end
+#savefig("data.png")
+
+
+#########################
+# load airline data set #
+#########################
+
+import CSV
+df = CSV.read("airline.csv")
+xs = df[1]
+ys = df[2]
+xs -= minimum(xs) # set x minimum to 0.
+xs /= maximum(xs) # scale x so that maximum is at 1.
+ys -= mean(ys) # set y mean to 0.
+ys *= 4 / (maximum(ys) - minimum(ys)) # make it fit in the window [-2, 2]
+
+#figure(figsize=(16,16))
+#subplot(4, 4, 1)
+#plot(xs, ys)
+#gca()[:set_xlim]((0, 1))
+#gca()[:set_ylim]((-3, 3))
+#savefig("airline.png")
+
+
+##################
+# MCMC inference #
+##################
+
+@gen function covariance_proposal(prev_trace, root::Int)
+    @addr(cov_fn_generator(nothing, root), :tree, noargdiff)
+end
+
+@gen function noise_proposal(prev_trace)
+    @addr(gamma(1, 1), :noise)
+end
+
+
+function do_inference(xs, ys, num_iters::Int)
+    constraints = DynamicAssignment()
+    constraints[:ys] = ys
+    (trace, _) = generate(model, (xs,), constraints)
+    local covariance_fn::Node
+    local noise::Float64
+    for iter=1:num_iters
+        # pick a node to expand
+        covariance_fn = get_call_record(trace).retval
+        root = pick_random_node(covariance_fn, 1, max_branch)
+        trace = mh(model, covariance_proposal, (root,), trace)
+        trace = mh(model, noise_proposal, (), trace)
+        assignment = get_assignment(trace)
+        noise = assignment[:noise]
+        log_likelihood = compute_log_likelihood(covariance_fn, noise, xs, ys)
+        num_nodes = size(covariance_fn)
+        println("iter: $iter, lik: $log_likelihood, num_nodes: $num_nodes, noise: $noise")
+    end
+    return (covariance_fn, noise)
+end
+
+function predict_ys(covariance_fn::Node, noise::Float64,
+                    xs::Vector{Float64}, ys::Vector{Float64},
+                    new_xs::Vector{Float64})
+    n_prev = length(xs)
+    n_new = length(new_xs)
+    means = zeros(n_prev + n_new)
+    cov_matrix = compute_cov_matrix(covariance_fn, noise, vcat(xs, new_xs))
+    cov_matrix_11 = cov_matrix[1:n_prev, 1:n_prev]
+    cov_matrix_22 = cov_matrix[n_prev+1:n_prev+n_new, n_prev+1:n_prev+n_new]
+    cov_matrix_12 = cov_matrix[1:n_prev, n_prev+1:n_prev+n_new]
+    cov_matrix_21 = cov_matrix[n_prev+1:n_prev+n_new, 1:n_prev]
+    @assert cov_matrix_12 == cov_matrix_21'
+    mu1 = means[1:n_prev]
+    mu2 = means[n_prev+1:n_prev+n_new]
+    conditional_mu = mu2 + cov_matrix_21 * (cov_matrix_11 \ (ys - mu1))
+    conditional_cov_matrix = cov_matrix_22 - cov_matrix_21 * (cov_matrix_11 \ cov_matrix_12)
+    conditional_cov_matrix = 0.5 * conditional_cov_matrix + 0.5 * conditional_cov_matrix'
+    new_ys = mvnormal(conditional_mu, conditional_cov_matrix)
+    return new_ys
+end
+
+new_xs = collect(range(0, stop=1.5, length=200))
+figure(figsize=(32,32))
+for i=1:16
+    subplot(4, 4, i)
+    tic()
+    (covariance_fn, noise) = do_inference(xs, ys, 1000)
+    toc()
+    new_ys = predict_ys(covariance_fn, noise, xs, ys, new_xs)
+    plot(xs, ys, color="black")
+    plot(new_xs, new_ys, color="red")
+    gca()[:set_xlim]((0, 1.5))
+    gca()[:set_ylim]((-3, 3))
+end
+savefig("inference.png")
+
+
+# TODO show predictions ...
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # TODO backpropagation
 

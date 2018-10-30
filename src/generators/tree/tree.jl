@@ -17,11 +17,11 @@ end
 has_choices(trace::TreeTrace) = trace.num_has_choices > 0
 
 function get_call_record(trace::TreeTrace{S,T,U,V,W}) where {S,T,U,V,W}
-    root_prod_trace = trace.production_traces[1]
-    root_agg_trace = trace.aggregation_traces[1]
+    root_prod_trace = trace.production_traces[trace.root_idx]
+    root_agg_trace = trace.aggregation_traces[trace.root_idx]
     root_arg::U = get_call_record(root_prod_trace).args[1]
     args::Tuple{U,Int} = (root_arg, trace.root_idx)
-    retval::W = get_call_record(trace.aggregation_traces[1]).retval
+    retval::W = get_call_record(root_agg_trace).retval
     CallRecord(trace.score, retval, args)
 end
 
@@ -181,7 +181,17 @@ If a field does not appear for a given child in dws, then the w value returned f
 struct TreeAggregationArgDiff{DV,DW}
     dv::Union{NoArgDiff,DV}
     dws::Dict{Int,DW} # map from child_num to argdiff
+
+    function TreeAggregationArgDiff{DV,DW}(dv::DV, dws::Dict{Int,DW}) where {DV,DW}
+        @assert !isnodiff(dv) # otherwise, pass NoArgDiff
+        new{DV,DW}(dv, dws)
+    end
+
+    function TreeAggregationArgDiff{DV,DW}(dv::NoArgDiff, dws::Dict{Int,DW}) where {DV,DW}
+        new{DV,DW}(dv, dws)
+    end
 end
+
 
 """
 Indicates that the return value of the Tree has not changed.
@@ -195,13 +205,14 @@ end
 
 function get_production_input(gen::Tree{S,T,U,V,W}, cur::Int,
                               production_traces::AbstractDict{Int,S},
-                              root_production_input::U) where {S,T,U,V,W}
-    if cur == 1
+                              root_idx::Int, root_production_input::U) where {S,T,U,V,W}
+    if cur == root_idx
         return root_production_input
     else
         parent = get_parent(cur, gen.max_branch)
         child_num = get_child_num(cur, gen.max_branch)
         # return type of parent is Tuple{V,Vector{U}}
+        @assert haskey(production_traces, parent)
         return get_call_record(production_traces[parent]).retval[2][child_num]::U
     end
 end
@@ -258,7 +269,7 @@ function generate(gen::Tree{S,T,U,V,W,X,Y,DV,DU,DW}, args::Tuple{U,Int},
         local input::U
         cur = first(prod_to_visit)
         delete!(prod_to_visit, cur)
-        input = get_production_input(gen, cur, production_traces, root_production_input)
+        input = get_production_input(gen, cur, production_traces, root_idx, root_production_input)
         subconstraints = get_production_constraints(constraints, cur)
         (subtrace, subweight) = generate(gen.production_kern, (input,), subconstraints)
         score += get_call_record(subtrace).score
@@ -294,6 +305,20 @@ function generate(gen::Tree{S,T,U,V,W,X,Y,DV,DU,DW}, args::Tuple{U,Int},
                       score, root_idx, num_has_choices)
     return (trace, weight)
 end
+
+
+##########
+# assess #
+##########
+
+function assess(gen::Tree{S,T,U,V,W,X,Y,DV,DU,DW}, args::Tuple{U,Int},
+                constraints) where {S,T,U,V,W,X,Y,DV,DU,DW}
+    # TODO should instead recursively call assess on each one, to ensure that
+    # each address is visited
+    (trace, ) = generate(gen, args, constraints)
+    return trace
+end
+
 
 ##########
 # update #
@@ -391,7 +416,12 @@ function get_aggregation_argdiff(production_retdiffs::Dict{Int,TreeProductionRet
                                  idx_to_prev_num_children::Dict{Int,Int},
                                  production_traces, cur::Int) where {DU,DV,DW}
     if haskey(production_retdiffs, cur)
-        dv = production_retdiffs[cur].dv::DV
+        production_retdiff = production_retdiffs[cur]
+        if isnodiff(production_retdiff.dv)
+            dv = noargdiff
+        else
+            dv = production_retdiff.dv::DV
+        end
     else
         dv = noargdiff
     end
@@ -459,7 +489,7 @@ function update(gen::Tree{S,T,U,V,W,X,Y,DV,DU,DW}, new_args::Tuple{U,Int},
 
         cur = pop!(prod_to_visit)
         subconstraints = get_production_constraints(constraints, cur)
-        input = (get_production_input(gen, cur, production_traces, root_production_input)::U,)
+        input = (get_production_input(gen, cur, production_traces, root_idx, root_production_input)::U,)
 
         if haskey(production_traces, cur)
             # the node exists already
