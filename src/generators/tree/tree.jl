@@ -363,12 +363,15 @@ function tree_unpack_constraints(constraints::Assignment)
     return (production_constraints, aggregation_constraints)
 end
 
-function dissoc_subtree(production_traces::PersistentHashMap{Int,S},
-                        aggregation_traces::PersistentHashMap{Int,T},
-                        root::Int, max_branch::Int) where {S,T}
+function dissoc_subtree!(discard::DynamicAssignment,
+						 production_traces::PersistentHashMap{Int,S},
+                         aggregation_traces::PersistentHashMap{Int,T},
+                         root::Int, max_branch::Int) where {S,T}
     num_has_choices = 0
     production_subtrace = production_traces[root]
     aggregation_subtrace = aggregation_traces[root]
+	set_internal_node!(discard, (root, Val(:production)), get_assignment(production_subtrace))
+	set_internal_node!(discard, (root, Val(:aggregation)), get_assignment(aggregation_subtrace))
     if has_choices(production_subtrace)
         num_has_choices += 1
     end
@@ -379,8 +382,8 @@ function dissoc_subtree(production_traces::PersistentHashMap{Int,S},
     removed_score = get_call_record(production_subtrace).score + get_call_record(aggregation_subtrace).score
     for child_num=1:num_children
         child = get_child(root, child_num, max_branch)
-        (production_traces, aggregation_traces, child_removed_score, child_num_has_choices) = dissoc_subtree(
-            production_traces, aggregation_traces, child, max_branch)
+        (production_traces, aggregation_traces, child_removed_score, child_num_has_choices) = dissoc_subtree!(
+            discard, production_traces, aggregation_traces, child, max_branch)
         removed_score += child_removed_score
         num_has_choices += child_num_has_choices
     end
@@ -527,8 +530,8 @@ function update(gen::Tree{S,T,U,V,W,X,Y,DV,DU,DW}, new_args::Tuple{U,Int},
                 child = get_child(cur, child_num, gen.max_branch)
                 set_internal_node!(discard, (child, Val(:production)), get_assignment(production_traces[child]))
                 set_internal_node!(discard, (child, Val(:aggregation)), get_assignment(aggregation_traces[child]))
-                (production_traces, aggregation_traces, removed_score, removed_num_has_choices) = dissoc_subtree(
-                    production_traces, aggregation_traces, child, gen.max_branch)
+                (production_traces, aggregation_traces, removed_score, removed_num_has_choices) = dissoc_subtree!(
+                    discard, production_traces, aggregation_traces, child, gen.max_branch)
                 score -= removed_score
                 num_has_choices -= removed_num_has_choices
                 weight -= removed_score

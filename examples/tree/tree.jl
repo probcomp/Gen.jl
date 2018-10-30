@@ -1,21 +1,53 @@
 using Gen
+using Gen: get_child
 using LinearAlgebra: eye
+import CSV
+using PyPlot: figure, subplot, plot, scatter, gca, savefig
+import Random
 
-#############################
-# covariance function nodes #
-#############################
+# TODO: figure out the correction for the probablity of picking the given node
+# in the forward and backward proposal
+
+# TODO: experiment with 'resimulation'
+
+#########################
+# load airline data set #
+#########################
+
+function get_airline_dataset()
+    df = CSV.read("airline.csv")
+    xs = df[1]
+    ys = df[2]
+    xs -= minimum(xs) # set x minimum to 0.
+    xs /= maximum(xs) # scale x so that maximum is at 1.
+    ys -= mean(ys) # set y mean to 0.
+    ys *= 4 / (maximum(ys) - minimum(ys)) # make it fit in the window [-2, 2]
+	return (xs, ys)
+end
+
+#figure(figsize=(16,16))
+#subplot(4, 4, 1)
+#plot(xs, ys)
+#gca()[:set_xlim]((0, 1))
+#gca()[:set_ylim]((-3, 3))
+#savefig("airline.png")
+
+
+################################
+# abstract covariance function #
+################################
 
 abstract type Node end
 
 abstract type LeafNode <: Node end
-
-pick_random_node(node::LeafNode, cur::Int, max_branch::Int) = cur
 
 size(::LeafNode) = 1
 
 abstract type BinaryOpNode <: Node end
 
 size(node::BinaryOpNode) = node.size
+
+pick_random_node(node::LeafNode, cur::Int, max_branch::Int) = cur
 
 function pick_random_node(node::BinaryOpNode, cur::Int, max_branch::Int)
     if bernoulli(0.5)
@@ -24,9 +56,9 @@ function pick_random_node(node::BinaryOpNode, cur::Int, max_branch::Int)
     else
         # recursively pick from the subtrees
         if bernoulli(0.5)
-            pick_random_node(node.left, Gen.get_child(cur, 1, max_branch), max_branch)
+            pick_random_node(node.left, get_child(cur, 1, max_branch), max_branch)
         else
-            pick_random_node(node.right, Gen.get_child(cur, 2, max_branch), max_branch)
+            pick_random_node(node.right, get_child(cur, 2, max_branch), max_branch)
         end
     end
 end
@@ -137,6 +169,51 @@ function eval_cov_mat(node::Times, xs::Vector{Float64})
 end
 
 
+function compute_cov_matrix(covariance_fn::Node, noise, xs)
+    n = length(xs)
+    cov_matrix = Matrix{Float64}(undef, n, n)
+    for i=1:n
+        for j=1:n
+            cov_matrix[i, j] = eval_cov(covariance_fn, xs[i], xs[j])
+        end
+        cov_matrix[i, i] += noise
+    end
+    return cov_matrix
+end
+
+function compute_cov_matrix_vectorized(covariance_fn, noise, xs)
+    n = length(xs)
+    eval_cov_mat(covariance_fn, xs) + noise * eye(n)
+end
+
+function compute_log_likelihood(cov_matrix::Matrix{Float64}, ys::Vector{Float64})
+    n = length(ys)
+    logpdf(mvnormal, ys, zeros(n), cov_matrix)
+end
+
+function predict_ys(covariance_fn::Node, noise::Float64,
+                    xs::Vector{Float64}, ys::Vector{Float64},
+                    new_xs::Vector{Float64})
+    n_prev = length(xs)
+    n_new = length(new_xs)
+    means = zeros(n_prev + n_new)
+    cov_matrix = compute_cov_matrix(covariance_fn, noise, vcat(xs, new_xs))
+    cov_matrix_11 = cov_matrix[1:n_prev, 1:n_prev]
+    cov_matrix_22 = cov_matrix[n_prev+1:n_prev+n_new, n_prev+1:n_prev+n_new]
+    cov_matrix_12 = cov_matrix[1:n_prev, n_prev+1:n_prev+n_new]
+    cov_matrix_21 = cov_matrix[n_prev+1:n_prev+n_new, 1:n_prev]
+    @assert cov_matrix_12 == cov_matrix_21'
+    mu1 = means[1:n_prev]
+    mu2 = means[n_prev+1:n_prev+n_new]
+    conditional_mu = mu2 + cov_matrix_21 * (cov_matrix_11 \ (ys - mu1))
+    conditional_cov_matrix = cov_matrix_22 - cov_matrix_21 * (cov_matrix_11 \ cov_matrix_12)
+    conditional_cov_matrix = 0.5 * conditional_cov_matrix + 0.5 * conditional_cov_matrix'
+    new_ys = mvnormal(conditional_mu, conditional_cov_matrix)
+    return new_ys
+end
+
+
+
 const CONSTANT = 1 # 0.2
 const LINEAR = 2 # 0.2
 const SQUARED_EXP = 3 # 0.2
@@ -154,10 +231,22 @@ const node_type_to_num_children = Dict(
     PLUS => 2,
     TIMES => 2)
 
+const max_branch = 2
+
+
 
 ###########################################
 # tree for generating covariance function #
 ###########################################
+
+# 2) use Tree when computing the AST (likelihood is still non-incremental)
+#       - compute the abstract covariance function using the Tree (aggregation functions return covariance function nodes)
+#       - evaluate the covariance function to get the covariance matrix
+
+# 3) use Tree when computing the covariance matrix (likelihood is still non-incremental)
+#       - compute the covariance matrix using the Tree (aggregation function takes xs, and covariance matrix of children)
+#       - evaluate the covariance function to get the covariance matrix
+
 
 # tree
 
@@ -198,19 +287,21 @@ Gen.isnodiff(cov_node_diff::CovNodeDiff) = cov_node_diff.issame
     num_children = node_type_to_num_children[node_type]
 
     @diff begin
-        @assert @argdiff() === noargdiff
-        type_diff = @choicediff(:type)
-        @assert !isnew(type_diff) # always sampled
-        if isnodiff(type_diff)
-            dv = NodeTypeDiff(true)
-        else
-            dv = NodeTypeDiff(prev(type_diff) == node_type)
-        end
-        @retdiff(TreeProductionRetDiff{NodeTypeDiff,Nothing}(dv,Dict{Int,Nothing}()))
+        #@assert @argdiff() === noargdiff
+        #type_diff = @choicediff(:type)
+        #@assert !isnew(type_diff) # always sampled
+        #if isnodiff(type_diff)
+            #dv = NodeTypeDiff(true)
+        #else
+            #dv = NodeTypeDiff(prev(type_diff) == node_type)
+        #end
+        #@retdiff(TreeProductionRetDiff{NodeTypeDiff,Nothing}(dv,Dict{Int,Nothing}()))
+        @retdiff(TreeProductionRetDiff{NodeTypeDiff,Nothing}(NodeTypeDiff(false),Dict{Int,Nothing}()))
     end
 
     return (node_type, [nothing for _=1:num_children])
 end
+
 
 @gen function aggregation_kernel(node_type::Int, children::Vector{Node})
     local node::Node
@@ -256,27 +347,27 @@ end
     end
 
     @diff begin
-        argdiff::TreeAggregationArgDiff{NodeTypeDiff,CovNodeDiff} = @argdiff()
-        @assert !(isa(argdiff.dv, NodeTypeDiff) && isnodiff(argdiff.dv))
-        issame = (
-            # node type is the same
-            (argdiff.dv === noargdiff)
-
-            # all children nodes are the same (isnodiff(dw) for all children)
-            && length(argdiff.dws) == 0
-
-            # parameters have not changed
-            && ((node_type == PLUS) ||
-                (node_type == TIMES) ||
-                (node_type == CONSTANT
-                    && isnodiff(@choicediff(:param))) ||
-                (node_type == LINEAR
-                    && isnodiff(@choicediff(:param))) ||
-                (node_type == SQUARED_EXP
-                    && isnodiff(@choicediff(:length_scale))) ||
-                (node_type == PERIODIC
-                    && isnodiff(@choicediff(:scale))
-                    && isnodiff(@choicediff(:period)))))
+        #argdiff::TreeAggregationArgDiff{NodeTypeDiff,CovNodeDiff} = @argdiff()
+        #@assert !(isa(argdiff.dv, NodeTypeDiff) && isnodiff(argdiff.dv))
+        #issame = (
+            ## node type is the same
+            #(argdiff.dv === noargdiff)
+#
+            ## all children nodes are the same (isnodiff(dw) for all children)
+            #&& length(argdiff.dws) == 0
+#
+            ## parameters have not changed
+            #&& ((node_type == PLUS) ||
+                #(node_type == TIMES) ||
+                #(node_type == CONSTANT
+                    #&& isnodiff(@choicediff(:param))) ||
+                #(node_type == LINEAR
+                    #&& isnodiff(@choicediff(:param))) ||
+                #(node_type == SQUARED_EXP
+                    #&& isnodiff(@choicediff(:length_scale))) ||
+                #(node_type == PERIODIC
+                    #&& isnodiff(@choicediff(:scale))
+                    #&& isnodiff(@choicediff(:period)))))
 
         #@retdiff(CovNodeDiff(issame)) # TODO this was causing bugs..
         @retdiff(CovNodeDiff(false))
@@ -285,27 +376,9 @@ end
     return node
 end
 
-const max_branch = 2
 const cov_fn_generator = Tree(production_kernel, aggregation_kernel, max_branch,
                               Nothing, Int, Node,
                               NodeTypeDiff, Nothing, CovNodeDiff)
-
-function compute_cov_matrix(covariance_fn, noise, xs)
-    n = length(xs)
-    cov_matrix = Matrix{Float64}(undef, n, n)
-    for i=1:n
-        for j=1:n
-            cov_matrix[i, j] = eval_cov(covariance_fn, xs[i], xs[j])
-        end
-        cov_matrix[i, i] += noise
-    end
-    return cov_matrix
-end
-
-function compute_cov_matrix_vectorized(covariance_fn, noise, xs)
-    n = length(xs)
-    eval_cov_mat(covariance_fn, xs) + noise * eye(n)
-end
 
 @gen function model(xs::Vector{Float64})
     n = length(xs)
@@ -332,61 +405,20 @@ function compute_log_likelihood(covariance_fn, noise, xs, ys)
     logpdf(mvnormal, ys, zeros(n), cov_matrix)
 end
 
-#########################
-# sample some data sets #
-#########################
 
-using PyPlot
-xs = collect(range(0, stop=1, length=50))
-
-import Random
-Random.seed!(0)
-
-#figure(figsize=(16,16))
-#for i=1:16
-    #trace = simulate(model, (xs,))
-    #ys = get_assignment(trace)[:ys]
-    #subplot(4, 4, i)
-    #plot(xs, ys)
-    #gca()[:set_xlim]((0, 1))
-    #gca()[:set_ylim]((-3, 3))
-#end
-#savefig("data.png")
+#########################################
+# tree for generating covariance matrix #
+#########################################
 
 
-#########################
-# load airline data set #
-#########################
 
-import CSV
-df = CSV.read("airline.csv")
-xs = df[1]
-ys = df[2]
-xs -= minimum(xs) # set x minimum to 0.
-xs /= maximum(xs) # scale x so that maximum is at 1.
-ys -= mean(ys) # set y mean to 0.
-ys *= 4 / (maximum(ys) - minimum(ys)) # make it fit in the window [-2, 2]
-
-#figure(figsize=(16,16))
-#subplot(4, 4, 1)
-#plot(xs, ys)
-#gca()[:set_xlim]((0, 1))
-#gca()[:set_ylim]((-3, 3))
-#savefig("airline.png")
-
-
-##################
-# MCMC inference #
-##################
+##############################
+# MCMC inference (version 1) #
+##############################
 
 @gen function covariance_proposal(prev_trace, root::Int)
     @addr(cov_fn_generator(nothing, root), :tree, noargdiff)
 end
-
-@gen function noise_proposal(prev_trace)
-    @addr(gamma(1, 1), :noise)
-end
-
 
 function do_inference(xs, ys, num_iters::Int)
     constraints = DynamicAssignment()
@@ -404,50 +436,87 @@ function do_inference(xs, ys, num_iters::Int)
         noise = assignment[:noise]
         log_likelihood = compute_log_likelihood(covariance_fn, noise, xs, ys)
         num_nodes = size(covariance_fn)
-        println("iter: $iter, lik: $log_likelihood, num_nodes: $num_nodes, noise: $noise")
+        #println("iter: $iter, lik: $log_likelihood, num_nodes: $num_nodes, noise: $noise")
     end
     return (covariance_fn, noise)
 end
 
-function predict_ys(covariance_fn::Node, noise::Float64,
-                    xs::Vector{Float64}, ys::Vector{Float64},
-                    new_xs::Vector{Float64})
-    n_prev = length(xs)
-    n_new = length(new_xs)
-    means = zeros(n_prev + n_new)
-    cov_matrix = compute_cov_matrix(covariance_fn, noise, vcat(xs, new_xs))
-    cov_matrix_11 = cov_matrix[1:n_prev, 1:n_prev]
-    cov_matrix_22 = cov_matrix[n_prev+1:n_prev+n_new, n_prev+1:n_prev+n_new]
-    cov_matrix_12 = cov_matrix[1:n_prev, n_prev+1:n_prev+n_new]
-    cov_matrix_21 = cov_matrix[n_prev+1:n_prev+n_new, 1:n_prev]
-    @assert cov_matrix_12 == cov_matrix_21'
-    mu1 = means[1:n_prev]
-    mu2 = means[n_prev+1:n_prev+n_new]
-    conditional_mu = mu2 + cov_matrix_21 * (cov_matrix_11 \ (ys - mu1))
-    conditional_cov_matrix = cov_matrix_22 - cov_matrix_21 * (cov_matrix_11 \ cov_matrix_12)
-    conditional_cov_matrix = 0.5 * conditional_cov_matrix + 0.5 * conditional_cov_matrix'
-    new_ys = mvnormal(conditional_mu, conditional_cov_matrix)
-    return new_ys
+
+#########################
+# sample some data sets #
+#########################
+
+xs = collect(range(0, stop=1, length=50))
+Random.seed!(0)
+
+#figure(figsize=(16,16))
+#for i=1:16
+    #trace = simulate(model, (xs,))
+    #ys = get_assignment(trace)[:ys]
+    #subplot(4, 4, i)
+    #plot(xs, ys)
+    #gca()[:set_xlim]((0, 1))
+    #gca()[:set_ylim]((-3, 3))
+#end
+#savefig("data.png")
+
+
+##########################
+# inference experiment 1 #
+##########################
+
+function do_inference_experiment_1()
+    new_xs = collect(range(0, stop=1.5, length=200))
+    figure(figsize=(32,32))
+    for i=1:16
+        subplot(4, 4, i)
+        tic()
+        (covariance_fn, noise) = do_inference(xs, ys, 1000)
+        toc()
+        new_ys = predict_ys(covariance_fn, noise, xs, ys, new_xs)
+        plot(xs, ys, color="black")
+        plot(new_xs, new_ys, color="red")
+        gca()[:set_xlim]((0, 1.5))
+        gca()[:set_ylim]((-3, 3))
+    end
+    savefig("inference.png")
 end
 
-new_xs = collect(range(0, stop=1.5, length=200))
-figure(figsize=(32,32))
-for i=1:16
-    subplot(4, 4, i)
-    tic()
-    (covariance_fn, noise) = do_inference(xs, ys, 1000)
-    toc()
-    new_ys = predict_ys(covariance_fn, noise, xs, ys, new_xs)
-    plot(xs, ys, color="black")
-    plot(new_xs, new_ys, color="red")
-    gca()[:set_xlim]((0, 1.5))
-    gca()[:set_ylim]((-3, 3))
+#do_inference_experiment_1()
+
+##########################
+# inference experiment 2 #
+##########################
+
+function do_inference_experiment_2()
+    new_xs = collect(range(0, stop=1.5, length=200))
+    figure(figsize=(32,32))
+    for i=1:16
+        subplot(4, 4, i)
+        tic()
+        (covariance_fn, noise) = do_inference2(xs, ys, 1000)
+        toc()
+        new_ys = predict_ys(covariance_fn, noise, xs, ys, new_xs)
+        plot(xs, ys, color="black")
+        plot(new_xs, new_ys, color="red")
+        gca()[:set_xlim]((0, 1.5))
+        gca()[:set_ylim]((-3, 3))
+    end
+    savefig("inference2.png")
 end
-savefig("inference.png")
+
+do_inference_experiment_2()
 
 
-# TODO backpropagation
 
+
+
+
+
+
+
+
+# backpropagation
 # to support backpropagation of the likelihood with respect to real-valued
 # parameters in the covariance function, we will need to invent a data
 # structure to store the gradient with respect to the covariance function. this
