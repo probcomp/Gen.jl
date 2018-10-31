@@ -1,27 +1,26 @@
 include("shared.jl")
 
 @gen function covariance_prior(cur::Int)
-    node_type = @addr(categorical(node_dist), (cur, Val(:production)) => :type)
+    node_type = @addr(categorical(node_dist), (cur, :type))
 
-    base_addr = (cur, Val(:aggregation))
     if node_type == CONSTANT
-        param = @addr(uniform_continuous(0, 1), base_addr => :param)
+        param = @addr(uniform_continuous(0, 1), (cur, :param))
         node = Constant(param)
 
     # linear kernel
     elseif node_type == LINEAR
-        param = @addr(uniform_continuous(0, 1), base_addr => :param)
+        param = @addr(uniform_continuous(0, 1), (cur, :param))
         node = Linear(param)
 
     # squared exponential kernel
     elseif node_type == SQUARED_EXP
-        length_scale= @addr(uniform_continuous(0, 1), base_addr => :length_scale)
+        length_scale= @addr(uniform_continuous(0, 1), (cur, :length_scale))
         node = SquaredExponential(length_scale)
 
     # periodic kernel
     elseif node_type == PERIODIC
-        scale = @addr(uniform_continuous(0, 1), base_addr => :scale)
-        period = @addr(uniform_continuous(0, 1), base_addr => :period)
+        scale = @addr(uniform_continuous(0, 1), (cur, :scale))
+        period = @addr(uniform_continuous(0, 1), (cur, :period))
         node = Periodic(scale, period)
 
     # plus combinator
@@ -51,7 +50,7 @@ end
 @gen function model(xs::Vector{Float64})
     n = length(xs)
 
-    # sample covariance matrix
+    # sample covariance function
     covariance_fn::Node = @addr(covariance_prior(1), :tree)
 
     # sample diagonal noise
@@ -74,12 +73,17 @@ end
     @addr(gamma(1, 1), :noise)
 end
 
-function inference(xs, ys, num_iters::Int)
+function correction(prev_trace, new_trace)
+    prev_size = size(get_call_record(prev_trace).retval)
+    new_size = size(get_call_record(new_trace).retval)
+    log(prev_size) - log(new_size)
+end
+
+function inference(xs::Vector{Float64}, ys::Vector{Float64}, num_iters::Int)
     constraints = DynamicAssignment()
     constraints[:ys] = ys
     (trace, _) = generate(model, (xs,), constraints)
     local covariance_fn::Node
-    local noise::Float64
     for iter=1:num_iters
 
         # randomly pick a node to expand
@@ -87,7 +91,7 @@ function inference(xs, ys, num_iters::Int)
         root = pick_random_node(covariance_fn, 1, max_branch)
 
         # do MH move on the subtree
-        trace = mh(model, subtree_proposal, (root,), trace)
+        trace = mh(model, subtree_proposal, (root,), trace, correction)
 
         # do MH move on the top-level white noise
         trace = mh(model, noise_proposal, (), trace)
@@ -127,7 +131,7 @@ function experiment()
         gca()[:set_xlim]((0, 1.5))
         gca()[:set_ylim]((-3, 3))
     end
-    savefig("incremental.png")
+    savefig("lightweight.png")
 end
 
 experiment()
