@@ -40,19 +40,19 @@ include("shared.jl")
         right = @splice(covariance_prior(child2))
         node = Times(left, right)
 
-	# unknown node type
+    # unknown node type
     else
         error("Unknown node type: $node_type")
     end
 
-	return node
+    return node
 end
 
 @gen function model(xs::Vector{Float64})
-	n = length(xs)
+    n = length(xs)
 
     # sample covariance matrix
-	covariance_fn::Node = @addr(covariance_prior(1), :tree)
+    covariance_fn::Node = @addr(covariance_prior(1), :tree)
 
     # sample diagonal noise
     noise = @addr(gamma(1, 1), :noise) + 0.01
@@ -67,7 +67,7 @@ end
 end
 
 @gen function subtree_proposal(prev_trace, root::Int)
-	@addr(covariance_prior(root), :tree)
+    @addr(covariance_prior(root), :tree)
 end
 
 @gen function noise_proposal(prev_trace)
@@ -86,21 +86,21 @@ function inference(xs, ys, num_iters::Int)
         covariance_fn = get_call_record(trace).retval
         root = pick_random_node(covariance_fn, 1, max_branch)
 
-		# do MH move on the subtree
+        # do MH move on the subtree
         trace = mh(model, subtree_proposal, (root,), trace)
 
-		# do MH move on the top-level white noise
+        # do MH move on the top-level white noise
         trace = mh(model, noise_proposal, (), trace)
     end
-	
-	noise = get_assignment(trace)[:noise]
+    
+    noise = get_assignment(trace)[:noise]
     return (covariance_fn, noise)
 end
 
 function experiment()
 
     # load and rescale the airline dataset
-	(xs, ys) = get_airline_dataset()
+    (xs, ys) = get_airline_dataset()
 
     # get the x values to predict on (observed range as well as forecasts)
     new_xs = collect(range(0, stop=1.5, length=200))
