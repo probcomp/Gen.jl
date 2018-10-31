@@ -21,7 +21,7 @@ function get_airline_dataset()
     xs /= maximum(xs) # scale x so that maximum is at 1.
     ys .-= Statistics.mean(ys) # set y mean to 0.
     ys *= 4 / (maximum(ys) - minimum(ys)) # make it fit in the window [-2, 2]
-	return (xs, ys)
+    return (xs, ys)
 end
 
 ################################
