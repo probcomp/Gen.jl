@@ -80,9 +80,15 @@ function correction(prev_trace, new_trace)
 end
 
 function inference(xs::Vector{Float64}, ys::Vector{Float64}, num_iters::Int)
+
+    # observed data
     constraints = DynamicAssignment()
     constraints[:ys] = ys
+
+    # generate initial trace consistent with observed data
     (trace, _) = generate(model, (xs,), constraints)
+
+    # do MCMC
     local covariance_fn::Node
     for iter=1:num_iters
 
