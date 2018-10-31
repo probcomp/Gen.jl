@@ -1,6 +1,7 @@
 using Gen
 using Gen: get_child
-using LinearAlgebra: eye
+import Statistics
+import LinearAlgebra
 import CSV
 using PyPlot: figure, subplot, plot, scatter, gca, savefig
 import Random
@@ -16,26 +17,36 @@ function get_airline_dataset()
     df = CSV.read("airline.csv")
     xs = df[1]
     ys = df[2]
-    xs -= minimum(xs) # set x minimum to 0.
+    xs .-= minimum(xs) # set x minimum to 0.
     xs /= maximum(xs) # scale x so that maximum is at 1.
-    ys -= mean(ys) # set y mean to 0.
+    ys .-= Statistics.mean(ys) # set y mean to 0.
     ys *= 4 / (maximum(ys) - minimum(ys)) # make it fit in the window [-2, 2]
 	return (xs, ys)
 end
-
-#figure(figsize=(16,16))
-#subplot(4, 4, 1)
-#plot(xs, ys)
-#gca()[:set_xlim]((0, 1))
-#gca()[:set_ylim]((-3, 3))
-#savefig("airline.png")
-
 
 ################################
 # abstract covariance function #
 ################################
 
+"""
+Node in a tree representing a covariance function
+"""
 abstract type Node end
+
+"""
+    size(::Node)
+
+Number of nodes in the subtree rooted at this node.
+"""
+function size end
+
+"""
+    pick_random_node(::Node, cur::Int, max_branch::Int)
+
+Return a random node in the subtree rooted at the given node, whose integer
+index is given.
+"""
+function pick_random_node end
 
 abstract type LeafNode <: Node end
 
@@ -61,6 +72,7 @@ function pick_random_node(node::BinaryOpNode, cur::Int, max_branch::Int)
     end
 end
 
+
 """
 Constant kernel
 """
@@ -74,6 +86,7 @@ function eval_cov_mat(node::Constant, xs::Vector{Float64})
     n = length(xs)
     fill(node.param, (n, n))
 end
+
 
 """
 Linear kernel
@@ -167,6 +180,9 @@ function eval_cov_mat(node::Times, xs::Vector{Float64})
 end
 
 
+"""
+Compute a covariance matrix by evaluating the function on each pair of inputs
+"""
 function compute_cov_matrix(covariance_fn::Node, noise, xs)
     n = length(xs)
     cov_matrix = Matrix{Float64}(undef, n, n)
@@ -179,9 +195,12 @@ function compute_cov_matrix(covariance_fn::Node, noise, xs)
     return cov_matrix
 end
 
+"""
+Compute a covariance function by recursively computing covariance matrices
+"""
 function compute_cov_matrix_vectorized(covariance_fn, noise, xs)
     n = length(xs)
-    eval_cov_mat(covariance_fn, xs) + noise * eye(n)
+    eval_cov_mat(covariance_fn, xs) + Matrix(noise * LinearAlgebra.I, n, n)
 end
 
 function compute_log_likelihood(cov_matrix::Matrix{Float64}, ys::Vector{Float64})
@@ -189,6 +208,9 @@ function compute_log_likelihood(cov_matrix::Matrix{Float64}, ys::Vector{Float64}
     logpdf(mvnormal, ys, zeros(n), cov_matrix)
 end
 
+"""
+Predict output values for some new input values
+"""
 function predict_ys(covariance_fn::Node, noise::Float64,
                     xs::Vector{Float64}, ys::Vector{Float64},
                     new_xs::Vector{Float64})
@@ -210,8 +232,6 @@ function predict_ys(covariance_fn::Node, noise::Float64,
     return new_ys
 end
 
-
-
 const CONSTANT = 1 # 0.2
 const LINEAR = 2 # 0.2
 const SQUARED_EXP = 3 # 0.2
@@ -230,5 +250,3 @@ const node_type_to_num_children = Dict(
     TIMES => 2)
 
 const max_branch = 2
-
-

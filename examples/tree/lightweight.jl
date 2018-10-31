@@ -1,6 +1,6 @@
 include("shared.jl")
 
-@gen function generate_covariance_fn(cur::Int)
+@gen function covariance_prior(cur::Int)
     node_type = @addr(categorical(node_dist), (cur, Val(:production)) => :type)
 
     base_addr = (cur, Val(:aggregation))
@@ -28,16 +28,16 @@ include("shared.jl")
     elseif node_type == PLUS
         child1 = get_child(cur, 1, max_branch)
         child2 = get_child(cur, 2, max_branch)
-        left = @splice(generate_covariance_fn(child1))
-        right = @splice(generate_covariance_fn(child2))
+        left = @splice(covariance_prior(child1))
+        right = @splice(covariance_prior(child2))
         node = Plus(left, right)
 
     # times combinator
     elseif node_type == TIMES
         child1 = get_child(cur, 1, max_branch)
         child2 = get_child(cur, 2, max_branch)
-        left = @splice(generate_covariance_fn(child1))
-        right = @splice(generate_covariance_fn(child2))
+        left = @splice(covariance_prior(child1))
+        right = @splice(covariance_prior(child2))
         node = Times(left, right)
 
 	# unknown node type
@@ -52,7 +52,7 @@ end
 	n = length(xs)
 
     # sample covariance matrix
-	covariance_fn::Node = @addr(generate_covariance_fn(1), :tree)
+	covariance_fn::Node = @addr(covariance_prior(1), :tree)
 
     # sample diagonal noise
     noise = @addr(gamma(1, 1), :noise) + 0.01
@@ -67,7 +67,7 @@ end
 end
 
 @gen function subtree_proposal(prev_trace, root::Int)
-	@addr(generate_covariance_fn(root), :tree)
+	@addr(covariance_prior(root), :tree)
 end
 
 @gen function noise_proposal(prev_trace)
@@ -82,15 +82,14 @@ function inference(xs, ys, num_iters::Int)
     local noise::Float64
     for iter=1:num_iters
 
-        # pick a node to expand
+        # randomly pick a node to expand
         covariance_fn = get_call_record(trace).retval
         root = pick_random_node(covariance_fn, 1, max_branch)
 
-		# propose a new subtree
-		# TODO correct the accept/reject ratio based on the number of nodes?
+		# do MH move on the subtree
         trace = mh(model, subtree_proposal, (root,), trace)
 
-		# propose a change to the noise level
+		# do MH move on the top-level white noise
         trace = mh(model, noise_proposal, (), trace)
     end
 	
@@ -99,21 +98,36 @@ function inference(xs, ys, num_iters::Int)
 end
 
 function experiment()
+
+    # load and rescale the airline dataset
 	(xs, ys) = get_airline_dataset()
+
+    # get the x values to predict on (observed range as well as forecasts)
     new_xs = collect(range(0, stop=1.5, length=200))
+
+    # set seed
+    Random.seed!(0)
+
     figure(figsize=(32,32))
     for i=1:16
         subplot(4, 4, i)
-        tic()
-        (covariance_fn, noise) = inference(xs, ys, 1000)
-        toc()
+
+        # do inference, time it
+        @time (covariance_fn, noise) = inference(xs, ys, 1000)
+
+        # sample predictions
         new_ys = predict_ys(covariance_fn, noise, xs, ys, new_xs)
+
+        # plot observed data
         plot(xs, ys, color="black")
+
+        # plot predictions
         plot(new_xs, new_ys, color="red")
+
         gca()[:set_xlim]((0, 1.5))
         gca()[:set_ylim]((-3, 3))
     end
-    savefig("lightweight.png")
+    savefig("incremental.png")
 end
 
-# experiment()
+experiment()
