@@ -15,7 +15,8 @@ export logsumexp
 # MCMC #
 ########
 
-function mh(model::Generator, proposal::Generator, proposal_args_rest::Tuple, trace)
+function mh(model::Generator, proposal::Generator, proposal_args_rest::Tuple,
+            trace, correction=(prev_trace, new_trace) -> 0.)
     model_args = get_call_record(trace).args
     proposal_args_forward = (trace, proposal_args_rest...,)
     forward_trace = simulate(proposal, proposal_args_forward)
@@ -26,7 +27,9 @@ function mh(model::Generator, proposal::Generator, proposal_args_rest::Tuple, tr
     proposal_args_backward = (new_trace, proposal_args_rest...,)
     backward_trace = assess(proposal, proposal_args_backward, discard)
     backward_score = get_call_record(backward_trace).score
-    if log(rand()) < weight - forward_score + backward_score
+    alpha = weight - forward_score + backward_score
+    alpha += correction(trace, new_trace)
+    if log(rand()) < alpha
         # accept
         return new_trace
     else
