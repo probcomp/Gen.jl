@@ -234,7 +234,7 @@ end
 function experiment()
 
     # load and rescale the airline dataset
-	(xs, ys) = get_airline_dataset()
+    (xs, ys) = get_airline_dataset()
 
     # get the x values to predict on (observed range as well as forecasts)
     new_xs = collect(range(0, stop=1.5, length=200))
