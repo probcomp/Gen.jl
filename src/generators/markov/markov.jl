@@ -170,12 +170,12 @@ function extend(gen::Markov{T,U}, args, change::MarkovChange, trace::VectorTrace
         else
             prev_subtrace::U = subtraces[key]
             prev_score = get_call_record(prev_subtrace).score
-            kernel_args_change = nothing # TODO permit user to pass through change info to kernel
+            kernel_args_change = unknownargdiff # TODO permit user to pass through change info to kernel
             (subtrace, w, retchange) = extend(
                 gen.kernel, kernel_args, kernel_args_change, prev_subtrace, node)
             call = get_call_record(subtrace)
             score += call.score - prev_score
-            @assert length(states) == key
+            #@assert length(states) == key
             subtraces = assoc(subtraces, key, subtrace)
             states = assoc(states, key, call.retval)
             if has_choices(subtrace) && !has_choices(prev_subtrace)
