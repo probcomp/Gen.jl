@@ -635,7 +635,6 @@ end
 mutable struct GFExtendState
     prev_trace::GFTrace
     trace::GFTrace
-    args_change::Any
     constraints::Any
     score::Float64
     weight::Float64
@@ -649,7 +648,7 @@ end
 
 function GFExtendState(argdiff, prev_trace, constraints, params)
     visitor = AddressVisitor()
-    GFExtendState(prev_trace, GFTrace(), args_change, constraints, 0., 0.,
+    GFExtendState(prev_trace, GFTrace(), constraints, 0., 0.,
         visitor, params, argdiff, GenFunctionDefaultRetDiff(),
         HomogenousTrie{Any,Any}(), HomogenousTrie{Any,Any}())
 end
@@ -688,7 +687,7 @@ function addr(state::GFExtendState, dist::Distribution{T}, args, key) where {T}
 
     # update choicediffs
     if has_previous
-        set_choice_diff!(state, key, in_selection, prev_retval) 
+        set_choice_diff!(state, key, constrained, prev_retval) 
     else
         set_choice_diff_no_prev!(state, key)
     end
