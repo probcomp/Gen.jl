@@ -1,7 +1,6 @@
 include("scenes.jl")
 include("path_planner.jl")
 include("model.jl")
-include("render.jl")
 
 using Printf: @sprintf
 import Random

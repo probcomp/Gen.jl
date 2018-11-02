@@ -268,15 +268,20 @@ function plan_path(start::Point, goal::Point, scene::Scene,
     return optimized_path
 end
 
-"""
-Sample the location of a walk along a path at given time points, for a fixed speed.
-"""
-function walk_path(path::Path, speed::Float64, times::Array{Float64,1})
+function compute_distances_from_start(path::Path)
     distances_from_start = Vector{Float64}(undef, length(path.points))
     distances_from_start[1] = 0.0
     for i=2:length(path.points)
         distances_from_start[i] = distances_from_start[i-1] + dist(path.points[i-1], path.points[i])
     end
+    return distances_from_start
+end
+
+"""
+Sample the location of a walk along a path at given time points, for a fixed speed.
+"""
+function walk_path(path::Path, speed::Float64, times::Array{Float64,1})
+    distances_from_start = compute_distances_from_start(path)
     locations = Vector{Point}(undef, length(times))
     locations[1] = path.points[1]
     for (time_idx, t) in enumerate(times)
@@ -309,3 +314,30 @@ function walk_path(path::Path, speed::Float64, times::Array{Float64,1})
     end
     locations
 end
+
+function walk_path(path::Path, distances_from_start::Vector{Float64}, dist::Float64)
+    if dist <= 0.
+        return path.points[1]
+    end
+    if dist >= distances_from_start[end]
+        return path.points[end]
+    end
+    # dist > 0 and dist < dist-to-last-point
+    path_point_index = 0
+    for i=1:length(distances_from_start)
+        path_point_index += 1
+        if dist < distances_from_start[path_point_index]
+            break
+        end
+    end
+    @assert dist < distances_from_start[path_point_index]
+    path_point_index -= 1
+    @assert path_point_index > 0
+    dist_from_path_point = dist - distances_from_start[path_point_index]
+    dist_between_points = distances_from_start[path_point_index + 1] - distances_from_start[path_point_index]
+    fraction_next = dist_from_path_point / dist_between_points
+    point::Point = (fraction_next * path.points[path_point_index + 1]
+           + (1. - fraction_next) * path.points[path_point_index])
+    return point
+end
+
