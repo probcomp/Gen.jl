@@ -62,12 +62,12 @@ end
 
 data = plate(datum)
 
-function compute_data_change(inlier_std_change, outlier_std_change, slope_change, intercept_change)
-    if all([c == NoChange() for c in [
-            inlier_std_change, outlier_std_change, slope_change, intercept_change]])
-        NoChange()
+function compute_argdiff(inlier_std_diff, outlier_std_diff, slope_diff, intercept_diff)
+    if all([c == NoChoiceDiff() for c in [
+            inlier_std_diff, outlier_std_diff, slope_diff, intercept_diff]])
+        noargdiff
     else
-        nothing
+        unknownargdiff
     end
 end
 
@@ -79,15 +79,15 @@ end
     outlier_std::Float64 = exp(outlier_log_std)
     slope::Float64 = @addr(normal(0, 2), :slope)
     intercept::Float64 = @addr(normal(0, 2), :intercept)
-    inlier_std_change::Union{NoChange,Some{Float64},Nothing} = @change(:inlier_std)
-    outlier_std_change::Union{NoChange,Some{Float64},Nothing} = @change(:outlier_std)
-    slope_change::Union{NoChange,Some{Float64},Nothing} = @change(:slope)
-    intercept_change::Union{NoChange,Some{Float64},Nothing} = @change(:intercept)
-    change::Union{NoChange,Nothing} = compute_data_change(
-        inlier_std_change, outlier_std_change, slope_change, intercept_change)
+    inlier_std_diff::Union{PrevChoiceDiff{Float64},NoChoiceDiff} = @change(:inlier_std)
+    outlier_std_diff::Union{PrevChoiceDiff{Float64},NoChoiceDiff} = @change(:outlier_std)
+    slope_diff::Union{PrevChoiceDiff{Float64},NoChoiceDiff} = @change(:slope)
+    intercept_diff::Union{PrevChoiceDiff{Float64},NoChoiceDiff} = @change(:intercept)
+    argdiff::Union{NoArgDiff,UnknownArgDiff} = compute_argdiff(
+        inlier_std_diff, outlier_std_diff, slope_diff, intercept_diff)
     @addr(data(xs, fill(inlier_std, n), fill(outlier_std, n),
-                                                   fill(slope, n), fill(intercept, n)),
-                                          :data, change)
+               fill(slope, n), fill(intercept, n)),
+          :data, argdiff)
 end
 
 #######################
@@ -160,11 +160,11 @@ datum_trace = simulate(datum, (1., 2., 3., 4., 5.))
 (std_selection,) = Gen.select(std_selector, (), get_assignment(trace))
 slope_intercept_static_sel = StaticAddressSet(slope_intercept_selection)
 std_static_sel = StaticAddressSet(std_selection)
-
-#println("\n######################################################################\n")
-#println("backprop_trace(model, ...)")
-#println(strip_lineinfo(
-    #Gen.codegen_backprop_trace(typeof(model), typeof(trace), typeof(slope_intercept_static_sel), Nothing)))
+#
+##println("\n######################################################################\n")
+##println("backprop_trace(model, ...)")
+##println(strip_lineinfo(
+    ##Gen.codegen_backprop_trace(typeof(model), typeof(trace), typeof(slope_intercept_static_sel), Nothing)))
 #println("\n######################################################################\n")
 
 #println("\n######################################################################\n")

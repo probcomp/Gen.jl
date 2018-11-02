@@ -23,12 +23,12 @@ end
 
 data = plate(datum)
 
-function compute_data_change(inlier_std_change, outlier_std_change, slope_change, intercept_change)
-    if all([c == NoChange() for c in [
-            inlier_std_change, outlier_std_change, slope_change, intercept_change]])
-        NoChange()
+function compute_argdiff(inlier_std_diff, outlier_std_diff, slope_diff, intercept_diff)
+    if all([c == NoChoiceDiff() for c in [
+            inlier_std_diff, outlier_std_diff, slope_diff, intercept_diff]])
+        noargdiff
     else
-        nothing
+        unknownargdiff
     end
 end
 
@@ -39,13 +39,13 @@ end
     slope::Float64 = @addr(normal(0, 2), :slope)
     intercept::Float64 = @addr(normal(0, 2), :intercept)
     params::Params = Params(0.5, inlier_std, outlier_std, slope, intercept)
-    inlier_std_change::Union{Some{Float64},NoChange,Nothing} = @change(:inlier_std)
-    outlier_std_change::Union{Some{Float64},NoChange,Nothing} = @change(:outlier_std)
-    slope_change::Union{Some{Float64},NoChange,Nothing} = @change(:slope)
-    intercept_change::Union{Some{Float64},NoChange,Nothing} = @change(:intercept)
-    change::Union{NoChange,Nothing} = compute_data_change(
-        inlier_std_change, outlier_std_change, slope_change, intercept_change)
-    ys::PersistentVector{Float64} = @addr(data(xs, fill(params, n)), :data, change)
+    inlier_std_diff::Union{PrevChoiceDiff{Float64},NoChoiceDiff} = @change(:inlier_std)
+    outlier_std_diff::Union{PrevChoiceDiff{Float64},NoChoiceDiff} = @change(:outlier_std)
+    slope_diff::Union{PrevChoiceDiff{Float64},NoChoiceDiff} = @change(:slope)
+    intercept_diff::Union{PrevChoiceDiff{Float64},NoChoiceDiff} = @change(:intercept)
+    argdiff::Union{NoArgDiff,UnknownArgDiff} = compute_argdiff(
+        inlier_std_diff, outlier_std_diff, slope_diff, intercept_diff)
+    ys::PersistentVector{Float64} = @addr(data(xs, fill(params, n)), :data, argdiff)
     return ys
 end
 

@@ -216,7 +216,8 @@ function generate_generator_output_statement!(stmts::Vector{Expr}, node::AddrGen
     end
 end
 
-function generate_generator_call_statement!(state::BBUpdateState, addr::Symbol, node::AddrGeneratorNode, constraints)
+function generate_generator_call_statement!(state::BBUpdateState, addr::Symbol,
+                                            node::AddrGeneratorNode, constraints)
     args = get_args(bb_new_trace, node)
     prev_args = get_args(:trace, node)
     change_value_ref = :($bb_new_trace.$(value_field(node.change_node)))
@@ -233,7 +234,8 @@ function generate_generator_call_statement!(state::BBUpdateState, addr::Symbol, 
     state.discard_internal_nodes[addr] = discard
 end
 
-function generate_generator_call_statement!(state::BBFixUpdateState, addr::Symbol, node::AddrGeneratorNode, constraints)
+function generate_generator_call_statement!(state::BBFixUpdateState, addr::Symbol,
+                                            node::AddrGeneratorNode, constraints)
     args = get_args(bb_new_trace, node)
     prev_args = get_args(:trace, node)
     change_value_ref = :($bb_new_trace.$(value_field(node.change_node)))
@@ -250,7 +252,8 @@ function generate_generator_call_statement!(state::BBFixUpdateState, addr::Symbo
     state.discard_internal_nodes[addr] = discard
 end
 
-function generate_generator_call_statement!(state::BBExtendState, addr::Symbol, node::AddrGeneratorNode, constraints)
+function generate_generator_call_statement!(state::BBExtendState, addr::Symbol,
+                                            node::AddrGeneratorNode, constraints)
     args = get_args(bb_new_trace, node)
     prev_args = get_args(:trace, node)
     change_value_ref = :($bb_new_trace.$(value_field(node.change_node)))

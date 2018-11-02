@@ -21,7 +21,7 @@ function process!(ir::BasicBlockIR, state::BasicBlockGenerateState,
                   node::Union{ArgsChangeNode,AddrChangeNode})
     trace = state.trace
     (_, trace_field) = get_value_info(node)
-    push!(state.stmts, Expr(:(=), Expr(:(.), trace, QuoteNode(trace_field)), QuoteNode(nothing)))
+    push!(state.stmts, Expr(:(=), Expr(:(.), trace, QuoteNode(trace_field)), QuoteNode(NoChoiceDiff())))
 end
 
 function process!(ir::BasicBlockIR, state::BasicBlockGenerateState, node::AddrDistNode)

@@ -89,7 +89,6 @@ function VectorDistTrace{T}(values::PersistentVector{T},
                             args::Tuple, score::Float64,
                             len::Int) where {T}
     @assert length(values) >= len
-    @assert num_has_choices >= 0
     call = CallRecord{PersistentVector{T}}(score, values, args)
     VectorDistTrace{T}(values, call, len)
 end

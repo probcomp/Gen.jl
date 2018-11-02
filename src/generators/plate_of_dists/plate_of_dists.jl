@@ -31,9 +31,8 @@ function simulate(gen::PlateOfDist{T}, args) where {T}
         values[key] = random(gen.kernel, kernel_args...)
         score += logpdf(gen.kernel, values[key], kernel_args...)
     end
-    persist_vec = Gen.PersistentVector{T}(values)
-    call = CallRecord(score, persist_vec, args)
-    Gen.VectorDistTrace{T}(persist_vec, call)
+    persist_values = Gen.PersistentVector{T}(values)
+    Gen.VectorDistTrace{T}(persist_values, args, score, len)
 end
 
 function generate(gen::PlateOfDist{T}, args, constraints) where {T}
@@ -57,13 +56,13 @@ function generate(gen::PlateOfDist{T}, args, constraints) where {T}
         score += lpdf
     end
     # TODO also check that there are no extra constraints
-    persist_vec = Gen.PersistentVector{T}(values)
-    call = CallRecord(score, persist_vec, args)
-    trace = Gen.VectorDistTrace{T}(persist_vec, call)
+    persist_values = Gen.PersistentVector{T}(values)
+    trace = Gen.VectorDistTrace{T}(persist_values, args, score, len)
     (trace, weight)
 end
 
-function update(gen::PlateOfDist{T}, new_args, args_change::Nothing, trace::VectorDistTrace{T}, constraints) where {T}
+function update(gen::PlateOfDist{T}, new_args, argdiff::UnknownArgDiff,
+                trace::VectorDistTrace{T}, constraints) where {T}
     (new_length, prev_length) = get_prev_and_new_lengths(new_args, trace)
     @assert new_length == prev_length
     # TODO handle increases or decreaeses int e length 
@@ -92,12 +91,13 @@ function update(gen::PlateOfDist{T}, new_args, args_change::Nothing, trace::Vect
     # TODO also check that there are no extra constraints
     # TODO handle retchange
     call = CallRecord(score, values, new_args)
-    new_trace = Gen.VectorDistTrace{T}(values, call)
+    new_trace = Gen.VectorDistTrace{T}(values, new_args, score, new_length)
     (new_trace, weight, EmptyAssignment(), nothing)
 end
 
 # TODO handle other selection types
-function backprop_trace(gen::PlateOfDist{T}, trace::VectorDistTrace{T}, selection::EmptyAddressSet, retval_grad::Nothing) where {T}
+function backprop_trace(gen::PlateOfDist{T}, trace::VectorDistTrace{T},
+                        selection::EmptyAddressSet, retval_grad::Nothing) where {T}
     call = get_call_record(trace)
     args = call.args
     n_args = length(args)

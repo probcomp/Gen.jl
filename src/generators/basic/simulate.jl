@@ -12,12 +12,20 @@ function process!(ir::BasicBlockIR, state::BasicBlockSimulateState, node::JuliaN
     end)
 end
 
-function process!(ir::BasicBlockIR, state::BasicBlockSimulateState,
-                  node::Union{ArgsChangeNode,AddrChangeNode})
+function process!(ir::BasicBlockIR, state::BasicBlockSimulateState, node::ArgsChangeNode)
     trace = state.trace
     (typ, trace_field) = get_value_info(node)
     push!(state.stmts, quote
-        $trace.$trace_field = nothing
+        $trace.$trace_field = noargdiff
+    end)
+end
+
+function process!(ir::BasicBlockIR, state::BasicBlockSimulateState, node::AddrChangeNode)
+    trace = state.trace
+    (typ, trace_field) = get_value_info(node)
+    # TODO what about calldiff from genreators, should be CallDiff, not ChoiceDiff
+    push!(state.stmts, quote
+        $trace.$trace_field = NoChoiceDiff() 
     end)
 end
 

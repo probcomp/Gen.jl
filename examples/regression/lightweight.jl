@@ -22,33 +22,23 @@ end
 
 data = plate(datum)
 
-model_expr = :(@gen function model(xs::Vector{Float64})
+@gen function model(xs::Vector{Float64})
     inlier_std = @addr(Gen.gamma(1, 1), :inlier_std)
     outlier_std = @addr(Gen.gamma(1, 1), :outlier_std)
     slope = @addr(normal(0, 2), :slope)
     intercept = @addr(normal(0, 2), :intercept)
     params = Params(0.5, inlier_std, outlier_std, slope, intercept)
-
-    #if all([@change(addr) == NoChange() for addr in [:slope, :intercept, :inlier_std, :outlier_std]])
-        #change = NoChange()
-    #else
-        #change = nothing
-    #end
-
     @diff begin
-        argdiff = PlateNoArgDiff()
+        argdiff = noargdiff
         for addr in [:slope, :intercept, :inlier_std, :outlier_std]
             if !isnodiff(@choicediff(addr))
-                argdiff = PlateUnknownArgDiff()
+                argdiff = unknownargdiff
             end
         end
     end
     ys = @addr(data(xs, fill(params, length(xs))), :data, argdiff)
     return ys
-end)
-
-println(macroexpand(model_expr))
-eval(model_expr)
+end
 
 #######################
 # inference operators #

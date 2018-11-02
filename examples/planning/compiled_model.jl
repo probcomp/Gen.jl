@@ -3,40 +3,49 @@ using PyPlot
 
 # depends on: scenes.jl, path_planner.jl
 
-@gen function model(scene::Scene, times::Vector{Float64})
-
-    # start point of the agent
-    start_x = @addr(uniform(0, 1), :start_x)
-    start_y = @addr(uniform(0, 1), :start_y)
-    start = Point(start_x, start_y)
-
-    # goal point of the agent
-    stop_x = @addr(uniform(0, 1), :stop_x)
-    stop_y = @addr(uniform(0, 1), :stop_y)
-    stop = Point(stop_x, stop_y)
-
-    # plan a path that avoids obstacles in the scene
-    maybe_path = plan_path(start, stop, scene, PlannerParams(300, 3.0, 2000, 1.))
-    
-    # speed
-    speed = @addr(uniform(0, 1), :speed)
-
-    # walk path at constant speed
+function get_locations(maybe_path::Nullable{Path}, start::Point,
+                       speed::Float64, times::Vector{Float64})
     if !isnull(maybe_path)
         path = get(maybe_path)
-        locations = walk_path(path, speed, times)
+        return walk_path(path, speed, times)
     else
-        locations = fill(start, length(times))
+        return fill(start, length(times))
     end
+end
+
+@compiled @gen function measurement(point::Point, noise::Float64)
+    @addr(normal(point.x, noise), :x)
+    @addr(normal(point.y, noise), :y)
+end
+
+measurements = plate(measurement)
+
+@compiled @gen function model(scene::Scene, times::Vector{Float64})
+
+    # start point of the agent
+    start_x::Float64 = @addr(uniform(0, 1), :start_x)
+    start_y::Float64 = @addr(uniform(0, 1), :start_y)
+    start::Point = Point(start_x, start_y)
+
+    # goal point of the agent
+    stop_x::Float64 = @addr(uniform(0, 1), :stop_x)
+    stop_y::Float64 = @addr(uniform(0, 1), :stop_y)
+    stop::Point = Point(stop_x, stop_y)
+
+    # plan a path that avoids obstacles in the scene
+    maybe_path::Nullable{Path} = plan_path(start, stop, scene, PlannerParams(300, 3.0, 2000, 1.))
+    
+    # speed
+    speed::Float64 = @addr(uniform(0, 1), :speed)
+
+    # walk path at constant speed
+    locations::Vector{Point} = get_locations(maybe_path, start, speed, times)
 
     # generate noisy observations
-    noise = 0.1 * @addr(uniform(0, 1), :noise)
-    for (i, point) in enumerate(locations)
-        @addr(normal(point.x, noise), i => :x)
-        @addr(normal(point.y, noise), i => :y)
-    end
+    noise::Float64 = @addr(uniform(0, 0.1), :noise)
+    @addr(measurements(locations, fill(noise, length(times))), :measurements)
 
-    (start, stop, speed, noise, maybe_path, locations)
+    return (start, stop, speed, noise, maybe_path, locations)::Tuple{Point,Point,Float64,Float64,Nullable{Path},Vector{Point}}
 end
 
 function render(scene::Scene, trace, ax;
@@ -75,8 +84,8 @@ function render(scene::Scene, trace, ax;
     
     # plot measured locations
     if show_measurements
-        measured_xs = [assignment[i => :x] for i=1:length(locations)]
-        measured_ys = [assignment[i => :y] for i=1:length(locations)]
+        measured_xs = [assignment[:measurements => i => :x] for i=1:length(locations)]
+        measured_ys = [assignment[:measurements => i => :y] for i=1:length(locations)]
         scatter(measured_xs, measured_ys, marker="x", color="black", alpha=1., s=25)
     end
 end

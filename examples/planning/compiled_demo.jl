@@ -1,7 +1,6 @@
 include("scenes.jl")
 include("path_planner.jl")
-include("model.jl")
-include("render.jl")
+include("compiled_model.jl")
 
 using Printf: @sprintf
 import Random
@@ -30,30 +29,17 @@ end
 const scene = make_scene()
 const times = collect(range(0, stop=1, length=20))
 
-function show_prior_samples()
-    Random.seed!(0)
-    figure(figsize=(32, 32))
-    for i=1:15
-        subplot(4, 4, i)
-        ax = gca()
-        trace = simulate(model, (scene, times))
-        render(scene, trace, ax)
-    end
-    savefig("demo.png")
-end
-show_prior_samples()
-
-@gen function stop_proposal(prev_trace)
+@compiled @gen function stop_proposal(prev_trace::Any)
     @addr(uniform(0, 1), :stop_x)
     @addr(uniform(0, 1), :stop_y)
 end
 
-@gen function speed_proposal(prev_trace)
+@compiled @gen function speed_proposal(prev_trace::Any)
     @addr(uniform(0, 1), :speed)
 end
 
-@gen function noise_proposal(prev_trace)
-    @addr(uniform(0, 1), :noise)
+@compiled @gen function noise_proposal(prev_trace::Any)
+    @addr(uniform(0, 0.1), :noise)
 end
 
 function inference(measurements::Vector{Point}, start::Point, iters::Int)
@@ -61,8 +47,8 @@ function inference(measurements::Vector{Point}, start::Point, iters::Int)
 
     constraints = DynamicAssignment()
     for (i, pt) in enumerate(measurements)
-        constraints[i => :x] = pt.x
-        constraints[i => :y] = pt.y
+        constraints[:measurements => i => :x] = pt.x
+        constraints[:measurements => i => :y] = pt.y
     end
     constraints[:start_x] = start.x
     constraints[:start_y] = start.y
@@ -87,7 +73,7 @@ function experiment()
     constraints[:start_y] = 0.1
     constraints[:stop_x] = 0.5
     constraints[:stop_y] = 0.5
-    constraints[:noise] = 0.1
+    constraints[:noise] = 0.01
     (trace, _) = generate(model, (scene, times), constraints)
 
     figure(figsize=(4, 4))
@@ -96,11 +82,12 @@ function experiment()
     savefig("ground_truth.png")
 
     assignment = get_assignment(trace)
-    measurements = [Point(assignment[i => :x], assignment[i => :y]) for i=1:length(times)]
+    measurements = [Point(
+        assignment[:measurements => i => :x],
+        assignment[:measurements => i => :y]) for i=1:length(times)]
     start = Point(assignment[:start_x], assignment[:start_y])
 
-    #for t=1:length(times)
-    for t in [length(times)]
+    for t=1:length(times)
         println("t: $t")
         traces = []
         for i=1:100
@@ -114,9 +101,24 @@ function experiment()
             render(scene, trace, ax; show_measurements=i>1, show_start=i>1,
                    show_path=false, show_noise=false, stop_alpha=0.2, path_alpha=0.2)
         end
-        fname = @sprintf("inferred_%03d.png", t)
+        fname = @sprintf("compiled_inferred_%03d.png", t)
         savefig(fname)
     end
 end
 
+function show_prior_samples()
+    Random.seed!(0)
+    figure(figsize=(32, 32))
+    for i=1:15
+        subplot(4, 4, i)
+        ax = gca()
+        trace = simulate(model, (scene, times))
+        render(scene, trace, ax)
+    end
+    savefig("compiled_demo.png")
+end
+
+Gen.load_generated_functions()
+
+show_prior_samples()
 experiment()
