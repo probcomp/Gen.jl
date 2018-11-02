@@ -3,7 +3,7 @@ mutable struct PlateGenerateState{T,U}
     weight::Float64
     subtraces::Vector{U}
     retvals::Vector{T}
-    num_has_choices::Bool
+    num_has_choices::Int
 end
 
 function process_new!(gen::Plate{T,U}, args::Tuple,
@@ -18,7 +18,7 @@ function process_new!(gen::Plate{T,U}, args::Tuple,
     else
         subtrace = simulate(gen.kernel, kernel_args)
     end
-    state.num_has_choices += has_choices(subtrace) ? 1 : 0
+    state.num_has_choices += (has_choices(subtrace) ? 1 : 0)
     call = get_call_record(subtrace)
     state.score += call.score
     state.subtraces[key] = subtrace
@@ -28,12 +28,12 @@ end
 function generate(gen::Plate{T,U}, args::Tuple, constraints::Assignment) where {T,U}
     len = length(args[1])
     nodes = collect_plate_constraints(constraints, len)
-    state = PlateGenerateState{T,U}(0., 0., Vector{T}(undef,len), Vector{U}(undef,len), 0)
+    state = PlateGenerateState{T,U}(0., 0., Vector{U}(undef,len), Vector{T}(undef,len), 0)
     for key=1:len
         process_new!(gen, args, nodes, key, state)
     end
     trace = VectorTrace{T,U}(
-        PersistentVector{U}(subtraces), PersistentVector{T}(retvals),
-        args, len, state.num_has_choices)
+        PersistentVector{U}(state.subtraces), PersistentVector{T}(state.retvals),
+        args, state.score, len, state.num_has_choices)
     (trace, state.weight)
 end

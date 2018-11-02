@@ -67,6 +67,11 @@ function get_internal_nodes(assignment::VectorTraceAssignment)
     ((i, get_assignment(assignment.trace.subtraces[i])) for i=1:assignment.trace.len)
 end
 
+has_internal_node(assignment::VectorTraceAssignment, addr::Pair) = _has_internal_node(assignment, addr)
+get_internal_node(assignment::VectorTraceAssignment, addr::Pair) = _get_internal_node(assignment, addr)
+get_leaf_node(assignment::VectorTraceAssignment, addr::Pair) = _get_leaf_node(assignment, addr)
+has_leaf_node(assignment::VectorTraceAssignment, addr::Pair) = _has_leaf_node(assignment, addr)
+
 get_leaf_nodes(assignment::VectorTraceAssignment) = ()
 
 
