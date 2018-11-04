@@ -93,9 +93,24 @@ end
 # args: (num_steps::Int, init_state::KernelState, params::KernelParams)
 compiled_hmm = markov(kernel)
 
-# NOTE: you have to separate compiled gen function definitions from calling API
-# methods on them with a top-level call to this function
-Gen.load_generated_functions()
+
+##############################
+# proposals for compiled hmm #
+##############################
+
+@compiled @gen function compiled_init_proposal_inner(speed::Float64, time_diff::Float64,
+                                                     dist_slack::Float64)
+    @addr(normal(speed * time_diff, dist_slack), :dist)
+end
+
+@compiled @gen function compiled_step_proposal_inner(prev_dist::Float64,
+                                                     speed::Float64, time_diff::Float64,
+                                                     dist_slack::Float64)
+    @addr(normal(prev_dist + speed * time_diff, dist_slack), :dist)
+end
+
+compiled_init_proposal = at_dynamic(compiled_init_proposal_inner, Int)
+compiled_step_proposal = at_dynamic(compiled_step_proposal_inner, Int)
 
 
 #############################
@@ -135,51 +150,6 @@ const dist_slack = 0.2
 const start = Point(start_x, start_y)
 const stop = Point(stop_x, stop_y)
 
-
-########
-# test #
-########
-
-function test()
-
-    Random.seed!(0)
-
-	path = Path(Point(0.1, 0.1), Point(0.5, 0.5), Point[Point(0.1, 0.1), Point(0.0773627, 0.146073), Point(0.167036, 0.655448), Point(0.168662, 0.649074), Point(0.156116, 0.752046), Point(0.104823, 0.838075), Point(0.196407, 0.873581), Point(0.390309, 0.988468), Point(0.408272, 0.91336), Point(0.5, 0.5)])
- 	distances_from_start = compute_distances_from_start(path)
-	measured_xs = [0.0890091, 0.105928, 0.158508, 0.11927, 0.0674466, 0.0920541, 0.0866197, 0.0828504, 0.0718467, 0.13625, 0.0949714, 0.0903477, 0.0994438, 0.073613, 0.0795392, 0.0993675, 0.111972, 0.0725639, 0.146364, 0.115776]
-	measured_ys = [0.25469, 0.506397, 0.452324, 0.377185, 0.23247, 0.110536, 0.11206, 0.115172, 0.170976, 0.0726151, 0.0763815, 0.0888771, 0.0683795, 0.0929964, 0.275081, 0.383367, 0.335842, 0.181095, 0.478705, 0.664434]
-
-    # generate initial trace of 2 steps
-    constraints = DynamicAssignment()
-    for step=1:2
-        constraints[(:x, step)] = measured_xs[step]
-        constraints[(:y, step)] = measured_ys[step]
-    end
-    args = (2, path, distances_from_start, times, speed, noise, dist_slack)
-    (trace, _) = generate(lightweight_hmm, args, constraints)
-    initial_model_score = get_call_record(trace).score
-
-    # extend to 3 steps
-    new_args = (3, path, distances_from_start, times, speed, noise, dist_slack)
-    constraints = DynamicAssignment()
-    constraints[(:x, 3)] = measured_xs[3]
-    constraints[(:y, 3)] = measured_ys[3]
-    (new_trace, weight) = extend(lightweight_hmm, new_args, unknownargdiff, trace, constraints)
-
-    # check that we get the same weight
-    prev_dist = get_assignment(new_trace)[(:dist, 2)]
-    args = (3, prev_dist, speed, times, dist_slack)
-    proposal_constraints = DynamicAssignment()
-    proposal_constraints[(:dist, 3)] = get_assignment(new_trace)[(:dist, 3)]
-    proposal_trace = assess(lightweight_step_proposal, args, proposal_constraints)
-    proposal_score = get_call_record(proposal_trace).score
-    new_model_score = get_call_record(new_trace).score
-    
-    println(weight)
-    println(new_model_score - initial_model_score - proposal_score)
-    @assert isapprox(weight, new_model_score - initial_model_score - proposal_score)
-end
-test()
 
 
 ####################
@@ -335,7 +305,6 @@ function show_prior_samples()
     savefig("compiled_hmm_prior_samples.png")
 
 end
-show_prior_samples()
 
 
 ##################################
@@ -366,7 +335,7 @@ function experiment()
 
     ## particle filtering in lightweight hmm using internal proposal ##
 
-    println("lightweight hmm..")
+    println("lightweight hmm (internal proposal)..")
 
     function get_lightweight_hmm_obs(step::Int)
         observations = DynamicAssignment()
@@ -379,7 +348,6 @@ function experiment()
     results_lightweight = Dict{Int, Tuple{Vector{Float64},Vector{Float64}}}()
     for num_particles in num_particles_list
         ess_threshold = num_particles / 2
-        #ess_threshold = 0.
         elapsed = Vector{Float64}(undef, num_reps)
         lmls = Vector{Float64}(undef, num_reps)
         for rep=1:num_reps
@@ -397,7 +365,7 @@ function experiment()
 
     ## particle filtering in lightweight hmm using external proposal ##
 
-    println("lightweight hmm..")
+    println("lightweight hmm (external proposal)..")
 
     function get_lightweight_hmm_init()
         observations = DynamicAssignment()
@@ -421,7 +389,6 @@ function experiment()
     results_lightweight_external = Dict{Int, Tuple{Vector{Float64},Vector{Float64}}}()
     for num_particles in num_particles_list
         ess_threshold = num_particles / 2
-        #ess_threshold = 0.
         elapsed = Vector{Float64}(undef, num_reps)
         lmls = Vector{Float64}(undef, num_reps)
         for rep=1:num_reps
@@ -442,7 +409,7 @@ function experiment()
 
     ## particle filtering in compiled hmm using internal proposal ##
 
-    println("compiled hmm..")
+    println("compiled hmm (internal proposal)..")
 
     function get_compiled_hmm_obs(step::Int)
         assignment = DynamicAssignment()
@@ -456,7 +423,6 @@ function experiment()
     results_compiled = Dict{Int, Tuple{Vector{Float64},Vector{Float64}}}()
     for num_particles in num_particles_list
         ess_threshold = num_particles / 2
-        #ess_threshold = 0.
         elapsed = Vector{Float64}(undef, num_reps)
         lmls = Vector{Float64}(undef, num_reps)
         for rep=1:num_reps
@@ -471,27 +437,85 @@ function experiment()
         results_compiled[num_particles] = (lmls, elapsed)
     end
 
+
+    ## particle filtering in compiled hmm using extenral proposal ##
+
+    println("compiled hmm (external proposal)..")
+
+    function get_compiled_hmm_init()
+        observations = DynamicAssignment()
+        observations[1 => :x] = measured_xs[1]
+        observations[1 => :y] = measured_ys[1]
+        proposal_args = (1, (speed, times[1], dist_slack))
+        return (observations, proposal_args)
+    end
+
+    function get_compiled_hmm_step(step::Int, trace)
+        @assert step > 1
+        observations = DynamicAssignment()
+        observations[step => :x] = measured_xs[step]
+        observations[step => :y] = measured_ys[step]
+        prev_dist = get_assignment(trace)[step-1 => :dist]
+        proposal_args = (step, (prev_dist, speed, times[step] - times[step-1], dist_slack))
+        return (observations, proposal_args)
+    end
+
+    kernel_params = KernelParams(times, path, distances_from_start, speed, dist_slack, noise)
+    model_args_rest = (KernelState(NaN, Point(NaN, NaN)), kernel_params)
+    results_compiled_external = Dict{Int, Tuple{Vector{Float64},Vector{Float64}}}()
+    for num_particles in num_particles_list
+        ess_threshold = num_particles / 2
+        elapsed = Vector{Float64}(undef, num_reps)
+        lmls = Vector{Float64}(undef, num_reps)
+        for rep=1:num_reps
+            start = time_ns()
+            (traces, _, lml) = particle_filter(compiled_hmm, model_args_rest, max_steps,
+                                               num_particles, ess_threshold,
+                                               get_compiled_hmm_init,
+                                               get_compiled_hmm_step,
+                                               compiled_init_proposal,
+                                               compiled_step_proposal; verbose=verbose)
+            elapsed[rep] = Int(time_ns() - start) / 1e9
+            println("num_particles: $num_particles, lml estimate: $lml")
+            lmls[rep] = lml
+        end
+        results_compiled_external[num_particles] = (lmls, elapsed)
+    end
+
+
     # plot results
 
     figure(figsize=(8, 8))
 
     median_elapsed = [median(results_lightweight_external[num_particles][2]) for num_particles in num_particles_list]
     mean_lmls = [mean(results_lightweight_external[num_particles][1]) for num_particles in num_particles_list]
-    plot(median_elapsed, mean_lmls, label="lightweight (external)", color="cyan")
+    plot(median_elapsed, mean_lmls, label="lightweight (ext.)", color="cyan")
 
     median_elapsed = [median(results_lightweight[num_particles][2]) for num_particles in num_particles_list]
     mean_lmls = [mean(results_lightweight[num_particles][1]) for num_particles in num_particles_list]
-    plot(median_elapsed, mean_lmls, label="lightweight", color="blue")
+    plot(median_elapsed, mean_lmls, label="lightweight (int.)", color="blue")
+
+    median_elapsed = [median(results_compiled_external[num_particles][2]) for num_particles in num_particles_list]
+    mean_lmls = [mean(results_compiled_external[num_particles][1]) for num_particles in num_particles_list]
+    plot(median_elapsed, mean_lmls, label="compiled (ext.)", color="orange")
 
     median_elapsed = [median(results_compiled[num_particles][2]) for num_particles in num_particles_list]
     mean_lmls = [mean(results_compiled[num_particles][1]) for num_particles in num_particles_list]
-    plot(median_elapsed, mean_lmls, label="compiled", color="orange")
+    plot(median_elapsed, mean_lmls, label="compiled (int.)", color="red")
+
 
     ax = gca()
     ax[:set_xscale]("log")
+    legend()
     xlabel("runtime (sec.)")
     ylabel("log marginal likelihood est.")
     savefig("filtering_results.png")
 end
+
+# NOTE: you have to separate compiled gen function definitions from calling API
+# methods on them with a top-level call to this function
+Gen.load_generated_functions()
+
+show_prior_samples()
 
 experiment()
