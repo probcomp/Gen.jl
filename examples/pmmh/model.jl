@@ -101,7 +101,7 @@ function smc(var_x, var_y, T::Int, N, ess_threshold, ys::AbstractArray{Float64,1
         (traces[i], log_unnormalized_weights[i]) = generate(hmm2, args, obs)
     end
     num_resamples = 0
-    args_change = MarkovChange(true, false, false)
+    args_change = MarkovCustomArgDiff(true, false, false)
     for t=2:T
         #println(t)
         log_total_weight = logsumexp(log_unnormalized_weights)

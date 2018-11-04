@@ -653,6 +653,11 @@ function GFExtendState(argdiff, prev_trace, constraints, params)
         HomogenousTrie{Any,Any}(), HomogenousTrie{Any,Any}())
 end
 
+function addr(state::GFExtendState, gen::Generator, args, key)
+    addr(state, gen, args, key, UnknownArgDiff())
+end
+
+
 function addr(state::GFExtendState, dist::Distribution{T}, args, key) where {T}
 
     # check that key was not already visited, and mark it as visited
@@ -709,7 +714,7 @@ function addr(state::GFExtendState, dist::Distribution{T}, args, key) where {T}
     return retval 
 end
 
-function addr(state::GFExtendState, gen::Generator{T}, args, key, argdiff) where {T}
+function addr(state::GFExtendState, gen::Generator{T,U}, args, key, argdiff) where {T,U}
 
     # check that key was not already visited, and mark it as visited
     visit!(state.visitor, key)
@@ -723,9 +728,10 @@ function addr(state::GFExtendState, gen::Generator{T}, args, key, argdiff) where
     end
 
     # get subtrace
+    has_previous = has_subtrace(state.prev_trace, key)
     local prev_trace::U
     local trace::U
-    if has_subtrace(state.prev_trace, key)
+    if has_previous
         prev_trace = get_subtrace(state.prev_trace, key)
         (trace, weight, retdiff) = extend(gen, args, argdiff, prev_trace, constraints)
     else
@@ -751,7 +757,7 @@ function addr(state::GFExtendState, gen::Generator{T}, args, key, argdiff) where
     state.trace = assoc_subtrace(state.trace, key, trace)
 
     # update score
-    state.score += call.score
+    state.score += get_call_record(trace).score
 
     # update weight
     state.weight += weight

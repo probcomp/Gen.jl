@@ -265,10 +265,21 @@ export importance_sampling, importance_resampling
 ######################
 
 
-function effective_sample_size(log_weights::Vector{Float64})
-    # assumes weights are normalized
-    log_ess = -logsumexp(2. * log_weights)
+function effective_sample_size(log_normalized_weights::Vector{Float64})
+    log_ess = -logsumexp(2. * log_normalized_weights)
     exp(log_ess)
+end
+
+function normalize_weights(log_unnormalized_weights::Vector{Float64})
+    log_total_weight = logsumexp(log_unnormalized_weights)
+    log_normalized_weights = log_unnormalized_weights .- log_total_weight
+    (log_total_weight, log_normalized_weights)
+end
+
+function fill_parents_self!(parents::Vector{Int})
+    for i=1:length(parents)
+        parents[i] = i
+    end
 end
 
 """
@@ -288,9 +299,11 @@ function particle_filter(model::Generator{T,U}, model_args_rest::Tuple, num_step
     traces = Vector{U}(undef, num_particles)
     next_traces = Vector{U}(undef, num_particles)
     for i=1:num_particles
-        (traces[i], log_unnormalized_weights[i]) = generate(model, (1, model_args_rest...),
-                                                            observations)
+        (traces[i], log_unnormalized_weights[i]) = generate(
+            model, (1, model_args_rest...), observations)
     end
+
+    parents = Vector{Int}(undef, num_particles)
     for step=2:num_steps
 
         # rejuvenation moves
@@ -299,27 +312,30 @@ function particle_filter(model::Generator{T,U}, model_args_rest::Tuple, num_step
         end
 
         # compute new weights
-        log_total_weight = logsumexp(log_unnormalized_weights)
-        log_normalized_weights = log_unnormalized_weights .- log_total_weight
+        (log_total_weight, log_normalized_weights) = normalize_weights(log_unnormalized_weights)
         ess = effective_sample_size(log_normalized_weights)
         verbose && println("step: $step, ess: $ess")
 
         # resample
         if ess < ess_threshold
+            verbose && println("resampling..")
             weights = exp.(log_normalized_weights)
-            parents = rand(Distributions.Categorical(weights / sum(weights)), num_particles)
+            rand!(Distributions.Categorical(weights / sum(weights)), parents)
             log_ml_estimate += log_total_weight - log(num_particles)
-            log_unnormalized_weights = zeros(num_particles)
+            fill!(log_unnormalized_weights, 0.)
         else
-            parents = 1:num_particles
+            fill_parents_self!(parents)
         end
 
         # extend by one time step
+        # TODO establish a convention for args change (only the step argument changes)
+        argdiff = unknownargdiff 
         observations = get_observations(step)
         for i=1:num_particles
             parent = parents[i]
+            parent_trace = traces[parent]
             (next_traces[i], weight) = extend(model, (step, model_args_rest...),
-                                              unknownargdiff, traces[i], observations)
+                                              argdiff, parent_trace, observations)
             log_unnormalized_weights[i] += weight
         end
         tmp = traces
@@ -328,8 +344,8 @@ function particle_filter(model::Generator{T,U}, model_args_rest::Tuple, num_step
     end
 
     # finalize estimate of log marginal likelihood
-    log_total_weight = logsumexp(log_unnormalized_weights)
-    log_normalized_weights = log_unnormalized_weights .- log_total_weight
+    (log_total_weight, log_normalized_weights) = normalize_weights(log_unnormalized_weights)
+    ess = effective_sample_size(log_normalized_weights)
     log_ml_estimate += log_total_weight - log(num_particles)
     verbose && println("final ess: $ess, final log_ml_est: $log_ml_estimate")
     return (traces, log_normalized_weights, log_ml_estimate)
@@ -355,12 +371,11 @@ function particle_filter(model::Generator{T,U}, model_args_rest::Tuple,
         log_unnormalized_weights[i] = model_weight - proposal_score
     end
 
-    local parents::Vector{Int}
+    parents = Vector{Int}(undef, num_particles)
     for step=2:num_steps
 
         # compute new weights
-        log_total_weight = logsumexp(log_unnormalized_weights)
-        log_normalized_weights = log_unnormalized_weights .- log_total_weight
+        (log_total_weight, log_normalized_weights) = normalize_weights(log_unnormalized_weights)
         ess = effective_sample_size(log_normalized_weights)
         verbose && println("step: $step, ess: $ess")
 
@@ -368,15 +383,16 @@ function particle_filter(model::Generator{T,U}, model_args_rest::Tuple,
         if ess < ess_threshold
             verbose && println("resampling..")
             weights = exp.(log_normalized_weights)
-            parents = rand(Distributions.Categorical(weights / sum(weights)), num_particles)
+            rand!(Distributions.Categorical(weights / sum(weights)), parents)
             log_ml_estimate += log_total_weight - log(num_particles)
-            log_unnormalized_weights = zeros(num_particles)
+            fill!(log_unnormalized_weights, 0.)
         else
-            parents = collect(1:num_particles)
+            fill_parents_self!(parents)
         end
 
         # extend by one time step
-        argdiff = unknownargdiff # TODO establish a convention for args change (only the step argument changes)
+        # TODO establish a convention for args change (only the step argument changes)
+        argdiff = unknownargdiff 
         for i=1:num_particles
             parent = parents[i]
             parent_trace = traces[parent]
@@ -395,8 +411,7 @@ function particle_filter(model::Generator{T,U}, model_args_rest::Tuple,
     end
 
     # finalize estimate of log marginal likelihood
-    log_total_weight = logsumexp(log_unnormalized_weights)
-    log_normalized_weights = log_unnormalized_weights .- log_total_weight
+    (log_total_weight, log_normalized_weights) = normalize_weights(log_unnormalized_weights)
     ess = effective_sample_size(log_normalized_weights)
     log_ml_estimate += log_total_weight - log(num_particles)
     verbose && println("final ess: $ess, final log_ml_est: $log_ml_estimate")

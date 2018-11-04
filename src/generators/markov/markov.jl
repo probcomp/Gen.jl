@@ -96,14 +96,21 @@ end
 # argdiff #
 ###########
 
-# TODO
+struct MarkovCustomArgDiff
+    len_changed::Bool
+    init_changed::Bool
+    params_changed::Bool
+end
 
 
 ###########
 # retdiff #
 ###########
 
-# TODO
+# TODO implement a retdiff that exposes array structure of return value
+
+struct MarkovRetDiff end
+isnodiff(::MarkovRetDiff) = false
 
 ##################################
 # update, fix_update, and extend #
@@ -111,19 +118,19 @@ end
 
 # TODO fix_update
 
-struct MarkovChange
-    len_changed::Bool
-    init_changed::Bool
-    params_changed::Bool
+function extend(gen::Markov{T,U}, args, change::NoArgDiff, trace::VectorTrace{T,U},
+                constraints) where {T,U}
+    change = MarkovCustomArgDiff(false, false, false)
+    extend(gen, args, change, trace, constraints)
 end
 
 function extend(gen::Markov{T,U}, args, change::UnknownArgDiff, trace::VectorTrace{T,U},
                 constraints) where {T,U}
-    change = MarkovChange(true, true, true)
+    change = MarkovCustomArgDiff(true, true, true)
     extend(gen, args, change, trace, constraints)
 end
 
-function extend(gen::Markov{T,U}, args, change::MarkovChange, trace::VectorTrace{T,U},
+function extend(gen::Markov{T,U}, args, change::MarkovCustomArgDiff, trace::VectorTrace{T,U},
                 constraints) where {T,U}
     (len, init_state, params) = unpack_args(args)
     check_length(len)
@@ -187,16 +194,22 @@ function extend(gen::Markov{T,U}, args, change::MarkovChange, trace::VectorTrace
         weight += w
     end
     trace = VectorTrace{T,U}(subtraces, states, args, score, len, num_has_choices)
-    (trace, weight, nothing)
+    (trace, weight, MarkovRetDiff())
 end
 
-function update(gen::Markov{T,U}, args, change::Nothing, trace::VectorTrace{T,U},
+function update(gen::Markov{T,U}, args, change::NoArgDiff, trace::VectorTrace{T,U},
                 constraints) where {T,U}
-    change = MarkovChange(true, true, true)
+    change = MarkovCustomArgDiff(false, false, false)
     update(gen, args, change, trace, constraints)
 end
 
-function update(gen::Markov{T,U}, args, change::MarkovChange,
+function update(gen::Markov{T,U}, args, change::UnknownArgDiff, trace::VectorTrace{T,U},
+                constraints) where {T,U}
+    change = MarkovCustomArgDiff(true, true, true)
+    update(gen, args, change, trace, constraints)
+end
+
+function update(gen::Markov{T,U}, args, change::MarkovCustomArgDiff,
                 trace::VectorTrace{T,U}, constraints) where {T,U}
     (len, init_state, params) = unpack_args(args)
     check_length(len)
@@ -283,7 +296,7 @@ function update(gen::Markov{T,U}, args, change::MarkovChange,
         is_empty = is_empty && !has_choices(subtrace)
     end
     new_trace = VectorTrace{T,U}(subtraces, states, args, score, len, num_has_choices)
-    (new_trace, weight, discard, nothing) # TODO nothing?
+    (new_trace, weight, discard, MarkovRetDiff())
 end
 
 ##################
@@ -334,4 +347,4 @@ end
 
 
 export markov
-export MarkovChange
+export MarkovCustomArgDiff
