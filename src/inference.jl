@@ -320,7 +320,7 @@ function particle_filter(model::Generator{T,U}, model_args_rest::Tuple, num_step
         if ess < ess_threshold
             verbose && println("resampling..")
             weights = exp.(log_normalized_weights)
-            rand!(Distributions.Categorical(weights / sum(weights)), parents)
+            Distributions.rand!(Distributions.Categorical(weights / sum(weights)), parents)
             log_ml_estimate += log_total_weight - log(num_particles)
             fill!(log_unnormalized_weights, 0.)
         else
@@ -334,9 +334,9 @@ function particle_filter(model::Generator{T,U}, model_args_rest::Tuple, num_step
         for i=1:num_particles
             parent = parents[i]
             parent_trace = traces[parent]
-            (next_traces[i], weight) = extend(model, (step, model_args_rest...),
-                                              argdiff, parent_trace, observations)
-            log_unnormalized_weights[i] += weight
+            (next_traces[i], log_weight) = extend(model, (step, model_args_rest...),
+                                                  argdiff, parent_trace, observations)
+            log_unnormalized_weights[i] += log_weight
         end
         tmp = traces
         traces = next_traces
@@ -383,7 +383,7 @@ function particle_filter(model::Generator{T,U}, model_args_rest::Tuple,
         if ess < ess_threshold
             verbose && println("resampling..")
             weights = exp.(log_normalized_weights)
-            rand!(Distributions.Categorical(weights / sum(weights)), parents)
+            Distributions.rand!(Distributions.Categorical(weights / sum(weights)), parents)
             log_ml_estimate += log_total_weight - log(num_particles)
             fill!(log_unnormalized_weights, 0.)
         else
