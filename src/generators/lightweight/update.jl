@@ -669,7 +669,7 @@ function addr(state::GFExtendState, dist::Distribution{T}, args, key) where {T}
     if has_previous
         prev_call = get_primitive_call(state.prev_trace, key)
         prev_retval = prev_call.retval
-        prev_score = prev_call.score
+        @assert prev_call.args == args
     end
 
     # check for constraints at this key
@@ -705,9 +705,7 @@ function addr(state::GFExtendState, dist::Distribution{T}, args, key) where {T}
     state.score += score
     
     # update weight
-    if has_previous
-        state.weight += score - prev_score
-    elseif constrained
+    if constrained
         state.weight += score
     end
 
