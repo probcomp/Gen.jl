@@ -2,6 +2,7 @@ using Gen
 using PyPlot
 using Printf: @sprintf
 import Random
+using Statistics: median, mean
 
 include("scenes.jl")
 include("path_planner.jl")
@@ -16,9 +17,10 @@ include("path_planner.jl")
 @gen function lightweight_hmm(step::Int, path::Path, distances_from_start::Vector{Float64},
                               times::Vector{Float64}, speed::Float64,
                               noise::Float64, dist_slack::Float64)
+    @assert step >= 1
 
     # walk path
-	locations = Vector{Point}(undef, length(times))
+	locations = Vector{Point}(undef, step)
 	dist = @addr(normal(speed * times[1], dist_slack), (:dist, 1))
 	locations[1] = walk_path(path, distances_from_start, dist)
 	for t=2:step
@@ -27,13 +29,28 @@ include("path_planner.jl")
 	end
 
     # generate noisy observations
-    for i=1:step
-        point = locations[i]
-        @addr(normal(point.x, noise), (i, :x))
-        @addr(normal(point.y, noise), (i, :y))
+    for t=1:step
+        point = locations[t]
+        @addr(normal(point.x, noise), (:x, t))
+        @addr(normal(point.y, noise), (:y, t))
     end
 
     return locations
+end
+
+
+#################################
+# proposals for lightweight hmm #
+#################################
+
+@gen function lightweight_init_proposal(speed::Float64, times::Vector{Float64}, dist_slack::Float64)
+    @addr(normal(speed * times[1], dist_slack), (:dist, 1))
+end
+
+@gen function lightweight_step_proposal(step::Int, prev_dist::Float64,
+                                        speed::Float64, times::Vector{Float64}, dist_slack::Float64)
+    @assert step > 1
+    @addr(normal(prev_dist + speed * (times[step] - times[step-1]), dist_slack), (:dist, step))
 end
 
 
@@ -119,6 +136,52 @@ const start = Point(start_x, start_y)
 const stop = Point(stop_x, stop_y)
 
 
+########
+# test #
+########
+
+function test()
+
+    Random.seed!(0)
+
+	path = Path(Point(0.1, 0.1), Point(0.5, 0.5), Point[Point(0.1, 0.1), Point(0.0773627, 0.146073), Point(0.167036, 0.655448), Point(0.168662, 0.649074), Point(0.156116, 0.752046), Point(0.104823, 0.838075), Point(0.196407, 0.873581), Point(0.390309, 0.988468), Point(0.408272, 0.91336), Point(0.5, 0.5)])
+ 	distances_from_start = compute_distances_from_start(path)
+	measured_xs = [0.0890091, 0.105928, 0.158508, 0.11927, 0.0674466, 0.0920541, 0.0866197, 0.0828504, 0.0718467, 0.13625, 0.0949714, 0.0903477, 0.0994438, 0.073613, 0.0795392, 0.0993675, 0.111972, 0.0725639, 0.146364, 0.115776]
+	measured_ys = [0.25469, 0.506397, 0.452324, 0.377185, 0.23247, 0.110536, 0.11206, 0.115172, 0.170976, 0.0726151, 0.0763815, 0.0888771, 0.0683795, 0.0929964, 0.275081, 0.383367, 0.335842, 0.181095, 0.478705, 0.664434]
+
+    # generate initial trace of 2 steps
+    constraints = DynamicAssignment()
+    for step=1:2
+        constraints[(:x, step)] = measured_xs[step]
+        constraints[(:y, step)] = measured_ys[step]
+    end
+    args = (2, path, distances_from_start, times, speed, noise, dist_slack)
+    (trace, _) = generate(lightweight_hmm, args, constraints)
+    initial_model_score = get_call_record(trace).score
+
+    # extend to 3 steps
+    new_args = (3, path, distances_from_start, times, speed, noise, dist_slack)
+    constraints = DynamicAssignment()
+    constraints[(:x, 3)] = measured_xs[3]
+    constraints[(:y, 3)] = measured_ys[3]
+    (new_trace, weight) = extend(lightweight_hmm, new_args, unknownargdiff, trace, constraints)
+
+    # check that we get the same weight
+    prev_dist = get_assignment(new_trace)[(:dist, 2)]
+    args = (3, prev_dist, speed, times, dist_slack)
+    proposal_constraints = DynamicAssignment()
+    proposal_constraints[(:dist, 3)] = get_assignment(new_trace)[(:dist, 3)]
+    proposal_trace = assess(lightweight_step_proposal, args, proposal_constraints)
+    proposal_score = get_call_record(proposal_trace).score
+    new_model_score = get_call_record(new_trace).score
+    
+    println(weight)
+    println(new_model_score - initial_model_score - proposal_score)
+    @assert isapprox(weight, new_model_score - initial_model_score - proposal_score)
+end
+test()
+
+
 ####################
 # trace renderings #
 ####################
@@ -174,8 +237,8 @@ function render_lightweight_hmm_trace(scene::Scene, start::Point, stop::Point,
     # plot measured locations
     assignment = get_assignment(trace)
     if show_measurements
-        measured_xs = [assignment[(i, :x)] for i=1:length(locations)]
-        measured_ys = [assignment[(i, :y)] for i=1:length(locations)]
+        measured_xs = [assignment[(:x, i)] for i=1:length(locations)]
+        measured_ys = [assignment[(:y, i)] for i=1:length(locations)]
         scatter(measured_xs, measured_ys, marker="x", color="black", alpha=1., s=25)
     end
 end
@@ -293,42 +356,92 @@ function experiment()
     model_args = (length(times), path, distances_from_start, times, speed, noise, dist_slack)
     trace = simulate(lightweight_hmm, model_args)
     assignment = get_assignment(trace)
-    measured_xs = [assignment[(i, :x)] for i=1:length(times)]
-    measured_ys = [assignment[(i, :y)] for i=1:length(times)]
+    measured_xs = [assignment[(:x, i)] for i=1:length(times)]
+    measured_ys = [assignment[(:y, i)] for i=1:length(times)]
 
-    # all particles
     num_particles_list = [10, 30, 100, 300, 1000]
- 
-    ## particle filtering in lightweight hmm
+    num_reps = 20
+    max_steps = length(times)
+    verbose = false
+
+    ## particle filtering in lightweight hmm using internal proposal ##
+
     println("lightweight hmm..")
 
     function get_lightweight_hmm_obs(step::Int)
-        assignment = DynamicAssignment()
-        assignment[(step, :x)] = measured_xs[step]
-        assignment[(step, :y)] = measured_ys[step]
-        return assignment
+        observations = DynamicAssignment()
+        observations[(:x, step)] = measured_xs[step]
+        observations[(:y, step)] = measured_ys[step]
+        return observations 
     end
 
-    num_reps = 20
     model_args_rest = (path, distances_from_start, times, speed, noise, dist_slack)
     results_lightweight = Dict{Int, Tuple{Vector{Float64},Vector{Float64}}}()
     for num_particles in num_particles_list
         ess_threshold = num_particles / 2
+        #ess_threshold = 0.
         elapsed = Vector{Float64}(undef, num_reps)
         lmls = Vector{Float64}(undef, num_reps)
         for rep=1:num_reps
             start = time_ns()
-            (traces, _, lml) = particle_filter(lightweight_hmm, model_args_rest, length(times),
-                                                     num_particles, ess_threshold,
-                                                     get_lightweight_hmm_obs)
-            elapsed[rep] = Int(time_ns() - start) / 1000000000
+            (traces, _, lml) = particle_filter(lightweight_hmm, model_args_rest, max_steps, 
+                                               num_particles, ess_threshold,
+                                               get_lightweight_hmm_obs; verbose=verbose)
+            elapsed[rep] = Int(time_ns() - start) / 1e9
             println("num_particles: $num_particles, lml estimate: $lml")
             lmls[rep] = lml
         end
         results_lightweight[num_particles] = (lmls, elapsed)
     end
 
-    ## particle filtering in compilled hmm
+
+    ## particle filtering in lightweight hmm using external proposal ##
+
+    println("lightweight hmm..")
+
+    function get_lightweight_hmm_init()
+        observations = DynamicAssignment()
+        observations[(:x, 1)] = measured_xs[1]
+        observations[(:y, 1)] = measured_ys[1]
+        proposal_args = (speed, times, dist_slack)
+        return (observations, proposal_args)
+    end
+
+    function get_lightweight_hmm_step(step::Int, trace)
+        @assert step > 1
+        observations = DynamicAssignment()
+        observations[(:x, step)] = measured_xs[step]
+        observations[(:y, step)] = measured_ys[step]
+        prev_dist = get_assignment(trace)[(:dist, step-1)]
+        proposal_args = (step, prev_dist, speed, times, dist_slack)
+        return (observations, proposal_args)
+    end
+
+    model_args_rest = (path, distances_from_start, times, speed, noise, dist_slack)
+    results_lightweight_external = Dict{Int, Tuple{Vector{Float64},Vector{Float64}}}()
+    for num_particles in num_particles_list
+        ess_threshold = num_particles / 2
+        #ess_threshold = 0.
+        elapsed = Vector{Float64}(undef, num_reps)
+        lmls = Vector{Float64}(undef, num_reps)
+        for rep=1:num_reps
+            start = time_ns()
+            (traces, _, lml) = particle_filter(lightweight_hmm, model_args_rest, max_steps,
+                                               num_particles, ess_threshold,
+                                               get_lightweight_hmm_init,
+                                               get_lightweight_hmm_step,
+                                               lightweight_init_proposal,
+                                               lightweight_step_proposal;verbose=verbose)
+            elapsed[rep] = Int(time_ns() - start) / 1e9
+            println("num_particles: $num_particles, lml estimate: $lml")
+            lmls[rep] = lml
+        end
+        results_lightweight_external[num_particles] = (lmls, elapsed)
+    end
+
+
+    ## particle filtering in compiled hmm using internal proposal ##
+
     println("compiled hmm..")
 
     function get_compiled_hmm_obs(step::Int)
@@ -338,20 +451,20 @@ function experiment()
         return assignment
     end
 
-    num_reps = 20
     kernel_params = KernelParams(times, path, distances_from_start, speed, dist_slack, noise)
     model_args_rest = (KernelState(NaN, Point(NaN, NaN)), kernel_params)
     results_compiled = Dict{Int, Tuple{Vector{Float64},Vector{Float64}}}()
     for num_particles in num_particles_list
         ess_threshold = num_particles / 2
+        #ess_threshold = 0.
         elapsed = Vector{Float64}(undef, num_reps)
         lmls = Vector{Float64}(undef, num_reps)
         for rep=1:num_reps
             start = time_ns()
-            (traces, _, lml) = particle_filter(compiled_hmm, model_args_rest, length(times),
+            (traces, _, lml) = particle_filter(compiled_hmm, model_args_rest, max_steps,
                                                      num_particles, ess_threshold,
-                                                     get_compiled_hmm_obs)
-            elapsed[rep] = Int(time_ns() - start) / 1000000000
+                                                     get_compiled_hmm_obs; verbose=verbose)
+            elapsed[rep] = Int(time_ns() - start) / 1e9
             println("num_particles: $num_particles, lml estimate: $lml")
             lmls[rep] = lml
         end
@@ -361,6 +474,10 @@ function experiment()
     # plot results
 
     figure(figsize=(8, 8))
+
+    median_elapsed = [median(results_lightweight_external[num_particles][2]) for num_particles in num_particles_list]
+    mean_lmls = [mean(results_lightweight_external[num_particles][1]) for num_particles in num_particles_list]
+    plot(median_elapsed, mean_lmls, label="lightweight (external)", color="cyan")
 
     median_elapsed = [median(results_lightweight[num_particles][2]) for num_particles in num_particles_list]
     mean_lmls = [mean(results_lightweight[num_particles][1]) for num_particles in num_particles_list]
