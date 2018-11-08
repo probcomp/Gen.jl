@@ -180,6 +180,8 @@ function do_inference(n)
     
     # initial trace
     (trace, _) = generate(model, (xs,), observations)
+
+    scores = Vector{Float64}(undef, n)
     
     for i=1:n
         for j=1:5
@@ -193,6 +195,7 @@ function do_inference(n)
         end
     
         score = get_call_record(trace).score
+        scores[i] = score
     
         # print
         assignment = get_assignment(trace)
@@ -202,7 +205,18 @@ function do_inference(n)
         outlier_std = assignment[:outlier_std]
         println("score: $score, slope: $slope, intercept: $intercept, inlier_std: $inlier_std, outlier_std: $outlier_std")
     end
+    return scores
 end
 
-@time do_inference(100)
-@time do_inference(100)
+iters = 40# was 100
+@time do_inference(iters)
+@time scores = do_inference(iters)
+
+using PyPlot
+
+figure(figsize=(4, 2))
+plot(scores)
+ylabel("Log probability density")
+xlabel("Iterations of loop of Lines 12-24")
+tight_layout()
+savefig("scores.png")
