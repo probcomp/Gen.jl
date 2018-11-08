@@ -20,12 +20,15 @@ data = plate(datum)
     outlier_std = exp(@addr(normal(0, 2), :outlier_std))
     slope = @addr(normal(0, 2), :slope)
     intercept = @addr(normal(0, 2), :intercept)
-    if all([@change(addr) == NoChange() for addr in [:slope, :intercept, :inlier_std, :outlier_std]])
-        change = NoChange()
-    else
-        change = nothing
+    @diff begin
+        argdiff = noargdiff
+        for addr in [:slope, :intercept, :inlier_std, :outlier_std]
+            if !isnodiff(@choicediff(addr))
+                argdiff = unknownargdiff
+            end
+        end
     end
-    ys = @addr(data(xs, fill(inlier_std, n), fill(outlier_std, n), fill(slope, n), fill(intercept, n)), :data, change)
+    ys = @addr(data(xs, fill(inlier_std, n), fill(outlier_std, n), fill(slope, n), fill(intercept, n)), :data, argdiff)
     return ys
 end
 
@@ -60,7 +63,7 @@ Gen.load_generated_functions()
 # generate data set #
 #####################
 
-Random.seed!(1)
+Random.seed!(2)
 
 prob_outlier = 0.5
 true_inlier_noise = 0.5
