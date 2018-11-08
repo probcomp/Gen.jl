@@ -23,17 +23,20 @@ end
 data = plate(datum)
 
 @gen function model(xs::Vector{Float64})
-    inlier_std = @addr(Gen.gamma(1, 1), :inlier_std)
-    outlier_std = @addr(Gen.gamma(1, 1), :outlier_std)
+    inlier_std = @addr(gamma(1, 1), :inlier_std)
+    outlier_std = @addr(gamma(1, 1), :outlier_std)
     slope = @addr(normal(0, 2), :slope)
     intercept = @addr(normal(0, 2), :intercept)
     params = Params(0.5, inlier_std, outlier_std, slope, intercept)
-    if all([@change(addr) == NoChange() for addr in [:slope, :intercept, :inlier_std, :outlier_std]])
-        change = NoChange()
-    else
-        change = nothing
+    @diff begin
+        argdiff = noargdiff
+        for addr in [:slope, :intercept, :inlier_std, :outlier_std]
+            if !isnodiff(@choicediff(addr))
+                argdiff = unknownargdiff
+            end
+        end
     end
-    ys = @addr(data(xs, fill(params, length(xs))), :data, change)
+    ys = @addr(data(xs, fill(params, length(xs))), :data, argdiff)
     return ys
 end
 
@@ -70,22 +73,28 @@ end
     prev_args = get_call_record(prev).args
     constraints = DynamicAssignment()
     constraints[:data => i => :z] = true
-    (tmp1,) =  update(model, prev_args, NoChange(), prev, constraints)
+    (tmp1,) =  update(model, prev_args, noargdiff, prev, constraints)
     constraints[:data => i => :z] = false
-    (tmp2,) = update(model, prev_args, NoChange(), prev, constraints)
+    (tmp2,) = update(model, prev_args, noargdiff, prev, constraints)
     log_prob_true = get_call_record(tmp1).score 
     log_prob_false = get_call_record(tmp2).score
     prob_true = exp(log_prob_true - logsumexp([log_prob_true, log_prob_false]))
     @addr(bernoulli(prob_true), :data => i => :z)
 end
 
-@gen function observer(ys::Vector{Float64})
-    for (i, y) in enumerate(ys)
-        @addr(dirac(y), :data => i => :y)
-    end
+@gen function is_outlier_proposal2(prev, i::Int)
+    assignment = get_assignment(prev)
+    slope = assignment[:slope]
+    intercept = assignment[:intercept]
+    inlier_std = assignment[:inlier_std]
+    outlier_std = assignment[:outlier_std]
+    x = get_call_record(prev).args[1][i]
+    mu = intercept + slope * x
+    log_prob_true = logpdf(normal, assignment[:data => i => :y], mu, outlier_std)
+    log_prob_false = logpdf(normal, assignment[:data => i => :y], mu, inlier_std)
+    prob_true = exp(log_prob_true - logsumexp([log_prob_true, log_prob_false]))
+    @addr(bernoulli(prob_true), :data => i => :z)
 end
-
-Gen.load_generated_functions()
 
 #####################
 # generate data set #
@@ -115,7 +124,11 @@ end
 
 
 function do_inference(n)
-    observations = get_assignment(simulate(observer, (ys,)))
+
+    observations = DynamicAssignment()
+    for (i, y) in enumerate(ys)
+        observations[:data => i => :y] = y
+    end
     
     # initial trace
     (trace, _) = generate(model, (xs,), observations)
@@ -132,7 +145,7 @@ function do_inference(n)
     
         # step on the outliers
         for j=1:length(xs)
-            trace = mh(model, is_outlier_proposal, (j,), trace)
+            trace = mh(model, is_outlier_proposal2, (j,), trace)
         end
     
         score = get_call_record(trace).score
