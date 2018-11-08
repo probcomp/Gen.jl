@@ -36,16 +36,6 @@ end
 # inference operators #
 #######################
 
-@sel function slope_intercept_selector()
-    @select(:slope)
-    @select(:intercept)
-end
-
-@sel function std_selector()
-    @select(:inlier_std)
-    @select(:outlier_std)
-end
-
 @gen function is_outlier_proposal(prev, i::Int)
     prev = get_assignment(prev)[:data => i => :z]
     @addr(bernoulli(prev ? 0.0 : 1.0), :data => i => :z)
@@ -87,8 +77,14 @@ end
 
 trace = simulate(model, (xs,))
 datum_trace = simulate(datum, (1., 2., 3., 4., 5.))
-(slope_intercept_selection,) = Gen.select(slope_intercept_selector, (), get_assignment(trace))
-(std_selection,) = Gen.select(std_selector, (), get_assignment(trace))
+
+slope_intercept_selection = DynamicAddressSet()
+push!(slope_intercept_selection, :slope)
+push!(slope_intercept_selection, :intercept)
+
+std_selection = DynamicAddressSet()
+push!(std_selection, :inlier_std)
+push!(std_selection, :outlier_std)
 
 function do_inference(n)
     observations = get_assignment(simulate(observer, (ys,)))

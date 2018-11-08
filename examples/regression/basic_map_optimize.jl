@@ -75,16 +75,6 @@ end
 # inference operators #
 #######################
 
-@sel function slope_intercept_selector()
-    @select(:slope)
-    @select(:intercept)
-end
-
-@sel function std_selector()
-    @select(:inlier_std)
-    @select(:outlier_std)
-end
-
 @compiled @gen function flip_z(z::Bool)
     @addr(bernoulli(z ? 0.0 : 1.0), :z)
 end
@@ -124,12 +114,19 @@ end
 # run experiment #
 ##################
 
-trace = simulate(model, (xs,))
-datum_trace = simulate(datum, (1., 2., 3., 4., 5.))
-(slope_intercept_selection,) = Gen.select(slope_intercept_selector, (), get_assignment(trace))
-(std_selection,) = Gen.select(std_selector, (), get_assignment(trace))
-slope_intercept_static_sel = StaticAddressSet(slope_intercept_selection)
-std_static_sel = StaticAddressSet(std_selection)
+slope_intercept_selection = let
+    s = DynamicAddressSet()
+    push!(s, :slope)
+    push!(s, :intercept)
+    StaticAddressSet(s)
+end
+
+std_selection = let
+    s = DynamicAddressSet()
+    push!(s, :inlier_std)
+    push!(s, :outlier_std)
+    StaticAddressSet(s)
+end
 
 function do_inference(n)
     observations = DynamicAssignment()
@@ -144,8 +141,8 @@ function do_inference(n)
     
     for i=1:n
         for j=1:5
-            trace = map_optimize(model, slope_intercept_static_sel, trace, max_step_size=0.1, min_step_size=1e-10)
-            trace = map_optimize(model, std_static_sel, trace, max_step_size=0.1, min_step_size=1e-10)
+            trace = map_optimize(model, slope_intercept_selection, trace, max_step_size=0.1, min_step_size=1e-10)
+            trace = map_optimize(model, std_selection, trace, max_step_size=0.1, min_step_size=1e-10)
         end
     
         # step on the outliers
@@ -167,7 +164,7 @@ function do_inference(n)
     return scores
 end
 
-iters = 40# was 100
+iters = 100
 @time do_inference(iters)
 @time scores = do_inference(iters)
 
