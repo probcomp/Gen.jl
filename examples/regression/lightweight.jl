@@ -69,14 +69,6 @@ end
     @addr(bernoulli(prev ? 0.0 : 1.0), :data => i => :z)
 end
 
-@gen function observer(ys::Vector{Float64})
-    for (i, y) in enumerate(ys)
-        @addr(dirac(y), :data => i => :y)
-    end
-end
-
-Gen.load_generated_functions()
-
 #####################
 # generate data set #
 #####################
@@ -105,13 +97,16 @@ end
 
 
 function do_inference(n)
-    observations = get_assignment(simulate(observer, (ys,)))
-    
+    observations = DynamicAssignment()
+    for (i, y) in enumerate(ys)
+        observations[:data => i => :y] = y
+    end
+
     # initial trace
     (trace, _) = generate(model, (xs,), observations)
-    
+
     for i=1:n
-    
+
         # steps on the parameters
         for j=1:5
             trace = mh(model, slope_proposal, (), trace)
@@ -119,14 +114,14 @@ function do_inference(n)
             trace = mh(model, inlier_std_proposal, (), trace)
             trace = mh(model, outlier_std_proposal, (), trace)
         end
-    
+
         # step on the outliers
         for j=1:length(xs)
             trace = mh(model, is_outlier_proposal, (j,), trace)
         end
-    
+
         score = get_call_record(trace).score
-    
+
         # print
         assignment = get_assignment(trace)
         slope = assignment[:slope]
