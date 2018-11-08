@@ -75,9 +75,6 @@ end
 # run experiment #
 ##################
 
-trace = simulate(model, (xs,))
-datum_trace = simulate(datum, (1., 2., 3., 4., 5.))
-
 slope_intercept_selection = DynamicAddressSet()
 push!(slope_intercept_selection, :slope)
 push!(slope_intercept_selection, :intercept)
