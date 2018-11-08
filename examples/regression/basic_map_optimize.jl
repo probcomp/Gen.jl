@@ -4,25 +4,6 @@ import Random
 using FunctionalCollections
 using ReverseDiff
 
-function strip_lineinfo(expr::Expr)
-    @assert !(expr.head == :line)
-    new_args = []
-    for arg in expr.args
-        if (isa(arg, Expr) && arg.head == :line) || isa(arg, LineNumberNode)
-        elseif isa(arg, Expr) && arg.head == :block
-            stripped = strip_lineinfo(arg)
-            append!(new_args, stripped.args)
-        else
-            push!(new_args, strip_lineinfo(arg))
-        end
-    end
-    Expr(expr.head, new_args...)
-end
-
-function strip_lineinfo(expr)
-    expr
-end
-
 ############################
 # reverse mode AD for fill #
 ############################
@@ -112,18 +93,7 @@ data_proposal = at_dynamic(flip_z, Int)
 
 @compiled @gen function is_outlier_proposal(prev, i::Int)
     prev_z::Bool = get_assignment(prev)[:data => i => :z]
-    # TODO introduce shorthand @addr(flip_z(zs[i]), :data => i)
     @addr(data_proposal(i, (prev_z,)), :data) 
-end
-
-@compiled @gen function observe_datum(y::Float64)
-    @addr(dirac(y), :y)
-end
-
-observe_data = plate(observe_datum)
-
-@compiled @gen function observer(ys::Vector{Float64})
-    @addr(observe_data(ys), :data)
 end
 
 Gen.load_generated_functions()
@@ -160,24 +130,13 @@ datum_trace = simulate(datum, (1., 2., 3., 4., 5.))
 (std_selection,) = Gen.select(std_selector, (), get_assignment(trace))
 slope_intercept_static_sel = StaticAddressSet(slope_intercept_selection)
 std_static_sel = StaticAddressSet(std_selection)
-#
-##println("\n######################################################################\n")
-##println("backprop_trace(model, ...)")
-##println(strip_lineinfo(
-    ##Gen.codegen_backprop_trace(typeof(model), typeof(trace), typeof(slope_intercept_static_sel), Nothing)))
-#println("\n######################################################################\n")
-
-#println("\n######################################################################\n")
-#println("backprop_trace(datum, ...)")
-#println(strip_lineinfo(
-    #Gen.codegen_backprop_trace(typeof(datum), typeof(datum_trace),
-           #Gen.EmptyAddressSet, Nothing)))
-#println("\n######################################################################\n")
-
 
 function do_inference(n)
-    observations = get_assignment(simulate(observer, (ys,)))
-    
+    observations = DynamicAssignment()
+    for (i, y) in enumerate(ys)
+        observations[:data => i => :y] = y
+    end
+
     # initial trace
     (trace, _) = generate(model, (xs,), observations)
 
