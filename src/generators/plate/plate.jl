@@ -50,6 +50,7 @@ function collect_plate_constraints(constraints::Assignment, len::Int)
     return nodes
 end
 
+
 """
 Collect constraints indexed by the integer key; check validity of addresses.
 """
@@ -68,6 +69,26 @@ function collect_plate_constraints(constraints::Assignment, prev_length::Int, ne
     end
     return (nodes, retained_constrained)
 end
+
+"""
+Collect selections indexed by the integer key; check validity of addresses.
+"""
+function collect_plate_selections(selection::AddressSet, prev_length::Int, new_length::Int)
+    if length(get_leaf_nodes(selection)) > 0
+        bad_addr = first(get_leaf_nodes(selection))
+        error("Selected address that does not exist: $bad_addr")
+    end
+    nodes = Dict{Int, Any}()
+    for (key::Int, node) in get_internal_nodes(selection)
+        if key <= prev_length && key <= new_length
+            nodes[key] = node
+        else
+            error("Cannot select addresses under namespace: $key")
+        end
+    end
+    return nodes
+end
+
 
 function compute_retdiff(isdiff_retdiffs::Dict{Int,Any}, new_length::Int, prev_length::Int)
     if new_length == prev_length && length(isdiff_retdiffs) == 0

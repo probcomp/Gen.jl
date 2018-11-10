@@ -129,6 +129,8 @@ export AddressSet
 struct EmptyAddressSet <: AddressSet end
 get_address_schema(::Type{EmptyAddressSet}) = EmptyAddressSchema()
 Base.isempty(::EmptyAddressSet) = true
+get_leaf_nodes(::EmptyAddressSet) = ()
+get_internal_nodes(::EmptyAddressSet) = ()
 
 export EmptyAddressSet
 

@@ -16,7 +16,7 @@ export logsumexp
 ########
 
 function mh(model::Generator, proposal::Generator, proposal_args_rest::Tuple,
-            trace, correction=(prev_trace, new_trace) -> 0.)
+            trace, correction=(prev_trace, new_trace) -> 0.; verbose=false)
     model_args = get_call_record(trace).args
     proposal_args_forward = (trace, proposal_args_rest...,)
     forward_trace = simulate(proposal, proposal_args_forward)
@@ -30,26 +30,43 @@ function mh(model::Generator, proposal::Generator, proposal_args_rest::Tuple,
     alpha = weight - forward_score + backward_score
     alpha += correction(trace, new_trace)
     if log(rand()) < alpha
+        verbose && println("accept")
         # accept
         return new_trace
     else
+        # reject
+        verbose && println("reject")
+        return trace
+    end
+end
+
+function mh(model::Generator, selection::AddressSet, trace; verbose=false)
+    model_args = get_call_record(trace).args
+    (new_trace, weight) = regenerate(model, model_args, noargdiff, trace, selection)
+    println(weight)
+    if log(rand()) < weight
+        verbose && println("accept")
+        # accept
+        return new_trace
+    else
+        verbose && println("reject")
         # reject
         return trace
     end
 end
 
-function mh(model::Generator, selector::SelectionFunction, selector_args::Tuple, trace)
-    (selection, _) = select(selector, selector_args, get_assignment(trace))
-    model_args = get_call_record(trace).args
-    (new_trace, weight) = regenerate(model, model_args, noargdiff, trace, selection)
-    if log(rand()) < weight
-        # accept
-        return new_trace
-    else
-        # reject
-        return trace
-    end
-end
+#function mh(model::Generator, selector::SelectionFunction, selector_args::Tuple, trace)
+    #(selection, _) = select(selector, selector_args, get_assignment(trace))
+    #model_args = get_call_record(trace).args
+    #(new_trace, weight) = regenerate(model, model_args, noargdiff, trace, selection)
+    #if log(rand()) < weight
+        ## accept
+        #return new_trace
+    #else
+        ## reject
+        #return trace
+    #end
+#end
 
 function rjmcmc(model, forward, forward_args_rest, backward, backward_args_rest,
                 injective, injective_args, trace, correction)
