@@ -164,7 +164,6 @@ function extend(gen::Markov{T,U}, args, change::MarkovCustomArgDiff, trace::Vect
         else
             node = EmptyAssignment()
         end
-        local call::CallRecord{T}
         if key > prev_len
             (subtrace::U, w) = generate(gen.kernel, kernel_args, node)
             call = get_call_record(subtrace)
