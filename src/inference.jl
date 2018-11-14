@@ -312,7 +312,7 @@ function particle_filter(model::Generator{T,U}, model_args_rest::Tuple, num_step
 
     log_unnormalized_weights = Vector{Float64}(undef, num_particles)
     log_ml_estimate = 0.
-    observations = get_observations(1)
+    (observations, _) = get_observations(1)
     traces = Vector{U}(undef, num_particles)
     next_traces = Vector{U}(undef, num_particles)
     for i=1:num_particles
@@ -345,9 +345,7 @@ function particle_filter(model::Generator{T,U}, model_args_rest::Tuple, num_step
         end
 
         # extend by one time step
-        # TODO establish a convention for args change (only the step argument changes)
-        argdiff = unknownargdiff 
-        observations = get_observations(step)
+        (observations, argdiff) = get_observations(step)
         for i=1:num_particles
             parent = parents[i]
             parent_trace = traces[parent]
@@ -408,12 +406,10 @@ function particle_filter(model::Generator{T,U}, model_args_rest::Tuple,
         end
 
         # extend by one time step
-        # TODO establish a convention for args change (only the step argument changes)
-        argdiff = unknownargdiff 
         for i=1:num_particles
             parent = parents[i]
             parent_trace = traces[parent]
-            (observations, proposal_args) = get_step_observations_and_proposal_args(step, parent_trace)
+            (observations, proposal_args, argdiff) = get_step_observations_and_proposal_args(step, parent_trace)
             proposal_trace = simulate(step_proposal, proposal_args)
             proposal_score = get_call_record(proposal_trace).score
             constraints = merge(observations, get_assignment(proposal_trace))

@@ -298,7 +298,7 @@ end
         observations = DynamicAssignment()
         observations[:markov => (step - 1) => :x] = obs_x[step]
         step_proposal_args = (step - 1, prev_z, obs_x[step])
-        (observations, step_proposal_args)
+        (observations, step_proposal_args, unknownargdiff)
     end
     Random.seed!(0)
 
@@ -372,7 +372,7 @@ end
         else
             observations[:markov => (step-1) => :x] = obs_x[step]
         end
-        return observations
+        return (observations, unknownargdiff)
     end
 
     Random.seed!(0)
