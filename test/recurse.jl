@@ -1,6 +1,6 @@
 using Gen: get_child, get_child_num, get_parent
 
-@testset "tree node numbering" begin
+@testset "recurse node numbering" begin
 
     # max_branch = 1
     @test get_child(1, 1, 1) == 2
@@ -92,7 +92,7 @@ Gen.isnodiff(::StringDiff) = false
         # the argument to each child is nothing (U=Nothing), and its argdiff is
         # also nothing (DU=Nothing) or noargdiff
         @diff @assert isa(@argdiff(), Union{Nothing,NoArgDiff})
-        @diff @retdiff(TreeProductionRetDiff{RuleDiff,Nothing}(RuleDiff(), Dict{Int,Nothing}()))
+        @diff @retdiff(RecurseProductionRetDiff{RuleDiff,Nothing}(RuleDiff(), Dict{Int,Nothing}()))
 
         return (production_rule, [nothing for _=1:num_children])
     end
@@ -114,12 +114,12 @@ Gen.isnodiff(::StringDiff) = false
             str = "($(prefix)bb)"
         end
 
-        @diff @assert isa(@argdiff(), TreeAggregationArgDiff{RuleDiff,StringDiff})
+        @diff @assert isa(@argdiff(), RecurseAggregationArgDiff{RuleDiff,StringDiff})
         @diff @retdiff(StringDiff())
         return str
     end
 
-    pcfg = Tree(pcfg_production, pcfg_aggregation, 1, Nothing, Int, String, RuleDiff, Nothing, StringDiff)
+    pcfg = Recurse(pcfg_production, pcfg_aggregation, 1, Nothing, Int, String, RuleDiff, Nothing, StringDiff)
 
     # test that each of the most probable strings are all produced
     Random.seed!(1)
