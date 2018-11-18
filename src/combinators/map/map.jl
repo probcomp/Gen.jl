@@ -1,5 +1,5 @@
 ###################
-# plate generator # 
+# map generator # 
 ###################
 
 """
@@ -7,17 +7,17 @@ GenerativeFunction that makes many independent application of a kernel generator
 similar to 'map'.  The arguments are a tuple of vectors, each of of length N,
 where N is the nubmer of applications of the kernel.
 """
-struct Plate{T,U} <: GenerativeFunction{PersistentVector{T},VectorTrace{T,U}}
+struct Map{T,U} <: GenerativeFunction{PersistentVector{T},VectorTrace{T,U}}
     kernel::GenerativeFunction{T,U}
 end
 
-accepts_output_grad(plate::Plate) = accepts_output_grad(plate.kernel)
-has_argument_grads(plate::Plate) = has_argument_grads(plate.kernel)
+export Map
 
-plate(kernel::GenerativeFunction{T,U}) where {T,U} = Plate{T,U}(kernel)
+accepts_output_grad(map_gf::Map) = accepts_output_grad(map_gf.kernel)
+has_argument_grads(map_gf::Map) = has_argument_grads(map_gf.kernel)
 
-function get_static_argument_types(plate::Plate)
-    [Vector{typ} for typ in get_static_argument_types(plate.kernel)]
+function get_static_argument_types(map_gf::Map)
+    [Vector{typ} for typ in get_static_argument_types(map_gf.kernel)]
 end
 
 function get_args_for_key(args::Tuple, key::Int)
@@ -34,7 +34,7 @@ end
 """
 Collect constraints indexed by the integer key; check validity of addresses.
 """
-function collect_plate_constraints(constraints::Assignment, len::Int)
+function collect_map_constraints(constraints::Assignment, len::Int)
     if length(get_leaf_nodes(constraints)) > 0
         bad_addr = first(get_leaf_nodes(constraints))[1]
         error("Constrained address that does not exist: $bad_addr")
@@ -54,7 +54,7 @@ end
 """
 Collect constraints indexed by the integer key; check validity of addresses.
 """
-function collect_plate_constraints(constraints::Assignment, prev_length::Int, new_length::Int)
+function collect_map_constraints(constraints::Assignment, prev_length::Int, new_length::Int)
     nodes = Dict{Int,Any}()
     retained_constrained = Set{Int}()
     for (key::Int, node) in get_internal_nodes(constraints)
@@ -73,7 +73,7 @@ end
 """
 Collect selections indexed by the integer key; check validity of addresses.
 """
-function collect_plate_selections(selection::AddressSet, prev_length::Int, new_length::Int)
+function collect_map_selections(selection::AddressSet, prev_length::Int, new_length::Int)
     if length(get_leaf_nodes(selection)) > 0
         bad_addr = first(get_leaf_nodes(selection))
         error("Selected address that does not exist: $bad_addr")
@@ -92,9 +92,9 @@ end
 
 function compute_retdiff(isdiff_retdiffs::Dict{Int,Any}, new_length::Int, prev_length::Int)
     if new_length == prev_length && length(isdiff_retdiffs) == 0
-        PlateNoRetDiff()
+        MapNoRetDiff()
     else
-        PlateCustomRetDiff(isdiff_retdiffs)
+        MapCustomRetDiff(isdiff_retdiffs)
     end
 end
 
@@ -114,21 +114,17 @@ function discard_deleted_applications(new_length::Int, prev_length::Int,
 end
 
 
-
-export plate
-
-
 ###########
 # argdiff #
 ###########
 
-# accepts: NoArgDiff, UnknownArgDiff, and PlateCustomArgDiff
+# accepts: NoArgDiff, UnknownArgDiff, and MapCustomArgDiff
 
 """
 The number of applications may have changed. Custom argdiffs are provided for
 retained applications whose arguments may have changed.
 """
-struct PlateCustomArgDiff{T}
+struct MapCustomArgDiff{T}
     retained_argdiffs::Dict{Int,T} 
 end
 
@@ -140,19 +136,19 @@ end
 ###########
 
 """
-The return value of the plate has not changed.
+The return value of the Map has not changed.
 """
-struct PlateNoRetDiff end
-isnodiff(::PlateNoRetDiff) = true
+struct MapNoRetDiff end
+isnodiff(::MapNoRetDiff) = true
 
 """
 The number of applications may have changed. retdiff values are provided for
 retained applications for which isnodiff() = false.
 """
-struct PlateCustomRetDiff
+struct MapCustomRetDiff
     retained_retdiffs::Dict{Int,Any}
 end
-isnodiff(::PlateCustomRetDiff) = false
+isnodiff(::MapCustomRetDiff) = false
 
 
 

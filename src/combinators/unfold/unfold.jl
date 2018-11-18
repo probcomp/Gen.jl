@@ -6,14 +6,13 @@ using FunctionalCollections: PersistentVector, push, assoc
 
 struct Unfold{T,U} <: GenerativeFunction{PersistentVector{T},VectorTrace{T,U}}
     kernel::GenerativeFunction{T,U}
-end
-
-function unfold(kernel::GenerativeFunction{T,U}) where {T,U}
-    kernel_arg_types = get_static_argument_types(kernel)
-    if length(kernel_arg_types) < 3 || kernel_arg_types[1] != Int
-        error("unfold requires a kernel with arguments (t::Int, state, params...)")
+    function Unfold(kernel::GenerativeFunction{T,U}) where {T,U}
+        kernel_arg_types = get_static_argument_types(kernel)
+        if length(kernel_arg_types) < 3 || kernel_arg_types[1] != Int
+            error("unfold requires a kernel with arguments (t::Int, state, params...)")
+        end
+        new{T,U}(kernel)
     end
-    Unfold{T,U}(kernel)
 end
 
 function get_static_argument_types(unfold::Unfold)
@@ -345,5 +344,5 @@ function backprop_trace(gen::Unfold{T,U}, trace::VectorTrace{T,U},
 end
 
 
-export unfold
+export Unfold
 export UnfoldCustomArgDiff

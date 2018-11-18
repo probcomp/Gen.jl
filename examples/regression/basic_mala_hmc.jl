@@ -40,7 +40,7 @@ end
     return y
 end
 
-data = plate(datum)
+data = Map(datum)
 
 function compute_data_change(inlier_std_change, outlier_std_change, slope_change, intercept_change)
     if all([c == NoChange() for c in [
@@ -93,7 +93,7 @@ end
     @addr(dirac(y), :y)
 end
 
-observe_data = plate(observe_datum)
+observe_data = Map(observe_datum)
 
 @compiled @gen function observer(ys::Vector{Float64})
     @addr(observe_data(ys), :data)

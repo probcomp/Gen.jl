@@ -1,28 +1,26 @@
-###################
-# plate generator # 
-###################
+#################################
+# map of distribution generator # 
+#################################
 
 """
 GenerativeFunction that makes many independent application of a kernel generator,
 similar to 'map'.  The arguments are a tuple of vectors, each of of length N,
 where N is the nubmer of applications of the kernel.
 """
-struct PlateOfDist{T} <: GenerativeFunction{PersistentVector{T},VectorDistTrace{T}}
+struct MapDist{T} <: GenerativeFunction{PersistentVector{T},VectorDistTrace{T}}
     kernel::Distribution{T}
 end
 
-accepts_output_grad(plate::PlateOfDist) = false # TODO
-has_argument_grads(plate::PlateOfDist) = has_argument_grads(plate.kernel)
+export MapDist
 
-function plate(kernel::Distribution{T}) where {T}
-    PlateOfDist{T}(kernel)
+accepts_output_grad(map_gf::MapDist) = false # TODO
+has_argument_grads(map_gf::MapDist) = has_argument_grads(map_gf.kernel)
+
+function get_static_argument_types(map_gf::MapDist)
+    [Vector{typ} for typ in get_static_argument_types(map_gf.kernel)]
 end
 
-function get_static_argument_types(plate::PlateOfDist)
-    [Vector{typ} for typ in get_static_argument_types(plate.kernel)]
-end
-
-function simulate(gen::PlateOfDist{T}, args) where {T}
+function simulate(gen::MapDist{T}, args) where {T}
     len = length(args[1])
     values = Vector{T}(undef, len)
     score = 0.
@@ -35,7 +33,7 @@ function simulate(gen::PlateOfDist{T}, args) where {T}
     Gen.VectorDistTrace{T}(persist_values, args, score, len)
 end
 
-function generate(gen::PlateOfDist{T}, args, constraints) where {T}
+function generate(gen::MapDist{T}, args, constraints) where {T}
     len = length(args[1])
     values = Vector{T}(undef, len)
     score = 0.
@@ -61,7 +59,7 @@ function generate(gen::PlateOfDist{T}, args, constraints) where {T}
     (trace, weight)
 end
 
-function update(gen::PlateOfDist{T}, new_args, argdiff::UnknownArgDiff,
+function update(gen::MapDist{T}, new_args, argdiff::UnknownArgDiff,
                 trace::VectorDistTrace{T}, constraints) where {T}
     (new_length, prev_length) = get_prev_and_new_lengths(new_args, trace)
     @assert new_length == prev_length
@@ -96,7 +94,7 @@ function update(gen::PlateOfDist{T}, new_args, argdiff::UnknownArgDiff,
 end
 
 # TODO handle other selection types
-function backprop_trace(gen::PlateOfDist{T}, trace::VectorDistTrace{T},
+function backprop_trace(gen::MapDist{T}, trace::VectorDistTrace{T},
                         selection::EmptyAddressSet, retval_grad::Nothing) where {T}
     call = get_call_record(trace)
     args = call.args
@@ -143,5 +141,3 @@ function backprop_trace(gen::PlateOfDist{T}, trace::VectorDistTrace{T},
     gradient_trie = EmptyAssignment()
     ((arg_grad...,), value_trie, gradient_trie)
 end
-
-export plate

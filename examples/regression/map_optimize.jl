@@ -12,7 +12,7 @@ import Random
     return y
 end
 
-data = plate(datum)
+data = Map(datum)
 
 @gen function model(xs::Vector{Float64})
     n = length(xs)

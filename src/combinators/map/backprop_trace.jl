@@ -1,4 +1,4 @@
-function backprop_trace(gen::Plate{T,U}, trace::VectorTrace{T,U}, selection::AddressSet, retval_grad) where {T,U}
+function backprop_trace(gen::Map{T,U}, trace::VectorTrace{T,U}, selection::AddressSet, retval_grad) where {T,U}
 
     call = get_call_record(trace)
     args = call.args

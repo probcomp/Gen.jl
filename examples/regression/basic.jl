@@ -21,7 +21,7 @@ end
     return y
 end
 
-data = plate(datum)
+data = Map(datum)
 
 function compute_argdiff(inlier_std_diff, outlier_std_diff, slope_diff, intercept_diff)
     if all([c == NoChoiceDiff() for c in [
@@ -72,7 +72,7 @@ function random(::TwoNormals, mu, sigma1, sigma2)
 end
 get_static_argument_types(::TwoNormals) = [Float64, Float64, Float64]
 
-data_collapsed = plate(two_normals)
+data_collapsed = Map(two_normals)
 
 @compiled @gen function model_collapsed(xs::Vector{Float64})
     n::Int = length(xs)
@@ -131,7 +131,7 @@ end
     @addr(dirac(y), :y)
 end
 
-observe_data = plate(observe_datum)
+observe_data = Map(observe_datum)
 
 @compiled @gen function observer(ys::Vector{Float64})
     @addr(observe_data(ys), :data)

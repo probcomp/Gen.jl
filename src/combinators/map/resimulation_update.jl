@@ -1,4 +1,4 @@
-mutable struct PlateFixUpdateState{T,U,V,W}
+mutable struct MapFixUpdateState{T,U,V,W}
     kernel::T
     score::Float64
     weight::Float64
@@ -9,7 +9,7 @@ mutable struct PlateFixUpdateState{T,U,V,W}
     discard::DynamicAssignment
 end
 
-function fix_update_existing_trace!(key::Int, state::PlateFixUpdateState, subtraces, retvals)
+function fix_update_existing_trace!(key::Int, state::MapFixUpdateState, subtraces, retvals)
     node = haskey(state.nodes, key) ? state.nodes[key] : EmptyAssignment()
     if haskey(state.deltas, key)
         kernel_delta = state.deltas[key]
@@ -31,7 +31,7 @@ function fix_update_existing_trace!(key::Int, state::PlateFixUpdateState, subtra
     (subtraces, retvals)
 end
 
-function simulate_new_trace!(key::Int, state::PlateFixUpdateState, subtraces, retvals, kernel)
+function simulate_new_trace!(key::Int, state::MapFixUpdateState, subtraces, retvals, kernel)
     kernel_args = get_args_for_key(state.args, key)
     subtrace  = simulate(gen.kernel, kernel_args)
     subtraces = push(subtraces, subtrace)
@@ -62,7 +62,7 @@ end
 """
 Update with argument delta information
 """
-function fix_update(gen::Plate, args, delta::PlateDelta{T}, trace::VectorTrace, constraints) where {T}
+function fix_update(gen::Map, args, delta::MapDelta{T}, trace::VectorTrace, constraints) where {T}
 
     (new_length, prev_length) = get_prev_and_new_lengths(args, trace)
 
@@ -82,7 +82,7 @@ end
 """
 Update without argument delta information
 """
-function fix_update(gen::Plate, args, delta::Nothing, trace::VectorTrace, constraints)
+function fix_update(gen::Map, args, delta::Nothing, trace::VectorTrace, constraints)
 
     (new_length, prev_length) = get_prev_and_new_lengths(args, trace)
 
@@ -93,7 +93,7 @@ function fix_update(gen::Plate, args, delta::Nothing, trace::VectorTrace, constr
     _fix_update(gen, args, delta, trace, constraints, to_visit, deltas)
 end
 
-function _fix_update(gen::Plate, args, delta::Nothing, trace::VectorTrace, constraints, to_visit, deltas)
+function _fix_update(gen::Map, args, delta::Nothing, trace::VectorTrace, constraints, to_visit, deltas)
 
     (new_length, prev_length) = get_prev_and_new_lengths(args, trace)
 
@@ -105,7 +105,7 @@ function _fix_update(gen::Plate, args, delta::Nothing, trace::VectorTrace, const
 
     # collect initial state
     discard = DynamicAssignment()
-    state = PlateFixUpdateState(gen.kernel, trace.call.score, 0., trace.is_empty, args, nodes, deltas, discard)
+    state = MapFixUpdateState(gen.kernel, trace.call.score, 0., trace.is_empty, args, nodes, deltas, discard)
     subtraces = trace.subtraces
     retvals = trace.call.retvals
     

@@ -41,7 +41,7 @@ end
     return y
 end
 
-data = plate(datum)
+data = Map(datum)
 
 function compute_argdiff(inlier_std_diff, outlier_std_diff, slope_diff, intercept_diff)
     if all([c == NoChoiceDiff() for c in [

@@ -18,7 +18,7 @@ end
     @addr(normal(point.y, noise), :y)
 end
 
-measurements = plate(measurement)
+measurements = Map(measurement)
 
 @compiled @gen function model(scene::Scene, times::Vector{Float64})
 

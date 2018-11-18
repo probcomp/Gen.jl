@@ -1,4 +1,4 @@
-mutable struct PlateGenerateState{T,U}
+mutable struct MapGenerateState{T,U}
     score::Float64
     weight::Float64
     subtraces::Vector{U}
@@ -6,9 +6,9 @@ mutable struct PlateGenerateState{T,U}
     num_has_choices::Int
 end
 
-function process_new!(gen::Plate{T,U}, args::Tuple,
+function process_new!(gen::Map{T,U}, args::Tuple,
                       constraints::Dict{Int,Any}, key::Int,
-                      state::PlateGenerateState{T,U}) where {T,U}
+                      state::MapGenerateState{T,U}) where {T,U}
     local subtrace::U
     kernel_args = get_args_for_key(args, key)
     if haskey(constraints, key)
@@ -25,10 +25,10 @@ function process_new!(gen::Plate{T,U}, args::Tuple,
     state.retvals[key] = call.retval
 end
 
-function generate(gen::Plate{T,U}, args::Tuple, constraints::Assignment) where {T,U}
+function generate(gen::Map{T,U}, args::Tuple, constraints::Assignment) where {T,U}
     len = length(args[1])
-    nodes = collect_plate_constraints(constraints, len)
-    state = PlateGenerateState{T,U}(0., 0., Vector{U}(undef,len), Vector{T}(undef,len), 0)
+    nodes = collect_map_constraints(constraints, len)
+    state = MapGenerateState{T,U}(0., 0., Vector{U}(undef,len), Vector{T}(undef,len), 0)
     for key=1:len
         process_new!(gen, args, nodes, key, state)
     end

@@ -251,7 +251,7 @@ end
     @gen function model(num_steps::Int)
         z_init = @addr(model_init(), :init)
         change = UnfoldCustomArgDiff(true, false, false) # we are only ever extending
-        @addr(unfold(model_step)(num_steps-1, z_init, nothing), :unfold, change)
+        @addr(Unfold(model_step)(num_steps-1, z_init, nothing), :unfold, change)
     end
 
     num_steps = 4
@@ -347,7 +347,7 @@ end
     @gen function model(num_steps::Int)
         z_init = @addr(model_init(), :init)
         change = UnfoldCustomArgDiff(true, false, false) # we are only ever extending
-        @addr(unfold(model_step)(num_steps-1, z_init, nothing), :unfold, change)
+        @addr(Unfold(model_step)(num_steps-1, z_init, nothing), :unfold, change)
     end
 
     num_steps = 4

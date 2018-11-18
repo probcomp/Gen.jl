@@ -20,7 +20,7 @@ end
     return y
 end
 
-data = plate(datum)
+data = Map(datum)
 
 @gen function model(xs::Vector{Float64})
     inlier_std = @addr(gamma(1, 1), :inlier_std)

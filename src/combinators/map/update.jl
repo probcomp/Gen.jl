@@ -1,7 +1,7 @@
 """
 No change to the arguments for any retained application
 """
-function process_all_retained!(gen::Plate{T,U}, args::Tuple, argdiff::NoArgDiff,
+function process_all_retained!(gen::Map{T,U}, args::Tuple, argdiff::NoArgDiff,
                                constraints_or_selections::Dict{Int,Any},
                                prev_length::Int, new_length::Int,
                                retained_constrained_or_selected,
@@ -16,7 +16,7 @@ end
 """
 Unknown change to the arguments for retained applications
 """
-function process_all_retained!(gen::Plate{T,U}, args::Tuple, argdiff::UnknownArgDiff,
+function process_all_retained!(gen::Map{T,U}, args::Tuple, argdiff::UnknownArgDiff,
                                constraints_or_selections::Dict{Int,Any},
                                prev_length::Int, new_length::Int,
                                retained_constrained_or_selected,
@@ -31,7 +31,7 @@ end
 """
 Custom argdiffs for some retained applications
 """
-function process_all_retained!(gen::Plate{T,U}, args::Tuple, argdiff::PlateCustomArgDiff{T},
+function process_all_retained!(gen::Map{T,U}, args::Tuple, argdiff::MapCustomArgDiff{T},
                                constraints_or_selections::Dict{Int,Any},
                                prev_length::Int, new_length::Int,
                                retained_constrained_or_selected,
@@ -51,7 +51,7 @@ end
 """
 Process all new applications.
 """
-function process_all_new!(gen::Plate{T,U}, args::Tuple, constraints_or_selections::Dict{Int,Any},
+function process_all_new!(gen::Map{T,U}, args::Tuple, constraints_or_selections::Dict{Int,Any},
                           prev_len::Int, new_len::Int,
                           state) where {T,U}
     for key=prev_len+1:new_len
@@ -73,7 +73,7 @@ end
 # force update #
 ################
 
-mutable struct PlateUpdateState{T,U}
+mutable struct MapUpdateState{T,U}
     score::Float64
     subtraces::PersistentVector{U}
     retvals::PersistentVector{T}
@@ -83,9 +83,9 @@ mutable struct PlateUpdateState{T,U}
     isdiff_retdiffs::Dict{Int,Any}
 end
 
-function process_retained!(gen::Plate{T,U}, args::Tuple,
+function process_retained!(gen::Map{T,U}, args::Tuple,
                            constraints::Dict{Int,Any}, key::Int, kernel_argdiff,
-                           state::PlateUpdateState{T,U}) where {T,U}
+                           state::MapUpdateState{T,U}) where {T,U}
     
     # check for constraint
     if haskey(constraints, key)
@@ -119,9 +119,9 @@ function process_retained!(gen::Plate{T,U}, args::Tuple,
     end
 end
 
-function process_new!(gen::Plate{T,U}, args::Tuple, 
+function process_new!(gen::Map{T,U}, args::Tuple, 
                       constraints::Dict{Int,Any}, key::Int,
-                      state::PlateUpdateState{T,U}) where {T,U}
+                      state::MapUpdateState{T,U}) where {T,U}
 
     # check for constraint
     if haskey(constraints, key)
@@ -155,12 +155,12 @@ function process_new!(gen::Plate{T,U}, args::Tuple,
     end
 end
 
-function update(gen::Plate{T,U}, args::Tuple, argdiff, prev_trace::VectorTrace{T,U},
+function update(gen::Map{T,U}, args::Tuple, argdiff, prev_trace::VectorTrace{T,U},
                 constraints::Assignment) where {T,U}
     (new_length, prev_length) = get_prev_and_new_lengths(args, prev_trace)
-    (nodes, retained_constrained) = collect_plate_constraints(constraints, prev_length, new_length)
+    (nodes, retained_constrained) = collect_map_constraints(constraints, prev_length, new_length)
     (discard, num_has_choices) = discard_deleted_applications(new_length, prev_length, prev_trace)
-    state = PlateUpdateState{T,U}(prev_trace.call.score,
+    state = MapUpdateState{T,U}(prev_trace.call.score,
                                   prev_trace.subtraces, prev_trace.call.retval,
                                   discard, min(prev_length, new_length), num_has_choices,
                                   Dict{Int,Any}())
@@ -176,7 +176,7 @@ end
 # extend #
 ##########
 
-mutable struct PlateExtendState{T,U}
+mutable struct MapExtendState{T,U}
     score::Float64
     weight::Float64
     subtraces::PersistentVector{U}
@@ -186,9 +186,9 @@ mutable struct PlateExtendState{T,U}
     isdiff_retdiffs::Dict{Int,Any}
 end
 
-function process_retained!(gen::Plate{T,U}, args::Tuple,
+function process_retained!(gen::Map{T,U}, args::Tuple,
                            constraints::Dict{Int,Any}, key::Int, kernel_argdiff,
-                           state::PlateExtendState{T,U}) where {T,U}
+                           state::MapExtendState{T,U}) where {T,U}
     
     # check for constraint
     if haskey(constraints, key)
@@ -221,9 +221,9 @@ function process_retained!(gen::Plate{T,U}, args::Tuple,
     end
 end
 
-function process_new!(gen::Plate{T,U}, args::Tuple, 
+function process_new!(gen::Map{T,U}, args::Tuple, 
                       constraints::Dict{Int,Any}, key::Int,
-                      state::PlateExtendState{T,U}) where {T,U}
+                      state::MapExtendState{T,U}) where {T,U}
 
     # check for constraint
     if haskey(constraints, key)
@@ -258,14 +258,14 @@ function process_new!(gen::Plate{T,U}, args::Tuple,
     end
 end
 
-function extend(gen::Plate{T,U}, args::Tuple, argdiff, prev_trace::VectorTrace{T,U},
+function extend(gen::Map{T,U}, args::Tuple, argdiff, prev_trace::VectorTrace{T,U},
                 constraints::Assignment) where {T,U}
     (new_length, prev_length) = get_prev_and_new_lengths(args, prev_trace)
     if new_length < prev_length
         error("Extend cannot remove addresses (prev length: $prev_length, new length: $new_length")
     end
-    (nodes, retained_constrained) = collect_plate_constraints(constraints, prev_length, new_length)
-    state = PlateExtendState{T,U}(prev_trace.call.score, 0.,
+    (nodes, retained_constrained) = collect_map_constraints(constraints, prev_length, new_length)
+    state = MapExtendState{T,U}(prev_trace.call.score, 0.,
                                   prev_trace.subtraces, prev_trace.call.retval,
                                   prev_length, prev_trace.num_has_choices)
     process_all_retained!(gen, args, argdiff, nodes, prev_length, new_length, retained_constrained, state)
@@ -279,7 +279,7 @@ end
 # regenerate #
 ##############
 
-mutable struct PlateRegenerateState{T,U}
+mutable struct MapRegenerateState{T,U}
     score::Float64
     subtraces::PersistentVector{U}
     retvals::PersistentVector{T}
@@ -288,9 +288,9 @@ mutable struct PlateRegenerateState{T,U}
     isdiff_retdiffs::Dict{Int,Any}
 end
 
-function process_retained!(gen::Plate{T,U}, args::Tuple,
+function process_retained!(gen::Map{T,U}, args::Tuple,
                            selections::Dict{Int,Any}, key::Int, kernel_argdiff,
-                           state::PlateRegenerateState{T,U}) where {T,U}
+                           state::MapRegenerateState{T,U}) where {T,U}
     
     # check for constraint
     if haskey(selections, key)
@@ -323,9 +323,9 @@ function process_retained!(gen::Plate{T,U}, args::Tuple,
     end
 end
 
-function process_new!(gen::Plate{T,U}, args::Tuple, 
+function process_new!(gen::Map{T,U}, args::Tuple, 
                       selections::Dict{Int,Any}, key::Int,
-                      state::PlateRegenerateState{T,U}) where {T,U}
+                      state::MapRegenerateState{T,U}) where {T,U}
 
     # check for subselection (cannot select addresses that do not already exist)
     @assert !haskey(selections, key)
@@ -355,11 +355,11 @@ function process_new!(gen::Plate{T,U}, args::Tuple,
     end
 end
 
-function regenerate(gen::Plate{T,U}, args::Tuple, argdiff, prev_trace::VectorTrace{T,U},
+function regenerate(gen::Map{T,U}, args::Tuple, argdiff, prev_trace::VectorTrace{T,U},
                 selection::AddressSet) where {T,U}
     (new_length, prev_length) = get_prev_and_new_lengths(args, prev_trace)
-    selections = collect_plate_selections(selection, prev_length, new_length)
-    state = PlateRegenerateState{T,U}(prev_trace.call.score,
+    selections = collect_map_selections(selection, prev_length, new_length)
+    state = MapRegenerateState{T,U}(prev_trace.call.score,
                                       prev_trace.subtraces, prev_trace.call.retval,
                                       min(prev_length, new_length), prev_trace.num_has_choices,
                                       Dict{Int,Any}())

@@ -91,7 +91,7 @@ end
 
 # construct a hidden markov model generator
 # args: (num_steps::Int, init_state::KernelState, params::KernelParams)
-compiled_hmm = unfold(kernel)
+compiled_hmm = Unfold(kernel)
 
 
 ##############################
