@@ -2,10 +2,10 @@ using FunctionalCollections: assoc, dissoc
 using DataStructures: PriorityQueue, dequeue!, enqueue!
 
 ##############
-# tree trace #
+# recurse trace #
 ##############
 
-struct TreeTrace{S,T,U,V,W}
+struct RecurseTrace{S,T,U,V,W}
     production_traces::PersistentHashMap{Int,S}
     aggregation_traces::PersistentHashMap{Int,T}
     max_branch::Int
@@ -14,9 +14,9 @@ struct TreeTrace{S,T,U,V,W}
     num_has_choices::Int
 end
 
-has_choices(trace::TreeTrace) = trace.num_has_choices > 0
+has_choices(trace::RecurseTrace) = trace.num_has_choices > 0
 
-function get_call_record(trace::TreeTrace{S,T,U,V,W}) where {S,T,U,V,W}
+function get_call_record(trace::RecurseTrace{S,T,U,V,W}) where {S,T,U,V,W}
     root_prod_trace = trace.production_traces[trace.root_idx]
     root_agg_trace = trace.aggregation_traces[trace.root_idx]
     root_arg::U = get_call_record(root_prod_trace).args[1]
@@ -27,60 +27,60 @@ end
 
 
 ###########################
-# tree assignment wrapper #
+# recurse assignment wrapper #
 ###########################
 
-struct TreeTraceAssignment <: Assignment
-    trace::TreeTrace
+struct RecurseTraceAssignment <: Assignment
+    trace::RecurseTrace
 end
 
-get_assignment(trace::TreeTrace) = TreeTraceAssignment(trace)
+get_assignment(trace::RecurseTrace) = RecurseTraceAssignment(trace)
 
-function Base.isempty(assignment::TreeTraceAssignment)
+function Base.isempty(assignment::RecurseTraceAssignment)
     !has_choices(assignment.trace)
 end
 
-get_address_schema(::Type{TreeTraceAssignment}) = DynamicAddressSchema()
+get_address_schema(::Type{RecurseTraceAssignment}) = DynamicAddressSchema()
 
-function has_internal_node(assignment::TreeTraceAssignment,
+function has_internal_node(assignment::RecurseTraceAssignment,
                            addr::Tuple{Int,Val{:production}})
     haskey(assignment.trace.production_traces, addr[1])
 end
 
-function has_internal_node(assignment::TreeTraceAssignment,
+function has_internal_node(assignment::RecurseTraceAssignment,
                            addr::Tuple{Int,Val{:aggregation}})
     haskey(assignment.trace.aggregation_traces, addr[1])
 end
 
-function has_internal_node(assignment::TreeTraceAssignment, addr::Pair)
+function has_internal_node(assignment::RecurseTraceAssignment, addr::Pair)
     _has_internal_node(assignment, addr)
 end
 
-function get_internal_node(assignment::TreeTraceAssignment,
+function get_internal_node(assignment::RecurseTraceAssignment,
                            addr::Tuple{Int,Val{:production}})
     get_assignment(assignment.trace.production_traces[addr[1]])
 end
 
-function get_internal_node(assignment::TreeTraceAssignment,
+function get_internal_node(assignment::RecurseTraceAssignment,
                            addr::Tuple{Int,Val{:aggregation}})
     get_assignment(assignment.trace.aggregation_traces[addr[1]])
 end
 
-function get_internal_node(assignment::TreeTraceAssignment, addr::Pair)
+function get_internal_node(assignment::RecurseTraceAssignment, addr::Pair)
     _get_internal_node(assignment, addr)
 end
 
-function has_leaf_node(assignment::TreeTraceAssignment, addr::Pair)
+function has_leaf_node(assignment::RecurseTraceAssignment, addr::Pair)
     _has_leaf_node(assignment, addr)
 end
 
-function get_leaf_node(assignment::TreeTraceAssignment, addr::Pair)
+function get_leaf_node(assignment::RecurseTraceAssignment, addr::Pair)
     _get_leaf_node(assignment, addr)
 end
 
-get_leaf_nodes(assignment::TreeTraceAssignment) = ()
+get_leaf_nodes(assignment::RecurseTraceAssignment) = ()
 
-function get_internal_nodes(assignment::TreeTraceAssignment)
+function get_internal_nodes(assignment::RecurseTraceAssignment)
     production_iter = (((idx, Val(:production)), get_assignment(subtrace))
         for (idx, subtrace) in assignment.trace.production_traces)
     aggregation_iter = (((idx, Val(:aggregation)), get_assignment(subtrace))
@@ -91,7 +91,7 @@ end
 
 
 ##################
-# tree generator #
+# recurse generator #
 ##################
 
 # TODO when lightweight Gen functions properly declare their argument and return types, use:
@@ -99,12 +99,12 @@ end
 # aggregation_kern::GenerativeFunction{W,T}
 
 """"
-    Tree(production_kernel, aggregation_kernel, max_branch,
+    Recurse(production_kernel, aggregation_kernel, max_branch,
          ::Type{U}, ::Type{V}, ::Type{W}, ::Type{DV}, ::Type{DU}, ::Type{DW})
 
-Constructor for tree production and aggregation function.
+Constructor for recurse production and aggregation function.
 
-Type parameters of `Tree`: `S, T, U, V, W, DU, DV, DW, X, Y`
+Type parameters of `Recurse`: `S, T, U, V, W, DU, DV, DW, X, Y`
 - DV must implement `isnodiff`
 - DW must implement `isnodiff`
 - Tuple{V, Vector{U}} <: X
@@ -115,28 +115,28 @@ production kernel is a `GenerativeFunction{X,S}`
 - argdiff type: `Union{NoArgDiff,DU}`
 - trace type: `S`
 - return type: `Tuple{V,Vector{U}}`
-- retdiff type: `TreeProductionRetDiff{DV,DU}`
+- retdiff type: `RecurseProductionRetDiff{DV,DU}`
 
 aggregation kernel is a `GenerativeFunction{Y,T}`
 - input type: `Tuple{V,Vector{W}}`
-- argdiff: `TreeAggregationRetDiff{Union{NoArgDiff,DV},DW}`
+- argdiff: `RecurseAggregationRetDiff{Union{NoArgDiff,DV},DW}`
 - trace type: `T`
 - return type: `W`
 - retdiff type: `DW`
 
-tree argdiff type: `Union{NoArgDiff,DU}`
-tree retdiff type: `Union{TreeRetNoDiff,DW}`
+recurse argdiff type: `Union{NoArgDiff,DU}`
+recurse retdiff type: `Union{RecurseRetNoDiff,DW}`
 """
-struct Tree{S,T,U,V,W,X,Y,DV,DU,DW} <: GenerativeFunction{W,TreeTrace{S,T,U,V,W}}
+struct Recurse{S,T,U,V,W,X,Y,DV,DU,DW} <: GenerativeFunction{W,RecurseTrace{S,T,U,V,W}}
     production_kern::GenerativeFunction{X,S}
     aggregation_kern::GenerativeFunction{Y,T}
     max_branch::Int
 end
 
-function Tree(production_kernel::GenerativeFunction{X,S}, aggregation_kernel::GenerativeFunction{Y,T},
+function Recurse(production_kernel::GenerativeFunction{X,S}, aggregation_kernel::GenerativeFunction{Y,T},
               max_branch::Int, ::Type{U}, ::Type{V}, ::Type{W},
               ::Type{DV}, ::Type{DU}, ::Type{DW}) where {S,T,U,V,W,X,Y,DV,DU,DW}
-    Tree{S,T,U,V,W,X,Y,DV,DU,DW}(production_kernel, aggregation_kernel, max_branch)
+    Recurse{S,T,U,V,W,X,Y,DV,DU,DW}(production_kernel, aggregation_kernel, max_branch)
 end
 
 function get_child(parent::Int, child_num::Int, max_branch::Int)
@@ -157,53 +157,53 @@ end
 
 
 """
-    TreeProductionRetDiff{DV,DU}(dv::DV, dus::Dict{Int,DU})
+    RecurseProductionRetDiff{DV,DU}(dv::DV, dus::Dict{Int,DU})
 
-Return value difference for production kernels used with `Tree`.
+Return value difference for production kernels used with `Recurse`.
 If the number of children changed, there are only fields for retained children.
 If a field does not appear for a given child in dus, then the u value being passed to that child has not changed.
 `DV` must have method `isnodiff()`.
 """
-struct TreeProductionRetDiff{DV,DU}
+struct RecurseProductionRetDiff{DV,DU}
     dv::DV
     dus::Dict{Int,DU} # map from child_num to retdiff
 end
 
 """
-    TreeAggregationArgDiff{DV,DW}(dv::DV, dws::Dict{Int,DW})
+    RecurseAggregationArgDiff{DV,DW}(dv::DV, dws::Dict{Int,DW})
 
-Argument difference for aggregation kernels used with `Tree`.
+Argument difference for aggregation kernels used with `Recurse`.
 If the number of children changed, there are only fields for retained children.
 If a field does not appear for a given child in dws, then the w value returned from that child has not changed.
 `DV` must have method `isnodiff()`.
 `DW` must have method `isnodiff()`.
 """
-struct TreeAggregationArgDiff{DV,DW}
+struct RecurseAggregationArgDiff{DV,DW}
     dv::Union{NoArgDiff,DV}
     dws::Dict{Int,DW} # map from child_num to argdiff
 
-    function TreeAggregationArgDiff{DV,DW}(dv::DV, dws::Dict{Int,DW}) where {DV,DW}
+    function RecurseAggregationArgDiff{DV,DW}(dv::DV, dws::Dict{Int,DW}) where {DV,DW}
         @assert !isnodiff(dv) # otherwise, pass NoArgDiff
         new{DV,DW}(dv, dws)
     end
 
-    function TreeAggregationArgDiff{DV,DW}(dv::NoArgDiff, dws::Dict{Int,DW}) where {DV,DW}
+    function RecurseAggregationArgDiff{DV,DW}(dv::NoArgDiff, dws::Dict{Int,DW}) where {DV,DW}
         new{DV,DW}(dv, dws)
     end
 end
 
 
 """
-Indicates that the return value of the Tree has not changed.
+Indicates that the return value of the Recurse has not changed.
 """
-struct TreeRetNoDiff end
-isnodiff(::TreeRetNoDiff) = true
+struct RecurseRetNoDiff end
+isnodiff(::RecurseRetNoDiff) = true
 
 function get_num_children(production_trace)
     length(get_call_record(production_trace).retval[2])
 end
 
-function get_production_input(gen::Tree{S,T,U,V,W}, cur::Int,
+function get_production_input(gen::Recurse{S,T,U,V,W}, cur::Int,
                               production_traces::AbstractDict{Int,S},
                               root_idx::Int, root_production_input::U) where {S,T,U,V,W}
     if cur == root_idx
@@ -217,7 +217,7 @@ function get_production_input(gen::Tree{S,T,U,V,W}, cur::Int,
     end
 end
 
-function get_aggregation_input(gen::Tree{S,T,U,V,W}, cur::Int,
+function get_aggregation_input(gen::Recurse{S,T,U,V,W}, cur::Int,
                                production_traces::AbstractDict{Int,S},
                                aggregation_traces::AbstractDict{Int,T}) where {S,T,U,V,W}
     # requires that the corresponding production trace exists (for the v)
@@ -252,7 +252,7 @@ end
 # generate #
 ############
 
-function generate(gen::Tree{S,T,U,V,W,X,Y,DV,DU,DW}, args::Tuple{U,Int},
+function generate(gen::Recurse{S,T,U,V,W,X,Y,DV,DU,DW}, args::Tuple{U,Int},
                   constraints) where {S,T,U,V,W,X,Y,DV,DU,DW}
     (root_production_input::U, root_idx::Int) = args
     production_traces = PersistentHashMap{Int,S}()
@@ -301,7 +301,7 @@ function generate(gen::Tree{S,T,U,V,W,X,Y,DV,DU,DW}, args::Tuple{U,Int},
         end
     end
 
-    trace = TreeTrace{S,T,U,V,W}(production_traces, aggregation_traces, gen.max_branch,
+    trace = RecurseTrace{S,T,U,V,W}(production_traces, aggregation_traces, gen.max_branch,
                       score, root_idx, num_has_choices)
     return (trace, weight)
 end
@@ -311,7 +311,7 @@ end
 # assess #
 ##########
 
-function assess(gen::Tree{S,T,U,V,W,X,Y,DV,DU,DW}, args::Tuple{U,Int},
+function assess(gen::Recurse{S,T,U,V,W,X,Y,DV,DU,DW}, args::Tuple{U,Int},
                 constraints) where {S,T,U,V,W,X,Y,DV,DU,DW}
     # TODO should instead recursively call assess on each one, to ensure that
     # each address is visited
@@ -344,7 +344,7 @@ Base.in(node::Int, queue::NodeQueue) = haskey(queue.pq, node)
 Base.isempty(queue::NodeQueue) = isempty(queue.pq)
 
 
-function tree_unpack_constraints(constraints::Assignment)
+function recurse_unpack_constraints(constraints::Assignment)
     production_constraints = Dict{Int, Any}()
     aggregation_constraints = Dict{Int, Any}()
     for (addr, node) in get_internal_nodes(constraints)
@@ -392,7 +392,7 @@ function dissoc_subtree!(discard::DynamicAssignment,
     return (production_traces, aggregation_traces, removed_score, num_has_choices)
 end
 
-function get_production_argdiff(production_retdiffs::Dict{Int,TreeProductionRetDiff{DV,DU}},
+function get_production_argdiff(production_retdiffs::Dict{Int,RecurseProductionRetDiff{DV,DU}},
                                 root_idx::Int, root_argdiff::Union{NoArgDiff,DU}, cur::Int,
                                 max_branch::Int) where {DV,DU}
     if cur == root_idx
@@ -414,7 +414,7 @@ function get_production_argdiff(production_retdiffs::Dict{Int,TreeProductionRetD
     end
 end
 
-function get_aggregation_argdiff(production_retdiffs::Dict{Int,TreeProductionRetDiff{DV,DU}},
+function get_aggregation_argdiff(production_retdiffs::Dict{Int,RecurseProductionRetDiff{DV,DU}},
                                  aggregation_retdiffs::Dict{Int,DW},
                                  idx_to_prev_num_children::Dict{Int,Int},
                                  production_traces, cur::Int) where {DU,DV,DW}
@@ -440,11 +440,11 @@ function get_aggregation_argdiff(production_retdiffs::Dict{Int,TreeProductionRet
             dws[child_num] = aggregation_retdiffs[child_num]::DW
         end
     end
-    TreeAggregationArgDiff{DV,DW}(dv, dws)
+    RecurseAggregationArgDiff{DV,DW}(dv, dws)
 end
 
-function update(gen::Tree{S,T,U,V,W,X,Y,DV,DU,DW}, new_args::Tuple{U,Int},
-                root_argdiff::Union{NoArgDiff,DU}, trace::TreeTrace{S,T,U,V,W},
+function update(gen::Recurse{S,T,U,V,W,X,Y,DV,DU,DW}, new_args::Tuple{U,Int},
+                root_argdiff::Union{NoArgDiff,DU}, trace::RecurseTrace{S,T,U,V,W},
                 constraints) where {S,T,U,V,W,X,Y,DV,DU,DW}
 
     (root_production_input::U, root_idx::Int) = new_args
@@ -454,7 +454,7 @@ function update(gen::Tree{S,T,U,V,W,X,Y,DV,DU,DW}, new_args::Tuple{U,Int},
 
     production_traces = trace.production_traces
     aggregation_traces = trace.aggregation_traces
-    (production_constraints, aggregation_constraints) = tree_unpack_constraints(constraints)
+    (production_constraints, aggregation_constraints) = recurse_unpack_constraints(constraints)
     discard = DynamicAssignment()
 
     # initial score from previous trace
@@ -486,7 +486,7 @@ function update(gen::Tree{S,T,U,V,W,X,Y,DV,DU,DW}, new_args::Tuple{U,Int},
     idx_to_prev_num_children = Dict{Int,Int}()
     
     # production phase
-    production_retdiffs = Dict{Int,TreeProductionRetDiff{DV,DU}}() # elements with no difference are ommitted
+    production_retdiffs = Dict{Int,RecurseProductionRetDiff{DV,DU}}() # elements with no difference are ommitted
     while !isempty(prod_to_visit)
         local subtrace::S
 
@@ -497,7 +497,7 @@ function update(gen::Tree{S,T,U,V,W,X,Y,DV,DU,DW}, new_args::Tuple{U,Int},
         if haskey(production_traces, cur)
             # the node exists already
             local subargdiff::Union{NoArgDiff,DU}
-            local subretdiff::TreeProductionRetDiff{DV,DU}
+            local subretdiff::RecurseProductionRetDiff{DV,DU}
 
             # get argdiff for this production node
             subargdiff = get_production_argdiff(production_retdiffs, root_idx,
@@ -593,10 +593,10 @@ function update(gen::Tree{S,T,U,V,W,X,Y,DV,DU,DW}, new_args::Tuple{U,Int},
 
     aggregation_retdiffs = Dict{Int,DW}() # isnodiff(dw)'s are ommitted
     local subtrace::T
-    local subargdiff::TreeAggregationArgDiff{DV,DW}
+    local subargdiff::RecurseAggregationArgDiff{DV,DW}
     local subretdiff::DW
-    local retdiff::Union{TreeRetNoDiff,DW}
-    retdiff = TreeRetNoDiff()
+    local retdiff::Union{RecurseRetNoDiff,DW}
+    retdiff = RecurseRetNoDiff()
     while !isempty(agg_to_visit)
 
         cur = pop!(agg_to_visit)
@@ -660,11 +660,11 @@ function update(gen::Tree{S,T,U,V,W,X,Y,DV,DU,DW}, new_args::Tuple{U,Int},
         
     end
 
-    new_trace = TreeTrace{S,T,U,V,W}(production_traces, aggregation_traces, gen.max_branch,
+    new_trace = RecurseTrace{S,T,U,V,W}(production_traces, aggregation_traces, gen.max_branch,
                                      score, root_idx, num_has_choices)
     
     return (new_trace, weight, discard, retdiff)
 end
 
-export Tree
-export TreeAggregationArgDiff, TreeProductionRetDiff
+export Recurse
+export RecurseAggregationArgDiff, RecurseProductionRetDiff
