@@ -1,3 +1,5 @@
+import Random
+
 function logsumexp(arr::AbstractArray{T}) where {T <: Real}
     max_arr = maximum(arr)
     max_arr + log(sum(exp.(arr .- max_arr)))
@@ -228,7 +230,7 @@ function importance_sampling(model::GenerativeFunction{T,U}, model_args::Tuple,
     end
     log_total_weight = logsumexp(log_weights)
     log_ml_estimate = log_total_weight - log(num_samples)
-    log_normalized_weights = log_weights - log_total_weight
+    log_normalized_weights = log_weights .- log_total_weight
     return (traces, log_normalized_weights, log_ml_estimate)
 end
 
