@@ -25,10 +25,6 @@ function GFBackpropTraceState(trace, selection, params, tape)
                        selection, tracked_choices, value_trie, gradient_trie)
 end
 
-get_args_change(state::GFBackpropTraceState) = nothing
-get_addr_change(state::GFBackpropTraceState, addr) = nothing
-set_ret_change!(state::GFBackpropTraceState, value) = begin end
-
 function fill_gradient_trie!(gradient_trie::DynamicAssignment,
                              tracked_trie::HomogenousTrie{Any,TrackedReal})
     for (key, tracked) in get_leaf_nodes(tracked_trie)
@@ -87,7 +83,7 @@ struct BackpropTraceRecord
     addr::Any
 end
 
-function addr(state::GFBackpropTraceState, gen::Generator{T}, args, addr, args_change) where {T}
+function addr(state::GFBackpropTraceState, gen::Generator{T}, args, addr) where {T}
     visit!(state.visitor, addr)
     if has_leaf_node(state.selection, addr)
         error("Cannot select a whole subtrace, tried to select $addr")

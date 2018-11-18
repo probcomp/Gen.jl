@@ -5,15 +5,18 @@ struct GenFunction <: Generator{Any,GFTrace}
     params::Dict{Symbol,Any}
     arg_types::Vector{Type}
     julia_function::Function
+    update_julia_function::Function
     has_argument_grads::Vector{Bool}
     accepts_output_grad::Bool
 end
 
 function GenFunction(arg_types::Vector{Type}, julia_function::Function,
+                     update_julia_function::Function,
                      has_argument_grads, accepts_output_grad::Bool)
     params_grad = Dict{Symbol,Any}()
     params = Dict{Symbol,Any}()
-    GenFunction(params_grad, params, arg_types, julia_function,
+    GenFunction(params_grad, params, arg_types,
+                julia_function, update_julia_function,
                 has_argument_grads, accepts_output_grad)
 end
 
@@ -25,6 +28,7 @@ end
 
 
 exec(gf::GenFunction, state, args::Tuple) = gf.julia_function(state, args...)
+exec_for_update(gf::GenFunction, state, args::Tuple) = gf.update_julia_function(state, args...)
 
 get_static_argument_types(gen::GenFunction) = gen.arg_types
 
@@ -52,7 +56,6 @@ function parse_arg_types(args)
     types
 end
 
-# TODO handle @compiled @ad @gen function and @ad compiled @gen function
 macro ad(ast)
     if ast.head != :macrocall || ast.args[1] != Symbol("@ad") || length(ast.args) != 2
         error("Syntax error in @ad $ast")
@@ -66,13 +69,13 @@ macro ad(ast)
     parse_gen_function(gen_ast, true)
 end
 
-macro addr(expr::Expr, addr, args_change)
+macro addr(expr::Expr, addr, addrdiff)
     if expr.head != :call
         error("syntax error in @addr at $(expr)")
     end
     fn = esc(expr.args[1])
     args = map(esc, expr.args[2:end])
-    Expr(:call, :addr, esc(state), fn, Expr(:tuple, args...), esc(addr), esc(args_change))
+    Expr(:call, :addr, esc(state), fn, Expr(:tuple, args...), esc(addr), esc(addrdiff))
 end
 
 macro gen(ast)
@@ -98,6 +101,55 @@ function args_for_gf_julia_fn(args, has_argument_grads)
     escaped_args
 end
 
+transform_body_for_non_update(ast) = ast
+
+function transform_body_for_non_update(ast::Expr)
+    @assert !(ast.head == :macrocall && ast.args[1] == Symbol("@diff"))
+
+    # remove the argdiff argument from @addr expressions
+    if ast.head == :macrocall && ast.args[1] == Symbol("@addr")
+        if length(ast.args) == 5
+            @assert isa(ast.args[2], LineNumberNode)
+            # remove the last argument
+            ast = Expr(ast.head, ast.args[1:4]...)
+        end
+    end
+
+    # remove any @diff sub-expressions, and recurse
+    new_args = Vector()
+    for arg in ast.args
+        if !(isa(arg, Expr) && arg.head == :macrocall && arg.args[1] == Symbol("@diff"))
+            push!(new_args, transform_body_for_non_update(arg))
+        end
+    end
+    Expr(ast.head, new_args...)
+end
+
+transform_body_for_update(ast, in_diff) = ast
+
+function transform_body_for_update(ast::Expr, in_diff::Bool)
+    @assert !(ast.head == :macrocall && ast.args[1] == Symbol("@diff"))
+    new_args = Vector()
+    for arg in ast.args
+        if isa(arg, Expr) && arg.head == :macrocall && arg.args[1] == Symbol("@diff")
+            if in_diff
+                error("Got nested @diff at: $arg")
+            end
+            if length(arg.args) == 2
+                push!(new_args, transform_body_for_update(arg.args[2], true))
+            elseif length(arg.args) == 3 && isa(arg.args[2], LineNumberNode)
+                push!(new_args, transform_body_for_update(arg.args[3], true))
+            else
+                error("@diff must have just one sub-expression, got $arg")
+            end
+        else
+            push!(new_args, arg)
+        end
+    end
+    Expr(ast.head, new_args...)
+end
+
+
 function parse_gen_function(ast, ad_annotation::Bool)
     if ast.head != :function
         error("syntax error at $(ast) in $(ast.head)")
@@ -114,12 +166,17 @@ function parse_gen_function(ast, ad_annotation::Bool)
     has_argument_grads = map(marked_for_ad, args)
     args = map(strip_marked_for_ad, args)
 
-    # julia function definition
+    # julia function definition (for a non-update behavior)
     escaped_args = args_for_gf_julia_fn(args, has_argument_grads)
     gf_args = [esc(state), escaped_args...]
     julia_fn_defn = Expr(:function,
         Expr(:tuple, gf_args...),
-        esc(body))
+        esc(transform_body_for_non_update(body)))
+
+    # julia function definition for update function
+    update_julia_fn_defn = Expr(:function,
+        Expr(:tuple, gf_args...),
+        esc(transform_body_for_update(body, false)))
 
     # create generator and assign it a name
     generator_name = signature.args[1]
@@ -129,7 +186,8 @@ function parse_gen_function(ast, ad_annotation::Bool)
             esc(generator_name),
             Expr(:call, :GenFunction,
                 quote Type[$(arg_types...)] end,
-                julia_fn_defn, has_argument_grads, ad_annotation)))
+                julia_fn_defn, update_julia_fn_defn,
+                has_argument_grads, ad_annotation)))
 end
 
 function address_not_found_error_msg(addr)
@@ -182,28 +240,21 @@ end
 # delta #
 #########
 
-macro argschange()
-    Expr(:call, :get_args_change, esc(state))
+macro argdiff()
+    Expr(:call, :get_arg_diff, esc(state))
 end
 
-macro change(addr)
-    Expr(:call, :get_addr_change, esc(state), esc(addr))
+macro choicediff(addr)
+    Expr(:call, :get_choice_diff, esc(state), esc(addr))
 end
 
-macro retchange!(value)
-    Expr(:call, :set_ret_change!, esc(state), esc(value))
+macro calldiff(addr)
+    Expr(:call, :get_call_diff, esc(state), esc(addr))
 end
 
-function addr(state, gen::Generator{T,U}, args, address) where {T,U}
-    addr(state, gen, args, address, nothing)
+macro retdiff(value)
+    Expr(:call, :set_ret_diff!, esc(state), esc(value))
 end
-
-function addr(state, dist::Distribution{T}, args, address) where {T}
-    addr(state, dist, args, address, nothing)
-end
-
-
-
 
 ##################
 # AddressVisitor #
@@ -249,26 +300,25 @@ function get_unvisited(visitor::AddressVisitor, choices)
     _diff(choices, visitor.visited)
 end
 
-function lightweight_got_internal_node_err(addr)
-    error("Expected a value at address $addr but trace contained an assignment")
+function lightweight_check_no_internal_node(constraints::Assignment, addr)
+    if has_internal_node(constraints, addr)
+        error("Expected a value at address $addr but trace contained an assignment")
+    end
 end
 
-function lightweight_got_leaf_node_err(addr)
-    error("Expected an assignment at address $addr but trace contained a value")
+function lightweight_check_no_leaf_node(constraints::Assignment, addr)
+    if has_leaf_node(constraints, addr)
+        error("Expected an assignment at address $addr but trace contained a value")
+    end
 end
 
 function lightweight_retchange_already_set_err()
-    error("@retchange! was already used")
+    error("@retdiff! was already used")
 end
 
-include("simulate.jl")
-include("assess.jl")
 include("generate.jl")
-include("fix_update.jl")
 include("update.jl")
-include("extend.jl")
 include("project.jl")
-include("regenerate.jl")
 include("ungenerate.jl")
 include("backprop_params.jl")
 include("backprop_trace.jl")
@@ -279,6 +329,6 @@ export @delta
 export @param
 export @addr
 export @gen
-export @change
-export @argschange
-export @retchange!
+export @choicediff, @calldiff
+export @argdiff
+export @retdiff

@@ -357,8 +357,7 @@ function add_addr!(ir::BasicBlockIR, addr::Symbol, line::LineNumberNode,
         incremental_dependency_error(addr)
     end
     value_node = ExprValueNode(name, typ)
-    # TODO make it not Some{}
-    change_node = _get_input_node!(ir, change_expr, Union{Some{get_change_type(gen)}, Nothing})
+    change_node = _get_input_node!(ir, change_expr, get_change_type(gen))
     push!(ir.generator_input_change_nodes, change_node)
     expr_node = AddrGeneratorNode(input_nodes, value_node, gen, addr, change_node, line)
     finish!(value_node, expr_node)
@@ -407,6 +406,8 @@ function add_argschange!(ir::BasicBlockIR, typ, name::Symbol)
     nothing
 end
 
+# TODO if its a random choice, typ should be Union{NoCallDiff,CustomCallDiff{T}}
+# if it's a call, typ can be anything, depending on the generator
 function add_change!(ir::BasicBlockIR, addr::Symbol, typ, name::Symbol)
     @assert !ir.finished
     value_node = ExprValueNode(name, typ)

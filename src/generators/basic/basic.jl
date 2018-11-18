@@ -132,6 +132,9 @@ function generate_ir(args, body, output_ad, args_ad)
                 add_addr!(ir, addr, line, dist_or_gen, args)
             else
                 # change_expr may be nothing, indicating nothing is known
+                if change_expr == nothing
+                    change_expr = :(unknownargdiff)
+                end
                 add_addr!(ir, addr, line, dist_or_gen, args, change_expr)
             end
         elseif statement.head == :(=)
@@ -145,6 +148,9 @@ function generate_ir(args, body, output_ad, args_ad)
                     add_addr!(ir, addr, line, dist_or_gen, args, typ, name)
                 else
                     # change_expr may be nothing, indicating nothing is known
+                    if change_expr == nothing
+                        change_expr = :(unknownargdiff)
+                    end
                     add_addr!(ir, addr, line, dist_or_gen, args, typ, name, change_expr)
                 end
             elseif rhs.head == :macrocall && rhs.args[1] == Symbol("@argschange")

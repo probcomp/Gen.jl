@@ -20,28 +20,21 @@ data = plate(datum)
     outlier_std = exp(@addr(normal(0, 2), :outlier_std))
     slope = @addr(normal(0, 2), :slope)
     intercept = @addr(normal(0, 2), :intercept)
-    if all([@change(addr) == NoChange() for addr in [:slope, :intercept, :inlier_std, :outlier_std]])
-        change = NoChange()
-    else
-        change = nothing
+    @diff begin
+        argdiff = noargdiff
+        for addr in [:slope, :intercept, :inlier_std, :outlier_std]
+            if !isnodiff(@choicediff(addr))
+                argdiff = unknownargdiff
+            end
+        end
     end
-    ys = @addr(data(xs, fill(inlier_std, n), fill(outlier_std, n), fill(slope, n), fill(intercept, n)), :data, change)
+    ys = @addr(data(xs, fill(inlier_std, n), fill(outlier_std, n), fill(slope, n), fill(intercept, n)), :data, argdiff)
     return ys
 end
 
 #######################
 # inference operators #
 #######################
-
-@sel function slope_intercept_selector()
-    @select(:slope)
-    @select(:intercept)
-end
-
-@sel function std_selector()
-    @select(:inlier_std)
-    @select(:outlier_std)
-end
 
 @gen function is_outlier_proposal(prev, i::Int)
     prev = get_assignment(prev)[:data => i => :z]
@@ -60,7 +53,7 @@ Gen.load_generated_functions()
 # generate data set #
 #####################
 
-Random.seed!(1)
+Random.seed!(2)
 
 prob_outlier = 0.5
 true_inlier_noise = 0.5
@@ -82,10 +75,13 @@ end
 # run experiment #
 ##################
 
-trace = simulate(model, (xs,))
-datum_trace = simulate(datum, (1., 2., 3., 4., 5.))
-(slope_intercept_selection,) = Gen.select(slope_intercept_selector, (), get_assignment(trace))
-(std_selection,) = Gen.select(std_selector, (), get_assignment(trace))
+slope_intercept_selection = DynamicAddressSet()
+push!(slope_intercept_selection, :slope)
+push!(slope_intercept_selection, :intercept)
+
+std_selection = DynamicAddressSet()
+push!(std_selection, :inlier_std)
+push!(std_selection, :outlier_std)
 
 function do_inference(n)
     observations = get_assignment(simulate(observer, (ys,)))

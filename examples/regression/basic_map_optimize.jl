@@ -4,25 +4,6 @@ import Random
 using FunctionalCollections
 using ReverseDiff
 
-function strip_lineinfo(expr::Expr)
-    @assert !(expr.head == :line)
-    new_args = []
-    for arg in expr.args
-        if (isa(arg, Expr) && arg.head == :line) || isa(arg, LineNumberNode)
-        elseif isa(arg, Expr) && arg.head == :block
-            stripped = strip_lineinfo(arg)
-            append!(new_args, stripped.args)
-        else
-            push!(new_args, strip_lineinfo(arg))
-        end
-    end
-    Expr(expr.head, new_args...)
-end
-
-function strip_lineinfo(expr)
-    expr
-end
-
 ############################
 # reverse mode AD for fill #
 ############################
@@ -62,12 +43,12 @@ end
 
 data = plate(datum)
 
-function compute_data_change(inlier_std_change, outlier_std_change, slope_change, intercept_change)
-    if all([c == NoChange() for c in [
-            inlier_std_change, outlier_std_change, slope_change, intercept_change]])
-        NoChange()
+function compute_argdiff(inlier_std_diff, outlier_std_diff, slope_diff, intercept_diff)
+    if all([c == NoChoiceDiff() for c in [
+            inlier_std_diff, outlier_std_diff, slope_diff, intercept_diff]])
+        noargdiff
     else
-        nothing
+        unknownargdiff
     end
 end
 
@@ -79,30 +60,20 @@ end
     outlier_std::Float64 = exp(outlier_log_std)
     slope::Float64 = @addr(normal(0, 2), :slope)
     intercept::Float64 = @addr(normal(0, 2), :intercept)
-    inlier_std_change::Union{NoChange,Some{Float64},Nothing} = @change(:inlier_std)
-    outlier_std_change::Union{NoChange,Some{Float64},Nothing} = @change(:outlier_std)
-    slope_change::Union{NoChange,Some{Float64},Nothing} = @change(:slope)
-    intercept_change::Union{NoChange,Some{Float64},Nothing} = @change(:intercept)
-    change::Union{NoChange,Nothing} = compute_data_change(
-        inlier_std_change, outlier_std_change, slope_change, intercept_change)
+    inlier_std_diff::Union{PrevChoiceDiff{Float64},NoChoiceDiff} = @change(:inlier_std)
+    outlier_std_diff::Union{PrevChoiceDiff{Float64},NoChoiceDiff} = @change(:outlier_std)
+    slope_diff::Union{PrevChoiceDiff{Float64},NoChoiceDiff} = @change(:slope)
+    intercept_diff::Union{PrevChoiceDiff{Float64},NoChoiceDiff} = @change(:intercept)
+    argdiff::Union{NoArgDiff,UnknownArgDiff} = compute_argdiff(
+        inlier_std_diff, outlier_std_diff, slope_diff, intercept_diff)
     @addr(data(xs, fill(inlier_std, n), fill(outlier_std, n),
-                                                   fill(slope, n), fill(intercept, n)),
-                                          :data, change)
+               fill(slope, n), fill(intercept, n)),
+          :data, argdiff)
 end
 
 #######################
 # inference operators #
 #######################
-
-@sel function slope_intercept_selector()
-    @select(:slope)
-    @select(:intercept)
-end
-
-@sel function std_selector()
-    @select(:inlier_std)
-    @select(:outlier_std)
-end
 
 @compiled @gen function flip_z(z::Bool)
     @addr(bernoulli(z ? 0.0 : 1.0), :z)
@@ -112,18 +83,7 @@ data_proposal = at_dynamic(flip_z, Int)
 
 @compiled @gen function is_outlier_proposal(prev, i::Int)
     prev_z::Bool = get_assignment(prev)[:data => i => :z]
-    # TODO introduce shorthand @addr(flip_z(zs[i]), :data => i)
     @addr(data_proposal(i, (prev_z,)), :data) 
-end
-
-@compiled @gen function observe_datum(y::Float64)
-    @addr(dirac(y), :y)
-end
-
-observe_data = plate(observe_datum)
-
-@compiled @gen function observer(ys::Vector{Float64})
-    @addr(observe_data(ys), :data)
 end
 
 Gen.load_generated_functions()
@@ -154,37 +114,35 @@ end
 # run experiment #
 ##################
 
-trace = simulate(model, (xs,))
-datum_trace = simulate(datum, (1., 2., 3., 4., 5.))
-(slope_intercept_selection,) = Gen.select(slope_intercept_selector, (), get_assignment(trace))
-(std_selection,) = Gen.select(std_selector, (), get_assignment(trace))
-slope_intercept_static_sel = StaticAddressSet(slope_intercept_selection)
-std_static_sel = StaticAddressSet(std_selection)
+slope_intercept_selection = let
+    s = DynamicAddressSet()
+    push!(s, :slope)
+    push!(s, :intercept)
+    StaticAddressSet(s)
+end
 
-#println("\n######################################################################\n")
-#println("backprop_trace(model, ...)")
-#println(strip_lineinfo(
-    #Gen.codegen_backprop_trace(typeof(model), typeof(trace), typeof(slope_intercept_static_sel), Nothing)))
-#println("\n######################################################################\n")
-
-#println("\n######################################################################\n")
-#println("backprop_trace(datum, ...)")
-#println(strip_lineinfo(
-    #Gen.codegen_backprop_trace(typeof(datum), typeof(datum_trace),
-           #Gen.EmptyAddressSet, Nothing)))
-#println("\n######################################################################\n")
-
+std_selection = let
+    s = DynamicAddressSet()
+    push!(s, :inlier_std)
+    push!(s, :outlier_std)
+    StaticAddressSet(s)
+end
 
 function do_inference(n)
-    observations = get_assignment(simulate(observer, (ys,)))
-    
+    observations = DynamicAssignment()
+    for (i, y) in enumerate(ys)
+        observations[:data => i => :y] = y
+    end
+
     # initial trace
     (trace, _) = generate(model, (xs,), observations)
+
+    scores = Vector{Float64}(undef, n)
     
     for i=1:n
         for j=1:5
-            trace = map_optimize(model, slope_intercept_static_sel, trace, max_step_size=0.1, min_step_size=1e-10)
-            trace = map_optimize(model, std_static_sel, trace, max_step_size=0.1, min_step_size=1e-10)
+            trace = map_optimize(model, slope_intercept_selection, trace, max_step_size=0.1, min_step_size=1e-10)
+            trace = map_optimize(model, std_selection, trace, max_step_size=0.1, min_step_size=1e-10)
         end
     
         # step on the outliers
@@ -193,6 +151,7 @@ function do_inference(n)
         end
     
         score = get_call_record(trace).score
+        scores[i] = score
     
         # print
         assignment = get_assignment(trace)
@@ -202,7 +161,18 @@ function do_inference(n)
         outlier_std = assignment[:outlier_std]
         println("score: $score, slope: $slope, intercept: $intercept, inlier_std: $inlier_std, outlier_std: $outlier_std")
     end
+    return scores
 end
 
-@time do_inference(100)
-@time do_inference(100)
+iters = 100
+@time do_inference(iters)
+@time scores = do_inference(iters)
+
+using PyPlot
+
+figure(figsize=(4, 2))
+plot(scores)
+ylabel("Log probability density")
+xlabel("Iterations of loop of Lines 12-24")
+tight_layout()
+savefig("scores.png")

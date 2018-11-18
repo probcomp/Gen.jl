@@ -63,7 +63,7 @@ function generate(gen::Markov{T,U}, args, constraints) where {T,U}
     weight = 0.
     score = 0.
     state::T = init_state
-    is_empty = false
+    num_has_choices = 0
     for key=1:len
         if has_internal_node(constraints, key)
             node = get_internal_node(constraints, key)
@@ -78,10 +78,11 @@ function generate(gen::Markov{T,U}, args, constraints) where {T,U}
         states[key] = call.retval
         state = call.retval
         score += call.score
-        is_empty = is_empty && !has_choices(subtrace)
+        num_has_choices += has_choices(subtrace) ? 1 : 0
     end
-    call = CallRecord(score, PersistentVector{T}(states), args)
-    trace = VectorTrace{T,U}(PersistentVector{U}(subtraces), call, is_empty)
+    retvals = PersistentVector{T}(states)
+    trace = VectorTrace{T,U}(PersistentVector{U}(subtraces), retvals, args,
+                             score, len, num_has_choices)
     (trace, weight)
 end
 
@@ -90,25 +91,46 @@ function simulate(gen::Markov{T,U}, args) where {T,U}
     trace
 end
 
+
+###########
+# argdiff #
+###########
+
+struct MarkovCustomArgDiff
+    len_changed::Bool
+    init_changed::Bool
+    params_changed::Bool
+end
+
+
+###########
+# retdiff #
+###########
+
+# TODO implement a retdiff that exposes array structure of return value
+
+struct MarkovRetDiff end
+isnodiff(::MarkovRetDiff) = false
+
 ##################################
 # update, fix_update, and extend #
 ##################################
 
 # TODO fix_update
 
-struct MarkovChange
-    len_changed::Bool
-    init_changed::Bool
-    params_changed::Bool
-end
-
-function extend(gen::Markov{T,U}, args, change::Nothing, trace::VectorTrace{T,U},
+function extend(gen::Markov{T,U}, args, change::NoArgDiff, trace::VectorTrace{T,U},
                 constraints) where {T,U}
-    change = MarkovChange(true, true, true)
+    change = MarkovCustomArgDiff(false, false, false)
     extend(gen, args, change, trace, constraints)
 end
 
-function extend(gen::Markov{T,U}, args, change::MarkovChange, trace::VectorTrace{T,U},
+function extend(gen::Markov{T,U}, args, change::UnknownArgDiff, trace::VectorTrace{T,U},
+                constraints) where {T,U}
+    change = MarkovCustomArgDiff(true, true, true)
+    extend(gen, args, change, trace, constraints)
+end
+
+function extend(gen::Markov{T,U}, args, change::MarkovCustomArgDiff, trace::VectorTrace{T,U},
                 constraints) where {T,U}
     (len, init_state, params) = unpack_args(args)
     check_length(len)
@@ -133,7 +155,7 @@ function extend(gen::Markov{T,U}, args, change::MarkovChange, trace::VectorTrace
     states::PersistentVector{T} = trace.call.retval
     weight = 0.
     score = prev_call.score
-    is_empty = !has_choices(trace)
+    num_has_choices = trace.num_has_choices
     for key in sort(collect(to_visit))
         state = key > 1 ? states[key-1] : init_state
         kernel_args = (key, state, params...)
@@ -142,7 +164,6 @@ function extend(gen::Markov{T,U}, args, change::MarkovChange, trace::VectorTrace
         else
             node = EmptyAssignment()
         end
-        local call::CallRecord{T}
         if key > prev_len
             (subtrace::U, w) = generate(gen.kernel, kernel_args, node)
             call = get_call_record(subtrace)
@@ -151,33 +172,43 @@ function extend(gen::Markov{T,U}, args, change::MarkovChange, trace::VectorTrace
             @assert length(states) == key
             subtraces = push(subtraces, subtrace)
             @assert length(subtraces) == key
+            num_has_choices += has_choices(subtrace) ? 1 : 0
         else
             prev_subtrace::U = subtraces[key]
             prev_score = get_call_record(prev_subtrace).score
-            kernel_args_change = nothing # TODO permit user to pass through change info to kernel
+            kernel_args_change = unknownargdiff # TODO permit user to pass through change info to kernel
             (subtrace, w, retchange) = extend(
                 gen.kernel, kernel_args, kernel_args_change, prev_subtrace, node)
             call = get_call_record(subtrace)
             score += call.score - prev_score
-            @assert length(states) == key
+            #@assert length(states) == key
             subtraces = assoc(subtraces, key, subtrace)
             states = assoc(states, key, call.retval)
+            if has_choices(subtrace) && !has_choices(prev_subtrace)
+                num_has_choices += 1
+            elseif !has_choices(subtrace) && has_choices(prev_subtrace)
+                num_has_choices -= 1
+            end
         end
         weight += w
-        is_empty = is_empty && !has_choices(subtrace)
     end
-    call = CallRecord(score, states, args)
-    trace = VectorTrace(subtraces, call, is_empty)
-    (trace, weight, nothing)
+    trace = VectorTrace{T,U}(subtraces, states, args, score, len, num_has_choices)
+    (trace, weight, MarkovRetDiff())
 end
 
-function update(gen::Markov{T,U}, args, change::Nothing, trace::VectorTrace{T,U},
+function update(gen::Markov{T,U}, args, change::NoArgDiff, trace::VectorTrace{T,U},
                 constraints) where {T,U}
-    change = MarkovChange(true, true, true)
+    change = MarkovCustomArgDiff(false, false, false)
     update(gen, args, change, trace, constraints)
 end
 
-function update(gen::Markov{T,U}, args, change::MarkovChange,
+function update(gen::Markov{T,U}, args, change::UnknownArgDiff, trace::VectorTrace{T,U},
+                constraints) where {T,U}
+    change = MarkovCustomArgDiff(true, true, true)
+    update(gen, args, change, trace, constraints)
+end
+
+function update(gen::Markov{T,U}, args, change::MarkovCustomArgDiff,
                 trace::VectorTrace{T,U}, constraints) where {T,U}
     (len, init_state, params) = unpack_args(args)
     check_length(len)
@@ -192,7 +223,7 @@ function update(gen::Markov{T,U}, args, change::MarkovChange,
     discard = DynamicAssignment()
     if prev_len > len
         for key=len+1:prev_len
-            set_internal_node!(discard, key, get_assignment(get_subtrace(trace, key)))
+            set_internal_node!(discard, key, get_assignment(trace[key]))
         end
         n_delete = prev_len - len
         for i=1:n_delete
@@ -263,11 +294,8 @@ function update(gen::Markov{T,U}, args, change::MarkovChange,
         @assert length(subtraces) == key
         is_empty = is_empty && !has_choices(subtrace)
     end
-
-    call = CallRecord(score, states, args)
-    new_trace = VectorTrace(subtraces, call, is_empty)
-    retchange = nothing # NOTE we could provide some information
-    (new_trace, weight, discard, retchange)
+    new_trace = VectorTrace{T,U}(subtraces, states, args, score, len, num_has_choices)
+    (new_trace, weight, discard, MarkovRetDiff())
 end
 
 ##################
@@ -318,4 +346,4 @@ end
 
 
 export markov
-export MarkovChange
+export MarkovCustomArgDiff

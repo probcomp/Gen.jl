@@ -44,7 +44,7 @@ abstract type Generator{T,U} end
 
 get_return_type(::Generator{T,U}) where {T,U} = T
 get_trace_type(::Generator{T,U}) where {T,U} = U
-get_change_type(::Generator) = :Any
+get_change_type(::Generator) = Any
 
 """
 Return a boolean indicating whether a gradient of the output is accepted.
@@ -96,7 +96,6 @@ end
 """
 function generate end
 
-# TODO will be removed
 """
     trace = simulate(g::Generator, args)
 """
@@ -168,26 +167,32 @@ export backprop_params
 export backprop_trace
 
 
-###########################
-# incremental computation #
-###########################
+##################
+# argdiff values #
+##################
 
-# @change(addr) inside gen functions
+# these are data types that generative functions may accept. the built-in
+# higher order functions accept these types for their argdiff values. user
+# generative functions may or may not accept these.
 
-# Nothing means that either we are in generate/simulate, or that the address
-# not exist in the previous trace
+struct NoArgDiff end
+const noargdiff = NoArgDiff()
+export NoArgDiff, noargdiff
 
-# NoChange indicates the value existed previously, and the value definitely did
-# not change
+struct UnknownArgDiff end
+const unknownargdiff = UnknownArgDiff()
+export UnknownArgDiff, unknownargdiff
 
-# If a distribution returns Some{T} where T is the output type, the value might
-# have changed, and the value is the previous value
 
-# If a Generator returns Some{T} where T is any type, the value may or may not
-# have changed, depending on the semantics of the value inside the Some.
+############
+# retdiffs #
+############
 
-struct NoChange end
+"""
+Every retdiff value must implement this function.
+"""
+function isnodiff end
 
-const ChangeInfo = Union{Nothing,NoChange,Some{T}} where {T}
+isnodiff(retdiff::Bool) = retdiff
 
-export NoChange, ChangeInfo
+export isnodiff

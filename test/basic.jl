@@ -37,8 +37,8 @@ constraints = DynamicAssignment()
 constraints[:a => :branch] = false
 constraints[:b] = b_new
 constraints[:a => :y] = 2.3
-(new_trace, weight, discard, retchange) = update(
-    foo, (), nothing, trace, constraints)
+(new_trace, weight, discard, retdiff) = update(
+    foo, (), unknownargdiff, trace, constraints)
 
 # test discard
 @test get_leaf_node(discard, :a => :branch) == true
@@ -70,8 +70,8 @@ expected_weight = expected_new_score - prev_score
 @test isapprox(expected_new_score, get_call_record(new_trace).score)
 @test isapprox(expected_weight, weight)
 
-# test retchange (should be nothing by default)
-@test retchange === nothing
+# test retdiff
+@test retdiff === GenFunctionDefaultRetDiff()
 
 end
 
@@ -95,8 +95,8 @@ b_new = 0.123
 constraints = DynamicAssignment()
 constraints[:a => :branch] = false
 constraints[:b] = b_new
-(new_trace, weight, discard, retchange) = fix_update(
-    foo, (), nothing, trace, constraints)
+(new_trace, weight, discard, retdiff) = fix_update(
+    foo, (), unknownargdiff, trace, constraints)
 
 # test discard
 @test get_leaf_node(discard, :a => :branch) == true
@@ -122,8 +122,8 @@ expected_weight = logpdf(bernoulli, false, 0.4) - logpdf(bernoulli, true, 0.4) +
 @test isapprox(expected_new_score, get_call_record(new_trace).score)
 @test isapprox(expected_weight, weight)
 
-# test retchange (should be nothing by default)
-@test retchange === nothing
+# test retdiff (should be nothing by default)
+@test retdiff === GenFunctionDefaultRetDiff()
 
 end
 

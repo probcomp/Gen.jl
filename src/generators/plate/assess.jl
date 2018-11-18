@@ -1,57 +1,36 @@
-mutable struct PlateAssessState{U,V}
+mutable struct PlateAssessState{T,U}
     score::Float64
-    is_empty::Bool
-    args::U
-    nodes::V
+    subtraces::Vector{U}
+    retvals::Vector{T}
+    num_has_choices::Bool
 end
 
-function assess_kernel!(gen::Plate{T,U}, key::Int, state::PlateAssessState) where {T,U}
-    kernel_args = get_args_for_key(state.args, key)
-    node = state.nodes[key]
-    subtrace::U = assess(gen.kernel, kernel_args, node)
-    state.is_empty = state.is_empty && !has_choices(subtrace)
-    call::CallRecord{T} = get_call_record(subtrace)
+function process_new!(gen::Plate{T,U}, args::Tuple,
+                      constraints::Dict{Int,Any}, key::Int,
+                      state::PlateAssessState{T,U}) where {T,U}
+    local subtrace::U
+    kernel_args = get_args_for_key(args, key)
+    if haskey(constraints, key)
+        subconstraints = constraints[key]
+        subtrace = assess(gen.kernel, kernel_args, subconstraints)
+    else
+        subtrace = assess(gen.kernel, kernel_args, EmptyAssignment())
+    end
+    state.num_has_choices += has_choices(subtrace) ? 1 : 0
+    call = get_call_record(subtrace)
     state.score += call.score
-    (subtrace, call.retval::T)
+    state.subtraces[key] = subtrace
+    state.retvals[key] = call.retval
 end
 
-function check_constraint_key!(key, len::Int)
-    error("Constraints under key $key not part of trace")
-end
-
-function check_constraint_key!(key::Int, len::Int)
-    if key < 1 || key > len
-        error("Constraints under key $key not part of trace")
-    end
-end
-
-function assess(gen::Plate{T,U}, args, constraints) where {T,U}
+function assess(gen::Plate{T,U}, args::Tuple, constraints::Assignment) where {T,U}
     len = length(args[1])
-    
-    # collect constraints, indexed by key
-    nodes = Vector{Any}(len)
+    nodes = collect_plate_constraints(constraints, len)
+    state = PlateAssessState{T,U}(0., Vector{U}(undef,len), Vector{T}(undef,len), 0)
     for key=1:len
-        nodes[key] = get_internal_node(constraints, key)
+        process_new!(gen, args, nodes, key, state)
     end
-
-    # check no other constraints.. (can be skipped if we're trying to be less strict)
-    for (key, _) in get_internal_nodes(constraints)
-        check_constraint!(key, len)
-    end
-    for (key, _) in get_leaf_nodes(constraints)
-        check_constraint!(key, len)
-    end
-
-    # collect initial state
-    state = PlateAssessState(0., true, args, nodes)
-    subtraces = Vector{U}(len)
-    retvals = Vector{T}(len)
-    
-    # visit each application and assess it
-    for key=1:len
-        (subtraces[key], retvals[key]) = assess_kernel!(gen, key, state)
-    end
-
-    call = CallRecord{PersistentVector{T}}(state.score, PersistentVector{T}(retvals), args, UnknownChange())
-    VectorTrace{T,U}(PersistentVector{U}(subtraces), call, state.is_empty)
+    VectorTrace{T,U}(
+        PersistentVector{U}(subtraces), PersistentVector{T}(retvals),
+        args, len, state.num_has_choices)
 end

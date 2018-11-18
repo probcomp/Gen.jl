@@ -38,8 +38,8 @@
     constraints[:branch] = false
     constraints[:y] = y
     constraints[:v => :b] = b
-    (new_trace, weight, discard, retchange) = update(
-        foo, (), nothing, trace, constraints)
+    (new_trace, weight, discard, retdiff) = update(
+        foo, (), unknownargdiff, trace, constraints)
 
     # test discard
     @test get_leaf_node(discard, :branch) == true
@@ -69,8 +69,8 @@
     @test isapprox(expected_new_score, get_call_record(new_trace).score)
     @test isapprox(expected_weight, weight)
 
-    # test retchange (should be nothing by default)
-    @test retchange === nothing
+    # test retdiff
+    @test retdiff === GenFunctionDefaultRetDiff()
 end
 
 
@@ -114,8 +114,8 @@ end
     constraints = DynamicAssignment()
     constraints[:branch] = false
     constraints[:z] = z_new
-    (new_trace, weight, discard, retchange) = fix_update(
-        foo, (), nothing, trace, constraints)
+    (new_trace, weight, discard, retdiff) = fix_update(
+        foo, (), unknownargdiff, trace, constraints)
 
     # test discard
     @test get_leaf_node(discard, :branch) == true
@@ -146,8 +146,8 @@ end
     @test isapprox(expected_new_score, get_call_record(new_trace).score)
     @test isapprox(expected_weight, weight)
 
-    # test retchange (should be nothing by default)
-    @test retchange === nothing
+    # test retdiff
+    @test retdiff === GenFunctionDefaultRetDiff()
 end
 
 
@@ -194,7 +194,7 @@ end
         # change the argument so that the weights can be nonzer
         prev_mu = mu
         mu = rand()
-        (trace, weight, retchange) = regenerate(foo, (mu,), nothing, trace, selection)
+        (trace, weight, retdiff) = regenerate(foo, (mu,), unknownargdiff, trace, selection)
         assignment = get_assignment(trace)
 
         # test score
@@ -231,7 +231,7 @@ end
         @test isapprox(expected_weight, weight)
 
         # test retchange (should be nothing by default)
-        @test retchange === nothing
+        @test retdiff === GenFunctionDefaultRetDiff()
     end
 
 end

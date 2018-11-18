@@ -1,60 +1,39 @@
-mutable struct PlateGenerateState{U,V}
+mutable struct PlateGenerateState{T,U}
     score::Float64
     weight::Float64
-    is_empty::Bool
-    args::U
-    nodes::V
+    subtraces::Vector{U}
+    retvals::Vector{T}
+    num_has_choices::Int
 end
 
-
-function generate_new_trace!(gen::Plate{T,U}, key::Int, state::PlateGenerateState) where {T,U}
-    kernel_args = get_args_for_key(state.args, key)
+function process_new!(gen::Plate{T,U}, args::Tuple,
+                      constraints::Dict{Int,Any}, key::Int,
+                      state::PlateGenerateState{T,U}) where {T,U}
     local subtrace::U
-    if haskey(state.nodes, key)
-        node = state.nodes[key]
-        (subtrace, kernel_weight) = generate(gen.kernel, kernel_args, node)
+    kernel_args = get_args_for_key(args, key)
+    if haskey(constraints, key)
+        subconstraints = constraints[key]
+        (subtrace, kernel_weight) = generate(gen.kernel, kernel_args, subconstraints)
         state.weight += kernel_weight
     else
         subtrace = simulate(gen.kernel, kernel_args)
     end
-    state.is_empty = state.is_empty && !has_choices(subtrace)
-    call::CallRecord = get_call_record(subtrace)
+    state.num_has_choices += (has_choices(subtrace) ? 1 : 0)
+    call = get_call_record(subtrace)
     state.score += call.score
-    (subtrace, call.retval::T)
+    state.subtraces[key] = subtrace
+    state.retvals[key] = call.retval
 end
 
-function generate_process_constraints!(nodes, key::Int, node, len)
-    if key <= len
-        nodes[key] = node
-    else
-        error("Constraints under key $key not part of trace")
-    end
-end
-
-function generate_process_constraints!(nodes, key, node, len)
-    error("Constraints under key $key not part of trace")
-end
-
-function generate(gen::Plate{T,U}, args, constraints) where {T,U}
+function generate(gen::Plate{T,U}, args::Tuple, constraints::Assignment) where {T,U}
     len = length(args[1])
-    
-    # collect constraints, indexed by key, and error if any are not in the trace
-    nodes = Dict{Int, Any}()
-    for (key, node) in get_internal_nodes(constraints)
-        generate_process_constraints!(nodes, key, node, len)
-    end
-
-    # collect initial state
-    state = PlateGenerateState(0., 0., true, args, nodes)
-    subtraces = Vector{U}(undef, len)
-    retvals = Vector{T}(undef, len)
-    
-    # visit each new application and run generate (or simulate) on it
+    nodes = collect_plate_constraints(constraints, len)
+    state = PlateGenerateState{T,U}(0., 0., Vector{U}(undef,len), Vector{T}(undef,len), 0)
     for key=1:len
-        (subtraces[key], retvals[key]) = generate_new_trace!(gen, key, state)
+        process_new!(gen, args, nodes, key, state)
     end
-
-    call = CallRecord(state.score, PersistentVector{T}(retvals), args)
-    trace = VectorTrace{T,U}(PersistentVector{U}(subtraces), call, state.is_empty)
+    trace = VectorTrace{T,U}(
+        PersistentVector{U}(state.subtraces), PersistentVector{T}(state.retvals),
+        args, state.score, len, state.num_has_choices)
     (trace, state.weight)
 end

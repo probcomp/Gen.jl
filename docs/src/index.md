@@ -210,29 +210,63 @@ print(assignment)
 
 ## Compiled Generative Functions
 
-## Change Propagation
+## Incremental Computation
 
-Getting good asymptotic scaling for iterative local search algorithms like MCMC or MAP optimization relies in the ability to perform incremental computation when evaluating a proposed change to the random choices in a trace.
-Specifically, when incrementally adjusting a trace inside the `update`, `fix_update`, or `extend` methods, a probabilistic module can take advantage of knowledge of the change made to the arguments of the module (if there was any change) as well as knowledge of which addresses are constrained (i.e. changed) to avoid unecessary computation, and to compute detailed information about the change to its own return value, if any.
+Getting good asymptotic scaling for iterative local search algorithms like MCMC or MAP optimization relies on the ability to update a trace efficiently, when a small number of random choice(s) are changed, or when there is a small change to the arguments of the function.
 
-First, generative function can query the *change status* for an address, using the syntax below, where `:foo` is an address:
+To support this, generative functions use *argdiffs* and *retdiffs*, which describe the change made to the arguments of the generative function, relative to the arguments in the previous trace, and the change to the return value of a generative function, relative to the return value in the previous trace.
+The update generative function API methods `update`, `fix_update`, and `extend` accept the argdiff value, alongside the new arguments to the function, the previous trace, and other parameters; and return the new trace and the retdiff value.
+
+### Argdiffs
+
+An argument difference value, or *argdiff*, is associated with a pair of argument tuples `args::Tuple` and `new_args::Tuple`.
+The update methods for a generative function accept different types of argdiff values, that depend on the generative function.
+Two singleton data types are provided for expressing that there is no difference to the argument (`noargdiff::NoArgDiff`) and that there is an unknown difference in the arguments (`unknownargdiff::UnknownArgDiff`).
+Generative functions may or may not accept these types as argdiffs, depending on the generative function.
+
+### Retdiffs
+
+A return value difference value, or *retdiff*, is associated with a pair of traces.
+The update methods for a generative function return different types of retdiff values, depending on the generative function.
+The only requirement placed on retdiff values is that they implement the `isnodiff` method, which takes a retdiff value and returns `true` if there was no change in the return value, and otherwise returns false.
+
+### Custom incremental computation in embedded modeling DSL
+
+For generative functions expressed in the embedded modeling DSL, retdiff values are computed by user *diff code* that is placed inline in the body of the generative function definition.
+Diff code consists of Julia statements that can depend on non-diff code, but non-diff code cannot depend on the diff code.
+To distinguish *diff code*  from regular code in the generative function, the `@diff` macro is placed in front of the statement, e.g.:
 ```julia
-    change = @change(:foo)
+x = y + 1
+@diff foo = 2
+y = x
 ```
-The value of a `@change` expression has one of the following types:
+Diff code is only executed during update methods such as `update`, `fix_update`, or `extend` methods.
+In other methods that are not associated with an update to a trace (e.g. `generate`, `simulate`, `assess`), the diff code is removed from the body of the generative function.
+Therefore, the body of the generative function with the diff code removed must still be a valid generative function.
 
-- `Nothing`: No information is available about the possible change. This value is also returned when the generative function is evaluated in a context in which there is no previous trace (e.g. the `generate` API method).
-
-- `NoChange`: This indicates that there was no change.
-
-- `Some{T}`: For distribution call addresses, `T` is the output type of the distribution, and `something(change)` will retrieve the value of the address in the previous trace. For module call addresses, `T` is an arbitrary type determined by the callee.
-
-In addition to querying how an address may have changed, a generative function can also query how its own arguments may have changed, using the `@argschange()` macro.
-It is up to the generative function to determine the set of acceptable `@argschange()` values, provided that `NoChange` and `Nothing` are accepted.
-
-Finally, a generative function may return information about the change made to its return value using an `@retchange(change)` expression, where `change` is a value of type `Union{Nothing,NoChange,Some{T}} where {T}`.
-A value of `NoChange` indicates that the return value did not change, a value of `Nothing` indicates no information is available (this is the default if `@retchange` is not called in the function).
-
+Unlike non-diff code, diff code has access to the argdiff value (using `@argdiff()`), and may invoke `@retdiff(<value>)`, which sets the retdiff value.
+Diff code also has access to information about the change to the values of random choices and the change to the return values of calls to other generative functions.
+Changes to the return vlaues of random choices are queried using `@choicediff(<addr>)`, which must be invoked after the `@addr` expression for that address, and returns one of the following values:
+```@docs
+NewChoiceDiff
+NoChoiceDiff
+PrevChoiceDiff
+```
+Diff code also has access to the retdiff values associated with calls it makes to generative functions, using `@calldiff(<addr>)`, which returns a value of one of the following types:
+```@docs
+NewCallDiff
+NoCalldiff
+UnknownCallDiff
+CustomCallDiff
+```
+Diff code can also pass argdiff values to generative functions that it calls, using the third argument in an `@addr` expression, which is always interpreted as diff code (depsite the absence of a `@diff` keyword).
+```julia
+@diff my_argdiff = @argdiff()
+@diff argdiff_for_foo = ..
+@addr(foo(arg1, arg2), addr, argdiff_for_foo)
+@diff retdiff_from_foo = @calldiff(addr)
+@diff @retdiff(..)
+```
 
 ## Higher-Order Probabilistic Modules
 
