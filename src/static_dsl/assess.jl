@@ -40,7 +40,7 @@ function process!(ir::BasicBlockIR, state::BasicBlockAssessState, node::AddrDist
     end
 end
 
-function process!(ir::BasicBlockIR, state::BasicBlockAssessState, node::AddrGeneratorNode)
+function process!(ir::BasicBlockIR, state::BasicBlockAssessState, node::AddrGenerativeFunctionNode)
     trace, score = (state.trace, state.score)
     addr = node.address
     gen = QuoteNode(node.gen)
@@ -61,7 +61,7 @@ function process!(ir::BasicBlockIR, state::BasicBlockAssessState, node::AddrGene
     end
 end
 
-function codegen_assess(gen::Type{T}, args, constraints) where {T <: BasicGenFunction}
+function codegen_assess(gen::Type{T}, args, constraints) where {T <: StaticDSLFunction}
     trace_type = get_trace_type(gen)
     schema = get_address_schema(constraints) # TODO use schema to check there are no extra addrs
     ir = get_ir(gen)
@@ -112,7 +112,7 @@ end
 
 
 push!(Gen.generated_functions, quote
-@generated function Gen.assess(gen::Gen.BasicGenFunction, args, constraints)
+@generated function Gen.assess(gen::Gen.StaticDSLFunction, args, constraints)
     schema = get_address_schema(constraints)
     if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
         # try to convert it to a static choice trie

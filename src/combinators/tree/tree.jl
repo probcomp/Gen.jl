@@ -95,8 +95,8 @@ end
 ##################
 
 # TODO when lightweight Gen functions properly declare their argument and return types, use:
-# production_kern::Generator{Tuple{V,Vector{U}},S}
-# aggregation_kern::Generator{W,T}
+# production_kern::GenerativeFunction{Tuple{V,Vector{U}},S}
+# aggregation_kern::GenerativeFunction{W,T}
 
 """"
     Tree(production_kernel, aggregation_kernel, max_branch,
@@ -110,14 +110,14 @@ Type parameters of `Tree`: `S, T, U, V, W, DU, DV, DW, X, Y`
 - Tuple{V, Vector{U}} <: X
 - W <: Y
 
-production kernel is a `Generator{X,S}`
+production kernel is a `GenerativeFunction{X,S}`
 - input type: `U`
 - argdiff type: `Union{NoArgDiff,DU}`
 - trace type: `S`
 - return type: `Tuple{V,Vector{U}}`
 - retdiff type: `TreeProductionRetDiff{DV,DU}`
 
-aggregation kernel is a `Generator{Y,T}`
+aggregation kernel is a `GenerativeFunction{Y,T}`
 - input type: `Tuple{V,Vector{W}}`
 - argdiff: `TreeAggregationRetDiff{Union{NoArgDiff,DV},DW}`
 - trace type: `T`
@@ -127,13 +127,13 @@ aggregation kernel is a `Generator{Y,T}`
 tree argdiff type: `Union{NoArgDiff,DU}`
 tree retdiff type: `Union{TreeRetNoDiff,DW}`
 """
-struct Tree{S,T,U,V,W,X,Y,DV,DU,DW} <: Generator{W,TreeTrace{S,T,U,V,W}}
-    production_kern::Generator{X,S}
-    aggregation_kern::Generator{Y,T}
+struct Tree{S,T,U,V,W,X,Y,DV,DU,DW} <: GenerativeFunction{W,TreeTrace{S,T,U,V,W}}
+    production_kern::GenerativeFunction{X,S}
+    aggregation_kern::GenerativeFunction{Y,T}
     max_branch::Int
 end
 
-function Tree(production_kernel::Generator{X,S}, aggregation_kernel::Generator{Y,T},
+function Tree(production_kernel::GenerativeFunction{X,S}, aggregation_kernel::GenerativeFunction{Y,T},
               max_branch::Int, ::Type{U}, ::Type{V}, ::Type{W},
               ::Type{DV}, ::Type{DU}, ::Type{DW}) where {S,T,U,V,W,X,Y,DV,DU,DW}
     Tree{S,T,U,V,W,X,Y,DV,DU,DW}(production_kernel, aggregation_kernel, max_branch)

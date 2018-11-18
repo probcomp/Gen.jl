@@ -3,11 +3,11 @@
 ###################
 
 """
-Generator that makes many independent application of a kernel generator,
+GenerativeFunction that makes many independent application of a kernel generator,
 similar to 'map'.  The arguments are a tuple of vectors, each of of length N,
 where N is the nubmer of applications of the kernel.
 """
-struct PlateOfDist{T} <: Generator{PersistentVector{T},VectorDistTrace{T}}
+struct PlateOfDist{T} <: GenerativeFunction{PersistentVector{T},VectorDistTrace{T}}
     kernel::Distribution{T}
 end
 

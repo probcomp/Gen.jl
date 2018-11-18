@@ -75,7 +75,7 @@ function addr(state::GFBackpropTraceState, dist::Distribution{T}, args, addr) wh
 end
 
 struct BackpropTraceRecord
-    generator::Generator
+    generator::GenerativeFunction
     subtrace::Any
     selection::AddressSet
     value_trie::DynamicAssignment
@@ -83,7 +83,7 @@ struct BackpropTraceRecord
     addr::Any
 end
 
-function addr(state::GFBackpropTraceState, gen::Generator{T}, args, addr) where {T}
+function addr(state::GFBackpropTraceState, gen::GenerativeFunction{T}, args, addr) where {T}
     visit!(state.visitor, addr)
     if has_leaf_node(state.selection, addr)
         error("Cannot select a whole subtrace, tried to select $addr")
@@ -113,7 +113,7 @@ function addr(state::GFBackpropTraceState, gen::Generator{T}, args, addr) where 
     retval_maybe_tracked 
 end
 
-function backprop_trace(gf::GenFunction, trace::GFTrace, selection::AddressSet, retval_grad)
+function backprop_trace(gf::DynamicDSLFunction, trace::GFTrace, selection::AddressSet, retval_grad)
     tape = InstructionTape()
     state = GFBackpropTraceState(trace, selection, gf.params, tape)
     call = get_call_record(trace)

@@ -15,7 +15,7 @@ export logsumexp
 # MCMC #
 ########
 
-function mh(model::Generator, proposal::Generator, proposal_args_rest::Tuple,
+function mh(model::GenerativeFunction, proposal::GenerativeFunction, proposal_args_rest::Tuple,
             trace, correction=(prev_trace, new_trace) -> 0.; verbose=false)
     model_args = get_call_record(trace).args
     proposal_args_forward = (trace, proposal_args_rest...,)
@@ -40,7 +40,7 @@ function mh(model::Generator, proposal::Generator, proposal_args_rest::Tuple,
     end
 end
 
-function mh(model::Generator, selection::AddressSet, trace; verbose=false)
+function mh(model::GenerativeFunction, selection::AddressSet, trace; verbose=false)
     model_args = get_call_record(trace).args
     (new_trace, weight) = regenerate(model, model_args, noargdiff, trace, selection)
     println(weight)
@@ -55,7 +55,7 @@ function mh(model::Generator, selection::AddressSet, trace; verbose=false)
     end
 end
 
-#function mh(model::Generator, selector::SelectionFunction, selector_args::Tuple, trace)
+#function mh(model::GenerativeFunction, selector::SelectionFunction, selector_args::Tuple, trace)
     #(selection, _) = select(selector, selector_args, get_assignment(trace))
     #model_args = get_call_record(trace).args
     #(new_trace, weight) = regenerate(model, model_args, noargdiff, trace, selection)
@@ -105,7 +105,7 @@ function assess_momenta(momenta, mass)
     logprob
 end
 
-function hmc(model::Generator{T,U}, selection::AddressSet, trace::U;
+function hmc(model::GenerativeFunction{T,U}, selection::AddressSet, trace::U;
              mass=0.1, L=10, eps=0.1) where {T,U}
     prev_model_score = get_call_record(trace).score
     model_args = get_call_record(trace).args
@@ -152,7 +152,7 @@ function hmc(model::Generator{T,U}, selection::AddressSet, trace::U;
     end
 end
 
-function mala(model::Generator{T,U}, selection::AddressSet, trace::U, tau) where {T,U}
+function mala(model::GenerativeFunction{T,U}, selection::AddressSet, trace::U, tau) where {T,U}
     model_args = get_call_record(trace).args
     std = sqrt(2 * tau)
 
@@ -198,7 +198,7 @@ export mh, rjmcmc, hmc, mala
 # importance sampling #
 #######################
 
-function importance_sampling(model::Generator{T,U}, model_args::Tuple,
+function importance_sampling(model::GenerativeFunction{T,U}, model_args::Tuple,
                              observations::Assignment,
                              num_samples::Int) where {T,U}
     traces = Vector{U}(undef, num_samples)
@@ -212,9 +212,9 @@ function importance_sampling(model::Generator{T,U}, model_args::Tuple,
     return (traces, log_normalized_weights, log_ml_estimate)
 end
 
-function importance_sampling(model::Generator{T,U}, model_args::Tuple,
+function importance_sampling(model::GenerativeFunction{T,U}, model_args::Tuple,
                              observations::Assignment,
-                             proposal::Generator, proposal_args::Tuple,
+                             proposal::GenerativeFunction, proposal_args::Tuple,
                              num_samples::Int) where {T,U}
     traces = Vector{U}(undef, num_samples)
     log_weights = Vector{Float64}(undef, num_samples)
@@ -232,7 +232,7 @@ function importance_sampling(model::Generator{T,U}, model_args::Tuple,
     return (traces, log_normalized_weights, log_ml_estimate)
 end
 
-function importance_resampling(model::Generator{T,U}, model_args::Tuple,
+function importance_resampling(model::GenerativeFunction{T,U}, model_args::Tuple,
                                observations::Assignment,
                                num_samples::Int; verbose=false)  where {T,U,V,W}
     (model_trace::U, log_weight) = generate(model, model_args, observations)
@@ -249,9 +249,9 @@ function importance_resampling(model::Generator{T,U}, model_args::Tuple,
     return (model_trace::U, log_ml_estimate::Float64)
 end
 
-function importance_resampling(model::Generator{T,U}, model_args::Tuple,
+function importance_resampling(model::GenerativeFunction{T,U}, model_args::Tuple,
                                observations::Assignment,
-                               proposal::Generator{V,W}, proposal_args::Tuple,
+                               proposal::GenerativeFunction{V,W}, proposal_args::Tuple,
                                num_samples::Int; verbose=false)  where {T,U,V,W}
     proposal_trace::W = simulate(proposal, proposal_args)
     proposal_score = get_call_record(proposal_trace).score
@@ -304,7 +304,7 @@ the first argument to model should be an integer, starting from 1, that indicate
 get_observations is a function of the step that returns a choice trie
 rejuvenation_move is a function of the step and the previous trace, that returns a new trace
 """
-function particle_filter(model::Generator{T,U}, model_args_rest::Tuple, num_steps::Int,
+function particle_filter(model::GenerativeFunction{T,U}, model_args_rest::Tuple, num_steps::Int,
                          num_particles::Int, ess_threshold::Real,
                          get_observations::Function,
                          rejuvenation_move::Function=(t,trace) -> trace;
@@ -366,11 +366,11 @@ function particle_filter(model::Generator{T,U}, model_args_rest::Tuple, num_step
     return (traces, log_normalized_weights, log_ml_estimate)
 end
 
-function particle_filter(model::Generator{T,U}, model_args_rest::Tuple,
+function particle_filter(model::GenerativeFunction{T,U}, model_args_rest::Tuple,
                          num_steps::Int, num_particles::Int, ess_threshold::Real,
                          get_init_observations_and_proposal_args::Function,
                          get_step_observations_and_proposal_args::Function,
-                         init_proposal::Generator, step_proposal::Generator;
+                         init_proposal::GenerativeFunction, step_proposal::GenerativeFunction;
                          verbose::Bool=false) where {T,U}
 
     log_unnormalized_weights = Vector{Float64}(undef, num_particles)
@@ -445,7 +445,7 @@ export particle_filter
 """
 Backtracking gradient ascent for MAP inference on selected real-valued choices
 """
-function map_optimize(model::Generator, selection::AddressSet,
+function map_optimize(model::GenerativeFunction, selection::AddressSet,
                       trace; max_step_size=0.1, tau=0.5, min_step_size=1e-16, verbose=false)
     model_args = get_call_record(trace).args
     (_, values, gradient) = backprop_trace(model, trace, selection, nothing)
@@ -493,8 +493,8 @@ struct SGDTrainConf
     batch_callback::Function
 end
 
-function sgd_train_batch(teacher::Generator{T,U}, teacher_args::Tuple,
-                         batch_student::Generator{V,W}, conf::SGDTrainConf,
+function sgd_train_batch(teacher::GenerativeFunction{T,U}, teacher_args::Tuple,
+                         batch_student::GenerativeFunction{V,W}, conf::SGDTrainConf,
                          verbose=false) where {T,U,V,W}
 
     for batch=1:conf.num_batch

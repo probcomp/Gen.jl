@@ -25,7 +25,7 @@ function addr(state::GFUngenerateState, dist::Distribution{T}, args, addr) where
     retval
 end
 
-function addr(state::GFUngenerateState, gen::Generator{T}, args, addr) where {T}
+function addr(state::GFUngenerateState, gen::GenerativeFunction{T}, args, addr) where {T}
     visit!(state, addr)
     subtrace = get_subtrace(state.trace, addr)
     lightweight_check_no_leaf_node(state.constraints, addr)
@@ -39,11 +39,11 @@ function addr(state::GFUngenerateState, gen::Generator{T}, args, addr) where {T}
     call.retval::T
 end
 
-function splice(state::GFUngenerateState, gf::GenFunction, args::Tuple)
+function splice(state::GFUngenerateState, gf::DynamicDSLFunction, args::Tuple)
     exec(gf, state, args)
 end
 
-function ungenerate(gf::GenFunction, trace::GFTrace, constraints)
+function ungenerate(gf::DynamicDSLFunction, trace::GFTrace, constraints)
     state = GFUngenerateState(trace, constraints, gf.params)
     exec(gf, state, args)
     state.weight

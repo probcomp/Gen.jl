@@ -1,6 +1,6 @@
 include("trace.jl")
 
-struct GenFunction <: Generator{Any,GFTrace}
+struct DynamicDSLFunction <: GenerativeFunction{Any,GFTrace}
     params_grad::Dict{Symbol,Any}
     params::Dict{Symbol,Any}
     arg_types::Vector{Type}
@@ -10,34 +10,34 @@ struct GenFunction <: Generator{Any,GFTrace}
     accepts_output_grad::Bool
 end
 
-function GenFunction(arg_types::Vector{Type}, julia_function::Function,
+function DynamicDSLFunction(arg_types::Vector{Type}, julia_function::Function,
                      update_julia_function::Function,
                      has_argument_grads, accepts_output_grad::Bool)
     params_grad = Dict{Symbol,Any}()
     params = Dict{Symbol,Any}()
-    GenFunction(params_grad, params, arg_types,
+    DynamicDSLFunction(params_grad, params, arg_types,
                 julia_function, update_julia_function,
                 has_argument_grads, accepts_output_grad)
 end
 
-function (g::GenFunction)(args...)
+function (g::DynamicDSLFunction)(args...)
     trace = simulate(g, args)
     call = get_call_record(trace)
     call.retval
 end
 
 
-exec(gf::GenFunction, state, args::Tuple) = gf.julia_function(state, args...)
-exec_for_update(gf::GenFunction, state, args::Tuple) = gf.update_julia_function(state, args...)
+exec(gf::DynamicDSLFunction, state, args::Tuple) = gf.julia_function(state, args...)
+exec_for_update(gf::DynamicDSLFunction, state, args::Tuple) = gf.update_julia_function(state, args...)
 
-get_static_argument_types(gen::GenFunction) = gen.arg_types
+get_static_argument_types(gen::DynamicDSLFunction) = gen.arg_types
 
 # whether there is a gradient of score with respect to each argument
 # it returns 'nothing' for those arguemnts that don't have a derivatice
-has_argument_grads(gen::GenFunction) = gen.has_argument_grads
+has_argument_grads(gen::DynamicDSLFunction) = gen.has_argument_grads
 
 # if it is true, then it expects a value, otherwise it expects 'nothing'
-accepts_output_grad(gen::GenFunction) = gen.accepts_output_grad
+accepts_output_grad(gen::DynamicDSLFunction) = gen.accepts_output_grad
 
 const self = gensym("self")
 
@@ -184,7 +184,7 @@ function parse_gen_function(ast, ad_annotation::Bool)
     Expr(:block,
         Expr(:(=), 
             esc(generator_name),
-            Expr(:call, :GenFunction,
+            Expr(:call, :DynamicDSLFunction,
                 quote Type[$(arg_types...)] end,
                 julia_fn_defn, update_julia_fn_defn,
                 has_argument_grads, ad_annotation)))
@@ -215,23 +215,23 @@ macro param(expr_or_symbol)
     Expr(:(=), esc(name), Expr(:call, :read_param, esc(state), QuoteNode(name)))
 end
 
-function set_param!(gf::GenFunction, name::Symbol, value)
+function set_param!(gf::DynamicDSLFunction, name::Symbol, value)
     gf.params[name] = value
 end
 
-function get_param(gf::GenFunction, name::Symbol)
+function get_param(gf::DynamicDSLFunction, name::Symbol)
     gf.params[name]
 end
 
-function get_param_grad(gf::GenFunction, name::Symbol)
+function get_param_grad(gf::DynamicDSLFunction, name::Symbol)
     gf.params_grad[name]
 end
 
-function zero_param_grad!(gf::GenFunction, name::Symbol)
+function zero_param_grad!(gf::DynamicDSLFunction, name::Symbol)
     gf.params_grad[name] = zero(gf.params[name])
 end
 
-function init_param!(gf::GenFunction, name::Symbol, value)
+function init_param!(gf::DynamicDSLFunction, name::Symbol, value)
     set_param!(gf, name, value)
     zero_param_grad!(gf, name)
 end

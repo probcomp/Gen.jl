@@ -59,13 +59,13 @@ end
 
 
 """
-Generator that applies another generator at a specific, dynamically determined, address.
+GenerativeFunction that applies another generator at a specific, dynamically determined, address.
 """
-struct AtDynamic{T,U,K} <: Generator{T, AtDynamicTrace{T,U,K}}
-    kernel::Generator{T,U}
+struct AtDynamic{T,U,K} <: GenerativeFunction{T, AtDynamicTrace{T,U,K}}
+    kernel::GenerativeFunction{T,U}
 end
 
-function at_dynamic(kernel::Generator{T,U}, ::Type{K}) where {T,U,K}
+function at_dynamic(kernel::GenerativeFunction{T,U}, ::Type{K}) where {T,U,K}
     AtDynamic{T,U,K}(kernel)
 end
 

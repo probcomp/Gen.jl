@@ -58,7 +58,7 @@ function process!(ir::BasicBlockIR, state::BasicBlockGenerateState, node::AddrDi
     end
 end
 
-function process!(ir::BasicBlockIR, state::BasicBlockGenerateState, node::AddrGeneratorNode)
+function process!(ir::BasicBlockIR, state::BasicBlockGenerateState, node::AddrGenerativeFunctionNode)
     trace, score, weight, schema = (state.trace, state.score, state.weight, state.schema)
     addr = node.address
     gen = QuoteNode(node.gen)
@@ -94,7 +94,7 @@ function process!(ir::BasicBlockIR, state::BasicBlockGenerateState, node::AddrGe
     end
 end
 
-function codegen_generate(gen::Type{T}, args, constraints) where {T <: BasicGenFunction}
+function codegen_generate(gen::Type{T}, args, constraints) where {T <: StaticDSLFunction}
     trace_type = get_trace_type(gen)
     schema = get_address_schema(constraints)
     if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
@@ -144,7 +144,7 @@ function codegen_generate(gen::Type{T}, args, constraints) where {T <: BasicGenF
 end
 
 push!(Gen.generated_functions, quote
-@generated function Gen.generate(gen::Gen.BasicGenFunction, args, constraints)
+@generated function Gen.generate(gen::Gen.StaticDSLFunction, args, constraints)
     Gen.codegen_generate(gen, args, constraints)
 end
 end)

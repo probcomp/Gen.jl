@@ -1,3 +1,11 @@
+const generated_functions = []
+
+function load_generated_functions()
+    for function_defn in generated_functions
+        Core.eval(Main, function_defn)
+    end
+end
+
 #######################
 # parsing AST into IR #
 #######################
@@ -329,7 +337,7 @@ function make_assignment_methods(trace_type, addr_dist_nodes, addr_gen_nodes)
 
     end
 
-    for node::AddrGeneratorNode in addr_gen_nodes
+    for node::AddrGenerativeFunctionNode in addr_gen_nodes
         addr = node.address
 
         ## static_has_internal_node ##
@@ -416,7 +424,7 @@ end
 # basic block generator #
 #########################
 
-abstract type BasicGenFunction{T,U} <: Generator{T,U} end
+abstract type StaticDSLFunction{T,U} <: GenerativeFunction{T,U} end
 
 # a method on the generator type that is executed during expansion of
 # generator API generated functions
@@ -424,10 +432,10 @@ function get_ir end
 function get_grad_fn end
 
 function generate_generator_type(ir::BasicBlockIR, trace_type::Symbol, name::Symbol, node_to_gradient)
-    generator_type = gensym("BasicBlockGenerator_$name")
+    generator_type = gensym("BasicBlockGenerativeFunction_$name")
     retval_type = ir.output_node === nothing ? :Nothing : ir.output_node.typ
     defn = esc(quote
-        struct $generator_type <: Gen.BasicGenFunction{$retval_type, $trace_type}
+        struct $generator_type <: Gen.StaticDSLFunction{$retval_type, $trace_type}
             params_grad::Dict{Symbol,Any}
             params::Dict{Symbol,Any}
         end
@@ -563,23 +571,23 @@ end
 # for V1, just during simulate and assess, the parameters will be read from
 # dictionaries
 
-function set_param!(gf::BasicGenFunction, name::Symbol, value)
+function set_param!(gf::StaticDSLFunction, name::Symbol, value)
     gf.params[name] = value
 end
 
-function get_param(gf::BasicGenFunction, name::Symbol)
+function get_param(gf::StaticDSLFunction, name::Symbol)
     gf.params[name]
 end
 
-function get_param_grad(gf::BasicGenFunction, name::Symbol)
+function get_param_grad(gf::StaticDSLFunction, name::Symbol)
     gf.params_grad[name]
 end
 
-function zero_param_grad!(gf::BasicGenFunction, name::Symbol)
+function zero_param_grad!(gf::StaticDSLFunction, name::Symbol)
     gf.params_grad[name] = zero(gf.params[name])
 end
 
-function init_param!(gf::BasicGenFunction, name::Symbol, value)
+function init_param!(gf::StaticDSLFunction, name::Symbol, value)
     set_param!(gf, name, value)
     zero_param_grad!(gf, name)
 end
@@ -596,8 +604,8 @@ struct MaskedArgChange{T <: Tuple,U}
     info::U
 end
 
-# TODO make the type parameter U part of the BasicGenFunction type parameter?
-get_change_type(::BasicGenFunction) = MaskedArgChange
+# TODO make the type parameter U part of the StaticDSLFunction type parameter?
+get_change_type(::StaticDSLFunction) = MaskedArgChange
 
 function mask(bits...)
     parameters = map((bit) -> Val{bit}, bits)

@@ -164,7 +164,7 @@ function Gen.get_internal_node(assignment::CollapsedHMMAssignment, addr)
 end
 Gen.get_internal_nodes(assignment::CollapsedHMMAssignment) = ((:y, assignment.y_assignment),)
 
-struct CollapsedHMM <: Generator{PersistentVector{Float64},CollapsedHMMTrace} end
+struct CollapsedHMM <: GenerativeFunction{PersistentVector{Float64},CollapsedHMMTrace} end
 collapsed_hmm = CollapsedHMM()
 get_static_argument_types(::CollapsedHMM) = [Float64, Float64, Int, Int, Float64]
 

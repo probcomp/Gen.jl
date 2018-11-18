@@ -23,7 +23,7 @@ function addr(state::GFProjectState, dist::Distribution{T}, args, addr) where {T
     retval 
 end
 
-function addr(state::GFProjectState, gen::Generator{T,U}, args, addr, args_change) where {T,U}
+function addr(state::GFProjectState, gen::GenerativeFunction{T,U}, args, addr, args_change) where {T,U}
     visit!(state.visitor, addr)
     if has_internal_node(state.constraints, addr)
         constraints = get_internal_node(state.constraints, addr) 
@@ -40,11 +40,11 @@ function addr(state::GFProjectState, gen::Generator{T,U}, args, addr, args_chang
     call.retval::T
 end
 
-function splice(state::GFProjectState, gen::GenFunction, args::Tuple)
+function splice(state::GFProjectState, gen::DynamicDSLFunction, args::Tuple)
     exec(gf, state, args)
 end
 
-function project(gf::GenFunction, args, constraints)
+function project(gf::DynamicDSLFunction, args, constraints)
     state = GFProjectState(constraints, gf.params)
     retval = exec(gf, state, args)
     new_call = CallRecord(state.score, retval, args)

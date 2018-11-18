@@ -70,7 +70,7 @@
     @test isapprox(expected_weight, weight)
 
     # test retdiff
-    @test retdiff === GenFunctionDefaultRetDiff()
+    @test retdiff === DefaultRetDiff()
 end
 
 
@@ -147,7 +147,7 @@ end
     @test isapprox(expected_weight, weight)
 
     # test retdiff
-    @test retdiff === GenFunctionDefaultRetDiff()
+    @test retdiff === DefaultRetDiff()
 end
 
 
@@ -231,7 +231,7 @@ end
         @test isapprox(expected_weight, weight)
 
         # test retchange (should be nothing by default)
-        @test retdiff === GenFunctionDefaultRetDiff()
+        @test retdiff === DefaultRetDiff()
     end
 
 end

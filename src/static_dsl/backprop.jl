@@ -190,7 +190,7 @@ function process!(state::BBBackpropParamsState, node::AddrDistNode)
     increment_input_gradients!(state.stmts, node, node.dist, state.grad_vars, input_grad_incrs)
 end
 
-function process!(state::BBBackpropParamsState, node::AddrGeneratorNode)
+function process!(state::BBBackpropParamsState, node::AddrGenerativeFunctionNode)
 
     # get gradients from generator 
     output_do_ad = accepts_output_grad(node.gen)
@@ -205,7 +205,7 @@ function process!(state::BBBackpropParamsState, node::AddrGeneratorNode)
     increment_input_gradients!(state.stmts, node, node.gen, state.grad_vars, input_grad_incrs)
 end
 
-function codegen_backprop_params(gen::Type{T}, trace, retval_grad) where {T <: BasicGenFunction}
+function codegen_backprop_params(gen::Type{T}, trace, retval_grad) where {T <: StaticDSLFunction}
     ir = get_ir(gen)
     stmts = Expr[]
 
@@ -236,7 +236,7 @@ function codegen_backprop_params(gen::Type{T}, trace, retval_grad) where {T <: B
 end
 
 push!(Gen.generated_functions, quote
-@generated function Gen.backprop_params(gen::Gen.BasicGenFunction, trace, retval_grad)
+@generated function Gen.backprop_params(gen::Gen.StaticDSLFunction, trace, retval_grad)
     Gen.codegen_backprop_params(gen, trace, retval_grad)
 end
 end)
@@ -272,7 +272,7 @@ function process!(state::BBBackpropTraceState, node::AddrDistNode)
     end
 end
 
-function process!(state::BBBackpropTraceState, node::AddrGeneratorNode)
+function process!(state::BBBackpropTraceState, node::AddrGenerativeFunctionNode)
 
     # get gradients from generator and handle selection
     output_do_ad = accepts_output_grad(node.gen)
@@ -321,7 +321,7 @@ function choice_trie_construction(leaf_nodes_set, internal_nodes_set)
     end
 end
 
-function codegen_backprop_trace(gen::Type{T}, trace, selection, retval_grad) where {T <: BasicGenFunction}
+function codegen_backprop_trace(gen::Type{T}, trace, selection, retval_grad) where {T <: StaticDSLFunction}
     schema = get_address_schema(selection)
     ir = get_ir(gen)
     stmts = Expr[]
@@ -347,7 +347,7 @@ function codegen_backprop_trace(gen::Type{T}, trace, selection, retval_grad) whe
 end
 
 push!(Gen.generated_functions, quote
-@generated function Gen.backprop_trace(gen::Gen.BasicGenFunction{T,U}, trace::U, selection, retval_grad) where {T,U}
+@generated function Gen.backprop_trace(gen::Gen.StaticDSLFunction{T,U}, trace::U, selection, retval_grad) where {T,U}
     schema = get_address_schema(selection)
     if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
         # try to convert it to a static address set

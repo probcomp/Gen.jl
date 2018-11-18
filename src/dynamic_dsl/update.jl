@@ -140,15 +140,8 @@ get_choice_diff(state, key) = get_leaf_node(state.choicediffs, key)
 # generative functions can return arbitrary retdiff values, provided the type
 # implemnets the isnodiff() function.
 
-"""
-The default retdiff value from a generative function, if @retdiff is not called
-"""
-struct GenFunctionDefaultRetDiff end
-isnodiff(::GenFunctionDefaultRetDiff) = false
-
 set_ret_diff!(state, value) = state.retdiff = value
 
-export GenFunctionDefaultRetDiff
 
 
 ################
@@ -173,7 +166,7 @@ function GFUpdateState(argdiff, prev_trace, constraints, params)
     visitor = AddressVisitor()
     discard = DynamicAssignment()
     GFUpdateState(prev_trace, GFTrace(), constraints, 0., visitor,
-                  params, discard, argdiff, GenFunctionDefaultRetDiff(),
+                  params, discard, argdiff, DefaultRetDiff(),
                   HomogenousTrie{Any,Any}(), HomogenousTrie{Any,Any}())
 end
 
@@ -226,11 +219,11 @@ function addr(state::GFUpdateState, dist::Distribution{T}, args, key) where {T}
     return retval 
 end
 
-function addr(state::GFUpdateState, gen::Generator, args, key)
+function addr(state::GFUpdateState, gen::GenerativeFunction, args, key)
     addr(state, gen, args, key, UnknownArgDiff())
 end
 
-function addr(state::GFUpdateState, gen::Generator{T,U}, args, key, argdiff) where {T,U}
+function addr(state::GFUpdateState, gen::GenerativeFunction{T,U}, args, key, argdiff) where {T,U}
 
     # check key was not already visited, and mark it as visited
     visit!(state.visitor, key)
@@ -284,9 +277,9 @@ function addr(state::GFUpdateState, gen::Generator{T,U}, args, key, argdiff) whe
     return retval 
 end
 
-splice(state::GFUpdateState, gen::GenFunction, args::Tuple) = exec_for_update(gen, state, args)
+splice(state::GFUpdateState, gen::DynamicDSLFunction, args::Tuple) = exec_for_update(gen, state, args)
 
-function update(gen::GenFunction, new_args, argdiff, trace::GFTrace, constraints)
+function update(gen::DynamicDSLFunction, new_args, argdiff, trace::GFTrace, constraints)
     state = GFUpdateState(argdiff, trace, constraints, gen.params)
     retval = exec_for_update(gen, state, new_args)
     new_call = CallRecord{Any}(state.score, retval, new_args)
@@ -329,7 +322,7 @@ function GFFixUpdateState(argdiff, prev_trace, constraints, params)
     visitor = AddressVisitor()
     discard = DynamicAssignment()
     GFFixUpdateState(prev_trace, GFTrace(), constraints, 0., 0., visitor,
-                     params, discard, argdiff, GenFunctionDefaultRetDiff(),
+                     params, discard, argdiff, DefaultRetDiff(),
                      HomogenousTrie{Any,Any}(), HomogenousTrie{Any,Any}())
 end
 
@@ -392,11 +385,11 @@ function addr(state::GFFixUpdateState, dist::Distribution{T}, args, key) where {
     return retval 
 end
 
-function addr(state::GFFixUpdateState, gen::Generator, args, key)
+function addr(state::GFFixUpdateState, gen::GenerativeFunction, args, key)
     addr(state, gen, args, key, UnknownArgDiff())
 end
 
-function addr(state::GFFixUpdateState, gen::Generator{T,U}, args, key, argdiff) where {T,U}
+function addr(state::GFFixUpdateState, gen::GenerativeFunction{T,U}, args, key, argdiff) where {T,U}
 
     # check that key was not already visited, and mark it as visited
     visit!(state.visitor, key)
@@ -458,9 +451,9 @@ function addr(state::GFFixUpdateState, gen::Generator{T,U}, args, key, argdiff) 
     return retval
 end
 
-splice(state::GFFixUpdateState, gen::GenFunction, args::Tuple) = exec_for_update(gf, state, args)
+splice(state::GFFixUpdateState, gen::DynamicDSLFunction, args::Tuple) = exec_for_update(gf, state, args)
 
-function fix_update(gf::GenFunction, args, argdiff, prev_trace::GFTrace, constraints)
+function fix_update(gf::DynamicDSLFunction, args, argdiff, prev_trace::GFTrace, constraints)
     state = GFFixUpdateState(argdiff, prev_trace, constraints, gf.params)
     retval = exec_for_update(gf, state, args)
     new_call = CallRecord(state.score, retval, args)
@@ -494,7 +487,7 @@ end
 function GFRegenerateState(argdiff, prev_trace, selection, params)
     visitor = AddressVisitor()
     GFRegenerateState(prev_trace, GFTrace(), selection, 0., 0., visitor,
-                      params, argdiff, GenFunctionDefaultRetDiff(),
+                      params, argdiff, DefaultRetDiff(),
                       HomogenousTrie{Any,Any}(), HomogenousTrie{Any,Any}())
 end
 
@@ -557,11 +550,11 @@ function addr(state::GFRegenerateState, dist::Distribution{T}, args, key) where 
     return retval
 end
 
-function addr(state::GFRegenerateState, gen::Generator, args, key)
+function addr(state::GFRegenerateState, gen::GenerativeFunction, args, key)
     addr(state, gen, args, key, UnknownArgDiff())
 end
 
-function addr(state::GFRegenerateState, gen::Generator{T,U}, args, key, argdiff) where {T,U}
+function addr(state::GFRegenerateState, gen::GenerativeFunction{T,U}, args, key, argdiff) where {T,U}
 
     # check that key was not already visited, and mark it as visited
     visit!(state.visitor, key)
@@ -617,9 +610,9 @@ function addr(state::GFRegenerateState, gen::Generator{T,U}, args, key, argdiff)
     return retval
 end
 
-splice(state::GFRegenerateState, gf::GenFunction, args::Tuple) = exec_for_update(gf, state, args)
+splice(state::GFRegenerateState, gf::DynamicDSLFunction, args::Tuple) = exec_for_update(gf, state, args)
 
-function regenerate(gen::GenFunction, new_args, argdiff, trace, selection)
+function regenerate(gen::DynamicDSLFunction, new_args, argdiff, trace, selection)
     state = GFRegenerateState(argdiff, trace, selection, gen.params)
     retval = exec_for_update(gen, state, new_args)
     new_call = CallRecord(state.score, retval, new_args)
@@ -649,11 +642,11 @@ end
 function GFExtendState(argdiff, prev_trace, constraints, params)
     visitor = AddressVisitor()
     GFExtendState(prev_trace, GFTrace(), constraints, 0., 0.,
-        visitor, params, argdiff, GenFunctionDefaultRetDiff(),
+        visitor, params, argdiff, DefaultRetDiff(),
         HomogenousTrie{Any,Any}(), HomogenousTrie{Any,Any}())
 end
 
-function addr(state::GFExtendState, gen::Generator, args, key)
+function addr(state::GFExtendState, gen::GenerativeFunction, args, key)
     addr(state, gen, args, key, UnknownArgDiff())
 end
 
@@ -712,7 +705,7 @@ function addr(state::GFExtendState, dist::Distribution{T}, args, key) where {T}
     return retval 
 end
 
-function addr(state::GFExtendState, gen::Generator{T,U}, args, key, argdiff) where {T,U}
+function addr(state::GFExtendState, gen::GenerativeFunction{T,U}, args, key, argdiff) where {T,U}
 
     # check that key was not already visited, and mark it as visited
     visit!(state.visitor, key)
@@ -763,9 +756,9 @@ function addr(state::GFExtendState, gen::Generator{T,U}, args, key, argdiff) whe
     return retval 
 end
 
-splice(state::GFExtendState, gen::GenFunction, args::Tuple) = exec_for_update(gf, state, args)
+splice(state::GFExtendState, gen::DynamicDSLFunction, args::Tuple) = exec_for_update(gf, state, args)
 
-function extend(gf::GenFunction, args, argdiff, trace::GFTrace, constraints)
+function extend(gf::DynamicDSLFunction, args, argdiff, trace::GFTrace, constraints)
     state = GFExtendState(argdiff, trace, constraints, gf.params)
     retval = exec_for_update(gf, state, args)
     call = CallRecord(state.score, retval, args)

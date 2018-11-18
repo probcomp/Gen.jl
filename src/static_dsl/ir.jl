@@ -53,25 +53,25 @@ end
 
 parents(node::AddrDistNode) = node.input_nodes
 
-struct AddrGeneratorNode{T,U} <: ExprNode
+struct AddrGenerativeFunctionNode{T,U} <: ExprNode
     input_nodes::Vector{ValueNode}
     #output::Union{ValueNode,Nothing} # TODO always have an output node
     output::ValueNode # TODO always have an output node
-    gen::Generator{T,U}
+    gen::GenerativeFunction{T,U}
     address::Symbol
     change_node::ValueNode
     line::LineNumberNode
 end
 
-function Base.print(io::IO, node::AddrGeneratorNode)
+function Base.print(io::IO, node::AddrGenerativeFunctionNode)
     write(io, "@addr $(node.gen) $(node.address)")
 end
 
-parents(node::AddrGeneratorNode) = vcat([node.change_node], node.input_nodes)
+parents(node::AddrGenerativeFunctionNode) = vcat([node.change_node], node.input_nodes)
 
 struct AddrChangeNode <: ExprNode
     address::Symbol
-    addr_node::Union{AddrDistNode,AddrGeneratorNode}
+    addr_node::Union{AddrDistNode,AddrGenerativeFunctionNode}
     output::ValueNode
 end
 
@@ -157,7 +157,7 @@ mutable struct BasicBlockIR
     params::Vector{ParamInfo}
     value_nodes::Dict{Symbol, ValueNode}
     addr_dist_nodes::Dict{Symbol, AddrDistNode}
-    addr_gen_nodes::Dict{Symbol, AddrGeneratorNode}
+    addr_gen_nodes::Dict{Symbol, AddrGenerativeFunctionNode}
     all_nodes::Set{Node}
     output_node::Union{ValueNode,Nothing}
     retchange_node::Union{ValueNode,Nothing}
@@ -179,7 +179,7 @@ mutable struct BasicBlockIR
         params = Vector{ParamInfo}()
         value_nodes = Dict{Symbol,ValueNode}()
         addr_dist_nodes = Dict{Symbol, AddrDistNode}()
-        addr_gen_nodes = Dict{Symbol, AddrGeneratorNode}()
+        addr_gen_nodes = Dict{Symbol, AddrGenerativeFunctionNode}()
         all_nodes = Set{Node}()
         output_node = nothing
         retchange_node = nothing
@@ -346,7 +346,7 @@ function add_addr!(ir::BasicBlockIR, addr::Symbol, line::LineNumberNode,
 end
 
 function add_addr!(ir::BasicBlockIR, addr::Symbol, line::LineNumberNode,
-                   gen::Generator{T,U}, args::Vector,
+                   gen::GenerativeFunction{T,U}, args::Vector,
                    typ::Type, name::Symbol, change_expr) where {T,U}
     @assert !ir.finished
     types = get_static_argument_types(gen)
@@ -359,7 +359,7 @@ function add_addr!(ir::BasicBlockIR, addr::Symbol, line::LineNumberNode,
     value_node = ExprValueNode(name, typ)
     change_node = _get_input_node!(ir, change_expr, get_change_type(gen))
     push!(ir.generator_input_change_nodes, change_node)
-    expr_node = AddrGeneratorNode(input_nodes, value_node, gen, addr, change_node, line)
+    expr_node = AddrGenerativeFunctionNode(input_nodes, value_node, gen, addr, change_node, line)
     finish!(value_node, expr_node)
     ir.value_nodes[name] = value_node
     push!(ir.all_nodes, expr_node)
@@ -369,7 +369,7 @@ function add_addr!(ir::BasicBlockIR, addr::Symbol, line::LineNumberNode,
 end
 
 function add_addr!(ir::BasicBlockIR, addr::Symbol, line::LineNumberNode,
-                   gen::Generator{T,U}, args::Vector, change_expr) where {T,U}
+                   gen::GenerativeFunction{T,U}, args::Vector, change_expr) where {T,U}
     typ = get_return_type(gen)
     add_addr!(ir, addr, line, gen, args, typ, gensym(), change_expr)
 end
@@ -464,9 +464,9 @@ end
 # some helper functions
 
 has_output(node::ExprNode) = true
-has_output(node::Union{AddrDistNode,AddrGeneratorNode}) = node.output !== nothing
+has_output(node::Union{AddrDistNode,AddrGenerativeFunctionNode}) = node.output !== nothing
 
-function get_value_info(node::Union{AddrDistNode,AddrGeneratorNode})
+function get_value_info(node::Union{AddrDistNode,AddrGenerativeFunctionNode})
     value_node::ValueNode = node.output
     (value_node.typ, value_field(value_node))
 end

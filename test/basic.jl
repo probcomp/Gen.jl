@@ -71,7 +71,7 @@ expected_weight = expected_new_score - prev_score
 @test isapprox(expected_weight, weight)
 
 # test retdiff
-@test retdiff === GenFunctionDefaultRetDiff()
+@test retdiff === DefaultRetDiff()
 
 end
 
@@ -123,7 +123,7 @@ expected_weight = logpdf(bernoulli, false, 0.4) - logpdf(bernoulli, true, 0.4) +
 @test isapprox(expected_weight, weight)
 
 # test retdiff (should be nothing by default)
-@test retdiff === GenFunctionDefaultRetDiff()
+@test retdiff === DefaultRetDiff()
 
 end
 

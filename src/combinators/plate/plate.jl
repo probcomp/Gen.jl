@@ -3,18 +3,18 @@
 ###################
 
 """
-Generator that makes many independent application of a kernel generator,
+GenerativeFunction that makes many independent application of a kernel generator,
 similar to 'map'.  The arguments are a tuple of vectors, each of of length N,
 where N is the nubmer of applications of the kernel.
 """
-struct Plate{T,U} <: Generator{PersistentVector{T},VectorTrace{T,U}}
-    kernel::Generator{T,U}
+struct Plate{T,U} <: GenerativeFunction{PersistentVector{T},VectorTrace{T,U}}
+    kernel::GenerativeFunction{T,U}
 end
 
 accepts_output_grad(plate::Plate) = accepts_output_grad(plate.kernel)
 has_argument_grads(plate::Plate) = has_argument_grads(plate.kernel)
 
-plate(kernel::Generator{T,U}) where {T,U} = Plate{T,U}(kernel)
+plate(kernel::GenerativeFunction{T,U}) where {T,U} = Plate{T,U}(kernel)
 
 function get_static_argument_types(plate::Plate)
     [Vector{typ} for typ in get_static_argument_types(plate.kernel)]

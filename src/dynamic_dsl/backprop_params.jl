@@ -13,7 +13,7 @@ mutable struct GFBackpropParamsState
     tracked_params::Dict{Symbol,Any}
 end
 
-function GFBackpropParamsState(trace::GFTrace, tape, gf::GenFunction)
+function GFBackpropParamsState(trace::GFTrace, tape, gf::DynamicDSLFunction)
     tracked_params = Dict{Symbol,Any}()
     for (name, value) in gf.params
         tracked_params[name] = track(value, tape)
@@ -42,11 +42,11 @@ function addr(state::GFBackpropParamsState, dist::Distribution{T}, args, addr) w
 end
 
 struct BackpropParamsRecord
-    generator::Generator
+    generator::GenerativeFunction
     subtrace::Any
 end
 
-function addr(state::GFBackpropParamsState, gen::Generator{T}, args, addr) where {T}
+function addr(state::GFBackpropParamsState, gen::GenerativeFunction{T}, args, addr) where {T}
     visit!(state.visitor, addr)
     subtrace = get_subtrace(state.trace, addr)
     call::CallRecord = get_call_record(subtrace) # use the return value recorded in the trace
@@ -63,7 +63,7 @@ function addr(state::GFBackpropParamsState, gen::Generator{T}, args, addr) where
     retval_maybe_tracked 
 end
 
-function splice(state::GFBackpropParamsState, gf::GenFunction, args::Tuple)
+function splice(state::GFBackpropParamsState, gf::DynamicDSLFunction, args::Tuple)
     exec(gf, state, args)
 end
 
@@ -71,7 +71,7 @@ function maybe_track(arg, has_argument_grad::Bool, tape)
     has_argument_grad ? track(arg, tape) : arg
 end
 
-function backprop_params(gf::GenFunction, trace::GFTrace, retval_grad)
+function backprop_params(gf::DynamicDSLFunction, trace::GFTrace, retval_grad)
     tape = InstructionTape()
     state = GFBackpropParamsState(trace, tape, gf)
     call = get_call_record(trace)

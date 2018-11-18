@@ -207,7 +207,7 @@ function get_constraints(schema::Union{StaticAddressSchema,EmptyAddressSchema}, 
     (constrained, constraints)
 end
 
-function generate_generator_output_statement!(stmts::Vector{Expr}, node::AddrGeneratorNode, addr::Symbol)
+function generate_generator_output_statement!(stmts::Vector{Expr}, node::AddrGenerativeFunctionNode, addr::Symbol)
     if has_output(node)
         (_, output_value_field) = get_value_info(node)
         push!(stmts, quote
@@ -217,7 +217,7 @@ function generate_generator_output_statement!(stmts::Vector{Expr}, node::AddrGen
 end
 
 function generate_generator_call_statement!(state::BBUpdateState, addr::Symbol,
-                                            node::AddrGeneratorNode, constraints)
+                                            node::AddrGenerativeFunctionNode, constraints)
     args = get_args(bb_new_trace, node)
     prev_args = get_args(:trace, node)
     change_value_ref = :($bb_new_trace.$(value_field(node.change_node)))
@@ -235,7 +235,7 @@ function generate_generator_call_statement!(state::BBUpdateState, addr::Symbol,
 end
 
 function generate_generator_call_statement!(state::BBFixUpdateState, addr::Symbol,
-                                            node::AddrGeneratorNode, constraints)
+                                            node::AddrGenerativeFunctionNode, constraints)
     args = get_args(bb_new_trace, node)
     prev_args = get_args(:trace, node)
     change_value_ref = :($bb_new_trace.$(value_field(node.change_node)))
@@ -253,7 +253,7 @@ function generate_generator_call_statement!(state::BBFixUpdateState, addr::Symbo
 end
 
 function generate_generator_call_statement!(state::BBExtendState, addr::Symbol,
-                                            node::AddrGeneratorNode, constraints)
+                                            node::AddrGenerativeFunctionNode, constraints)
     args = get_args(bb_new_trace, node)
     prev_args = get_args(:trace, node)
     change_value_ref = :($bb_new_trace.$(value_field(node.change_node)))
@@ -278,7 +278,7 @@ function generate_generator_score_statements!(stmts::Vector{Expr}, addr::Symbol)
     end)
 end
 
-function process_generator_update_marked!(state::Union{BBUpdateState,BBFixUpdateState,BBExtendState}, node::AddrGeneratorNode)
+function process_generator_update_marked!(state::Union{BBUpdateState,BBFixUpdateState,BBExtendState}, node::AddrGenerativeFunctionNode)
     # return value could change (even if just the input nodes are marked,
     # we don't currently statically identify a generator that can absorb
     # arbitrary changes to its arguments)
@@ -287,7 +287,7 @@ function process_generator_update_marked!(state::Union{BBUpdateState,BBFixUpdate
     end
 end
 
-function process!(ir::BasicBlockIR, state::Union{BBUpdateState,BBFixUpdateState}, node::AddrGeneratorNode)
+function process!(ir::BasicBlockIR, state::Union{BBUpdateState,BBFixUpdateState}, node::AddrGenerativeFunctionNode)
     addr = node.address
     push!(state.addr_visited, addr)
     input_nodes_marked = any([input in state.marked for input in node.input_nodes])
@@ -304,7 +304,7 @@ function process!(ir::BasicBlockIR, state::Union{BBUpdateState,BBFixUpdateState}
     end
 end
 
-function process!(ir::BasicBlockIR, state::BBExtendState, node::AddrGeneratorNode)
+function process!(ir::BasicBlockIR, state::BBExtendState, node::AddrGenerativeFunctionNode)
     addr = node.address
     push!(state.addr_visited, addr)
     input_nodes_marked = any([input in state.marked for input in node.input_nodes])
@@ -356,7 +356,7 @@ function generate_is_empty!(stmts::Vector{Expr}, ir::BasicBlockIR)
             $bb_new_trace.$is_empty_field = false
         end)
     else
-        for (addr, node::AddrGeneratorNode) in ir.addr_gen_nodes
+        for (addr, node::AddrGenerativeFunctionNode) in ir.addr_gen_nodes
             push!(stmts, quote
                 $bb_new_trace.$is_empty_field = $bb_new_trace.$is_empty_field && !has_choices($bb_new_trace.$addr)
             end)
@@ -421,7 +421,7 @@ end
 
 function generate_update_return_statement!(stmts::Vector{Expr}, ir::BasicBlockIR)
     if ir.retchange_node === nothing
-        retchange = :(GenFunctionDefaultRetDiff())
+        retchange = :(DefaultRetDiff())
     else
         retchange = Expr(:(.), bb_new_trace, QuoteNode(value_field(ir.retchange_node)))
     end
@@ -430,14 +430,14 @@ end
 
 function generate_extend_return_statement!(stmts::Vector{Expr}, ir::BasicBlockIR)
     if ir.retchange_node === nothing
-        retchange = :(GenFunctionDefaultRetDiff())
+        retchange = :(DefaultRetDiff())
     else
         retchange = Expr(:(.), bb_new_trace, QuoteNode(value_field(ir.retchange_node)))
     end
     push!(stmts, quote return ($bb_new_trace, $bb_weight, $retchange) end)
 end
 
-function codegen_update(gen_type::Type{T}, new_args_type, args_change_type, trace_type, constraints_type) where {T <: BasicGenFunction}
+function codegen_update(gen_type::Type{T}, new_args_type, args_change_type, trace_type, constraints_type) where {T <: StaticDSLFunction}
     schema = get_address_schema(constraints_type)
     ir = get_ir(gen_type)
     stmts = Expr[]
@@ -452,7 +452,7 @@ function codegen_update(gen_type::Type{T}, new_args_type, args_change_type, trac
     return Expr(:block, stmts...)
 end
 
-function codegen_fix_update(gen_type::Type{T}, new_args_type, args_change_type, trace_type, constraints_type) where {T <: BasicGenFunction}
+function codegen_fix_update(gen_type::Type{T}, new_args_type, args_change_type, trace_type, constraints_type) where {T <: StaticDSLFunction}
     schema = get_address_schema(constraints_type)
     ir = get_ir(gen_type)
     stmts = Expr[]
@@ -467,7 +467,7 @@ function codegen_fix_update(gen_type::Type{T}, new_args_type, args_change_type, 
     return Expr(:block, stmts...)
 end
 
-function codegen_extend(gen_type::Type{T}, new_args_type, args_change_type, trace_type, constraints_type) where {T <: BasicGenFunction}
+function codegen_extend(gen_type::Type{T}, new_args_type, args_change_type, trace_type, constraints_type) where {T <: StaticDSLFunction}
     schema = get_address_schema(constraints_type)
     ir = get_ir(gen_type)
     stmts = Expr[]
@@ -483,7 +483,7 @@ end
 
 
 push!(Gen.generated_functions, quote
-@generated function Gen.update(gen::Gen.BasicGenFunction{T,U}, new_args, args_change::Union{Gen.NoArgDiff,Gen.UnknownArgDiff,Gen.MaskedArgChange}, trace::U, constraints) where {T,U}
+@generated function Gen.update(gen::Gen.StaticDSLFunction{T,U}, new_args, args_change::Union{Gen.NoArgDiff,Gen.UnknownArgDiff,Gen.MaskedArgChange}, trace::U, constraints) where {T,U}
     schema = get_address_schema(constraints)
     if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
         # try to convert it to a static assignment
@@ -494,7 +494,7 @@ end
 end)
 
 push!(Gen.generated_functions, quote
-@generated function Gen.fix_update(gen::Gen.BasicGenFunction{T,U}, new_args, args_change::Union{Gen.NoArgDiff,Gen.UnknownArgDiff,Gen.MaskedArgChange}, trace::U, constraints) where {T,U}
+@generated function Gen.fix_update(gen::Gen.StaticDSLFunction{T,U}, new_args, args_change::Union{Gen.NoArgDiff,Gen.UnknownArgDiff,Gen.MaskedArgChange}, trace::U, constraints) where {T,U}
     schema = get_address_schema(constraints)
     if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
         # try to convert it to a static assignment
@@ -505,7 +505,7 @@ end
 end)
 
 push!(Gen.generated_functions, quote
-@generated function Gen.extend(gen::Gen.BasicGenFunction{T,U}, new_args, args_change::Union{Gen.NoArgDiff,Gen.UnknownArgDiff,Gen.MaskedArgChange}, trace::U, constraints) where {T,U}
+@generated function Gen.extend(gen::Gen.StaticDSLFunction{T,U}, new_args, args_change::Union{Gen.NoArgDiff,Gen.UnknownArgDiff,Gen.MaskedArgChange}, trace::U, constraints) where {T,U}
     schema = get_address_schema(constraints)
     if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
         # try to convert it to a static assignment

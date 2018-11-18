@@ -33,18 +33,18 @@ export get_assignment
 export has_choices
 
 
-#############
-# Generator #
-#############
+######################
+# GenerativeFunction #
+######################
 
 """
-Generator with return value type T and trace type U
+GenerativeFunction with return value type T and trace type U
 """
-abstract type Generator{T,U} end
+abstract type GenerativeFunction{T,U} end
 
-get_return_type(::Generator{T,U}) where {T,U} = T
-get_trace_type(::Generator{T,U}) where {T,U} = U
-get_change_type(::Generator) = Any
+get_return_type(::GenerativeFunction{T,U}) where {T,U} = T
+get_trace_type(::GenerativeFunction{T,U}) where {T,U} = U
+get_change_type(::GenerativeFunction) = Any
 
 """
 Return a boolean indicating whether a gradient of the output is accepted.
@@ -62,18 +62,18 @@ Return a vector of Types indicating the statically known concrete argument types
 function get_concrete_argument_types end
 
 """
-    (new_trace, weight, discard, retchange) = fix_update(gen::Generator, new_args, args_change, trace, constraints)
+    (new_trace, weight, discard, retchange) = fix_update(gen::GenerativeFunction, new_args, args_change, trace, constraints)
 """
 function fix_update end
 
 """
-Optional Generator method; special case of `fix_update` whree addresses cannot be deleted.
+Optional GenerativeFunction method; special case of `fix_update` whree addresses cannot be deleted.
 
 Exists for performance optimization.
 
-    (new_trace::U, weight, retchange) = extend(g::Generator{T,U}, args, args_change, trace::U, constraints)
+    (new_trace::U, weight, retchange) = extend(g::GenerativeFunction{T,U}, args, args_change, trace::U, constraints)
 """
-function extend(gen::Generator{T,U}, new_args, args_change, trace::U, constraints) where {T,U}
+function extend(gen::GenerativeFunction{T,U}, new_args, args_change, trace::U, constraints) where {T,U}
     (new_trace, weight, discard, retchange) = fix_update(gen, new_args, args_change, trace, constraints)
     if !isempty(discard)
         error("Some addresses were deleted within extend on generator $gen")
@@ -83,23 +83,23 @@ end
 
 # TODO add retchange as return value from predict
 """
-    (new_trace::U, retchange) = predict(g::Generator{T,U}, args, args_change, trace::U)
+    (new_trace::U, retchange) = predict(g::GenerativeFunction{T,U}, args, args_change, trace::U)
 """
-function predict(g::Generator, args, args_change, trace)
+function predict(g::GenerativeFunction, args, args_change, trace)
     (new_trace, weight, _) = extend(g, args, args_change, trace, EmptyAssignment())
     @assert weight == 0.
     new_trace
 end
 
 """
-    (trace::U, weight) = generate(g::Generator{T,U}, args, constraints)
+    (trace::U, weight) = generate(g::GenerativeFunction{T,U}, args, constraints)
 """
 function generate end
 
 """
-    trace = simulate(g::Generator, args)
+    trace = simulate(g::GenerativeFunction, args)
 """
-function simulate(gen::Generator, args)
+function simulate(gen::GenerativeFunction, args)
     (trace, weight) = generate(gen, args, EmptyAssignment())
     if weight != 0.
         error("Got nonzero weight during simulate.")
@@ -108,7 +108,7 @@ function simulate(gen::Generator, args)
 end
 
 """
-    (trace, discard) = project(g::Generator, args, constraints)
+    (trace, discard) = project(g::GenerativeFunction, args, constraints)
 """
 function project end
 
@@ -116,7 +116,7 @@ function project end
 choices must contain all random choices, (and no extra random choices, or else
 it is an error
 
-    trace = assess(g::Generator, args, choices)
+    trace = assess(g::GenerativeFunction, args, choices)
 """
 function assess end
 
@@ -126,33 +126,33 @@ may not simulate.
 addresses may be added or deleted.
 constraints may collide with existing random choices.
 
-    (new_trace, weight, discard, retchange) = update(g::Generator, new_args, args_change, trace, constraints)
+    (new_trace, weight, discard, retchange) = update(g::GenerativeFunction, new_args, args_change, trace, constraints)
 """
 function update end
 
 """
     (new_trace, weight, retcahnge) = regenerate(
-        gen::Generator, new_args, args_change, trace, selection::AddressSet)
+        gen::GenerativeFunction, new_args, args_change, trace, selection::AddressSet)
 """
 function regenerate end
 
 """
-    weight = ungenerate(g::Generator, trace, constraints)
+    weight = ungenerate(g::GenerativeFunction, trace, constraints)
 """
 function ungenerate end
 
 """
-    input_grads::Tuple = backprop_params(gen:Generator, trace, retval_grad)
+    input_grads::Tuple = backprop_params(gen:GenerativeFunction, trace, retval_grad)
 """
 function backprop_params end
 
 """
-    (input_grads::Tuple, values, gradients) = backprop_trace(gen:Generator, trace, selection::AddressSet, retval_grad)
+    (input_grads::Tuple, values, gradients) = backprop_trace(gen:GenerativeFunction, trace, selection::AddressSet, retval_grad)
 """
 function backprop_trace end
 
 
-export Generator
+export GenerativeFunction
 export simulate
 export extend
 export predict
@@ -172,8 +172,8 @@ export backprop_trace
 ##################
 
 # these are data types that generative functions may accept. the built-in
-# higher order functions accept these types for their argdiff values. user
-# generative functions may or may not accept these.
+# combinators accept these types for their argdiff values. user generative
+# functions may or may not accept these.
 
 struct NoArgDiff end
 const noargdiff = NoArgDiff()
@@ -187,6 +187,15 @@ export UnknownArgDiff, unknownargdiff
 ############
 # retdiffs #
 ############
+
+"""
+A default retdiff value
+"""
+struct DefaultRetDiff end
+isnodiff(::DefaultRetDiff) = false
+
+export DefaultRetDiff
+
 
 """
 Every retdiff value must implement this function.

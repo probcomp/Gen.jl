@@ -33,7 +33,7 @@ function addr(state::GFSimulateState, dist::Distribution{T}, args, key) where {T
     return retval
 end
 
-function addr(state::GFSimulateState, gen::Generator{T,U}, args, key) where {T,U}
+function addr(state::GFSimulateState, gen::GenerativeFunction{T,U}, args, key) where {T,U}
 
     # check that key was not already visited, and mark it as visited
     visit!(state.visitor, key)
@@ -55,9 +55,9 @@ function addr(state::GFSimulateState, gen::Generator{T,U}, args, key) where {T,U
     return retval
 end
 
-splice(state::GFSimulateState, gf::GenFunction, args::Tuple) = exec(gf, state, args)
+splice(state::GFSimulateState, gf::DynamicDSLFunction, args::Tuple) = exec(gf, state, args)
 
-function simulate(gen::GenFunction, args)
+function simulate(gen::DynamicDSLFunction, args)
     state = GFSimulateState(gen.params)
     retval = exec(gen, state, args)
     # TODO add return type annotation for gen functions
@@ -102,7 +102,7 @@ function addr(state::GFAssessState, dist::Distribution{T}, args, key) where {T}
     return retval
 end
 
-function addr(state::GFAssessState, gen::Generator{T,U}, args, key) where {T,U}
+function addr(state::GFAssessState, gen::GenerativeFunction{T,U}, args, key) where {T,U}
 
     # check that key was not already visited, and mark it as visited
     visit!(state.visitor, key)
@@ -131,9 +131,9 @@ function addr(state::GFAssessState, gen::Generator{T,U}, args, key) where {T,U}
     return retval
 end
 
-splice(state::GFAssessState, gf::GenFunction, args::Tuple) = exec(gf, state, args)
+splice(state::GFAssessState, gf::DynamicDSLFunction, args::Tuple) = exec(gf, state, args)
 
-function assess(gen::GenFunction, args, constraints)
+function assess(gen::DynamicDSLFunction, args, constraints)
     state = Gen.GFAssessState(constraints, gen.params)
     retval = Gen.exec(gen, state, args) 
     unconsumed = get_unvisited(state.visitor, constraints)
@@ -196,7 +196,7 @@ function addr(state::GFGenerateState, dist::Distribution{T}, args, key) where {T
     return retval
 end
 
-function addr(state::GFGenerateState, gen::Generator{T,U}, args, key) where {T,U}
+function addr(state::GFGenerateState, gen::GenerativeFunction{T,U}, args, key) where {T,U}
 
     # check key was not already visited, and mark it as visited
     visit!(state.visitor, key)
@@ -229,9 +229,9 @@ function addr(state::GFGenerateState, gen::Generator{T,U}, args, key) where {T,U
     return retval
 end
 
-splice(state::GFGenerateState, gf::GenFunction, args::Tuple) = exec(gf, state, args)
+splice(state::GFGenerateState, gf::DynamicDSLFunction, args::Tuple) = exec(gf, state, args)
 
-function generate(gen::GenFunction, args, constraints)
+function generate(gen::DynamicDSLFunction, args, constraints)
     state = GFGenerateState(constraints, gen.params)
     retval = exec(gen, state, args) 
     # TODO add return type annotation for gen

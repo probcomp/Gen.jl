@@ -4,11 +4,11 @@ using FunctionalCollections: PersistentVector, push, assoc
 # markov generator # 
 ####################
 
-struct Markov{T,U} <: Generator{PersistentVector{T},VectorTrace{T,U}}
-    kernel::Generator{T,U}
+struct Markov{T,U} <: GenerativeFunction{PersistentVector{T},VectorTrace{T,U}}
+    kernel::GenerativeFunction{T,U}
 end
 
-function markov(kernel::Generator{T,U}) where {T,U}
+function markov(kernel::GenerativeFunction{T,U}) where {T,U}
     kernel_arg_types = get_static_argument_types(kernel)
     if length(kernel_arg_types) < 3 || kernel_arg_types[1] != Int
         error("markov requires a kernel with arguments (t::Int, state, params...)")

@@ -47,7 +47,7 @@ function process!(ir::BasicBlockIR, state::BasicBlockSimulateState, node::AddrDi
     end
 end
 
-function process!(ir::BasicBlockIR, state::BasicBlockSimulateState, node::AddrGeneratorNode)
+function process!(ir::BasicBlockIR, state::BasicBlockSimulateState, node::AddrGenerativeFunctionNode)
     trace, score = state.trace, state.score
     addr = node.address
     gen = QuoteNode(node.gen)
@@ -67,7 +67,7 @@ function process!(ir::BasicBlockIR, state::BasicBlockSimulateState, node::AddrGe
     end
 end
 
-function codegen_simulate(gen::Type{T}, args) where {T <: BasicGenFunction}
+function codegen_simulate(gen::Type{T}, args) where {T <: StaticDSLFunction}
     trace_type = get_trace_type(gen)
     ir = get_ir(gen)
     stmts = Expr[]
@@ -117,7 +117,7 @@ end
 
 
 push!(Gen.generated_functions, quote
-@generated function Gen.simulate(gen::Gen.BasicGenFunction, args)
+@generated function Gen.simulate(gen::Gen.StaticDSLFunction, args)
     Gen.codegen_simulate(gen, args)
 end
 end)
