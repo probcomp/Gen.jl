@@ -1,23 +1,23 @@
 using FunctionalCollections: PersistentVector, push, assoc
 
 ####################
-# markov generator # 
+# unfold generator # 
 ####################
 
-struct Markov{T,U} <: GenerativeFunction{PersistentVector{T},VectorTrace{T,U}}
+struct Unfold{T,U} <: GenerativeFunction{PersistentVector{T},VectorTrace{T,U}}
     kernel::GenerativeFunction{T,U}
 end
 
-function markov(kernel::GenerativeFunction{T,U}) where {T,U}
+function unfold(kernel::GenerativeFunction{T,U}) where {T,U}
     kernel_arg_types = get_static_argument_types(kernel)
     if length(kernel_arg_types) < 3 || kernel_arg_types[1] != Int
-        error("markov requires a kernel with arguments (t::Int, state, params...)")
+        error("unfold requires a kernel with arguments (t::Int, state, params...)")
     end
-    Markov{T,U}(kernel)
+    Unfold{T,U}(kernel)
 end
 
-function get_static_argument_types(markov::Markov)
-    kernel_arg_types = get_static_argument_types(markov.kernel)
+function get_static_argument_types(unfold::Unfold)
+    kernel_arg_types = get_static_argument_types(unfold.kernel)
     state_type = kernel_arg_types[2]
     params_types = kernel_arg_types[3:end]
     # 1 total number of time steps
@@ -37,23 +37,23 @@ end
 function check_length(len::Int)
     #if len < 1
     if len < 0
-        error("markov got length of $len < 0")
+        error("unfold got length of $len < 0")
     end
 end
 
-accepts_output_grad(gen::Markov) = false # TODO add support for this
+accepts_output_grad(gen::Unfold) = false # TODO add support for this
 
 # does not have grad for len
 # does not have grad for initial state (TODO add support for this)
 # may or may not has grad for parameters, depending the kernel
-has_argument_grads(gen::Markov) = (false, false, has_argument_grads(gen.kernel)[3:end]...)
+has_argument_grads(gen::Unfold) = (false, false, has_argument_grads(gen.kernel)[3:end]...)
 
 
 ############
 # generate #
 ############
 
-function generate(gen::Markov{T,U}, args, constraints) where {T,U}
+function generate(gen::Unfold{T,U}, args, constraints) where {T,U}
     # NOTE: could be strict and check there are no extra constraints
     # probably we want to have this be an option that can be turned on or off?
     (len, init_state, params) = unpack_args(args)
@@ -86,7 +86,7 @@ function generate(gen::Markov{T,U}, args, constraints) where {T,U}
     (trace, weight)
 end
 
-function simulate(gen::Markov{T,U}, args) where {T,U}
+function simulate(gen::Unfold{T,U}, args) where {T,U}
     (trace, weight) = generate(gen, args, EmptyAssignment())
     trace
 end
@@ -96,7 +96,7 @@ end
 # argdiff #
 ###########
 
-struct MarkovCustomArgDiff
+struct UnfoldCustomArgDiff
     len_changed::Bool
     init_changed::Bool
     params_changed::Bool
@@ -109,8 +109,8 @@ end
 
 # TODO implement a retdiff that exposes array structure of return value
 
-struct MarkovRetDiff end
-isnodiff(::MarkovRetDiff) = false
+struct UnfoldRetDiff end
+isnodiff(::UnfoldRetDiff) = false
 
 ##################################
 # update, fix_update, and extend #
@@ -118,19 +118,19 @@ isnodiff(::MarkovRetDiff) = false
 
 # TODO fix_update
 
-function extend(gen::Markov{T,U}, args, change::NoArgDiff, trace::VectorTrace{T,U},
+function extend(gen::Unfold{T,U}, args, change::NoArgDiff, trace::VectorTrace{T,U},
                 constraints) where {T,U}
-    change = MarkovCustomArgDiff(false, false, false)
+    change = UnfoldCustomArgDiff(false, false, false)
     extend(gen, args, change, trace, constraints)
 end
 
-function extend(gen::Markov{T,U}, args, change::UnknownArgDiff, trace::VectorTrace{T,U},
+function extend(gen::Unfold{T,U}, args, change::UnknownArgDiff, trace::VectorTrace{T,U},
                 constraints) where {T,U}
-    change = MarkovCustomArgDiff(true, true, true)
+    change = UnfoldCustomArgDiff(true, true, true)
     extend(gen, args, change, trace, constraints)
 end
 
-function extend(gen::Markov{T,U}, args, change::MarkovCustomArgDiff, trace::VectorTrace{T,U},
+function extend(gen::Unfold{T,U}, args, change::UnfoldCustomArgDiff, trace::VectorTrace{T,U},
                 constraints) where {T,U}
     (len, init_state, params) = unpack_args(args)
     check_length(len)
@@ -193,22 +193,22 @@ function extend(gen::Markov{T,U}, args, change::MarkovCustomArgDiff, trace::Vect
         weight += w
     end
     trace = VectorTrace{T,U}(subtraces, states, args, score, len, num_has_choices)
-    (trace, weight, MarkovRetDiff())
+    (trace, weight, UnfoldRetDiff())
 end
 
-function update(gen::Markov{T,U}, args, change::NoArgDiff, trace::VectorTrace{T,U},
+function update(gen::Unfold{T,U}, args, change::NoArgDiff, trace::VectorTrace{T,U},
                 constraints) where {T,U}
-    change = MarkovCustomArgDiff(false, false, false)
+    change = UnfoldCustomArgDiff(false, false, false)
     update(gen, args, change, trace, constraints)
 end
 
-function update(gen::Markov{T,U}, args, change::UnknownArgDiff, trace::VectorTrace{T,U},
+function update(gen::Unfold{T,U}, args, change::UnknownArgDiff, trace::VectorTrace{T,U},
                 constraints) where {T,U}
-    change = MarkovCustomArgDiff(true, true, true)
+    change = UnfoldCustomArgDiff(true, true, true)
     update(gen, args, change, trace, constraints)
 end
 
-function update(gen::Markov{T,U}, args, change::MarkovCustomArgDiff,
+function update(gen::Unfold{T,U}, args, change::UnfoldCustomArgDiff,
                 trace::VectorTrace{T,U}, constraints) where {T,U}
     (len, init_state, params) = unpack_args(args)
     check_length(len)
@@ -295,7 +295,7 @@ function update(gen::Markov{T,U}, args, change::MarkovCustomArgDiff,
         is_empty = is_empty && !has_choices(subtrace)
     end
     new_trace = VectorTrace{T,U}(subtraces, states, args, score, len, num_has_choices)
-    (new_trace, weight, discard, MarkovRetDiff())
+    (new_trace, weight, discard, UnfoldRetDiff())
 end
 
 ##################
@@ -303,13 +303,13 @@ end
 ##################
 
 
-function backprop_trace(gen::Markov{T,U}, trace::VectorTrace{T,U},
+function backprop_trace(gen::Unfold{T,U}, trace::VectorTrace{T,U},
                         selection::AddressSet, retval_grad) where {T,U}
     args = get_call_record(trace).args
     (len, init_state, params) = unpack_args(args)
     has_grads = has_argument_grads(gen.kernel)
     if has_grads[1]
-        error("Cannot compute gradients for length of markov module")
+        error("Cannot compute gradients for length of unfold module")
     end
     if has_grads[2]
         # we ignore this, since the module must be absorbing, so we don't need to compute the grads
@@ -345,5 +345,5 @@ function backprop_trace(gen::Markov{T,U}, trace::VectorTrace{T,U},
 end
 
 
-export markov
-export MarkovCustomArgDiff
+export unfold
+export UnfoldCustomArgDiff

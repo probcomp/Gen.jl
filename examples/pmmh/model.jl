@@ -36,7 +36,7 @@ end
 
 # the kernel accepts two special arguments (the time step t and the return
 # value of the previous tieration, followed by the rest of the arguments,
-# specified as an argument to markov)
+# specified as an argument to unfold)
 @compiled @gen function kernel(t::Int, state::State, params::Params)
     x::Float64 = @addr(normal(t > 1 ? x_mean(state.x, t) : 0.,
                               t > 1 ? sqrt(params.var_x) : 5.), :x)
@@ -46,8 +46,8 @@ end
 
 # arguments: (T::Int, init_state, common)
 # i.e. the kernel needs to accept three arguments..
-hmm2 = markov(kernel)
-#hmm2 = fast_markov(kernel)
+hmm2 = unfold(kernel)
+#hmm2 = fast_unfold(kernel)
 
 #################################
 # sequential Monte Carlo in hmm #
@@ -85,7 +85,7 @@ function effective_sample_size(log_weights::Vector{Float64})
     exp(log_ess)
 end
 
-# TODO need to implement generate and extend for the markov generator type
+# TODO need to implement generate and extend for the unfold generator type
 # it should have a custom argchange argument that is indicates whether only the
 # time length argument has changed, which will allow extend to only visit new
 # time steps
@@ -101,7 +101,7 @@ function smc(var_x, var_y, T::Int, N, ess_threshold, ys::AbstractArray{Float64,1
         (traces[i], log_unnormalized_weights[i]) = generate(hmm2, args, obs)
     end
     num_resamples = 0
-    args_change = MarkovCustomArgDiff(true, false, false)
+    args_change = UnfoldCustomArgDiff(true, false, false)
     for t=2:T
         #println(t)
         log_total_weight = logsumexp(log_unnormalized_weights)

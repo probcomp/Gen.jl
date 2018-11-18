@@ -250,8 +250,8 @@ end
 
     @gen function model(num_steps::Int)
         z_init = @addr(model_init(), :init)
-        change = MarkovCustomArgDiff(true, false, false) # we are only ever extending
-        @addr(markov(model_step)(num_steps-1, z_init, nothing), :markov, change)
+        change = UnfoldCustomArgDiff(true, false, false) # we are only ever extending
+        @addr(unfold(model_step)(num_steps-1, z_init, nothing), :unfold, change)
     end
 
     num_steps = 4
@@ -259,15 +259,15 @@ end
 
     # latents:
     # :init => z
-    # :markov => 1 => :z
-    # :markov => 2 => :z
-    # :markov => 3 => :z
+    # :unfold => 1 => :z
+    # :unfold => 2 => :z
+    # :unfold => 3 => :z
 
     # observations :
     # :init => :x
-    # :markov => 1 => :x
-    # :markov => 2 => :x
-    # :markov => 3 => :x
+    # :unfold => 1 => :x
+    # :unfold => 2 => :x
+    # :unfold => 3 => :x
 
     @gen function proposal_init(x::Int)
         dist = prior .* emission_dists[x,:]
@@ -276,8 +276,8 @@ end
 
     @gen function proposal_step(t::Int, prev_z::Int, x::Int)
         dist = transition_dists[:,prev_z] .* emission_dists[x,:]
-        # NOTE: was missing :markov, this should have been an error..
-        @addr(categorical(dist ./ sum(dist)), :markov => t => :z)
+        # NOTE: was missing :unfold, this should have been an error..
+        @addr(categorical(dist ./ sum(dist)), :unfold => t => :z)
     end
 
     function get_init_observations_and_proposal_args()
@@ -288,15 +288,15 @@ end
     end
 
     function get_step_observations_and_proposal_args(step::Int, prev_trace)
-        @assert !has_internal_node(get_assignment(prev_trace), :markov => (step - 1))
+        @assert !has_internal_node(get_assignment(prev_trace), :unfold => (step - 1))
         @assert step > 1
         if step == 2
             prev_z = get_assignment(prev_trace)[:init => :z]
         else
-            prev_z = get_assignment(prev_trace)[:markov => (step - 2) => :z]
+            prev_z = get_assignment(prev_trace)[:unfold => (step - 2) => :z]
         end
         observations = DynamicAssignment()
-        observations[:markov => (step - 1) => :x] = obs_x[step]
+        observations[:unfold => (step - 1) => :x] = obs_x[step]
         step_proposal_args = (step - 1, prev_z, obs_x[step])
         (observations, step_proposal_args, unknownargdiff)
     end
@@ -346,8 +346,8 @@ end
 
     @gen function model(num_steps::Int)
         z_init = @addr(model_init(), :init)
-        change = MarkovCustomArgDiff(true, false, false) # we are only ever extending
-        @addr(markov(model_step)(num_steps-1, z_init, nothing), :markov, change)
+        change = UnfoldCustomArgDiff(true, false, false) # we are only ever extending
+        @addr(unfold(model_step)(num_steps-1, z_init, nothing), :unfold, change)
     end
 
     num_steps = 4
@@ -355,22 +355,22 @@ end
 
     # latents:
     # :init => z
-    # :markov => 1 => :z
-    # :markov => 2 => :z
-    # :markov => 3 => :z
+    # :unfold => 1 => :z
+    # :unfold => 2 => :z
+    # :unfold => 3 => :z
 
     # observations :
     # :init => :x
-    # :markov => 1 => :x
-    # :markov => 2 => :x
-    # :markov => 3 => :x
+    # :unfold => 1 => :x
+    # :unfold => 2 => :x
+    # :unfold => 3 => :x
 
     function get_observations(step::Int)
         observations = DynamicAssignment()
         if step == 1
             observations[:init => :x] = obs_x[step]
         else
-            observations[:markov => (step-1) => :x] = obs_x[step]
+            observations[:unfold => (step-1) => :x] = obs_x[step]
         end
         return (observations, unknownargdiff)
     end
