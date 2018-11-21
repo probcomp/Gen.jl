@@ -26,3 +26,10 @@ end
     @test isapprox(actual[2], finite_diff(f, args, 2, dx))
     @test isapprox(actual[3], finite_diff(f, args, 3, dx))
 end
+
+@testset "geometric" begin
+    f = (x, prob) -> logpdf(Gen.Geometric(), x, prob)
+    args = (3, 0.4)
+    actual = logpdf_grad(Gen.Geometric(), args...)
+    @test isapprox(actual[2], finite_diff(f, args, 2, dx))
+end

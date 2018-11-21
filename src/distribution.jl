@@ -382,6 +382,44 @@ get_static_argument_types(::UniformContinuous) = [Float64, Float64]
 export uniform_continuous, uniform
 
 
+#############
+# geometric #
+#############
+
+struct Geometric <: Distribution{Int} end
+
+"""
+    geometric(prob::Float64)
+
+Sample the number of failures before success with given success probability.
+
+The support is {0, 1, 2, 3, ..}
+"""
+const geometric = Geometric()
+
+function logpdf(::Geometric, x::Integer, prob::Real)
+    @assert x > 0
+    log(prob) + x * log1p(-prob)
+end
+
+function logpdf_grad(::Geometric, x::Integer, prob::Real)
+    deriv_prob = 1/prob - x * 1/(1 - prob)
+    (nothing, deriv_prob)
+end
+
+function random(::Geometric, prob::Real)
+    rand(Distributions.Geometric(prob))
+end
+
+(::Geometric)(prob) = random(Geometric(), prob)
+
+has_output_grad(::Geometric) = false
+has_argument_grads(::Geometric) = (true,)
+get_static_argument_types(::Geometric) = [Float64]
+
+export geometric
+
+
 ###########
 # poisson #
 ###########
