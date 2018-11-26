@@ -2,7 +2,7 @@
 
 A probabilistic programming platform for applied probabilistic modeling and inference.
 
-Currently works with Julia 0.7.0
+Currently works with Julia 1.0.2
 
 Warning: This is unstable research software.
 
