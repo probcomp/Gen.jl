@@ -16,13 +16,9 @@ struct ArgumentNode <: RegularNode
     typ::Type
 end
 
-struct ConstantNode <: RegularNode
-    value::Any
-end
-
 struct JuliaNode <: RegularNode
     # contains symbols, some of which resolve to the local scope
-    expr::Expr
+    expr::Any
 
     # map from local scope symbols to node
     inputs::Dict{Symbol,RegularNode}

@@ -7,25 +7,23 @@ struct StaticIRGenerateState
     stmts::Vector{Any}
 end
 
-function process!(::StaticIR, state::StaticIRGenerateState, node::ArgumentNode)
+function process!(state::StaticIRGenerateState, node::ArgumentNode)
     push!(state.stmts, :($(get_value_fieldname(node)) = $(node.name)))
 end
 
-function process!(::StaticIR, ::StaticIRGenerateState, ::ConstantNode) end
+function process!(::StaticIRGenerateState, ::DiffJuliaNode) end
 
-function process!(::StaticIR, ::StaticIRGenerateState, ::DiffJuliaNode) end
+function process!(::StaticIRGenerateState, ::ReceivedArgDiffNode) end
 
-function process!(::StaticIR, ::StaticIRGenerateState, ::ReceivedArgDiffNode) end
+function process!(::StaticIRGenerateState, ::ChoiceDiffNode) end
 
-function process!(::StaticIR, ::StaticIRGenerateState, ::ChoiceDiffNode) end
+function process!(::StaticIRGenerateState, ::CallDiffNode) end
 
-function process!(::StaticIR, ::StaticIRGenerateState, ::CallDiffNode) end
-
-function process!(::StaticIR, state::StaticIRGenerateState, node::JuliaNode)
+function process!(state::StaticIRGenerateState, node::JuliaNode)
     push!(state.stmts, :($(node.name) = $(node.expr)))
 end
 
-function process!(::StaticIR, state::StaticIRGenerateState, node::RandomChoiceNode)
+function process!(state::StaticIRGenerateState, node::RandomChoiceNode)
     schema = state.schema
     args = map((input_node) -> input_node.name, node.inputs)
     incr = gensym("logpdf")
@@ -46,7 +44,7 @@ function process!(::StaticIR, state::StaticIRGenerateState, node::RandomChoiceNo
     push!(state.stmts, :($total_score_fieldname += $incr))
 end
 
-function process!(::StaticIR, state::StaticIRGenerateState, node::GenerativeFunctionCallNode)
+function process!(state::StaticIRGenerateState, node::GenerativeFunctionCallNode)
     schema = state.schema
     args = map((input_node) -> input_node.name, node.inputs)
     args_tuple = Expr(:tuple, args...)
@@ -92,7 +90,7 @@ function codegen_generate(gen_fn::Type{T}, args, constraints) where {T <: Static
     # process expression nodes in topological order
     state = StaticIRGenerateState(schema, stmts)
     for node in ir.nodes
-        process!(ir, state, node)
+        process!(state, node)
     end
 
     # return value
