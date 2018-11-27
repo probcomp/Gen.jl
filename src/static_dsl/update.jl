@@ -133,7 +133,7 @@ end
 
 function process_codegen!(stmts, ::ForwardPassState, ::BackwardPassState,
                           node::ArgumentNode)
-    push!(state.stmts, :($(get_value_fieldname(node)) = $(node.name)))
+    push!(stmts, :($(get_value_fieldname(node)) = $(node.name)))
 end
 
 function process_codegen!(stmts, ::ForwardPassState, back::BackwardPassState,
@@ -175,7 +175,7 @@ end
 function process_codegen!(stmts, fwd::ForwardPassState, back::BackwardPassState,
                          node::JuliaNode)
     if node in back.marked
-        push!(state.stmts, :($(node.name) = $(node.expr)))
+        push!(stmts, :($(node.name) = $(node.expr)))
     end
 end
 
@@ -212,19 +212,19 @@ function process_codegen!(stmts, fwd::ForwardPassState, back::BackwardPassState,
     gen_fn = QuoteNode(node.generative_function)
     subtrace = get_subtrace_fieldname(node)
     prev_subtrace = :(trace.$subtrace)
-    subweight = gensym("weight")
-    subconstraints = gensym("subconstraints")
+    call_weight = gensym("call_weight")
+    call_constraints = gensym("call_constraints")
     if node in fwd.constrained_calls || node in fwd.input_changed
         if node in fwd.constrained_calls
-            push!(stmts, :($subconstraints = static_get_internal_node(constraints, Val($addr))))
+            push!(stmts, :($call_constraints = static_get_internal_node(constraints, Val($addr))))
         else
-            push!(stmts, :($subconstraints = EmptyAssignment()))
+            push!(stmts, :($call_constraints = EmptyAssignment()))
         end
-        push!(stmts, :(($subtrace, $subweight, $(call_discard_var(node)), $(calldiff_var(node))) = 
-            update($gen_fn, $args_tuple, $(node.argdiff.name), $(prev_subtrace), $subconstraints)
+        push!(stmts, :(($subtrace, $call_weight, $(call_discard_var(node)), $(calldiff_var(node))) = 
+            update($gen_fn, $args_tuple, $(node.argdiff.name), $(prev_subtrace), $call_constraints)
         ))
-        push!(stmts, :($weight += $subweight))
-        push!(stmts, :($total_score_fieldname += $subweight))
+        push!(stmts, :($weight += $call_weight))
+        push!(stmts, :($total_score_fieldname += $call_weight))
         push!(stmts, :(if has_choices($subtrace) && !has_choices($prev_subtrace)
                             $num_has_choices_fieldname += 1 end))
         push!(stmts, :(if !has_choices($subtrace) && has_choices($prev_subtrace)
@@ -238,11 +238,11 @@ end
 function generate_discard_stmt(forward_state::ForwardPassState)
     discard_leaf_nodes = Dict{Symbol,Symbol}()
     for node in forward_state.constrained_choices
-        push!(discard_leaf_nodes, node.addr, choice_discard_var(node))
+        discard_leaf_nodes[node.addr] = choice_discard_var(node)
     end
     discard_internal_nodes = Dict{Symbol,Symbol}()
     for node in forward_state.discard_calls
-        push!(discard_internal_nodes, node.addr, call_discard_var(node))
+        discard_internal_nodes[node.addr] = call_discard_var(node)
     end
     if length(discard_leaf_nodes) > 0
         (leaf_keys, leaf_nodes) = collect(zip(discard_leaf_nodes...))
@@ -256,7 +256,7 @@ function generate_discard_stmt(forward_state::ForwardPassState)
     end
     leaf_keys = map((key::Symbol) -> QuoteNode(key), leaf_keys)
     internal_keys = map((key::Symbol) -> QuoteNode(key), internal_keys)
-    :(discard = StaticAssignment(
+    :($discard = StaticAssignment(
             NamedTuple{($(leaf_keys...),)}(($(leaf_nodes...),)),
             NamedTuple{($(internal_keys...),)}(($(internal_nodes...),))))
 end
@@ -306,9 +306,9 @@ function codegen_update(gen_fn_type::Type{G}, args_type, argdiff_type,
     arg_names = Symbol[arg_node.name for arg_node in ir.arg_nodes]
     push!(stmts, :($(Expr(:tuple, arg_names...)) = args))
 
-    # forward code generation pass
+    # code generation pass
     for node in ir.nodes
-        process_codegen!(forward_state, diff_needed, node)
+        process_codegen!(stmts, forward_state, backward_state, node)
     end
 
     # return value
