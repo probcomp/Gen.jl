@@ -1,3 +1,285 @@
+# force update
+
+# - argument nodes may be changed (based on the argdiff, which should use a mask?)
+
+# - julia nodes may have their inputs changed
+
+# - random choice nodes may have their inputs changed, or they may be constrained
+
+# - generative function call nodes may have their input nodes changed, or they may be constrained
+
+# first, compute the set of nodes that will be visited, using a forward pass
+# (diff nodes cannot be marked during this pass)
+# if a generative function call is marked then it propagated to all downstream nodes 
+# if a random choice has only its input nodes changed, then it does not propagate to downstream nodes
+# if it is constrained, then it does propagate to downstream nodes
+
+# then, do a second marking -- mark the call argdiff nodes and mark the retdiff node
+# take a backward pass through all the nodes, and mark any nodes (diff nodes or otherwise)
+# we may mark non-diff nodes during this pass?
+
+# what if we mark a non-diff Julia node?
+#   - it is necessary to propagate back
+
+# what if we mark a choice node?
+#   - we can read its value from the trace -- it is not necessary to propagate back
+
+# what if we mark a call node?
+#   - we can read its return value from the trace -- it is not necessary to propagate back
+
+
+## code generation ##
+
+# then -- we take a third pass, forward, to generate the code.
+# we include all nodes that are marked in the first or second passes
+
+# actions taken
+
+# random choice nodes:
+# if it is not marked, then set node.name = old value from trace
+# if it is constrained, then set node.name = new value from constraints
+# if it is not constrained, then set node.name = old value from trace, and compute the new logpdf, contribute to weight and score
+
+# generative function call nodes:
+# if it is not marked, then set subtrace_fieldname = old subtrace from trace
+#  if it is marked, then recursively call update on it.
+
+# diff nodes
+# if they are marked, then include them. otherwise, they don't contribute any code
+
+# argument nodes
+# always set node.name = new-arg-value
+
+"""
+Example: MaskedArgDiff{Tuple{true, false, true}, Int}(5)
+"""
+struct MaskedArgDiff{T<:Tuple,U}
+    argdiff::U
+end
+
+struct ForwardPassState
+    input_changed::Set{Union{RandomChoiceNode,GenerativeFunctionCallNode}}
+    value_changed::Set{RegularIRNode}
+    constrained_choices::Set{RandomChoiceNode}
+    constrained_calls::Set{GenerativeFunctionCallNode}
+end
+
+function forward_pass_argdiff!(ir::StaticIR, value_changed::Set{RegularIRNode},
+                               ::Type{UnknownArgDiff})
+    for node in ir.argument_nodes
+        push!(value_changed, node)
+    end
+end
+
+function forward_pass_argdiff!(ir::StaticIR, value_changed::Set{RegularIRNode},
+                               ::Type{NoArgDiff})
+    for node in ir.argument_nodes
+        push!(value_changed, node)
+    end
+end
+
+function forward_pass_argdiff!(ir::StaticIR, value_changed::Set{RegularIRNode},
+                               ::Type{MaskedArgDiff{T,U}}) where {T<:Tuple,U}
+    for (node, marked::Bool) in zip(ir.argument_nodes, T.parameters)
+        push!(value_changed, node)
+    end
+end
+
+function process_forward!(::ForwardPassState, ::ArgumentNode) end
+function process_forward!(::ForwardPassState, ::DiffJuliaNode) end
+function process_forward!(::ForwardPassState, ::ReceivedArgDiffNode) end
+function process_forward!(::ForwardPassState, ::ChoiceDiffNode) end
+function process_forward!(::ForwardPassState, ::CallDiffNode) end
+
+function process_forward!(state::ForwardPassState, node::JuliaNode)
+    if any(input_node in values(node.inputs) for input_node in state.value_changed)
+        push!(state.value_changed, node)
+    end
+end
+
+function process_forward!(state::ForwardPassState, node::RandomChoiceNode)
+    schema = state.schema
+    @assert isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema)
+    if isa(schema, StaticAddressSchema) && (node.addr in leaf_node_keys(schema))
+        push!(state.constrained_choices, node)
+        push!(state.value_changed, node)
+    end
+    if any(input_node in state.value_changed for input_node in node.inputs)
+        push!(state.input_changed, node)
+    end
+end
+
+function process_forward!(state::ForwardPassState, node::GenerativeFunctionCallNode)
+    schema = state.schema
+    @assert isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema)
+    if isa(schema, StaticAddressSchema) && (addr in internal_node_keys(schema))
+        push!(state.constrained_calls, node)
+        push!(state.value_changed, node)
+    end
+    if any(input_node in state.value_changed for input_node in node.inputs)
+        push!(state.input_changed, node)
+        push!(state.value_changed, node)
+    end
+end
+
+function process_backward!(::Set{DiffNode}, node::ArgumentNode) end
+
+function process_backward!(diff_needed::Set{DiffNode}, node::DiffJuliaNode)
+    if node in diff_needed
+        for input_node in values(node.inputs)
+            if isa(input_node, DiffNode)
+                push!(diff_needed, input_node)
+            end
+        end
+    end
+end
+
+function process_backward!(::Set{DiffNode}, ::ReceivedArgDiffNode) end
+function process_backward!(::Set{DiffNode}, ::ChoiceDiffNode) end
+function process_backward!(::Set{DiffNode}, ::CallDiffNode) end
+function process_backward!(::Set{DiffNode}, node::JuliaNode) end
+function process_backward!(::Set{DiffNode}, node::RandomChoiceNode) end
+function process_backward!(::Set{DiffNode}, node::GenerativeFunctionCallNode) end
+
+function process_codegen!(stmts, forward_marking_state, diff_needed, node::ArgumentNode)
+    push!(state.stmts, :($(get_value_fieldname(node)) = $(node.name)))
+end
+
+function process_codegen!(stmts, ::ForwardPassState, diff_needed::Set{DiffNode}, node::DiffJuliaNode)
+    if node in diff_needed
+        push!(stmts, :($(node.name) = $(node.expr)))
+    end
+end
+
+function process_codegen!(stmts, forward_marking_state, diff_needed, ::ReceivedArgDiffNode)
+    if node in diff_needed
+        push!(stmts, :($(node.name) = argdiff))
+    end
+end
+
+function process_codegen!(stmts, forward_marking_state, diff_needed, ::ChoiceDiffNode)
+    if node in diff_needed
+        # TODO the RandomChoiceNode will assign to a choice diff variable (only one?)
+    end
+end
+
+function process_codegen!(stmts, forward_marking_state, diff_needed, ::CallDiffNode)
+    if node in diff_needed
+        # TODO the GenerativeFunctionCallNode will assign to a choice diff variable (only one?)
+    end
+end
+
+function process_codegen!(stmts, forward_marking_state, diff_needed, node::JuliaNode)
+    if node in forward_marking_state.value_changed
+        push!(state.stmts, :($(node.name) = $(node.expr)))
+    end
+    # TODO: even if it's value hasn't changed, we still might need its value??
+end
+
+function process_codegen!(stmts, forward_marking_state, diff_needed, node::RandomChoiceNode)
+    # TODO
+end
+
+function process_codegen!(stmts, forward_marking_state, diff_needed, node::GenerativeFunctionCallNode)
+    # TODO
+end
+
+
+
+function codegen_update(gen_type::Type{G}, args_type, argdiff_type,
+                        trace_type::Type{U}, constraints_type)
+                        where {T,U,G<:StaticIRGenerativeFunction{T,U}}
+    schema = get_address_schema(constraints)
+
+    # convert the constraints to a static assignment if it is not already one
+    if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
+        return quote update(gen_fn, args, argdiff, trace, StaticAssignment(constraints)) end
+    end
+
+    ir = get_ir(gen_fn)
+
+    # forward marking pass
+    input_changed = Set{Union{RandomChoiceNode,GenerativeFunctionCallNode}}()
+    value_changed = Set{RegularIRNode}()
+    constrained_choices = Set{RandomChoiceNode}()
+    constrained_calls = Set{GenerativeFunctionCallNode}()
+    forward_pass_handle_argdiff!(ir, value_changed, argdiff_type)
+    forward_marking_state = ForwardPassState(input_changed, value_changed,
+                                             constrained_choices, constrained_calls)
+    for node in ir.nodes
+        process_forward!(forward_marking_state, node)
+    end
+    
+    # backward marking pass
+    diff_needed = Set{DiffNode}()
+    for node in reverse(ir.nodes)
+        process_backward!(diff_needed, node)
+    end
+
+    # code generation forward pass
+    stmts = []
+
+    # initialize score, weight, and num_has_choices
+    push!(stmts, :($total_score_fieldname = trace.$total_score_fieldname))
+    push!(stmts, :($weight = 0.))
+    push!(stmts, :($num_has_choices_fieldname = trace.$num_has_choices_fieldname))
+
+    # unpack arguments
+    arg_names = Symbol[arg_node.name for arg_node in ir.arg_nodes]
+    push!(stmts, :($(Expr(:tuple, arg_names...)) = args))
+
+    # process expression nodes in topological order
+    for node in ir.nodes
+        process_codegen!(forward_marking_state, diff_needed, node)
+    end
+
+    # return value
+    push!(stmts, :($return_value_fieldname = $(ir.return_node.name)))
+
+    # construct new trace
+    push!(stmts, :($trace = $(QuoteNode(trace_type))($(fieldnames(trace_type)...))))
+
+    # return trace and weight and discard
+    push!(stmts, :(return ($trace, $weight, $discard, $retdiff)))
+
+    Expr(:block, stmts...)
+end
+
+push!(Gen.generated_functions, quote
+@generated function Gen.update(gen_fn::Gen.StaticIRGenerativeFunction{T,U}, args::Tuple,
+                               argdiff::Union{NoArgDiff,UnknownArgDiff,MaskedArgChange},
+                               trace::U, constraints::Assignment) where {T,U}
+    Gen.codegen_update(gen_fn, args, argdiff, trace, constraints)
+end
+end)
+
+println(x)
+println(typeof(x))
+
+
+
+
+exit()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 const bb_score = gensym("score")
 const bb_weight = gensym("weight")
 const bb_new_trace = gensym("trace")

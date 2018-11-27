@@ -1,7 +1,3 @@
-const trace = gensym("trace")
-const weight = gensym("weight")
-const subtrace = gensym("subtrace")
-
 struct StaticIRGenerateState
     schema::Union{StaticAddressSchema, EmptyAddressSchema}
     stmts::Vector{Any}
@@ -106,7 +102,8 @@ function codegen_generate(gen_fn::Type{T}, args, constraints) where {T <: Static
 end
 
 push!(Gen.generated_functions, quote
-@generated function Gen.generate(gen_fn::Gen.StaticIRGenerativeFunction, args, constraints)
+@generated function Gen.generate(gen_fn::Gen.StaticIRGenerativeFunction,
+                                 args::Tuple, constraints::Assignment)
     Gen.codegen_generate(gen_fn, args, constraints)
 end
 end)
