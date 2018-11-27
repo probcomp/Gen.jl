@@ -2,9 +2,7 @@ abstract type StaticIRNode end
 abstract type RegularNode <: StaticIRNode end
 abstract type DiffNode <: StaticIRNode end
 
-#################
-# regular nodes #
-#################
+## regular nodes ##
 
 # NOTE: statically inferring types is possible in some cases, but not yet
 # implemented. this might allow us to simplify the distribution and generative
@@ -61,9 +59,7 @@ struct GenerativeFunctionCallNode <: RegularNode
     typ::Type
 end
 
-##############
-# diff nodes #
-##############
+## diff nodes ##
 
 struct DiffJuliaNode <: DiffNode
     # contains gensyms for each symbol in local scope
@@ -117,16 +113,12 @@ struct CallDiffNode <: DiffNode
     typ::Type
 end
 
-###############################
-# intermediate representation #
-###############################
-
 struct StaticIR
-    #nodes::Set{StaticIRNode} # ? needed ?
+    nodes::Vector{StaticIRNode}
     arg_nodes::Vector{ArgumentNode}
     choice_nodes::Vector{RandomChoiceNode}
     call_nodes::Vector{GenerativeFunctionCallNode}
     return_node::RegularNode
-    #retdiff_node::StaticIRNode
-    #received_argdiff_node::ReceivedArgDiffNode
+    retdiff_node::StaticIRNode
+    received_argdiff_node::ReceivedArgDiffNode
 end

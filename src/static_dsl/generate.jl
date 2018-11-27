@@ -1,150 +1,114 @@
-struct BasicBlockGenerateState
-    trace::Symbol
-    score::Symbol
-    weight::Symbol
+const trace = gensym("trace")
+const weight = gensym("weight")
+const subtrace = gensym("subtrace")
+
+struct StaticIRGenerateState
     schema::Union{StaticAddressSchema, EmptyAddressSchema}
     stmts::Vector{Any}
 end
 
-function process!(ir::BasicBlockIR, state::BasicBlockGenerateState, node::JuliaNode)
-    trace = state.trace
-    (_, trace_field) = get_value_info(node)
-    if node.line !== nothing
-        push!(state.stmts, node.line)
-    end
-    push!(state.stmts, Expr(:(=),
-        Expr(:(.), trace, QuoteNode(trace_field)),
-        expr_read_from_trace(node, trace)))
+function process!(::StaticIR, state::StaticIRGenerateState, node::ArgumentNode)
+    push!(state.stmts, :($(get_value_fieldname(node)) = $(node.name)))
 end
 
-function process!(ir::BasicBlockIR, state::BasicBlockGenerateState,
-                  node::Union{ArgsChangeNode,AddrChangeNode})
-    trace = state.trace
-    (_, trace_field) = get_value_info(node)
-    push!(state.stmts, Expr(:(=), Expr(:(.), trace, QuoteNode(trace_field)), QuoteNode(NoChoiceDiff())))
+function process!(::StaticIR, ::StaticIRGenerateState, ::ConstantNode) end
+
+function process!(::StaticIR, ::StaticIRGenerateState, ::DiffJuliaNode) end
+
+function process!(::StaticIR, ::StaticIRGenerateState, ::ReceivedArgDiffNode) end
+
+function process!(::StaticIR, ::StaticIRGenerateState, ::ChoiceDiffNode) end
+
+function process!(::StaticIR, ::StaticIRGenerateState, ::CallDiffNode) end
+
+function process!(::StaticIR, state::StaticIRGenerateState, node::JuliaNode)
+    push!(state.stmts, :($(node.name) = $(node.expr)))
 end
 
-function process!(ir::BasicBlockIR, state::BasicBlockGenerateState, node::AddrDistNode)
-    trace, score, weight, schema = (state.trace, state.score, state.weight, state.schema)
-    addr = node.address
+function process!(::StaticIR, state::StaticIRGenerateState, node::RandomChoiceNode)
+    schema = state.schema
+    args = map((input_node) -> input_node.name, node.inputs)
+    incr = gensym("logpdf")
+    addr = QuoteNode(node.addr)
     dist = QuoteNode(node.dist)
-    args = get_args(trace, node)
-    if isa(schema, StaticAddressSchema) && (addr in leaf_node_keys(schema))
-        increment = gensym("logpdf")
-        push!(state.stmts, node.line)
-        push!(state.stmts, Expr(:(=), Expr(:(.), trace, QuoteNode(addr)), Expr(:call, :static_get_leaf_node, :constraints, Expr(:call, :Val, QuoteNode(addr)))))
-        push!(state.stmts, node.line)
-        push!(state.stmts, Expr(:(=), increment, Expr(:call, :logpdf, dist, Expr(:(.), trace, QuoteNode(addr)), args...)))
-        push!(state.stmts, node.line)
-        push!(state.stmts, Expr(:(+=), score, increment))
-        push!(state.stmts, node.line)
-        push!(state.stmts, Expr(:(+=), weight, increment))
-        push!(state.stmts, node.line)
-        push!(state.stmts, Expr(:(=), Expr(:(.), trace, QuoteNode(is_empty_field)), QuoteNode(false)))
-    elseif isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema)
-        push!(state.stmts, node.line)
-        push!(state.stmts, Expr(:(=), Expr(:(.), trace, QuoteNode(addr)), Expr(:call, :random, dist, args...)))
-        push!(state.stmts, node.line)
-        push!(state.stmts, Expr(:(+=), score, Expr(:call, :logpdf, dist, Expr(:(.), trace, QuoteNode(addr)), args...)))
+    @assert isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema)
+    if isa(schema, StaticAddressSchema) && (node.addr in leaf_node_keys(schema))
+        push!(state.stmts, :($(node.name) = static_get_leaf_node(constraints, Val($addr))))
+        push!(state.stmts, :($incr = logpdf($dist, $(node.name), $(args...))))
+        push!(state.stmts, :($weight += $incr))
     else
-        error("Basic block does not currently support $schema constraints")
+        push!(state.stmts, :($(node.name) = random($dist, $(args...))))
+        push!(state.stmts, :($incr = logpdf($dist, $(node.name), $(args...))))
     end
-    push!(state.stmts, node.line)
-    push!(state.stmts, Expr(:(=), Expr(:(.), trace, QuoteNode(is_empty_field)), QuoteNode(false)))
-    if has_output(node)
-        (_, trace_field) = get_value_info(node)
-        push!(state.stmts, node.line)
-        push!(state.stmts, Expr(:(=), Expr(:(.), trace, QuoteNode(trace_field)), Expr(:(.), trace, QuoteNode(addr))))
-    end
+    push!(state.stmts, :($(get_value_fieldname(node)) = $(node.name)))
+    push!(state.stmts, :($(get_score_fieldname(node)) = $incr))
+    push!(state.stmts, :($num_has_choices_fieldname += 1))
+    push!(state.stmts, :($total_score_fieldname += $incr))
 end
 
-function process!(ir::BasicBlockIR, state::BasicBlockGenerateState, node::AddrGenerativeFunctionNode)
-    trace, score, weight, schema = (state.trace, state.score, state.weight, state.schema)
-    addr = node.address
-    gen = QuoteNode(node.gen)
-    args = get_args(trace, node)
-    call_record = gensym("call_record")
+function process!(::StaticIR, state::StaticIRGenerateState, node::GenerativeFunctionCallNode)
+    schema = state.schema
+    args = map((input_node) -> input_node.name, node.inputs)
+    args_tuple = Expr(:tuple, args...)
+    addr = QuoteNode(node.addr)
+    gen_fn = QuoteNode(node.generative_function)
+    @assert isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema)
+    subtrace = get_subtrace_fieldname(node)
+    incr = gensym("weight")
+    subconstraints = gensym("subconstraints")
     if isa(schema, StaticAddressSchema) && (addr in internal_node_keys(schema))
-        weight_incr = gensym("weight")
-        push!(state.stmts, node.line)
-        push!(state.stmts, Expr(:(=),
-            Expr(:tuple, Expr(:(.), trace, QuoteNode(addr)), weight_incr),
-            Expr(:call, :generate, gen, Expr(:tuple, args...), Expr(:call, :static_get_internal_node, :constraints, Expr(:call, :Val, QuoteNode(addr))))))
-        push!(state.stmts, node.line)
-        push!(state.stmts, Expr(:(+=), weight, weight_incr))
-    elseif isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema)
-        push!(state.stmts, node.line)
-        push!(state.stmts, Expr(:(=), Expr(:(.), trace, QuoteNode(addr)), Expr(:call, :simulate, gen, Expr(:tuple, args...))))
+        push!(state.stmts, :($subconstraints = static_get_internal_node(constraints, Val($addr))))
+        push!(state.stmts, :(($subtrace, $incr) = generate($gen_fn, $args_tuple, $subconstraints)))
+        push!(state.stmts, :($weight += $incr))
     else
-        err = "Basic block does not currently support constraints: " * String(schema)
-        error(err)
+        push!(state.stmts, :($subtrace = simulate($gen_fn, $args_tuple)))
     end
-    push!(state.stmts, node.line)
-    push!(state.stmts, Expr(:(=), call_record, Expr(:call, :get_call_record, Expr(:(.), trace, QuoteNode(addr)))))
-    push!(state.stmts, node.line)
-    push!(state.stmts, Expr(:(+=), score, Expr(:(.), call_record, QuoteNode(:score))))
-    push!(state.stmts, node.line)
-    push!(state.stmts, Expr(:(=),
-        Expr(:(.), trace, QuoteNode(is_empty_field)),
-        Expr(:(&&), Expr(:(.), trace, QuoteNode(is_empty_field)), Expr(:call, :!, Expr(:call, :has_choices, Expr(:(.), trace, QuoteNode(addr)))))))
-    if has_output(node)
-        (_, trace_field) = get_value_info(node)
-        push!(state.stmts, node.line)
-        push!(state.stmts, Expr(:(=), Expr(:(.), trace, QuoteNode(trace_field)), Expr(:(.), call_record, QuoteNode(:retval))))
-    end
+    push!(state.stmts, :($num_has_choices_fieldname += has_choices($subtrace) ? 1 : 0))
+    push!(state.stmts, :($total_score_fieldname += get_call_record($subtrace).score))
+    push!(state.stmts, :($(node.name) = get_call_record($subtrace).retval))
 end
 
-function codegen_generate(gen::Type{T}, args, constraints) where {T <: StaticDSLFunction}
-    trace_type = get_trace_type(gen)
+function codegen_generate(gen_fn::Type{T}, args, constraints) where {T <: StaticIRGenerativeFunction}
+    trace_type = get_trace_type(gen_fn)
     schema = get_address_schema(constraints)
+
+    # convert the constraints to a static assignment if it is not already one
     if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
-        # trie to convert it to a static assignment
-        return quote generate(gen, args, StaticAssignment(constraints)) end
+        return quote generate(gen_fn, args, StaticAssignment(constraints)) end
     end
 
-    ir = get_ir(gen)
+    ir = get_ir(gen_fn)
     stmts = []
 
-    # initialize trace and score and weight
-    trace = gensym("trace")
-    score = gensym("score")
-    weight = gensym("weight")
-    push!(stmts, Expr(:(=), trace, Expr(:call, trace_type)))
-    push!(stmts, Expr(:(=), score, QuoteNode(0.)))
-    push!(stmts, Expr(:(=), weight, QuoteNode(0.)))
-    push!(stmts, Expr(:(=), Expr(:(.), trace, QuoteNode(is_empty_field)), QuoteNode(true)))
+    # initialize score, weight, and num_has_choices
+    push!(stmts, :($total_score_fieldname = 0.))
+    push!(stmts, :($weight = 0.))
+    push!(stmts, :($num_has_choices_fieldname = 0))
 
     # unpack arguments
     arg_names = Symbol[arg_node.name for arg_node in ir.arg_nodes]
-    push!(stmts, Expr(:(=), Expr(:tuple, arg_names...), :args))
-
-    # record arguments in trace
-    for arg_node in ir.arg_nodes
-        push!(stmts, Expr(:(=), Expr(:(.), trace, QuoteNode(value_field(arg_node))), arg_node.name))
-    end
+    push!(stmts, :($(Expr(:tuple, arg_names...)) = args))
 
     # process expression nodes in topological order
-    state = BasicBlockGenerateState(trace, score, weight, schema, stmts)
-    for node in ir.expr_nodes_sorted
-        # skip incremental nodes, which are not needed (these fields will
-        # remain uninitialized in the trace)
+    state = StaticIRGenerateState(schema, stmts)
+    for node in ir.nodes
         process!(ir, state, node)
     end
 
     # return value
-    if ir.output_node === nothing
-        retval = :nothing
-    else
-        retval = Expr(:(.), trace, QuoteNode(value_field(something(ir.output_node))))
-    end
+    push!(stmts, :($return_value_fieldname = $(ir.return_node.name)))
 
-    push!(stmts, Expr(:(=), Expr(:(.), trace, QuoteNode(call_record_field)), Expr(:call, :CallRecord, score, retval, :args)))
-    push!(stmts, Expr(:return, Expr(:tuple, trace, weight)))
+    # construct trace
+    push!(stmts, :($trace = $(QuoteNode(trace_type))($(fieldnames(trace_type)...))))
+
+    # return trace and weight
+    push!(stmts, :(return ($trace, $weight)))
+
     Expr(:block, stmts...)
 end
 
 push!(Gen.generated_functions, quote
-@generated function Gen.generate(gen::Gen.StaticDSLFunction, args, constraints)
-    Gen.codegen_generate(gen, args, constraints)
+@generated function Gen.generate(gen_fn::Gen.StaticIRGenerativeFunction, args, constraints)
+    Gen.codegen_generate(gen_fn, args, constraints)
 end
 end)
