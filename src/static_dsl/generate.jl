@@ -62,16 +62,16 @@ function process!(state::StaticIRGenerateState, node::GenerativeFunctionCallNode
     push!(state.stmts, :($(node.name) = get_call_record($subtrace).retval))
 end
 
-function codegen_generate(gen_fn::Type{T}, args, constraints) where {T <: StaticIRGenerativeFunction}
-    trace_type = get_trace_type(gen_fn)
-    schema = get_address_schema(constraints)
+function codegen_generate(gen_fn_type::Type{T}, args, constraints_type) where {T <: StaticIRGenerativeFunction}
+    trace_type = get_trace_type(gen_fn_type)
+    schema = get_address_schema(constraints_type)
 
     # convert the constraints to a static assignment if it is not already one
     if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
         return quote generate(gen_fn, args, StaticAssignment(constraints)) end
     end
 
-    ir = get_ir(gen_fn)
+    ir = get_ir(gen_fn_type)
     stmts = []
 
     # initialize score, weight, and num_has_choices

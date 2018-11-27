@@ -46,6 +46,12 @@ println(typeof(foo))
 
 Gen.load_generated_functions()
 
+################################
+# generate code for generate() #
+################################
+
+println("\n*** code for generate ***\n")
+
 constraints = DynamicAssignment()
 constraints[:choice1] = 2.1
 static_constraints = StaticAssignment(constraints)
@@ -55,3 +61,22 @@ println(code)
 (trace, weight) = generate(foo, (1.2, 2.5), static_constraints)
 println(trace)
 println(weight)
+
+##############################
+# generate code for update() #
+##############################
+
+println("\n*** code for update ***\n")
+
+argdiff= MaskedArgDiff{Tuple{true, false}, Nothing}(nothing)
+constraints = DynamicAssignment()
+constraints[:choice1] = 2.2
+static_constraints = StaticAssignment(constraints)
+code = Gen.codegen_update(typeof(foo), Tuple{Float64,Float64}, typeof(argdiff), typeof(trace), typeof(static_constraints))
+println(code)
+
+(trace, weight, discard, retdiff) = update(foo, (-1.2, 2.5), argdiff, trace, static_constraints)
+println(trace)
+println(weight)
+println(discard)
+println(retdiff)
