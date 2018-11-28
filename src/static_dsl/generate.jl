@@ -16,7 +16,8 @@ function process!(::StaticIRGenerateState, ::ChoiceDiffNode) end
 function process!(::StaticIRGenerateState, ::CallDiffNode) end
 
 function process!(state::StaticIRGenerateState, node::JuliaNode)
-    push!(state.stmts, :($(node.name) = $(node.expr)))
+    args = map((input_node) -> input_node.name, node.inputs)
+    push!(state.stmts, :($(node.name) = $(QuoteNode(node.fn))($(args...))))
 end
 
 function process!(state::StaticIRGenerateState, node::RandomChoiceNode)

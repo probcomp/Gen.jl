@@ -59,7 +59,7 @@ function process_forward!(::AddressSchema, ::ForwardPassState, ::ChoiceDiffNode)
 function process_forward!(::AddressSchema, ::ForwardPassState, ::CallDiffNode) end
 
 function process_forward!(::AddressSchema, state::ForwardPassState, node::JuliaNode)
-    if any(input_node in values(node.inputs) for input_node in state.value_changed)
+    if any(input_node in state.value_changed for input_node in node.inputs)
         push!(state.value_changed, node)
     end
 end
@@ -93,7 +93,7 @@ function process_backward!(::ForwardPassState, ::BackwardPassState, ::ArgumentNo
 
 function process_backward!(::ForwardPassState, back::BackwardPassState, node::DiffJuliaNode)
     if node in back.marked
-        for input_node in values(node.inputs)
+        for input_node in node.inputs
             push!(back.marked, input_node)
         end
     end
@@ -106,7 +106,7 @@ function process_backward!(::ForwardPassState, ::BackwardPassState, ::CallDiffNo
 function process_backward!(::ForwardPassState, back::BackwardPassState,
                            node::JuliaNode)
     if node in back.marked
-        for input_node in values(node.inputs)
+        for input_node in node.inputs
             push!(back.marked, input_node)
         end
     end
@@ -115,7 +115,7 @@ end
 function process_backward!(fwd::ForwardPassState, back::BackwardPassState,
                            node::RandomChoiceNode)
     if node in fwd.input_changed || node in fwd.constrained_choices
-        for input_node in values(node.inputs)
+        for input_node in node.inputs
             push!(back.marked, input_node)
         end
     end
@@ -124,7 +124,7 @@ end
 function process_backward!(fwd::ForwardPassState, back::BackwardPassState,
                            node::GenerativeFunctionCallNode)
     if node in fwd.input_changed || node in fwd.constrained_calls
-        for input_node in values(node.inputs)
+        for input_node in node.inputs
             push!(back.marked, input_node)
         end
         push!(back.marked, node.argdiff)
@@ -139,7 +139,8 @@ end
 function process_codegen!(stmts, ::ForwardPassState, back::BackwardPassState,
                           node::DiffJuliaNode)
     if node in back.marked
-        push!(stmts, :($(node.name) = $(node.expr)))
+        args = map((input_node) -> input_node.name, node.inputs)
+        push!(state.stmts, :($(node.name) = $(QuoteNode(node.fn))($(args...))))
     end
 end
 
@@ -175,7 +176,8 @@ end
 function process_codegen!(stmts, fwd::ForwardPassState, back::BackwardPassState,
                          node::JuliaNode)
     if node in back.marked
-        push!(stmts, :($(node.name) = $(node.expr)))
+        args = map((input_node) -> input_node.name, node.inputs)
+        push!(state.stmts, :($(node.name) = $(QuoteNode(node.fn))($(args...))))
     end
 end
 

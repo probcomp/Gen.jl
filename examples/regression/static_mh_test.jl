@@ -1,6 +1,6 @@
 using Gen
-using Gen: ArgumentNode, RandomChoiceNode, GenerativeFunctionCallNode, RegularNode, JuliaNode, StaticIRNode, StaticIR, generate_trace_type_and_methods, generate_generative_function
-using Gen: DiffJuliaNode, ReceivedArgDiffNode, ChoiceDiffNode, CallDiffNode
+using Gen: generate_trace_type_and_methods, generate_generative_function
+using FunctionalCollections: PersistentVector
 
 include("/home/marcoct/dev/Gen/src/static_dsl/render_ir.jl")
 
@@ -16,44 +16,35 @@ end
 # datum as Static IR #
 ######################
 
-x = ArgumentNode(:x, Float64)
-params = ArgumentNode(:params, Params)
-prob_outlier = JuliaNode(:(params.prob_outlier), Dict(:params => params), gensym(), Float64)
-z = RandomChoiceNode(bernoulli, RegularNode[prob_outlier], :z, :is_outlier, Bool)
-std = JuliaNode(:(is_outlier ? params.inlier_std : params.outlier_std),
-          Dict(:is_outlier => z, :params => params), :std, Float64)
-y_mean = JuliaNode(:(x * params.slope + params.intercept), Dict(:params => params, :x => x),
-            gensym(), Float64)
-y = RandomChoiceNode(normal, RegularNode[y_mean, std], :y, :y, Float64)
-received_argdiff = ReceivedArgDiffNode(:argdiff, Nothing)
-retdiff = JuliaNode(:(nothing), Dict{Symbol,Symbol}(), gensym(), Nothing)
-nodes = StaticIRNode[x, params, prob_outlier, z, std, y_mean, y, received_argdiff, retdiff]
-arg_nodes = [x, params]
-choice_nodes = [z, y]
-call_nodes = GenerativeFunctionCallNode[]
-datum_ir = StaticIR(nodes, arg_nodes, choice_nodes, call_nodes, y, retdiff, received_argdiff)
+# TODO when we add a Julia node, we should be able to add custom backpropagation code for it
 
-render_graph(datum_ir, "datum.pdf")
+builder = StaticIRBuilder()
+x = add_argument_node!(builder, :x, Float64)
+params = add_argument_node!(builder, :params, Params)
+prob_outlier = add_julia_node!(builder,
+    (params) -> params.prob_outlier,
+    [params], gensym(), Float64)
+is_outlier = add_random_choice_node!(builder, bernoulli, [prob_outlier], :z, :is_outlier, Bool)
+std = add_julia_node!(builder,
+    (is_outlier, params) -> is_outlier ? params.inlier_std : params.outlier_std,
+    [is_outlier, params], :std, Float64)
+y_mean = add_julia_node!(builder, 
+    (x, params) -> x * params.slope + params.intercept,
+    [x, params], gensym(), Float64)
+y = add_random_choice_node!(builder, normal, [y_mean, std], :y, :y, Float64)
+received_argdiff = add_received_argdiff_node!(builder, :argdiff, Nothing)
+retdiff = add_julia_node!(builder, 
+    () -> nothing, [], gensym(), Nothing)
+set_retdiff_node!(builder, retdiff)
+set_return_node!(builder, y)
+datum_ir = build_ir(builder)
+
+render_graph(datum_ir, "datum")
 
 (datum_trace_defn, datum_trace_struct_name) = generate_trace_type_and_methods(datum_ir, :datum)
 datum_defn = generate_generative_function(datum_ir, :datum, datum_trace_struct_name)
 eval(datum_trace_defn)
 eval(datum_defn)
-
-Gen.load_generated_functions()
-
-
-
-exit()
-
-
-
-@compiled @gen function datum(x::Float64, params::Params)
-    is_outlier::Bool = @addr(bernoulli(params.prob_outlier), :z)
-    std::Float64 = is_outlier ? params.inlier_std : params.outlier_std
-    y::Float64 = @addr(normal(x * params.slope + params.intercept, std), :y)
-    return y
-end
 
 ######################
 # model as Static IR #
@@ -70,20 +61,43 @@ function compute_argdiff(inlier_std_diff, outlier_std_diff, slope_diff, intercep
     end
 end
 
-@compiled @gen function model(xs::Vector{Float64})
-    n::Int = length(xs)
-    inlier_std::Float64 = @addr(gamma(1, 1), :inlier_std)
-    outlier_std::Float64 = @addr(gamma(1, 1), :outlier_std)
-    slope::Float64 = @addr(normal(0, 2), :slope)
-    intercept::Float64 = @addr(normal(0, 2), :intercept)
-    params::Params = Params(0.5, inlier_std, outlier_std, slope, intercept)
-    inlier_std_diff::Union{PrevChoiceDiff{Float64},NoChoiceDiff} = @change(:inlier_std)
-    outlier_std_diff::Union{PrevChoiceDiff{Float64},NoChoiceDiff} = @change(:outlier_std)
-    slope_diff::Union{PrevChoiceDiff{Float64},NoChoiceDiff} = @change(:slope)
-    intercept_diff::Union{PrevChoiceDiff{Float64},NoChoiceDiff} = @change(:intercept)
-    argdiff::Union{NoArgDiff,UnknownArgDiff} = compute_argdiff(
-        inlier_std_diff, outlier_std_diff, slope_diff, intercept_diff)
-    ys::PersistentVector{Float64} = @addr(data(xs, fill(params, n)), :data, argdiff)
-    return ys
-end
+builder = StaticIRBuilder()
+xs = add_argument_node!(builder, :xs, Vector{Float64})
+n = add_julia_node!(builder, (xs) -> length(xs), [xs], :n, Int)
+c = add_constant_node!(builder, 1)
+inlier_std = add_random_choice_node!(builder, gamma, [c, c], :inlier_std, :inlier_std, Float64)
+outlier_std = add_random_choice_node!(builder, gamma, [c, c], :outlier_std, :outlier_std, Float64)
+slope = add_random_choice_node!(builder, normal, [c, c], :slope, :slope, Float64)
+intercept = add_random_choice_node!(builder, normal, [c, c], :intercept, :intercept, Float64)
+params = add_julia_node!(builder,
+    (inlier_std, outlier_std, slope, intercept) -> Params(0.5, inlier_std, outlier_std, slope, intercept),
+    [inlier_std, outlier_std, slope, intercept], :params, Params)
+inlier_std_diff = add_choicediff_node!(builder, :inlier_std, :inlier_std_diff, Any)
+outlier_std_diff = add_choicediff_node!(builder, :outlier_std, :outlier_std_diff, Any)
+slope_diff = add_choicediff_node!(builder, :slope, :slope_diff, Any)
+intercept_diff = add_choicediff_node!(builder, :intercept, :intercept_diff, Any)
+data_argdiff = add_diff_julia_node!(builder,
+    (d1, d2, d3, d4) -> compute_argdiff(d1, d2, d3, d4),
+    [inlier_std_diff, outlier_std_diff, slope_diff, intercept_diff],
+    :argdiff, Any)
+filled = add_julia_node!(builder,
+    (params, n) -> fill(params, n), [params, n],
+    gensym(), Vector{Params})
+ys = add_gen_fn_call_node!(builder, data, [xs, filled], :data, data_argdiff, :ys, PersistentVector{Float64})
+received_argdiff = add_received_argdiff_node!(builder, :argdiff, Nothing)
+retdiff = add_constant_node!(builder, nothing)
+set_return_node!(builder, ys)
+set_retdiff_node!(builder, retdiff)
+model_ir = build_ir(builder)
 
+render_graph(model_ir, "model")
+
+(model_trace_defn, model_trace_struct_name) = generate_trace_type_and_methods(model_ir, :model)
+model_defn = generate_generative_function(model_ir, :model, model_trace_struct_name)
+eval(model_trace_defn)
+eval(model_defn)
+
+Gen.load_generated_functions()
+
+
+exit()

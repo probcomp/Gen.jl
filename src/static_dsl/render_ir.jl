@@ -1,14 +1,16 @@
+using Gen: StaticIRNode, ArgumentNode, JuliaNode, RandomChoiceNode, GenerativeFunctionCallNode, DiffJuliaNode, ReceivedArgDiffNode, ChoiceDiffNode, CallDiffNode
+
 using PyCall
 @pyimport graphviz as gv
 
 label(node::ArgumentNode) = String(node.name)
 label(node::JuliaNode) = String(node.name)
 label(node::RandomChoiceNode) = "$(node.dist) $(node.addr) $(node.name)"
-label(node::GenerativeFunctionCallNode) = "$(typeof(node.generative_function)) $(node.addr) $(node.name)"
+label(node::GenerativeFunctionCallNode) = "$(node.addr) $(node.name)"
 label(node::DiffJuliaNode) = String(node.name)
 label(node::ReceivedArgDiffNode) = String(node.name)
-label(node::ChoiceDiffNode) = "$(node.choice_node.addr) $(node.name)"
-label(node::CallDiffNode) = "$(node.call_node.addr) $(node.name)"
+label(node::ChoiceDiffNode) = "$(node.name)"
+label(node::CallDiffNode) = "$(node.name)"
 
 function render_graph(ir::StaticIR, fname)
     dot = gv.Digraph()
@@ -28,7 +30,7 @@ function render_graph(ir::StaticIR, fname)
         elseif isa(node, GenerativeFunctionCallNode)
             shape = "star"
             color = "white"
-            parents = node.inputs
+            parents = vcat(node.inputs, [node.argdiff])
         elseif isa(node, JuliaNode)
             shape = "box"
             color = "white"
