@@ -10,7 +10,7 @@ Warning: This is unstable research software.
 
 To cite Gen please use:
 ```
-@techreport{cusumanotowner-csail-2018,
+@techreport{gen2018,
 title       = {Gen: A General-Purpose Probabilistic Programming System with Programmable Inference},
 author      = {Cusumano-Towner, Marco F. and Saad, Feras A. and Lew, Alexander and Mansinghka, Vikash K.},
 year        = {2018},
