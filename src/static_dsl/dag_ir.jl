@@ -111,7 +111,7 @@ end
 
 function build_ir(builder::StaticIRBuilder)
     if builder.received_argdiff_node === nothing
-        builder.received_argdiff_node = add_received_argdiff_node!(builder, gensym(), Any)
+        builder.received_argdiff_node = add_received_argdiff_node!(builder)
     end
     if builder.return_node === nothing
         builder.return_node = add_constant_node!(builder, nothing)
@@ -154,7 +154,7 @@ function _add_node!(builder::StaticIRBuilder, node::StaticIRNode)
     push!(builder.node_set, node)
 end
 
-function add_argument_node!(builder::StaticIRBuilder, name::Symbol, typ::Type)
+function add_argument_node!(builder::StaticIRBuilder; name::Symbol=gensym(), typ::Type=Any)
     check_unique_var(builder, name)
     node = ArgumentNode(name, typ)
     _add_node!(builder, node)
@@ -162,8 +162,8 @@ function add_argument_node!(builder::StaticIRBuilder, name::Symbol, typ::Type)
     node
 end
 
-function add_julia_node!(builder::StaticIRBuilder, fn::Function,
-                         inputs::Vector, name::Symbol, typ::Type)
+function add_julia_node!(builder::StaticIRBuilder, fn::Function;
+                         inputs::Vector=[], name::Symbol=gensym(), typ::Type=Any)
     check_unique_var(builder, name)
     check_inputs_exist(builder, inputs)
     node = JuliaNode(fn, inputs, name, typ)
@@ -178,9 +178,9 @@ function add_constant_node!(builder::StaticIRBuilder, val::T, name::Symbol=gensy
     node
 end
 
-function add_random_choice_node!(builder::StaticIRBuilder, dist::Distribution,
-                                 inputs::Vector, addr::Symbol,
-                                 name::Symbol, typ::Type)
+function add_random_choice_node!(builder::StaticIRBuilder, dist::Distribution;
+                                 inputs::Vector=[], addr::Symbol=gensym(),
+                                 name::Symbol=gensym(), typ::Type=Any)
     check_unique_var(builder, name)
     check_addr_unique(builder, addr)
     check_inputs_exist(builder, inputs)
@@ -191,10 +191,10 @@ function add_random_choice_node!(builder::StaticIRBuilder, dist::Distribution,
     node
 end
 
-function add_gen_fn_call_node!(builder::StaticIRBuilder, gen_fn::GenerativeFunction,
-                               inputs::Vector, addr::Symbol,
-                               argdiff::StaticIRNode, # TODO can use a default here.
-                               name::Symbol, typ::Type)
+function add_gen_fn_call_node!(builder::StaticIRBuilder, gen_fn::GenerativeFunction;
+                               inputs::Vector=[], addr::Symbol=gensym(),
+                               argdiff::StaticIRNode=add_constant_node!(builder, unknownargdiff),
+                               name::Symbol=gensym(), typ::Type=Any)
     check_unique_var(builder, name)
     check_addr_unique(builder, addr)
     check_inputs_exist(builder, inputs)
@@ -208,8 +208,8 @@ function add_gen_fn_call_node!(builder::StaticIRBuilder, gen_fn::GenerativeFunct
     node
 end
 
-function add_diff_julia_node!(builder::StaticIRBuilder, fn::Function,
-                              inputs::Vector, name::Symbol, typ::Type)
+function add_diff_julia_node!(builder::StaticIRBuilder, fn::Function;
+                              inputs::Vector=[], name::Symbol=gensym(), typ::Type=Any)
     check_unique_var(builder, name)
     check_inputs_exist(builder, inputs)
     node = DiffJuliaNode(fn, inputs, name, typ)
@@ -217,8 +217,8 @@ function add_diff_julia_node!(builder::StaticIRBuilder, fn::Function,
     node
 end
 
-function add_received_argdiff_node!(builder::StaticIRBuilder, 
-                                    name::Symbol, typ::Type)
+function add_received_argdiff_node!(builder::StaticIRBuilder;
+                                    name::Symbol=gensym(), typ::Type=Any)
     check_unique_var(builder, name)
     if builder.received_argdiff_node !== nothing
         error("A received argdiff node was already added")
@@ -229,8 +229,8 @@ function add_received_argdiff_node!(builder::StaticIRBuilder,
     node
 end
 
-function add_choicediff_node!(builder::StaticIRBuilder, addr::Symbol,
-                              name::Symbol, typ::Type)
+function add_choicediff_node!(builder::StaticIRBuilder, addr::Symbol;
+                              name::Symbol=gensym(), typ::Type=Any)
     check_unique_var(builder, name)
     choice_node = builder.addrs_to_choice_nodes[addr]
     node = ChoiceDiffNode(choice_node, name, typ)
@@ -238,8 +238,8 @@ function add_choicediff_node!(builder::StaticIRBuilder, addr::Symbol,
     node
 end
 
-function add_calldiff_node!(builder::StaticIRBuilder, addr::Symbol,
-                            name::Symbol, typ::Type)
+function add_calldiff_node!(builder::StaticIRBuilder, addr::Symbol;
+                            name::Symbol=gensym(), typ::Type=Any)
     check_unique_var(builder, name)
     call_node = builder.addrs_to_call_nodes[addr]
     node = CallDiffNode(call_node, name, typ)

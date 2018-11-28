@@ -20,20 +20,19 @@ end
 # TODO when we add a Julia node, we should be able to add custom backpropagation code for it
 
 builder = StaticIRBuilder()
-x = add_argument_node!(builder, :x, Float64)
-params = add_argument_node!(builder, :params, Params)
+x = add_argument_node!(builder, name=:x, typ=Float64)
+params = add_argument_node!(builder, name=:params, typ=Params)
 prob_outlier = add_julia_node!(builder,
     (params) -> params.prob_outlier,
-    [params], gensym(), Float64)
-is_outlier = add_random_choice_node!(builder, bernoulli, [prob_outlier], :z, :is_outlier, Bool)
+    inputs=[params])
+is_outlier = add_random_choice_node!(builder, bernoulli, inputs=[prob_outlier], addr=:z, name=:is_outlier, typ=Bool)
 std = add_julia_node!(builder,
     (is_outlier, params) -> is_outlier ? params.inlier_std : params.outlier_std,
-    [is_outlier, params], :std, Float64)
+    inputs=[is_outlier, params], name=:std)
 y_mean = add_julia_node!(builder, 
     (x, params) -> x * params.slope + params.intercept,
-    [x, params], gensym(), Float64)
-y = add_random_choice_node!(builder, normal, [y_mean, std], :y, :y, Float64)
-received_argdiff = add_received_argdiff_node!(builder, :argdiff, Nothing)
+    inputs=[x, params])
+y = add_random_choice_node!(builder, normal, inputs=[y_mean, std], addr=:y, name=:y, typ=Float64)
 set_return_node!(builder, y)
 ir = build_ir(builder)
 
@@ -60,31 +59,28 @@ end
 # created behind the secenes)
 
 builder = StaticIRBuilder()
-xs = add_argument_node!(builder, :xs, Vector{Float64})
-n = add_julia_node!(builder, (xs) -> length(xs), [xs], :n, Int)
+xs = add_argument_node!(builder, name=:xs, typ=Vector{Float64})
+n = add_julia_node!(builder, (xs) -> length(xs), inputs=[xs], name=:n, typ=Int)
 zero = add_constant_node!(builder, 0.)
 one = add_constant_node!(builder, 1.)
 two = add_constant_node!(builder, 2.)
-inlier_std = add_random_choice_node!(builder, gamma, [one, one], :inlier_std, :inlier_std, Float64)
-outlier_std = add_random_choice_node!(builder, gamma, [one, one], :outlier_std, :outlier_std, Float64)
-slope = add_random_choice_node!(builder, normal, [zero, two], :slope, :slope, Float64)
-intercept = add_random_choice_node!(builder, normal, [zero, two], :intercept, :intercept, Float64)
+inlier_std = add_random_choice_node!(builder, gamma, inputs=[one, one], addr=:inlier_std, name=:inlier_std, typ=Float64)
+outlier_std = add_random_choice_node!(builder, gamma, inputs=[one, one], addr=:outlier_std, name=:outlier_std, typ=Float64)
+slope = add_random_choice_node!(builder, normal, inputs=[zero, two], addr=:slope, name=:slope, typ=Float64)
+intercept = add_random_choice_node!(builder, normal, inputs=[zero, two], addr=:intercept, name=:intercept, typ=Float64)
 params = add_julia_node!(builder,
     (inlier_std, outlier_std, slope, intercept) -> Params(0.5, inlier_std, outlier_std, slope, intercept),
-    [inlier_std, outlier_std, slope, intercept], :params, Params)
-inlier_std_diff = add_choicediff_node!(builder, :inlier_std, :inlier_std_diff, Any)
-outlier_std_diff = add_choicediff_node!(builder, :outlier_std, :outlier_std_diff, Any)
-slope_diff = add_choicediff_node!(builder, :slope, :slope_diff, Any)
-intercept_diff = add_choicediff_node!(builder, :intercept, :intercept_diff, Any)
+    inputs=[inlier_std, outlier_std, slope, intercept], name=:params)
+inlier_std_diff = add_choicediff_node!(builder, :inlier_std, name=:inlier_std_diff)
+outlier_std_diff = add_choicediff_node!(builder, :outlier_std, name=:outlier_std_diff)
+slope_diff = add_choicediff_node!(builder, :slope, name=:slope_diff)
+intercept_diff = add_choicediff_node!(builder, :intercept, name=:intercept_diff)
 data_argdiff = add_diff_julia_node!(builder,
     (d1, d2, d3, d4) -> compute_argdiff(d1, d2, d3, d4),
-    [inlier_std_diff, outlier_std_diff, slope_diff, intercept_diff],
-    :argdiff, Any)
+    inputs=[inlier_std_diff, outlier_std_diff, slope_diff, intercept_diff])
 filled = add_julia_node!(builder,
-    (params, n) -> fill(params, n), [params, n],
-    gensym(), Vector{Params})
-ys = add_gen_fn_call_node!(builder, data, [xs, filled], :data, data_argdiff, :ys, PersistentVector{Float64})
-received_argdiff = add_received_argdiff_node!(builder, :argdiff, Nothing)
+    (params, n) -> fill(params, n), inputs=[params, n])
+ys = add_gen_fn_call_node!(builder, data, inputs=[xs, filled], addr=:data, argdiff=data_argdiff, name=:ys, typ=PersistentVector{Float64})
 set_return_node!(builder, ys)
 ir = build_ir(builder)
 
@@ -96,79 +92,74 @@ eval(generate_generative_function(ir, :model))
 # inference operators #
 #######################
 
+# slope_proposal
+
 builder = StaticIRBuilder()
-prev = add_argument_node!(builder, :prev, Any)
+prev = add_argument_node!(builder, name=:prev)
 prev_slope = add_julia_node!(builder,
     (prev) -> get_assignment(prev)[:slope],
-    [prev], :slope, Float64)
+    inputs=[prev], name=:slope)
 c = add_constant_node!(builder, 0.5)
-add_random_choice_node!(builder, normal, [prev_slope, c], :slope, gensym(), Float64)
+add_random_choice_node!(builder, normal, inputs=[prev_slope, c], addr=:slope, typ=Float64)
 ir = build_ir(builder)
 eval(generate_generative_function(ir, :slope_proposal))
 
+# intercept_proposal 
+
 builder = StaticIRBuilder()
-prev = add_argument_node!(builder, :prev, Any)
+prev = add_argument_node!(builder, name=:prev)
 prev_intercept = add_julia_node!(builder,
     (prev) -> get_assignment(prev)[:intercept],
-    [prev], :intercept, Float64)
+    inputs=[prev], name=:intercept)
 c = add_constant_node!(builder, 0.5)
-add_random_choice_node!(builder, normal, [prev_intercept, c], :intercept, gensym(), Float64)
+add_random_choice_node!(builder, normal, inputs=[prev_intercept, c], addr=:intercept, typ=Float64)
 ir = build_ir(builder)
 eval(generate_generative_function(ir, :intercept_proposal))
 
+# inlier_std
+
 builder = StaticIRBuilder()
-prev = add_argument_node!(builder, :prev, Any)
+prev = add_argument_node!(builder, name=:prev)
 prev_inlier_std = add_julia_node!(builder,
     (prev) -> get_assignment(prev)[:inlier_std],
-    [prev], :inlier_std, Float64)
+    inputs=[prev], name=:inlier_std)
 c = add_constant_node!(builder, 0.5)
-add_random_choice_node!(builder, normal, [prev_inlier_std, c], :inlier_std, gensym(), Float64)
+add_random_choice_node!(builder, normal, inputs=[prev_inlier_std, c], addr=:inlier_std, typ=Float64)
 ir = build_ir(builder)
 eval(generate_generative_function(ir, :inlier_std_proposal))
 
+# outlier_std
+
 builder = StaticIRBuilder()
-prev = add_argument_node!(builder, :prev, Any)
+prev = add_argument_node!(builder, name=:prev)
 prev_outlier_std = add_julia_node!(builder,
     (prev) -> get_assignment(prev)[:outlier_std],
-    [prev], :outlier_std, Float64)
+    inputs=[prev], name=:outlier_std)
 c = add_constant_node!(builder, 0.5)
-add_random_choice_node!(builder, normal, [prev_outlier_std, c], :outlier_std, gensym(), Float64)
+add_random_choice_node!(builder, normal, inputs=[prev_outlier_std, c], addr=:outlier_std, typ=Float64)
 ir = build_ir(builder)
 eval(generate_generative_function(ir, :outlier_std_proposal))
 
-#@gen function is_outlier_proposal(prev, i::Int)
-	#prev_z::Bool = get_assignment(prev)[:data => i => :z]
-    #@addr(bernoulli(prev_z ? 0.0 : 1.0), :data => i => :z)
-#end
+# is_outlier_proposal
 
 builder = StaticIRBuilder()
-prob = add_argument_node!(builder, :prob, Float64)
-add_random_choice_node!(builder, bernoulli, [prob], :z, gensym(), Bool)
+prob = add_argument_node!(builder, name=:prob, typ=Float64)
+add_random_choice_node!(builder, bernoulli, inputs=[prob], addr=:z, typ=Bool)
 eval(generate_generative_function(build_ir(builder), :flip_z))
-
-#@compiled @gen function flip_z(prob::Float64)
-    #@addr(bernoulli(prob), :z)
-#end
 
 data_proposal = at_dynamic(flip_z, Int)
 
 builder = StaticIRBuilder()
-prev = add_argument_node!(builder, :prev, Any)
-i = add_argument_node!(builder, :i, Int)
+prev = add_argument_node!(builder, name=:prev)
+i = add_argument_node!(builder, name=:i, typ=Int)
 prev_z = add_julia_node!(builder,
     (prev, i) -> get_assignment(prev)[:data => i => :z],
-    [prev, i], :prev_z, Bool)
+    inputs=[prev, i], name=:prev_z)
 args = add_julia_node!(builder,
     (prev_z) -> (prev_z ? 0.0 : 1.0,),
-    [prev_z], gensym(), Float64)
-argdiff = add_constant_node!(builder, unknownargdiff)
-add_gen_fn_call_node!(builder, data_proposal, [i, args], :data, argdiff, gensym(), Any)
+    inputs=[prev_z])
+add_gen_fn_call_node!(builder, data_proposal, inputs=[i, args], addr=:data)
 eval(generate_generative_function(build_ir(builder), :is_outlier_proposal))
-
-#@compiled @gen function is_outlier_proposal(prev, i::Int)
-	#prev_z::Bool = get_assignment(prev)[:data => i => :z]
-    #@addr(data_proposal(i, ), :data)
-#end
 
 Gen.load_generated_functions()
 
