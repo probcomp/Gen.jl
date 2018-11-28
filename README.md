@@ -8,7 +8,7 @@ Warning: This is unstable research software.
 
 (Fragmentary) [documentation](https://probcomp-1.csail.mit.edu/gen)
 
-To cite Gen please use:
+If you use Gen in your work, please cite using the following:
 ```
 @techreport{gen2018,
 title       = {Gen: A General-Purpose Probabilistic Programming System with Programmable Inference},
