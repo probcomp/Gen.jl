@@ -2,12 +2,6 @@ using Gen: generate_generative_function
 
 @testset "static IR" begin
 
-##########
-# update #
-##########
-
-@testset "force update" begin
-
     #@gen function bar()
         #@addr(normal(0, 1), :a)
     #end
@@ -51,9 +45,45 @@ using Gen: generate_generative_function
 
     Gen.load_generated_functions()
 
-    # get a trace which follows the first branch
+
+@testset "generate" begin
+
+    y_constraint = 1.123
+    b_constraint = -2.1
     constraints = DynamicAssignment()
-    constraints[:branch] = true
+    constraints[:y] = y_constraint
+    constraints[:v => :b] = b_constraint
+    #constraints = StaticAssignment(constraints)
+    (trace, weight) = generate(foo, (), constraints)
+    x = get_assignment(trace)[:x]
+    a = get_assignment(trace)[:u => :a]
+    y = get_assignment(trace)[:y]
+    b = get_assignment(trace)[:v => :b]
+
+    @test isapprox(y, y_constraint)
+    @test isapprox(b, b_constraint)
+
+    score = (
+        logpdf(normal, x, 0, 1) +
+        logpdf(normal, a, 0, 1) +
+        logpdf(normal, y, 0, 1) +
+        logpdf(normal, b, 0, 1))
+
+    @test isapprox(score, get_call_record(trace).score)
+
+    prior_score = (
+        logpdf(normal, x, 0, 1) +
+        logpdf(normal, a, 0, 1))
+
+    expected_weight = score - prior_score
+
+    @test isapprox(weight, expected_weight)
+end
+
+@testset "force update" begin
+
+    # get a trace
+    constraints = DynamicAssignment()
     (trace,) = generate(foo, (), constraints)
     x_prev = get_assignment(trace)[:x]
     a_prev = get_assignment(trace)[:u => :a]
