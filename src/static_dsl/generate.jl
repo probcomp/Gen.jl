@@ -51,7 +51,7 @@ function process!(state::StaticIRGenerateState, node::GenerativeFunctionCallNode
     subtrace = get_subtrace_fieldname(node)
     incr = gensym("weight")
     subconstraints = gensym("subconstraints")
-    if isa(schema, StaticAddressSchema) && (addr in internal_node_keys(schema))
+    if isa(schema, StaticAddressSchema) && (node.addr in internal_node_keys(schema))
         push!(state.stmts, :($subconstraints = static_get_internal_node(constraints, Val($addr))))
         push!(state.stmts, :(($subtrace, $incr) = generate($gen_fn, $args_tuple, $subconstraints)))
         push!(state.stmts, :($weight += $incr))
