@@ -6,6 +6,8 @@ struct StaticIRTraceAssignment{T} <: Assignment
     trace::T
 end
 
+function get_schema end
+
 function get_address_schema(::Type{StaticIRTraceAssignment{T}}) where {T}
     get_schema(T)
 end
@@ -137,7 +139,7 @@ function generate_get_assignment(trace_struct_name::Symbol)
     Expr(:function,
         Expr(:call, :(Gen.get_assignment), :(trace::$trace_struct_name)),
         Expr(:block, 
-            :(StaticIRTraceAssignment(trace))))
+            :(Gen.StaticIRTraceAssignment(trace))))
 end
 
 function generate_get_leaf_nodes(ir::StaticIR, trace_struct_name::Symbol)
@@ -215,12 +217,11 @@ function generate_static_has_internal_node(ir::StaticIR, trace_struct_name::Symb
     methods
 end
 
-
 function generate_get_schema(ir::StaticIR, trace_struct_name::Symbol)
     choice_addrs = [QuoteNode(node.addr) for node in ir.choice_nodes]
     call_addrs = [QuoteNode(node.addr) for node in ir.call_nodes]
     Expr(:function,
-        Expr(:call, :(get_schema), :(trace::$trace_struct_name)),
+        Expr(:call, :(Gen.get_schema), :(::Type{$trace_struct_name})),
         Expr(:block,
             :(Gen.StaticAddressSchema(
                 Set{Symbol}([$(choice_addrs...)]),

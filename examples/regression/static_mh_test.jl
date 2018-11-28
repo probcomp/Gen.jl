@@ -1,3 +1,4 @@
+import Random
 using Gen
 using Gen: generate_trace_type_and_methods, generate_generative_function
 using FunctionalCollections: PersistentVector
@@ -33,18 +34,12 @@ y_mean = add_julia_node!(builder,
     [x, params], gensym(), Float64)
 y = add_random_choice_node!(builder, normal, [y_mean, std], :y, :y, Float64)
 received_argdiff = add_received_argdiff_node!(builder, :argdiff, Nothing)
-retdiff = add_julia_node!(builder, 
-    () -> nothing, [], gensym(), Nothing)
-set_retdiff_node!(builder, retdiff)
 set_return_node!(builder, y)
-datum_ir = build_ir(builder)
+ir = build_ir(builder)
 
-render_graph(datum_ir, "datum")
+render_graph(ir, "datum")
 
-(datum_trace_defn, datum_trace_struct_name) = generate_trace_type_and_methods(datum_ir, :datum)
-datum_defn = generate_generative_function(datum_ir, :datum, datum_trace_struct_name)
-eval(datum_trace_defn)
-eval(datum_defn)
+eval(generate_generative_function(ir, :datum))
 
 ######################
 # model as Static IR #
@@ -85,19 +80,140 @@ filled = add_julia_node!(builder,
     gensym(), Vector{Params})
 ys = add_gen_fn_call_node!(builder, data, [xs, filled], :data, data_argdiff, :ys, PersistentVector{Float64})
 received_argdiff = add_received_argdiff_node!(builder, :argdiff, Nothing)
-retdiff = add_constant_node!(builder, nothing)
 set_return_node!(builder, ys)
-set_retdiff_node!(builder, retdiff)
-model_ir = build_ir(builder)
+ir = build_ir(builder)
 
-render_graph(model_ir, "model")
+render_graph(ir, "model")
 
-(model_trace_defn, model_trace_struct_name) = generate_trace_type_and_methods(model_ir, :model)
-model_defn = generate_generative_function(model_ir, :model, model_trace_struct_name)
-eval(model_trace_defn)
-eval(model_defn)
+eval(generate_generative_function(ir, :model))
+
+#######################
+# inference operators #
+#######################
+
+builder = StaticIRBuilder()
+prev = add_argument_node!(builder, :prev, Any)
+prev_slope = add_julia_node!(builder,
+    (prev) -> get_assignment(prev)[:slope],
+    [prev], :slope, Float64)
+c = add_constant_node!(builder, 0.5)
+add_random_choice_node!(builder, normal, [prev_slope, c], :slope, gensym(), Float64)
+ir = build_ir(builder)
+eval(generate_generative_function(ir, :slope_proposal))
+
+builder = StaticIRBuilder()
+prev = add_argument_node!(builder, :prev, Any)
+prev_intercept = add_julia_node!(builder,
+    (prev) -> get_assignment(prev)[:intercept],
+    [prev], :intercept, Float64)
+c = add_constant_node!(builder, 0.5)
+add_random_choice_node!(builder, normal, [prev_intercept, c], :intercept, gensym(), Float64)
+ir = build_ir(builder)
+eval(generate_generative_function(ir, :intercept_proposal))
+
+builder = StaticIRBuilder()
+prev = add_argument_node!(builder, :prev, Any)
+prev_inlier_std = add_julia_node!(builder,
+    (prev) -> get_assignment(prev)[:inlier_std],
+    [prev], :inlier_std, Float64)
+c = add_constant_node!(builder, 0.5)
+add_random_choice_node!(builder, normal, [prev_inlier_std, c], :inlier_std, gensym(), Float64)
+ir = build_ir(builder)
+eval(generate_generative_function(ir, :inlier_std_proposal))
+
+builder = StaticIRBuilder()
+prev = add_argument_node!(builder, :prev, Any)
+prev_outlier_std = add_julia_node!(builder,
+    (prev) -> get_assignment(prev)[:outlier_std],
+    [prev], :outlier_std, Float64)
+c = add_constant_node!(builder, 0.5)
+add_random_choice_node!(builder, normal, [prev_outlier_std, c], :outlier_std, gensym(), Float64)
+ir = build_ir(builder)
+eval(generate_generative_function(ir, :outlier_std_proposal))
+
+@gen function is_outlier_proposal(prev, i::Int)
+	prev_z::Bool = get_assignment(prev)[:data => i => :z]
+    @addr(bernoulli(prev_z ? 0.0 : 1.0), :data => i => :z)
+end
 
 Gen.load_generated_functions()
 
+#####################
+# generate data set #
+#####################
 
-exit()
+Random.seed!(1)
+
+prob_outlier = 0.5
+true_inlier_noise = 0.5
+true_outlier_noise = 0.5#5.0
+true_slope = -1
+true_intercept = 2
+xs = collect(range(-5, stop=5, length=1000))
+ys = Float64[]
+for (i, x) in enumerate(xs)
+    if rand() < prob_outlier
+        y = true_slope * x + true_intercept + randn() * true_inlier_noise
+    else
+        y = true_slope * x + true_intercept + randn() * true_outlier_noise
+    end
+    push!(ys, y)
+end
+
+######################
+# inference programs #
+######################
+
+observations = DynamicAssignment()
+for (i, y) in enumerate(ys)
+    observations[:data => i => :y] = y
+end
+
+(trace, weight) = generate(model, (xs,), observations)
+proposed_trace = simulate(is_outlier_proposal, (trace, 1))
+constraints = StaticAssignment(get_assignment(proposed_trace))
+println(constraints)
+code = Gen.codegen_update(typeof(model), Tuple{Vector{Float64}}, NoArgDiff, typeof(trace), typeof(constraints))
+println(code)
+
+function do_inference(n)
+
+    # initial trace
+    (trace, weight) = generate(model, (xs,), observations)
+
+    for i=1:n
+    
+        # steps on the parameters
+        for j=1:5
+            trace = mh(model, slope_proposal, (), trace)
+            trace = mh(model, intercept_proposal, (), trace)
+            trace = mh(model, inlier_std_proposal, (), trace)
+            trace = mh(model, outlier_std_proposal, (), trace)
+        end
+   
+        # step on the outliers
+        #for j=1:length(xs)
+            #trace = mh(model, is_outlier_proposal, (j,), trace)
+        #end
+		assignment = get_assignment(trace)
+		println((assignment[:inlier_std], assignment[:outlier_std], assignment[:slope], assignment[:intercept]))
+    end
+
+    assignment = get_assignment(trace)
+    return (assignment[:inlier_std], assignment[:outlier_std], assignment[:slope], assignment[:intercept])
+end
+
+
+#################
+# run inference #
+#################
+
+using Test
+
+(inlier_std, outlier_std, slope, intercept) = do_inference(100)
+max_std = max(inlier_std, outlier_std)
+min_std = min(inlier_std, outlier_std)
+@test isapprox(min_std, 0.5, atol=1e-1)
+@test isapprox(max_std, 5.0, atol=1e-0)
+@test isapprox(slope, -1, atol=1e-1)
+@test isapprox(intercept, 2, atol=2e-1)

@@ -45,7 +45,6 @@ end
 function mh(model::GenerativeFunction, selection::AddressSet, trace; verbose=false)
     model_args = get_call_record(trace).args
     (new_trace, weight) = regenerate(model, model_args, noargdiff, trace, selection)
-    println(weight)
     if log(rand()) < weight
         verbose && println("accept")
         # accept

@@ -2,8 +2,6 @@ abstract type StaticIRNode end
 abstract type RegularNode <: StaticIRNode end
 abstract type DiffNode <: StaticIRNode end
 
-# NOTE: figure out whether 
-
 ## regular nodes ##
 
 struct ArgumentNode <: RegularNode
@@ -11,12 +9,14 @@ struct ArgumentNode <: RegularNode
     typ::Type
 end
 
+# TODO: use Flux.jl for default backpropagation, but let users write there own.
+# (for Flux.jl see http://fluxml.ai/Flux.jl/stable/internals/tracker.html)
+
 struct JuliaNode <: RegularNode
     fn::Function
     inputs::Vector{RegularNode}
     name::Symbol
     typ::Type
-    # TODO: add a gradent_fn; default to using Flux.jl?
 end
 
 struct RandomChoiceNode <: RegularNode
@@ -98,9 +98,9 @@ function StaticIRBuilder()
     arg_nodes = Vector{ArgumentNode}()
     choice_nodes = Vector{RandomChoiceNode}()
     call_nodes = Vector{GenerativeFunctionCallNode}()
-    return_node = nothing # required
-    retdiff_node = nothing # required
-    received_argdiff_node = nothing #optional
+    return_node = nothing
+    retdiff_node = nothing
+    received_argdiff_node = nothing
     vars = Set{Symbol}()
     addrs_to_choice_nodes = Dict{Symbol,RandomChoiceNode}()
     addrs_to_call_nodes = Dict{Symbol,GenerativeFunctionCallNode}()
@@ -110,11 +110,14 @@ function StaticIRBuilder()
 end
 
 function build_ir(builder::StaticIRBuilder)
+    if builder.received_argdiff_node === nothing
+        builder.received_argdiff_node = add_received_argdiff_node!(builder, gensym(), Any)
+    end
     if builder.return_node === nothing
-        error("Return node was not set")
+        builder.return_node = add_constant_node!(builder, nothing)
     end
     if builder.retdiff_node === nothing
-        error("Retdiff node was not set")
+        builder.retdiff_node = add_constant_node!(builder, DefaultRetDiff())
     end
     StaticIR(
         builder.nodes,

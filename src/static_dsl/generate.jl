@@ -108,3 +108,9 @@ push!(Gen.generated_functions, quote
     Gen.codegen_generate(gen_fn, args, constraints)
 end
 end)
+
+# TODO
+function assess(gen_fn::StaticIRGenerativeFunction, args, constraints)
+    (trace, weight) = generate(gen_fn, args, constraints)
+    trace 
+end
