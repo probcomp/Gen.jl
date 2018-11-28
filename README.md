@@ -1,8 +1,8 @@
 # Gen
 
-A probabilistic programming platform for applied probabilistic modeling and inference.
+Gen: A General-Purpose Probabilistic Programming System with Programmable Inference
 
-Currently works with Julia 1.0.2
+Tested with Julia 1.0.2
 
 Warning: This is unstable research software.
 
