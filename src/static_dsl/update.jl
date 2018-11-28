@@ -235,7 +235,7 @@ function process_codegen!(stmts, fwd::ForwardPassState, back::BackwardPassState,
     push!(stmts, :($(node.name) = get_call_record($subtrace).retval))
 end
 
-function generate_discard_stmt(forward_state::ForwardPassState)
+function generate_discard_expr(forward_state::ForwardPassState)
     discard_leaf_nodes = Dict{Symbol,Symbol}()
     for node in forward_state.constrained_choices
         discard_leaf_nodes[node.addr] = choice_discard_var(node)
@@ -256,7 +256,7 @@ function generate_discard_stmt(forward_state::ForwardPassState)
     end
     leaf_keys = map((key::Symbol) -> QuoteNode(key), leaf_keys)
     internal_keys = map((key::Symbol) -> QuoteNode(key), internal_keys)
-    :($discard = StaticAssignment(
+    :(StaticAssignment(
             NamedTuple{($(leaf_keys...),)}(($(leaf_nodes...),)),
             NamedTuple{($(internal_keys...),)}(($(internal_nodes...),))))
 end
@@ -295,7 +295,7 @@ function codegen_update(gen_fn_type::Type{G}, args_type, argdiff_type,
     end
 
     # code generation
-    stmts = []
+    stmts = Expr[]
 
     # initialize score, weight, and num_has_choices
     push!(stmts, :($total_score_fieldname = trace.$total_score_fieldname))
@@ -318,7 +318,7 @@ function codegen_update(gen_fn_type::Type{G}, args_type, argdiff_type,
     push!(stmts, :($trace = $(QuoteNode(trace_type))($(fieldnames(trace_type)...))))
 
     # construct discard
-    push!(stmts, generate_discard_stmt(forward_state))
+    push!(stmts, :($discard = $(generate_discard_expr(forward_state))))
     
     # construct retdiff
     push!(stmts, :($retdiff = $(ir.retdiff_node.name)))

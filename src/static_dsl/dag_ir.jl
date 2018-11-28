@@ -58,7 +58,6 @@ end
 ## diff nodes ##
 
 struct DiffJuliaNode <: DiffNode
-    # contains gensyms for each symbol in local scope
     expr::Expr
 
     # map from local scope symbols to node

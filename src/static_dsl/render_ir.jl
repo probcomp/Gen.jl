@@ -1,40 +1,65 @@
 using PyCall
 @pyimport graphviz as gv
 
-function render_graph(ir::BasicBlockIR, fname)
-    # graphviz
-    dot = gv.Digraph() # comment = ?
-    nodes_to_name = Dict{Node,String}()
-    for node in ir.all_nodes
-        io = IOBuffer()
-        print(io, node)
-        nodes_to_name[node] = String(take!(io))
+label(node::ArgumentNode) = String(node.name)
+label(node::JuliaNode) = String(node.name)
+label(node::RandomChoiceNode) = "$(node.dist) $(node.addr) $(node.name)"
+label(node::GenerativeFunctionCallNode) = "$(typeof(node.generative_function)) $(node.addr) $(node.name)"
+label(node::DiffJuliaNode) = String(node.name)
+label(node::ReceivedArgDiffNode) = String(node.name)
+label(node::ChoiceDiffNode) = "$(node.choice_node.addr) $(node.name)"
+label(node::CallDiffNode) = "$(node.call_node.addr) $(node.name)"
+
+function render_graph(ir::StaticIR, fname)
+    dot = gv.Digraph()
+    nodes_to_name = Dict{StaticIRNode,String}()
+    for node in ir.nodes
+        nodes_to_name[node] = label(node)
     end
-    for node in ir.all_nodes
-        if isa(node, ValueNode)
-            shape = "box"
-        else
+    for node in ir.nodes
+        if isa(node, ArgumentNode)
+            shape = "diamond"
+            color = "white"
+            parents = []
+        elseif isa(node, RandomChoiceNode)
             shape = "ellipse"
+            color = "white"
+            parents = node.inputs
+        elseif isa(node, GenerativeFunctionCallNode)
+            shape = "star"
+            color = "white"
+            parents = node.inputs
+        elseif isa(node, JuliaNode)
+            shape = "box"
+            color = "white"
+            parents = values(node.inputs)
+        elseif isa(node, DiffJuliaNode)
+            shape = "box"
+            color = "red"
+            parents = values(node.inputs)
+        elseif isa(node, ReceivedArgDiffNode)
+            shape = "diamond"
+            color = "red"
+            parents = []
+        elseif isa(node, ChoiceDiffNode)
+            shape = "circle"
+            color = "red"
+            parents = [node.choice_node]
+        elseif isa(node, CallDiffNode)
+            shape = "star"
+            color = "red"
+            parents = [node.call_node]
         end
-        if node in ir.incremental_nodes
+        if node === ir.return_node
             color = "lightblue"
-        else
-            color = "lightgray"
         end
-        if ir.output_node == node
-            @assert !(node in ir.incremental_nodes)
-            color = "firebrick1"
+        if node === ir.retdiff_node
+            color = "orange"
         end
-        if ir.retchange_node == node
-            color = "darkolivegreen2"
-        end
-        dot[:node](nodes_to_name[node], nodes_to_name[node], shape=shape, color=color, style="filled")
-        for parent in parents(node)
+        dot[:node](nodes_to_name[node], nodes_to_name[node], shape=shape, fillcolor=color, style="filled")
+        for parent in parents
             dot[:edge](nodes_to_name[parent], nodes_to_name[node])
         end
-    end
-    for node in values(ir.addr_gen_nodes)
-        dot[:edge](nodes_to_name[node.change_node], nodes_to_name[node], style="dashed")
     end
     dot[:render](fname, view=true)
 end
