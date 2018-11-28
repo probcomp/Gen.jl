@@ -10,11 +10,14 @@ Warning: This is unstable research software.
 
 To cite Gen please use:
 ```
-@misc{gen2018,
-  title = {{Gen: A General-Purpose Probabilistic Programming System with Programmable Inference}},
-  author = {Cusumano-Towner, Marco and Saad, Feras and Lew, Alex and Mansinghka, Vikash K},
-  year = {2018},
-  howpublished = {\url{https://github.com/probcomp/Gen}},
-  note = {Accessed: 2018-11-20}
+@techreport{cusumanotowner-csail-2018,
+title       = {Gen: A General-Purpose Probabilistic Programming System with Programmable Inference},
+author      = {Cusumano-Towner, Marco F. and Saad, Feras A. and Lew, Alexander and Mansinghka, Vikash K.},
+year        = {2018},
+number      = {MIT-CSAIL-TR-2018-020},
+institution = {Computer Science and Artificial Intelligence Laboratory, Massachusetts Institute of Technology},
+address     = {Cambridge, Massachusetts},
+month       = {November},
+url_link    = {http://hdl.handle.net/1721.1/119255}
 }
 ```
