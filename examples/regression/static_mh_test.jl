@@ -37,7 +37,7 @@ received_argdiff = add_received_argdiff_node!(builder, :argdiff, Nothing)
 set_return_node!(builder, y)
 ir = build_ir(builder)
 
-render_graph(ir, "datum")
+#render_graph(ir, "datum")
 
 eval(generate_generative_function(ir, :datum))
 
@@ -51,7 +51,6 @@ function compute_argdiff(inlier_std_diff, outlier_std_diff, slope_diff, intercep
     if all([c == NoChoiceDiff() for c in [
             inlier_std_diff, outlier_std_diff, slope_diff, intercept_diff]])
         noargdiff
-        @assert false
     else
         unknownargdiff
     end
@@ -89,7 +88,7 @@ received_argdiff = add_received_argdiff_node!(builder, :argdiff, Nothing)
 set_return_node!(builder, ys)
 ir = build_ir(builder)
 
-render_graph(ir, "model")
+#render_graph(ir, "model")
 
 eval(generate_generative_function(ir, :model))
 
@@ -137,10 +136,39 @@ add_random_choice_node!(builder, normal, [prev_outlier_std, c], :outlier_std, ge
 ir = build_ir(builder)
 eval(generate_generative_function(ir, :outlier_std_proposal))
 
-@gen function is_outlier_proposal(prev, i::Int)
-	prev_z::Bool = get_assignment(prev)[:data => i => :z]
-    @addr(bernoulli(prev_z ? 0.0 : 1.0), :data => i => :z)
-end
+#@gen function is_outlier_proposal(prev, i::Int)
+	#prev_z::Bool = get_assignment(prev)[:data => i => :z]
+    #@addr(bernoulli(prev_z ? 0.0 : 1.0), :data => i => :z)
+#end
+
+builder = StaticIRBuilder()
+prob = add_argument_node!(builder, :prob, Float64)
+add_random_choice_node!(builder, bernoulli, [prob], :z, gensym(), Bool)
+eval(generate_generative_function(build_ir(builder), :flip_z))
+
+#@compiled @gen function flip_z(prob::Float64)
+    #@addr(bernoulli(prob), :z)
+#end
+
+data_proposal = at_dynamic(flip_z, Int)
+
+builder = StaticIRBuilder()
+prev = add_argument_node!(builder, :prev, Any)
+i = add_argument_node!(builder, :i, Int)
+prev_z = add_julia_node!(builder,
+    (prev, i) -> get_assignment(prev)[:data => i => :z],
+    [prev, i], :prev_z, Bool)
+args = add_julia_node!(builder,
+    (prev_z) -> (prev_z ? 0.0 : 1.0,),
+    [prev_z], gensym(), Float64)
+argdiff = add_constant_node!(builder, unknownargdiff)
+add_gen_fn_call_node!(builder, data_proposal, [i, args], :data, argdiff, gensym(), Any)
+eval(generate_generative_function(build_ir(builder), :is_outlier_proposal))
+
+#@compiled @gen function is_outlier_proposal(prev, i::Int)
+	#prev_z::Bool = get_assignment(prev)[:data => i => :z]
+    #@addr(data_proposal(i, ), :data)
+#end
 
 Gen.load_generated_functions()
 
@@ -152,7 +180,7 @@ Random.seed!(1)
 
 prob_outlier = 0.5
 true_inlier_noise = 0.5
-true_outlier_noise = 0.5#5.0
+true_outlier_noise = 5.0
 true_slope = -1
 true_intercept = 2
 xs = collect(range(-5, stop=5, length=1000))
@@ -174,8 +202,6 @@ observations = DynamicAssignment()
 for (i, y) in enumerate(ys)
     observations[:data => i => :y] = y
 end
-#observations[:inlier_std] = 0.5
-#observations[:outlier_std] = 0.5
 
 function show_code()
 
@@ -228,9 +254,9 @@ function do_inference(n)
         end
    
         # step on the outliers
-        #for j=1:length(xs)
-            #trace = mh(model, is_outlier_proposal, (j,), trace)
-        #end
+        for j=1:length(xs)
+            trace = mh(model, is_outlier_proposal, (j,), trace)
+        end
 
 		assignment = get_assignment(trace)
 		println((assignment[:inlier_std], assignment[:outlier_std], assignment[:slope], assignment[:intercept]))
@@ -255,5 +281,15 @@ min_std = min(inlier_std, outlier_std)
 #@test isapprox(slope, -1, atol=1e-1)
 #@test isapprox(intercept, 2, atol=2e-1)
 
-@time (inlier_std, outlier_std, slope, intercept) = do_inference(100)
-@time (inlier_std, outlier_std, slope, intercept) = do_inference(100)
+@time do_inference(100)
+
+using Profile
+Profile.clear()  # in case we have any previous profiling data
+@profile do_inference(100)
+
+li, lidict = Profile.retrieve()
+using JLD
+@save "static_mh_test.jlprof" li lidict
+
+#using ProfileView
+##ProfileView.view()
