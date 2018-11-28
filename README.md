@@ -2,11 +2,11 @@
 
 Gen: A General-Purpose Probabilistic Programming System with Programmable Inference
 
-Tested with Julia 1.0.2
-
-Warning: This is unstable and currently unsupported research software. We are currently working on stabilizing the implementation, and developing documentation and tutorials.
+*Warning: This is unstable and currently unsupported research software. We are currently working on stabilizing the implementation, and developing documentation and tutorials.*
 
 (Very fragmentary and out of date) [documentation](https://probcomp-1.csail.mit.edu/gen)
+
+Tested with Julia 1.0.2
 
 ### Publications related to Gen
 
