@@ -51,19 +51,25 @@ function compute_argdiff(inlier_std_diff, outlier_std_diff, slope_diff, intercep
     if all([c == NoChoiceDiff() for c in [
             inlier_std_diff, outlier_std_diff, slope_diff, intercept_diff]])
         noargdiff
+        @assert false
     else
         unknownargdiff
     end
 end
 
+# TODO allow constants to be placed inline as arguments (nodes for them will be
+# created behind the secenes)
+
 builder = StaticIRBuilder()
 xs = add_argument_node!(builder, :xs, Vector{Float64})
 n = add_julia_node!(builder, (xs) -> length(xs), [xs], :n, Int)
-c = add_constant_node!(builder, 1)
-inlier_std = add_random_choice_node!(builder, gamma, [c, c], :inlier_std, :inlier_std, Float64)
-outlier_std = add_random_choice_node!(builder, gamma, [c, c], :outlier_std, :outlier_std, Float64)
-slope = add_random_choice_node!(builder, normal, [c, c], :slope, :slope, Float64)
-intercept = add_random_choice_node!(builder, normal, [c, c], :intercept, :intercept, Float64)
+zero = add_constant_node!(builder, 0.)
+one = add_constant_node!(builder, 1.)
+two = add_constant_node!(builder, 2.)
+inlier_std = add_random_choice_node!(builder, gamma, [one, one], :inlier_std, :inlier_std, Float64)
+outlier_std = add_random_choice_node!(builder, gamma, [one, one], :outlier_std, :outlier_std, Float64)
+slope = add_random_choice_node!(builder, normal, [zero, two], :slope, :slope, Float64)
+intercept = add_random_choice_node!(builder, normal, [zero, two], :intercept, :intercept, Float64)
 params = add_julia_node!(builder,
     (inlier_std, outlier_std, slope, intercept) -> Params(0.5, inlier_std, outlier_std, slope, intercept),
     [inlier_std, outlier_std, slope, intercept], :params, Params)
@@ -170,10 +176,29 @@ for (i, y) in enumerate(ys)
 end
 
 (trace, weight) = generate(model, (xs,), observations)
+params = Params(0.5, 0., 0., 0., 0.)
+(datum_trace, weight) = generate(datum, (1.2, params), EmptyAssignment())
+
+# show code for update for is_outlier
+println("\n*** code for is_outlier update ***\n")
 proposed_trace = simulate(is_outlier_proposal, (trace, 1))
 constraints = StaticAssignment(get_assignment(proposed_trace))
 println(constraints)
 code = Gen.codegen_update(typeof(model), Tuple{Vector{Float64}}, NoArgDiff, typeof(trace), typeof(constraints))
+println(code)
+
+# show code for update for slope
+println("\n*** model code for slope update ***\n")
+proposed_trace = simulate(slope_proposal, (trace, 1))
+constraints = StaticAssignment(get_assignment(proposed_trace))
+println(constraints)
+code = Gen.codegen_update(typeof(model), Tuple{Vector{Float64}}, NoArgDiff, typeof(trace), typeof(constraints))
+println(code)
+
+# show code for update for slope
+# TODO
+println("\n*** datum code for slope update ***\n")
+code = Gen.codegen_update(typeof(datum), Tuple{Float64, Params}, UnknownArgDiff, typeof(datum_trace), EmptyAssignment)
 println(code)
 
 function do_inference(n)
@@ -213,7 +238,10 @@ using Test
 (inlier_std, outlier_std, slope, intercept) = do_inference(100)
 max_std = max(inlier_std, outlier_std)
 min_std = min(inlier_std, outlier_std)
-@test isapprox(min_std, 0.5, atol=1e-1)
-@test isapprox(max_std, 5.0, atol=1e-0)
-@test isapprox(slope, -1, atol=1e-1)
-@test isapprox(intercept, 2, atol=2e-1)
+#@test isapprox(min_std, 0.5, atol=1e-1)
+#@test isapprox(max_std, 5.0, atol=1e-0)
+#@test isapprox(slope, -1, atol=1e-1)
+#@test isapprox(intercept, 2, atol=2e-1)
+
+@time (inlier_std, outlier_std, slope, intercept) = do_inference(100)
+@time (inlier_std, outlier_std, slope, intercept) = do_inference(100)
