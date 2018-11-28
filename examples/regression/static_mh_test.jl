@@ -174,32 +174,43 @@ observations = DynamicAssignment()
 for (i, y) in enumerate(ys)
     observations[:data => i => :y] = y
 end
+#observations[:inlier_std] = 0.5
+#observations[:outlier_std] = 0.5
 
-(trace, weight) = generate(model, (xs,), observations)
-params = Params(0.5, 0., 0., 0., 0.)
-(datum_trace, weight) = generate(datum, (1.2, params), EmptyAssignment())
+function show_code()
 
-# show code for update for is_outlier
-println("\n*** code for is_outlier update ***\n")
-proposed_trace = simulate(is_outlier_proposal, (trace, 1))
-constraints = StaticAssignment(get_assignment(proposed_trace))
-println(constraints)
-code = Gen.codegen_update(typeof(model), Tuple{Vector{Float64}}, NoArgDiff, typeof(trace), typeof(constraints))
-println(code)
-
-# show code for update for slope
-println("\n*** model code for slope update ***\n")
-proposed_trace = simulate(slope_proposal, (trace, 1))
-constraints = StaticAssignment(get_assignment(proposed_trace))
-println(constraints)
-code = Gen.codegen_update(typeof(model), Tuple{Vector{Float64}}, NoArgDiff, typeof(trace), typeof(constraints))
-println(code)
-
-# show code for update for slope
-# TODO
-println("\n*** datum code for slope update ***\n")
-code = Gen.codegen_update(typeof(datum), Tuple{Float64, Params}, UnknownArgDiff, typeof(datum_trace), EmptyAssignment)
-println(code)
+    (trace, weight) = generate(model, (xs,), observations)
+    params = Params(0.5, 0., 0., 0., 0.)
+    (datum_trace, weight) = generate(datum, (1.2, params), EmptyAssignment())
+    
+    # show code for update for is_outlier
+    println("\n*** code for is_outlier update ***\n")
+    proposed_trace = simulate(is_outlier_proposal, (trace, 1))
+    constraints = StaticAssignment(get_assignment(proposed_trace))
+    println(constraints)
+    code = Gen.codegen_update(typeof(model), Tuple{Vector{Float64}}, NoArgDiff, typeof(trace), typeof(constraints))
+    println(code)
+    
+    # show code for update for slope
+    println("\n*** model code for slope update ***\n")
+    proposed_trace = simulate(slope_proposal, (trace, 1))
+    constraints = StaticAssignment(get_assignment(proposed_trace))
+    println(constraints)
+    code = Gen.codegen_update(typeof(model), Tuple{Vector{Float64}}, NoArgDiff, typeof(trace), typeof(constraints))
+    println(code)
+    
+    # show code for update for slope
+    # TODO
+    println("\n*** datum code for slope update ***\n")
+    code = Gen.codegen_update(typeof(datum), Tuple{Float64, Params}, UnknownArgDiff, typeof(datum_trace), EmptyAssignment)
+    println(code)
+    
+    # show code for generate for slope proposal
+    println("\n*** code for generate slope proposal ***\n")
+    code = Gen.codegen_generate(typeof(slope_proposal), Tuple{typeof(trace)}, EmptyAssignment)
+    println(code)
+end
+# show_code()
 
 function do_inference(n)
 
@@ -220,6 +231,7 @@ function do_inference(n)
         #for j=1:length(xs)
             #trace = mh(model, is_outlier_proposal, (j,), trace)
         #end
+
 		assignment = get_assignment(trace)
 		println((assignment[:inlier_std], assignment[:outlier_std], assignment[:slope], assignment[:intercept]))
     end
