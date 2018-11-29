@@ -1,3 +1,370 @@
+# generating backprop code
+
+# given:
+# - a set of selected leaf nodes
+# - a set of selection internal nodes 
+# - the compute_grad status of the return value
+
+# there are 'source' nodes and 'sink' nodes
+
+# source nodes are the things that we want to differentiate with respect to:
+# - any argument node with compute_grad=true
+# - any random choice node that is selected
+# - (any gen_fn call node that has a nonempty selection and has compute_grad=true) TODO LATER
+
+# sink nodes are things that contribute terms the objective function:
+# - the return value node, if it has compute_grad=true
+# - the logpdf's of each random choice node
+# - (all gen_fn call nodes (but only a subset of inputs may have gradients?) TODO LATER
+
+# we take two passes:
+
+# forward pass:
+# - mark the source nodes -- if a random choice node is selected then its *value* is a source
+# - take a forward pass through all nodes
+#   for each julia node:
+#       > if any of its inputs are marked, then mark it
+#   for each random choice node:
+#       > if any of its inputs are marked, then register it as having LOGPDF on a path from src
+#       > (this mark does not propagate)
+#   for each gen_fn call node
+#       > TODO LATER
+
+# backward pass
+# - mark the sink nodes
+#       > the return value node is marked
+#         if it's a random choice node then the marking refers to the VALUE not the LOGPDF
+#       > NOTE XXX: the LOGPDF of ALL random choice nodes are sink nodes - they are implicity marked.
+# - take a backward pass through all nodes
+#   for each julia node:
+#       > if it is marked, then mark all of its parents (marking a random choice means its VALUE)
+#   for each random choice node:
+#       > regardless of whether the random choice node VALUE is marked, mark
+#       all of its parameters (they are on a path to the logpdf, which is a
+#       sink)
+#       > if the VALUE is marked, this does not change the behavior during the backward pass
+#   for each gen_fn call node:
+
+const gradient_prefix = gensym("gradient")
+gradient_var(node::RegularNode) = Symbol("$(gradient_prefix)_$(node.name)")
+
+function fwd_pass!(selected_choice_addrs, fwd_marked, fwd_choice_logpdf_marked, node::ArgumentNode)
+    if node.compute_grad
+        push!(fwd_marked, node)
+    end
+end
+
+function fwd_pass!(selected_choice_addrs, fwd_marked, fwd_choice_logpdf_marked, node::JuliaNode)
+    if any(input_node in fwd_marked for input_node in node.inputs)
+        push!(fwd_marked, node)
+    end
+end
+
+function fwd_pass!(selected_choice_addrs, fwd_marked, fwd_choice_logpdf_marked, node::RandomChoiceNode)
+    if node.addr in selected_choice_addrs
+        push!(fwd_marked, node) # marking means the VALUE is marked (this propagates)
+    end
+    if any(input_node in fwd_marked for input_node in node.inputs)
+        push!(fwd_choice_logpdf_marked, node)
+    end
+end
+
+function back_pass!(back_marked, node::ArgumentNode) end
+
+function back_pass!(back_marked, node::JuliaNode)
+    if node in back_marked
+        for input_node in node.inputs
+            push!(back_marked, input_node)
+        end
+    end
+end
+
+function back_pass!(back_marked, node::RandomChoiceNode)
+    # the logpdf of every random choice is a SINK
+    for input_node in node.inputs
+        push!(back_marked, input_node)
+    end
+    # the value of every random choice is in back_marked, since it affects its logpdf
+    push!(back_marked, node) 
+end
+
+function fwd_codegen!(stmts, fwd_marked, back_marked, node::ArgumentNode)
+    if node in fwd_marked && node in back_marked
+
+        # initialize gradient to zero
+        push!(stmts, :($(gradient_var(node)) = zero($(get_value_fieldname(node)))))
+    end
+end
+
+function fwd_codegen!(stmts, fwd_marked, back_marked, node::JuliaNode)
+
+    # we need the value for initializing gradient to zero (to get the type and
+    # e.g. shape), and for reference by other nodes during back_codegen! we
+    # could be more selective about which JuliaNodes need to be evalutaed, that
+    # is a performance optimization for the future
+    args = map((input_node) -> input_node.name, node.inputs)
+    push!(stmts, :($(node.name) = $(QuoteNode(node.fn))($(args...))))
+
+    if node in back_marked && any(input_node in fwd_marked for input_node in node.inputs)
+
+        # initialize gradient to zero
+        push!(stmts, :($(gradient_var(node)) = zero($(node.name))))
+    end
+end
+
+function fwd_codegen!(stmts, fwd_marked, back_marked, node::RandomChoiceNode)
+    # for reference by other nodes during back_codegen!
+    # could performance optimize this away
+    push!(stmts, :($(node.name) = $(get_value_fieldname(node))))
+
+    # every random choice is in back_marked, since it affects it logpdf, but
+    # also possibly due to other downstream usage of the value
+    @assert node in back_marked 
+
+    if node in fwd_marked
+        # the only way we are fwd_marked is if this choice was selected
+
+        # initialize gradient with respect to the value of the random choice to zero
+        # it will be a runtime error, thrown here, if there is no zero() method
+        push!(stmts, :($(gradient_var(node)) = zero($(node.name))))
+    end
+    
+end
+
+function back_codegen!(stmts, ir, fwd_marked, back_marked, node::ArgumentNode)
+
+    # handle case when it is the return node
+    if node === ir.return_node && node in fwd_marked
+        @assert node in back_marked
+        push!(stmts, :($(gradient_var(node)) += retval_grad))
+    end
+end
+
+function back_codegen!(stmts, ir, fwd_marked, back_marked, node::JuliaNode)
+    if node in back_marked && any(input_node in fwd_marked for input_node in node.inputs)
+
+        # compute gradient with respect to parents
+        # NOTE: some of the fields in this tuple may be 'nothing'
+        input_grads = gensym("input_grads")
+        push!(stmts, :($input_grads::Tuple = $(QuoteNode(node.grad_fn))($(gradient_var(node)), $(node.name), $(args...))))
+
+        # increment gradients of input nodes that are in fwd_marked
+        for (i, input_node) in enumerate(node.inputs)
+            
+            # NOTE: it will be a runtime error if we try to add 'nothing'
+            # we could require the JuliaNode to statically report which inputs
+            # it takes gradients with respect to, and check this at compile
+            # time. TODO future work
+            if input_node in fwd_marked
+                push!(stmts, :($(gradient_var(input_node)) += $input_grads[i]))
+            end
+        end
+    end
+
+    # handle case when it is the return node
+    if node === ir.return_node && node in fwd_marked
+        @assert node in back_marked
+        push!(stmts, :($(gradient_var(node)) += retval_grad))
+    end
+end
+
+function back_codegen!(stmts, ir, fwd_marked, back_marked, node::RandomChoiceNode)
+
+    # only evaluate the gradient of the logpdf if we need to
+    if any(input_node in fwd_marked for input_node in node.inputs) || node in fwd_marked
+        logpdf_grad = gensym("logpdf_grad")
+        args = map((input_node) -> input_node.name, node.inputs)
+        push!(stmts, :($logpdf_grad = logpdf_grad($(node.dist), $(get_value_fieldname(node)), $(args...))))
+    end
+
+    # increment gradients of input nodes that are in fwd_marked
+    for (i, input_node) in enumerate(node.inputs)
+        if input_node in fwd_marked
+            @assert input_node in back_marked # this ensured its gradient will have been initialized
+            push!(stmts, :($(gradient_var(input_node)) += $logpdf_grad[i+1]))
+        end
+    end
+
+    # backpropagate to the value (if it was selected)
+    if node in fwd_marked
+        push!(stmts, :($(gradient_var(node)) += $logpdf_grad[1]))
+    end
+
+    # handle case when it is the return node
+    if node === ir.return_node && node in fwd_marked
+        @assert node in back_marked
+        push!(stmts, :($(gradient_var(node)) += retval_grad))
+    end
+end
+
+
+
+function passes()
+
+    # forward marking pass
+    # NOTE: if a random choice is in fwd_marked it refers to the VALUE (it is selected)
+    fwd_marked = Set{RegularNode}() # these propagate
+    fwd_choice_logpdf_marked = Set{RandomChoiceNode}() # means LOGPDF is marked (does not propagate)
+    for node in ir.nodes
+        fwd_pass!(selected_choice_addrs, fwd_marked, fwd_choice_logpdf_marked, node)
+    end
+
+    # backward marking pass
+    # NOTE: if a random choice is in back_marked it refers to the VALUE
+    back_marked = Set{RegularNode}() # these propagate
+    # TODO we should declare compute_return_value_grad as a global property in the
+    # IR, not based on the return value node.
+    if ir.accepts_return_grad
+        push!(back_marked, ir.return_node)
+    end
+    for node in reverse(ir.nodes)
+        back_pass!(back_marked, node)
+    end
+
+    # forward code-generation pass (inserts code for JuliaNodes and initializes gradients to zero)
+    stmts = Expr[]
+    # unpack arguments
+    arg_names = Symbol[arg_node.name for arg_node in ir.arg_nodes]
+    push!(stmts, :($(Expr(:tuple, arg_names...)) = args))
+    for node in ir.nodes
+        fwd_codegen!(stmts, fwd_marked, back_marked, node)
+    end
+
+    # backward code-generation pass (increment gradients)
+    for node in reverse(ir.nodes)
+        back_codegen!(stmts, ir, fwd_marked, fwd_choice_logpdf_marked, back_marked, node)
+    end
+    
+    
+end
+
+
+
+# the nodes in between are:
+# - julia nodes that have compute_grad=true/false (if compute_grad=true, a subset of inputs may have gradents)
+# - random choices nodes (does compute_grad=true/false matter?)
+# - gen_fn call nodes that have compute_grad=true/false (a subset of inputs may have gradients)
+
+# each edge either has a gradient or does not.
+# an edge has a gradient if its source node has compute_grad=true and if its
+# dest. node has the gradient for that input.
+
+
+
+#################################################
+# phase 1: do any necessary forward computation #
+#################################################
+
+# identify the set of argument nodes for which gradients are needed (based on their annotation)
+# identify the set of choice nodes that are selected
+# identify whether or not the return value is compute_grad=true/false
+
+# compute the set of julia nodes that need to be evaluated, using a forward/backward pass
+# starting from certain marked nodes (arguments with compute_grad=true, and
+# selected random choices, and call nodes that have compute_grad=true, and nonempty selection)
+
+# Q: what about nodes that have compute_grad=true and empty selection?
+# A: they will propagate the need for gradient in the forward pass, but they aren't sources of it.
+
+# random choices that are not selected do not propagate the need for gradient in the fwd pass
+
+########################################
+# phase 2: initialize adjoints to zero #
+########################################
+
+# foreach argument node that has compute_grad=true, initialize adjoint of its
+# value to zero(current_value)
+
+# for each julia node that has compute_grad=true, initialize adjoint of
+# return value to zero(return_value) -- the return value type must have a
+# zero() method.
+
+# for each random choice that has compute_value_grad=true, initialize adjoint
+# of the return value to zero(return_value) -- the return value type must have
+# a zero() method.
+
+# for each generative function call that has compute_value_grad=true (i.e.
+# accepts_output_grad), initialize adjoint to zero..
+
+
+#########################
+# phase 3: reverse pass #
+#########################
+
+# then, take a backward pass through all the RegularNodes
+
+function codegen_backprop_trace(gen_fn_type::Type{T}, trace_type,
+                                selection_type, retval_grad_type) where {T <: StaticIRGenerativeFunctoin}
+    schema = get_address_schema(selection_type)
+    ir = get_ir(gen_fn_type)
+
+    # phase 1 .. (determine which julia nodes need to be evaluated)
+    marked = Set{RegularNode}()
+    for node in ir.arg_nodes
+        if node.compute_grad
+            push!(marked, node)
+        end
+    end
+    if ir.return_node.compute_grad
+        push!(marked, ir.return_node)
+    end
+    #julia_nodes_to_eval = Set{JuliaNode}()
+    #call_nodes_to_visit = Set{GenerativeFunctionCallNode}()
+    #random_choice_nodes_to_visit = Set{RandomChoiceNode}()
+    for node in reverse(ir.nodes)
+        # mark a julia node if 
+    end
+    = get_julia_nodes_to_evaluate(ir, selection_type)
+
+    # phase 2 (initialize gradients to zero)
+    stmts = Expr[]
+    for node in ir.nodes
+        generate_initial_gradient!(stmts, ir, julia_nodes_to_val, node)
+    end
+    
+    # phase 3
+    
+
+    # create a gradient variable for each value node, initialize them to zero.
+    # also get trace references for each value node
+    (value_refs, grad_vars) = initialize_backprop!(ir, stmts)
+
+    # visit statements in reverse topological order
+    state = BBBackpropTraceState(gen, :trace, stmts, schema, value_refs, grad_vars)
+    for node in reverse(ir.expr_nodes_sorted)
+        process!(state, node)
+    end
+
+    # construct values and gradients static choice tries
+    push!(stmts, choice_trie_construction(state.leaf_nodes, state.internal_nodes))
+
+    # return statement
+    push!(stmts, quote
+        return ($(input_gradients(ir, grad_vars)), $backprop_values_trie, $backprop_gradients_trie)
+    end)
+    Expr(:block, stmts...)
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #############################################
 # BBBackpropTraceState (for backprop_trace) #
 #############################################

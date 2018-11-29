@@ -7,6 +7,7 @@ abstract type DiffNode <: StaticIRNode end
 struct ArgumentNode <: RegularNode
     name::Symbol
     typ::Type
+    compute_grad::Bool
 end
 
 # TODO: use Flux.jl for default backpropagation, but let users write there own.
@@ -17,6 +18,7 @@ struct JuliaNode <: RegularNode
     inputs::Vector{RegularNode}
     name::Symbol
     typ::Type
+    grad_fn::Function # TODO a function of the return value gradient, return value, and inputs
 end
 
 struct RandomChoiceNode <: RegularNode
@@ -67,6 +69,8 @@ struct CallDiffNode <: DiffNode
     name::Symbol
     typ::Type
 end
+
+# TODO add a property that determines whether we accept gradients or not?
 
 struct StaticIR
     nodes::Vector{StaticIRNode}
@@ -154,26 +158,38 @@ function _add_node!(builder::StaticIRBuilder, node::StaticIRNode)
     push!(builder.node_set, node)
 end
 
-function add_argument_node!(builder::StaticIRBuilder; name::Symbol=gensym(), typ::Type=Any)
+function add_argument_node!(builder::StaticIRBuilder;
+                            name::Symbol=gensym(), typ::Type=Any,
+                            compute_grad=false)
     check_unique_var(builder, name)
-    node = ArgumentNode(name, typ)
+    node = ArgumentNode(name, typ, compute_grad)
     _add_node!(builder, node)
     push!(builder.arg_nodes, node)
     node
 end
 
+# TODO
+# grad is a function that takes in the return value, and returns a tuple
+# if a gradient is not available with respect to one of the inputs, that
+# position in the tuple is 'nothing'
+
+# TODO make_grad(fn::Function)
+
 function add_julia_node!(builder::StaticIRBuilder, fn::Function;
-                         inputs::Vector=[], name::Symbol=gensym(), typ::Type=Any)
+                         inputs::Vector=[],
+                         name::Symbol=gensym(), typ::Type=Any,
+                         grad_fn::Function=make_grad(fn)) # TODO make_grad
     check_unique_var(builder, name)
     check_inputs_exist(builder, inputs)
-    node = JuliaNode(fn, inputs, name, typ)
+    node = JuliaNode(fn, inputs, name, typ, grad_fn)
     _add_node!(builder, node)
     node
 end
 
 function add_constant_node!(builder::StaticIRBuilder, val::T, name::Symbol=gensym()) where {T}
     check_unique_var(builder, name)
-    node = JuliaNode(() -> val, [], name, T)
+    grad_fn = (val_grad, val) -> ()
+    node = JuliaNode(() -> val, [], name, T, grad_fn)
     _add_node!(builder, node)
     node
 end
@@ -184,7 +200,7 @@ function add_random_choice_node!(builder::StaticIRBuilder, dist::Distribution;
     check_unique_var(builder, name)
     check_addr_unique(builder, addr)
     check_inputs_exist(builder, inputs)
-    node = RandomChoiceNode(dist, inputs, addr, name, typ)
+    node = RandomChoiceNode(dist, inputs, addr, name, typ, has_output_grad(dist))
     _add_node!(builder, node)
     builder.addrs_to_choice_nodes[addr] = node
     push!(builder.choice_nodes, node)
@@ -201,7 +217,8 @@ function add_gen_fn_call_node!(builder::StaticIRBuilder, gen_fn::GenerativeFunct
     if !(argdiff in builder.node_set)
         error("Node $argdiff was not previously added to the IR")
     end
-    node = GenerativeFunctionCallNode(gen_fn, inputs, addr, argdiff, name, typ)
+    node = GenerativeFunctionCallNode(gen_fn, inputs, addr, argdiff, name, typ,
+        accepts_output_grad(gen))
     _add_node!(builder, node)
     builder.addrs_to_call_nodes[addr] = node
     push!(builder.call_nodes, node)
