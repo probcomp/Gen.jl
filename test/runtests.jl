@@ -12,11 +12,12 @@ end
 
 const dx = 1e-6
 
-include("assignment.jl")
-include("lightweight.jl")
-include("static.jl")
-include("injective.jl")
-include("inference.jl")
-include("distribution.jl")
-include("map.jl")
-include("recurse.jl")
+#include("assignment.jl")
+#include("lightweight.jl")
+#include("static_ir.jl")
+include("static_dsl.jl")
+#include("injective.jl")
+#include("inference.jl")
+#include("distribution.jl")
+#include("map.jl")
+#include("recurse.jl")

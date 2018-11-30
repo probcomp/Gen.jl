@@ -15,6 +15,7 @@ module Gen
     include("dsl_common.jl")
     include("dynamic_dsl/dynamic_dsl.jl")
     include("static_ir/static_ir.jl")
+    include("static_dsl/static_dsl.jl")
     include("combinators/combinators.jl")
     include("injective.jl")
     include("selection.jl")
