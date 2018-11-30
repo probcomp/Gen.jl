@@ -11,3 +11,4 @@ const retdiff = gensym("retdiff")
 
 include("generate.jl")
 include("update.jl")
+include("backprop.jl")

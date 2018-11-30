@@ -31,7 +31,7 @@ function generate_generative_function(ir::StaticIR, name::Symbol)
         #(gen_fn::$gen_fn_type_name)(args...) = get_call_record(simulate(gen, args)).retval
         Gen.get_ir(::Type{$gen_fn_type_name}) = $(QuoteNode(ir))
         Gen.get_trace_type(::Type{$gen_fn_type_name}) = $trace_struct_name
-        const $name = $gen_fn_type_name()
+        $name = $gen_fn_type_name()
     end
     Expr(:block, trace_defns, gen_fn_defn)
 end

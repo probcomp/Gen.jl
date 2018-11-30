@@ -1,5 +1,5 @@
 import ReverseDiff
-using ReverseDiff: SpecialInstruction, istracked, increment_deriv!, deriv, TrackedArray
+using ReverseDiff: SpecialInstruction, istracked, increment_deriv!, deriv, TrackedArray, deriv!
 using ReverseDiff: track, InstructionTape, TrackedReal, seed!, unseed!, reverse_pass!, record!
 import ReverseDiff: special_reverse_exec!
 

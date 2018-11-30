@@ -2,11 +2,21 @@ using Gen
 using Test
 import Random
 
-include("assignment.jl")
-include("lightweight.jl")
+function finite_diff(f::Function, args::Tuple, i::Int, dx::Float64)
+    pos_args = Any[args...]
+    pos_args[i] += dx
+    neg_args = Any[args...]
+    neg_args[i] -= dx
+    return (f(pos_args...) - f(neg_args...)) / (2. * dx)
+end
+
+const dx = 1e-6
+
+#include("assignment.jl")
+#include("lightweight.jl")
 include("static.jl")
-include("injective.jl")
-include("inference.jl")
-include("distribution.jl")
-include("map.jl")
-include("recurse.jl")
+#include("injective.jl")
+#include("inference.jl")
+#include("distribution.jl")
+#include("map.jl")
+#include("recurse.jl")

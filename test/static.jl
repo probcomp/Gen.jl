@@ -9,7 +9,7 @@ using Gen: generate_generative_function
     builder = StaticIRBuilder()
     zero = add_constant_node!(builder, 0.)
     one = add_constant_node!(builder, 1.)
-    add_random_choice_node!(builder, normal, [zero, one], :a, gensym(), Float64)
+    add_random_choice_node!(builder, normal, inputs=[zero, one], addr=:a, typ=Float64)
     ir = build_ir(builder)
     eval(generate_generative_function(ir, :bar))
 
@@ -20,7 +20,7 @@ using Gen: generate_generative_function
     builder = StaticIRBuilder()
     zero = add_constant_node!(builder, 0.)
     one = add_constant_node!(builder, 1.)
-    add_random_choice_node!(builder, normal, [zero, one], :b, gensym(), Float64)
+    add_random_choice_node!(builder, normal, inputs=[zero, one], addr=:b, typ=Float64)
     ir = build_ir(builder)
     eval(generate_generative_function(ir, :baz))
 
@@ -34,12 +34,10 @@ using Gen: generate_generative_function
     builder = StaticIRBuilder()
     zero = add_constant_node!(builder, 0.)
     one = add_constant_node!(builder, 1.)
-    add_random_choice_node!(builder, normal, [zero, one], :x, gensym(), Float64)
-    bar_argdiff = add_constant_node!(builder, unknownargdiff)
-    add_gen_fn_call_node!(builder, bar, [], :u, bar_argdiff, gensym(), Nothing)
-    add_random_choice_node!(builder, normal, [zero, one], :y, gensym(), Float64)
-    baz_argdiff = add_constant_node!(builder, unknownargdiff)
-    add_gen_fn_call_node!(builder, baz, [], :v, baz_argdiff, gensym(), Nothing)
+    add_random_choice_node!(builder, normal, inputs=[zero, one], addr=:x, typ=Float64)
+    add_gen_fn_call_node!(builder, bar, inputs=[], addr=:u, typ=Nothing)
+    add_random_choice_node!(builder, normal, inputs=[zero, one], addr=:y, typ=Float64)
+    add_gen_fn_call_node!(builder, baz, inputs=[], addr=:v, typ=Nothing)
     ir = build_ir(builder)
     eval(generate_generative_function(ir, :foo))
 
@@ -131,5 +129,85 @@ end
     # test retdiff
     @test retdiff === DefaultRetDiff()
 end
+
+@testset "backprop" begin
+
+    # bar
+    builder = StaticIRBuilder()
+    mu_z = add_argument_node!(builder, name=:mu_z, typ=Float64, compute_grad=true)
+    one = add_constant_node!(builder, 1.)
+    z = add_random_choice_node!(builder, normal, inputs=[mu_z, one], addr=:z, typ=Float64, name=:z)
+    retval = add_julia_node!(builder, (z, mu_z) -> z + mu_z, inputs=[z, mu_z], name=:retval)
+    set_return_node!(builder, retval)
+    ir = build_ir(builder)
+    eval(generate_generative_function(ir, :bar))
+    
+    # foo
+    builder = StaticIRBuilder()
+    mu_a = add_argument_node!(builder, name=:mu_a, typ=Float64, compute_grad=true)
+    one = add_constant_node!(builder, 1.)
+    a = add_random_choice_node!(builder, normal, inputs=[mu_a, one], addr=:a, typ=Float64, name=:a)
+    b = add_random_choice_node!(builder, normal, inputs=[a, one], addr=:b, typ=Float64, name=:b)
+    bar_val = add_gen_fn_call_node!(builder, bar, inputs=[a], addr=:bar, name=:bar_val)
+    c = add_julia_node!(builder, (a, b, bar) -> (a * b * bar), inputs=[a, b, bar_val], name=:c)
+    retval = add_random_choice_node!(builder, normal, inputs=[c, one], addr=:out, typ=Float64, name=:out)
+    set_return_node!(builder, retval)
+    ir = build_ir(builder)
+    eval(generate_generative_function(ir, :foo))
+
+    Gen.load_generated_functions()
+
+    function f(mu_a, a, b, z, out)
+        lpdf = 0.
+        mu_z = a
+        lpdf += logpdf(normal, z, mu_z, 1)
+        lpdf += logpdf(normal, a, mu_a, 1)
+        lpdf += logpdf(normal, b, a, 1)
+        c = a * b * (z + mu_z)
+        lpdf += logpdf(normal, out, c, 1)
+        return lpdf + 2 * out
+    end
+
+    mu_a = 1.
+    a = 2.
+    b = 3.
+    z = 4.
+    out = 5.
+
+    # get the initial trace
+    constraints = DynamicAssignment()
+    constraints[:a] = a
+    constraints[:b] = b
+    constraints[:out] = out
+    constraints[:bar => :z] = z
+    trace = assess(foo, (mu_a,), constraints)
+
+    # compute gradients
+    selection = DynamicAddressSet()
+    push_leaf_node!(selection, :bar => :z)
+    push_leaf_node!(selection, :a)
+    push_leaf_node!(selection, :out)
+    selection = StaticAddressSet(selection)
+    retval_grad = 2.
+    ((mu_a_grad,), value_trie, gradient_trie) = backprop_trace(foo, trace, selection, retval_grad)
+
+    # check value trie
+    @test get_leaf_node(value_trie, :a) == a
+    @test get_leaf_node(value_trie, :out) == out
+    @test get_leaf_node(value_trie, :bar => :z) == z
+    @test !has_leaf_node(value_trie, :b) # was not selected
+    @test length(get_internal_nodes(value_trie)) == 1
+    @test length(get_leaf_nodes(value_trie)) == 2
+
+    # check gradient trie
+    @test length(get_internal_nodes(gradient_trie)) == 1
+    @test length(get_leaf_nodes(gradient_trie)) == 2
+    @test !has_leaf_node(gradient_trie, :b) # was not selected
+    @test isapprox(mu_a_grad, finite_diff(f, (mu_a, a, b, z, out), 1, dx))
+    @test isapprox(get_leaf_node(gradient_trie, :a), finite_diff(f, (mu_a, a, b, z, out), 2, dx))
+    @test isapprox(get_leaf_node(gradient_trie, :out), finite_diff(f, (mu_a, a, b, z, out), 5, dx))
+    @test isapprox(get_leaf_node(gradient_trie, :bar => :z), finite_diff(f, (mu_a, a, b, z, out), 4, dx))
+end
+
 
 end # @testset "static IR"
