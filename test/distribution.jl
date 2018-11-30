@@ -1,13 +1,3 @@
-function finite_diff(f::Function, args::Tuple, i::Int, dx::Float64)
-    pos_args = Any[args...]
-    pos_args[i] += dx
-    neg_args = Any[args...]
-    neg_args[i] -= dx
-    return (f(pos_args...) - f(neg_args...)) / (2. * dx)
-end
-
-const dx = 1e-6
-
 @testset "bernoulli" begin
     f = (x::Bool, prob::Float64) -> logpdf(Gen.Bernoulli(), x, prob)
     args = (false, 0.3,)
