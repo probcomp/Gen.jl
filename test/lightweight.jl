@@ -236,4 +236,70 @@ end
 
 end
 
+@testset "backprop" begin
+
+    @ad @gen function bar(@ad(mu_z::Float64))
+        z = @addr(normal(mu_z, 1), :z)
+        return z + mu_z
+    end
+
+    @ad @gen function foo(@ad(mu_a::Float64))
+        a = @addr(normal(mu_a, 1), :a)
+        b = @addr(normal(a, 1), :b)
+        c = a * b * @addr(bar(a), :bar)
+        return @addr(normal(c, 1), :out)
+    end
+
+    function f(mu_a, a, b, z, out)
+        lpdf = 0.
+        mu_z = a
+        lpdf += logpdf(normal, z, mu_z, 1)
+        lpdf += logpdf(normal, a, mu_a, 1)
+        lpdf += logpdf(normal, b, a, 1)
+        c = a * b * (z + mu_z)
+        lpdf += logpdf(normal, out, c, 1)
+        return lpdf + 2 * out
+    end
+
+    mu_a = 1.
+    a = 2.
+    b = 3.
+    z = 4.
+    out = 5.
+
+    # get the initial trace
+    constraints = DynamicAssignment()
+    constraints[:a] = a
+    constraints[:b] = b
+    constraints[:out] = out
+    constraints[:bar => :z] = z
+    trace = assess(foo, (mu_a,), constraints)
+
+    # compute gradients
+    selection = DynamicAddressSet()
+    push_leaf_node!(selection, :bar => :z)
+    push_leaf_node!(selection, :a)
+    push_leaf_node!(selection, :out)
+    retval_grad = 2.
+    ((mu_a_grad,), value_trie, gradient_trie) = backprop_trace(foo, trace, selection, retval_grad)
+
+    # check value trie
+    @test get_leaf_node(value_trie, :a) == a
+    @test get_leaf_node(value_trie, :out) == out
+    @test get_leaf_node(value_trie, :bar => :z) == z
+    @test !has_leaf_node(value_trie, :b) # was not selected
+    @test length(get_internal_nodes(value_trie)) == 1
+    @test length(get_leaf_nodes(value_trie)) == 2
+
+    # check gradient trie
+    @test length(get_internal_nodes(gradient_trie)) == 1
+    @test length(get_leaf_nodes(gradient_trie)) == 2
+    @test !has_leaf_node(gradient_trie, :b) # was not selected
+    @test isapprox(mu_a_grad, finite_diff(f, (mu_a, a, b, z, out), 1, dx))
+    @test isapprox(get_leaf_node(gradient_trie, :bar => :z), finite_diff(f, (mu_a, a, b, z, out), 4, dx))
+    @test isapprox(get_leaf_node(gradient_trie, :out), finite_diff(f, (mu_a, a, b, z, out), 5, dx))
+    
+
+end
+
 end
