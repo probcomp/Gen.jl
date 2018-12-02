@@ -101,6 +101,12 @@ function parse_julia_expr!(bindings, builder, name::Symbol, typ::Type, expr::Exp
     add_julia_node!(builder, fn, inputs=input_nodes, name=name, typ=typ)
 end
 
+# TODO add constant node for performance?
+function parse_julia_expr!(bindings, builder, name::Symbol, typ::Type, value)
+    fn = Main.eval(Expr(:function, Expr(:tuple), QuoteNode(value)))
+    add_julia_node!(builder, fn, inputs=[], name=name, typ=typ)
+end
+
 function parse_julia_expr!(bindings, builder, name::Symbol, typ::Type, expr::Symbol)
     if haskey(bindings, expr)
         # don't create a new Julia node, just use the existing node
@@ -133,7 +139,7 @@ function parse_random_choice_helper!(bindings, builder, name, typ, addr_expr)
                 return false
             end
             args = call.args[2:end]
-            inputs = JuliaNode[]
+            inputs = []
             for arg_expr in args
                 push!(inputs, parse_julia_expr!(bindings, builder, gensym(), Any, arg_expr))
             end
@@ -176,7 +182,7 @@ function parse_gen_fn_call_helper!(bindings, builder, name, typ, addr_expr)
                 return false
             end
             args = call.args[2:end]
-            inputs = JuliaNode[]
+            inputs = []
             for arg_expr in args
                 push!(inputs, parse_julia_expr!(bindings, builder, gensym(), Any, arg_expr))
             end
@@ -194,6 +200,7 @@ function parse_gen_fn_call_helper!(bindings, builder, name, typ, addr_expr)
     node = add_gen_fn_call_node!(builder, gen_fn, inputs=inputs,
                                  addr=addr, argdiff=argdiff, name=name, typ=typ)
     bindings[name] = node
+    true
 end
 
 
