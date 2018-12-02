@@ -193,6 +193,13 @@ function add_constant_node!(builder::StaticIRBuilder, val::T, name::Symbol=gensy
     node
 end
 
+function add_constant_diff_node!(builder::StaticIRBuilder, val::T, name::Symbol=gensym()) where {T}
+    check_unique_var(builder, name)
+    node = DiffJuliaNode(() -> val, [], name, T)
+    _add_node!(builder, node)
+    node
+end
+
 function add_random_choice_node!(builder::StaticIRBuilder, dist::Distribution;
                                  inputs::Vector=[], addr::Symbol=gensym(),
                                  name::Symbol=gensym(), typ::Type=Any)
@@ -282,6 +289,7 @@ export StaticIR, StaticIRBuilder, build_ir
 export add_argument_node!
 export add_julia_node!
 export add_constant_node!
+export add_constant_diff_node!
 export add_random_choice_node!
 export add_gen_fn_call_node!
 export add_received_argdiff_node!

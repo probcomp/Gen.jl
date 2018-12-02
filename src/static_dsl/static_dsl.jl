@@ -1,6 +1,7 @@
 const STATIC_DSL_GRAD = Symbol("@grad")
 const STATIC_DSL_ADDR = Symbol("@addr")
 const STATIC_DSL_DIFF = Symbol("@diff")
+const STATIC_DSL_CHOICEDIFF = Symbol("@choicediff")
 
 function static_dsl_syntax_error(expr)
     error("Syntax error when parsing static DSL function at $expr")
@@ -92,28 +93,42 @@ function resolve_symbols(bindings::Dict{Symbol,StaticIRNode}, value)
     Dict{Symbol,StaticIRNode}()
 end
 
-function parse_julia_expr!(bindings, builder, name::Symbol, typ::Type, expr::Expr)
+function parse_julia_expr!(bindings, builder, name::Symbol, typ::Type, expr::Expr, diff::Bool)
     resolved = resolve_symbols(bindings, expr)
     inputs = collect(resolved)
     input_symbols = map((x) -> x[1], inputs)
     input_nodes = map((x) -> x[2], inputs)
     fn = Main.eval(Expr(:function, Expr(:tuple, input_symbols...), expr))
-    add_julia_node!(builder, fn, inputs=input_nodes, name=name, typ=typ)
+    if diff
+        add_diff_julia_node!(builder, fn, inputs=input_nodes, name=name, typ=typ)
+    else
+        # check that none of the inputs are diff nodes
+        for node in input_nodes
+            if isa(node, DiffNode) 
+                error("non-diff expression $expr depends on diff variable $(node.name)")
+            end
+        end
+        add_julia_node!(builder, fn, inputs=input_nodes, name=name, typ=typ)
+    end
 end
 
 # TODO add constant node for performance?
-function parse_julia_expr!(bindings, builder, name::Symbol, typ::Type, value)
+function parse_julia_expr!(bindings, builder, name::Symbol, typ::Type, value, diff::Bool)
     fn = Main.eval(Expr(:function, Expr(:tuple), QuoteNode(value)))
-    add_julia_node!(builder, fn, inputs=[], name=name, typ=typ)
+    if diff
+        add_diff_julia_node!(builder, fn, inputs=input_nodes, name=name, typ=typ)
+    else
+        add_julia_node!(builder, fn, inputs=[], name=name, typ=typ)
+    end
 end
 
-function parse_julia_expr!(bindings, builder, name::Symbol, typ::Type, expr::Symbol)
+function parse_julia_expr!(bindings, builder, name::Symbol, typ::Type, expr::Symbol, diff::Bool)
     if haskey(bindings, expr)
         # don't create a new Julia node, just use the existing node
         # NOTE: we aren't using 'typ'
         return bindings[expr]
     end
-    parse_julia_expr!(bindings, builder, name, typ, Expr(:block, expr))
+    parse_julia_expr!(bindings, builder, name, typ, Expr(:block, expr), diff)
 end
 
 function parse_julia_assignment!(bindings, builder, line::Expr)
@@ -123,7 +138,7 @@ function parse_julia_assignment!(bindings, builder, line::Expr)
     @assert length(line.args) == 2
     (lhs, expr) = line.args
     (name::Symbol, typ::Type) = parse_lhs(lhs)
-    node = parse_julia_expr!(bindings, builder, name, typ, expr)
+    node = parse_julia_expr!(bindings, builder, name, typ, expr, false)
     bindings[name] = node
     true
 end
@@ -141,7 +156,7 @@ function parse_random_choice_helper!(bindings, builder, name, typ, addr_expr)
             args = call.args[2:end]
             inputs = []
             for arg_expr in args
-                push!(inputs, parse_julia_expr!(bindings, builder, gensym(), Any, arg_expr))
+                push!(inputs, parse_julia_expr!(bindings, builder, gensym(), Any, arg_expr, false))
             end
         else
             return false
@@ -184,7 +199,7 @@ function parse_gen_fn_call_helper!(bindings, builder, name, typ, addr_expr)
             args = call.args[2:end]
             inputs = []
             for arg_expr in args
-                push!(inputs, parse_julia_expr!(bindings, builder, gensym(), Any, arg_expr))
+                push!(inputs, parse_julia_expr!(bindings, builder, gensym(), Any, arg_expr, false))
             end
         else
             return false
@@ -193,9 +208,10 @@ function parse_gen_fn_call_helper!(bindings, builder, name, typ, addr_expr)
         return false
     end
     if length(addr_expr.args) == 5
-        argdiff = add_constant_node!(builder, unknownargdiff) # TODO parse the RHS of a @diff julia node..
+        argdiff_expr = addr_expr.args[5]
+        argdiff = parse_julia_expr!(bindings, builder, gensym(), Any, argdiff_expr, true)
     else
-        argdiff = add_constant_node!(builder, unknownargdiff)
+        argdiff = add_constant_diff_node!(builder, unknownargdiff)
     end
     node = add_gen_fn_call_node!(builder, gen_fn, inputs=inputs,
                                  addr=addr, argdiff=argdiff, name=name, typ=typ)
@@ -240,12 +256,42 @@ end
 
 # @diff something::typ = <rhs>
 function parse_diff_julia!(bindings, builder, line::Expr)
-    false
+    if line.head != :macrocall || length(line.args) != 3 && line.args[1] != STATIC_DSL_DIFF
+        return false
+    end
+    expr = line.args[3]
+    if !isa(expr, Expr) || expr.head != :(=) || length(expr.args) != 2
+        return false
+    end
+    lhs = expr.args[1]
+    rhs = expr.args[2]
+    (name::Symbol, typ::Type) = parse_lhs(lhs)
+    node = parse_julia_expr!(bindings, builder, name, typ, rhs, true)
+    bindings[name] = node
+    true 
 end
 
-# @diff something::typ = @choicdiff(:foo)
+# @diff something[::typ] = @choicediff(:foo)
 function parse_choicediff!(bindings, builder, line::Expr)
-    false
+    if line.head != :macrocall || length(line.args) != 3 && line.args[1] != STATIC_DSL_DIFF
+        return false
+    end
+    expr = line.args[3]
+    if !isa(expr, Expr) || expr.head != :(=) || length(expr.args) != 2
+        return false
+    end
+    lhs = expr.args[1]
+    rhs = expr.args[2]
+    (name::Symbol, typ::Type) = parse_lhs(lhs)
+    if (!isa(rhs, Expr) || rhs.head != :macrocall || length(rhs.args) != 3 ||
+        rhs.args[1] != STATIC_DSL_CHOICEDIFF ||
+        !isa(rhs.args[3], QuoteNode) || !isa(rhs.args[3].value, Symbol))
+        return false
+    end
+    addr::Symbol = rhs.args[3].value
+    node = add_choicediff_node!(builder, addr, name=name, typ=typ)
+    bindings[name] = node
+    true
 end
 
 # @diff something::typ = @calldiff(:foo)
@@ -275,9 +321,10 @@ function parse_static_dsl_function_body!(bindings, builder, body)
 
         # @diff ..
         parse_received_argdiff!(bindings, builder, line) && continue
-        parse_diff_julia!(bindings, builder, line) && continue
         parse_choicediff!(bindings, builder, line) && continue
         parse_calldiff!(bindings, builder, line) && continue
+        parse_diff_julia!(bindings, builder, line) && continue
+
         static_dsl_syntax_error(line)
     end
 end

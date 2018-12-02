@@ -17,14 +17,30 @@ end
 
 data_fn = Map(datum)
 
+function compute_argdiff(inlier_std_diff, outlier_std_diff, slope_diff, intercept_diff)
+    if all([c == NoChoiceDiff() for c in [
+            inlier_std_diff, outlier_std_diff, slope_diff, intercept_diff]])
+        noargdiff
+    else
+        unknownargdiff
+    end
+end
+
 @staticgen function model(xs::Vector{Float64})
+    # TODO test argdiff
     n = length(xs)
     inlier_std::Float64 = @addr(gamma(1, 1), :inlier_std)
     outlier_std::Float64 = @addr(gamma(1, 1), :outlier_std)
     slope::Float64 = @addr(normal(0, 2), :slope)
     intercept::Float64 = @addr(normal(0, 2), :intercept)
     params = Params(0.5, inlier_std, outlier_std, slope, intercept)
-    ys::PersistentVector{Float64} = @addr(data_fn(xs, fill(params, n)), :data)
+    @diff inlier_std_diff = @choicediff(:inlier_std)
+    @diff outlier_std_diff::Union{NoChoiceDiff,PrevChoiceDiff} = @choicediff(:outlier_std)
+    @diff slope_diff = @choicediff(:slope)
+    @diff intercept_diff = @choicediff(:intercept)
+    @diff data_argdiff = compute_argdiff(inlier_std_diff, outlier_std_diff, slope_diff, intercept_diff)
+    ys::PersistentVector{Float64} = @addr(data_fn(xs, fill(params, n)), :data, data_argdiff)
+    # TODO test retdiff
     return ys
 end
 
@@ -187,5 +203,41 @@ in2 = params_vec.inputs[2]
 @test (in1 === params && in2 === n) || (in2 === params && in1 === n)
 
 @test ir.return_node === ys
+
+# inlier_std_diff
+inlier_std_diff = get_node_by_name(ir, :inlier_std_diff)
+@test isa(inlier_std_diff, Gen.ChoiceDiffNode)
+@test inlier_std_diff.choice_node === inlier_std
+@test inlier_std_diff.typ == Any
+
+# outlier_std_diff
+outlier_std_diff = get_node_by_name(ir, :outlier_std_diff)
+@test isa(outlier_std_diff, Gen.ChoiceDiffNode)
+@test outlier_std_diff.choice_node === outlier_std
+@test outlier_std_diff.typ == Union{NoChoiceDiff,PrevChoiceDiff}
+
+# slope_diff
+slope_diff = get_node_by_name(ir, :slope_diff)
+@test isa(slope_diff, Gen.ChoiceDiffNode)
+@test slope_diff.choice_node === slope
+@test slope_diff.typ == Any
+
+# intercept_diff
+intercept_diff = get_node_by_name(ir, :intercept_diff)
+@test isa(intercept_diff, Gen.ChoiceDiffNode)
+@test intercept_diff.choice_node === intercept
+@test intercept_diff.typ == Any
+
+# data_argdiff
+data_argdiff = get_node_by_name(ir, :data_argdiff)
+@test isa(data_argdiff, Gen.DiffJuliaNode)
+@test data_argdiff.name == :data_argdiff
+@test data_argdiff.typ == Any
+@test length(data_argdiff.inputs) == 4
+@test inlier_std_diff in data_argdiff.inputs
+@test outlier_std_diff in data_argdiff.inputs
+@test slope_diff in data_argdiff.inputs
+@test intercept_diff in data_argdiff.inputs
+@test ys.argdiff === data_argdiff
 
 end # @testset "static DSL"
