@@ -3,7 +3,7 @@ using Gen
 using Gen: generate_trace_type_and_methods, generate_generative_function
 using FunctionalCollections: PersistentVector
 
-include("/home/marcoct/dev/Gen/src/static_dsl/render_ir.jl")
+include("/home/marcoct/dev/Gen/src/static_ir/render_ir.jl")
 
 struct Params
     prob_outlier::Float64

@@ -14,7 +14,7 @@ const dx = 1e-6
 
 #include("assignment.jl")
 #include("lightweight.jl")
-#include("static_ir.jl")
+include("static_ir.jl")
 include("static_dsl.jl")
 #include("injective.jl")
 #include("inference.jl")

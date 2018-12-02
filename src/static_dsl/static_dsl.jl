@@ -302,7 +302,7 @@ macro staticgen(ast)
     (name, ir)  = parse_static_dsl_function(ast)
 
     # return code that defines the trace and generator types
-    generate_generative_function(ir, name)
+    esc(generate_generative_function(ir, name))
 end
 
 export @staticgen
