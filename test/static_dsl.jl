@@ -34,12 +34,14 @@ end
     slope::Float64 = @addr(normal(0, 2), :slope)
     intercept::Float64 = @addr(normal(0, 2), :intercept)
     params = Params(0.5, inlier_std, outlier_std, slope, intercept)
+    @diff received_argdiff = @argdiff()
     @diff inlier_std_diff = @choicediff(:inlier_std)
     @diff outlier_std_diff::Union{NoChoiceDiff,PrevChoiceDiff} = @choicediff(:outlier_std)
     @diff slope_diff = @choicediff(:slope)
     @diff intercept_diff = @choicediff(:intercept)
     @diff data_argdiff = compute_argdiff(inlier_std_diff, outlier_std_diff, slope_diff, intercept_diff)
     ys::PersistentVector{Float64} = @addr(data_fn(xs, fill(params, n)), :data, data_argdiff)
+    # TODO test choicediff
     # TODO test retdiff
     return ys
 end
@@ -239,5 +241,11 @@ data_argdiff = get_node_by_name(ir, :data_argdiff)
 @test slope_diff in data_argdiff.inputs
 @test intercept_diff in data_argdiff.inputs
 @test ys.argdiff === data_argdiff
+
+# received_argdiff
+received_argdiff = get_node_by_name(ir, :received_argdiff)
+@test isa(received_argdiff, Gen.ReceivedArgDiffNode)
+@test received_argdiff.typ == Any
+@test ir.received_argdiff_node === received_argdiff
 
 end # @testset "static DSL"

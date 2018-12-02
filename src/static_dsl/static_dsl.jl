@@ -2,6 +2,7 @@ const STATIC_DSL_GRAD = Symbol("@grad")
 const STATIC_DSL_ADDR = Symbol("@addr")
 const STATIC_DSL_DIFF = Symbol("@diff")
 const STATIC_DSL_CHOICEDIFF = Symbol("@choicediff")
+const STATIC_DSL_ARGDIFF = Symbol("@argdiff")
 
 function static_dsl_syntax_error(expr)
     error("Syntax error when parsing static DSL function at $expr")
@@ -251,7 +252,22 @@ end
 
 # @diff something::typ = @argdiff()
 function parse_received_argdiff!(bindings, builder, line::Expr)
-    false
+    if line.head != :macrocall || length(line.args) != 3 && line.args[1] != STATIC_DSL_DIFF
+        return false
+    end
+    expr = line.args[3]
+    if !isa(expr, Expr) || expr.head != :(=) || length(expr.args) != 2
+        return false
+    end
+    lhs = expr.args[1]
+    rhs = expr.args[2]
+    (name::Symbol, typ::Type) = parse_lhs(lhs)
+    if !isa(rhs, Expr) || rhs.head != :macrocall || rhs.args[1] != STATIC_DSL_ARGDIFF
+        return false
+    end
+    node = add_received_argdiff_node!(builder, name=name, typ=typ)
+    bindings[name] = node
+    true
 end
 
 # @diff something::typ = <rhs>
