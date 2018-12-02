@@ -27,7 +27,6 @@ function compute_argdiff(inlier_std_diff, outlier_std_diff, slope_diff, intercep
 end
 
 @staticgen function model(xs::Vector{Float64})
-    # TODO test argdiff
     n = length(xs)
     inlier_std::Float64 = @addr(gamma(1, 1), :inlier_std)
     outlier_std::Float64 = @addr(gamma(1, 1), :outlier_std)
@@ -41,7 +40,7 @@ end
     @diff intercept_diff = @choicediff(:intercept)
     @diff data_argdiff = compute_argdiff(inlier_std_diff, outlier_std_diff, slope_diff, intercept_diff)
     ys::PersistentVector{Float64} = @addr(data_fn(xs, fill(params, n)), :data, data_argdiff)
-    # TODO test choicediff
+    @diff data_calldiff = @calldiff(:data)
     # TODO test retdiff
     return ys
 end
@@ -247,5 +246,11 @@ received_argdiff = get_node_by_name(ir, :received_argdiff)
 @test isa(received_argdiff, Gen.ReceivedArgDiffNode)
 @test received_argdiff.typ == Any
 @test ir.received_argdiff_node === received_argdiff
+
+# data_calldiff
+data_calldiff = get_node_by_name(ir, :data_calldiff)
+@test isa(data_calldiff, Gen.CallDiffNode)
+@test data_calldiff.call_node == ys
+@test data_calldiff.typ == Any
 
 end # @testset "static DSL"

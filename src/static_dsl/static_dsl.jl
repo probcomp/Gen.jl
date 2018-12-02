@@ -2,6 +2,7 @@ const STATIC_DSL_GRAD = Symbol("@grad")
 const STATIC_DSL_ADDR = Symbol("@addr")
 const STATIC_DSL_DIFF = Symbol("@diff")
 const STATIC_DSL_CHOICEDIFF = Symbol("@choicediff")
+const STATIC_DSL_CALLDIFF = Symbol("@calldiff")
 const STATIC_DSL_ARGDIFF = Symbol("@argdiff")
 
 function static_dsl_syntax_error(expr)
@@ -113,7 +114,7 @@ function parse_julia_expr!(bindings, builder, name::Symbol, typ::Type, expr::Exp
     end
 end
 
-# TODO add constant node for performance?
+# TODO use add_constant_node! (?)
 function parse_julia_expr!(bindings, builder, name::Symbol, typ::Type, value, diff::Bool)
     fn = Main.eval(Expr(:function, Expr(:tuple), QuoteNode(value)))
     if diff
@@ -312,7 +313,25 @@ end
 
 # @diff something::typ = @calldiff(:foo)
 function parse_calldiff!(bindings, builder, line::Expr)
-    false
+    if line.head != :macrocall || length(line.args) != 3 && line.args[1] != STATIC_DSL_DIFF
+        return false
+    end
+    expr = line.args[3]
+    if !isa(expr, Expr) || expr.head != :(=) || length(expr.args) != 2
+        return false
+    end
+    lhs = expr.args[1]
+    rhs = expr.args[2]
+    (name::Symbol, typ::Type) = parse_lhs(lhs)
+    if (!isa(rhs, Expr) || rhs.head != :macrocall || length(rhs.args) != 3 ||
+        rhs.args[1] != STATIC_DSL_CALLDIFF ||
+        !isa(rhs.args[3], QuoteNode) || !isa(rhs.args[3].value, Symbol))
+        return false
+    end
+    addr::Symbol = rhs.args[3].value
+    node = add_calldiff_node!(builder, addr, name=name, typ=typ)
+    bindings[name] = node
+    true
 end
 
 function parse_static_dsl_function_body!(bindings, builder, body)
