@@ -41,8 +41,8 @@ end
     @diff data_argdiff = compute_argdiff(inlier_std_diff, outlier_std_diff, slope_diff, intercept_diff)
     ys::PersistentVector{Float64} = @addr(data_fn(xs, fill(params, n)), :data, data_argdiff)
     @diff data_calldiff = @calldiff(:data)
-    # TODO test retdiff
     return ys
+    @diff @retdiff(data_calldiff)
 end
 
 @testset "static DSL" begin
@@ -252,5 +252,8 @@ data_calldiff = get_node_by_name(ir, :data_calldiff)
 @test isa(data_calldiff, Gen.CallDiffNode)
 @test data_calldiff.call_node == ys
 @test data_calldiff.typ == Any
+
+# retdiff
+@test ir.retdiff_node === data_calldiff
 
 end # @testset "static DSL"

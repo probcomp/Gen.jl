@@ -4,6 +4,7 @@ const STATIC_DSL_DIFF = Symbol("@diff")
 const STATIC_DSL_CHOICEDIFF = Symbol("@choicediff")
 const STATIC_DSL_CALLDIFF = Symbol("@calldiff")
 const STATIC_DSL_ARGDIFF = Symbol("@argdiff")
+const STATIC_DSL_RETDIFF = Symbol("@retdiff")
 
 function static_dsl_syntax_error(expr)
     error("Syntax error when parsing static DSL function at $expr")
@@ -271,6 +272,22 @@ function parse_received_argdiff!(bindings, builder, line::Expr)
     true
 end
 
+# @diff @retdiff(something)
+function parse_retdiff!(bindings, builder, line::Expr)
+    if line.head != :macrocall || length(line.args) != 3 && line.args[1] != STATIC_DSL_DIFF
+        return false
+    end
+    expr = line.args[3]
+    if (!isa(expr, Expr) || expr.head != :macrocall || length(expr.args) != 3 ||
+        expr.args[1] != STATIC_DSL_RETDIFF)
+        return false
+    end
+    inner_expr = expr.args[3]
+    node = parse_julia_expr!(bindings, builder, gensym(), Any, inner_expr, true)
+    set_retdiff_node!(builder, node)
+    true
+end
+
 # @diff something::typ = <rhs>
 function parse_diff_julia!(bindings, builder, line::Expr)
     if line.head != :macrocall || length(line.args) != 3 && line.args[1] != STATIC_DSL_DIFF
@@ -359,6 +376,7 @@ function parse_static_dsl_function_body!(bindings, builder, body)
         parse_choicediff!(bindings, builder, line) && continue
         parse_calldiff!(bindings, builder, line) && continue
         parse_diff_julia!(bindings, builder, line) && continue
+        parse_retdiff!(bindings, builder, line) && continue
 
         static_dsl_syntax_error(line)
     end
