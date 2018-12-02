@@ -6,7 +6,7 @@ function static_dsl_syntax_error(expr)
     error("Syntax error when parsing static DSL function at $expr")
 end
 
-function parse_arg_expr(expr::Symbol)
+function parse_arg_expr(arg_expr::Symbol)
     arg_name = arg_expr
     typ = Any
     (arg_name, typ, false)
@@ -23,7 +23,7 @@ function parse_arg_expr(arg_expr::Expr)
                 static_dsl_syntax_error(arg_expr.args[1])
             end
             arg_name = arg_expr.args[1]
-            typ = Main.eval(arg_expr.args[1]) # undesirable, but the IR takes the Type value
+            typ = Main.eval(arg_expr.args[2]) # undesirable, but the IR takes the Type value
         end
         (arg_name, typ, false)
     elseif arg_expr.head == :macrocall && arg_expr.args[1] == STATIC_DSL_GRAD
@@ -40,7 +40,6 @@ function parse_static_dsl_function_signature!(bindings, builder, sig)
         static_dsl_syntax_error(sig)
     end
     name = sig.args[1]
-    args = Vector{ParsedArgument}()
     for arg_expr in sig.args[2:end]
         (arg_name, typ, compute_grad) = parse_arg_expr(arg_expr)
         if arg_name === nothing
@@ -49,20 +48,11 @@ function parse_static_dsl_function_signature!(bindings, builder, sig)
         if typ === nothing
             typ = Any
         end
-        node = add_argument_node!(builder, arg_name, typ, compute_grad)
+        node = add_argument_node!(builder, name=arg_name, typ=typ,
+                                  compute_grad=compute_grad)
         bindings[arg_name] = node
     end
     name
-end
-
-# TODO needed?
-function split_annotation(line::Expr)
-    if isa(line, Expr) && line.head == :macrocall
-        @assert length(line.args) == 3 && isa(line.args[2], LineNumberNode)
-        (line.args[1], line.args[3])
-    else
-        (nothing, line)
-    end
 end
 
 function parse_lhs(lhs)
@@ -102,23 +92,34 @@ function resolve_symbols(bindings::Dict{Symbol,StaticIRNode}, value)
     Dict{Symbol,StaticIRNode}()
 end
 
-function parse_julia_rhs!(bindings, builder, rhs::Expr)
-    resolved = resolve_symbols(bindings, rhs)
+function parse_julia_expr!(bindings, builder, name::Symbol, typ::Type, expr::Expr)
+    resolved = resolve_symbols(bindings, expr)
     inputs = collect(resolved)
     input_symbols = map((x) -> x[1], inputs)
     input_nodes = map((x) -> x[2], inputs)
-    fn = Main.eval(Expr(:function, Expr(:tuple, input_symbols...), rhs))
+    fn = Main.eval(Expr(:function, Expr(:tuple, input_symbols...), expr))
     add_julia_node!(builder, fn, inputs=input_nodes, name=name, typ=typ)
 end
 
-function parse_julia!(bindings, builder, line::Expr)
+function parse_julia_expr!(bindings, builder, name::Symbol, typ::Type, expr::Symbol)
+    if haskey(bindings, expr)
+        # don't create a new Julia node, just use the existing node
+        # NOTE: we aren't using 'typ'
+        return bindings[expr]
+    end
+    parse_julia_expr!(bindings, builder, name, typ, Expr(:block, expr))
+end
+
+function parse_julia_assignment!(bindings, builder, line::Expr)
     if line.head != :(=)
         return false
     end
     @assert length(line.args) == 2
-    (lhs, rhs) = line.args
+    (lhs, expr) = line.args
     (name::Symbol, typ::Type) = parse_lhs(lhs)
-    parse_julia_rhs!(bindings, builder, rhs)
+    node = parse_julia_expr!(bindings, builder, name, typ, expr)
+    bindings[name] = node
+    true
 end
 
 function parse_random_choice_helper!(bindings, builder, name, typ, addr_expr)
@@ -134,7 +135,7 @@ function parse_random_choice_helper!(bindings, builder, name, typ, addr_expr)
             args = call.args[2:end]
             inputs = JuliaNode[]
             for arg_expr in args
-                push!(inputs, parse_julia_rhs!(bindings, builer, arg_expr))
+                push!(inputs, parse_julia_expr!(bindings, builder, gensym(), Any, arg_expr))
             end
         else
             return false
@@ -145,6 +146,7 @@ function parse_random_choice_helper!(bindings, builder, name, typ, addr_expr)
     node = add_random_choice_node!(builder, dist, inputs=inputs,
                                    addr=addr, name=name, typ=typ)
     bindings[name] = node
+    true
 end
 
 function parse_random_choice!(bindings, builder, line::Expr)
@@ -152,14 +154,15 @@ function parse_random_choice!(bindings, builder, line::Expr)
         @assert length(line.args) == 2
         (lhs, rhs) = line.args
         (name::Symbol, typ::Type) = parse_lhs(lhs)
-        parse_random_choice_helper!(bindings, builder, name, typ, rhs)
+        return parse_random_choice_helper!(bindings, builder, name, typ, rhs)
     else
         name = gensym()
         # TODO this will be inefficient, since it becomes a field in the trace. a concrete type is better.
         # allow a type assertion e.g. @addr(normal(mu, std), :x)::Float64
         typ = Any 
-        parse_random_choice_helper!(bindings, builder, name, typ, line)
+        return parse_random_choice_helper!(bindings, builder, name, typ, line)
     end
+    true
 end
 
 function parse_gen_fn_call_helper!(bindings, builder, name, typ, addr_expr)
@@ -175,7 +178,7 @@ function parse_gen_fn_call_helper!(bindings, builder, name, typ, addr_expr)
             args = call.args[2:end]
             inputs = JuliaNode[]
             for arg_expr in args
-                push!(inputs, parse_julia_rhs!(bindings, builer, arg_expr))
+                push!(inputs, parse_julia_expr!(bindings, builder, gensym(), Any, arg_expr))
             end
         else
             return false
@@ -199,27 +202,48 @@ function parse_gen_fn_call!(bindings, builder, line::Expr)
         @assert length(line.args) == 2
         (lhs, rhs) = line.args
         (name::Symbol, typ::Type) = parse_lhs(lhs)
-        parse_random_choice_helper!(bindings, builder, name, typ, rhs)
+        return parse_gen_fn_call_helper!(bindings, builder, name, typ, rhs)
     else
         name = gensym()
         typ = Any 
-        parse_gen_fn_call_helper!(bindings, builder, name, typ, line)
+        return parse_gen_fn_call_helper!(bindings, builder, name, typ, line)
+    end
+    true
+end
+
+# return foo (must be a symbol)
+function parse_return!(bindings, builder, line::Expr)
+    if line.head != :return || !isa(line.args[1], Symbol)
+        return false
+    end
+    var = line.args[1]
+    if haskey(bindings, var)
+        node = bindings[var]
+        set_return_node!(builder, node)
+        return true
+    else
+        error("Tried to return $var, which is not a locally bound variable")
     end
 end
 
+# @diff something::typ = @argdiff()
 function parse_received_argdiff!(bindings, builder, line::Expr)
+    false
 end
 
+# @diff something::typ = <rhs>
 function parse_diff_julia!(bindings, builder, line::Expr)
+    false
 end
 
+# @diff something::typ = @choicdiff(:foo)
 function parse_choicediff!(bindings, builder, line::Expr)
+    false
 end
 
+# @diff something::typ = @calldiff(:foo)
 function parse_calldiff!(bindings, builder, line::Expr)
-end
-
-function parse_return!(bindings, builder, line::Expr)
+    false
 end
 
 function parse_static_dsl_function_body!(bindings, builder, body)
@@ -237,7 +261,7 @@ function parse_static_dsl_function_body!(bindings, builder, body)
 
         # lhs = rhs
         # (only run if parsing as choice and call both fail)
-        parse_julia!(bindings, builder, line) && continue
+        parse_julia_assignment!(bindings, builder, line) && continue
 
         # return ..
         parse_return!(bindings, builder, line) && continue
@@ -266,14 +290,12 @@ function parse_static_dsl_function(ast::Expr)
 end
 
 macro staticgen(ast)
-    dump(ast)
-    println(ast)
 
     # parse the AST
     (name, ir)  = parse_static_dsl_function(ast)
 
     # return code that defines the trace and generator types
-    #generate_generative_function(ir, name)
+    generate_generative_function(ir, name)
 end
 
 export @staticgen

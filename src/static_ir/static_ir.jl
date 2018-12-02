@@ -30,6 +30,9 @@ function generate_generative_function(ir::StaticIR, name::Symbol)
     trace_type = trace_struct_name
 
     gen_fn_defn = quote
+        println("printing trace type...")
+        println($trace_type)
+        println("done printing trace type...")
         struct $gen_fn_type_name <: Gen.StaticIRGenerativeFunction{$return_type,$trace_type}
         end
         (gen_fn::$gen_fn_type_name)(args...) = get_call_record(simulate(gen_fn, args)).retval
@@ -37,7 +40,7 @@ function generate_generative_function(ir::StaticIR, name::Symbol)
         Gen.get_trace_type(::Type{$gen_fn_type_name}) = $trace_struct_name
         $name = $gen_fn_type_name()
     end
-    Expr(:block, trace_defns, gen_fn_defn)
+    esc(Expr(:block, trace_defns, gen_fn_defn))
 end
 
 
