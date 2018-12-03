@@ -258,7 +258,11 @@ function generate_value_gradient_trie(selected_choices::Set{RandomChoiceNode},
     end
 end
 
-function get_selected_choices(schema::StaticAddressSchema, ir)
+function get_selected_choices(::EmptyAddressSchema, ::StaticIR)
+    Set{RandomChoiceNode}()
+end
+
+function get_selected_choices(schema::StaticAddressSchema, ir::StaticIR)
     selected_choice_addrs = Set(leaf_node_keys(schema))
     selected_choices = Set{RandomChoiceNode}()
     for node in ir.choice_nodes
@@ -269,7 +273,11 @@ function get_selected_choices(schema::StaticAddressSchema, ir)
     selected_choices
 end
 
-function get_selected_calls(schema::StaticAddressSchema, ir)
+function get_selected_calls(::EmptyAddressSchema, ::StaticIR)
+    Set{GenerativeFunctionCallNode}()
+end
+
+function get_selected_calls(schema::StaticAddressSchema, ir::StaticIR)
     selected_call_addrs = Set(internal_node_keys(schema))
     selected_calls = Set{GenerativeFunctionCallNode}()
     for node in ir.call_nodes

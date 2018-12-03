@@ -1,42 +1,30 @@
 using Gen
 import Random
+using FunctionalCollections: PersistentVector
 
-using FunctionalCollections
-using ReverseDiff
-
-############################
-# reverse mode AD for fill #
-############################
-
-function Base.fill(x::ReverseDiff.TrackedReal{V,D,O}, n::Integer) where {V,D,O}
-    tp = ReverseDiff.tape(x)
-    out = ReverseDiff.track(fill(ReverseDiff.value(x), n), V, tp)
-    ReverseDiff.record!(tp, ReverseDiff.SpecialInstruction, fill, (x, n), out)
-    return out
-end
-
-@noinline function ReverseDiff.special_reverse_exec!(instruction::ReverseDiff.SpecialInstruction{typeof(fill)})
-    x, n = instruction.input
-    output = instruction.output
-    ReverseDiff.istracked(x) && ReverseDiff.increment_deriv!(x, sum(ReverseDiff.deriv(output)))
-    ReverseDiff.unseed!(output) 
-    return nothing
-end 
-
-@noinline function ReverseDiff.special_forward_exec!(instruction::ReverseDiff.SpecialInstruction{typeof(fill)})
-    x, n = instruction.input
-    ReverseDiff.value!(instruction.output, fill(ReverseDiff.value(x), n))
-    return nothing
-end 
+using Flux
+import Flux
+using Flux.Tracker: @grad, TrackedReal, TrackedArray, track
+import Flux.Tracker: param
 
 #########
 # model #
 #########
 
-@compiled @gen function datum(x::Float64, @ad(inlier_std::Float64), @ad(outlier_std::Float64),
-                                @ad(slope::Float64), @ad(intercept::Float64))
+param(value::Bool) = value
+
+param(value::Int) = value
+
+Base.fill(a::TrackedReal, b::Integer) = track(fill, a, b)
+
+@grad function Base.fill(a, b)
+    fill(Flux.Tracker.data(a), Flux.Tracker.data(b)), grad -> (sum(grad), nothing)
+end
+
+@staticgen function datum(x::Float64, @grad(inlier_std::Float64), @grad(outlier_std::Float64),
+                          @grad(slope::Float64), @grad(intercept::Float64))
     is_outlier::Bool = @addr(bernoulli(0.5), :z)
-    std::Float64 = is_outlier ? inlier_std : outlier_std
+    std = is_outlier ? inlier_std : outlier_std
     y::Float64 = @addr(normal(x * slope + intercept, std), :y)
     return y
 end
@@ -52,20 +40,20 @@ function compute_argdiff(inlier_std_diff, outlier_std_diff, slope_diff, intercep
     end
 end
 
-@compiled @gen function model(xs::Vector{Float64})
-    n::Int = length(xs)
-    inlier_log_std::Float64 = @addr(normal(0, 2), :inlier_std)
-    outlier_log_std::Float64 = @addr(normal(0, 2), :outlier_std)
-    inlier_std::Float64 = exp(inlier_log_std)
-    outlier_std::Float64 = exp(outlier_log_std)
+@staticgen function model(xs::Vector{Float64})
+    n = length(xs)
+    inlier_log_std::Float64 = @addr(normal(0, 2), :log_inlier_std)
+    outlier_log_std::Float64 = @addr(normal(0, 2), :log_outlier_std)
+    inlier_std = exp(inlier_log_std)
+    outlier_std = exp(outlier_log_std)
     slope::Float64 = @addr(normal(0, 2), :slope)
     intercept::Float64 = @addr(normal(0, 2), :intercept)
-    inlier_std_diff::Union{PrevChoiceDiff{Float64},NoChoiceDiff} = @change(:inlier_std)
-    outlier_std_diff::Union{PrevChoiceDiff{Float64},NoChoiceDiff} = @change(:outlier_std)
-    slope_diff::Union{PrevChoiceDiff{Float64},NoChoiceDiff} = @change(:slope)
-    intercept_diff::Union{PrevChoiceDiff{Float64},NoChoiceDiff} = @change(:intercept)
-    argdiff::Union{NoArgDiff,UnknownArgDiff} = compute_argdiff(
-        inlier_std_diff, outlier_std_diff, slope_diff, intercept_diff)
+    @diff inlier_std_diff = @choicediff(:log_inlier_std)
+    @diff outlier_std_diff = @choicediff(:log_outlier_std)
+    @diff slope_diff = @choicediff(:slope)
+    @diff intercept_diff = @choicediff(:intercept)
+    @diff argdiff = compute_argdiff(
+            inlier_std_diff, outlier_std_diff, slope_diff, intercept_diff)
     @addr(data(xs, fill(inlier_std, n), fill(outlier_std, n),
                fill(slope, n), fill(intercept, n)),
           :data, argdiff)
@@ -75,13 +63,13 @@ end
 # inference operators #
 #######################
 
-@compiled @gen function flip_z(z::Bool)
+@staticgen function flip_z(z::Bool)
     @addr(bernoulli(z ? 0.0 : 1.0), :z)
 end
 
 data_proposal = at_dynamic(flip_z, Int)
 
-@compiled @gen function is_outlier_proposal(prev, i::Int)
+@staticgen function is_outlier_proposal(prev, i::Int)
     prev_z::Bool = get_assignment(prev)[:data => i => :z]
     @addr(data_proposal(i, (prev_z,)), :data) 
 end
@@ -123,27 +111,27 @@ end
 
 std_selection = let
     s = DynamicAddressSet()
-    push!(s, :inlier_std)
-    push!(s, :outlier_std)
+    push!(s, :log_inlier_std)
+    push!(s, :log_outlier_std)
     StaticAddressSet(s)
 end
 
 function do_inference(n)
+
     observations = DynamicAssignment()
     for (i, y) in enumerate(ys)
         observations[:data => i => :y] = y
     end
+    observations[:log_inlier_std] = 0.
+    observations[:log_outlier_std] = 0.
 
     # initial trace
     (trace, _) = generate(model, (xs,), observations)
 
     scores = Vector{Float64}(undef, n)
-    
     for i=1:n
-        for j=1:5
-            trace = map_optimize(model, slope_intercept_selection, trace, max_step_size=0.1, min_step_size=1e-10)
-            trace = map_optimize(model, std_selection, trace, max_step_size=0.1, min_step_size=1e-10)
-        end
+        trace = map_optimize(model, slope_intercept_selection, trace, max_step_size=1., min_step_size=1e-10)
+        trace = map_optimize(model, std_selection, trace, max_step_size=1., min_step_size=1e-10)
     
         # step on the outliers
         for j=1:length(xs)
@@ -157,8 +145,8 @@ function do_inference(n)
         assignment = get_assignment(trace)
         slope = assignment[:slope]
         intercept = assignment[:intercept]
-        inlier_std = assignment[:inlier_std]
-        outlier_std = assignment[:outlier_std]
+        inlier_std = exp(assignment[:log_inlier_std])
+        outlier_std = exp(assignment[:log_outlier_std])
         println("score: $score, slope: $slope, intercept: $intercept, inlier_std: $inlier_std, outlier_std: $outlier_std")
     end
     return scores
@@ -173,6 +161,6 @@ using PyPlot
 figure(figsize=(4, 2))
 plot(scores)
 ylabel("Log probability density")
-xlabel("Iterations of loop of Lines 12-24")
+xlabel("Iterations")
 tight_layout()
 savefig("scores.png")
