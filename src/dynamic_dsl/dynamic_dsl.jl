@@ -39,8 +39,6 @@ has_argument_grads(gen::DynamicDSLFunction) = gen.has_argument_grads
 # if it is true, then it expects a value, otherwise it expects 'nothing'
 accepts_output_grad(gen::DynamicDSLFunction) = gen.accepts_output_grad
 
-const self = gensym("self")
-
 function parse_arg_types(args)
     types = Vector{Any}()
     for arg in args
