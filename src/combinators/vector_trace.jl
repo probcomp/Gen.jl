@@ -41,7 +41,7 @@ end
 # trace API
 
 get_call_record(trace::VectorTrace) = trace.call
-has_choices(trace::VectorTrace) = trace.num_has_choices == 0
+has_choices(trace::VectorTrace) = trace.num_has_choices > 0
 get_assignment(trace::VectorTrace) = VectorTraceAssignment(trace)
 
 struct VectorTraceAssignment <: Assignment
