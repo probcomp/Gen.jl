@@ -39,8 +39,6 @@ has_argument_grads(gen::DynamicDSLFunction) = gen.has_argument_grads
 # if it is true, then it expects a value, otherwise it expects 'nothing'
 accepts_output_grad(gen::DynamicDSLFunction) = gen.accepts_output_grad
 
-const self = gensym("self")
-
 function parse_arg_types(args)
     types = Vector{Any}()
     for arg in args
@@ -57,16 +55,14 @@ function parse_arg_types(args)
 end
 
 macro ad(ast)
-    if ast.head != :macrocall || ast.args[1] != Symbol("@ad") || length(ast.args) != 2
+    if (!isa(ast, Expr)
+        || ast.head != :macrocall
+        || ast.args[1] != Symbol("@gen")
+        || length(ast.args) != 3
+        || !isa(ast.args[2], LineNumberNode))
         error("Syntax error in @ad $ast")
     end
-    gen_ast = ast.args[2]
-    if (!isa(gen_ast, Expr)
-        || gen_ast.head != :macrocall
-        || gen_ast.args[1] != Symbol("@gen"))
-        error("Syntax error in @ad $ast")
-    end
-    parse_gen_function(gen_ast, true)
+    parse_gen_function(ast.args[3], true)
 end
 
 macro addr(expr::Expr, addr, addrdiff)

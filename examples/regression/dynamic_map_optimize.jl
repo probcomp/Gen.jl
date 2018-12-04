@@ -14,21 +14,28 @@ end
 
 data = Map(datum)
 
+function compute_argdiff(inlier_std_diff, outlier_std_diff, slope_diff, intercept_diff)
+    if all([c == NoChoiceDiff() for c in [
+            inlier_std_diff, outlier_std_diff, slope_diff, intercept_diff]])
+        noargdiff
+    else
+        unknownargdiff
+    end
+end
+
 @gen function model(xs::Vector{Float64})
     n = length(xs)
-    inlier_std = exp(@addr(normal(0, 2), :inlier_std))
-    outlier_std = exp(@addr(normal(0, 2), :outlier_std))
+    inlier_std = exp(@addr(normal(0, 2), :log_inlier_std))
+    outlier_std = exp(@addr(normal(0, 2), :log_outlier_std))
     slope = @addr(normal(0, 2), :slope)
     intercept = @addr(normal(0, 2), :intercept)
-    @diff begin
-        argdiff = noargdiff
-        for addr in [:slope, :intercept, :inlier_std, :outlier_std]
-            if !isnodiff(@choicediff(addr))
-                argdiff = unknownargdiff
-            end
-        end
-    end
-    ys = @addr(data(xs, fill(inlier_std, n), fill(outlier_std, n), fill(slope, n), fill(intercept, n)), :data, argdiff)
+    @diff argdiff = compute_argdiff(
+        @choicediff(:slope),
+        @choicediff(:intercept),
+        @choicediff(:log_inlier_std),
+        @choicediff(:log_outlier_std))
+    ys = @addr(data(xs, fill(inlier_std, n), fill(outlier_std, n),
+                fill(slope, n), fill(intercept, n)), :data, argdiff)
     return ys
 end
 
@@ -80,20 +87,35 @@ push!(slope_intercept_selection, :slope)
 push!(slope_intercept_selection, :intercept)
 
 std_selection = DynamicAddressSet()
-push!(std_selection, :inlier_std)
-push!(std_selection, :outlier_std)
+push!(std_selection, :log_inlier_std)
+push!(std_selection, :log_outlier_std)
+
+observations = DynamicAssignment()
+for (i, y) in enumerate(ys)
+    observations[:data => i => :y] = y
+end
+observations[:slope] = 0.2
+observations[:intercept] = -0.3
+observations[:log_inlier_std] = log(0.5)
+observations[:log_outlier_std] = log(0.5)
+observations[:data => 1 => :is_outlier] = true
+observations[:data => 2 => :is_outlier] = true
 
 function do_inference(n)
-    observations = get_assignment(simulate(observer, (ys,)))
-    
+    observations = DynamicAssignment()
+    for (i, y) in enumerate(ys)
+        observations[:data => i => :y] = y
+    end
+    observations[:log_inlier_std] = 0.
+    observations[:log_outlier_std] = 0.
+ 
     # initial trace
     (trace, _) = generate(model, (xs,), observations)
-    
+
+    scores = Vector{Float64}(undef, n)
     for i=1:n
-        for j=1:5
-            trace = map_optimize(model, slope_intercept_selection, trace, max_step_size=0.1, min_step_size=1e-10)
-            trace = map_optimize(model, std_selection, trace, max_step_size=0.1, min_step_size=1e-10)
-        end
+        trace = map_optimize(model, slope_intercept_selection, trace, max_step_size=1., min_step_size=1e-10)
+        trace = map_optimize(model, std_selection, trace, max_step_size=1., min_step_size=1e-10)
     
         # step on the outliers
         for j=1:length(xs)
@@ -101,16 +123,27 @@ function do_inference(n)
         end
     
         score = get_call_record(trace).score
+        scores[i] = score
     
         # print
         assignment = get_assignment(trace)
         slope = assignment[:slope]
         intercept = assignment[:intercept]
-        inlier_std = assignment[:inlier_std]
-        outlier_std = assignment[:outlier_std]
+        inlier_std = exp(assignment[:log_inlier_std])
+        outlier_std = exp(assignment[:log_outlier_std])
         println("score: $score, slope: $slope, intercept: $intercept, inlier_std: $inlier_std, outlier_std: $outlier_std")
     end
 end
 
-@time do_inference(100)
-@time do_inference(100)
+iters = 100
+@time do_inference(iters)
+@time scores = do_inference(iters)
+
+using PyPlot
+
+figure(figsize=(4, 2))
+plot(scores)
+ylabel("Log probability density")
+xlabel("Iterations")
+tight_layout()
+savefig("scores.png")

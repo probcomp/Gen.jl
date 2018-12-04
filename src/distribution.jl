@@ -101,8 +101,8 @@ function logpdf_grad(::Normal, x::Real, mu::Real, std::Real)
     diff = mu - x
     deriv_x = diff * precision
     deriv_mu = -deriv_x
-    deriv_sigma = -0.5 * precision * (1. - precision * (diff * diff))
-    (deriv_x, deriv_mu, deriv_sigma)
+    deriv_std = -1. / std + (diff * diff) / (std * std * std)
+    (deriv_x, deriv_mu, deriv_std)
 end
 
 random(::Normal, mu::Real, std::Real) = mu + std * randn()

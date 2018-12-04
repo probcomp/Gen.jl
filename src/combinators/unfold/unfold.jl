@@ -6,23 +6,6 @@ using FunctionalCollections: PersistentVector, push, assoc
 
 struct Unfold{T,U} <: GenerativeFunction{PersistentVector{T},VectorTrace{T,U}}
     kernel::GenerativeFunction{T,U}
-    function Unfold(kernel::GenerativeFunction{T,U}) where {T,U}
-        kernel_arg_types = get_static_argument_types(kernel)
-        if length(kernel_arg_types) < 3 || kernel_arg_types[1] != Int
-            error("unfold requires a kernel with arguments (t::Int, state, params...)")
-        end
-        new{T,U}(kernel)
-    end
-end
-
-function get_static_argument_types(unfold::Unfold)
-    kernel_arg_types = get_static_argument_types(unfold.kernel)
-    state_type = kernel_arg_types[2]
-    params_types = kernel_arg_types[3:end]
-    # 1 total number of time steps
-    # 2 initial state (this must also be the return type of the kernel, not currently checked)
-    # 3 parameters (shared across all time steps)
-    [Int, state_type, params_types...]
 end
 
 function unpack_args(args::Tuple)

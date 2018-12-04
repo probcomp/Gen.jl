@@ -3,7 +3,7 @@ include("model.jl")
 
 # particle marginal metropolis-hastings
 
-@compiled @gen function var_proposal(prev)
+@staticgen function var_proposal(prev)
     var_x::Float64 = get_assignment(prev)[:var_x]
     var_y::Float64 = get_assignment(prev)[:var_y]
     #@addr(normal(var_x, sqrt(0.15)), :var_x)
