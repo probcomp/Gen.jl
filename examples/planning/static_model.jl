@@ -13,39 +13,40 @@ function get_locations(maybe_path::Nullable{Path}, start::Point,
     end
 end
 
-@compiled @gen function measurement(point::Point, noise::Float64)
+@staticgen function measurement(point::Point, noise::Float64)
     @addr(normal(point.x, noise), :x)
     @addr(normal(point.y, noise), :y)
 end
 
 measurements = Map(measurement)
 
-@compiled @gen function model(scene::Scene, times::Vector{Float64})
+@staticgen function model(scene::Scene, times::Vector{Float64})
 
     # start point of the agent
     start_x::Float64 = @addr(uniform(0, 1), :start_x)
     start_y::Float64 = @addr(uniform(0, 1), :start_y)
-    start::Point = Point(start_x, start_y)
+    start = Point(start_x, start_y)
 
     # goal point of the agent
     stop_x::Float64 = @addr(uniform(0, 1), :stop_x)
     stop_y::Float64 = @addr(uniform(0, 1), :stop_y)
-    stop::Point = Point(stop_x, stop_y)
+    stop = Point(stop_x, stop_y)
 
     # plan a path that avoids obstacles in the scene
-    maybe_path::Nullable{Path} = plan_path(start, stop, scene, PlannerParams(300, 3.0, 2000, 1.))
+    maybe_path = plan_path(start, stop, scene, PlannerParams(300, 3.0, 2000, 1.))
     
     # speed
-    speed::Float64 = @addr(uniform(0, 1), :speed)
+    speed = @addr(uniform(0, 1), :speed)
 
     # walk path at constant speed
-    locations::Vector{Point} = get_locations(maybe_path, start, speed, times)
+    locations = get_locations(maybe_path, start, speed, times)
 
     # generate noisy observations
-    noise::Float64 = @addr(uniform(0, 0.1), :noise)
+    noise = @addr(uniform(0, 0.1), :noise)
     @addr(measurements(locations, fill(noise, length(times))), :measurements)
 
-    return (start, stop, speed, noise, maybe_path, locations)::Tuple{Point,Point,Float64,Float64,Nullable{Path},Vector{Point}}
+    ret = (start, stop, speed, noise, maybe_path, locations)
+    return ret
 end
 
 function render(scene::Scene, trace, ax;
