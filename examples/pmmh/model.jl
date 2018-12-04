@@ -37,17 +37,17 @@ end
 # the kernel accepts two special arguments (the time step t and the return
 # value of the previous tieration, followed by the rest of the arguments,
 # specified as an argument to unfold)
-@compiled @gen function kernel(t::Int, state::State, params::Params)
+@staticgen function kernel(t::Int, state::State, params::Params)
     x::Float64 = @addr(normal(t > 1 ? x_mean(state.x, t) : 0.,
                               t > 1 ? sqrt(params.var_x) : 5.), :x)
     y::Float64 = @addr(normal(y_mean(x), sqrt(params.var_y)), :y)
-    return State(x, y)::State
+    ret::State = State(x, y)
+    return ret
 end
 
 # arguments: (T::Int, init_state, common)
 # i.e. the kernel needs to accept three arguments..
-hmm2 = unfold(kernel)
-#hmm2 = fast_unfold(kernel)
+hmm2 = Unfold(kernel)
 
 #################################
 # sequential Monte Carlo in hmm #
@@ -63,13 +63,13 @@ hmm2 = unfold(kernel)
     @addr(dirac(y), :y => t)
 end
 
-@compiled @gen function obs_sub(y::Float64)
+@staticgen function obs_sub(y::Float64)
     @addr(dirac(y), :y)
 end
 
 single_step_observer2 = at_dynamic(obs_sub, Int)
 
-#@compiled @gen function single_step_observer2(t::Int, y::Float64)
+#@staticgen function single_step_observer2(t::Int, y::Float64)
     #@addr(at_dynamic(obs_sub,Int)(t, (y,)))
     #@addr(dirac(y), t => :y)
 #end
@@ -168,31 +168,12 @@ struct CollapsedHMM <: GenerativeFunction{PersistentVector{Float64},CollapsedHMM
 collapsed_hmm = CollapsedHMM()
 get_static_argument_types(::CollapsedHMM) = [Float64, Float64, Int, Int, Float64]
 
-#function Gen.simulate(generator::CollapsedHMM, args, constraints)
-    #(var_x, var_y, T, num_particles, ess) = args
-    #hmm_choices = get_assignment(simulate(hmm, (var_x, var_y, T)))
-    #xs = Float64[hmm_choices[:x => t] for t=1:T]
-    #ys = Float64[hmm_choices[:y => t] for t=1:T]
-    #smc_scheme = HandcodedSMC(SMCParams(num_particles, ess), var_x, var_y, ys)
-    #try
-        #smc_result = conditional_smc(smc_scheme, xs)
-        #lml_estimate = smc_result.log_ml_estimate
-    #catch
-        #lml_estimate = -Inf
-    #end
-    #retval = PersistentVector{Float64}(ys)
-    #call = CallRecord(lml_estimate, retval, args)
-    #vector = VectorDistTrace(retval, call)
-    #CollapsedHMMTrace(vector)
-#end
-
 function unbiased_logpdf_est(args, ys::PersistentVector{Float64})
     (var_x, var_y, T, num_particles, ess) = args
 	local lml_estimate::Float64
 	lml_estimate = smc(var_x, var_y, T, num_particles, ess, ys)
     retval = PersistentVector{Float64}(ys)
-    call = CallRecord(lml_estimate, retval, args)
-    vector = VectorDistTrace(retval, call)
+    vector = VectorDistTrace(retval, args, lml_estimate, length(ys))
     CollapsedHMMTrace(vector)
 end 
 
@@ -204,8 +185,7 @@ function Gen.generate(generator::CollapsedHMM, args, constraints)
     ys = PersistentVector{Float64}(get_leaf_node(constraints, :y => t) for t=1:T)
     if var_x < 0 || var_y < 0
         retval = PersistentVector{Float64}(ys)
-        call = CallRecord(-Inf, retval, args)
-        vector = VectorDistTrace(retval, call)
+        vector = VectorDistTrace(retval, args, -Inf, length(ys))
         trace = CollapsedHMMTrace(vector)
         weight = -Inf
     else
@@ -223,8 +203,8 @@ function Gen.update(generator::CollapsedHMM, new_args, args_change, trace, const
     ys = trace.vector.values
     if var_x < 0 || var_y < 0
         retval = get_call_record(trace).retval
-        call = CallRecord(-Inf, retval, new_args)
-        vector = VectorDistTrace(retval, call)
+        T != length(retval) && error("cannot change length")
+        vector = VectorDistTrace(retval, new_args, -Inf, length(retval))
         new_trace = CollapsedHMMTrace(vector)
         weight = -Inf
     else
@@ -234,8 +214,8 @@ function Gen.update(generator::CollapsedHMM, new_args, args_change, trace, const
     (new_trace, weight, EmptyAssignment(), nothing)
 end
 
-@compiled @gen function model_collapsed(T::Int)
-    var_x::Float64 = @addr(Gen.gamma(1, 1), :var_x)
-    var_y::Float64 = @addr(Gen.gamma(1, 1), :var_y)
+@staticgen function model_collapsed(T::Int)
+    var_x::Float64 = @addr(gamma(1, 1), :var_x)
+    var_y::Float64 = @addr(gamma(1, 1), :var_y)
     @addr(collapsed_hmm(var_x, var_y, T, 4096, 2048), :hmm)
 end
