@@ -85,9 +85,9 @@ struct VectorDistTrace{T}
     len::Int
 end
 
-function VectorDistTrace{T}(values::PersistentVector{T},
-                            args::Tuple, score::Float64,
-                            len::Int) where {T}
+function VectorDistTrace(values::PersistentVector{T},
+                         args::Tuple, score::Float64,
+                         len::Int) where {T}
     @assert length(values) >= len
     call = CallRecord{PersistentVector{T}}(score, values, args)
     VectorDistTrace{T}(values, call, len)
