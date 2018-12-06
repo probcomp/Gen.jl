@@ -35,7 +35,7 @@ end
         @choicediff(:log_inlier_std),
         @choicediff(:log_outlier_std))
     ys = @addr(data(xs, fill(inlier_std, n), fill(outlier_std, n),
-                fill(slope, n), fill(intercept, n)), :data, argdiff)
+               fill(slope, n), fill(intercept, n)), :data, argdiff)
     return ys
 end
 
@@ -60,7 +60,7 @@ Gen.load_generated_functions()
 # generate data set #
 #####################
 
-Random.seed!(2)
+Random.seed!(1)
 
 prob_outlier = 0.5
 true_inlier_noise = 0.5
@@ -89,17 +89,6 @@ push!(slope_intercept_selection, :intercept)
 std_selection = DynamicAddressSet()
 push!(std_selection, :log_inlier_std)
 push!(std_selection, :log_outlier_std)
-
-observations = DynamicAssignment()
-for (i, y) in enumerate(ys)
-    observations[:data => i => :y] = y
-end
-observations[:slope] = 0.2
-observations[:intercept] = -0.3
-observations[:log_inlier_std] = log(0.5)
-observations[:log_outlier_std] = log(0.5)
-observations[:data => 1 => :is_outlier] = true
-observations[:data => 2 => :is_outlier] = true
 
 function do_inference(n)
     observations = DynamicAssignment()
@@ -133,11 +122,13 @@ function do_inference(n)
         outlier_std = exp(assignment[:log_outlier_std])
         println("score: $score, slope: $slope, intercept: $intercept, inlier_std: $inlier_std, outlier_std: $outlier_std")
     end
+    return scores
 end
 
 iters = 100
 @time do_inference(iters)
 @time scores = do_inference(iters)
+println(scores)
 
 using PyPlot
 
@@ -146,4 +137,4 @@ plot(scores)
 ylabel("Log probability density")
 xlabel("Iterations")
 tight_layout()
-savefig("scores.png")
+savefig("dynamic_map_optimize_scores.png")
