@@ -35,15 +35,15 @@ function do_inference(xs, ys, num_iters)
     
         # steps on the parameters
         for j=1:5
-            trace = mh(model, slope_sel, trace)
-            trace = mh(model, intercept_sel, trace)
-            trace = mh(model, inlier_std_sel, trace)
-            trace = mh(model, outlier_std_sel, trace)
+            trace = default_mh(model, slope_sel, trace)
+            trace = default_mh(model, intercept_sel, trace)
+            trace = default_mh(model, inlier_std_sel, trace)
+            trace = default_mh(model, outlier_std_sel, trace)
         end
     
         # step on the outliers
         for j=1:length(xs)
-            trace = mh(model, is_outlier_proposal, (j,), trace)
+            trace = custom_mh(model, is_outlier_proposal, (j,), trace)
         end
     
         score = get_call_record(trace).score

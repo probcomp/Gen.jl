@@ -21,5 +21,5 @@ module Gen
     include("combinators/combinators.jl")
     include("injective.jl")
     include("selection.jl")
-    include("inference.jl")
+    include("inference/inference.jl")
 end # module

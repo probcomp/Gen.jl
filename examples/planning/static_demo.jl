@@ -56,9 +56,9 @@ function inference(measurements::Vector{Point}, start::Point, iters::Int)
     (trace, _) = generate(model, (scene, times[1:t]), constraints)
 
     for iter=1:iters
-        trace = mh(model, stop_proposal, (), trace)
-        trace = mh(model, speed_proposal, (), trace)
-        trace = mh(model, noise_proposal, (), trace)
+        trace = custom_mh(model, stop_proposal, (), trace)
+        trace = custom_mh(model, speed_proposal, (), trace)
+        trace = custom_mh(model, noise_proposal, (), trace)
     end
 
     return trace

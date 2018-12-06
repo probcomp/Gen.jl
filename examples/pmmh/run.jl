@@ -76,7 +76,7 @@ function do_inference(n)
     for iter=1:n
         score = get_call_record(trace).score
         println("score: $score")
-        trace = mh(model_collapsed, var_proposal, (), trace)
+        trace = custom_mh(model_collapsed, var_proposal, (), trace)
         choices = get_assignment(trace)
 	    println("var_x: $(choices[:var_x]), var_y: $(choices[:var_y])")
     end

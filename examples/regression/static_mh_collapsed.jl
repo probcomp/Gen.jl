@@ -39,10 +39,10 @@ function do_inference(xs, ys, num_iters)
     for i=1:num_iters
 
         # steps on the parameters
-        trace = mh(model, slope_proposal, (), trace)
-        trace = mh(model, intercept_proposal, (), trace)
-        trace = mh(model, inlier_std_proposal, (), trace)
-        trace = mh(model, outlier_std_proposal, (), trace)
+        trace = custom_mh(model, slope_proposal, (), trace)
+        trace = custom_mh(model, intercept_proposal, (), trace)
+        trace = custom_mh(model, inlier_std_proposal, (), trace)
+        trace = custom_mh(model, outlier_std_proposal, (), trace)
 
         score = get_call_record(trace).score
         scores[i] = score

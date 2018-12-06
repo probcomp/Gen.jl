@@ -191,13 +191,13 @@ end
 function height_move(trace)
     k = get_assignment(trace)["k"]
     i = random(uniform_discrete, 1, k+1)
-    mh(model, height_proposal, (i,), trace)
+    custom_mh(model, height_proposal, (i,), trace)
 end
 
 function position_move(trace)
     k = get_assignment(trace)["k"]
     i = random(uniform_discrete, 1, k)
-    mh(model, position_proposal, (i,), trace)
+    custom_mh(model, position_proposal, (i,), trace)
 end
 
 

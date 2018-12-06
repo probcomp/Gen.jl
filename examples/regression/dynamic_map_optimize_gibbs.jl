@@ -41,7 +41,7 @@ function do_inference(xs, ys, num_iters)
     
         # gibbs step on the outliers
         for j=1:length(xs)
-            trace = mh(model, gibbs_proposal, (j,), trace)
+            trace = custom_mh(model, gibbs_proposal, (j,), trace)
         end
     
         score = get_call_record(trace).score

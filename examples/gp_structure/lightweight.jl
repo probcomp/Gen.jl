@@ -97,10 +97,10 @@ function inference(xs::Vector{Float64}, ys::Vector{Float64}, num_iters::Int)
         root = pick_random_node(covariance_fn, 1, max_branch)
 
         # do MH move on the subtree
-        trace = mh(model, subtree_proposal, (root,), trace, correction)
+        trace = custom_mh(model, subtree_proposal, (root,), trace, correction)
 
         # do MH move on the top-level white noise
-        trace = mh(model, noise_proposal, (), trace)
+        trace = custom_mh(model, noise_proposal, (), trace)
     end
     
     noise = get_assignment(trace)[:noise]
