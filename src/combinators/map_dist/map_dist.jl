@@ -55,7 +55,7 @@ function generate(gen::MapDist{T}, args, constraints) where {T}
     end
     # TODO also check that there are no extra constraints
     persist_values = Gen.PersistentVector{T}(values)
-    trace = Gen.VectorDistTrace{T}(persist_values, args, score, len)
+    trace = Gen.VectorDistTrace(persist_values, args, score, len)
     (trace, weight)
 end
 
@@ -87,9 +87,8 @@ function update(gen::MapDist{T}, new_args, argdiff::UnknownArgDiff,
         score += lpdf - prev_lpdf
     end
     # TODO also check that there are no extra constraints
-    # TODO handle retchange
-    call = CallRecord(score, values, new_args)
-    new_trace = Gen.VectorDistTrace{T}(values, new_args, score, new_length)
+    # TODO handle retdiff
+    new_trace = VectorDistTrace(values, new_args, score, new_length) # TODO
     (new_trace, weight, EmptyAssignment(), nothing)
 end
 

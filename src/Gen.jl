@@ -6,6 +6,8 @@ module Gen
             Core.eval(Main, function_defn)
         end
     end
+    export generated_functions
+
     include("autodiff.jl")
     include("address.jl")
     include("assignment.jl")
