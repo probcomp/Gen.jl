@@ -47,7 +47,7 @@ end
 # run experiment #
 ##################
 
-slope_intercept_selection = let
+line_selection = let
     s = DynamicAddressSet()
     push!(s, :slope)
     push!(s, :intercept)
@@ -69,14 +69,14 @@ function do_inference(n)
     end
     observations[:log_inlier_std] = 0.
     observations[:log_outlier_std] = 0.
-
+    
     # initial trace
     (trace, _) = generate(model, (xs,), observations)
-
+    
     scores = Vector{Float64}(undef, n)
     for i=1:n
-        trace = map_optimize(model, slope_intercept_selection, trace, max_step_size=1., min_step_size=1e-10)
-        trace = map_optimize(model, std_selection, trace, max_step_size=1., min_step_size=1e-10)
+        trace = mala(model, line_selection, trace, 0.0001)
+        trace = mala(model, std_selection, trace, 0.0001)
     
         # step on the outliers
         for j=1:length(xs)
@@ -97,9 +97,8 @@ function do_inference(n)
     return scores
 end
 
-iters = 100
-@time do_inference(iters)
-@time scores = do_inference(iters)
+@time do_inference(10)
+@time scores = do_inference(1000)
 println(scores)
 
 using PyPlot
@@ -109,4 +108,4 @@ plot(scores)
 ylabel("Log probability density")
 xlabel("Iterations")
 tight_layout()
-savefig("static_map_optimize_scores.png")
+savefig("static_mala_scores.png")

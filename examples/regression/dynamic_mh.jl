@@ -1,44 +1,7 @@
 using Gen
 import Random
 
-#########
-# model #
-#########
-
-struct Params
-    prob_outlier::Float64
-    inlier_std::Float64
-    outlier_std::Float64
-    slope::Float64
-    intercept::Float64
-end
-
-@gen function datum(x::Float64, params::Params)
-    is_outlier = @addr(bernoulli(params.prob_outlier), :z)
-    std = is_outlier ? params.inlier_std : params.outlier_std
-    y = @addr(normal(x * params.slope + params.intercept, std), :y)
-    return y
-end
-
-data = Map(datum)
-
-@gen function model(xs::Vector{Float64})
-    inlier_std = @addr(Gen.gamma(1, 1), :inlier_std)
-    outlier_std = @addr(Gen.gamma(1, 1), :outlier_std)
-    slope = @addr(normal(0, 2), :slope)
-    intercept = @addr(normal(0, 2), :intercept)
-    params = Params(0.5, inlier_std, outlier_std, slope, intercept)
-    @diff begin
-        argdiff = noargdiff
-        for addr in [:slope, :intercept, :inlier_std, :outlier_std]
-            if !isnodiff(@choicediff(addr))
-                argdiff = unknownargdiff
-            end
-        end
-    end
-    ys = @addr(data(xs, fill(params, length(xs))), :data, argdiff)
-    return ys
-end
+include("dynamic_model.jl")
 
 #######################
 # inference operators #
@@ -55,13 +18,13 @@ end
 end
 
 @gen function inlier_std_proposal(prev)
-    inlier_std = get_assignment(prev)[:inlier_std]
-    @addr(normal(inlier_std, 0.5), :inlier_std)
+    log_inlier_std = get_assignment(prev)[:log_inlier_std]
+    @addr(normal(log_inlier_std, 0.5), :log_inlier_std)
 end
 
 @gen function outlier_std_proposal(prev)
-    outlier_std = get_assignment(prev)[:outlier_std]
-    @addr(normal(outlier_std, 0.5), :outlier_std)
+    log_outlier_std = get_assignment(prev)[:log_outlier_std]
+    @addr(normal(log_outlier_std, 0.5), :log_outlier_std)
 end
 
 @gen function is_outlier_proposal(prev, i::Int)
@@ -95,7 +58,6 @@ end
 # run experiment #
 ##################
 
-
 function do_inference(n)
     observations = DynamicAssignment()
     for (i, y) in enumerate(ys)
@@ -105,6 +67,7 @@ function do_inference(n)
     # initial trace
     (trace, _) = generate(model, (xs,), observations)
 
+    scores = Vector{Float64}(undef, n)
     for i=1:n
 
         # steps on the parameters
@@ -121,16 +84,28 @@ function do_inference(n)
         end
 
         score = get_call_record(trace).score
+        scores[i] = score
 
         # print
         assignment = get_assignment(trace)
         slope = assignment[:slope]
         intercept = assignment[:intercept]
-        inlier_std = assignment[:inlier_std]
-        outlier_std = assignment[:outlier_std]
+        inlier_std = exp(assignment[:log_inlier_std])
+        outlier_std = exp(assignment[:log_outlier_std])
         println("score: $score, slope: $slope, intercept: $intercept, inlier_std: $inlier_std, outlier_std: $outlier_std")
     end
+    return scores
 end
 
-@time do_inference(100)
-@time do_inference(100)
+do_inference(10)
+@time scores = do_inference(50)
+println(scores)
+
+using PyPlot
+
+figure(figsize=(4, 2))
+plot(scores)
+ylabel("Log probability density")
+xlabel("Iterations")
+tight_layout()
+savefig("dynamic_mh_scores.png")
