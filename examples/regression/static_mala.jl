@@ -3,10 +3,7 @@ import Random
 using FunctionalCollections: PersistentVector
 
 include("static_model.jl")
-
-#######################
-# inference operators #
-#######################
+include("dataset.jl")
 
 @staticgen function flip_z(z::Bool)
     @addr(bernoulli(z ? 0.0 : 1.0), :z)
@@ -20,32 +17,6 @@ data_proposal = at_dynamic(flip_z, Int)
 end
 
 Gen.load_generated_functions()
-
-#####################
-# generate data set #
-#####################
-
-Random.seed!(1)
-
-prob_outlier = 0.5
-true_inlier_noise = 0.5
-true_outlier_noise = 5.0
-true_slope = -1
-true_intercept = 2
-xs = collect(range(-5, stop=5, length=200))
-ys = Float64[]
-for (i, x) in enumerate(xs)
-    if rand() < prob_outlier
-        y = true_slope * x + true_intercept + randn() * true_inlier_noise
-    else
-        y = true_slope * x + true_intercept + randn() * true_outlier_noise
-    end
-    push!(ys, y)
-end
-
-##################
-# run experiment #
-##################
 
 line_selection = let
     s = DynamicAddressSet()
@@ -61,7 +32,7 @@ std_selection = let
     StaticAddressSet(s)
 end
 
-function do_inference(n)
+function do_inference(xs, ys, num_iters)
 
     observations = DynamicAssignment()
     for (i, y) in enumerate(ys)
@@ -73,8 +44,8 @@ function do_inference(n)
     # initial trace
     (trace, _) = generate(model, (xs,), observations)
     
-    scores = Vector{Float64}(undef, n)
-    for i=1:n
+    scores = Vector{Float64}(undef, num_iters)
+    for i=1:num_iters
         trace = mala(model, line_selection, trace, 0.0001)
         trace = mala(model, std_selection, trace, 0.0001)
     
@@ -97,12 +68,12 @@ function do_inference(n)
     return scores
 end
 
-@time do_inference(10)
-@time scores = do_inference(1000)
+(xs, ys) = make_data_set(200)
+do_inference(xs, ys, 10)
+@time scores = do_inference(xs, ys, 1000)
 println(scores)
 
 using PyPlot
-
 figure(figsize=(4, 2))
 plot(scores)
 ylabel("Log probability density")

@@ -1,33 +1,41 @@
 using Gen
 import Random
 
-include("dynamic_model.jl")
+include("static_model.jl")
 include("dataset.jl")
 
-@gen function slope_proposal(prev)
+@staticgen function slope_proposal(prev)
     slope = get_assignment(prev)[:slope]
     @addr(normal(slope, 0.5), :slope)
 end
 
-@gen function intercept_proposal(prev)
+@staticgen function intercept_proposal(prev)
     intercept = get_assignment(prev)[:intercept]
     @addr(normal(intercept, 0.5), :intercept)
 end
 
-@gen function inlier_std_proposal(prev)
+@staticgen function inlier_std_proposal(prev)
     log_inlier_std = get_assignment(prev)[:log_inlier_std]
     @addr(normal(log_inlier_std, 0.5), :log_inlier_std)
 end
 
-@gen function outlier_std_proposal(prev)
+@staticgen function outlier_std_proposal(prev)
     log_outlier_std = get_assignment(prev)[:log_outlier_std]
     @addr(normal(log_outlier_std, 0.5), :log_outlier_std)
 end
 
-@gen function is_outlier_proposal(prev, i::Int)
-    prev = get_assignment(prev)[:data => i => :z]
-    @addr(bernoulli(prev ? 0.0 : 1.0), :data => i => :z)
+@staticgen function flip_z(z::Bool)
+    @addr(bernoulli(z ? 0.0 : 1.0), :z)
 end
+
+data_proposal = at_dynamic(flip_z, Int)
+
+@staticgen function is_outlier_proposal(prev, i::Int)
+    prev_z::Bool = get_assignment(prev)[:data => i => :z]
+    @addr(data_proposal(i, (prev_z,)), :data) 
+end
+
+Gen.load_generated_functions()
 
 function do_inference(xs, ys, num_iters)
     observations = DynamicAssignment()
@@ -74,9 +82,10 @@ do_inference(xs, ys, 10)
 println(scores)
 
 using PyPlot
+
 figure(figsize=(4, 2))
 plot(scores)
 ylabel("Log probability density")
 xlabel("Iterations")
 tight_layout()
-savefig("dynamic_mh_scores.png")
+savefig("static_mh_scores.png")
