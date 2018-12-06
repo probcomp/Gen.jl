@@ -6,7 +6,7 @@ module Gen
             Core.eval(Main, function_defn)
         end
     end
-
+    include("autodiff.jl")
     include("address.jl")
     include("assignment.jl")
     include("homogenous_trie.jl")
