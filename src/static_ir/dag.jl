@@ -163,14 +163,16 @@ function add_argument_node!(builder::StaticIRBuilder;
     node
 end
 
-import Flux
+import ReverseDiff
 
 function make_grad(fn::Function)
     function (value_grad, value, args::Tuple)
-        maybe_tracked_args = map(Flux.param, args)
+        tape = ReverseDiff.InstructionTape()
+        maybe_tracked_args = map((arg) -> ReverseDiff.track(arg, tape), args)
         maybe_tracked_value = fn(maybe_tracked_args...)
-        Flux.Tracker.back!(maybe_tracked_value, value_grad)
-        map((mt) -> Flux.Tracker.istracked(mt) ? Flux.Tracker.grad(mt) : nothing, maybe_tracked_args)
+        ReverseDiff.deriv!(maybe_tracked_value, value_grad)
+        ReverseDiff.reverse_pass!(tape)
+        map((mt) -> ReverseDiff.istracked(mt) ? ReverseDiff.deriv(mt) : nothing, maybe_tracked_args)
     end
 end
 

@@ -2,24 +2,9 @@ using Gen
 import Random
 using FunctionalCollections: PersistentVector
 
-using Flux
-import Flux
-using Flux.Tracker: @grad, TrackedReal, TrackedArray, track
-import Flux.Tracker: param
-
 #########
 # model #
 #########
-
-param(value::Bool) = value
-
-param(value::Int) = value
-
-Base.fill(a::TrackedReal, b::Integer) = track(fill, a, b)
-
-@grad function Base.fill(a, b)
-    fill(Flux.Tracker.data(a), Flux.Tracker.data(b)), grad -> (sum(grad), nothing)
-end
 
 @staticgen function datum(x::Float64, @grad(inlier_std::Float64), @grad(outlier_std::Float64),
                           @grad(slope::Float64), @grad(intercept::Float64))
@@ -155,6 +140,7 @@ end
 iters = 100
 @time do_inference(iters)
 @time scores = do_inference(iters)
+println(scores)
 
 using PyPlot
 
@@ -163,4 +149,4 @@ plot(scores)
 ylabel("Log probability density")
 xlabel("Iterations")
 tight_layout()
-savefig("scores.png")
+savefig("static_map_optimize_scores.png")
