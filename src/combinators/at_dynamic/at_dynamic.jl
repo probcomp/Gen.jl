@@ -69,10 +69,6 @@ function at_dynamic(kernel::GenerativeFunction{T,U}, ::Type{K}) where {T,U,K}
     AtDynamic{T,U,K}(kernel)
 end
 
-function get_static_argument_types(gen::AtDynamic{T,U,K}) where {T,U,K}
-    [K, Tuple{get_static_argument_types(gen.kernel)...}]
-end
-
 include("simulate.jl")
 include("assess.jl")
 

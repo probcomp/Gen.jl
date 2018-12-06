@@ -55,7 +55,7 @@ end
 ###################
 
 import Distributions
-import Gen: random, logpdf, get_static_argument_types
+import Gen: random, logpdf
 struct TwoNormals <: Distribution{Float64} end
 const two_normals = TwoNormals()
 function logpdf(::TwoNormals, x, mu, sigma1, sigma2)
@@ -70,7 +70,6 @@ end
 function random(::TwoNormals, mu, sigma1, sigma2)
     mu + (rand() < 0.5 ? sigma1 : sigma2) * randn()
 end
-get_static_argument_types(::TwoNormals) = [Float64, Float64, Float64]
 
 data_collapsed = Map(two_normals)
 

@@ -16,10 +16,6 @@ export Map
 accepts_output_grad(map_gf::Map) = accepts_output_grad(map_gf.kernel)
 has_argument_grads(map_gf::Map) = has_argument_grads(map_gf.kernel)
 
-function get_static_argument_types(map_gf::Map)
-    [Vector{typ} for typ in get_static_argument_types(map_gf.kernel)]
-end
-
 function get_args_for_key(args::Tuple, key::Int)
     map((arg) -> arg[key], args)
 end

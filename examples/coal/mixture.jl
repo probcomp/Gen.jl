@@ -8,7 +8,7 @@ using Gen
 #######################################
 
 import Distributions
-import Gen: random, logpdf, get_static_argument_types
+import Gen: random, logpdf
 struct TwoNormals <: Distribution{Float64} end
 const two_normals = TwoNormals()
 
@@ -44,8 +44,6 @@ end
 
 has_output_grad(::TwoNormals) = true
 has_argument_grads(::TwoNormals) = (false, true, true, true, true)
-get_static_argument_types(::TwoNormals) = [Float64, Float64, Float64, Float64, Float64]
-
 
 #########
 # model #

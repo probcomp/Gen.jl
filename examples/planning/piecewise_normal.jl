@@ -42,5 +42,3 @@ end
 
 Gen.has_output_grad(::PieceWiseNormal) = false
 Gen.has_argument_grads(::PieceWiseNormal) = (false, false, false, false)
-Gen.get_static_argument_types(::PieceWiseNormal) = [Vector{Float64},Vector{Float64},Vector{Float64},Vector{Float64}]
-

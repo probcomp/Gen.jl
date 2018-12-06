@@ -58,9 +58,6 @@ Distribution values are also callable, which is a syntactic sugar with the same 
 bernoulli(0.5) # identical to random(bernoulli, 0.5) and random(Bernoulli(), 0.5)
 ```
 
-Distributions also implement a `get_static_argument_types` method, which provide concrete types for the arguments.
-This method is used by the Gen compiler.
-
 ### Gradients of Distributions
 
 Distributions may also implement `logpdf_grad`, which returns the gradient of the log probability (density) with respect to the random sample and the parameters, as a tuple:

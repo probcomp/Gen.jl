@@ -30,8 +30,6 @@ end
 exec(gf::DynamicDSLFunction, state, args::Tuple) = gf.julia_function(state, args...)
 exec_for_update(gf::DynamicDSLFunction, state, args::Tuple) = gf.update_julia_function(state, args...)
 
-get_static_argument_types(gen::DynamicDSLFunction) = gen.arg_types
-
 # whether there is a gradient of score with respect to each argument
 # it returns 'nothing' for those arguemnts that don't have a derivatice
 has_argument_grads(gen::DynamicDSLFunction) = gen.has_argument_grads

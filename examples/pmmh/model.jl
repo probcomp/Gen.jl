@@ -139,7 +139,7 @@ end
 ##########################################
 
 using Gen: VectorDistTrace, VectorDistTraceAssignment
-import Gen: get_call_record, has_choices, get_assignment, simulate, assess, get_static_argument_types
+import Gen: get_call_record, has_choices, get_assignment, simulate, assess
 
 struct CollapsedHMMTrace
     vector::VectorDistTrace{Float64}
@@ -166,7 +166,6 @@ Gen.get_internal_nodes(assignment::CollapsedHMMAssignment) = ((:y, assignment.y_
 
 struct CollapsedHMM <: GenerativeFunction{PersistentVector{Float64},CollapsedHMMTrace} end
 collapsed_hmm = CollapsedHMM()
-get_static_argument_types(::CollapsedHMM) = [Float64, Float64, Int, Int, Float64]
 
 function unbiased_logpdf_est(args, ys::PersistentVector{Float64})
     (var_x, var_y, T, num_particles, ess) = args

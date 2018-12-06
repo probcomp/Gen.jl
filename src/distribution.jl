@@ -18,33 +18,6 @@ export logpdf
 export logpdf_grad
 
 
-#########
-# dirac #
-#########
-
-struct Dirac <: Distribution{Float64} end
-
-"""
-    dirac(val::Real)
-
-Deterministically return a `Float64` that is equal to the given value.
-`logpdf(dirac, x, y)` returns `0` if `x == y` and `-Inf` otherwise.
-"""
-const dirac = Dirac()
-
-logpdf(::Dirac, x::Real, y::Real) = (x == y ? 0. : -Inf)
-
-random(::Dirac, y::Real) = Float64(y)
-
-(::Dirac)(y) = random(Dirac(), y)
-
-has_output_grad(::Dirac) = false
-has_argument_grads(::Dirac) = (false,)
-get_static_argument_types(::Dirac) = [Float64]
-
-export dirac
-
-
 #############
 # bernoulli #
 #############
@@ -73,7 +46,6 @@ random(::Bernoulli, prob::Real) = rand() < prob
 
 has_output_grad(::Bernoulli) = false
 has_argument_grads(::Bernoulli) = (true,)
-get_static_argument_types(::Bernoulli) = [Float64]
 
 export bernoulli
 
@@ -111,7 +83,6 @@ random(::Normal, mu::Real, std::Real) = mu + std * randn()
 
 has_output_grad(::Normal) = true
 has_argument_grads(::Normal) = (true, true)
-get_static_argument_types(::Normal) = [Float64, Float64]
 
 export normal
 
@@ -150,7 +121,6 @@ end
 
 has_output_grad(::MultivariateNormal) = true
 has_argument_grads(::MultivariateNormal) = (false, false)
-get_static_argument_types(::MultivariateNormal) = [Vector{Float64}, Matrix{Float64}]
 
 export mvnormal
 
@@ -188,7 +158,6 @@ end
 
 has_output_grad(::Gamma) = false
 has_argument_grads(::Gamma) = (false, false)
-get_static_argument_types(::Gamma) = [Float64, Float64]
 
 export gamma
 
@@ -228,7 +197,6 @@ end
 
 has_output_grad(::InverseGamma) = false
 has_argument_grads(::InverseGamma) = (false, false)
-get_static_argument_types(::InverseGamma) = [Float64, Float64]
 
 export inv_gamma
 
@@ -269,7 +237,6 @@ end
 
 has_output_grad(::Beta) = true
 has_argument_grads(::Beta) = (true, true)
-get_static_argument_types(::Beta) = [Float64, Float64]
 
 export beta
 
@@ -305,7 +272,6 @@ end
 
 has_output_grad(::Categorical) = false
 has_argument_grads(::Categorical) = (true,)
-get_static_argument_types(::Categorical) = [Vector{Float64}]
 
 export categorical
 
@@ -340,7 +306,6 @@ end
 
 has_output_grad(::UniformDiscrete) = false
 has_argument_grads(::UniformDiscrete) = (false, false)
-get_static_argument_types(::UniformDiscrete) = [Int, Int]
 
 export uniform_discrete
 
@@ -377,7 +342,6 @@ end
 
 has_output_grad(::UniformContinuous) = true
 has_argument_grads(::UniformContinuous) = (true, true)
-get_static_argument_types(::UniformContinuous) = [Float64, Float64]
 
 export uniform_continuous, uniform
 
@@ -413,6 +377,5 @@ end
 
 has_output_grad(::Poisson) = false
 has_argument_grads(::Poisson) = (false,)
-get_static_argument_types(::Poisson) = [Float64]
 
 export poisson

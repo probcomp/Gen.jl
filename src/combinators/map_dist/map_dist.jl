@@ -2,11 +2,6 @@
 # map of distribution generator # 
 #################################
 
-"""
-GenerativeFunction that makes many independent application of a kernel generator,
-similar to 'map'.  The arguments are a tuple of vectors, each of of length N,
-where N is the nubmer of applications of the kernel.
-"""
 struct MapDist{T} <: GenerativeFunction{PersistentVector{T},VectorDistTrace{T}}
     kernel::Distribution{T}
 end
@@ -15,10 +10,6 @@ export MapDist
 
 accepts_output_grad(map_gf::MapDist) = false # TODO
 has_argument_grads(map_gf::MapDist) = has_argument_grads(map_gf.kernel)
-
-function get_static_argument_types(map_gf::MapDist)
-    [Vector{typ} for typ in get_static_argument_types(map_gf.kernel)]
-end
 
 function simulate(gen::MapDist{T}, args) where {T}
     len = length(args[1])
