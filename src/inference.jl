@@ -56,19 +56,6 @@ function mh(model::GenerativeFunction, selection::AddressSet, trace; verbose=fal
     end
 end
 
-#function mh(model::GenerativeFunction, selector::SelectionFunction, selector_args::Tuple, trace)
-    #(selection, _) = select(selector, selector_args, get_assignment(trace))
-    #model_args = get_call_record(trace).args
-    #(new_trace, weight) = regenerate(model, model_args, noargdiff, trace, selection)
-    #if log(rand()) < weight
-        ## accept
-        #return new_trace
-    #else
-        ## reject
-        #return trace
-    #end
-#end
-
 function rjmcmc(model, forward, forward_args_rest, backward, backward_args_rest,
                 injective, injective_args, trace, correction)
     model_args = get_call_record(trace).args
