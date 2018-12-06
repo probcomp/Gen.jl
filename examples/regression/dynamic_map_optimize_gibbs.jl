@@ -4,9 +4,15 @@ import Random
 include("dynamic_model.jl")
 include("dataset.jl")
 
-@gen function is_outlier_proposal(prev, i::Int)
-    prev = get_assignment(prev)[:data => i => :z]
-    @addr(bernoulli(prev ? 0.0 : 1.0), :data => i => :z)
+@gen function gibbs_proposal(prev, i::Int)
+    prev_args = get_call_record(prev).args
+    constraints = DynamicAssignment()
+    constraints[:data => i => :z] = false
+    (_, weight1) = update(model, prev_args, noargdiff, prev, constraints)
+    constraints[:data => i => :z] = true
+    (_, weight2) = update(model, prev_args, noargdiff, prev, constraints)
+    prob_true = exp(weight2- logsumexp([weight1, weight2]))
+    @addr(bernoulli(prob_true), :data => i => :z)
 end
 
 slope_intercept_selection = DynamicAddressSet()
@@ -33,9 +39,9 @@ function do_inference(xs, ys, num_iters)
         trace = map_optimize(model, slope_intercept_selection, trace, max_step_size=1., min_step_size=1e-10)
         trace = map_optimize(model, std_selection, trace, max_step_size=1., min_step_size=1e-10)
     
-        # step on the outliers
+        # gibbs step on the outliers
         for j=1:length(xs)
-            trace = mh(model, is_outlier_proposal, (j,), trace)
+            trace = mh(model, gibbs_proposal, (j,), trace)
         end
     
         score = get_call_record(trace).score
@@ -53,9 +59,8 @@ function do_inference(xs, ys, num_iters)
 end
 
 (xs, ys) = make_data_set(200)
-iters = 100
-@time do_inference(xs, ys, iters)
-@time scores = do_inference(xs, ys, iters)
+do_inference(xs, ys, 10)
+@time scores = do_inference(xs, ys, 100)
 println(scores)
 
 using PyPlot
@@ -65,4 +70,4 @@ plot(scores)
 ylabel("Log probability density")
 xlabel("Iterations")
 tight_layout()
-savefig("dynamic_map_optimize_scores.png")
+savefig("dynamic_map_optimize_gibbs_scores.png")
