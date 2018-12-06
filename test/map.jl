@@ -1,4 +1,4 @@
-@testset begin "map combinator"
+@testset "map combinator" begin
 
     @gen function foo(x::Float64, y::Float64)
         @param std::Float64
@@ -47,11 +47,6 @@
     @test discard[:map => 2 => :z] == z2
     @test isapprox(weight, logpdf(normal, z2_new, 6., 1.) - logpdf(normal, z2, 6., 1.))
 
-    # test backprop to trace
-    #(_, values, gradients) = backprop_trace(bar, trace, Gen.select(:map => 1 => :z), nothing)
-    #@test values[:map => 1 => :z] == z1
-    #@test isapprox(gradients[:map => 1 => :z], logpdf_grad(normal, z1, 4., 1.)[1])
-
-    # test backprop to parameters
+    # test backprop_trace
     # TODO
 end
