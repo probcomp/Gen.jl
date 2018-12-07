@@ -18,6 +18,10 @@ The *assignment interface* is a set of read-only accessor methods that are imple
 
 - get_values_shallow
 
+- Base.isempty (does the assignment contain any random choices or not)
+
+- Base.getindex (alias for get_value)
+
 The remainder if this section describes some concrete types that subtype `Assignment`.
 
 ### Dynamic Assignment
