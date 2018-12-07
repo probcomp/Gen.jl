@@ -428,7 +428,7 @@ function mcmc_step(trace)
 end
 
 function do_mcmc(T, num_steps::Int)
-    (trace, _) = generate(model, (T,), observations)
+    (trace, _) = initialize(model, (T,), observations)
     for iter=1:num_steps
         if iter % 1000 == 0
             println("iter $iter of $num_steps, k: $(get_assignment(trace)["k"])")
@@ -507,7 +507,7 @@ function plot_posterior_mean_rate()
     num_samples = 0
     num_steps = 5000 # 20000
     for reps=1:10
-        (trace, _) = generate(model, (T,), observations)
+        (trace, _) = initialize(model, (T,), observations)
         for iter=1:num_steps
             if iter % 1000 == 0
                 println("iter $iter of $num_steps, k: $(get_assignment(trace)["k"])")
@@ -539,7 +539,7 @@ end
 
 function plot_trace_plot()
     # show the number of clusters
-    (trace, _) = generate(model, (T,), observations)
+    (trace, _) = initialize(model, (T,), observations)
     num_clusters_vec = Int[]
     burn_in = 20000
     for iter=1:burn_in + 5000
@@ -558,7 +558,7 @@ function plot_trace_plot()
     plt.figure(figsize=(8, 4))
 
     # generic
-    (trace, _) = generate(model, (T,), observations)
+    (trace, _) = initialize(model, (T,), observations)
     num_clusters_vec = Int[]
     burn_in = 20000
     for iter=1:burn_in + 5000
@@ -571,7 +571,7 @@ function plot_trace_plot()
     plt.plot(num_clusters_vec, "r")
 
     # reversible jump
-    (trace, _) = generate(model, (T,), observations)
+    (trace, _) = initialize(model, (T,), observations)
     height1 = Float64[]
     num_clusters_vec = Int[]
     burn_in = 20000

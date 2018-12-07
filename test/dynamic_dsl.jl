@@ -27,7 +27,7 @@
     # get a trace which follows the first branch
     constraints = DynamicAssignment()
     constraints[:branch] = true
-    (trace,) = generate(foo, (), constraints)
+    (trace,) = initialize(foo, (), constraints)
     x = get_assignment(trace)[:x]
     a = get_assignment(trace)[:u => :a]
 
@@ -102,7 +102,7 @@ end
     # get a trace which follows the first branch
     constraints = DynamicAssignment()
     constraints[:branch] = true
-    (trace,) = generate(foo, (), constraints)
+    (trace,) = initialize(foo, (), constraints)
     x = get_assignment(trace)[:x]
     a = get_assignment(trace)[:u => :a]
     z = get_assignment(trace)[:z]
@@ -179,7 +179,7 @@ end
     mu = 0.123
     constraints = DynamicAssignment()
     constraints[:branch] = true
-    (trace,) = generate(foo, (mu,), constraints)
+    (trace,) = initialize(foo, (mu,), constraints)
     x = get_assignment(trace)[:x]
     a = get_assignment(trace)[:u => :a]
 

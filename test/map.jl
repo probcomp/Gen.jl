@@ -23,7 +23,7 @@
     constraints = DynamicAssignment()
     constraints[:map => 1 => :z] = z1
     constraints[:map => 2 => :z] = z2
-    (trace, weight) = generate(bar, (), constraints)
+    (trace, weight) = initialize(bar, (), constraints)
     assignment = get_assignment(trace)
     @test assignment[:map => 1 => :z] == z1
     @test assignment[:map => 2 => :z] == z2

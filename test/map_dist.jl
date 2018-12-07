@@ -16,7 +16,7 @@
     constraints = DynamicAssignment()
     constraints[1] = z1
     constraints[3] = z3
-    (trace, weight) = generate(foo, (mus, stds), constraints)
+    (trace, weight) = initialize(foo, (mus, stds), constraints)
     assmt = get_assignment(trace)
     @test assmt[1] == z1
     z2 = assmt[2]

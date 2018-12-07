@@ -32,7 +32,7 @@ function particle_filter(model::GenerativeFunction{T,U}, model_args_rest::Tuple,
     traces = Vector{U}(undef, num_particles)
     next_traces = Vector{U}(undef, num_particles)
     for i=1:num_particles
-        (traces[i], log_unnormalized_weights[i]) = generate(
+        (traces[i], log_unnormalized_weights[i]) = initialize(
             model, (1, model_args_rest...), observations)
     end
 
@@ -98,7 +98,7 @@ function particle_filter(model::GenerativeFunction{T,U}, model_args_rest::Tuple,
         proposal_trace = simulate(init_proposal, proposal_args)
         proposal_score = get_call_record(proposal_trace).score
         constraints = merge(observations, get_assignment(proposal_trace))
-        (traces[i], model_weight) = generate(model, (1, model_args_rest...), constraints)
+        (traces[i], model_weight) = initialize(model, (1, model_args_rest...), constraints)
         log_unnormalized_weights[i] = model_weight - proposal_score
     end
 

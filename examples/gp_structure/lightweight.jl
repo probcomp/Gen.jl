@@ -86,7 +86,7 @@ function inference(xs::Vector{Float64}, ys::Vector{Float64}, num_iters::Int)
     constraints[:ys] = ys
 
     # generate initial trace consistent with observed data
-    (trace, _) = generate(model, (xs,), constraints)
+    (trace, _) = initialize(model, (xs,), constraints)
 
     # do MCMC
     local covariance_fn::Node

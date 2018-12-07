@@ -35,7 +35,7 @@ has_argument_grads(gen::Unfold) = (false, false, has_argument_grads(gen.kernel)[
 # generate #
 ############
 
-function generate(gen::Unfold{T,U}, args, constraints) where {T,U}
+function initialize(gen::Unfold{T,U}, args, constraints) where {T,U}
     # NOTE: could be strict and check there are no extra constraints
     # probably we want to have this be an option that can be turned on or off?
     (len, init_state, params) = unpack_args(args)
@@ -53,7 +53,7 @@ function generate(gen::Unfold{T,U}, args, constraints) where {T,U}
             node = EmptyAssignment()
         end
         kernel_args = (key, state, params...)
-        (subtrace::U, w) = generate(gen.kernel, kernel_args, node)
+        (subtrace::U, w) = initialize(gen.kernel, kernel_args, node)
         subtraces[key] = subtrace
         weight += w
         call = get_call_record(subtrace)
@@ -69,7 +69,7 @@ function generate(gen::Unfold{T,U}, args, constraints) where {T,U}
 end
 
 function simulate(gen::Unfold{T,U}, args) where {T,U}
-    (trace, weight) = generate(gen, args, EmptyAssignment())
+    (trace, weight) = initialize(gen, args, EmptyAssignment())
     trace
 end
 
@@ -147,7 +147,7 @@ function extend(gen::Unfold{T,U}, args, change::UnfoldCustomArgDiff, trace::Vect
             node = EmptyAssignment()
         end
         if key > prev_len
-            (subtrace::U, w) = generate(gen.kernel, kernel_args, node)
+            (subtrace::U, w) = initialize(gen.kernel, kernel_args, node)
             call = get_call_record(subtrace)
             score += call.score
             states = push(states, call.retval)

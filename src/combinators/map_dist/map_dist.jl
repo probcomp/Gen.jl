@@ -24,7 +24,7 @@ function simulate(gen::MapDist{T}, args) where {T}
     VectorDistTrace(persist_values, args, score, len)
 end
 
-function generate(gen::MapDist{T}, args, constraints) where {T}
+function initialize(gen::MapDist{T}, args, constraints) where {T}
     len = length(args[1])
     values = Vector{T}(undef, len)
     score = 0.

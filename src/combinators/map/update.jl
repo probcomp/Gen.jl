@@ -236,7 +236,7 @@ function process_new!(gen::Map{T,U}, args::Tuple,
     kernel_args = get_args_for_key(args, key)
 
     # get subtrace
-    (subtrace, weight) = generate(gen.kernel, kernel_args, subconstraints)
+    (subtrace, weight) = initialize(gen.kernel, kernel_args, subconstraints)
 
     # update state
     call = get_call_record(subtrace)

@@ -726,7 +726,7 @@ function addr(state::GFExtendState, gen::GenerativeFunction{T,U}, args, key, arg
         prev_trace = get_subtrace(state.prev_trace, key)
         (trace, weight, retdiff) = extend(gen, args, argdiff, prev_trace, constraints)
     else
-        (trace, weight) = generate(gen, args, constraints)
+        (trace, weight) = initialize(gen, args, constraints)
     end
 
     # get return value

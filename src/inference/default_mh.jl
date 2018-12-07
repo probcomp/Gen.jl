@@ -1,14 +1,13 @@
-function default_mh(model::GenerativeFunction, selection::AddressSet, trace; verbose=false)
-    model_args = get_call_record(trace).args
-    (new_trace, weight) = regenerate(model, model_args, noargdiff, trace, selection)
+function default_mh(model::GenerativeFunction{T,U}, selection::AddressSet,
+                    trace::U) where {T,U}
+    args = get_call_record(trace).args
+    (new_trace, weight) = regenerate(model, args, noargdiff, trace, selection)
     if log(rand()) < weight
-        verbose && println("accept")
         # accept
-        return new_trace
+        return (new_trace, true)
     else
-        verbose && println("reject")
         # reject
-        return trace
+        return (trace, false)
     end
 end
 

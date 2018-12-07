@@ -161,7 +161,7 @@ Gen.isnodiff(::StringDiff) = false
     constraints[(3, Val(:aggregation)) => :prefix] = true
     constraints[(4, Val(:production)) => :rule] = 4
     constraints[(4, Val(:aggregation)) => :prefix] = false
-    (trace, actual_weight) = generate(pcfg, (nothing, 1), constraints)
+    (trace, actual_weight) = initialize(pcfg, (nothing, 1), constraints)
     @test isapprox(actual_weight, expected_weight)
     @test isapprox(get_call_record(trace).score, actual_weight)
     @test get_call_record(trace).args == (nothing, 1)

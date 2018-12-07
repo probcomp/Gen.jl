@@ -252,7 +252,7 @@ end
 # generate #
 ############
 
-function generate(gen::Recurse{S,T,U,V,W,X,Y,DV,DU,DW}, args::Tuple{U,Int},
+function initialize(gen::Recurse{S,T,U,V,W,X,Y,DV,DU,DW}, args::Tuple{U,Int},
                   constraints) where {S,T,U,V,W,X,Y,DV,DU,DW}
     (root_production_input::U, root_idx::Int) = args
     production_traces = PersistentHashMap{Int,S}()
@@ -271,7 +271,7 @@ function generate(gen::Recurse{S,T,U,V,W,X,Y,DV,DU,DW}, args::Tuple{U,Int},
         delete!(prod_to_visit, cur)
         input = get_production_input(gen, cur, production_traces, root_idx, root_production_input)
         subconstraints = get_production_constraints(constraints, cur)
-        (subtrace, subweight) = generate(gen.production_kern, (input,), subconstraints)
+        (subtrace, subweight) = initialize(gen.production_kern, (input,), subconstraints)
         score += get_call_record(subtrace).score
         production_traces = assoc(production_traces, cur, subtrace)
         weight += subweight
@@ -292,7 +292,7 @@ function generate(gen::Recurse{S,T,U,V,W,X,Y,DV,DU,DW}, args::Tuple{U,Int},
         local input::Tuple{V,Vector{W}}
         input = get_aggregation_input(gen, cur, production_traces, aggregation_traces)
         subconstraints = get_aggregation_constraints(constraints, cur)
-        (subtrace, subweight) = generate(gen.aggregation_kern, input, subconstraints)
+        (subtrace, subweight) = initialize(gen.aggregation_kern, input, subconstraints)
         score += get_call_record(subtrace).score
         aggregation_traces = assoc(aggregation_traces, cur, subtrace)
         weight += subweight
@@ -315,7 +315,7 @@ function assess(gen::Recurse{S,T,U,V,W,X,Y,DV,DU,DW}, args::Tuple{U,Int},
                 constraints) where {S,T,U,V,W,X,Y,DV,DU,DW}
     # TODO should instead recursively call assess on each one, to ensure that
     # each address is visited
-    (trace, ) = generate(gen, args, constraints)
+    (trace, ) = initialize(gen, args, constraints)
     return trace
 end
 

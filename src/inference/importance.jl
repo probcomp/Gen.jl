@@ -4,7 +4,7 @@ function importance_sampling(model::GenerativeFunction{T,U}, model_args::Tuple,
     traces = Vector{U}(undef, num_samples)
     log_weights = Vector{Float64}(undef, num_samples)
     for i=1:num_samples
-        (traces[i], log_weights[i]) = generate(model, model_args, observations)
+        (traces[i], log_weights[i]) = initialize(model, model_args, observations)
     end
     log_total_weight = logsumexp(log_weights)
     log_ml_estimate = log_total_weight - log(num_samples)
@@ -35,11 +35,11 @@ end
 function importance_resampling(model::GenerativeFunction{T,U}, model_args::Tuple,
                                observations::Assignment,
                                num_samples::Int; verbose=false)  where {T,U,V,W}
-    (model_trace::U, log_weight) = generate(model, model_args, observations)
+    (model_trace::U, log_weight) = initialize(model, model_args, observations)
     log_total_weight = log_weight
     for i=2:num_samples
         verbose && println("sample: $i of $num_samples")
-        (cand_model_trace, log_weight) = generate(model, model_args, observations)
+        (cand_model_trace, log_weight) = initialize(model, model_args, observations)
         log_total_weight = logsumexp(log_total_weight, log_weight)
         if bernoulli(exp(log_weight - log_total_weight))
             model_trace = cand_model_trace
@@ -56,14 +56,14 @@ function importance_resampling(model::GenerativeFunction{T,U}, model_args::Tuple
     proposal_trace::W = simulate(proposal, proposal_args)
     proposal_score = get_call_record(proposal_trace).score
     constraints::Assignment = merge(observations, get_assignment(proposal_trace))
-    (model_trace::U, model_score) = generate(model, model_args, constraints)
+    (model_trace::U, model_score) = initialize(model, model_args, constraints)
     log_total_weight = model_score - proposal_score
     for i=2:num_samples
         verbose && println("sample: $i of $num_samples")
         proposal_trace = simulate(proposal, proposal_args)
         proposal_score = get_call_record(proposal_trace).score
         constraints = merge(observations, get_assignment(proposal_trace))
-        (cand_model_trace, model_score) = generate(model, model_args, constraints)
+        (cand_model_trace, model_score) = initialize(model, model_args, constraints)
         log_weight = model_score - proposal_score
         log_total_weight = logsumexp(log_total_weight, log_weight)
         if bernoulli(exp(log_weight - log_total_weight))

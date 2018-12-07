@@ -153,7 +153,7 @@ isnodiff(::MapCustomRetDiff) = false
 ###############################
 
 include("assess.jl")
-include("generate.jl")
+include("initialize.jl")
 include("update.jl")
 include("project.jl")
 include("backprop_trace.jl")
