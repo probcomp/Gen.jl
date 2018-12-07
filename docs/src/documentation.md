@@ -14,13 +14,29 @@ The *assignment interface* is a set of read-only accessor methods that are imple
 
 - has_value
 
-- get_subassmts_shallow
+- get_subassmts_shallow: return all non-empty subassignments
 
-- get_values_shallow
+- get_values_shallows
 
 - Base.isempty (does the assignment contain any random choices or not)
 
 - Base.getindex (alias for get_value)
+
+- `(n, assmt) = _from_array(prototype::Assignment, arr::Vector, start_idx::Int)`
+
+- `n = _fill_array!(prototype::Assignment, arr::Vector, start_idx::Int)`
+
+Generic convenience methods for assignments (need not be implemented by concrete assignment types):
+
+- pair
+
+- unpair
+
+- merge?
+
+- arr = to_array(assmt::Assignment, ::Type)
+
+- assmt = from_array(prototype::Assignment, arr)
 
 The remainder if this section describes some concrete types that subtype `Assignment`.
 
