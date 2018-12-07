@@ -36,7 +36,7 @@ function hmc(model::GenerativeFunction{T,U}, selection::AddressSet, trace::U;
         values_trie = from_array(values_trie, values + eps * momenta)
 
         # half step on momenta
-        (new_trace, _, _) = update(model, model_args, noargdiff, new_trace, values_trie)
+        (new_trace, _, _) = force_update(model, model_args, noargdiff, new_trace, values_trie)
         (_, _, gradient_trie) = backprop_trace(model, new_trace, selection, nothing)
         gradient = to_array(gradient_trie, Float64)
         momenta += (eps / 2) * gradient

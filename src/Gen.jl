@@ -8,11 +8,12 @@ module Gen
     end
     export generated_functions
 
-    include("autodiff.jl")
+    include("backprop.jl")
     include("address.jl")
     include("assignment.jl")
     include("homogenous_trie.jl")
-    include("generative_function_interface.jl")
+    include("gen_fn_interface.jl")
+    include("diff.jl")
     include("distribution.jl")
     include("dsl_common.jl")
     include("dynamic_dsl/dynamic_dsl.jl")

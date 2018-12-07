@@ -97,10 +97,10 @@ function process_retained!(gen::Map{T,U}, args::Tuple,
     # arguments for this application
     kernel_args = get_args_for_key(args, key)
 
-    # get new subtrace with recursive call to update()
+    # get new subtrace with recursive call to force_update()
     prev_subtrace = state.subtraces[key]
     prev_call = get_call_record(prev_subtrace)
-    (subtrace, _, kernel_discard, subretdiff) = update(
+    (subtrace, _, kernel_discard, subretdiff) = force_update(
         gen.kernel, kernel_args, kernel_argdiff, prev_subtrace, subconstraints)
     if !isnodiff(subretdiff)
         state.isdiff_retdiffs[key] = subretdiff
@@ -134,7 +134,7 @@ function process_new!(gen::Map{T,U}, args::Tuple,
     kernel_args = get_args_for_key(args, key)
 
     # get subtrace
-    subtrace::U = assess(gen.kernel, kernel_args, subconstraints)
+    (subtrace::U, _) = initialize(gen.kernel, kernel_args, subconstraints)
 
     # update state
     call = get_call_record(subtrace)
@@ -155,7 +155,7 @@ function process_new!(gen::Map{T,U}, args::Tuple,
     end
 end
 
-function update(gen::Map{T,U}, args::Tuple, argdiff, prev_trace::VectorTrace{T,U},
+function force_update(gen::Map{T,U}, args::Tuple, argdiff, prev_trace::VectorTrace{T,U},
                 constraints::Assignment) where {T,U}
     (new_length, prev_length) = get_prev_and_new_lengths(args, prev_trace)
     (nodes, retained_constrained) = collect_map_constraints(constraints, prev_length, new_length)
@@ -302,10 +302,10 @@ function process_retained!(gen::Map{T,U}, args::Tuple,
     # arguments for this application
     kernel_args = get_args_for_key(args, key)
 
-    # get new subtrace with recursive call to regenerate()
+    # get new subtrace with recursive call to free_update()
     prev_subtrace = state.subtraces[key]
     prev_call = get_call_record(prev_subtrace)
-    (subtrace, weight, subretdiff) = regenerate(
+    (subtrace, weight, subretdiff) = free_update(
         gen.kernel, kernel_args, kernel_argdiff, prev_subtrace, subselection)
     if !isnodiff(subretdiff)
         state.isdiff_retdiffs[key] = subretdiff
@@ -355,8 +355,8 @@ function process_new!(gen::Map{T,U}, args::Tuple,
     end
 end
 
-function regenerate(gen::Map{T,U}, args::Tuple, argdiff, prev_trace::VectorTrace{T,U},
-                selection::AddressSet) where {T,U}
+function free_update(gen::Map{T,U}, args::Tuple, argdiff, prev_trace::VectorTrace{T,U},
+                     selection::AddressSet) where {T,U}
     (new_length, prev_length) = get_prev_and_new_lengths(args, prev_trace)
     selections = collect_map_selections(selection, prev_length, new_length)
     state = MapRegenerateState{T,U}(prev_trace.call.score,

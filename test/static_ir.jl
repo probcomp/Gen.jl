@@ -94,7 +94,7 @@ end
     constraints = DynamicAssignment()
     constraints[:y] = y_new
     constraints[:v => :b] = b_new
-    (new_trace, weight, discard, retdiff) = update(
+    (new_trace, weight, discard, retdiff) = force_update(
         foo, (), unknownargdiff, trace, constraints)
 
     # test discard
@@ -180,7 +180,7 @@ end
     constraints[:b] = b
     constraints[:out] = out
     constraints[:bar => :z] = z
-    trace = assess(foo, (mu_a,), constraints)
+    (trace, _) = initialize(foo, (mu_a,), constraints)
 
     # compute gradients
     selection = DynamicAddressSet()

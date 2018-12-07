@@ -22,7 +22,7 @@ function importance_sampling(model::GenerativeFunction{T,U}, model_args::Tuple,
         proposal_trace = simulate(proposal, proposal_args)
         proposal_score = get_call_record(proposal_trace).score
         constraints = merge(observations, get_assignment(proposal_trace))
-        traces[i] = assess(model, model_args, constraints)
+        (traces[i], _) = initialize(model, model_args, constraints)
         model_score = get_call_record(traces[i]).score
         log_weights[i] = model_score - proposal_score
     end

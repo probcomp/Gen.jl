@@ -20,6 +20,29 @@ trie = StaticAssignment((a=1, b=2), (c=inner_trie,))
 ```
 
 
+## Generative Function Interface
+
+Generative functions implement the *generative function interface*, which is a set of methods that involve the execution traces and probabilistic behavior of generative functions.
+Mathematically, a generative function is associated with a family of probability distributions P(u; x) on assignments (u), parameterized by arguments (x) to the function.
+A generative function is also associated with a second family of probability distributions Q(u; v, x) on assignments (u), parametrized by an assignment (v) and arguments (x) to the function.
+Q is called the *internal proposal distribution* of the generative function.
+Q satisfies the requirement that an assignment u sampled from Q(.; v, x) with nonzero probability must agree with the assignment v on all addresses that appear in both.
+Below, we use 't' to denote to a *complete assignment* (an assignment containing all random choices in some execution trace) for some arguments, which we denote 'x'.
+See the [Gen technical report](http://hdl.handle.net/1721.1/119255) for additional details.
+
+```@docs
+initialize
+project
+propose
+assess
+force_update
+fix_update
+free_update
+extend
+backprop_params
+backprop_trace
+```
+
 ## Distributions
 
 Probability distributions are singleton types whose supertype is `Distribution{T}`, where `T` indicates the data type of the random sample.
@@ -80,7 +103,6 @@ If a particular partial derivative does not exist, that field of the tuple retur
 ### Built-In Distributions
 
 ```@docs
-dirac
 bernoulli
 normal
 mvnormal

@@ -31,7 +31,7 @@ function sgd_train_batch(teacher::GenerativeFunction{T,U}, teacher_args::Tuple,
             assignments = training_assignment[minibatch_idx]
             input = conf.input_extractor(assignments)
             constraints = conf.constraint_extractor(assignments)
-            student_trace = assess(batch_student, input, constraints)
+            (student_trace, _) = initialize(batch_student, input, constraints)
             avg_score = get_call_record(student_trace).score / conf.minibatch_size
             backprop_params(batch_student, student_trace, nothing)
             conf.minibatch_callback(batch, minibatch, avg_score, verbose)

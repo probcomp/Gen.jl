@@ -1,149 +1,3 @@
-###########
-# argdiff #
-###########
-
-# what argdiff types are accepted by a generative function depends on the
-# generative function.
-
-get_arg_diff(state) = state.argdiff
-
-
-############
-# calldiff #
-############
-
-function isnew end
-function isnodiff end
-function isunknowndiff end
-
-export isnew
-export isnodiff
-export isunknowndiff
-
-# values that are returned to the gen function incremental computation path
-
-"""
-    NewCallDiff()
-
-Singleton indicating that there was previously no call at this address.
-"""
-struct NewCallDiff end
-isnew(::NewCallDiff) = true
-isnodiff(::NewCallDiff) = false
-isunknowndiff(::NewCallDiff) = false
-export NewCallDiff
-
-"""
-    NoCallDiff()
-
-Singleton indicating that the return value of the call has not changed.
-"""
-struct NoCallDiff end 
-isnew(::NoCallDiff) = false
-isnodiff(::NoCallDiff) = true
-isunknowndiff(::NoCallDiff) = false
-export NoCallDiff
-
-"""
-    UnknownCallDiff()
-
-Singleton indicating that there was a previous call at this address, but that no information is known about the change to the return value.
-"""
-struct UnknownCallDiff end
-isnew(::UnknownCallDiff) = true
-isnodiff(::UnknownCallDiff) = false
-isunknowndiff(::UnknownCallDiff) = false
-export UnknownCallDiff
-
-"""
-    CustomCallDiff(retdiff)
-
-Wrapper around a retdiff value, indicating that there was a previous call at this address, and that `isnodiff(retdiff) = false` (otherwise `NoCallDiff()` would have been returned).
-"""
-struct CustomCallDiff{T}
-    retdiff::T
-end
-isnew(::CustomCallDiff) = false
-isnodiff(::CustomCallDiff) = false
-isunknowndiff(::CustomCallDiff) = false
-export CustomCallDiff
-
-
-get_call_diff(state, key) = get_leaf_node(state.calldiffs, key)
-
-
-##############
-# choicediff #
-##############
-
-
-
-"""
-    NewChoiceDiff()
-
-Singleton indicating that there was previously no random choice at this address.
-"""
-struct NewChoiceDiff end
-isnew(::NewChoiceDiff) = true
-isnodiff(::NewChoiceDiff) = false
-export NewChoiceDiff
-
-"""
-    NoChoiceDiff()
-
-Singleton indicating that the value of the random choice did not change.
-"""
-struct NoChoiceDiff end 
-isnew(::NoChoiceDiff) = false
-isnodiff(::NoChoiceDiff) = true
-export NoChoiceDiff 
-
-"""
-    PrevChoiceDiff(prev)
-
-Wrapper around the previous value of the random choice indicating that it may have changed.
-"""
-struct PrevChoiceDiff{T}
-    prev::T
-end
-isnew(::PrevChoiceDiff) = false
-isnodiff(::PrevChoiceDiff) = false
-prev(diff::PrevChoiceDiff) = diff.prev
-export PrevChoiceDiff
-export prev
-
-
-function set_choice_diff_no_prev!(state, key)
-    choicediff = NewChoiceDiff()
-    set_leaf_node!(state.choicediffs, key, choicediff)
-end
-
-function set_choice_diff!(state, key, value_changed::Bool,
-                          prev_retval::T) where {T}
-    if value_changed
-        choicediff = PrevChoiceDiff(prev_retval)
-    else
-        choicediff = NoChoiceDiff()
-    end
-    set_leaf_node!(state.choicediffs, key, choicediff)
-end
-
-get_choice_diff(state, key) = get_leaf_node(state.choicediffs, key)
-
-
-###########
-# retdiff #
-###########
-
-# @retdiff(<value<)
-
-# generative functions can return arbitrary retdiff values, provided the type
-# implemnets the isnodiff() function.
-
-set_ret_diff!(state, value) = state.retdiff = value
-
-
-
 ################
 # force update #
 ################
@@ -242,10 +96,10 @@ function addr(state::GFUpdateState, gen::GenerativeFunction{T,U}, args, key, arg
     has_previous = has_subtrace(state.prev_trace, key)
     if has_previous
         prev_trace = get_subtrace(state.prev_trace, key)
-        (trace, _, discard, retdiff) = update(gen, args, argdiff,
+        (trace, _, discard, retdiff) = force_update(gen, args, argdiff,
             prev_trace, constraints)
     else
-        trace = assess(gen, args, constraints)
+        (trace, _) = initialize(gen, args, constraints)
     end
 
     # get return value
@@ -279,7 +133,7 @@ end
 
 splice(state::GFUpdateState, gen::DynamicDSLFunction, args::Tuple) = exec_for_update(gen, state, args)
 
-function update(gen::DynamicDSLFunction, new_args, argdiff, trace::GFTrace, constraints)
+function force_update(gen::DynamicDSLFunction, new_args, argdiff, trace::GFTrace, constraints)
     state = GFUpdateState(argdiff, trace, constraints, gen.params)
     retval = exec_for_update(gen, state, new_args)
     new_call = CallRecord{Any}(state.score, retval, new_args)
@@ -470,7 +324,7 @@ end
 # free update #
 ###############
 
-mutable struct GFRegenerateState
+mutable struct GFFreeUpdateState
     prev_trace::GFTrace
     trace::GFTrace
     selection::AddressSet
@@ -484,14 +338,14 @@ mutable struct GFRegenerateState
     calldiffs::HomogenousTrie{Any,Any}
 end
 
-function GFRegenerateState(argdiff, prev_trace, selection, params)
+function GFFreeUpdateState(argdiff, prev_trace, selection, params)
     visitor = AddressVisitor()
-    GFRegenerateState(prev_trace, GFTrace(), selection, 0., 0., visitor,
+    GFFreeUpdateState(prev_trace, GFTrace(), selection, 0., 0., visitor,
                       params, argdiff, DefaultRetDiff(),
                       HomogenousTrie{Any,Any}(), HomogenousTrie{Any,Any}())
 end
 
-function addr(state::GFRegenerateState, dist::Distribution{T}, args, key) where {T}
+function addr(state::GFFreeUpdateState, dist::Distribution{T}, args, key) where {T}
 
     # check that key was not already visited, and mark it as visited
     visit!(state.visitor, key)
@@ -550,11 +404,11 @@ function addr(state::GFRegenerateState, dist::Distribution{T}, args, key) where 
     return retval
 end
 
-function addr(state::GFRegenerateState, gen::GenerativeFunction, args, key)
+function addr(state::GFFreeUpdateState, gen::GenerativeFunction, args, key)
     addr(state, gen, args, key, UnknownArgDiff())
 end
 
-function addr(state::GFRegenerateState, gen::GenerativeFunction{T,U}, args, key, argdiff) where {T,U}
+function addr(state::GFFreeUpdateState, gen::GenerativeFunction{T,U}, args, key, argdiff) where {T,U}
 
     # check that key was not already visited, and mark it as visited
     visit!(state.visitor, key)
@@ -575,7 +429,7 @@ function addr(state::GFRegenerateState, gen::GenerativeFunction{T,U}, args, key,
     has_previous = has_subtrace(state.prev_trace, key)
     if has_previous
         prev_trace = get_subtrace(state.prev_trace, key) 
-        (trace, weight, retdiff) = regenerate(
+        (trace, weight, retdiff) = free_update(
             gen, args, argdiff, prev_trace, selection)
     else
         trace = simulate(gen, args)
@@ -610,10 +464,11 @@ function addr(state::GFRegenerateState, gen::GenerativeFunction{T,U}, args, key,
     return retval
 end
 
-splice(state::GFRegenerateState, gf::DynamicDSLFunction, args::Tuple) = exec_for_update(gf, state, args)
+splice(state::GFFreeUpdateState, gf::DynamicDSLFunction, args::Tuple) = exec_for_update(gf, state, args)
 
-function regenerate(gen::DynamicDSLFunction, new_args, argdiff, trace, selection)
-    state = GFRegenerateState(argdiff, trace, selection, gen.params)
+function free_update(gen::DynamicDSLFunction, new_args::Tuple, argdiff,
+                     trace::GFTrace, selection::AddressSet)
+    state = GFFreeUpdateState(argdiff, trace, selection, gen.params)
     retval = exec_for_update(gen, state, new_args)
     new_call = CallRecord(state.score, retval, new_args)
     state.trace.call = new_call
@@ -758,7 +613,8 @@ end
 
 splice(state::GFExtendState, gen::DynamicDSLFunction, args::Tuple) = exec_for_update(gf, state, args)
 
-function extend(gf::DynamicDSLFunction, args, argdiff, trace::GFTrace, constraints)
+function extend(gf::DynamicDSLFunction, args::Tuple, argdiff,
+                trace::GFTrace, constraints)
     state = GFExtendState(argdiff, trace, constraints, gf.params)
     retval = exec_for_update(gf, state, args)
     call = CallRecord(state.score, retval, args)

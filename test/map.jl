@@ -13,12 +13,7 @@
         return @addr(Map(foo)(xs, ys), :map)
     end
 
-    # test simulate
-    assignment = get_assignment(simulate(bar, ()))
-    @test has_leaf_node(assignment, :map => 1 => :z)
-    @test has_leaf_node(assignment, :map => 2 => :z)
-
-    # test generate
+    # test initialize 
     z1, z2 = 1.1, 2.2
     constraints = DynamicAssignment()
     constraints[:map => 1 => :z] = z1
@@ -29,18 +24,22 @@
     @test assignment[:map => 2 => :z] == z2
     @test isapprox(weight, logpdf(normal, z1, 4., 1.) + logpdf(normal, z2, 6., 1.))
 
+    # test propose
+    # TODO 
+    #assignment = get_assignment(simulate(bar, ()))
+    #@test has_leaf_node(assignment, :map => 1 => :z)
+    #@test has_leaf_node(assignment, :map => 2 => :z)
+
     # test assess
-    trace = assess(bar, (), constraints)
-    assignment = get_assignment(trace)
-    @test assignment[:map => 1 => :z] == z1
-    @test assignment[:map => 2 => :z] == z2
+    (weight, retval) = assess(bar, (), constraints)
+    @test length(retval) == 2
     @test isapprox(weight, logpdf(normal, z1, 4., 1.) + logpdf(normal, z2, 6., 1.))
 
-    # test update
+    # test force_update
     z2_new = 3.3
     constraints = DynamicAssignment()
     constraints[:map => 2 => :z] = z2_new
-    (trace, weight, discard, retchange) = update(bar, (), nothing, trace, constraints)
+    (trace, weight, discard, retchange) = force_update(bar, (), nothing, trace, constraints)
     assignment = get_assignment(trace)
     @test assignment[:map => 1 => :z] == z1
     @test assignment[:map => 2 => :z] == z2_new

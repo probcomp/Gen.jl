@@ -23,8 +23,6 @@ function check_length(len::Int)
     end
 end
 
-accepts_output_grad(gen::Unfold) = false # TODO add support for this
-
 # does not have grad for len
 # does not have grad for initial state (TODO add support for this)
 # may or may not has grad for parameters, depending the kernel
@@ -178,19 +176,19 @@ function extend(gen::Unfold{T,U}, args, change::UnfoldCustomArgDiff, trace::Vect
     (trace, weight, UnfoldRetDiff())
 end
 
-function update(gen::Unfold{T,U}, args, change::NoArgDiff, trace::VectorTrace{T,U},
+function force_update(gen::Unfold{T,U}, args, change::NoArgDiff, trace::VectorTrace{T,U},
                 constraints) where {T,U}
     change = UnfoldCustomArgDiff(false, false, false)
-    update(gen, args, change, trace, constraints)
+    force_update(gen, args, change, trace, constraints)
 end
 
-function update(gen::Unfold{T,U}, args, change::UnknownArgDiff, trace::VectorTrace{T,U},
+function force_update(gen::Unfold{T,U}, args, change::UnknownArgDiff, trace::VectorTrace{T,U},
                 constraints) where {T,U}
     change = UnfoldCustomArgDiff(true, true, true)
-    update(gen, args, change, trace, constraints)
+    force_update(gen, args, change, trace, constraints)
 end
 
-function update(gen::Unfold{T,U}, args, change::UnfoldCustomArgDiff,
+function force_update(gen::Unfold{T,U}, args, change::UnfoldCustomArgDiff,
                 trace::VectorTrace{T,U}, constraints) where {T,U}
     (len, init_state, params) = unpack_args(args)
     check_length(len)
@@ -246,7 +244,7 @@ function update(gen::Unfold{T,U}, args, change::UnfoldCustomArgDiff,
         prev_subtrace::U = subtraces[key]
         prev_score = get_call_record(prev_subtrace).score
         args_change = nothing # NOTE we could propagate detailed change information
-        (subtrace, w, kern_discard, retchange) = update(
+        (subtrace, w, kern_discard, retchange) = force_update(
             gen.kernel, kernel_args, args_change, prev_subtrace, node)
         set_internal_node!(discard, key, kern_discard)
         call = get_call_record(subtrace)
@@ -266,7 +264,7 @@ function update(gen::Unfold{T,U}, args, change::UnfoldCustomArgDiff,
         else
             node = EmptyAssignment()
         end
-        subtrace::U = assess(gen.kernel, kernel_args, node)
+        (subtrace::U, _) = initialize(gen.kernel, kernel_args, node)
         call = get_call_record(subtrace)
         score += call.score
         weight += call.score

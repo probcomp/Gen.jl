@@ -84,7 +84,7 @@ end
 
 function resimulation_mh(selection, trace)
     model_args = get_call_record(trace).args
-    (new_trace, weight) = regenerate(model, model_args, NoChange(), trace, selection)
+    (new_trace, weight) = free_update(model, model_args, NoArgDiff(), trace, selection)
     if log(rand()) < weight
         # accept
         return (new_trace, true)

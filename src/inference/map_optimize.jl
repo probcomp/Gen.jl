@@ -15,7 +15,7 @@ function map_optimize(model::GenerativeFunction, selection::AddressSet,
         new_values_vec = values_vec + gradient_vec * step_size
         values = from_array(values, new_values_vec)
         # TODO discard and weight are not actually needed, there should be a more specialized variant
-        (new_trace, _, discard, _) = update(model, model_args, noargdiff, trace, values)
+        (new_trace, _, discard, _) = force_update(model, model_args, noargdiff, trace, values)
         new_score = get_call_record(new_trace).score
         change = new_score - score
         if verbose

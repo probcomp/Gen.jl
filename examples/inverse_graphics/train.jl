@@ -92,7 +92,7 @@ function train_inference_network(all_traces, num_iter)
         @assert length(traces) == minibatch_size
         scores = Vector{Float64}(minibatch_size)
         for (i, model_choices) in enumerate(traces)
-            (proposal_trace, _) = project(proposal, (model_choices,), model_choices)
+            (proposal_trace, _) = project(proposal, (model_choices,), model_choices) # TODO add a function to translate, can't use project() for this..
             backprop_params(proposal, proposal_trace, nothing)
             scores[i] = get_call_record(proposal_trace).score
         end

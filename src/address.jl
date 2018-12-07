@@ -1,19 +1,3 @@
-#############
-# addresses #
-#############
-#
-# Addresses are linked lists of non-Pair values, using Pair as cons.
-# Symbols indicate statically known address fields. (TODO unify this)
-#
-# Therefore, Addresses can be conveniently constructed using Julia's => syntax
-# for constructing pairs:
-# 
-#   :a => 2 => :d => "asfd"
-#
-# which gives:
-#
-#  Pair(:a, Pair(2, Pair(:d, "asdf")))
-
 ###################
 # address schemas #
 ###################
@@ -21,7 +5,6 @@
 abstract type AddressSchema end
 
 struct StaticAddressSchema <: AddressSchema
-    # TODO can add type information
     leaf_nodes::Set{Symbol}
     internal_nodes::Set{Symbol}
 end
@@ -96,31 +79,6 @@ Base.getindex(set::AddressSet, addr) = get_internal_node(set, addr)
 Base.haskey(set::AddressSet, addr) = has_internal_node(set, addr)
 
 export AddressSet
-
-# has_internal_node()
-#       - used in backprop_trace() OK
-#       - used in regenerate() OK
-# get_internal_node() [[ alias getindex, KeyError if it doesn't exist ]]
-#       - used in backprop_trace() (check if there is one first, and return EmptySet o/w) OK
-#       - used in regenerate() (check if there is one first, and return EmptySet o/w) OK
-# has_leaf_node() [[ alias in ]]
-#       - used in backprop_trace() OK
-#       - used in regenerate() OK
-# get_leaf_nodes() [[ return iterator over keys in this namespace ]]
-# get_internal_nodes() [[ return iterator of pairs of keys and sub-address-set ]]
-
-# for static address sets (with StaticAddressSchema schema)
-# static_get_internal_node(set::StaticAddressSet, ::Val{A}) where {A}
-#       - used in basic block backprop_trace, regenerate, etc.
-
-# construction interface (for DynamicAddressSet)
-# there is no construction interface for StaticAddressSet
-# add_leaf_node!(set, addr) [[ alias push ]]
-# set_internal_node!(set, addr, node::AddressSet) [[ alias setindex ]]
-
-# there should by a copy constructor for StaticAddressSet from dynamic..
-# later selection functions can generate static address sets directly..
-
 
 #####################
 # empty address set #

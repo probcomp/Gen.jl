@@ -247,7 +247,7 @@ function process_codegen!(stmts, fwd::ForwardPassState, back::BackwardPassState,
             push!(stmts, :($call_constraints = EmptyAssignment()))
         end
         push!(stmts, :(($subtrace, $call_weight, $(call_discard_var(node)), $(calldiff_var(node))) = 
-            update($gen_fn, $args_tuple, $(node.argdiff.name), $(prev_subtrace), $call_constraints)
+            force_update($gen_fn, $args_tuple, $(node.argdiff.name), $(prev_subtrace), $call_constraints)
         ))
         push!(stmts, :($weight += $call_weight))
         push!(stmts, :($total_score_fieldname += $call_weight))
@@ -344,13 +344,13 @@ function generate_discard!(stmts::Vector{Expr},
     push!(stmts, :($discard = $expr))
 end
 
-function codegen_update(gen_fn_type::Type{G}, args_type, argdiff_type,
-                        trace_type::Type{U}, constraints_type) where {T,U,G<:StaticIRGenerativeFunction{T,U}}
+function codegen_force_update(gen_fn_type::Type{G}, args_type, argdiff_type,
+                              trace_type::Type{U}, constraints_type) where {T,U,G<:StaticIRGenerativeFunction{T,U}}
     schema = get_address_schema(constraints_type)
 
     # convert the constraints to a static assignment if it is not already one
     if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
-        return quote update(gen_fn, args, argdiff, trace, StaticAssignment(constraints)) end
+        return quote force_update(gen_fn, args, argdiff, trace, StaticAssignment(constraints)) end
     end
 
     ir = get_ir(gen_fn_type)
@@ -394,7 +394,7 @@ function codegen_extend(gen_fn_type::Type{G}, args_type, argdiff_type,
 
     # convert the constraints to a static assignment if it is not already one
     if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
-        return quote update(gen_fn, args, argdiff, trace, StaticAssignment(constraints)) end
+        return quote extend(gen_fn, args, argdiff, trace, StaticAssignment(constraints)) end
     end
 
     ir = get_ir(gen_fn_type)
@@ -432,10 +432,10 @@ function codegen_extend(gen_fn_type::Type{G}, args_type, argdiff_type,
 end
 
 push!(Gen.generated_functions, quote
-@generated function Gen.update(gen_fn::Gen.StaticIRGenerativeFunction{T,U}, args::Tuple,
-                               argdiff::Union{NoArgDiff,UnknownArgDiff,MaskedArgDiff},
-                               trace::U, constraints::Assignment) where {T,U}
-    Gen.codegen_update(gen_fn, args, argdiff, trace, constraints)
+@generated function Gen.force_update(gen_fn::Gen.StaticIRGenerativeFunction{T,U}, args::Tuple,
+                                     argdiff::Union{NoArgDiff,UnknownArgDiff,MaskedArgDiff},
+                                     trace::U, constraints::Assignment) where {T,U}
+    Gen.codegen_force_update(gen_fn, args, argdiff, trace, constraints)
 end
 end)
 

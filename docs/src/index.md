@@ -255,7 +255,7 @@ PrevChoiceDiff
 Diff code also has access to the retdiff values associated with calls it makes to generative functions, using `@calldiff(<addr>)`, which returns a value of one of the following types:
 ```@docs
 NewCallDiff
-NoCalldiff
+NoCallDiff
 UnknownCallDiff
 CustomCallDiff
 ```
