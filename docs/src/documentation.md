@@ -1,10 +1,64 @@
 # Gen Documentation
 
-## Assignment
+TODO:  document HomogenousValueTrie. use similar method names as Assignment, or intentionally different?
+TODO: change get_assignment to get_assmt or just assmt.
+TODO: consider changing get_* to just * for the assignment and trace interfaces.
+TODO: Rename GFTrace to DynamicDSLTrace
+TODO: Rename GFCallRecord, and all other GF- methods and types (they are all specific to Dynamic DSL functions)
+
+## Assignments
+
+An *assignment* is a map from addresses of random choices to their values.
+Assignments are represented using the abstract type `Assignment`.
+The *assignment interface* is a set of read-only accessor methods that are implemented by all concrete subtypes of `Assignment`:
+
+- get_address_schema (actually a method of the type, not the instance)
+
+- get_subassmt (if there is a value at this key, throws a KeyError; if there is no value and no sub-assignment, return an EmptyAssignment).
+
+- get_value (if there is now value, throw a KeyError)
+
+- has_value
+
+- get_subassmts_shallow: return all non-empty subassignments
+
+- get_values_shallow
+
+- Base.isempty (does the assignment contain any random choices or not)
+
+- Base.getindex (alias for get_value)
+
+- `(n, assmt) = _from_array(prototype::Assignment, arr::Vector, start_idx::Int)`
+
+- `n = _fill_array!(prototype::Assignment, arr::Vector, start_idx::Int)`
+
+Generic convenience methods for assignments (need not be implemented by concrete assignment types):
+
+- pair
+
+- unpair
+
+- merge?
+
+- arr = to_array(assmt::Assignment, ::Type)
+
+- assmt = from_array(prototype::Assignment, arr)
+
+The remainder if this section describes some concrete types that subtype `Assignment`.
+
+### Dynamic Assignment
+
+A `DynamicAssignment` is mutable, and can contain arbitrary values for its keys.
+
+- DynamicAssignment()
+
+- set_value! (with syntactic sugar Base.setindex!), will cause any previous value or sub-assignment at this addr to be deleted. it is an error if there is already a value present at some prefix of addr.
+
+- set_subassmt!, will cause any previous value or sub-assignment at this addr to be deleted. it is an error if there is already a value present at some prefix of addr.
 
 ### Static Assignment
 
-A `StaticAssignment` contains only symbols as its keys for leaf nodes and for internal nodes.
+A `StaticAssignment` is a immutable and contains only symbols as its keys for leaf nodes and for internal nodes.
 A `StaticAssignment` has type parameters`R` and `T` that are tuples of `Symbol`s that are the keys of the leaf nodes and internal nodes respectively, so that code can be generated that is specialized to the particular set of keys in the trie:
 
 ```julia
@@ -19,6 +73,53 @@ A `StaticAssignment` with leaf symbols `:a` and `:b` and internal key `:c` can b
 trie = StaticAssignment((a=1, b=2), (c=inner_trie,))
 ```
 
+TODO: use generated functions in a lot more places, e.g. get_subassmt
+
+TODO: document static_ variants of getters:
+
+- static_get_subassmt -- throws a key error if the key isn't in the static address schema (get_subassmt would return an EmptyAssignment)
+
+- static_has_value
+
+- static_has_value
+
+### Other Concrete Assignment Types
+
+- EmptyAssignment
+
+- InternalVectorAssignment (TODO rename to DeepVectorAssignment)
+
+- ShallowVectorAssignment (TODO not yet implemented)
+
+- Assignments produced from `GFTrace`s
+
+- Assignments produced 
+
+## Address Selections
+
+- AddressSet
+
+TODO: document AddressSet API
+TODO: consider changing names of method in AddressSet API
+
+- AddressSchema
+
+- DynamicAddressSet
+
+- StaticAddressSet
+
+
+## Traces
+
+A *trace* is a record of an execution of a generative function.
+There is no abstract type representing all traces.
+Concrete trace types must implement the *trace interface*, which consists of the following methods:
+
+- get_args
+
+- get_retval
+
+- get_assignment
 
 ## Generative Function Interface
 
@@ -50,6 +151,8 @@ extend
 backprop_params
 backprop_trace
 ```
+
+TODO: document has_argument_grads
 
 ## Distributions
 
@@ -122,3 +225,11 @@ uniform
 uniform_discrete
 poisson
 ```
+
+# Modeling DSLs
+
+## Dynamic DSL
+
+TODO: remove the `@ad` return value differentiation flag
+
+## 
