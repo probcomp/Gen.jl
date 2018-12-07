@@ -1,22 +1,28 @@
 # Gen Documentation
 
+TODO:  document HomogenousValueTrie. use similar method names as Assignment, or intentionally different?
+TODO: change get_assignment to get_assmt or just assmt.
+TODO: consider changing get_* to just * for the assignment and trace interfaces.
+TODO: Rename GFTrace to DynamicDSLTrace
+TODO: Rename GFCallRecord, and all other GF- methods and types (they are all specific to Dynamic DSL functions)
+
 ## Assignments
 
 An *assignment* is a map from addresses of random choices to their values.
 Assignments are represented using the abstract type `Assignment`.
 The *assignment interface* is a set of read-only accessor methods that are implemented by all concrete subtypes of `Assignment`:
 
-- get_address_schema
+- get_address_schema (actually a method of the type, not the instance)
 
-- get_subassmt (if there is a value at this key, returns an emptyassignment)
+- get_subassmt (if there is a value at this key, throws a KeyError; if there is no value and no sub-assignment, return an EmptyAssignment).
 
-- get_value
+- get_value (if there is now value, throw a KeyError)
 
 - has_value
 
 - get_subassmts_shallow: return all non-empty subassignments
 
-- get_values_shallows
+- get_values_shallow
 
 - Base.isempty (does the assignment contain any random choices or not)
 
@@ -67,6 +73,16 @@ A `StaticAssignment` with leaf symbols `:a` and `:b` and internal key `:c` can b
 trie = StaticAssignment((a=1, b=2), (c=inner_trie,))
 ```
 
+TODO: use generated functions in a lot more places, e.g. get_subassmt
+
+TODO: document static_ variants of getters:
+
+- static_get_subassmt -- throws a key error if the key isn't in the static address schema (get_subassmt would return an EmptyAssignment)
+
+- static_has_value
+
+- static_has_value
+
 ### Other Concrete Assignment Types
 
 - EmptyAssignment
@@ -74,6 +90,24 @@ trie = StaticAssignment((a=1, b=2), (c=inner_trie,))
 - InternalVectorAssignment (TODO rename to DeepVectorAssignment)
 
 - ShallowVectorAssignment (TODO not yet implemented)
+
+- Assignments produced from `GFTrace`s
+
+- Assignments produced 
+
+## Address Selections
+
+- AddressSet
+
+TODO: document AddressSet API
+TODO: consider changing names of method in AddressSet API
+
+- AddressSchema
+
+- DynamicAddressSet
+
+- StaticAddressSet
+
 
 ## Traces
 
@@ -85,9 +119,7 @@ Concrete trace types must implement the *trace interface*, which consists of the
 
 - get_retval
 
-- get_assmt
-
-
+- get_assignment
 
 ## Generative Function Interface
 
@@ -119,6 +151,8 @@ extend
 backprop_params
 backprop_trace
 ```
+
+TODO: document has_argument_grads
 
 ## Distributions
 
@@ -191,3 +225,11 @@ uniform
 uniform_discrete
 poisson
 ```
+
+# Modeling DSLs
+
+## Dynamic DSL
+
+TODO: remove the `@ad` return value differentiation flag
+
+## 
