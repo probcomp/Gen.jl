@@ -8,7 +8,7 @@ The *assignment interface* is a set of read-only accessor methods that are imple
 
 - get_address_schema
 
-- get_subassmt
+- get_subassmt (if there is a value at this key, returns an emptyassignment)
 
 - get_value
 
@@ -44,7 +44,11 @@ The remainder if this section describes some concrete types that subtype `Assign
 
 A `DynamicAssignment` is mutable, and can contain arbitrary values for its keys.
 
-TODO document the methods.
+- DynamicAssignment()
+
+- set_value! (with syntactic sugar Base.setindex!), will cause any previous value or sub-assignment at this addr to be deleted. it is an error if there is already a value present at some prefix of addr.
+
+- set_subassmt!, will cause any previous value or sub-assignment at this addr to be deleted. it is an error if there is already a value present at some prefix of addr.
 
 ### Static Assignment
 
@@ -62,6 +66,14 @@ A `StaticAssignment` with leaf symbols `:a` and `:b` and internal key `:c` can b
 ```julia
 trie = StaticAssignment((a=1, b=2), (c=inner_trie,))
 ```
+
+### Other Concrete Assignment Types
+
+- EmptyAssignment
+
+- InternalVectorAssignment (TODO rename to DeepVectorAssignment)
+
+- ShallowVectorAssignment (TODO not yet implemented)
 
 ## Traces
 
