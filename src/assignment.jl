@@ -3,37 +3,72 @@
 #########################
 
 """
-    get_address_schema(T)
+    schema = get_address_schema(::Type{T}) where {T <: Assignment}
 
-Return a shallow, compile-time address schema.
-    
+Return the (top-level) address schema for the given assignment.
+"""
+function get_address_schema end
+
+"""
+    subassmt = get_subassmt(assmt::Assignment, addr)
+
+Return the sub-assignment containing all choices whose address is prefixed by addr.
+
+It is an error if the assignment contains a value at the given address. If
+there are no choices whose address is prefixed by addr then return an
+EmptyAssignment.
+"""
+function get_subassmt end
+
+"""
+    value = get_value(assmt::Assignment, addr)
+
+Return the value at the given address in the assignment, or throw a KeyError if
+no value exists.
+"""
+function get_value end
+
+"""
+    key_subassmt_iterable = get_subassmts_shallow(assmt::Assignment)
+
+Return an iterable collection of tuples (key, subassmt) for each top-level key
+that has a non-empty sub-assignment.
+"""
+function get_subassmts_shallow end
+
+"""
+    has_value(assmt::Assignment, addr)
+
+Return true if there is a value at the given address.
+"""
+function has_value end
+
+"""
+    key_subassmt_iterable = get_values_shallow(assmt::Assignment)
+
+Return an iterable collection of tuples (key, subassmt) for each top-level key
+associated with a value.
+"""
+function get_values_shallow end
+
+"""
+In addition to the methods above, `Assignment`s implement the following:
+
+
     Base.isempty(assignment)
 
 Are there any primitive random choice anywhere in the hierarchy?
 
-    has_internal_node(assignment, addr)
-
-    get_internal_node(assignment, addr)
-
-    get_internal_nodes(assignment)
-
-Return an iterator over top-level internal nodes
-
-    has_leaf_node(assignment, addr)
-
-    get_leaf_node(assignment, addr)
-    
-    get_leaf_nodes(assignment)
-
-Return an iterator over top-level leaf nodes
 
     Base.haskey(assignment, addr)
 
-Alias for has_leaf_node
+Alias for has_value
+
 
     Base.getindex(assignment, addr)
 
-Alias for get_leaf_node
+Alias for get_value
+
 
     merge(assignment1, assignment2)
 
@@ -41,43 +76,27 @@ Merge two assignments.
 """
 abstract type Assignment end
 
-has_internal_node(assignment::Assignment, addr) = false
-get_internal_node(assignment::Assignment, addr) = throw(KeyError(addr))
-has_leaf_node(assignment::Assignment, addr) = false
-get_leaf_node(assignment::Assignment, addr) = throw(KeyError(addr))
-Base.haskey(assignment::Assignment, addr) = has_leaf_node(assignment, addr)
-Base.getindex(assignment::Assignment, addr) = get_leaf_node(assignment, addr)
+get_subassmt(assignment::Assignment, addr) = throw(KeyError(addr))
+has_value(assignment::Assignment, addr) = false
+get_value(assignment::Assignment, addr) = throw(KeyError(addr))
+Base.getindex(assignment::Assignment, addr) = get_value(assignment, addr)
 
-function _has_leaf_node(assignment::T, addr::Pair) where {T <: Assignment}
+function _has_value(assmt::T, addr::Pair) where {T <: Assignment}
     (first, rest) = addr
-    if has_internal_node(assignment, first)
-        node = get_internal_node(assignment, first)
-        has_leaf_node(node, rest)
-    else
-        false
-    end
+    subassmt = get_subassmt(assmt, first)
+    has_value(subassmt, rest)
 end
 
-function _get_leaf_node(assignment::T, addr::Pair) where {T <: Assignment}
+function _get_value(assmt::T, addr::Pair) where {T <: Assignment}
     (first, rest) = addr
-    node = get_internal_node(assignment, first)
-    get_leaf_node(node, rest)
+    subassmt = get_subassmt(assignment, first)
+    get_value(subassmt, rest)
 end
 
-function _has_internal_node(assignment::T, addr::Pair) where {T <: Assignment}
+function _get_subassmt(assmt::T, addr::Pair) where {T <: Assignment}
     (first, rest) = addr
-    if has_internal_node(assignment, first)
-        node = get_internal_node(assignment, first)
-        has_internal_node(node, rest)
-    else
-        false
-    end
-end
-
-function _get_internal_node(assignment::T, addr::Pair) where {T <: Assignment}
-    (first, rest) = addr
-    node = get_internal_node(assignment, first)
-    get_internal_node(node, rest)
+    subassmt = get_subassmt(assmt, first)
+    get_subassmt(subassmt, rest)
 end
 
 function _print(io::IO, assignment::Assignment, pre, vert_bars::Tuple)
@@ -98,8 +117,8 @@ function _print(io::IO, assignment::Assignment, pre, vert_bars::Tuple)
     indent_vert_last_str = join(indent_vert_last)
     indent_str = join(indent)
     indent_last_str = join(indent_last)
-    leaf_nodes = collect(get_leaf_nodes(assignment))
-    internal_nodes = collect(get_internal_nodes(assignment))
+    leaf_nodes = collect(get_values_shallow(assignment))
+    internal_nodes = collect(get_subassmts_shallow(assignment))
     n = length(leaf_nodes) + length(internal_nodes)
     cur = 1
     for (key, value) in leaf_nodes
@@ -121,57 +140,56 @@ end
 
 export Assignment
 export get_address_schema
-export has_internal_node
-export get_internal_node
-export get_internal_nodes
-export has_leaf_node
-export get_leaf_node
-export get_leaf_nodes 
+export get_subassmt
+export get_value
+export has_value
+export get_subassmts_shallow
+export get_values_shallow
 
 # assignments that have static address schemas should also support faster
 # accessors, which make the address explicit in the type (Val(:foo) instaed of
 # :foo)
-function static_get_leaf_node end
-function static_get_internal_node end
-export static_get_leaf_node
-export static_get_internal_node
+function static_get_value end
+function static_get_subassmt end
+export static_get_value
+export static_get_subassmt
 
 function _fill_array! end
 function _from_array end
 
-function to_array(assignment::Assignment, ::Type{T}) where {T}
+function to_array(assmt::Assignment, ::Type{T}) where {T}
     arr = Vector{T}(undef, 32)
-    n = _fill_array!(assignment, arr, 0)
+    n = _fill_array!(assmt, arr, 0)
     @assert n <= length(arr)
     resize!(arr, n)
     arr
 end
 
-function from_array(proto_assignment::Assignment, arr)
-    (n, assignment) = _from_array(proto_assignment, arr, 0)
+function from_array(proto_assmt::Assignment, arr)
+    (n, assmt) = _from_array(proto_assmt, arr, 0)
     if n != length(arr)
         error("Dimension mismatch: $n, $(length(arr))")
     end
-    assignment
+    assmt
 end
 
 export to_array, from_array
 
 function Base.merge(assignment1::Assignment, assignment2::Assignment)
     assignment = DynamicAssignment()
-    for (key, value) in get_leaf_nodes(assignment1)
+    for (key, value) in get_values_shallow(assignment1)
         assignment.leaf_nodes[key] = value
     end
-    for (key, node1) in get_internal_nodes(assignment1)
+    for (key, node1) in get_subassmts_shallow(assignment1)
         if has_internal_node(assignment2, key)
-            node2 = get_internal_node(assignment2, key)
+            node2 = get_subassmt(assignment2, key)
             node = merge(node1, node2)
         else
             node = node1
         end
         assignment.internal_nodes[key] = node
     end
-    for (key, value) in get_leaf_nodes(assignment2)
+    for (key, value) in get_values_shallow(assignment2)
         if haskey(assignment.leaf_nodes, key)
             error("assignment1 has leaf node at $key and assignment2 has leaf node at $key")
         end
@@ -180,7 +198,7 @@ function Base.merge(assignment1::Assignment, assignment2::Assignment)
         end
         assignment.leaf_nodes[key] = value
     end
-    for (key, node) in get_internal_nodes(assignment2)
+    for (key, node) in get_subassmts_shallow(assignment2)
         if haskey(assignment.leaf_nodes, key)
             error("assignment1 has leaf node at $key and assignment2 has internal node at $key")
         end
@@ -192,6 +210,11 @@ function Base.merge(assignment1::Assignment, assignment2::Assignment)
     return assignment
 end
 
+function Base.values(assmt::Assignment)
+    iterators::Vector = collect(map(values, get_subassmts_shallow(assmt)))
+    push!(iterators, values(get_values_shallow(assmt)))
+    Iterators.flatten(iterators)
+end
 
 
 ######################
@@ -221,52 +244,45 @@ function Base.isempty(assignment::StaticAssignment)
     length(assignment.leaf_nodes) == 0 && length(assignment.internal_nodes) == 0
 end
 
-get_leaf_nodes(assignment::StaticAssignment) = pairs(assignment.leaf_nodes)
-get_internal_nodes(assignment::StaticAssignment) = pairs(assignment.internal_nodes)
-has_leaf_node(assignment::StaticAssignment, addr::Pair) = _has_leaf_node(assignment, addr)
-get_leaf_node(assignment::StaticAssignment, addr::Pair) = _get_leaf_node(assignment, addr)
-has_internal_node(assignment::StaticAssignment, addr::Pair) = _has_internal_node(assignment, addr)
-get_internal_node(assignment::StaticAssignment, addr::Pair) = _get_internal_node(assignment, addr)
+get_values_shallow(assignment::StaticAssignment) = pairs(assignment.leaf_nodes)
+get_subassmts_shallow(assignment::StaticAssignment) = pairs(assignment.internal_nodes)
+has_value(assignment::StaticAssignment, addr::Pair) = _has_value(assignment, addr)
+get_value(assignment::StaticAssignment, addr::Pair) = _get_value(assignment, addr)
+get_subassmt(assignment::StaticAssignment, addr::Pair) = _get_subassmt(assignment, addr)
 
-# NOTE: there is no static_has_internal_node or static_has_leaf_node because
-# this is known from the static address schema
+# NOTE: there is no static_has_value because this is known from the static
+# address schema
 
-## has_internal_node ##
+## has_value ##
 
-function has_internal_node(assignment::StaticAssignment, key::Symbol)
-    haskey(assignment.internal_nodes, key)
+function has_value(assmt::StaticAssignment, key::Symbol)
+    haskey(assmt.leaf_nodes, key)
 end
 
-## has_leaf_node ##
+## get_subassmt ##
 
-function has_leaf_node(assignment::StaticAssignment, key::Symbol)
-    haskey(assignment.leaf_nodes, key)
+function get_subassmt(assmt::StaticAssignment, key::Symbol)
+    assmt.internal_nodes[key]
 end
 
-## get_internal_node ##
-
-function get_internal_node(assignment::StaticAssignment, key::Symbol)
-    assignment.internal_nodes[key]
+function static_get_subassmt(assmt::StaticAssignment, ::Val{A}) where {A}
+    assmt.internal_nodes[A]
 end
 
-function static_get_internal_node(assignment::StaticAssignment, ::Val{A}) where {A}
-    assignment.internal_nodes[A]
+## get_value ##
+
+function get_value(assmt::StaticAssignment, key::Symbol)
+    assmt.leaf_nodes[key]
 end
 
-## get_leaf_node ##
-
-function get_leaf_node(assignment::StaticAssignment, key::Symbol)
-    assignment.leaf_nodes[key]
-end
-
-function static_get_leaf_node(assignment::StaticAssignment, ::Val{A}) where {A}
-    assignment.leaf_nodes[A]
+function static_get_value(assmt::StaticAssignment, ::Val{A}) where {A}
+    assmt.leaf_nodes[A]
 end
 
 # convert from any other schema that has only Val{:foo} addresses
 function StaticAssignment(other::Assignment)
-    leaf_keys_and_nodes = collect(get_leaf_nodes(other))
-    internal_keys_and_nodes = collect(get_internal_nodes(other))
+    leaf_keys_and_nodes = collect(get_values_shallow(other))
+    internal_keys_and_nodes = collect(get_subassmts_shallow(other))
     if length(leaf_keys_and_nodes) > 0
         (leaf_keys, leaf_nodes) = collect(zip(leaf_keys_and_nodes...))
     else
@@ -286,12 +302,12 @@ function pair(a, b, key1::Symbol, key2::Symbol)
     StaticAssignment(NamedTuple(), NamedTuple{(key1,key2)}((a, b)))
 end
 
-function unpair(assignment, key1::Symbol, key2::Symbol)
-    if length(get_leaf_nodes(assignment)) != 0 || length(get_internal_nodes(assignment)) > 2
+function unpair(assmt, key1::Symbol, key2::Symbol)
+    if length(get_values_shallow(assmt)) != 0 || length(get_subassmts_shallow(assmt)) > 2
         error("Not a pair")
     end
-    a = has_internal_node(assignment, key1) ? get_internal_node(assignment, key1) : EmptyAssignment()
-    b = has_internal_node(assignment, key2) ? get_internal_node(assignment, key2) : EmptyAssignment()
+    a = get_subassmt(assmt, key1)
+    b = get_subassmt(assmt, key2)
     (a, b)
 end
 
@@ -434,48 +450,40 @@ struct DynamicAssignment <: Assignment
     internal_nodes::Dict{Any,Any}
 end
 
+# invariant: all internal nodes are nonempty
+
 DynamicAssignment() = DynamicAssignment(Dict(), Dict())
+
 get_address_schema(::Type{DynamicAssignment}) = DynamicAddressSchema()
 
-# invariant: all internal nodes are nonempty
-Base.isempty(assignment::DynamicAssignment) = isempty(assignment.leaf_nodes) && isempty(assignment.internal_nodes)
-get_leaf_nodes(assignment::DynamicAssignment) = assignment.leaf_nodes
-get_internal_nodes(assignment::DynamicAssignment) = assignment.internal_nodes
-has_leaf_node(assignment::DynamicAssignment, addr::Pair) = _has_leaf_node(assignment, addr)
-get_leaf_node(assignment::DynamicAssignment, addr::Pair) = _get_leaf_node(assignment, addr)
-has_internal_node(assignment::DynamicAssignment, addr::Pair) = _has_internal_node(assignment, addr)
-get_internal_node(assignment::DynamicAssignment, addr::Pair) = _get_internal_node(assignment, addr)
+get_values_shallow(assmt::DynamicAssignment) = assmt.leaf_nodes
 
-function Base.values(assignment::DynamicAssignment)
-    iterators::Vector = collect(map(values, assignment.internal_nodes))
-    push!(iterators, values(assignment.leaf_nodes))
-    Iterators.flatten(iterators)
-end
+get_subassmts_shallow(assmt::DynamicAssignment) = assmt.internal_nodes
 
-function has_internal_node(assignment::DynamicAssignment, addr)
-    haskey(assignment.internal_nodes, addr)
-end
+has_value(assmt::DynamicAssignment, addr::Pair) = _has_value(assmt, addr)
 
-function get_internal_node(assignment::DynamicAssignment, addr)
-    assignment.internal_nodes[addr]
-end
+get_value(assmt::DynamicAssignment, addr::Pair) = _get_value(assmt, addr)
 
-function has_leaf_node(assignment::DynamicAssignment, addr)
-    haskey(assignment.leaf_nodes, addr)
-end
+get_subassmt(assmt::DynamicAssignment, addr::Pair) = _get_subassmt(assmt, addr)
 
-function get_leaf_node(assignment::DynamicAssignment, addr)
-    assignment.leaf_nodes[addr]
+get_subassmt(assmt::DynamicAssignment, addr) = assmt.internal_nodes[addr]
+
+has_value(assmt::DynamicAssignment, addr) = haskey(assmt.leaf_nodes, addr)
+
+get_value(assmt::DynamicAssignment, addr) = assmt.leaf_nodes[addr]
+
+function Base.isempty(assmt::DynamicAssignment)
+    isempty(assmt.leaf_nodes) && isempty(assmt.internal_nodes)
 end
 
 # mutation (not part of the assignment interface)
 
-function set_leaf_node!(assignment::DynamicAssignment, addr, value)
+function set_value!(assignment::DynamicAssignment, addr, value)
     delete!(assignment.internal_nodes, addr)
     assignment.leaf_nodes[addr] = value
 end
 
-function set_leaf_node!(assignment::DynamicAssignment, addr::Pair, value)
+function set_value!(assignment::DynamicAssignment, addr::Pair, value)
     (first, rest) = addr
     if haskey(assignment.leaf_nodes, first)
         # we are not writing to the address directly, so we error instead of
@@ -489,10 +497,10 @@ function set_leaf_node!(assignment::DynamicAssignment, addr::Pair, value)
         assignment.internal_nodes[first] = node
     end
     node = assignment.internal_nodes[first]
-    set_leaf_node!(node, rest, value)
+    set_value!(node, rest, value)
 end
 
-function set_internal_node!(assignment::DynamicAssignment, addr, new_node)
+function set_subassmt!(assignment::DynamicAssignment, addr, new_node)
     delete!(assignment.leaf_nodes, addr)
     delete!(assignment.internal_nodes, addr)
     if !isempty(new_node)
@@ -500,7 +508,7 @@ function set_internal_node!(assignment::DynamicAssignment, addr, new_node)
     end
 end
 
-function set_internal_node!(assignment::DynamicAssignment, addr::Pair, new_node)
+function set_subassmt!(assignment::DynamicAssignment, addr::Pair, new_node)
     (first, rest) = addr
     if haskey(assignment.leaf_nodes, first)
         # we are not writing to the address directly, so we error instead of
@@ -513,17 +521,17 @@ function set_internal_node!(assignment::DynamicAssignment, addr::Pair, new_node)
         node = DynamicAssignment()
         assignment.internal_nodes[first] = node
     end
-    set_internal_node!(node, rest, new_node)
+    set_subassmt!(node, rest, new_node)
 end
 
-Base.setindex!(assignment::DynamicAssignment, value, addr) = set_leaf_node!(assignment, addr, value)
+Base.setindex!(assignment::DynamicAssignment, value, addr) = set_value!(assignment, addr, value)
 
-# b should implement the choice-assignment interface
+# b should implement the assignment interface
 function Base.merge!(a::DynamicAssignment, b)
-    for (key, value) in get_leaf_nodes(b)
+    for (key, value) in get_values_shallow(b)
         a.leaf_nodes[key] = value
     end
-    for (key, b_node) in get_internal_nodes(b)
+    for (key, b_node) in get_subassmts_shallow(b)
         @assert !isempty(b_node)
         if haskey(a.internal_nodes, key)
             # NOTE: error if a.internal_nodes[key] does not implement merge!
@@ -547,7 +555,7 @@ function _fill_array!(assignment::DynamicAssignment, arr::Vector{T}, start_idx::
     end
     idx = start_idx + length(assignment.leaf_nodes)
     for key in internal_node_keys_sorted
-        n_written = _fill_array!(get_internal_node(assignment, key), arr, idx)
+        n_written = _fill_array!(get_subassmt(assignment, key), arr, idx)
         idx += n_written
     end
     idx - start_idx
@@ -563,7 +571,7 @@ function _from_array(proto_assignment::DynamicAssignment, arr::Vector{T}, start_
     end
     idx = start_idx + length(assignment.leaf_nodes)
     for key in internal_node_keys_sorted
-        (n_read, node) = _from_array(get_internal_node(proto_assignment, key), arr, idx)
+        (n_read, node) = _from_array(get_subassmt(proto_assignment, key), arr, idx)
         idx += n_read
         assignment.internal_nodes[key] = node
     end
@@ -584,57 +592,57 @@ struct InternalVectorAssignment{T} <: Assignment
     is_empty::Bool
 end
 
-# note some internal nodes may be empty
-
-get_address_schema(::Type{InternalVectorAssignment}) = VectorAddressSchema()
-
 function vectorize_internal(nodes::Vector{T}) where {T}
     is_empty = all(map(isempty, nodes))
     InternalVectorAssignment(nodes, is_empty)
 end
 
-Base.isempty(assignment::InternalVectorAssignment) = assignment.is_empty
+# note some internal nodes may be empty
 
-has_leaf_node(assignment::InternalVectorAssignment, addr::Pair) = _has_leaf_node(assignment, addr)
-get_leaf_node(assignment::InternalVectorAssignment, addr::Pair) = _get_leaf_node(assignment, addr)
-has_internal_node(assignment::InternalVectorAssignment, addr::Pair) = _has_internal_node(assignment, addr)
-get_internal_node(assignment::InternalVectorAssignment, addr::Pair) = _get_internal_node(assignment, addr)
+get_address_schema(::Type{InternalVectorAssignment}) = VectorAddressSchema()
 
-function has_internal_node(assignment::InternalVectorAssignment, addr::Int)
-    n = length(assignment.internal_nodes)
+Base.isempty(assmt::InternalVectorAssignment) = assmt.is_empty
+has_value(assmt::InternalVectorAssignment, addr::Pair) = _has_value(assmt, addr)
+get_value(assmt::InternalVectorAssignment, addr::Pair) = _get_value(assmt, addr)
+has_internal_node(assmt::InternalVectorAssignment, addr::Pair) = _has_internal_node(assmt, addr)
+get_subassmt(assmt::InternalVectorAssignment, addr::Pair) = _get_subassmt(assmt, addr)
+
+function has_internal_node(assmt::InternalVectorAssignment, addr::Int)
+    n = length(assmt.internal_nodes)
     addr >= 1 && addr <= n
 end
 
-function get_internal_node(assignment::InternalVectorAssignment, addr::Int)
-    assignment.internal_nodes[addr]
+function get_subassmt(assmt::InternalVectorAssignment, addr::Int)
+    assmt.internal_nodes[addr]
 end
 
-function get_internal_nodes(assignment::InternalVectorAssignment)
-    # TODO need to check they are not empty
-    ((i, assignment.internal_nodes[i]) for i=1:length(assignment.internal_nodes))
+function get_subassmts_shallow(assmt::InternalVectorAssignment)
+    ((i, subassmt)
+     for subassmt in assmt.internal_nodes
+     if !isempty(subassmt))
 end
 
-get_leaf_nodes(assignment::InternalVectorAssignment) = ()
+get_values_shallow(::InternalVectorAssignment) = ()
 
-function _fill_array!(assignment::InternalVectorAssignment, arr::Vector{T}, start_idx::Int) where {T}
+function _fill_array!(assmt::InternalVectorAssignment, arr::Vector{T}, start_idx::Int) where {T}
     idx = start_idx
-    for key=1:length(assignment.internal_nodes)
-        n = _fill_array!(assignment.internal_nodes[key], arr, idx)
+    for key=1:length(assmt.internal_nodes)
+        n = _fill_array!(assmt.internal_nodes[key], arr, idx)
         idx += n
     end
     idx - start_idx
 end
 
-function _from_array(proto_assignment::InternalVectorAssignment{U}, arr::Vector{T}, start_idx::Int) where {T,U}
+function _from_array(proto_assmt::InternalVectorAssignment{U}, arr::Vector{T}, start_idx::Int) where {T,U}
     @assert length(arr) >= start_idx
-    nodes = Vector{U}(undef, length(proto_assignment.internal_nodes))
+    nodes = Vector{U}(undef, length(proto_assmt.internal_nodes))
     idx = start_idx
-    for key=1:length(proto_assignment.internal_nodes)
-        (n_read, nodes[key]) = _from_array(proto_assignment.internal_nodes[key], arr, idx)
+    for key=1:length(proto_assmt.internal_nodes)
+        (n_read, nodes[key]) = _from_array(proto_assmt.internal_nodes[key], arr, idx)
         idx += n_read
     end
-    assignment = InternalVectorAssignment(nodes, proto_assignment.is_empty)
-    (idx - start_idx, assignment)
+    assmt = InternalVectorAssignment(nodes, proto_assmt.is_empty)
+    (idx - start_idx, assmt)
 end
 
 export InternalVectorAssignment
@@ -649,10 +657,10 @@ struct EmptyAssignment <: Assignment end
 
 Base.isempty(::EmptyAssignment) = true
 get_address_schema(::Type{EmptyAssignment}) = EmptyAddressSchema()
-get_internal_nodes(::EmptyAssignment) = ()
-get_leaf_nodes(::EmptyAssignment) = ()
+get_subassmts_shallow(::EmptyAssignment) = ()
+get_values_shallow(::EmptyAssignment) = ()
 
-_fill_array!(assignment::EmptyAssignment, arr::Vector, start_idx::Int) = 0
-_from_array(proto_assignment::EmptyAssignment, arr::Vector, start_idx::Int) = (0, EmptyAssignment())
+_fill_array!(::EmptyAssignment, arr::Vector, start_idx::Int) = 0
+_from_array(::EmptyAssignment, arr::Vector, start_idx::Int) = (0, EmptyAssignment())
 
 export EmptyAssignment

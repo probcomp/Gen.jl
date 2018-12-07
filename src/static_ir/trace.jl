@@ -138,8 +138,9 @@ end
 function generate_get_assignment(trace_struct_name::Symbol)
     Expr(:function,
         Expr(:call, :(Gen.get_assignment), :(trace::$trace_struct_name)),
-        Expr(:block, 
-            :(Gen.StaticIRTraceAssignment(trace))))
+        Expr(:if, :(has_choices(trace)),
+            :(Gen.StaticIRTraceAssignment(trace)),
+            :(Gen.EmptyAssignment())))
 end
 
 function generate_get_leaf_nodes(ir::StaticIR, trace_struct_name::Symbol)

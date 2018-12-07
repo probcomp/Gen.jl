@@ -1,12 +1,18 @@
 using FunctionalCollections: PersistentHashMap, assoc
 
 
-#############################
-# generative function trace #
-#############################
+#####################
+# dynamic DSL trace #
+#####################
+
+struct GFCallRecord{T}
+    score::Float64
+    retval::T
+    args::Tuple
+end
 
 mutable struct GFTrace
-    call::Union{CallRecord,Nothing}
+    call::Union{GFCallRecord,Nothing}
     primitive_calls::PersistentHashMap{Any,CallRecord}
 
     # values can be a GFTrace, or Any (foreign trace)
@@ -23,7 +29,8 @@ function GFTrace()
     GFTrace(call, primitive_calls, subtraces, 0)
 end
 
-get_call_record(trace::GFTrace) = trace.call
+get_args(trace::GFTrace) = trace.call.args
+get_retval(trace::GFTrace) = trace.call.retval
 
 function has_choices(trace::GFTrace)
     length(trace.primitive_calls) > 0 || trace.num_has_choices > 0
@@ -129,71 +136,68 @@ end
 
 struct GFTraceAssignment <: Assignment
     trace::GFTrace
+    function GFTraceAssignment(trace::GFTrace)
+        @assert has_choices(trace)
+        new(trace) 
+    end
 end
 
-get_assignment(trace::GFTrace) = GFTraceAssignment(trace)
-get_address_schema(::Type{GFTraceAssignment}) = DynamicAddressSchema()
-Base.isempty(assignment::GFTraceAssignment) = !has_choices(assignment.trace)
-
-function has_internal_node(assignment::GFTraceAssignment, addr::Pair)
-    (first, rest) = addr
-    if haskey(assignment.trace.subtraces, first)
-        subtrace = assignment.trace.subtraces[first]
-        has_internal_node(get_assignment(subtrace), rest)
+function get_assignment(trace::GFTrace)
+    if has_choices(trace)
+        GFTraceAssignment(trace)
     else
-        false
+        EmptyAssignment()
     end
 end
 
-function has_internal_node(assignment::GFTraceAssignment, addr)
-    haskey(assignment.trace.subtraces, addr) && has_choices(assignment.trace.subtraces[addr])
-end
+get_address_schema(::Type{GFTraceAssignment}) = DynamicAddressSchema()
+Base.isempty(assignment::GFTraceAssignment) = false
 
-function get_internal_node(assignment::GFTraceAssignment, addr::Pair)
+function get_subassmt(assignment::GFTraceAssignment, addr::Pair)
     (first, rest) = addr
-    subtrace = assignment.trace.subtraces[first]
-    if !has_choices(subtrace)
-        throw(KeyError(addr))
+    if !haskey(assignment.trace.subtraces, first)
+        return EmptyAssignment()
     end
-    get_internal_node(get_assignment(subtrace), rest)
+    subtrace = assignment.trace.subtraces[first]
+    get_subassmt(get_assignment(subtrace), rest)
 end
 
-function get_internal_node(assignment::GFTraceAssignment, addr)
-    subtrace = assignment.trace.subtraces[addr]
-    if !has_choices(subtrace)
-        throw(KeyError(addr))
+function get_subassmt(assignment::GFTraceAssignment, addr)
+    if !haskey(assignment.trace.subtraces, first)
+        return EmptyAssignment()
     end
+    subtrace = assignment.trace.subtraces[addr]
     get_assignment(subtrace)
 end
 
-function has_leaf_node(assignment::GFTraceAssignment, addr::Pair)
+function has_value(assignment::GFTraceAssignment, addr::Pair)
     (first, rest) = addr
     if !haskey(assignment.trace.subtraces, first)
         return false
     end
-    sub_assignment = get_assignment(assignment.trace.subtraces[first])
-    has_leaf_node(sub_assignment, rest)
+    subtrace = assignment.trace.subtraces[first]
+    has_value(get_assignment(subtrace), rest)
 end
 
-function has_leaf_node(assignment::GFTraceAssignment, addr)
+function has_value(assignment::GFTraceAssignment, addr)
     haskey(assignment.trace.primitive_calls, addr)
 end
 
-function get_leaf_node(assignment::GFTraceAssignment, addr::Pair)
+function get_value(assignment::GFTraceAssignment, addr::Pair)
     (first, rest) = addr
-    sub_assignment = get_assignment(assignment.trace.subtraces[first])
-    get_leaf_node(sub_assignment, rest)
+    subtrace = assignment.trace.subtraces[first]
+    get_value(get_assignment(subtrace), rest)
 end
 
-function get_leaf_node(assignment::GFTraceAssignment, addr)
+function get_value(assignment::GFTraceAssignment, addr)
     assignment.trace.primitive_calls[addr].retval
 end
 
-function get_leaf_nodes(assignment::GFTraceAssignment)
+function get_values_shallow(assignment::GFTraceAssignment)
     ((key, call.retval) for (key, call) in assignment.trace.primitive_calls)
 end
 
-function get_internal_nodes(assignment::GFTraceAssignment)
+function get_internal_nodes_shallow(assignment::GFTraceAssignment)
     ((key, get_assignment(subtrace)) for (key, subtrace) in assignment.trace.subtraces
-     if has_choices(subtrace))
+     if !isempty(get_assignment(subtrace)))
 end

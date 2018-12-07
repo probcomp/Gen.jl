@@ -3,11 +3,11 @@
 ###################
 
 # TODO no need for a generic call record type used by all generative functions.
-struct CallRecord{T}
-    score::Float64
-    retval::T
-    args::Tuple
-end
+#struct CallRecord{T}
+    #score::Float64
+    #retval::T
+    #args::Tuple
+#end
 
 """
     get_args(trace)
