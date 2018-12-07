@@ -23,12 +23,20 @@ trie = StaticAssignment((a=1, b=2), (c=inner_trie,))
 ## Generative Function Interface
 
 Generative functions implement the *generative function interface*, which is a set of methods that involve the execution traces and probabilistic behavior of generative functions.
-Mathematically, a generative function is associated with a family of probability distributions P(u; x) on assignments (u), parameterized by arguments (x) to the function.
-A generative function is also associated with a second family of probability distributions Q(u; v, x) on assignments (u), parametrized by an assignment (v) and arguments (x) to the function.
+Mathematically, a generative function is associated with a family of probability distributions P(t; x) on assignments (t), parameterized by arguments (x) to the function.
+A generative function is also associated with a second family of probability distributions Q(t; u, x) on assignments (t), parametrized by an assignment (u) and arguments (x) to the function.
 Q is called the *internal proposal distribution* of the generative function.
-Q satisfies the requirement that an assignment u sampled from Q(.; v, x) with nonzero probability must agree with the assignment v on all addresses that appear in both.
-Below, we use 't' to denote to a *complete assignment* (an assignment containing all random choices in some execution trace) for some arguments, which we denote 'x'.
+Q satisfies the requirement that an assignment t sampled from Q(.; u, x) (denoted t ~ Q(.; u, x)) with nonzero probability must agree with the assignment u on all addresses that appear in both (we say that u and t 'agree').
+For all u and t that agree. we also require that P(t; x) > 0 if and only if Q(t; x, u) > 0.
+We use 't' to denote to a *complete assignment* (an assignment containing all random choices in some execution trace) for some arguments, which we denote 'x', and otherwise we denote an assignment by 'u'.
 See the [Gen technical report](http://hdl.handle.net/1721.1/119255) for additional details.
+
+Generative functions may also use *non-addressable random choices*, denoted 'r'. 
+Unlike regular (addressable) random choices, non-addressable random choices do not have addresses, and the value of non-addressable random choices is not exposed through the generative function interface.
+However, the state of non-addressable random choices is maintained in the execution trace data structure.
+Non-addressable random choices manifest to the user of the interface as stochasticity in the weights.
+The behavior of non-addressable random choices is defined by a pair of families of distribution Q(r; x, t) and P(r; x, t), which are defined for P(t; x) > 0, and which satisfy Q(r; x, t) > 0 of and only if P(r; x, t) > 0.
+For each generative function below, we describe its semantics first in the setting where there is no non-addressable random choices, and then in the more general setting that may include non-addressable random choices.
 
 ```@docs
 initialize
