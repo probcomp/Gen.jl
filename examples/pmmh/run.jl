@@ -44,8 +44,6 @@ end
 
 println("\n######################################################################\n")
 obs = get_assignment(simulate(obs_sub, (1.2,)))
-#println(strip_lineinfo(
-    #Gen.codegen_generate(typeof(kernel), Tuple{Int,State,Params}, typeof(obs), Nothing)))
 import InteractiveUtils
     InteractiveUtils.code_warntype(
         generate,
@@ -59,7 +57,7 @@ println("\n#####################################################################
 function initial_collapsed_trace(ys)
     T = length(ys)
     constraints = get_assignment(simulate(observer, (ys,)))
-    (trace, weight) = generate(model_collapsed, (T,), constraints)
+    (trace, weight) = initialize(model_collapsed, (T,), constraints)
     trace
 end
 

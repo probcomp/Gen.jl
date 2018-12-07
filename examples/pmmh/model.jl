@@ -98,7 +98,7 @@ function smc(var_x, var_y, T::Int, N, ess_threshold, ys::AbstractArray{Float64,1
     next_traces = Vector{Gen.get_trace_type(hmm2)}(undef, N)
     args = (1, State(NaN, NaN), Params(var_x, var_y))
     for i=1:N
-        (traces[i], log_unnormalized_weights[i]) = generate(hmm2, args, obs)
+        (traces[i], log_unnormalized_weights[i]) = initialize(hmm2, args, obs)
     end
     num_resamples = 0
     args_change = UnfoldCustomArgDiff(true, false, false)

@@ -84,7 +84,7 @@ end
 
 function resimulation_mh(selection, trace)
     model_args = get_call_record(trace).args
-    (new_trace, weight) = regenerate(model, model_args, NoChange(), trace, selection)
+    (new_trace, weight) = free_update(model, model_args, NoArgDiff(), trace, selection)
     if log(rand()) < weight
         # accept
         return (new_trace, true)
@@ -259,7 +259,7 @@ function plot_trace_plot()
     end
 
     # RJMCMC
-    (trace, _) = generate(model, (n,), observations)
+    (trace, _) = initialize(model, (n,), observations)
     model_choice_vec = Bool[]
     burn_in = 10000
     scores = Float64[]
@@ -279,7 +279,7 @@ function plot_trace_plot()
     plt.title("Custom Reversible Jump Trans-Dimensional Moves")
 
     # generic
-    (trace, _) = generate(model, (n,), observations)
+    (trace, _) = initialize(model, (n,), observations)
     model_choice_vec = Bool[]
     burn_in = 10000
     scores = Float64[]

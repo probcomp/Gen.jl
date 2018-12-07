@@ -1,55 +1,47 @@
-mutable struct GFProjectState
-    constraints::Any
+mutable struct GFUngenerateState
     trace::GFTrace
-    score::Float64
+    selection::AddressSet
+    weight::Float64
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
-    discard::DynamicAssignment
 end
 
-function GFProjectState(constraints, params)
-    visitor = AddressVisitor()
-    discard = DynamicAssignment()
-    GFProjectState(constraints, GFTrace(), 0., visitor, params, discard)
+function GFUngenerateState(trace::GFTrace, selection, params::Dict{Symbol,Any})
+    GFUngenerateState(trace, selection, 0., AddressVisitor(), params)
 end
 
-function addr(state::GFProjectState, dist::Distribution{T}, args, addr) where {T}
-    visit!(state.visitor, addr)
-    retval::T = get_leaf_node(state.constraints, addr)
-    score = logpdf(dist, retval, args...)
-    call = CallRecord{T}(score, retval, args)
-    state.trace = assoc_primitive_call(state.trace, addr, call)
-    state.score += score
-    retval 
-end
-
-function addr(state::GFProjectState, gen::GenerativeFunction{T,U}, args, addr, args_change) where {T,U}
-    visit!(state.visitor, addr)
-    if has_internal_node(state.constraints, addr)
-        constraints = get_internal_node(state.constraints, addr) 
-    elseif has_leaf_node(state.constraints, addr)
-        lightweight_got_leaf_node_err(addr)
-    else
-        constraints = EmptyAssignment()
+function addr(state::GFUngenerateState, dist::Distribution{T}, args, addr) where {T}
+    visit!(state, addr)
+    call::CallRecord = get_primitive_call(state.trace, addr)
+    @assert call.args == args
+    retval::T = call.retval
+    lightweight_check_no_internal_node(state.selection, addr)
+    if has_leaf_node(state.selection, addr)
+        state.weight += retval.score
     end
-    (trace::U, discard) = project(gen, args, constraints)
-    call::CallRecord = get_call_record(trace)
-    state.trace = assoc_subtrace(state.trace, addr, trace)
-    set_internal_node!(state.discard, addr, discard)
-    state.score += call.score
+    retval
+end
+
+function addr(state::GFUngenerateState, gen::GenerativeFunction{T}, args, addr) where {T}
+    visit!(state, addr)
+    subtrace = get_subtrace(state.trace, addr)
+    lightweight_check_no_leaf_node(state.selection, addr)
+    if has_internal_node(state.selection, addr)
+        selection = get_internal_node(state.selection, addr)
+    else
+        seletion = EmptyAddressSet()
+    end
+    state.weight += project(gen, subtrace, selection)
+    call::CallRecord = get_call_record(subtrace)
     call.retval::T
 end
 
-function splice(state::GFProjectState, gen::DynamicDSLFunction, args::Tuple)
+function splice(state::GFUngenerateState, gf::DynamicDSLFunction, args::Tuple)
     exec(gf, state, args)
 end
 
-function project(gf::DynamicDSLFunction, args, constraints)
-    state = GFProjectState(constraints, gf.params)
-    retval = exec(gf, state, args)
-    new_call = CallRecord(state.score, retval, args)
-    state.trace.call = new_call
-    unvisited_constraints = get_unvisited(state.visitor, state.constraints)
-    merge!(state.discard, unvisited_constraints)
-    (state.trace, state.discard)
+function ungenerate(gf::DynamicDSLFunction, trace::GFTrace, selection)
+    state = GFUngenerateState(trace, selection, gf.params)
+    exec(gf, state, args)
+    state.weight
 end

@@ -13,7 +13,6 @@ end
 
 export Map
 
-accepts_output_grad(map_gf::Map) = accepts_output_grad(map_gf.kernel)
 has_argument_grads(map_gf::Map) = has_argument_grads(map_gf.kernel)
 
 function get_args_for_key(args::Tuple, key::Int)
@@ -153,7 +152,7 @@ isnodiff(::MapCustomRetDiff) = false
 ###############################
 
 include("assess.jl")
-include("generate.jl")
+include("initialize.jl")
 include("update.jl")
-include("project.jl")
+#include("project.jl") # TODO this is outdated
 include("backprop_trace.jl")

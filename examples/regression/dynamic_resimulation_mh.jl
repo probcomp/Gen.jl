@@ -28,7 +28,7 @@ function do_inference(xs, ys, num_iters)
     push!(outlier_std_sel, :log_outlier_std)
     
     # initial trace
-    (trace, _) = generate(model, (xs,), observations)
+    (trace, _) = initialize(model, (xs,), observations)
     
     scores = Vector{Float64}(undef, num_iters)
     for i=1:num_iters

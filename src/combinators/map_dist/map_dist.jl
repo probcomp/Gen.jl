@@ -8,7 +8,6 @@ end
 
 export MapDist
 
-accepts_output_grad(map_gf::MapDist) = false # TODO
 has_argument_grads(map_gf::MapDist) = has_argument_grads(map_gf.kernel)
 
 function simulate(gen::MapDist{T}, args) where {T}
@@ -24,7 +23,7 @@ function simulate(gen::MapDist{T}, args) where {T}
     VectorDistTrace(persist_values, args, score, len)
 end
 
-function generate(gen::MapDist{T}, args, constraints) where {T}
+function initialize(gen::MapDist{T}, args, constraints) where {T}
     len = length(args[1])
     values = Vector{T}(undef, len)
     score = 0.
@@ -58,16 +57,12 @@ function assess(gen::MapDist{T}, args, constraints) where {T}
         kernel_args = get_args_for_key(args, key)
         value = get_leaf_node(constraints, key)
         values[key] = value
-        lpdf = logpdf(gen.kernel, value, kernel_args...)
-        score += lpdf
+        score += logpdf(gen.kernel, value, kernel_args...)
     end
-    # TODO also check that there are no extra constraints
-    persist_values = Gen.PersistentVector{T}(values)
-    trace = VectorDistTrace(persist_values, args, score, len)
-    trace
+    (score, values)
 end
 
-function update(gen::MapDist{T}, new_args, argdiff::Union{NoArgDiff,UnknownArgDiff},
+function force_update(gen::MapDist{T}, new_args, argdiff::Union{NoArgDiff,UnknownArgDiff},
                 trace::VectorDistTrace{T}, constraints) where {T}
     (new_length, prev_length) = get_prev_and_new_lengths(new_args, trace)
     @assert new_length == prev_length

@@ -252,7 +252,7 @@ end
 # generate #
 ############
 
-function generate(gen::Recurse{S,T,U,V,W,X,Y,DV,DU,DW}, args::Tuple{U,Int},
+function initialize(gen::Recurse{S,T,U,V,W,X,Y,DV,DU,DW}, args::Tuple{U,Int},
                   constraints) where {S,T,U,V,W,X,Y,DV,DU,DW}
     (root_production_input::U, root_idx::Int) = args
     production_traces = PersistentHashMap{Int,S}()
@@ -271,7 +271,7 @@ function generate(gen::Recurse{S,T,U,V,W,X,Y,DV,DU,DW}, args::Tuple{U,Int},
         delete!(prod_to_visit, cur)
         input = get_production_input(gen, cur, production_traces, root_idx, root_production_input)
         subconstraints = get_production_constraints(constraints, cur)
-        (subtrace, subweight) = generate(gen.production_kern, (input,), subconstraints)
+        (subtrace, subweight) = initialize(gen.production_kern, (input,), subconstraints)
         score += get_call_record(subtrace).score
         production_traces = assoc(production_traces, cur, subtrace)
         weight += subweight
@@ -292,7 +292,7 @@ function generate(gen::Recurse{S,T,U,V,W,X,Y,DV,DU,DW}, args::Tuple{U,Int},
         local input::Tuple{V,Vector{W}}
         input = get_aggregation_input(gen, cur, production_traces, aggregation_traces)
         subconstraints = get_aggregation_constraints(constraints, cur)
-        (subtrace, subweight) = generate(gen.aggregation_kern, input, subconstraints)
+        (subtrace, subweight) = initialize(gen.aggregation_kern, input, subconstraints)
         score += get_call_record(subtrace).score
         aggregation_traces = assoc(aggregation_traces, cur, subtrace)
         weight += subweight
@@ -304,19 +304,6 @@ function generate(gen::Recurse{S,T,U,V,W,X,Y,DV,DU,DW}, args::Tuple{U,Int},
     trace = RecurseTrace{S,T,U,V,W}(production_traces, aggregation_traces, gen.max_branch,
                       score, root_idx, num_has_choices)
     return (trace, weight)
-end
-
-
-##########
-# assess #
-##########
-
-function assess(gen::Recurse{S,T,U,V,W,X,Y,DV,DU,DW}, args::Tuple{U,Int},
-                constraints) where {S,T,U,V,W,X,Y,DV,DU,DW}
-    # TODO should instead recursively call assess on each one, to ensure that
-    # each address is visited
-    (trace, ) = generate(gen, args, constraints)
-    return trace
 end
 
 
@@ -443,7 +430,7 @@ function get_aggregation_argdiff(production_retdiffs::Dict{Int,RecurseProduction
     RecurseAggregationArgDiff{DV,DW}(dv, dws)
 end
 
-function update(gen::Recurse{S,T,U,V,W,X,Y,DV,DU,DW}, new_args::Tuple{U,Int},
+function force_update(gen::Recurse{S,T,U,V,W,X,Y,DV,DU,DW}, new_args::Tuple{U,Int},
                 root_argdiff::Union{NoArgDiff,DU}, trace::RecurseTrace{S,T,U,V,W},
                 constraints) where {S,T,U,V,W,X,Y,DV,DU,DW}
 
@@ -505,7 +492,7 @@ function update(gen::Recurse{S,T,U,V,W,X,Y,DV,DU,DW}, new_args::Tuple{U,Int},
 
             # call update on production kernel
             prev_subtrace = production_traces[cur]
-            (subtrace, subweight, subdiscard, subretdiff) = update(gen.production_kern,
+            (subtrace, subweight, subdiscard, subretdiff) = force_update(gen.production_kern,
                 input, subargdiff, prev_subtrace, subconstraints)
             prev_num_children = get_num_children(production_traces[cur])
             new_num_children = length(get_call_record(subtrace).retval[2])
@@ -559,7 +546,7 @@ function update(gen::Recurse{S,T,U,V,W,X,Y,DV,DU,DW}, new_args::Tuple{U,Int},
 
         else
             # the node does not exist already (and none of its children exist either)
-            subtrace = assess(gen.production_kern, input, subconstraints)
+            (subtrace, ) = initialize(gen.production_kern, input, subconstraints)
 
             # update trace, weight, and score
             production_traces = assoc(production_traces, cur, subtrace)
@@ -613,7 +600,7 @@ function update(gen::Recurse{S,T,U,V,W,X,Y,DV,DU,DW}, new_args::Tuple{U,Int},
 
             # call update on aggregation kernel
             prev_subtrace = aggregation_traces[cur]
-            (subtrace, subweight, subdiscard, subretdiff) = update(gen.aggregation_kern,
+            (subtrace, subweight, subdiscard, subretdiff) = force_update(gen.aggregation_kern,
                 input, subargdiff, prev_subtrace, subconstraints)
 
             # update trace, weight, and score, and discard
@@ -641,7 +628,7 @@ function update(gen::Recurse{S,T,U,V,W,X,Y,DV,DU,DW}, new_args::Tuple{U,Int},
 
         # if the node does not exist (but its children do, since we created them already)
         else
-            subtrace = assess(gen.aggregation_kern, input, subconstraints)
+            (subtrace, _) = initialize(gen.aggregation_kern, input, subconstraints)
 
             # update trace, weight, and score
             aggregation_traces = assoc(aggregation_traces, cur, subtrace)

@@ -141,16 +141,16 @@ end
     end
     input = input_extractor(assignments)
     constraints = constraint_extractor(assignments)
-    student_trace = assess(batch_student, input, constraints)
+    (student_trace, _) = initialize(batch_student, input, constraints)
     backprop_params(batch_student, student_trace, nothing)
     for name in [:theta1, :theta2, :theta3, :theta4, :theta5]
         actual = get_param_grad(batch_student, name)
         dx = 1e-6
         value = get_param(batch_student, name)
         set_param!(batch_student, name, value + dx)
-        lpdf_pos = get_call_record(assess(batch_student, input, constraints)).score
+        (lpdf_pos, _) = assess(batch_student, input, constraints)
         set_param!(batch_student, name, value - dx)
-        lpdf_neg = get_call_record(assess(batch_student, input, constraints)).score
+        (lpdf_neg, _) = assess(batch_student, input, constraints)
         set_param!(batch_student, name, value)
         expected = (lpdf_pos - lpdf_neg) / (2 * dx)
         @test isapprox(actual, expected, atol=1e-4)

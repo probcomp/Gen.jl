@@ -27,7 +27,7 @@
     # get a trace which follows the first branch
     constraints = DynamicAssignment()
     constraints[:branch] = true
-    (trace,) = generate(foo, (), constraints)
+    (trace,) = initialize(foo, (), constraints)
     x = get_assignment(trace)[:x]
     a = get_assignment(trace)[:u => :a]
 
@@ -38,7 +38,7 @@
     constraints[:branch] = false
     constraints[:y] = y
     constraints[:v => :b] = b
-    (new_trace, weight, discard, retdiff) = update(
+    (new_trace, weight, discard, retdiff) = force_update(
         foo, (), unknownargdiff, trace, constraints)
 
     # test discard
@@ -102,7 +102,7 @@ end
     # get a trace which follows the first branch
     constraints = DynamicAssignment()
     constraints[:branch] = true
-    (trace,) = generate(foo, (), constraints)
+    (trace,) = initialize(foo, (), constraints)
     x = get_assignment(trace)[:x]
     a = get_assignment(trace)[:u => :a]
     z = get_assignment(trace)[:z]
@@ -114,7 +114,7 @@ end
     constraints = DynamicAssignment()
     constraints[:branch] = false
     constraints[:z] = z_new
-    (new_trace, weight, discard, retdiff) = fix_update(
+    (new_trace, weight, discard, retdiff) = fix_force_update(
         foo, (), unknownargdiff, trace, constraints)
 
     # test discard
@@ -155,7 +155,7 @@ end
 # free_update #
 ###############
 
-@testset "regenerate" begin
+@testset "free_update" begin
 
     @gen function bar(mu)
         @addr(normal(mu, 1), :a)
@@ -179,7 +179,7 @@ end
     mu = 0.123
     constraints = DynamicAssignment()
     constraints[:branch] = true
-    (trace,) = generate(foo, (mu,), constraints)
+    (trace,) = initialize(foo, (mu,), constraints)
     x = get_assignment(trace)[:x]
     a = get_assignment(trace)[:u => :a]
 
@@ -194,7 +194,7 @@ end
         # change the argument so that the weights can be nonzer
         prev_mu = mu
         mu = rand()
-        (trace, weight, retdiff) = regenerate(foo, (mu,), unknownargdiff, trace, selection)
+        (trace, weight, retdiff) = free_update(foo, (mu,), unknownargdiff, trace, selection)
         assignment = get_assignment(trace)
 
         # test score
@@ -273,7 +273,7 @@ end
     constraints[:b] = b
     constraints[:out] = out
     constraints[:bar => :z] = z
-    trace = assess(foo, (mu_a,), constraints)
+    (trace, _) = initialize(foo, (mu_a,), constraints)
 
     # compute gradients
     selection = DynamicAddressSet()

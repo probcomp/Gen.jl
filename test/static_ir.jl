@@ -52,7 +52,7 @@ using Gen: generate_generative_function
     constraints[:y] = y_constraint
     constraints[:v => :b] = b_constraint
     #constraints = StaticAssignment(constraints)
-    (trace, weight) = generate(foo, (), constraints)
+    (trace, weight) = initialize(foo, (), constraints)
     x = get_assignment(trace)[:x]
     a = get_assignment(trace)[:u => :a]
     y = get_assignment(trace)[:y]
@@ -82,7 +82,7 @@ end
 
     # get a trace
     constraints = DynamicAssignment()
-    (trace,) = generate(foo, (), constraints)
+    (trace,) = initialize(foo, (), constraints)
     x_prev = get_assignment(trace)[:x]
     a_prev = get_assignment(trace)[:u => :a]
     y_prev = get_assignment(trace)[:y]
@@ -94,7 +94,7 @@ end
     constraints = DynamicAssignment()
     constraints[:y] = y_new
     constraints[:v => :b] = b_new
-    (new_trace, weight, discard, retdiff) = update(
+    (new_trace, weight, discard, retdiff) = force_update(
         foo, (), unknownargdiff, trace, constraints)
 
     # test discard
@@ -180,7 +180,7 @@ end
     constraints[:b] = b
     constraints[:out] = out
     constraints[:bar => :z] = z
-    trace = assess(foo, (mu_a,), constraints)
+    (trace, _) = initialize(foo, (mu_a,), constraints)
 
     # compute gradients
     selection = DynamicAddressSet()

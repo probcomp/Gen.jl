@@ -1,25 +1,22 @@
-function custom_mh(model::GenerativeFunction, proposal::GenerativeFunction, proposal_args_rest::Tuple,
-                   trace, correction=(prev_trace, new_trace) -> 0.; verbose=false)
+function custom_mh(model::GenerativeFunction{T,U},
+                   proposal::GenerativeFunction,
+                   proposal_args::Tuple, trace::U,
+                   correction=(prev_trace, new_trace) -> 0.) where {T,U}
     model_args = get_call_record(trace).args
-    proposal_args_forward = (trace, proposal_args_rest...,)
-    forward_trace = simulate(proposal, proposal_args_forward)
-    forward_score = get_call_record(forward_trace).score
-    constraints = get_assignment(forward_trace)
-    (new_trace, weight, discard) = update(
-        model, model_args, noargdiff, trace, constraints)
-    proposal_args_backward = (new_trace, proposal_args_rest...,)
-    backward_trace = assess(proposal, proposal_args_backward, discard)
-    backward_score = get_call_record(backward_trace).score
-    alpha = weight - forward_score + backward_score
+    proposal_args_forward = (trace, proposal_args...,)
+    (fwd_assmt, fwd_weight, _) = propose(proposal, proposal_args_forward)
+    (new_trace, weight, discard) = force_update(
+        model, model_args, noargdiff, trace, fwd_assmt)
+    proposal_args_backward = (new_trace, proposal_args...,)
+    (bwd_weight, _) = assess(proposal, proposal_args_backward, discard)
+    alpha = weight - fwd_weight + bwd_weight
     alpha += correction(trace, new_trace)
     if log(rand()) < alpha
-        verbose && println("accept")
         # accept
-        return new_trace
+        return (new_trace, true)
     else
         # reject
-        verbose && println("reject")
-        return trace
+        return (trace, false)
     end
 end
 

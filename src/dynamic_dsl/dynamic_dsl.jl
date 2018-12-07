@@ -7,17 +7,16 @@ struct DynamicDSLFunction <: GenerativeFunction{Any,GFTrace}
     julia_function::Function
     update_julia_function::Function
     has_argument_grads::Vector{Bool}
-    accepts_output_grad::Bool
 end
 
 function DynamicDSLFunction(arg_types::Vector{Type}, julia_function::Function,
                      update_julia_function::Function,
-                     has_argument_grads, accepts_output_grad::Bool)
+                     has_argument_grads)
     params_grad = Dict{Symbol,Any}()
     params = Dict{Symbol,Any}()
     DynamicDSLFunction(params_grad, params, arg_types,
                 julia_function, update_julia_function,
-                has_argument_grads, accepts_output_grad)
+                has_argument_grads)
 end
 
 function (g::DynamicDSLFunction)(args...)
@@ -33,9 +32,6 @@ exec_for_update(gf::DynamicDSLFunction, state, args::Tuple) = gf.update_julia_fu
 # whether there is a gradient of score with respect to each argument
 # it returns 'nothing' for those arguemnts that don't have a derivatice
 has_argument_grads(gen::DynamicDSLFunction) = gen.has_argument_grads
-
-# if it is true, then it expects a value, otherwise it expects 'nothing'
-accepts_output_grad(gen::DynamicDSLFunction) = gen.accepts_output_grad
 
 function parse_arg_types(args)
     types = Vector{Any}()
@@ -231,7 +227,7 @@ function init_param!(gf::DynamicDSLFunction, name::Symbol, value)
 end
 
 #########
-# delta #
+# diffs #
 #########
 
 macro argdiff()
@@ -249,6 +245,11 @@ end
 macro retdiff(value)
     Expr(:call, :set_ret_diff!, esc(state), esc(value))
 end
+
+set_ret_diff!(state, value) = state.retdiff = value
+
+get_arg_diff(state) = state.argdiff
+
 
 ##################
 # AddressVisitor #
@@ -310,10 +311,11 @@ function lightweight_retchange_already_set_err()
     error("@retdiff! was already used")
 end
 
-include("generate.jl")
-include("update.jl")
+include("initialize.jl")
+include("propose.jl")
+include("assess.jl")
 include("project.jl")
-include("ungenerate.jl")
+include("update.jl")
 include("backprop_params.jl")
 include("backprop_trace.jl")
 

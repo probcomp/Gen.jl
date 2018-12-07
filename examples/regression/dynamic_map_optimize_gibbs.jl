@@ -8,9 +8,9 @@ include("dataset.jl")
     prev_args = get_call_record(prev).args
     constraints = DynamicAssignment()
     constraints[:data => i => :z] = false
-    (_, weight1) = update(model, prev_args, noargdiff, prev, constraints)
+    (_, weight1) = force_update(model, prev_args, noargdiff, prev, constraints)
     constraints[:data => i => :z] = true
-    (_, weight2) = update(model, prev_args, noargdiff, prev, constraints)
+    (_, weight2) = force_update(model, prev_args, noargdiff, prev, constraints)
     prob_true = exp(weight2- logsumexp([weight1, weight2]))
     @addr(bernoulli(prob_true), :data => i => :z)
 end
@@ -32,7 +32,7 @@ function do_inference(xs, ys, num_iters)
     observations[:log_outlier_std] = 0.
  
     # initial trace
-    (trace, _) = generate(model, (xs,), observations)
+    (trace, _) = initialize(model, (xs,), observations)
 
     scores = Vector{Float64}(undef, num_iters)
     for i=1:num_iters

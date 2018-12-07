@@ -16,7 +16,7 @@ function mala(model::GenerativeFunction{T,U}, selection::AddressSet, trace::U, t
 
     # evaluate model weight
     constraints = from_array(values_trie, proposed_values)
-    (new_trace, weight, discard) = update(
+    (new_trace, weight, discard) = force_update(
         model, model_args, noargdiff, trace, constraints)
 
     # backward proposal

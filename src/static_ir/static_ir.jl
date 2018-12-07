@@ -54,6 +54,6 @@ const subtrace = gensym("subtrace")
 const discard = gensym("discard")
 const retdiff = gensym("retdiff")
 
-include("generate.jl")
+include("initialize.jl")
 include("update.jl")
 include("backprop.jl")

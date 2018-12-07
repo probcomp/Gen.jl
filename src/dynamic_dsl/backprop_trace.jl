@@ -91,14 +91,8 @@ function addr(state::GFBackpropTraceState, gen::GenerativeFunction{T}, args, add
     trace = get_subtrace(state.trace, addr)
     call::CallRecord = get_call_record(trace) # use the return value recorded in the trace
     retval::T = call.retval
-    if accepts_output_grad(gen)
-        retval_maybe_tracked = track(retval, state.tape)
-        if !istracked(retval_maybe_tracked)
-            error("Could not track return value at address $addr on AD tape.")
-        end
-    else
-        retval_maybe_tracked = retval
-    end
+    retval_maybe_tracked = track(retval, state.tape)
+
     # some of the args may be tracked (see special_reverse_exec!)
     # note: we still need to run backprop_params on gen, even if it does not
     # accept an output gradient, because it may make random choices.
@@ -120,14 +114,8 @@ function backprop_trace(gf::DynamicDSLFunction, trace::GFTrace, selection::Addre
     args = call.args
     args_maybe_tracked = (map(maybe_track, args, gf.has_argument_grads, fill(tape, length(args)))...,)
     retval_maybe_tracked = exec(gf, state, args_maybe_tracked)
-    if gf.accepts_output_grad
-        if !istracked(retval_maybe_tracked)
-            error("Output of $gf accepts gradient but return value was not tracked on AD tape.")
-        end
-        if retval_grad != nothing
-            # it is not an error if retval_grad is nothing, it means the gradient is zero?
-            deriv!(retval_maybe_tracked, retval_grad)
-        end
+    if istracked(retval_maybe_tracked)
+        deriv!(retval_maybe_tracked, retval_grad)
     end
     seed!(state.score)
     reverse_pass!(tape)
@@ -149,8 +137,7 @@ end
     gen = record.generator
     args_maybe_tracked = instruction.input
     retval_maybe_tracked = instruction.output
-    if accepts_output_grad(gen)
-        @assert istracked(retval_maybe_tracked)
+    if istracked(retval_maybe_tracked)
         retval_grad = deriv(retval_maybe_tracked)
     else
         retval_grad = nothing
