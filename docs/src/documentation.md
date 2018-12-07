@@ -1,10 +1,34 @@
 # Gen Documentation
 
-## Assignment
+## Assignments
+
+An *assignment* is a map from addresses of random choices to their values.
+Assignments are represented using the abstract type `Assignment`.
+The *assignment interface* is a set of read-only accessor methods that are implemented by all concrete subtypes of `Assignment`:
+
+- get_address_schema
+
+- get_subassmt
+
+- get_value
+
+- has_value
+
+- get_subassmts_shallow
+
+- get_values_shallow
+
+The remainder if this section describes some concrete types that subtype `Assignment`.
+
+### Dynamic Assignment
+
+A `DynamicAssignment` is mutable, and can contain arbitrary values for its keys.
+
+TODO document the methods.
 
 ### Static Assignment
 
-A `StaticAssignment` contains only symbols as its keys for leaf nodes and for internal nodes.
+A `StaticAssignment` is a immutable and contains only symbols as its keys for leaf nodes and for internal nodes.
 A `StaticAssignment` has type parameters`R` and `T` that are tuples of `Symbol`s that are the keys of the leaf nodes and internal nodes respectively, so that code can be generated that is specialized to the particular set of keys in the trie:
 
 ```julia
@@ -18,6 +42,19 @@ A `StaticAssignment` with leaf symbols `:a` and `:b` and internal key `:c` can b
 ```julia
 trie = StaticAssignment((a=1, b=2), (c=inner_trie,))
 ```
+
+## Traces
+
+A *trace* is a record of an execution of a generative function.
+There is no abstract type representing all traces.
+Concrete trace types must implement the *trace interface*, which consists of the following methods:
+
+- get_args
+
+- get_retval
+
+- get_assmt
+
 
 
 ## Generative Function Interface
