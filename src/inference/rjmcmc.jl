@@ -1,7 +1,7 @@
 function rjmcmc(model, forward, fwd_args, backward, bwd_args,
                 injective, injective_args, trace, correction)
-    model_args = get_call_record(trace).args
-    model_score = get_call_record(trace).score
+    model_args = get_args(trace)
+    model_score = get_score(trace)
     (fwd_assmt, fwd_score) = propose(forward, (trace, fwd_args...,))
     input = pair(get_assignment(trace), fwd_assmt, :model, :proposal)
     (output, logabsdet) = apply(injective, injective_args, input)

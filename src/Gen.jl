@@ -11,7 +11,7 @@ module Gen
     include("backprop.jl")
     include("address.jl")
     include("assignment.jl")
-    include("homogenous_trie.jl")
+    include("trie.jl")
     include("gen_fn_interface.jl")
     include("diff.jl")
     include("distribution.jl")

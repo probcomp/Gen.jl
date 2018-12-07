@@ -288,7 +288,7 @@ end
     end
 
     function get_step_observations_and_proposal_args(step::Int, prev_trace)
-        @assert !has_internal_node(get_assignment(prev_trace), :unfold => (step - 1))
+        @assert isempty(get_subassmt(get_assignment(prev_trace), :unfold => (step - 1)))
         @assert step > 1
         if step == 2
             prev_z = get_assignment(prev_trace)[:init => :z]

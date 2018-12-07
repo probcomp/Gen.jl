@@ -2,54 +2,32 @@
 # assignment wrapper #
 ######################
 
-struct StaticIRTraceAssignment{T} <: Assignment
+struct StaticIRTraceAssmt{T} <: Assignment
     trace::T
 end
 
 function get_schema end
 
-function get_address_schema(::Type{StaticIRTraceAssignment{T}}) where {T}
-    get_schema(T)
+get_address_schema(::Type{StaticIRTraceAssmt{T}}) where {T} = get_schema(T)
+
+Base.isempty(assmt::StaticIRTraceAssmt) = !has_choices(assmt.trace)
+
+static_has_value(assmt::StaticIRTraceAssmt, key) = false
+
+function get_value(assmt::StaticIRTraceAssmt, key::Symbol)
+    static_get_value(assmt, Val(key))
 end
 
-Base.isempty(assmt::StaticIRTraceAssignment) = !has_choices(assmt.trace)
-
-static_has_leaf_node(assmt::StaticIRTraceAssignment, key) = false
-
-static_has_internal_node(assmt::StaticIRTraceAssignment, key) = false
-
-function get_leaf_node(assmt::StaticIRTraceAssignment, key::Symbol)
-    static_get_leaf_node(assmt, Val(key))
+function has_value(assmt::StaticIRTraceAssmt, key::Symbol)
+    static_has_value(assmt, Val(key))
 end
 
-function get_internal_node(assmt::StaticIRTraceAssignment, key::Symbol)
-    static_get_internal_node(assmt, Val(key))
+function get_subassmt(assmt::StaticIRTraceAssmt, key::Symbol)
+    static_get_subassmt(assmt, Val(key))
 end
 
-function has_leaf_node(assmt::StaticIRTraceAssignment, key::Symbol)
-    static_has_leaf_node(assmt, Val(key))
-end
-
-function has_internal_node(assmt::StaticIRTraceAssignment, key::Symbol)
-    static_has_internal_node(assmt, Val(key))
-end
-
-function has_leaf_node(assmt::StaticIRTraceAssignment, addr::Pair)
-    _has_leaf_node(assmt, addr)
-end
-
-function get_leaf_node(assmt::StaticIRTraceAssignment, addr::Pair)
-    _get_leaf_node(assmt, addr)
-end
-
-function has_internal_node(assmt::StaticIRTraceAssignment, addr::Pair)
-    _has_internal_node(assmt, addr)
-end
-
-function get_internal_node(assmt::StaticIRTraceAssignment, addr::Pair)
-    _get_internal_node(assmt, addr)
-end
-
+has_value(assmt::StaticIRTraceAssmt, addr::Pair) = _has_value(assmt, addr)
+get_subassmt(assmt::StaticIRTraceAssmt, addr::Pair) = _get_subassmt(assmt, addr)
 
 #########################
 # trace type generation #
@@ -57,7 +35,7 @@ end
 
 const arg_prefix = gensym("arg")
 const choice_value_prefix = gensym("choice_value")
-const choice_score_prefix = gensym("choice_score")
+#const choice_score_prefix = gensym("choice_score")
 const subtrace_prefix = gensym("subtrace")
 
 function get_value_fieldname(node::ArgumentNode)
@@ -77,7 +55,7 @@ function get_subtrace_fieldname(node::GenerativeFunctionCallNode)
 end
 
 const num_has_choices_fieldname = gensym("num_has_choices")
-const total_score_fieldname = gensym("score")
+#const total_score_fieldname = gensym("score")
 const return_value_fieldname = gensym("retval")
 
 struct TraceField
@@ -102,7 +80,7 @@ function get_trace_fields(ir::StaticIR)
         subtrace_type = get_trace_type(node.generative_function)
         push!(fields, TraceField(subtrace_fieldname, subtrace_type))
     end
-    push!(fields, TraceField(total_score_fieldname, Float64))
+    #push!(fields, TraceField(total_score_fieldname, Float64))
     push!(fields, TraceField(num_has_choices_fieldname, Int))
     push!(fields, TraceField(return_value_fieldname, ir.return_node.typ))
     return fields
@@ -122,27 +100,29 @@ function generate_has_choices(trace_struct_name::Symbol)
         :(trace.$num_has_choices_fieldname > 0))
 end
 
-function generate_get_call_record(ir::StaticIR, trace_struct_name::Symbol)
+function generate_get_args(ir::StaticIR, trace_struct_name::Symbol)
     args = Expr(:tuple, [:(trace.$(get_value_fieldname(node)))
                          for node in ir.arg_nodes]...)
     Expr(:function,
-        Expr(:call, :(Gen.get_call_record), :(trace::$trace_struct_name)),
-        Expr(:block,
-            :(score = trace.$total_score_fieldname),
-            :(args = $args),
-            :(retval = trace.$return_value_fieldname),
-            :(CallRecord(score, retval, args)) # TODO type parameter in constructor?
-        ))
+        Expr(:call, :(Gen.get_args), :(trace::$trace_struct_name)),
+        Expr(:block, args))
+end
+
+function generate_get_retval(ir::StaticIR, trace_struct_name::Symbol)
+    Expr(:function,
+        Expr(:call, :(Gen.get_retval), :(trace::$trace_struct_name)),
+        Expr(:block, trace.$return_value_fieldname))
 end
 
 function generate_get_assignment(trace_struct_name::Symbol)
     Expr(:function,
         Expr(:call, :(Gen.get_assignment), :(trace::$trace_struct_name)),
-        Expr(:block, 
-            :(Gen.StaticIRTraceAssignment(trace))))
+        Expr(:if, :(has_choices(trace)),
+            :(Gen.StaticIRTraceAssmt(trace)),
+            :(Gen.EmptyAssignment())))
 end
 
-function generate_get_leaf_nodes(ir::StaticIR, trace_struct_name::Symbol)
+function generate_get_values_shallow(ir::StaticIR, trace_struct_name::Symbol)
     elements = []
     for node in ir.choice_nodes
         addr = node.addr
@@ -150,12 +130,12 @@ function generate_get_leaf_nodes(ir::StaticIR, trace_struct_name::Symbol)
         push!(elements, :(($(QuoteNode(addr)), $value)))
     end
     Expr(:function, 
-        Expr(:call, :(Gen.get_leaf_nodes),
-                    :(assmt::Gen.StaticIRTraceAssignment{$trace_struct_name})),
+        Expr(:call, :(Gen.get_values_shallow),
+                    :(assmt::Gen.StaticIRTraceAssmt{$trace_struct_name})),
         Expr(:block, Expr(:tuple, elements...)))
 end
 
-function generate_get_internal_nodes(ir::StaticIR, trace_struct_name::Symbol)
+function generate_get_subassmts_shallow(ir::StaticIR, trace_struct_name::Symbol)
     elements = []
     for node in ir.call_nodes
         addr = node.addr
@@ -163,56 +143,53 @@ function generate_get_internal_nodes(ir::StaticIR, trace_struct_name::Symbol)
         push!(elements, :(($(QuoteNode(addr)), get_assignment($subtrace))))
     end
     Expr(:function, 
-        Expr(:call, :(Gen.get_internal_nodes),
-                    :(assmt::Gen.StaticIRTraceAssignment{$trace_struct_name})),
+        Expr(:call, :(Gen.get_subassmts_shallow),
+                    :(assmt::Gen.StaticIRTraceAssmt{$trace_struct_name})),
         Expr(:block, Expr(:tuple, elements...)))
 end
 
-function generate_static_get_leaf_node(ir::StaticIR, trace_struct_name::Symbol)
+function generate_static_get_value(ir::StaticIR, trace_struct_name::Symbol)
     methods = Expr[]
     for node in ir.choice_nodes
         push!(methods, Expr(:function,
-            Expr(:call, :(Gen.static_get_leaf_node),
-                        :(assmt::Gen.StaticIRTraceAssignment{$trace_struct_name}),
+            Expr(:call, :(Gen.static_get_value),
+                        :(assmt::Gen.StaticIRTraceAssmt{$trace_struct_name}),
                         :(::Val{$(QuoteNode(node.addr))})),
             Expr(:block, :(assmt.trace.$(get_value_fieldname(node))))))
     end
     methods
 end
 
-function generate_static_has_leaf_node(ir::StaticIR, trace_struct_name::Symbol)
+function generate_static_has_value(ir::StaticIR, trace_struct_name::Symbol)
     methods = Expr[]
     for node in ir.choice_nodes
         push!(methods, Expr(:function,
-            Expr(:call, :(Gen.static_has_leaf_node),
-                        :(assmt::Gen.StaticIRTraceAssignment{$trace_struct_name}),
+            Expr(:call, :(Gen.static_has_value),
+                        :(assmt::Gen.StaticIRTraceAssmt{$trace_struct_name}),
                         :(::Val{$(QuoteNode(node.addr))})),
             Expr(:block, :(true))))
     end
     methods
 end
 
-function generate_static_get_internal_node(ir::StaticIR, trace_struct_name::Symbol)
+function generate_static_get_subassmt(ir::StaticIR, trace_struct_name::Symbol)
     methods = Expr[]
     for node in ir.call_nodes
         push!(methods, Expr(:function,
-            Expr(:call, :(Gen.static_get_internal_node),
-                        :(assmt::Gen.StaticIRTraceAssignment{$trace_struct_name}),
+            Expr(:call, :(Gen.static_get_subassmt),
+                        :(assmt::Gen.StaticIRTraceAssmt{$trace_struct_name}),
                         :(::Val{$(QuoteNode(node.addr))})),
             Expr(:block,
                 :(get_assignment(assmt.trace.$(get_subtrace_fieldname(node)))))))
     end
-    methods
-end
 
-function generate_static_has_internal_node(ir::StaticIR, trace_struct_name::Symbol)
-    methods = Expr[]
-    for node in ir.call_nodes
-        push!(methods, Expr(:function,
-            Expr(:call, :(Gen.static_has_internal_node),
-                        :(assmt::Gen.StaticIRTraceAssignment{$trace_struct_name}),
+    # throw a KeyError if get_subassmt is run on an address containing a value
+    for node in ir.choice_nodes
+         push!(methods, Expr(:function,
+            Expr(:call, :(Gen.static_get_subassmt),
+                        :(assmt::Gen.StaticIRTraceAssmt{$trace_struct_name}),
                         :(::Val{$(QuoteNode(node.addr))})),
-            Expr(:block, :(true))))
+            Expr(:block, :(throw(KeyError($(QuoteNode(node.addr))))))))
     end
     methods
 end
@@ -232,19 +209,19 @@ function generate_trace_type_and_methods(ir::StaticIR, name::Symbol)
     trace_struct_name = gensym("StaticIRTrace_$name")
     trace_struct_expr = generate_trace_struct(ir, trace_struct_name)
     has_choices_expr = generate_has_choices(trace_struct_name)
-    get_call_record_expr = generate_get_call_record(ir, trace_struct_name)
+    get_args_expr = generate_get_args_expr(ir, trace_struct_name)
+    get_retval_expr = generate_get_retval_expr(ir, trace_struct_name)
     get_assignment_expr = generate_get_assignment(trace_struct_name)
     get_schema_expr = generate_get_schema(ir, trace_struct_name)
-    get_leaf_nodes_expr = generate_get_leaf_nodes(ir, trace_struct_name)
-    get_internal_nodes_expr = generate_get_internal_nodes(ir, trace_struct_name)
-    static_get_leaf_node_exprs = generate_static_get_leaf_node(ir, trace_struct_name)
-    static_has_leaf_node_exprs = generate_static_has_leaf_node(ir, trace_struct_name)
-    static_get_internal_node_exprs = generate_static_get_internal_node(ir, trace_struct_name)
-    static_has_internal_node_exprs = generate_static_has_internal_node(ir, trace_struct_name)
-    exprs = Expr(:block, trace_struct_expr, has_choices_expr, get_call_record_expr,
-                 get_assignment_expr, get_schema_expr, get_leaf_nodes_expr,
-                 get_internal_nodes_expr, static_get_leaf_node_exprs...,
-                 static_has_leaf_node_exprs..., static_get_internal_node_exprs...,
-                 static_has_internal_node_exprs...)
+    get_values_shallow_expr = generate_get_values_shallow(ir, trace_struct_name)
+    get_subassmts_shallow_expr = generate_get_subassmts_shallow(ir, trace_struct_name)
+    static_get_value_exprs = generate_static_get_value(ir, trace_struct_name)
+    static_has_value_exprs = generate_static_has_value(ir, trace_struct_name)
+    static_get_subassmt_exprs = generate_static_get_subassmt(ir, trace_struct_name)
+    exprs = Expr(:block, trace_struct_expr, has_choices_expr,
+                 get_args_expr, get_retval_expr,
+                 get_assignment_expr, get_schema_expr, get_values_shallow_expr,
+                 get_subassmts_shallow_expr, static_get_value_exprs...,
+                 static_has_value_exprs..., static_get_subassmt_exprs...)
     (exprs, trace_struct_name)
 end

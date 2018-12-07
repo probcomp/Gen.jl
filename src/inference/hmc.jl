@@ -12,8 +12,8 @@ end
 
 function hmc(model::GenerativeFunction{T,U}, selection::AddressSet, trace::U;
              mass=0.1, L=10, eps=0.1) where {T,U}
-    prev_model_score = get_call_record(trace).score
-    model_args = get_call_record(trace).args
+    prev_model_score = get_score(trace)
+    model_args = get_args(trace)
 
     # run leapfrog dynamics
     new_trace = trace
@@ -43,7 +43,7 @@ function hmc(model::GenerativeFunction{T,U}, selection::AddressSet, trace::U;
     end
 
     # assess new model score (negative potential energy)
-    new_model_score = get_call_record(new_trace).score
+    new_model_score = get_score(new_trace)
 
     # assess new momenta score (negative kinetic energy)
     new_momenta_score = assess_momenta(-momenta, mass)

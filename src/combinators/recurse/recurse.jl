@@ -1,4 +1,4 @@
-using FunctionalCollections: assoc, dissoc
+using FunctionalCollections: assoc, dissoc, PersistentHashMap
 using DataStructures: PriorityQueue, dequeue!, enqueue!
 
 ##############

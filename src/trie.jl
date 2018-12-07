@@ -1,22 +1,22 @@
 ##################
-# HomogenousTrie #
+# Trie #
 ##################
 
-struct HomogenousTrie{K,V} <: Assignment
+struct Trie{K,V} <: Assignment
     leaf_nodes::Dict{K,V}
-    internal_nodes::Dict{K,HomogenousTrie{K,V}}
+    internal_nodes::Dict{K,Trie{K,V}}
 end
 
-HomogenousTrie{K,V}() where {K,V} = HomogenousTrie(Dict{K,V}(), Dict{K,HomogenousTrie{K,V}}())
+Trie{K,V}() where {K,V} = Trie(Dict{K,V}(), Dict{K,Trie{K,V}}())
 
 # copy constructor for something supported read-only trie interface
-function HomogenousTrie(other)
-    trie = HomogenousTrie{Any,Any}()
+function Trie(other)
+    trie = Trie{Any,Any}()
     for (key, value) in get_leaf_nodes(other)
         set_leaf_node!(trie, key, value)
     end
     for (key, node) in get_internal_nodes(other)
-        sub_trie = HomogenousTrie(node)
+        sub_trie = Trie(node)
         set_internal_node!(trie, key, sub_trie)
     end
     trie
@@ -25,50 +25,50 @@ end
 # TODO come up with a better printing method (and something nice for Jupyter
 # notebooks)
 import JSON
-Base.println(trie::HomogenousTrie) = JSON.print(trie, 4)
+Base.println(trie::Trie) = JSON.print(trie, 4)
 
 # invariant: all internal nodes are nonempty
-Base.isempty(trie::HomogenousTrie) = isempty(trie.leaf_nodes) && isempty(trie.internal_nodes)
-get_leaf_nodes(trie::HomogenousTrie) = trie.leaf_nodes
-get_internal_nodes(trie::HomogenousTrie) = trie.internal_nodes
+Base.isempty(trie::Trie) = isempty(trie.leaf_nodes) && isempty(trie.internal_nodes)
+get_leaf_nodes(trie::Trie) = trie.leaf_nodes
+get_internal_nodes(trie::Trie) = trie.internal_nodes
 
-function Base.values(trie::HomogenousTrie)
+function Base.values(trie::Trie)
     iterators = convert(Vector{Any}, collect(map(values, values(trie.internal_nodes))))
     push!(iterators, values(trie.leaf_nodes))
     Iterators.flatten(iterators)
 end
 
-function has_internal_node(trie::HomogenousTrie, addr)
+function has_internal_node(trie::Trie, addr)
     haskey(trie.internal_nodes, addr)
 end
 
-function get_internal_node(trie::HomogenousTrie, addr)
+function get_internal_node(trie::Trie, addr)
     trie.internal_nodes[addr]
 end
 
-function set_internal_node!(trie::HomogenousTrie{K,V}, addr, new_node::HomogenousTrie{K,V}) where {K,V}
+function set_internal_node!(trie::Trie{K,V}, addr, new_node::Trie{K,V}) where {K,V}
     if !isempty(new_node)
         trie.internal_nodes[addr] = new_node
     end
 end
 
-function set_internal_node!(trie::HomogenousTrie{K,V}, addr::Pair, new_node::HomogenousTrie{K,V}) where {K,V}
+function set_internal_node!(trie::Trie{K,V}, addr::Pair, new_node::Trie{K,V}) where {K,V}
     (first, rest) = addr
     if haskey(trie.internal_nodes, first)
         node = trie.internal_nodes[first]
     else
-        node = HomogenousTrie{K,V}()
+        node = Trie{K,V}()
         trie.internal_nodes[first] = node
     end
     set_internal_node!(node, rest, new_node)
 end
 
-function delete_internal_node!(trie::HomogenousTrie, addr)
+function delete_internal_node!(trie::Trie, addr)
     delete!(trie.internal_nodes, addr)
     return isempty(trie.leaf_nodes) && isempty(trie.internal_nodes)
 end
 
-function delete_internal_node!(trie::HomogenousTrie, addr::Pair)
+function delete_internal_node!(trie::Trie, addr::Pair)
     (first, rest) = addr
     if haskey(trie.internal_nodes, first)
         node = trie.internal_nodes[first]
@@ -79,36 +79,36 @@ function delete_internal_node!(trie::HomogenousTrie, addr::Pair)
     return isempty(trie.leaf_nodes) && isempty(trie.internal_nodes)
 end
 
-function has_leaf_node(trie::HomogenousTrie, addr)
+function has_leaf_node(trie::Trie, addr)
     haskey(trie.leaf_nodes, addr)
 end
 
-function get_leaf_node(trie::HomogenousTrie, addr)
+function get_leaf_node(trie::Trie, addr)
     trie.leaf_nodes[addr]
 end
 
-function set_leaf_node!(trie::HomogenousTrie, addr, value)
+function set_leaf_node!(trie::Trie, addr, value)
     trie.leaf_nodes[addr] = value
 end
 
-function set_leaf_node!(trie::HomogenousTrie{K,V}, addr::Pair, value) where {K,V}
+function set_leaf_node!(trie::Trie{K,V}, addr::Pair, value) where {K,V}
     (first, rest) = addr
     if haskey(trie.internal_nodes, first)
         node = trie.internal_nodes[first]
     else
-        node = HomogenousTrie{K,V}()
+        node = Trie{K,V}()
         trie.internal_nodes[first] = node
     end
     node = trie.internal_nodes[first]
     set_leaf_node!(node, rest, value)
 end
 
-function delete_leaf_node!(trie::HomogenousTrie, addr)
+function delete_leaf_node!(trie::Trie, addr)
     delete!(trie.leaf_nodes, addr)
     return isempty(trie.leaf_nodes) && isempty(trie.internal_nodes)
 end
 
-function delete_leaf_node!(trie::HomogenousTrie, addr::Pair)
+function delete_leaf_node!(trie::Trie, addr::Pair)
     (first, rest) = addr
     if haskey(trie.internal_nodes[first])
         node = trie.internal_nodes[first]
@@ -119,9 +119,9 @@ function delete_leaf_node!(trie::HomogenousTrie, addr::Pair)
     return isempty(trie.leaf_nodes) && isempty(trie.internal_nodes)
 end
 
-Base.setindex!(trie::HomogenousTrie, value, addr) = set_leaf_node!(trie, addr, value)
+Base.setindex!(trie::Trie, value, addr) = set_leaf_node!(trie, addr, value)
 
-function Base.merge!(a::HomogenousTrie{K,V}, b::HomogenousTrie{K,V}) where {K,V}
+function Base.merge!(a::Trie{K,V}, b::Trie{K,V}) where {K,V}
     merge!(a.leaf_nodes, b.leaf_nodes)
     for (key, a_sub) in a.sub
         if haskey(b.sub, key)
@@ -137,7 +137,7 @@ function Base.merge!(a::HomogenousTrie{K,V}, b::HomogenousTrie{K,V}) where {K,V}
     a
 end
 
-function Base.delete!(trie::HomogenousTrie, addrs::AddressSet)
+function Base.delete!(trie::Trie, addrs::AddressSet)
     for key in get_leaf_nodes(addrs)
         delete_leaf_node!(trie, key)
         delete_internal_node!(trie, key)
@@ -153,9 +153,13 @@ function Base.delete!(trie::HomogenousTrie, addrs::AddressSet)
     return isempty(trie)
 end
 
-get_address_schema(::HomogenousTrie) = DynamicSchema()
+get_address_schema(::Trie) = DynamicSchema()
 
-export HomogenousTrie
+Base.haskey(trie::Trie, key) = has_leaf_node(trie, key)
+
+Base.getindex(trie::Trie, key) = get_leaf_node(trie, key)
+
+export Trie
 export set_internal_node!
 export delete_internal_node!
 export set_leaf_node!

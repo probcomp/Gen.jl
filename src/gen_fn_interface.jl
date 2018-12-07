@@ -2,13 +2,6 @@
 # Trace interface #
 ###################
 
-# TODO no need for a generic call record type used by all generative functions.
-struct CallRecord{T}
-    score::Float64
-    retval::T
-    args::Tuple
-end
-
 """
     get_args(trace)
 
@@ -24,25 +17,29 @@ Return the return value of the given execution.
 function get_retval end
 
 """
-    has_choices(trace)::Bool
-
-If the assignment returned by get_assignment is empty or not.
-"""
-function has_choices end
-
-"""
-get_assignment(trace)
+    get_assignment(trace)
 
 Return a value implementing the assignment interface
 """
 function get_assignment end
 
-export CallRecord
+"""
+    get_score(trace)
+
+**Basic case**
+
+Return \$P(t; x)\$
+
+**General case**
+
+Return \$P(r, t; x) / Q(r; tx, t)\$
+"""
+function get_score end
+
 export get_args
 export get_retval
 export get_assignment
-export has_choices
-
+export get_score
 
 ######################
 # GenerativeFunction #
@@ -101,8 +98,8 @@ trace.
 **Basic case**
 
 Given a trace \$(x, t)\$ (`trace`) and a set of addresses \$A\$ (`selection`),
-let \$u\$ denote the restriction of \$t\$ to the set of addresses \$A\$. Return
-the weight (`weight`):
+let \$u\$ denote the restriction of \$t\$ to \$A\$. Return the weight
+(`weight`):
 ```math
 \\frac{P(t; x)}{Q(t; u, x)}
 ```
@@ -165,8 +162,8 @@ P(t; x)
 ```
 """
 function assess(gen_fn::GenerativeFunction, args::Tuple, assmt::Assignment)
-    (_, weight) = initialize(gen_fn, args, assmt)
-    weight
+    (trace, weight) = initialize(gen_fn, args, assmt)
+    (weight, get_retval(trace))
 end
 
 """
@@ -296,7 +293,7 @@ trace \$(x', t')\$ (`new_trace`) such that \$t'\$ agrees with \$t\$ on all
 addresses in \$t\$ and \$t'\$ agrees with \$u\$ on all addresses in \$u\$.
 Sample \$t' \\sim Q(\\cdot; t + u, x')\$. Also return the weight (`weight`):
 ```math
-\\frac{P(t'; x')}{P(t; x) Q(t'; u, x')}
+\\frac{P(t'; x')}{P(t; x) Q(t'; t + u, x')}
 ```
 
 **General case**
@@ -305,7 +302,7 @@ Identical to the basic case except that the previous trace is \$(x, t, r)\$,
 and we also sample \$r' \\sim Q(\\cdot; t', x)\$, the new trace is \$(x', t',
 r')\$, and the weight is:
 ```math
-\\frac{P(t'; x')}{P(t; x) Q(t'; u, x')}
+\\frac{P(t'; x')}{P(t; x) Q(t'; t + u, x')}
 \\cdot \\frac{P(r'; x', t') Q(r; x, t)}{P(r; x, t) Q(r'; x', t')}
 ```
 """
