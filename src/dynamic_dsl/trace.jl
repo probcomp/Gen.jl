@@ -40,14 +40,17 @@ function add_choice!(trace::DynamicDSLTrace, addr, choice::ChoiceRecord)
     trace.isempty = false
 end
 
-function add_call!(trace::DynamicDSLTrace, addr, call::CallRecord)
+function add_call!(trace::DynamicDSLTrace, addr, subtrace)
     @assert !haskey(trace.calls, addr)
     @assert !haskey(trace.choices, addr)
-    subassmt = get_assignment(call.subtrace)
+    score = get_score(subtrace)
+    noise = project(subtrace, EmptyAddressSet())
+    call = CallRecord(subtrace, score, noise)
+    subassmt = get_assignment(subtrace)
     trace.isempty = trace.isempty && isempty(subassmt)
     trace.calls[addr] = call
-    trace.score += call.score
-    trace.noise += call.noise
+    trace.score += score
+    trace.noise += noise
 end
 
 # GFI methods

@@ -257,34 +257,20 @@ function visit!(visitor::AddressVisitor, addr)
     push_leaf_node!(visitor.visited, addr)
 end
 
-function _diff(trie, addrs::AddressSet)
-    diff_trie = HomogenousTrie{Any,Any}()
-
-    for (key_field, value) in get_leaf_nodes(trie)
-        if !has_leaf_node(addrs, key_field)
-            set_leaf_node!(diff_trie, key_field, value)
-        end
+function all_visited(visited::AddressSet, assmt::Assignment)
+    allvisited = true
+    for (key, _) in get_values_shallow(assmt)
+        allvisited = allvisited && has_leaf_node(visited, key)
     end
-
-    for (key_field, node) in get_internal_nodes(trie)
-        if !has_leaf_node(addrs, key_field)
-            if has_internal_node(addrs, key_field)
-                sub_addrs = get_internal_node(addrs, key_field)
-            else
-                sub_addrs = EmptyAddressSet()
-            end
-            diff_node = _diff(node, sub_addrs)
-            if !isempty(diff_node)
-                set_internal_node!(diff_trie, key_field, diff_node)
-            end
+    for (key, subassmt) in get_subassmts_shallow(assmt)
+        if has_internal_node(visited, key)
+            subvisited = get_internal_node(visited, key)
+        else
+            subvisited = EmptyAddressSet()
         end
+        allvisited = allvisited && all_visited(subvisited, subassmt)
     end
-
-    diff_trie
-end
-
-function get_unvisited(visitor::AddressVisitor, choices)
-    _diff(choices, visitor.visited)
+    allvisited
 end
 
 function lightweight_check_no_subassmt(constraints::Assignment, addr)
@@ -307,7 +293,10 @@ include("initialize.jl")
 include("propose.jl")
 include("assess.jl")
 include("project.jl")
-include("update.jl")
+include("force_update.jl")
+include("fix_update.jl")
+include("free_update.jl")
+include("extend.jl")
 include("backprop_params.jl")
 include("backprop_trace.jl")
 

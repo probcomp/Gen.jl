@@ -541,24 +541,6 @@ end
 
 Base.setindex!(assignment::DynamicAssignment, value, addr) = set_value!(assignment, addr, value)
 
-# b should implement the assignment interface
-function Base.merge!(a::DynamicAssignment, b)
-    for (key, value) in get_values_shallow(b)
-        a.leaf_nodes[key] = value
-    end
-    for (key, b_node) in get_subassmts_shallow(b)
-        @assert !isempty(b_node)
-        if haskey(a.internal_nodes, key)
-            # NOTE: error if a.internal_nodes[key] does not implement merge!
-            @assert !isempty(a.internal_nodes[key])
-            merge!(a.internal_nodes[key], b_node)
-        else
-            a.internal_nodes[key] = b_node
-        end
-    end
-    a
-end
-
 function _fill_array!(assignment::DynamicAssignment, arr::Vector{T}, start_idx::Int) where {T}
     if length(arr) < start_idx + length(assignment.leaf_nodes)
         resize!(arr, 2 * length(arr))
