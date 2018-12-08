@@ -1,47 +1,36 @@
-mutable struct GFUngenerateState
-    trace::GFTrace
-    selection::AddressSet
-    weight::Float64
-    visitor::AddressVisitor
-    params::Dict{Symbol,Any}
-end
-
-function GFUngenerateState(trace::GFTrace, selection, params::Dict{Symbol,Any})
-    GFUngenerateState(trace, selection, 0., AddressVisitor(), params)
-end
-
-function addr(state::GFUngenerateState, dist::Distribution{T}, args, addr) where {T}
-    visit!(state, addr)
-    call::CallRecord = get_primitive_call(state.trace, addr)
-    @assert call.args == args
-    retval::T = call.retval
-    lightweight_check_no_internal_node(state.selection, addr)
-    if has_leaf_node(state.selection, addr)
-        state.weight += retval.score
+function project_recurse(choices::HomogeneousTrie{Any,ChoiceRecord},
+                         selection::AddressSet)
+    weight = 0.
+    for (key, choice) in get_leaf_nodes(choices)
+        if has_leaf_node(selection, key)
+            weight += choice.score
+        end
+    for (key, subchoices) in get_internal_nodes(choices)
+        if has_internal_node(selection, key)
+            subselection = get_internal_node(selection, key)
+            @assert !isempty(subselection)
+            weight += project_recurse(subchoices, subselection)
+        end
     end
-    retval
+    weight
 end
 
-function addr(state::GFUngenerateState, gen::GenerativeFunction{T}, args, addr) where {T}
-    visit!(state, addr)
-    subtrace = get_subtrace(state.trace, addr)
-    lightweight_check_no_leaf_node(state.selection, addr)
-    if has_internal_node(state.selection, addr)
-        selection = get_internal_node(state.selection, addr)
-    else
-        seletion = EmptyAddressSet()
+function project_recurse(calls::HomogeneousTrie{Any,CallRecord},
+                         selection::AddressSet)
+    weight = 0.
+    for (key, subselection) in get_internal_nodes(selection)
+        if has_internal_node(calls, key)
+            subcalls = get_internal_node(calls, key)
+            weight += project_recurse(subcalls, subselection)
+        end
     end
-    state.weight += project(gen, subtrace, selection)
-    call::CallRecord = get_call_record(subtrace)
-    call.retval::T
+    weight
+    
 end
 
-function splice(state::GFUngenerateState, gf::DynamicDSLFunction, args::Tuple)
-    exec(gf, state, args)
+function project(trace::DynamicDSLTrace, selection::AddressSet)
+    (project_recurse(trace.choices, selection) +
+     project_recurse(trace.calls, selection))
 end
 
-function ungenerate(gf::DynamicDSLFunction, trace::GFTrace, selection)
-    state = GFUngenerateState(trace, selection, gf.params)
-    exec(gf, state, args)
-    state.weight
-end
+project(trace::DynamicDSLTrace, ::EmptyAddressSet) = trace.noise

@@ -213,14 +213,14 @@ function process_codegen!(stmts, fwd::ForwardPassState, back::BackwardPassState,
     dist = QuoteNode(node.dist)
     if node in fwd.constrained_choices || node in fwd.input_changed
         if node in fwd.constrained_choices
-            push!(stmts, :($(node.name) = static_get_leaf_node(constraints, Val($addr))))
+            push!(stmts, :($(node.name) = static_get_value(constraints, Val($addr))))
             push!(stmts, :($(choice_discard_var(node)) = trace.$(get_value_fieldname(node))))
         else
             push!(stmts, :($(node.name) = trace.$(get_value_fieldname(node))))
         end
         push!(stmts, :($new_logpdf = logpdf($dist, $(node.name), $(args...))))
         push!(stmts, :($weight += $new_logpdf - trace.$(get_score_fieldname(node))))
-        push!(stmts, :($total_score_fieldname += $new_logpdf - trace.$(get_score_fieldname(node))))
+        #push!(stmts, :($total_score_fieldname += $new_logpdf - trace.$(get_score_fieldname(node))))
         push!(stmts, :($(get_score_fieldname(node)) = $new_logpdf))
         push!(stmts, :($(choicediff_var(node)) = PrevChoiceDiff(trace.$(get_value_fieldname(node)))))
     else
@@ -242,7 +242,7 @@ function process_codegen!(stmts, fwd::ForwardPassState, back::BackwardPassState,
     call_constraints = gensym("call_constraints")
     if node in fwd.constrained_calls || node in fwd.input_changed
         if node in fwd.constrained_calls
-            push!(stmts, :($call_constraints = static_get_internal_node(constraints, Val($addr))))
+            push!(stmts, :($call_constraints = static_get_subassmt(constraints, Val($addr))))
         else
             push!(stmts, :($call_constraints = EmptyAssignment()))
         end
@@ -250,7 +250,7 @@ function process_codegen!(stmts, fwd::ForwardPassState, back::BackwardPassState,
             force_update($gen_fn, $args_tuple, $(node.argdiff.name), $(prev_subtrace), $call_constraints)
         ))
         push!(stmts, :($weight += $call_weight))
-        push!(stmts, :($total_score_fieldname += $call_weight))
+        #push!(stmts, :($total_score_fieldname += $call_weight))
         push!(stmts, :(if has_choices($subtrace) && !has_choices($prev_subtrace)
                             $num_has_choices_fieldname += 1 end))
         push!(stmts, :(if !has_choices($subtrace) && has_choices($prev_subtrace)
@@ -273,7 +273,7 @@ function process_codegen!(stmts, fwd::ForwardPassState, back::BackwardPassState,
     call_constraints = gensym("call_constraints")
     if node in fwd.constrained_calls || node in fwd.input_changed
         if node in fwd.constrained_calls
-            push!(stmts, :($call_constraints = static_get_internal_node(constraints, Val($addr))))
+            push!(stmts, :($call_constraints = static_get_subassmt(constraints, Val($addr))))
         else
             push!(stmts, :($call_constraints = EmptyAssignment()))
         end
@@ -293,7 +293,7 @@ function process_codegen!(stmts, fwd::ForwardPassState, back::BackwardPassState,
 end
 
 function initialize_score_weight_num_has_choices!(stmts::Vector{Expr})
-    push!(stmts, :($total_score_fieldname = trace.$total_score_fieldname))
+    #push!(stmts, :($total_score_fieldname = trace.$total_score_fieldname))
     push!(stmts, :($weight = 0.))
     push!(stmts, :($num_has_choices_fieldname = trace.$num_has_choices_fieldname))
 end

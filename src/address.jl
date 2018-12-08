@@ -16,6 +16,7 @@ struct VectorAddressSchema <: AddressSchema end
 struct SingleDynamicKeyAddressSchema <: AddressSchema end 
 struct DynamicAddressSchema <: AddressSchema end 
 struct EmptyAddressSchema <: AddressSchema end
+struct AllAddressSchema <: AddressSchema end
 
 export AddressSchema
 export StaticAddressSchema
@@ -23,6 +24,7 @@ export VectorAddressSchema
 export SingleDynamicKeyAddressSchema
 export DynamicAddressSchema
 export EmptyAddressSchema
+export AllAddressSchema
 
 
 ########################
@@ -91,7 +93,6 @@ get_leaf_nodes(::EmptyAddressSet) = ()
 get_internal_nodes(::EmptyAddressSet) = ()
 
 export EmptyAddressSet
-
 
 ######################
 # static address set #

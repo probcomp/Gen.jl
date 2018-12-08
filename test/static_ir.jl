@@ -98,17 +98,17 @@ end
         foo, (), unknownargdiff, trace, constraints)
 
     # test discard
-    @test get_leaf_node(discard, :y) == y_prev
-    @test get_leaf_node(discard, :v => :b) == b_prev
-    @test length(collect(get_leaf_nodes(discard))) == 1
-    @test length(collect(get_internal_nodes(discard))) == 1
+    @test get_value(discard, :y) == y_prev
+    @test get_value(discard, :v => :b) == b_prev
+    @test length(collect(get_values_shallow(discard))) == 1
+    @test length(collect(get_subassmts_shallow(discard))) == 1
 
     # test new trace
     new_assignment = get_assignment(new_trace)
-    @test get_leaf_node(new_assignment, :y) == y_new
-    @test get_leaf_node(new_assignment, :v => :b) == b_new
-    @test length(collect(get_leaf_nodes(new_assignment))) == 2
-    @test length(collect(get_internal_nodes(new_assignment))) == 2
+    @test get_value(new_assignment, :y) == y_new
+    @test get_value(new_assignment, :v => :b) == b_new
+    @test length(collect(get_values_shallow(new_assignment))) == 2
+    @test length(collect(get_subassmts_shallow(new_assignment))) == 2
 
     # test score and weight
     prev_score = (

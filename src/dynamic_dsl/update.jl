@@ -6,7 +6,7 @@ mutable struct GFUpdateState
     prev_trace::GFTrace
     trace::GFTrace
     constraints::Any
-    score::Float64
+    weight::Float64
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
     discard::DynamicAssignment
@@ -33,17 +33,19 @@ function addr(state::GFUpdateState, dist::Distribution{T}, args, key) where {T}
     has_previous = has_primitive_call(state.prev_trace, key)
     local prev_retval::T
     if has_previous
-        prev_retval = get_primitive_call(state.prev_trace, key).retval
+        prev_choice::ChoiceRecord = get_primitive_call(state.prev_trace, key)
+        prev_retval = prev_choice.retval
+        prev_score = prev_call.score 
     end
 
     # check for constraints at this key
-    constrained = has_leaf_node(state.constraints, key)
-    lightweight_check_no_internal_node(state.constraints, key)
+    constrained = has_value(state.constraints, key)
+    lightweight_check_no_subassmt(state.constraints, key)
     
     # get return value and logpdf
     local retval::T
     if constrained
-        retval = get_leaf_node(state.constraints, key)
+        retval = get_value(state.constraints, key)
     elseif has_previous
         retval = prev_retval
     else
@@ -51,9 +53,14 @@ function addr(state::GFUpdateState, dist::Distribution{T}, args, key) where {T}
     end
     score = logpdf(dist, retval, args...)
 
+    # update the weight
+    if has_previous
+        state.weight += score - prev_score
+    end
+
     # record the previous value as discarded if it is replaced
     if constrained && has_previous
-        set_leaf_node!(state.discard, key, prev_retval)
+        set_value!(state.discard, key, prev_retval)
     end
 
     # update choicediffs
@@ -64,11 +71,7 @@ function addr(state::GFUpdateState, dist::Distribution{T}, args, key) where {T}
     end
 
     # update trace
-    call = CallRecord(score, retval, args)
-    state.trace = assoc_primitive_call(state.trace, key, call)
-
-    # update score
-    state.score += score
+    state.trace.choices[key] = ChoiceRecord(retval, score)
 
     return retval 
 end
@@ -83,12 +86,8 @@ function addr(state::GFUpdateState, gen::GenerativeFunction{T,U}, args, key, arg
     visit!(state.visitor, key)
 
     # check for constraints at this key
-    lightweight_check_no_leaf_node(state.constraints, key)
-    if has_internal_node(state.constraints, key)
-        constraints = get_internal_node(state.constraints, key)
-    else
-        constraints = EmptyAssignment()
-    end
+    lightweight_check_no_value(state.constraints, key)
+    constraints = get_subassmt(state.constraints, key)
 
     # get subtrace
     local prev_trace::U
@@ -96,19 +95,24 @@ function addr(state::GFUpdateState, gen::GenerativeFunction{T,U}, args, key, arg
     has_previous = has_subtrace(state.prev_trace, key)
     if has_previous
         prev_trace = get_subtrace(state.prev_trace, key)
-        (trace, _, discard, retdiff) = force_update(gen, args, argdiff,
+        (trace, weight, discard, retdiff) = force_update(gen, args, argdiff,
             prev_trace, constraints)
     else
-        (trace, _) = initialize(gen, args, constraints)
+        (trace, weight) = initialize(gen, args, constraints)
     end
+    
+    # TODO what is the 'score'
+
+    # update the weight
+    state.weight += weight
 
     # get return value
     local retval::T
-    retval = get_call_record(trace).retval
+    retval = get_retval(trace)
 
     # update discard
     if has_previous
-        set_internal_node!(state.discard, key, discard)
+        set_subassmt!(state.discard, key, discard)
     end
 
     # update calldiffs
@@ -123,10 +127,7 @@ function addr(state::GFUpdateState, gen::GenerativeFunction{T,U}, args, key, arg
     end
  
     # update trace
-    state.trace = assoc_subtrace(state.trace, key, trace)
-
-    # update score
-    state.score += get_call_record(trace).score
+    state.trace.calls[key] = CallRecord(trace, score)
 
     return retval 
 end
@@ -136,7 +137,7 @@ splice(state::GFUpdateState, gen::DynamicDSLFunction, args::Tuple) = exec_for_up
 function force_update(gen::DynamicDSLFunction, new_args, argdiff, trace::GFTrace, constraints)
     state = GFUpdateState(argdiff, trace, constraints, gen.params)
     retval = exec_for_update(gen, state, new_args)
-    new_call = CallRecord{Any}(state.score, retval, new_args)
+    new_call = GFCallRecord{Any}(state.score, retval, new_args)
     state.trace.call = new_call
 
     # discard keys that were deleted
@@ -146,10 +147,7 @@ function force_update(gen::DynamicDSLFunction, new_args, argdiff, trace::GFTrace
         error("Update did not consume all constraints")
     end
     
-    # compute the weight
-    prev_score = get_call_record(trace).score
-    weight = state.score - prev_score
-    (state.trace, weight, state.discard, state.retdiff)
+    (state.trace, state.weight, state.discard, state.retdiff)
 end
 
 
@@ -195,21 +193,21 @@ function addr(state::GFFixUpdateState, dist::Distribution{T}, args, key) where {
     end
 
     # check for constraints at this key
-    constrained = has_leaf_node(state.constraints, key)
-    lightweight_check_no_internal_node(state.constraints, key)
+    constrained = has_value(state.constraints, key)
+    lightweight_check_no_subassmt(state.constraints, key)
     if constrained && !has_previous
         error("fix_update attempted to constrain a new key: $key")
     end
 
     # record the previous value as discarded if it is replaced
     if constrained && has_previous
-        set_leaf_node!(state.discard, key, prev_retval)
+        set_value!(state.discard, key, prev_retval)
     end
 
     # get return value and logpdf
     local retval::T
     if constrained
-        retval = get_leaf_node(state.constraints, key)
+        retval = get_value(state.constraints, key)
     elseif has_previous
         retval = prev_retval
     else
@@ -225,7 +223,7 @@ function addr(state::GFFixUpdateState, dist::Distribution{T}, args, key) where {
     end
 
     # update trace
-    call = CallRecord(score, retval, args)
+    call = GFCallRecord(score, retval, args)
     state.trace = assoc_primitive_call(state.trace, key, call)
 
     # update score
@@ -249,12 +247,8 @@ function addr(state::GFFixUpdateState, gen::GenerativeFunction{T,U}, args, key, 
     visit!(state.visitor, key)
 
     # check for constraints at this key 
-    lightweight_check_no_leaf_node(state.constraints, key)
-    if has_internal_node(state.constraints, key)
-        constraints = get_internal_node(state.constraints, key)
-    else
-        constraints = EmptyAssignment()
-    end
+    lightweight_check_no_value(state.constraints, key)
+    constraints = get_subassmt(state.constraints, key)
 
     # get subtrace
     local prev_trace::U
@@ -265,8 +259,8 @@ function addr(state::GFFixUpdateState, gen::GenerativeFunction{T,U}, args, key, 
         (trace, weight, discard, retdiff) = fix_update(gen, args, argdiff,
             prev_trace, constraints)
     else
-        if has_internal_node(state.constraints, key)
-            error("fix_update attempted to constrain new key: $key")
+        if !isempty(get_subassmt(state.constraints, key))
+            error("fix_update attempted to constrain addresses under new key: $key")
         end
         trace = simulate(gen, args)
     end
@@ -277,7 +271,7 @@ function addr(state::GFFixUpdateState, gen::GenerativeFunction{T,U}, args, key, 
 
     # update discard
     if has_previous
-        set_internal_node!(state.discard, key, discard)
+        set_subassmt!(state.discard, key, discard)
     end
 
     # update calldiffs
@@ -310,7 +304,7 @@ splice(state::GFFixUpdateState, gen::DynamicDSLFunction, args::Tuple) = exec_for
 function fix_update(gf::DynamicDSLFunction, args, argdiff, prev_trace::GFTrace, constraints)
     state = GFFixUpdateState(argdiff, prev_trace, constraints, gf.params)
     retval = exec_for_update(gf, state, args)
-    new_call = CallRecord(state.score, retval, args)
+    new_call = GFCallRecord(state.score, retval, args)
     state.trace.call = new_call
     unconsumed = get_unvisited(state.visitor, constraints)
     if !isempty(unconsumed)
@@ -390,7 +384,7 @@ function addr(state::GFFreeUpdateState, dist::Distribution{T}, args, key) where 
     end
 
     # update trace
-    call = CallRecord(score, retval, args)
+    call = GFCallRecord(score, retval, args)
     state.trace = assoc_primitive_call(state.trace, key, call)
 
     # update score
@@ -470,7 +464,7 @@ function free_update(gen::DynamicDSLFunction, new_args::Tuple, argdiff,
                      trace::GFTrace, selection::AddressSet)
     state = GFFreeUpdateState(argdiff, trace, selection, gen.params)
     retval = exec_for_update(gen, state, new_args)
-    new_call = CallRecord(state.score, retval, new_args)
+    new_call = GFCallRecord(state.score, retval, new_args)
     state.trace.call = new_call
     (state.trace, state.weight, state.retdiff)
 end
@@ -521,8 +515,8 @@ function addr(state::GFExtendState, dist::Distribution{T}, args, key) where {T}
     end
 
     # check for constraints at this key
-    constrained = has_leaf_node(state.constraints, key)
-    lightweight_check_no_internal_node(state.constraints, key)
+    constrained = has_value(state.constraints, key)
+    lightweight_check_no_subassmt(state.constraints, key)
     if has_previous && constrained
         error("Extend attempted to change value of random choice at $key")
     end
@@ -532,7 +526,7 @@ function addr(state::GFExtendState, dist::Distribution{T}, args, key) where {T}
     if has_previous
         retval = prev_retval
     elseif constrained
-        retval = get_leaf_node(state.constraints, key)
+        retval = get_value(state.constraints, key)
     else
         retval = random(dist, args...)
     end
@@ -546,7 +540,7 @@ function addr(state::GFExtendState, dist::Distribution{T}, args, key) where {T}
     end
 
     # update trace
-    call = CallRecord(score, retval, args)
+    call = GFCallRecord(score, retval, args)
     state.trace = assoc_primitive_call(state.trace, key, call)
 
     # update score
@@ -566,12 +560,8 @@ function addr(state::GFExtendState, gen::GenerativeFunction{T,U}, args, key, arg
     visit!(state.visitor, key)
 
     # check for constraints at this key
-    lightweight_check_no_leaf_node(state.constraints, key)
-    if has_internal_node(state.constraints, key)
-        constraints = get_internal_node(state.constraints, key)
-    else
-        constraints = EmptyAssignment()
-    end
+    lightweight_check_no_value(state.constraints, key)
+    constraints = get_subassmt(state.constraints, key)
 
     # get subtrace
     has_previous = has_subtrace(state.prev_trace, key)
@@ -617,7 +607,7 @@ function extend(gf::DynamicDSLFunction, args::Tuple, argdiff,
                 trace::GFTrace, constraints)
     state = GFExtendState(argdiff, trace, constraints, gf.params)
     retval = exec_for_update(gf, state, args)
-    call = CallRecord(state.score, retval, args)
+    call = GFCallRecord(state.score, retval, args)
     state.trace.call = call
     (state.trace, state.weight, state.retdiff)
 end

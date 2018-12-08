@@ -42,19 +42,19 @@
         foo, (), unknownargdiff, trace, constraints)
 
     # test discard
-    @test get_leaf_node(discard, :branch) == true
-    @test get_leaf_node(discard, :x) == x
-    @test get_leaf_node(discard, :u => :a) == a
-    @test length(collect(get_leaf_nodes(discard))) == 2
-    @test length(collect(get_internal_nodes(discard))) == 1
+    @test get_value(discard, :branch) == true
+    @test get_value(discard, :x) == x
+    @test get_value(discard, :u => :a) == a
+    @test length(collect(get_values_shallow(discard))) == 2
+    @test length(collect(get_subassmts_shallow(discard))) == 1
 
     # test new trace
     new_assignment = get_assignment(new_trace)
-    @test get_leaf_node(new_assignment, :branch) == false
-    @test get_leaf_node(new_assignment, :y) == y
-    @test get_leaf_node(new_assignment, :v => :b) == b
-    @test length(collect(get_leaf_nodes(new_assignment))) == 2
-    @test length(collect(get_internal_nodes(new_assignment))) == 1
+    @test get_value(new_assignment, :branch) == false
+    @test get_value(new_assignment, :y) == y
+    @test get_value(new_assignment, :v => :b) == b
+    @test length(collect(get_values_shallow(new_assignment))) == 2
+    @test length(collect(get_subassmts_shallow(new_assignment))) == 1
 
     # test score and weight
     prev_score = (
@@ -118,19 +118,19 @@ end
         foo, (), unknownargdiff, trace, constraints)
 
     # test discard
-    @test get_leaf_node(discard, :branch) == true
-    @test get_leaf_node(discard, :z) == z
-    @test length(collect(get_leaf_nodes(discard))) == 2
-    @test length(collect(get_internal_nodes(discard))) == 0
+    @test get_value(discard, :branch) == true
+    @test get_value(discard, :z) == z
+    @test length(collect(get_values_shallow(discard))) == 2
+    @test length(collect(get_subassmts_shallow(discard))) == 0
 
     # test new trace
     new_assignment = get_assignment(new_trace)
-    @test get_leaf_node(new_assignment, :branch) == false
-    @test get_leaf_node(new_assignment, :z) == z_new
-    y = get_leaf_node(new_assignment, :y)
-    b = get_leaf_node(new_assignment, :v => :b)
-    @test length(collect(get_leaf_nodes(new_assignment))) == 3
-    @test length(collect(get_internal_nodes(new_assignment))) == 1
+    @test get_value(new_assignment, :branch) == false
+    @test get_value(new_assignment, :z) == z_new
+    y = get_value(new_assignment, :y)
+    b = get_value(new_assignment, :v => :b)
+    @test length(collect(get_values_shallow(new_assignment))) == 3
+    @test length(collect(get_subassmts_shallow(new_assignment))) == 1
 
     # test score and weight
     expected_new_score = (
@@ -207,14 +207,14 @@ end
 
         # test values
         if assignment[:branch]
-            @test has_leaf_node(assignment, :x)
+            @test has_value(assignment, :x)
             @test has_internal_node(assignment, :u)
         else
-            @test has_leaf_node(assignment, :y)
+            @test has_value(assignment, :y)
             @test has_internal_node(assignment, :v)
         end
-        @test length(collect(get_leaf_nodes(assignment))) == 2
-        @test length(collect(get_internal_nodes(assignment))) == 1
+        @test length(collect(get_values_shallow(assignment))) == 2
+        @test length(collect(get_subassmts_shallow(assignment))) == 1
 
         # test weight
         if assignment[:branch] == prev_assignment[:branch]

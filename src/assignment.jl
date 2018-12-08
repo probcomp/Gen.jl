@@ -76,7 +76,7 @@ Merge two assignments.
 """
 abstract type Assignment end
 
-get_subassmt(assignment::Assignment, addr) = throw(KeyError(addr))
+get_subassmt(assignment::Assignment, addr) = EmptyAssignment()
 has_value(assignment::Assignment, addr) = false
 get_value(assignment::Assignment, addr) = throw(KeyError(addr))
 Base.getindex(assignment::Assignment, addr) = get_value(assignment, addr)
@@ -240,6 +240,7 @@ function get_address_schema(::Type{StaticAssignment{R,S,T,U}}) where {R,S,T,U}
     StaticAddressSchema(leaf_keys, internal_keys)
 end
 
+# invariant: intenral nodes are nonempty?
 function Base.isempty(assignment::StaticAssignment)
     length(assignment.leaf_nodes) == 0 && length(assignment.internal_nodes) == 0
 end
@@ -262,7 +263,13 @@ end
 ## get_subassmt ##
 
 function get_subassmt(assmt::StaticAssignment, key::Symbol)
-    assmt.internal_nodes[key]
+    if haskey(assmt.internal_nodes, key)
+        assmt.internal_nodes[key]
+    elseif haskey(assmt.leaf_nodes, key)
+        throw(KeyError(key))
+    else
+        EmptyAssignment()
+    end
 end
 
 function static_get_subassmt(assmt::StaticAssignment, ::Val{A}) where {A}
@@ -466,7 +473,15 @@ get_value(assmt::DynamicAssignment, addr::Pair) = _get_value(assmt, addr)
 
 get_subassmt(assmt::DynamicAssignment, addr::Pair) = _get_subassmt(assmt, addr)
 
-get_subassmt(assmt::DynamicAssignment, addr) = assmt.internal_nodes[addr]
+function get_subassmt(assmt::DynamicAssignment, addr)
+    if haskey(assmt.internal_nodes, addr)
+        assmt.internal_nodes[addr]
+    elseif haskey(assmt.leaf_nodes, addr)
+        throw(KeyError(addr))
+    else
+        EmptyAssignment()
+    end
+end
 
 has_value(assmt::DynamicAssignment, addr) = haskey(assmt.leaf_nodes, addr)
 
@@ -613,7 +628,11 @@ function has_internal_node(assmt::InternalVectorAssignment, addr::Int)
 end
 
 function get_subassmt(assmt::InternalVectorAssignment, addr::Int)
-    assmt.internal_nodes[addr]
+    if haskey(assmt.internal_nodes, addr)
+        assmt.internal_nodes[addr]
+    else
+        EmptyAssignment()
+    end
 end
 
 function get_subassmts_shallow(assmt::InternalVectorAssignment)

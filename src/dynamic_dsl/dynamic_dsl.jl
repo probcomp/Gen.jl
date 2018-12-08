@@ -1,5 +1,8 @@
 include("trace.jl")
 
+const DYNAMIC_DSL_ADDR = Symbol("@addr")
+const DYNAMIC_DSL_DIFF = Symbol("@diff")
+
 struct DynamicDSLFunction <: GenerativeFunction{Any,GFTrace}
     params_grad::Dict{Symbol,Any}
     params::Dict{Symbol,Any}
@@ -48,20 +51,9 @@ function parse_arg_types(args)
     types
 end
 
-macro ad(ast)
-    if (!isa(ast, Expr)
-        || ast.head != :macrocall
-        || ast.args[1] != Symbol("@gen")
-        || length(ast.args) != 3
-        || !isa(ast.args[2], LineNumberNode))
-        error("Syntax error in @ad $ast")
-    end
-    parse_gen_function(ast.args[3], true)
-end
-
 macro addr(expr::Expr, addr, addrdiff)
     if expr.head != :call
-        error("syntax error in @addr at $(expr)")
+        error("syntax error in $DYNAMIC_DSL_ADDR at $(expr)")
     end
     fn = esc(expr.args[1])
     args = map(esc, expr.args[2:end])
@@ -69,7 +61,7 @@ macro addr(expr::Expr, addr, addrdiff)
 end
 
 macro gen(ast)
-    parse_gen_function(ast, false)
+    parse_gen_function(ast)
 end
 
 function args_for_gf_julia_fn(args, has_argument_grads)
@@ -94,10 +86,10 @@ end
 transform_body_for_non_update(ast) = ast
 
 function transform_body_for_non_update(ast::Expr)
-    @assert !(ast.head == :macrocall && ast.args[1] == Symbol("@diff"))
+    @assert !(ast.head == :macrocall && ast.args[1] == DYNAMIC_DSL_DIFF)
 
     # remove the argdiff argument from @addr expressions
-    if ast.head == :macrocall && ast.args[1] == Symbol("@addr")
+    if ast.head == :macrocall && ast.args[1] == DYNAMIC_DSL_ADDR
         if length(ast.args) == 5
             @assert isa(ast.args[2], LineNumberNode)
             # remove the last argument
@@ -108,7 +100,7 @@ function transform_body_for_non_update(ast::Expr)
     # remove any @diff sub-expressions, and recurse
     new_args = Vector()
     for arg in ast.args
-        if !(isa(arg, Expr) && arg.head == :macrocall && arg.args[1] == Symbol("@diff"))
+        if !(isa(arg, Expr) && arg.head == :macrocall && arg.args[1] == DYNAMIC_DSL_DIFF)
             push!(new_args, transform_body_for_non_update(arg))
         end
     end
@@ -118,10 +110,10 @@ end
 transform_body_for_update(ast, in_diff) = ast
 
 function transform_body_for_update(ast::Expr, in_diff::Bool)
-    @assert !(ast.head == :macrocall && ast.args[1] == Symbol("@diff"))
+    @assert !(ast.head == :macrocall && ast.args[1] == DYNAMIC_DSL_DIFF)
     new_args = Vector()
     for arg in ast.args
-        if isa(arg, Expr) && arg.head == :macrocall && arg.args[1] == Symbol("@diff")
+        if isa(arg, Expr) && arg.head == :macrocall && arg.args[1] == DYNAMIC_DSL_DIFF
             if in_diff
                 error("Got nested @diff at: $arg")
             end
@@ -140,7 +132,7 @@ function transform_body_for_update(ast::Expr, in_diff::Bool)
 end
 
 
-function parse_gen_function(ast, ad_annotation::Bool)
+function parse_gen_function(ast)
     if ast.head != :function
         error("syntax error at $(ast) in $(ast.head)")
     end
@@ -177,7 +169,7 @@ function parse_gen_function(ast, ad_annotation::Bool)
             Expr(:call, :DynamicDSLFunction,
                 quote Type[$(arg_types...)] end,
                 julia_fn_defn, update_julia_fn_defn,
-                has_argument_grads, ad_annotation)))
+                has_argument_grads)))
 end
 
 function address_not_found_error_msg(addr)
@@ -295,15 +287,15 @@ function get_unvisited(visitor::AddressVisitor, choices)
     _diff(choices, visitor.visited)
 end
 
-function lightweight_check_no_internal_node(constraints::Assignment, addr)
-    if has_internal_node(constraints, addr)
-        error("Expected a value at address $addr but trace contained an assignment")
+function lightweight_check_no_subassmt(constraints::Assignment, addr)
+    if isempty(get_subassmt(constraints, addr))
+        error("Expected a value at address $addr but found a sub-assignment")
     end
 end
 
-function lightweight_check_no_leaf_node(constraints::Assignment, addr)
-    if has_leaf_node(constraints, addr)
-        error("Expected an assignment at address $addr but trace contained a value")
+function lightweight_check_no_value(constraints::Assignment, addr)
+    if has_value(constraints, addr)
+        error("Expected a sub-assignment at address $addr but found a value")
     end
 end
 
@@ -320,11 +312,10 @@ include("backprop_params.jl")
 include("backprop_trace.jl")
 
 export set_param!, get_param, get_param_grad, zero_param_grad!, init_param!
-export @ad
-export @delta
 export @param
 export @addr
 export @gen
-export @choicediff, @calldiff
+export @choicediff
+export @calldiff
 export @argdiff
 export @retdiff

@@ -1,203 +1,186 @@
-using FunctionalCollections: PersistentHashMap, assoc
-
-
-#####################
-# dynamic DSL trace #
-#####################
-
-struct GFCallRecord{T}
-    score::Float64
+struct ChoiceRecord{T}
     retval::T
+    score::Float64
+end
+
+struct CallRecord{T}
+    subtrace::T
+    score::Float64
+    noise::Float64
+end
+
+mutable struct DynamicDSLTrace
+    gen_fn::DynamicDSLFunction
+    choices::HomogeneousTrie{Any,ChoiceRecord}
+    calls::HomogeneousTrie{Any,CallRecord}
+    isempty::Bool
+    score::Float64
+    noise::Float64
     args::Tuple
-end
-
-mutable struct GFTrace
-    call::Union{GFCallRecord,Nothing}
-    primitive_calls::PersistentHashMap{Any,CallRecord}
-
-    # values can be a GFTrace, or Any (foreign trace)
-    subtraces::PersistentHashMap{Any,Any} 
-
-    # number of subtraces that have choices
-    num_has_choices::Int
-end
-
-function GFTrace()
-    primitive_calls = PersistentHashMap{Any,CallRecord}()
-    subtraces = PersistentHashMap{Any,Any}()
-    call = nothing
-    GFTrace(call, primitive_calls, subtraces, 0)
-end
-
-get_args(trace::GFTrace) = trace.call.args
-get_retval(trace::GFTrace) = trace.call.retval
-
-function has_choices(trace::GFTrace)
-    length(trace.primitive_calls) > 0 || trace.num_has_choices > 0
-end
-
-function has_primitive_call(trace::GFTrace, addr)
-    haskey(trace.primitive_calls, addr)
-end
-
-function has_primitive_call(trace::GFTrace, addr::Pair)
-    (first, rest) = addr
-    if !haskey(trace.subtraces, first)
-        return false
+    retval::Any
+    function DynamicDSLTrace(gen_fn, args)
+        choices = HomogeneousTrie{Any,ChoiceRecord}()
+        calls = HomogeneousTrie{Any,CallRecord}()
+        # retval is not known yet
+        new(choices, calls, true, 0, 0, args)
     end
-    subtrace::GFTrace = get(trace.subtraces, first)
-    has_primitive_call(subtrace, rest)
 end
 
-function has_subtrace(trace::GFTrace, addr)
-    haskey(trace.subtraces, addr)
+set_retval!(trace::DynamicDSLTrace, retval) = (trace.retval = retval)
+has_choice(trace::DynamicDSLTrace, addr) = haskey(trace.choices, addr)
+has_subtrace(trace::DynamicDSLTrace, addr) = haskey(trace.calls, addr)
+get_choice(trace::DynamicDSLTrace, addr) = trace.choices[addr]
+get_call(trace::DynamicDSLTrace, addr) = trace.calls[addr]
+
+function add_choice!(trace::DynamicDSLTrace, addr, choice::ChoiceRecord)
+    @assert !haskey(trace.calls, addr)
+    @assert !haskey(trace.choices, addr)
+    trace.choices[addr] = choice
+    trace.score += choice.score
+    trace.isempty = false
 end
 
-function has_subtrace(trace::GFTrace, addr::Pair)
-    (first, rest) = addr
-    if !haskey(trace.subtraces, first)
-        return false
-    end
-    subtrace::GFTrace = get(trace.subtraces, first)
-    has_subtrace(subtrace, rest)
+function add_call!(trace::DynamicDSLTrace, addr, call::CallRecord)
+    @assert !haskey(trace.calls, addr)
+    @assert !haskey(trace.choices, addr)
+    subassmt = get_assignment(call.subtrace)
+    trace.isempty = trace.isempty && isempty(subassmt)
+    trace.calls[addr] = call
+    trace.score += call.score
+    trace.noise += call.noise
 end
 
-function get_primitive_call(trace::GFTrace, addr)
-    get(trace.primitive_calls, addr)
-end
+# GFI methods
+get_args(trace::DynamicDSLTrace) = trace.args
+get_retval(trace::DynamicDSLTrace) = trace.retval
+score(trace::DynamicDSLTrace) = trace.score
 
-function get_primitive_call(trace::GFTrace, addr::Pair)
-    (first, rest) = addr
-    subtrace::GFTrace = get(trace.subtraces, first)
-    get_primitive_call(subtrace, rest)
-end
-
-function assoc_primitive_call(trace::GFTrace, addr, call::CallRecord)
-    primitive_calls = assoc(trace.primitive_calls, addr, call)
-    GFTrace(trace.call, primitive_calls, trace.subtraces, trace.num_has_choices)
-end
-
-function assoc_primitive_call(trace::GFTrace, addr::Pair, call::CallRecord)
-    (first, rest) = addr
-    local subtrace::GFTrace
-    if has_subtrace(trace, first)
-        subtrace = get(trace.subtraces, first)
-    else
-        subtrace = GFTrace()
-    end
-    subtrace = assoc_primitive_call(subtrace, rest, call)
-    assoc_subtrace(trace, first, subtrace)
-end
-
-function get_subtrace(trace::GFTrace, addr)
-    get(trace.subtraces, addr)
-end
-
-function get_subtrace(trace::GFTrace, addr::Pair)
-    (first, rest) = addr
-    subtrace::GFTrace = get(trace.subtraces, first)
-    get_subtrace(subtrace, rest)
-end
-
-function assoc_subtrace(trace::GFTrace, addr, subtrace)
-    num_has_choices = trace.num_has_choices
-    if has_subtrace(trace, addr)
-        prev_subtrace = get_subtrace(trace, addr)
-        if has_choices(prev_subtrace) && !has_choices(subtrace)
-            num_has_choices -= 1
-        elseif !has_choices(prev_subtrace) && has_choices(subtrace)
-            num_has_choices += 1
-        end
-    else
-        if has_choices(subtrace)
-            num_has_choices += 1
-        end
-    end
-    subtraces = assoc(trace.subtraces, addr, subtrace)
-    GFTrace(trace.call, trace.primitive_calls, subtraces, num_has_choices)
-end
-
-function assoc_subtrace(trace::GFTrace, addr::Pair, subtrace)
-    (first, rest) = addr
-    local internal_subtrace::GFTrace
-    if has_subtrace(trace, first)
-        internal_subtrace = get_subtrace(trace, first)
-    else
-        internal_subtrace = GFTrace()
-    end
-    internal_subtrace = assoc_subtrace(internal_subtrace, rest, subtrace)
-    assoc_subtrace(trace, first, internal_subtrace)
-end
-
-
-##################################################
-# assignment wrapping generative function traces #
-##################################################
-
-struct GFTraceAssignment <: Assignment
-    trace::GFTrace
-    function GFTraceAssignment(trace::GFTrace)
-        @assert has_choices(trace)
+struct DynamicDSLTraceAssignment <: Assignment
+    trace::DynamicDSLTrace
+    function DynamicDSLTraceAssignment(trace::DynamicDSLTrace)
+        @assert !trace.isempty
         new(trace) 
     end
 end
 
-function get_assignment(trace::GFTrace)
-    if has_choices(trace)
-        GFTraceAssignment(trace)
+function get_assignment(trace::DynamicDSLTrace)
+    if !trace.isempty
+        DynamicDSLTraceAssignment(trace)
     else
         EmptyAssignment()
     end
 end
 
-get_address_schema(::Type{GFTraceAssignment}) = DynamicAddressSchema()
-Base.isempty(assignment::GFTraceAssignment) = false
+get_address_schema(::Type{DynamicDSLTraceAssignment}) = DynamicAddressSchema()
+Base.isempty(::DynamicDSLTraceAssignment) = false
 
-function get_subassmt(assignment::GFTraceAssignment, addr::Pair)
+function _get_subassmt(calls::HomogenousTrie, addr::Pair)
     (first, rest) = addr
-    if !haskey(assignment.trace.subtraces, first)
-        return EmptyAssignment()
+    if haskey(calls, first)
+        get_subassmt(calls[first].subtrace, rest)
+    elseif has_internal_node(calls, first)
+        subcalls = get_internal_node(calls, first)
+        _get_subassmt(subcalls, rest)
+    else
+        throw(KeyError(addr))
     end
-    subtrace = assignment.trace.subtraces[first]
-    get_subassmt(get_assignment(subtrace), rest)
 end
 
-function get_subassmt(assignment::GFTraceAssignment, addr)
-    if !haskey(assignment.trace.subtraces, first)
-        return EmptyAssignment()
-    end
-    subtrace = assignment.trace.subtraces[addr]
-    get_assignment(subtrace)
+function get_subassmt(assmt::DynamicDSLTraceAssignment, addr::Pair)
+    _get_subassmt(assmt.trace.calls, addr)
 end
 
-function has_value(assignment::GFTraceAssignment, addr::Pair)
+function get_subassmt(assmt::DynamicDSLTraceAssignment, addr)
+    if haskey(assmt.trace.calls, addr)
+        call = assmt.trace.calls[addr]
+        get_assignment(call.subtrace)
+    else
+        EmptyAssignment()
+    end
+end
+
+function _has_value(calls::HomogenousTrie, addr::Pair)
     (first, rest) = addr
-    if !haskey(assignment.trace.subtraces, first)
-        return false
+    if haskey(calls, first)
+        has_value(calls[first].subtrace, rest)
+    elseif has_internal_node(calls, first)
+        subcalls = get_internal_node(calls, first)
+        _has_value(subcalls, rest)
+    else
+        throw(KeyError(addr))
     end
-    subtrace = assignment.trace.subtraces[first]
-    has_value(get_assignment(subtrace), rest)
 end
 
-function has_value(assignment::GFTraceAssignment, addr)
-    haskey(assignment.trace.primitive_calls, addr)
+function has_value(assmt::DynamicDSLTraceAssignment, addr::Pair)
+    if haskey(assmt.trace.choices, addr)
+        true
+    else
+        _has_value(assmt.trace.calls, addr)
+    end
 end
 
-function get_value(assignment::GFTraceAssignment, addr::Pair)
+function _get_value(calls::HomogenousTrie, addr::Pair)
     (first, rest) = addr
-    subtrace = assignment.trace.subtraces[first]
-    get_value(get_assignment(subtrace), rest)
+    if haskey(calls, first)
+        get_value(calls[first].subtrace, rest)
+    elseif has_internal_node(calls, first)
+        subcalls = get_internal_node(calls, first)
+        _get_value(subcalls, rest)
+    else
+        throw(KeyError(addr))
+    end
 end
 
-function get_value(assignment::GFTraceAssignment, addr)
-    assignment.trace.primitive_calls[addr].retval
+function get_value(assmt::DynamicDSLTraceAssignment, addr::Pair)
+    if haskey(assmt.trace.choices, addr)
+        assmt.trace.choices[addr].retval
+    else
+        _get_value(assmt.calls, addr)
+    end
 end
 
-function get_values_shallow(assignment::GFTraceAssignment)
-    ((key, call.retval) for (key, call) in assignment.trace.primitive_calls)
+function get_values_shallow(assmt::DynamicDSLTraceAssignment)
+    ((key, choice.retval) for (key, choice) in get_leaf_nodes(assmt.trace.choices))
 end
 
-function get_internal_nodes_shallow(assignment::GFTraceAssignment)
-    ((key, get_assignment(subtrace)) for (key, subtrace) in assignment.trace.subtraces
-     if !isempty(get_assignment(subtrace)))
+function get_subassmts_shallow(assmt::DynamicDSLTraceAssignment)
+    calls_iter = ((key, get_subassmt(call.subtrace))
+        for (key, call) in get_leaf_nodes(assmt.calls))
+    choices_iter = ((key, DynamicDSLChoicesAssmt(subchoices))
+        for (key, trie) in get_internal_nodes(assmt.choices))
+    Iterators.flatten((calls_iter, choices_iter))
+end
+
+# Assignment wrapper that exposes sub-tries of the choices trie
+
+struct DynamicDSLChoicesAssmt <: Assignment
+    choices::HomogeneousTrie{Any,ChoiceRecord}
+end
+
+get_address_schema(::Type{DynamicDSLChoicesAssmt}) = DynamicAddressSchema()
+Base.isempty(::DynamicDSLChoicesAssmt) = false
+has_value(assmt::DynamicDSLChoicesAssmt, addr::Pair) = _has_value(assmt, addr)
+get_value(assmt::DynamicDSLChoicesAssmt, addr::Pair) = _get_value(assmt, addr)
+get_subassmt(assmt::DynamicDSLChoicesAssmt, addr::Pair) = _get_subassmt(assmt, addr)
+
+function get_subassmt(assmt::DynamicDSLChoicesAssmt, addr)
+    DynamicDSLChoicesAssmt(get_internal_node(assmt.choices, addr))
+end
+
+function get_value(assmt::DynamicDSLChoicesAssmt, addr)
+    assmt.choices[addr].retval
+end
+
+function has_value(assmt::DynamicDSLChoicesAssmt, addr)
+    haskey(assmt.choices, addr)
+end
+
+function get_subassmts_shallow(assmt::DynamicDSLChoicesAssmt)
+    ((key, DynamicDSLChoicesAssmt(trie)
+     for (key, trie) in get_internal_nodes(assmt.choices)))
+end
+
+function get_values_shallow(assmt::DynamicDSLChoicesAssmt)
+    ((key, choice.retval)
+     for choice in get_leaf_nodes(assmt.choices))
 end

@@ -33,7 +33,7 @@ function generate_generative_function(ir::StaticIR, name::Symbol)
     gen_fn_defn = quote
         struct $gen_fn_type_name <: Gen.StaticIRGenerativeFunction{$return_type,$trace_type}
         end
-        (gen_fn::$gen_fn_type_name)(args...) = get_call_record(simulate(gen_fn, args)).retval
+        (gen_fn::$gen_fn_type_name)(args...) = get_retval(initialize(gen_fn, args, EmptyAssignment())[1])
         Gen.get_ir(::Type{$gen_fn_type_name}) = $(QuoteNode(ir))
         Gen.get_trace_type(::Type{$gen_fn_type_name}) = $trace_struct_name
         Gen.has_argument_grads(::$gen_fn_type_name) = $(QuoteNode(has_argument_grads))

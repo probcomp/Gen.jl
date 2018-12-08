@@ -195,10 +195,10 @@ Gen.isnodiff(::StringDiff) = false
     @test assignment[(4, Val(:production)) => :rule] == 4
     @test assignment[(4, Val(:aggregation)) => :prefix] == false
     @test discard[(3, Val(:aggregation)) => :prefix] == true
-    @test length(get_internal_nodes(discard)) == 1
-    @test length(get_leaf_nodes(discard)) == 0
-    @test length(get_internal_nodes(get_internal_node(discard,(3, Val(:aggregation))))) == 0
-    @test length(get_leaf_nodes(get_internal_node(discard,(3, Val(:aggregation))))) == 1
+    @test length(get_subassmts_shallow(discard)) == 1
+    @test length(get_values_shallow(discard)) == 0
+    @test length(get_subassmts_shallow(get_subassmt(discard,(3, Val(:aggregation))))) == 0
+    @test length(get_values_shallow(get_subassmt(discard,(3, Val(:aggregation))))) == 1
     @test retdiff == StringDiff()
 
     # update structure choice, so that string becomes: (.b(.a(.aa)a)b)
@@ -217,10 +217,10 @@ Gen.isnodiff(::StringDiff) = false
     @test assignment[(2, Val(:aggregation)) => :prefix] == true
     @test assignment[(3, Val(:production)) => :rule] == 3
     @test assignment[(3, Val(:aggregation)) => :prefix] == true
-    @test !has_internal_node(assignment, (4, Val(:production))) # FAIL
-    @test !has_internal_node(assignment, (4, Val(:aggregation)))
+    @test isempty(get_subassmt(assignment, (4, Val(:production)))) # FAIL
+    @test isempty(get_subassmt(assignment, (4, Val(:aggregation))))
     @test discard[(3, Val(:production)) => :rule] == 2
-    @test !has_leaf_node(discard, (3, Val(:aggregation)) => :prefix)
+    @test !has_value(discard, (3, Val(:aggregation)) => :prefix)
     @test discard[(4, Val(:production)) => :rule] == 4
     @test discard[(4, Val(:aggregation)) => :prefix] == false
     @test retdiff == StringDiff()
