@@ -2,7 +2,6 @@ mutable struct GFExtendState
     prev_trace::DynamicDSLTrace
     trace::DynamicDSLTrace
     constraints::Any
-    score::Float64
     weight::Float64
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
@@ -12,30 +11,28 @@ mutable struct GFExtendState
     calldiffs::HomogenousTrie{Any,Any}
 end
 
-function GFExtendState(argdiff, prev_trace, constraints, params)
+function GFExtendState(gen_fn, args, argdiff, prev_trace,
+                       constraints, params)
     visitor = AddressVisitor()
-    GFExtendState(prev_trace, DynamicDSLTrace(), constraints, 0., 0.,
-        visitor, params, argdiff, DefaultRetDiff(),
+    GFExtendState(prev_trace, DynamicDSLTrace(gen_Fn, args), constraints,
+        0., visitor, params, argdiff, DefaultRetDiff(),
         HomogenousTrie{Any,Any}(), HomogenousTrie{Any,Any}())
 end
 
-function addr(state::GFExtendState, gen::GenerativeFunction, args, key)
-    addr(state, gen, args, key, UnknownArgDiff())
-end
-
-
-function addr(state::GFExtendState, dist::Distribution{T}, args, key) where {T}
+function addr(state::GFExtendState, dist::Distribution{T},
+              args, key) where {T}
+    local prev_retval::T
+    local retval::T
 
     # check that key was not already visited, and mark it as visited
     visit!(state.visitor, key)
 
     # check for previous choice at this key 
-    has_previous = has_primitive_call(state.prev_trace, key)
-    local prev_retval::T
+    has_previous = has_choice(state.prev_trace, key)
     if has_previous
-        prev_call = get_primitive_call(state.prev_trace, key)
-        prev_retval = prev_call.retval
-        @assert prev_call.args == args
+        prev_choice = get_choice(state.prev_trace, key)
+        prev_retval = prev_choice.retval
+        prev_score = prev_choice.score
     end
 
     # check for constraints at this key
@@ -45,8 +42,7 @@ function addr(state::GFExtendState, dist::Distribution{T}, args, key) where {T}
         error("Extend attempted to change value of random choice at $key")
     end
 
-    # get return value and logpdf
-    local retval::T
+    # get return value
     if has_previous
         retval = prev_retval
     elseif constrained
@@ -54,6 +50,8 @@ function addr(state::GFExtendState, dist::Distribution{T}, args, key) where {T}
     else
         retval = random(dist, args...)
     end
+
+    # compute logpdf
     score = logpdf(dist, retval, args...)
 
     # update choicediffs
@@ -63,22 +61,26 @@ function addr(state::GFExtendState, dist::Distribution{T}, args, key) where {T}
         set_choice_diff_no_prev!(state, key)
     end
 
-    # update trace
-    call = GFCallRecord(score, retval, args)
-    state.trace = assoc_primitive_call(state.trace, key, call)
+    # add to the trace
+    add_choice!(state.trace, ChoiceRecord(retval, score))
 
-    # update score
-    state.score += score
-    
     # update weight
     if constrained
         state.weight += score
     end
 
-    return retval 
+    retval 
 end
 
-function addr(state::GFExtendState, gen::GenerativeFunction{T,U}, args, key, argdiff) where {T,U}
+function addr(state::GFExtendState, gen_fn::GenerativeFunction, args, key)
+    addr(state, gen_fn, args, key, UnknownArgDiff())
+end
+
+function addr(state::GFExtendState, gen_fn::GenerativeFunction{T,U},
+              args, key, argdiff) where {T,U}
+    local prev_trace::U
+    local trace::U
+    local retval::T
 
     # check that key was not already visited, and mark it as visited
     visit!(state.visitor, key)
@@ -88,19 +90,18 @@ function addr(state::GFExtendState, gen::GenerativeFunction{T,U}, args, key, arg
     constraints = get_subassmt(state.constraints, key)
 
     # get subtrace
-    has_previous = has_subtrace(state.prev_trace, key)
-    local prev_trace::U
-    local trace::U
+    has_previous = has_call(state.prev_trace, key)
     if has_previous
-        prev_trace = get_subtrace(state.prev_trace, key)
-        (trace, weight, retdiff) = extend(gen, args, argdiff, prev_trace, constraints)
+        prev_call = get_call(state.prev_trace, key)
+        prev_subtrace = prev_call.subtrace
+        (subtrace, weight, retdiff) = extend(gen_fn, args, argdiff,
+            prev_subtrace, constraints)
     else
-        (trace, weight) = initialize(gen, args, constraints)
+        (subtrace, weight) = initialize(gen_fn, args, constraints)
     end
 
-    # get return value
-    local retval::T
-    retval = get_call_record(trace).retval
+    # update weight
+    state.weight += weight
 
     # update calldiffs
     if has_previous
@@ -114,24 +115,30 @@ function addr(state::GFExtendState, gen::GenerativeFunction{T,U}, args, key, arg
     end
 
     # update trace
-    state.trace = assoc_subtrace(state.trace, key, trace)
+    add_call!(state.trace, key, subtrace)
 
-    # update score
-    state.score += get_call_record(trace).score
+    # get return value
+    retval = get_retval(subtrace)
 
-    # update weight
-    state.weight += weight
-
-    return retval 
+    retval 
 end
 
-splice(state::GFExtendState, gen::DynamicDSLFunction, args::Tuple) = exec_for_update(gf, state, args)
+function splice(state::GFExtendState, gen_fn::DynamicDSLFunction,
+                args::Tuple)
+    exec_for_update(gen_fn, state, args)
+end
 
-function extend(gf::DynamicDSLFunction, args::Tuple, argdiff,
-                trace::DynamicDSLTrace, constraints)
-    state = GFExtendState(argdiff, trace, constraints, gf.params)
+function extend(gen_fn::DynamicDSLFunction, args::Tuple, argdiff,
+                trace::DynamicDSLTrace, constraints::Assignment)
+    @assert gen_fn === trace.gen_fn
+    state = GFExtendState(gen_fn, args, argdiff, trace,
+        constraints, gf.params)
     retval = exec_for_update(gf, state, args)
-    call = GFCallRecord(state.score, retval, args)
-    state.trace.call = call
+    set_retval!(state.trace, retval)
+
+    if !all_visited(visited, constraints)
+        error("Did not visit all constraints")
+    end
+
     (state.trace, state.weight, state.retdiff)
 end

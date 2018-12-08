@@ -97,27 +97,21 @@ function addr(state::GFFixUpdateState, gen_fn::GenerativeFunction{T,U},
     constraints = get_subassmt(state.constraints, key)
 
     # get subtrace
-    has_previous = has_subtrace(state.prev_trace, key)
+    has_previous = has_call(state.prev_trace, key)
     if has_previous
-        prev_trace = get_subtrace(state.prev_trace, key)
+        prev_call = get_call(state.prev_trace, key)
+        prev_subtrace = prev_call.subtrace
         (subtrace, weight, discard, retdiff) = fix_update(gen_fn, args, argdiff,
-            prev_trace, constraints)
+            prev_subtrace, constraints)
     else
         if !isempty(constraints)
             error("fix_update attempted to constrain addresses under new key: $key")
         end
-
-        # p(t; x) / q(t; x) -- could be 1 or not?
-        # p(r, t; x) / (q(t; x) q(r; t, x)) -- generally will not be one
-        # this is called 'noise', note that the noise is integrated into our
-        # cumulative noise value in add_call!
         (subtrace, weight) = initialize(gen_fn, args, EmptyAssignment())
     end
 
     # update weight
-    if has_previous
-        state.weight += weight
-    end
+    state.weight += weight
 
     # update discard
     if has_previous
@@ -180,18 +174,17 @@ function fix_delete_recurse(prev_calls::HomogeneousTrie{Any,CallRecord},
     noise
 end
 
-function fix_update(gen_fn::DynamicDSLFunction, args, argdiff,
-                    trace::DynamicDSLTrace, constraints)
-    state = GFFixUpdateState(argdiff, prev_trace, constraints, gf.params)
-    retval = exec_for_update(gf, state, args)
+function fix_update(gen_fn::DynamicDSLFunction, args::Tuple, argdiff,
+                    trace::DynamicDSLTrace, constraints::Assignment)
     @assert gen_fn === trace.gen_fn
+    retval = exec_for_update(gf, state, args)
     state = GFFixUpdateState(gen_fn, args, argdiff, trace,
         constraints, gen.params)
     retval = exec_for_update(gen, state, args)
     set_retval!(state.trace, retval)
 
     visited = state.visitor.visited
-    state.weight -= fix_delete_recurse(state.prev_trace.calls, visited)
+    state.weight -= fix_delete_recurse(trace.calls, visited)
 
     if !all_visited(visited, constraints)
         error("Did not visit all constraints")

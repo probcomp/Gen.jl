@@ -94,9 +94,10 @@ function addr(state::GFForceUpdateState, gen_fn::GenerativeFunction{T,U},
     constraints = get_subassmt(state.constraints, key)
 
     # get subtrace
-    has_previous = has_subtrace(state.prev_trace, key)
+    has_previous = has_call(state.prev_trace, key)
     if has_previous
-        prev_subtrace = get_subtrace(state.prev_trace, key)
+        prev_call = get_call(state.prev_trace, key)
+        prev_subtrace = prev_call.subtrace
         (subtrace, weight, discard, retdiff) = force_update(gen_fn, args, argdiff,
             prev_subtrace, constraints)
     else
@@ -236,8 +237,8 @@ function force_update(gen_fn::DynamicDSLFunction, args, argdiff,
     set_retval!(state.trace, retval)
 
     visited = state.visitor.visited
-    state.weight -= force_delete_recurse(state.prev_trace.choices, visited)
-    state.weight -= force_delete_recurse(state.prev_trace.calls, visited)
+    state.weight -= force_delete_recurse(trace.choices, visited)
+    state.weight -= force_delete_recurse(trace.calls, visited)
 
     add_unvisited_to_discard!(state.discard, visited, get_assignment(trace))
 

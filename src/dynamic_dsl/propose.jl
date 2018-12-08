@@ -11,44 +11,48 @@ end
 
 function addr(state::GFProposeState, dist::Distribution{T},
               args, key) where {T}
+    local retval::T
 
     # check that key was not already visited, and mark it as visited
     visit!(state.visitor, key)
 
     # sample return value
-    retval::T = random(dist, args...)
+    retval = random(dist, args...)
 
     # update assignment
-    state.assmt[key] = retval
+    set_value!(state.assmt, key, retval)
 
     # update weight 
     state.weight += logpdf(dist, retval, args...)
     
-    return retval
+    retval
 end
 
-function addr(state::GFProposeState, gen::GenerativeFunction{T,U},
+function addr(state::GFProposeState, gen_fn::GenerativeFunction{T,U},
               args, key) where {T,U}
+    local retval::T
 
     # check that key was not already visited, and mark it as visited
     visit!(state.visitor, key)
 
     # get subtrace
-    (assmt, weight, retval::T) = propose(gen, args)
+    (subassmt, weight, retval) = propose(gen, args)
 
     # update assignment
-    set_internal_node!(state.assmt, key, assmt)
+    set_subassmt!(state.assmt, key, subassmt)
 
     # update weight
     state.weight += weight
 
-    return retval
+    retval
 end
 
-splice(state::GFProposeState, gf::DynamicDSLFunction, args::Tuple) = exec(gf, state, args)
+function splice(state::GFProposeState, gen_fn::DynamicDSLFunction, args::Tuple)
+    exec(gen_nn, state, args)
+end
 
 function propose(gen::DynamicDSLFunction, args::Tuple)
-    state = GFProposeState(gen.params)
+    state = GFProposeState(gen_fn.params)
     retval = exec(gen, state, args)
     (state.assmt, state.weight, retval)
 end

@@ -280,7 +280,7 @@ trace \$(x', t')\$ (`new_trace`) such that \$t'\$ agrees with \$t\$ on all
 addresses in \$t\$ and \$t'\$ agrees with \$u\$ on all addresses in \$u\$.
 Sample \$t' \\sim Q(\\cdot; t + u, x')\$. Also return the weight (`weight`):
 ```math
-\\frac{P(t'; x')}{P(t; x) Q(t'; u, x')}
+\\frac{P(t'; x')}{P(t; x) Q(t'; t + u, x')}
 ```
 
 **General case**
@@ -289,7 +289,7 @@ Identical to the basic case except that the previous trace is \$(x, t, r)\$,
 and we also sample \$r' \\sim Q(\\cdot; t', x)\$, the new trace is \$(x', t',
 r')\$, and the weight is:
 ```math
-\\frac{P(t'; x')}{P(t; x) Q(t'; u, x')}
+\\frac{P(t'; x')}{P(t; x) Q(t'; t + u, x')}
 \\cdot \\frac{P(r'; x', t') Q(r; x, t)}{P(r; x, t) Q(r'; x', t')}
 ```
 """

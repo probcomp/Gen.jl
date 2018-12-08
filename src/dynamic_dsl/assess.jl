@@ -11,44 +11,46 @@ end
 
 function addr(state::GFAssessState, dist::Distribution{T},
               args, key) where {T}
+    local retval::T
 
     # check that key was not already visited, and mark it as visited
     visit!(state.visitor, key)
 
     # get return value
-    local retval::T
     retval = get_value(state.constraints, key)
 
     # update weight
     state.weight += logpdf(dist, retval, args...)
 
-    return retval
+    retval
 end
 
-function addr(state::GFAssessState, gen::GenerativeFunction{T,U}, args, key) where {T,U}
+function addr(state::GFAssessState, gen_fn::GenerativeFunction{T,U},
+              args, key) where {T,U}
+    local retval::T
 
     # check that key was not already visited, and mark it as visited
     visit!(state.visitor, key)
 
-    # check if key is constrained
-    # lightweight_check_no_leaf_node(state.assmt, key) not needed since get_subassmt crashes now if there is a value
+    # get constraints for this call
     assmt = get_subassmt(state.assmt, key)
 
     # get return value and weight increment
-    local retval::T
-    (weight, retval) = assess(gen, args, assmt)
+    (weight, retval) = assess(gen_fn, args, assmt)
 
     # update score
     state.weight += weight
 
-    return retval
+    retval
 end
 
-splice(state::GFAssessState, gf::DynamicDSLFunction, args::Tuple) = exec(gf, state, args)
+function splice(state::GFAssessState, gen_fn::DynamicDSLFunction, args::Tuple)
+    exec(gen_fn, state, args)
+end
 
-function assess(gen::DynamicDSLFunction, args::Tuple, assmt::Assignment)
-    state = Gen.GFAssessState(assmt, gen.params)
-    retval = Gen.exec(gen, state, args) 
+function assess(gen_fn::DynamicDSLFunction, args::Tuple, assmt::Assignment)
+    state = Gen.GFAssessState(assmt, gen_fn.params)
+    retval = exec(gen_fn, state, args) 
 
     if !all_visited(visited, constraints)
         error("Did not visit all constraints")

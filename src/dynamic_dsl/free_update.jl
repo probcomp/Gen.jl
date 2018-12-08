@@ -2,7 +2,6 @@ mutable struct GFFreeUpdateState
     prev_trace::DynamicDSLTrace
     trace::DynamicDSLTrace
     selection::AddressSet
-    score::Float64
     weight::Float64
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
@@ -12,23 +11,26 @@ mutable struct GFFreeUpdateState
     calldiffs::HomogenousTrie{Any,Any}
 end
 
-function GFFreeUpdateState(argdiff, prev_trace, selection, params)
+function GFFreeUpdateState(gen_fn, args, argdiff, prev_trace,
+                           selection, params)
     visitor = AddressVisitor()
-    GFFreeUpdateState(prev_trace, DynamicDSLTrace(), selection, 0., 0., visitor,
-                      params, argdiff, DefaultRetDiff(),
-                      HomogenousTrie{Any,Any}(), HomogenousTrie{Any,Any}())
+    GFFreeUpdateState(prev_trace, DynamicDSLTrace(gen_fn, args), selection,
+        0., visitor, params, argdiff, DefaultRetDiff(),
+        HomogenousTrie{Any,Any}(), HomogenousTrie{Any,Any}())
 end
 
-function addr(state::GFFreeUpdateState, dist::Distribution{T}, args, key) where {T}
+function addr(state::GFFreeUpdateState, dist::Distribution{T},
+              args, key) where {T}
+    local prev_retval::T
+    local retval::T
 
     # check that key was not already visited, and mark it as visited
     visit!(state.visitor, key)
 
     # check for previous choice at this key 
-    has_previous = has_primitive_call(state.prev_trace, key)
-    local prev_retval::T
+    has_previous = has_choice(state.prev_trace, key)
     if has_previous
-        prev_call = get_primitive_call(state.prev_trace, key)
+        prev_call = get_choice(state.prev_trace, key)
         prev_retval = prev_call.retval
         prev_score = prev_call.score
     end
@@ -39,21 +41,16 @@ function addr(state::GFFreeUpdateState, dist::Distribution{T}, args, key) where 
     end
     in_selection = has_leaf_node(state.selection, key)
 
-    # get return value and logpdf
-    local retval::T
+    # get return value
     if has_previous && in_selection
-        # there was a previous value, and it was in the selection
-        # simulate a new value; it does not contribute to the weight
         retval = random(dist, args...)
     elseif has_previous
-        # there was a previous value, and it was not in the selection
-        # use the previous value; it contributes to the weight
         retval = prev_retval
     else
-        # there is no previous value
-        # simulate a new valuel; it does not contribute to the weight
         retval = random(dist, args...)
     end
+
+    # compute logpdf
     score = logpdf(dist, retval, args...)
 
     # update choicediffs
@@ -63,26 +60,26 @@ function addr(state::GFFreeUpdateState, dist::Distribution{T}, args, key) where 
         set_choice_diff_no_prev!(state, key)
     end
 
-    # update trace
-    call = GFCallRecord(score, retval, args)
-    state.trace = assoc_primitive_call(state.trace, key, call)
-
-    # update score
-    state.score += score
-
     # update weight
     if has_previous && !in_selection
         state.weight += score - prev_score
     end
 
-    return retval
+    # add to the trace
+    add_choice!(state.trace, ChoiceRecord(retval, score))
+
+    retval
 end
 
-function addr(state::GFFreeUpdateState, gen::GenerativeFunction, args, key)
-    addr(state, gen, args, key, UnknownArgDiff())
+function addr(state::GFFreeUpdateState, gen_fn::GenerativeFunction, args, key)
+    addr(state, gen_fn, args, key, UnknownArgDiff())
 end
 
-function addr(state::GFFreeUpdateState, gen::GenerativeFunction{T,U}, args, key, argdiff) where {T,U}
+function addr(state::GFFreeUpdateState, gen_fn::GenerativeFunction{T,U},
+              args, key, argdiff) where {T,U}
+    local prev_retval::T
+    local trace::U
+    local retval::T
 
     # check that key was not already visited, and mark it as visited
     visit!(state.visitor, key)
@@ -98,20 +95,18 @@ function addr(state::GFFreeUpdateState, gen::GenerativeFunction{T,U}, args, key,
     end
 
     # get subtrace
-    local prev_retval::T
-    local trace::U
-    has_previous = has_subtrace(state.prev_trace, key)
+    has_previous = has_call(state.prev_trace, key)
     if has_previous
-        prev_trace = get_subtrace(state.prev_trace, key) 
-        (trace, weight, retdiff) = free_update(
-            gen, args, argdiff, prev_trace, selection)
+        prev_call = get_call(state.prev_trace, key)
+        prev_subtrace = prev_call.subtrace
+        (subtrace, weight, retdiff) = free_update(
+            gen_fn, args, argdiff, prev_subtrace, selection)
     else
-        trace = simulate(gen, args)
+        (subtrace, weight) = initialize(gen_fn, args, EmptyAssignment())
     end
 
-    # get return value
-    local retval::T
-    retval = get_call_record(trace).retval
+    # update weight
+    state.weight += weight
 
     # update calldiffs
     if has_previous
@@ -124,27 +119,61 @@ function addr(state::GFFreeUpdateState, gen::GenerativeFunction{T,U}, args, key,
         set_leaf_node!(state.calldiffs, key, NewCallDiff())
     end
 
-    # update trace
-    state.trace = assoc_subtrace(state.trace, key, trace)
+    # add to the trace
+    add_call!(state.trace, key, subtrace)
 
-    # update score
-    state.score += get_call_record(trace).score
+    # get return value
+    retval = get_retval(subtrace)
 
-    # update weight
-    if has_previous
-        state.weight += weight
-    end
-
-    return retval
+    retval
 end
 
-splice(state::GFFreeUpdateState, gf::DynamicDSLFunction, args::Tuple) = exec_for_update(gf, state, args)
+function splice(state::GFFreeUpdateState, gen_fn::DynamicDSLFunction,
+                args::Tuple)
+    exec_for_update(gen_fn, state, args)
+end
 
-function free_update(gen::DynamicDSLFunction, new_args::Tuple, argdiff,
+function free_delete_recurse(prev_calls::HomogeneousTrie{Any,CallRecord},
+                            visited::EmptyAddressSet)
+    noise = 0.
+    for (key, call) in get_leaf_nodes(prev_calls)
+        noise += call.noise
+    end
+    for (key, subcalls) in get_internal_nodes(prev_calls)
+        noise += free_delete_recurse(subcalls, EmptyAddressSet())
+    end
+    noise
+end
+
+function free_delete_recurse(prev_calls::HomogeneousTrie{Any,CallRecord},
+                            visited::DynamicAddressSet)
+    noise = 0.
+    for (key, call) in get_leaf_nodes(prev_calls)
+        if !has_leaf_node(visited, key)
+            noise += call.noise
+        end
+    end
+    for (key, subcalls) in get_internal_nodes(prev_calls)
+        if has_internal_node(visited, key)
+            subvisited = get_internal_node(visited, key)
+        else
+            subvisited = EmptyAddressSet()
+        end
+        noise += free_delete_recurse(subcalls, subvisited)
+    end
+    noise
+end
+
+function free_update(gen_fn::DynamicDSLFunction, args::Tuple, argdiff,
                      trace::DynamicDSLTrace, selection::AddressSet)
-    state = GFFreeUpdateState(argdiff, trace, selection, gen.params)
-    retval = exec_for_update(gen, state, new_args)
-    new_call = GFCallRecord(state.score, retval, new_args)
-    state.trace.call = new_call
+    @assert gen_fn === trace.gen_fn
+    state = GFFreeUpdateState(gen_fn, args, argdiff, trace,
+        selection, gen.params)
+    retval = exec_for_update(gen, state, args)
+    set_retval!(state.trace, retval)
+
+    visited = state.visitor.visited
+    state.weight -= free_delete_recurse(trace.calls, visited)
+
     (state.trace, state.weight, state.retdiff)
 end

@@ -28,7 +28,7 @@ end
 
 set_retval!(trace::DynamicDSLTrace, retval) = (trace.retval = retval)
 has_choice(trace::DynamicDSLTrace, addr) = haskey(trace.choices, addr)
-has_subtrace(trace::DynamicDSLTrace, addr) = haskey(trace.calls, addr)
+has_call(trace::DynamicDSLTrace, addr) = haskey(trace.calls, addr)
 get_choice(trace::DynamicDSLTrace, addr) = trace.choices[addr]
 get_call(trace::DynamicDSLTrace, addr) = trace.calls[addr]
 
