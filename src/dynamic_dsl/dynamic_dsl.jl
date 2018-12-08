@@ -289,6 +289,7 @@ function lightweight_retchange_already_set_err()
     error("@retdiff! was already used")
 end
 
+include("diff.jl")
 include("initialize.jl")
 include("propose.jl")
 include("assess.jl")
@@ -297,8 +298,7 @@ include("force_update.jl")
 include("fix_update.jl")
 include("free_update.jl")
 include("extend.jl")
-include("backprop_params.jl")
-include("backprop_trace.jl")
+include("backprop.jl")
 
 export set_param!, get_param, get_param_grad, zero_param_grad!, init_param!
 export @param

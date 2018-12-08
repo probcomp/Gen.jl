@@ -177,7 +177,7 @@ end
 function fix_update(gen_fn::DynamicDSLFunction, args::Tuple, argdiff,
                     trace::DynamicDSLTrace, constraints::Assignment)
     @assert gen_fn === trace.gen_fn
-    retval = exec_for_update(gf, state, args)
+    retval = exec_for_update(gen_fn, state, args)
     state = GFFixUpdateState(gen_fn, args, argdiff, trace,
         constraints, gen.params)
     retval = exec_for_update(gen, state, args)

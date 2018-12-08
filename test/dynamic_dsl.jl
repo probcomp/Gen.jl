@@ -284,20 +284,20 @@ end
     ((mu_a_grad,), value_trie, gradient_trie) = backprop_trace(foo, trace, selection, retval_grad)
 
     # check value trie
-    @test get_leaf_node(value_trie, :a) == a
-    @test get_leaf_node(value_trie, :out) == out
-    @test get_leaf_node(value_trie, :bar => :z) == z
-    @test !has_leaf_node(value_trie, :b) # was not selected
-    @test length(get_internal_nodes(value_trie)) == 1
-    @test length(get_leaf_nodes(value_trie)) == 2
+    @test get_value(value_trie, :a) == a
+    @test get_value(value_trie, :out) == out
+    @test get_value(value_trie, :bar => :z) == z
+    @test !has_value(value_trie, :b) # was not selected
+    @test length(get_subassmts_shallow(value_trie)) == 1
+    @test length(get_values_shallow(value_trie)) == 2
 
     # check gradient trie
-    @test length(get_internal_nodes(gradient_trie)) == 1
-    @test length(get_leaf_nodes(gradient_trie)) == 2
-    @test !has_leaf_node(gradient_trie, :b) # was not selected
+    @test length(get_subassmts_shallow(gradient_trie)) == 1
+    @test length(get_values_shallow(gradient_trie)) == 2
+    @test !has_value(gradient_trie, :b) # was not selected
     @test isapprox(mu_a_grad, finite_diff(f, (mu_a, a, b, z, out), 1, dx))
-    @test isapprox(get_leaf_node(gradient_trie, :bar => :z), finite_diff(f, (mu_a, a, b, z, out), 4, dx))
-    @test isapprox(get_leaf_node(gradient_trie, :out), finite_diff(f, (mu_a, a, b, z, out), 5, dx))
+    @test isapprox(get_value(gradient_trie, :bar => :z), finite_diff(f, (mu_a, a, b, z, out), 4, dx))
+    @test isapprox(get_value(gradient_trie, :out), finite_diff(f, (mu_a, a, b, z, out), 5, dx))
     
 
 end
