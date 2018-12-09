@@ -2,7 +2,7 @@ function custom_mh(model::GenerativeFunction{T,U},
                    proposal::GenerativeFunction,
                    proposal_args::Tuple, trace::U,
                    correction=(prev_trace, new_trace) -> 0.) where {T,U}
-    model_args = get_call_record(trace).args
+    model_args = get_args(trace)
     proposal_args_forward = (trace, proposal_args...,)
     (fwd_assmt, fwd_weight, _) = propose(proposal, proposal_args_forward)
     (new_trace, weight, discard) = force_update(

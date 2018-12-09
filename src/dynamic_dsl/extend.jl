@@ -7,8 +7,8 @@ mutable struct GFExtendState
     params::Dict{Symbol,Any}
     argdiff::Any
     retdiff::Any
-    choicediffs::HomogenousTrie{Any,Any}
-    calldiffs::HomogenousTrie{Any,Any}
+    choicediffs::Trie{Any,Any}
+    calldiffs::Trie{Any,Any}
 end
 
 function GFExtendState(gen_fn, args, argdiff, prev_trace,
@@ -16,7 +16,7 @@ function GFExtendState(gen_fn, args, argdiff, prev_trace,
     visitor = AddressVisitor()
     GFExtendState(prev_trace, DynamicDSLTrace(gen_Fn, args), constraints,
         0., visitor, params, argdiff, DefaultRetDiff(),
-        HomogenousTrie{Any,Any}(), HomogenousTrie{Any,Any}())
+        Trie{Any,Any}(), Trie{Any,Any}())
 end
 
 function addr(state::GFExtendState, dist::Distribution{T},
@@ -37,7 +37,7 @@ function addr(state::GFExtendState, dist::Distribution{T},
 
     # check for constraints at this key
     constrained = has_value(state.constraints, key)
-    lightweight_check_no_subassmt(state.constraints, key)
+    !constrained && check_no_subassmt(state.constraints, key)
     if has_previous && constrained
         error("Extend attempted to change value of random choice at $key")
     end
@@ -62,7 +62,7 @@ function addr(state::GFExtendState, dist::Distribution{T},
     end
 
     # add to the trace
-    add_choice!(state.trace, ChoiceRecord(retval, score))
+    add_choice!(state.trace, key, ChoiceRecord(retval, score))
 
     # update weight
     if constrained
@@ -86,7 +86,7 @@ function addr(state::GFExtendState, gen_fn::GenerativeFunction{T,U},
     visit!(state.visitor, key)
 
     # check for constraints at this key
-    lightweight_check_no_value(state.constraints, key)
+    check_no_value(state.constraints, key)
     constraints = get_subassmt(state.constraints, key)
 
     # get subtrace
@@ -136,6 +136,7 @@ function extend(gen_fn::DynamicDSLFunction, args::Tuple, argdiff,
     retval = exec_for_update(gf, state, args)
     set_retval!(state.trace, retval)
 
+    visited = get_visited(state.visitor)
     if !all_visited(visited, constraints)
         error("Did not visit all constraints")
     end

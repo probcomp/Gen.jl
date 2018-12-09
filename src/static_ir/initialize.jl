@@ -33,12 +33,9 @@ function process!(state::StaticIRGenerateState, node::RandomChoiceNode)
         push!(state.stmts, :($weight += $incr))
     else
         push!(state.stmts, :($(node.name) = random($dist, $(args...))))
-        #push!(state.stmts, :($incr = logpdf($dist, $(node.name), $(args...))))
     end
     push!(state.stmts, :($(get_value_fieldname(node)) = $(node.name)))
-    #push!(state.stmts, :($(get_score_fieldname(node)) = $incr))
     push!(state.stmts, :($num_has_choices_fieldname += 1))
-    #push!(state.stmts, :($total_score_fieldname += $incr))
 end
 
 function process!(state::StaticIRGenerateState, node::GenerativeFunctionCallNode)
@@ -59,7 +56,6 @@ function process!(state::StaticIRGenerateState, node::GenerativeFunctionCallNode
         push!(state.stmts, :($subtrace = simulate($gen_fn, $args_tuple)))
     end
     push!(state.stmts, :($num_has_choices_fieldname += has_choices($subtrace) ? 1 : 0))
-    #push!(state.stmts, :($total_score_fieldname += get_call_record($subtrace).score)) # TODO
     push!(state.stmts, :($(node.name) = get_retval($subtrace)))
 end
 
@@ -76,7 +72,6 @@ function codegen_initialize(gen_fn_type::Type{T}, args, constraints_type) where 
     stmts = []
 
     # initialize score, weight, and num_has_choices
-    #push!(stmts, :($total_score_fieldname = 0.))
     push!(stmts, :($weight = 0.))
     push!(stmts, :($num_has_choices_fieldname = 0))
 

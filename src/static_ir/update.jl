@@ -258,7 +258,7 @@ function process_codegen!(stmts, fwd::ForwardPassState, back::BackwardPassState,
     else
         push!(stmts, :($subtrace = $prev_subtrace))
     end
-    push!(stmts, :($(node.name) = get_call_record($subtrace).retval))
+    push!(stmts, :($(node.name) = get_retval($subtrace)))
 end
 
 function process_codegen!(stmts, fwd::ForwardPassState, back::BackwardPassState,
@@ -289,7 +289,7 @@ function process_codegen!(stmts, fwd::ForwardPassState, back::BackwardPassState,
     else
         push!(stmts, :($subtrace = $prev_subtrace))
     end
-    push!(stmts, :($(node.name) = get_call_record($subtrace).retval))
+    push!(stmts, :($(node.name) = get_retval($subtrace)))
 end
 
 function initialize_score_weight_num_has_choices!(stmts::Vector{Expr})

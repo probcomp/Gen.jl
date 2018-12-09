@@ -89,8 +89,7 @@ end
 function backprop_params(gen_fn::DynamicDSLFunction, trace::DynamicDSLTrace, retval_grad)
     tape = InstructionTape()
     state = GFBackpropParamsState(trace, tape, gen_fn.params)
-    call = get_call_record(trace)
-    args = call.args
+    args = get_args(trace)
     args_maybe_tracked = (map(maybe_track, args, gen_fn.has_argument_grads, fill(tape, length(args)))...,)
     retval_maybe_tracked = exec(gen_fn, state, args_maybe_tracked)
     if istracked(retval_maybe_tracked)
@@ -123,7 +122,7 @@ mutable struct GFBackpropTraceState
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
     selection::AddressSet
-    tracked_choices::HomogenousTrie{Any,TrackedReal}
+    tracked_choices::Trie{Any,TrackedReal}
     value_assmt::DynamicAssignment
     gradient_assmt::DynamicAssignment
 end
@@ -131,7 +130,7 @@ end
 function GFBackpropTraceState(trace, selection, params, tape)
     score = track(0., tape)
     visitor = AddressVisitor()
-    tracked_choices = HomogenousTrie{Any,TrackedReal}()
+    tracked_choices = Trie{Any,TrackedReal}()
     value_assmt = DynamicAssignment()
     gradient_assmt = DynamicAssignment()
     GFBackpropTraceState(trace, score, tape, visitor, params,
@@ -139,7 +138,7 @@ function GFBackpropTraceState(trace, selection, params, tape)
 end
 
 function fill_gradient_assmt!(gradient_assmt::DynamicAssignment,
-                             tracked_trie::HomogenousTrie{Any,TrackedReal})
+                             tracked_trie::Trie{Any,TrackedReal})
     for (key, tracked) in get_leaf_nodes(tracked_trie)
         set_value!(gradient_assmt, key, deriv(tracked))
     end
@@ -154,7 +153,7 @@ function fill_gradient_assmt!(gradient_assmt::DynamicAssignment,
 end
 
 function fill_value_assmt!(value_assmt::DynamicAssignment,
-                          tracked_trie::HomogenousTrie{Any,TrackedReal})
+                          tracked_trie::Trie{Any,TrackedReal})
     for (key, tracked) in get_leaf_nodes(tracked_trie)
         set_value!(value_assmt, key, ReverseDiff.value(tracked))
     end
@@ -217,7 +216,7 @@ function addr(state::GFBackpropTraceState, gen_fn::GenerativeFunction{T,U},
     else
         selection = EmptyAddressSet()
     end
-    record = BackpropTraceRecord(gen_fn, trace, selection, state.value_assmt,
+    record = BackpropTraceRecord(gen_fn, subtrace, selection, state.value_assmt,
         state.gradient_assmt, key)
     record!(state.tape, SpecialInstruction, record, (args...,), retval_maybe_tracked)
     retval_maybe_tracked 
@@ -235,8 +234,9 @@ end
     end
     (arg_grads, value_assmt, gradient_assmt) = backprop_trace(
         gen_fn, record.subtrace, record.selection, retval_grad)
-
-    @assert !isempty(get_subassmt(record.gradient_assmt, record.key))
+    println(value_assmt)
+    println(gradient_assmt)
+    @assert isempty(get_subassmt(record.gradient_assmt, record.key))
     @assert !has_value(record.gradient_assmt, record.key)
     set_subassmt!(record.gradient_assmt, record.key, gradient_assmt)
     set_subassmt!(record.value_assmt, record.key, value_assmt)

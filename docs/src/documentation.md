@@ -20,9 +20,9 @@ The *assignment interface* is a set of read-only accessor methods that are imple
 
 - has_value
 
-- get_subassmts_shallow: return all non-empty subassignments
+- get_subassmts_shallow: return an iterator over (key, subassmt) tuples
 
-- get_values_shallow
+- get_values_shallow: return an iterator over (key, value) tuples
 
 - Base.isempty (does the assignment contain any random choices or not)
 
@@ -75,13 +75,12 @@ trie = StaticAssignment((a=1, b=2), (c=inner_trie,))
 
 TODO: use generated functions in a lot more places, e.g. get_subassmt
 
-TODO: document static_ variants of getters:
+TODO: document static variants of getters:
 
-- static_get_subassmt -- throws a key error if the key isn't in the static address schema (get_subassmt would return an EmptyAssignment)
+- `static_get_subassmt(assmt, ::Val{key})`: throws a key error if the key isn't in the static address schema (get_subassmt would return an EmptyAssignment)
 
-- static_has_value
+- NOTE: `static_has_value(assmt, ::Val{key})` appears in the Static IR, but this an internal implementation detail, and not part of the 'static assignment interface'.
 
-- static_has_value
 
 ### Other Concrete Assignment Types
 

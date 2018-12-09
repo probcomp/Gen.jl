@@ -22,7 +22,7 @@
     #@test has_leaf_node(assmt, 1)
     #@test has_leaf_node(assmt, 2)
     #@test has_leaf_node(assmt, 3)
-    #@test length(get_subassmts_shallow(assmt)) == 0
+    #@test length(collect(get_subassmts_shallow(assmt))) == 0
 
     # test assess
     # TODO 
@@ -36,7 +36,7 @@
     #@test assmt[1] == z1
     #@test assmt[2] == z2
     #@test assmt[3] == z3
-    #score = get_call_record(trace).score
+    #score = get_score(trace)
     #@test isapprox(score, logpdf(normal, z1, 1, 0.1) + logpdf(normal, z2, 2, 0.2) + logpdf(normal, z3, 3, 0.3))
 
     # test force_update
@@ -49,8 +49,8 @@
     @test assmt[2] == z2_new
     @test assmt[3] == z3
     @test discard[2] == z2
-    @test length(get_values_shallow(discard)) == 1
-    @test length(get_subassmts_shallow(discard)) == 0
+    @test length(collect(get_values_shallow(discard))) == 1
+    @test length(collect(get_subassmts_shallow(discard))) == 0
     @test isapprox(weight, logpdf(normal, z2_new, 2, 0.2) - logpdf(normal, z2, 2, 0.2))
 
     # test backprop_trace

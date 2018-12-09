@@ -51,8 +51,8 @@ function splice(state::GFProposeState, gen_fn::DynamicDSLFunction, args::Tuple)
     exec(gen_nn, state, args)
 end
 
-function propose(gen::DynamicDSLFunction, args::Tuple)
+function propose(gen_fn::DynamicDSLFunction, args::Tuple)
     state = GFProposeState(gen_fn.params)
-    retval = exec(gen, state, args)
+    retval = exec(gen_fn, state, args)
     (state.assmt, state.weight, retval)
 end

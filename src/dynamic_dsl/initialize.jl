@@ -7,8 +7,8 @@ mutable struct GFInitializeState
 end
 
 function GFInitializeState(gen_fn, args, constraints, params)
-    GFInitializeState(DynamicDSLTrace(gen_fn, args), constraints,
-        0., 0., AddressVisitor(), params)
+    trace = DynamicDSLTrace(gen_fn, args)
+    GFInitializeState(trace, constraints, 0., AddressVisitor(), params)
 end
 
 function addr(state::GFInitializeState, dist::Distribution{T},
@@ -19,8 +19,8 @@ function addr(state::GFInitializeState, dist::Distribution{T},
     visit!(state.visitor, key)
 
     # check for constraints at this key
-    lightweight_check_no_internal_node(state.constraints, key)
     constrained = has_value(state.constraints, key)
+    !constrained && check_no_subassmt(state.constraints, key)
 
     # get return value
     if constrained

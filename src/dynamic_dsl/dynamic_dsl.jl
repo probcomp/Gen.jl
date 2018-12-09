@@ -2,8 +2,9 @@ include("trace.jl")
 
 const DYNAMIC_DSL_ADDR = Symbol("@addr")
 const DYNAMIC_DSL_DIFF = Symbol("@diff")
+const DYNAMIC_DSL_GRAD = Symbol("@grad")
 
-struct DynamicDSLFunction <: GenerativeFunction{Any,GFTrace}
+struct DynamicDSLFunction <: GenerativeFunction{Any,DynamicDSLTrace}
     params_grad::Dict{Symbol,Any}
     params::Dict{Symbol,Any}
     arg_types::Vector{Type}
@@ -24,13 +25,16 @@ end
 
 function (g::DynamicDSLFunction)(args...)
     trace = simulate(g, args)
-    call = get_call_record(trace)
-    call.retval
+    get_retval(trace)
 end
 
+function exec(gf::DynamicDSLFunction, state, args::Tuple)
+    gf.julia_function(state, args...)
+end
 
-exec(gf::DynamicDSLFunction, state, args::Tuple) = gf.julia_function(state, args...)
-exec_for_update(gf::DynamicDSLFunction, state, args::Tuple) = gf.update_julia_function(state, args...)
+function exec_for_update(gf::DynamicDSLFunction, state, args::Tuple)
+    gf.update_julia_function(state, args...)
+end
 
 # whether there is a gradient of score with respect to each argument
 # it returns 'nothing' for those arguemnts that don't have a derivatice
@@ -129,6 +133,26 @@ function transform_body_for_update(ast::Expr, in_diff::Bool)
         end
     end
     Expr(ast.head, new_args...)
+end
+
+marked_for_ad(arg::Symbol) = false
+
+marked_for_ad(arg::Expr) = (arg.head == :macrocall && arg.args[1] == DYNAMIC_DSL_GRAD)
+
+strip_marked_for_ad(arg::Symbol) = arg
+
+function strip_marked_for_ad(arg::Expr) 
+    if (arg.head == :macrocall && arg.args[1] == DYNAMIC_DSL_GRAD)
+		if length(arg.args) == 3 && isa(arg.args[2], LineNumberNode)
+			arg.args[3]
+		elseif length(arg.args) == 2
+			arg.args[2]
+		else
+            error("Syntax error at $arg")
+        end
+    else
+        arg
+    end
 end
 
 
@@ -263,23 +287,27 @@ function all_visited(visited::AddressSet, assmt::Assignment)
         allvisited = allvisited && has_leaf_node(visited, key)
     end
     for (key, subassmt) in get_subassmts_shallow(assmt)
-        if has_internal_node(visited, key)
-            subvisited = get_internal_node(visited, key)
-        else
-            subvisited = EmptyAddressSet()
+        if !has_leaf_node(visited, key)
+            if has_internal_node(visited, key)
+                subvisited = get_internal_node(visited, key)
+            else
+                subvisited = EmptyAddressSet()
+            end
+            allvisited = allvisited && all_visited(subvisited, subassmt)
         end
-        allvisited = allvisited && all_visited(subvisited, subassmt)
     end
     allvisited
 end
 
-function lightweight_check_no_subassmt(constraints::Assignment, addr)
-    if isempty(get_subassmt(constraints, addr))
+get_visited(visitor) = visitor.visited
+
+function check_no_subassmt(constraints::Assignment, addr)
+    if !isempty(get_subassmt(constraints, addr))
         error("Expected a value at address $addr but found a sub-assignment")
     end
 end
 
-function lightweight_check_no_value(constraints::Assignment, addr)
+function check_no_value(constraints::Assignment, addr)
     if has_value(constraints, addr)
         error("Expected a sub-assignment at address $addr but found a value")
     end
@@ -300,6 +328,7 @@ include("free_update.jl")
 include("extend.jl")
 include("backprop.jl")
 
+export DynamicDSLFunction
 export set_param!, get_param, get_param_grad, zero_param_grad!, init_param!
 export @param
 export @addr

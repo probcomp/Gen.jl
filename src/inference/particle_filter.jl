@@ -95,11 +95,10 @@ function particle_filter(model::GenerativeFunction{T,U}, model_args_rest::Tuple,
     traces = Vector{U}(undef, num_particles)
     next_traces = Vector{U}(undef, num_particles)
     for i=1:num_particles
-        proposal_trace = simulate(init_proposal, proposal_args)
-        proposal_score = get_call_record(proposal_trace).score
-        constraints = merge(observations, get_assignment(proposal_trace))
+        (proposal_assmt, proposal_weight) = proposal(init_proposal, proposal_args)
+        constraints = merge(observations, proposal_assmt)
         (traces[i], model_weight) = initialize(model, (1, model_args_rest...), constraints)
-        log_unnormalized_weights[i] = model_weight - proposal_score
+        log_unnormalized_weights[i] = model_weight - proposal_weight
     end
 
     parents = Vector{Int}(undef, num_particles)
@@ -126,12 +125,11 @@ function particle_filter(model::GenerativeFunction{T,U}, model_args_rest::Tuple,
             parent = parents[i]
             parent_trace = traces[parent]
             (observations, proposal_args, argdiff) = get_step_observations_and_proposal_args(step, parent_trace)
-            proposal_trace = simulate(step_proposal, proposal_args)
-            proposal_score = get_call_record(proposal_trace).score
-            constraints = merge(observations, get_assignment(proposal_trace))
+            (proposal_assmt, proposal_weight) = propose(step_proposal, proposal_args)
+            constraints = merge(observations, proposal_assmt)
             (next_traces[i], model_weight) = extend(
                 model, (step, model_args_rest...), argdiff, parent_trace, constraints)
-            log_weight = model_weight - proposal_score
+            log_weight = model_weight - proposal_weight
             log_unnormalized_weights[i] += log_weight
         end
         tmp = traces

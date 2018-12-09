@@ -55,19 +55,19 @@ end
 
 mutable struct InjectiveApplyState
     input::Any
-    output::HomogenousTrie{Any,Any}
+    output::Trie{Any,Any}
     tape::InstructionTape
-    tracked_reads::HomogenousTrie{Any,TrackedReal}
-    tracked_writes::HomogenousTrie{Any,TrackedReal}
+    tracked_reads::Trie{Any,TrackedReal}
+    tracked_writes::Trie{Any,TrackedReal}
     copied::AddressSet
     visitor::AddressVisitor
 end
 
 function InjectiveApplyState(input)
-    output = HomogenousTrie{Any,Any}()
+    output = Trie{Any,Any}()
     tape = InstructionTape()
-    tracked_reads = HomogenousTrie{Any,TrackedReal}()
-    tracked_writes = HomogenousTrie{Any,TrackedReal}()
+    tracked_reads = Trie{Any,TrackedReal}()
+    tracked_writes = Trie{Any,TrackedReal}()
     copied = DynamicAddressSet()
     visitor = AddressVisitor()
     InjectiveApplyState(input, output, tape, tracked_reads, tracked_writes, copied, visitor)
@@ -145,8 +145,8 @@ end
 
 function addr(state::InjectiveApplyState, fn::InjectiveFunction, args, output_addr)
     visit!(state.visitor, output_addr)
-    sub_assignment = HomogenousTrie{Any,Any}()
-    sub_tracked_writes = HomogenousTrie{Any,TrackedReal}()
+    sub_assignment = Trie{Any,Any}()
+    sub_tracked_writes = Trie{Any,TrackedReal}()
     visitor = AddressVisitor()
     sub_state = InjectiveApplyState(state.input, sub_assignment,
         state.tape, state.tracked_reads, sub_tracked_writes, state.copied, visitor)

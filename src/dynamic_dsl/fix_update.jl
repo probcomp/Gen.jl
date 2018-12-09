@@ -8,8 +8,8 @@ mutable struct GFFixUpdateState
     discard::DynamicAssignment
     argdiff::Any
     retdiff::Any
-    choicediffs::HomogenousTrie{Any,Any}
-    calldiffs::HomogenousTrie{Any,Any}
+    choicediffs::Trie{Any,Any}
+    calldiffs::Trie{Any,Any}
 end
 
 function GFFixUpdateState(gen_fn, args, argdiff, prev_trace,
@@ -18,7 +18,7 @@ function GFFixUpdateState(gen_fn, args, argdiff, prev_trace,
     discard = DynamicAssignment()
     GFFixUpdateState(prev_trace, DynamicDSLTrace(gen_fn, args), constraints,
         0., visitor, params, discard, argdiff, DefaultRetDiff(),
-        HomogenousTrie{Any,Any}(), HomogenousTrie{Any,Any}())
+        Trie{Any,Any}(), Trie{Any,Any}())
 end
 
 function addr(state::GFFixUpdateState, dist::Distribution{T},
@@ -33,13 +33,13 @@ function addr(state::GFFixUpdateState, dist::Distribution{T},
     has_previous = has_choice(state.prev_trace, key)
     if has_previous
         prev_choice = get_choice(state.prev_trace, key)
-        prev_retval = prev_call.retval
-        prev_score = prev_call.score
+        prev_retval = prev_choice.retval
+        prev_score = prev_choice.score
     end
 
     # check for constraints at this key
     constrained = has_value(state.constraints, key)
-    lightweight_check_no_subassmt(state.constraints, key)
+    !constrained && check_no_subassmt(state.constraints, key)
     if constrained && !has_previous
         error("fix_update attempted to constrain a new key: $key")
     end
@@ -74,7 +74,7 @@ function addr(state::GFFixUpdateState, dist::Distribution{T},
     end
 
     # add to the trace
-    add_choice!(state.trace, ChoiceRecord(retval, score))
+    add_choice!(state.trace, key, ChoiceRecord(retval, score))
 
     retval 
 end
@@ -93,7 +93,6 @@ function addr(state::GFFixUpdateState, gen_fn::GenerativeFunction{T,U},
     visit!(state.visitor, key)
 
     # check for constraints at this key 
-    lightweight_check_no_value(state.constraints, key)
     constraints = get_subassmt(state.constraints, key)
 
     # get subtrace
@@ -143,7 +142,7 @@ function splice(state::GFFixUpdateState, gen_fn::DynamicDSLFunction,
     exec_for_update(gen_fn, state, args)
 end
 
-function fix_delete_recurse(prev_calls::HomogeneousTrie{Any,CallRecord},
+function fix_delete_recurse(prev_calls::Trie{Any,CallRecord},
                             visited::EmptyAddressSet)
     noise = 0.
     for (key, call) in get_leaf_nodes(prev_calls)
@@ -155,7 +154,7 @@ function fix_delete_recurse(prev_calls::HomogeneousTrie{Any,CallRecord},
     noise
 end
 
-function fix_delete_recurse(prev_calls::HomogeneousTrie{Any,CallRecord},
+function fix_delete_recurse(prev_calls::Trie{Any,CallRecord},
                             visited::DynamicAddressSet)
     noise = 0.
     for (key, call) in get_leaf_nodes(prev_calls)
@@ -177,15 +176,14 @@ end
 function fix_update(gen_fn::DynamicDSLFunction, args::Tuple, argdiff,
                     trace::DynamicDSLTrace, constraints::Assignment)
     @assert gen_fn === trace.gen_fn
-    retval = exec_for_update(gen_fn, state, args)
     state = GFFixUpdateState(gen_fn, args, argdiff, trace,
-        constraints, gen.params)
-    retval = exec_for_update(gen, state, args)
+        constraints, gen_fn.params)
+    retval = exec_for_update(gen_fn, state, args)
     set_retval!(state.trace, retval)
 
-    visited = state.visitor.visited
-    state.weight -= fix_delete_recurse(trace.calls, visited)
+    state.weight -= fix_delete_recurse(trace.calls, get_visited(state.visitor))
 
+    visited = get_visited(state.visitor)
     if !all_visited(visited, constraints)
         error("Did not visit all constraints")
     end

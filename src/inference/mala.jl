@@ -1,5 +1,5 @@
 function mala(model::GenerativeFunction{T,U}, selection::AddressSet, trace::U, tau) where {T,U}
-    model_args = get_call_record(trace).args
+    model_args = get_args(trace)
     std = sqrt(2 * tau)
 
     # forward proposal

@@ -8,8 +8,8 @@ mutable struct GFForceUpdateState
     discard::DynamicAssignment
     argdiff::Any
     retdiff::Any
-    choicediffs::HomogenousTrie{Any,Any}
-    calldiffs::HomogenousTrie{Any,Any}
+    choicediffs::Trie{Any,Any}
+    calldiffs::Trie{Any,Any}
 end
 
 function GFForceUpdateState(gen_fn, args, argdiff, prev_trace,
@@ -18,7 +18,7 @@ function GFForceUpdateState(gen_fn, args, argdiff, prev_trace,
     discard = DynamicAssignment()
     GFForceUpdateState(prev_trace, DynamicDSLTrace(gen_fn, args), constraints,
         0., visitor, params, discard, argdiff, DefaultRetDiff(),
-        HomogenousTrie{Any,Any}(), HomogenousTrie{Any,Any}())
+        Trie{Any,Any}(), Trie{Any,Any}())
 end
 
 function addr(state::GFForceUpdateState, dist::Distribution{T}, 
@@ -34,12 +34,12 @@ function addr(state::GFForceUpdateState, dist::Distribution{T},
     if has_previous
         prev_choice = get_choice(state.prev_trace, key)
         prev_retval = prev_choice.retval
-        prev_score = prev_call.score 
+        prev_score = prev_choice.score 
     end
 
     # check for constraints at this key
     constrained = has_value(state.constraints, key)
-    lightweight_check_no_subassmt(state.constraints, key)
+    !constrained && check_no_subassmt(state.constraints, key)
 
     # record the previous value as discarded if it is replaced
     if constrained && has_previous
@@ -59,8 +59,9 @@ function addr(state::GFForceUpdateState, dist::Distribution{T},
     score = logpdf(dist, retval, args...)
 
     # update the weight
+    state.weight += score
     if has_previous
-        state.weight += score - prev_score
+        state.weight -= prev_score
     end
 
     # update choicediffs
@@ -71,7 +72,7 @@ function addr(state::GFForceUpdateState, dist::Distribution{T},
     end
 
     # add to the trace
-    add_choice!(state.trace, ChoiceRecord(retval, score))
+    add_choice!(state.trace, key, ChoiceRecord(retval, score))
 
     retval 
 end
@@ -90,7 +91,7 @@ function addr(state::GFForceUpdateState, gen_fn::GenerativeFunction{T,U},
     visit!(state.visitor, key)
 
     # check for constraints at this key
-    lightweight_check_no_value(state.constraints, key)
+    check_no_value(state.constraints, key)
     constraints = get_subassmt(state.constraints, key)
 
     # get subtrace
@@ -137,7 +138,7 @@ function splice(state::GFForceUpdateState, gen_fn::DynamicDSLFunction,
     exec_for_update(gen_fn, state, args)
 end
 
-function force_delete_recurse(prev_choices::HomogeneousTrie{Any,ChoiceRecord},
+function force_delete_recurse(prev_choices::Trie{Any,ChoiceRecord},
                                      visited::EmptyAddressSet)
     score = 0.
     for (key, choice) in get_leaf_nodes(prev_choices)
@@ -149,7 +150,7 @@ function force_delete_recurse(prev_choices::HomogeneousTrie{Any,ChoiceRecord},
     score
 end
 
-function force_delete_recurse(prev_choices::HomogeneousTrie{Any,ChoiceRecord},
+function force_delete_recurse(prev_choices::Trie{Any,ChoiceRecord},
                                      visited::DynamicAddressSet)
     score = 0.
     for (key, choice) in get_leaf_nodes(prev_choices)
@@ -168,7 +169,7 @@ function force_delete_recurse(prev_choices::HomogeneousTrie{Any,ChoiceRecord},
     score
 end
 
-function force_delete_recurse(prev_calls::HomogeneousTrie{Any,CallRecord},
+function force_delete_recurse(prev_calls::Trie{Any,CallRecord},
                         visited::EmptyAddressSet)
     score = 0.
     for (key, call) in get_leaf_nodes(prev_calls)
@@ -180,7 +181,7 @@ function force_delete_recurse(prev_calls::HomogeneousTrie{Any,CallRecord},
     score
 end
 
-function force_delete_recurse(prev_calls::HomogeneousTrie{Any,CallRecord},
+function force_delete_recurse(prev_calls::Trie{Any,CallRecord},
                         visited::DynamicAddressSet)
     score = 0.
     for (key, call) in get_leaf_nodes(prev_calls)
@@ -228,23 +229,21 @@ function add_unvisited_to_discard!(discard::DynamicAssignment,
     end
 end
 
-function force_update(gen_fn::DynamicDSLFunction, args, argdiff,
-                      trace::DynamicDSLTrace, constraints)
+function force_update(gen_fn::DynamicDSLFunction, args::Tuple, argdiff,
+                      trace::DynamicDSLTrace, constraints::Assignment)
     @assert gen_fn === trace.gen_fn
     state = GFForceUpdateState(gen_fn, args, argdiff, trace,
-        constraints, gen.params)
-    retval = exec_for_update(gen, state, args)
+        constraints, gen_fn.params)
+    retval = exec_for_update(gen_fn, state, args)
     set_retval!(state.trace, retval)
-
-    visited = state.visitor.visited
+    visited = get_visited(state.visitor)
     state.weight -= force_delete_recurse(trace.choices, visited)
     state.weight -= force_delete_recurse(trace.calls, visited)
-
     add_unvisited_to_discard!(state.discard, visited, get_assignment(trace))
-
+    println("visited: $visited")
+    println("constraints: $constraints")
     if !all_visited(visited, constraints)
         error("Did not visit all constraints")
     end
-  
     (state.trace, state.weight, state.discard, state.retdiff)
 end

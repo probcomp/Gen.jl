@@ -26,6 +26,8 @@ export DynamicAddressSchema
 export EmptyAddressSchema
 export AllAddressSchema
 
+export leaf_node_keys
+export internal_node_keys
 
 ########################
 # abstract address set #
@@ -81,6 +83,9 @@ Base.getindex(set::AddressSet, addr) = get_internal_node(set, addr)
 Base.haskey(set::AddressSet, addr) = has_internal_node(set, addr)
 
 export AddressSet
+export has_internal_node
+export get_internal_node
+export has_leaf_node
 
 #####################
 # empty address set #
@@ -276,7 +281,6 @@ function set_internal_node!(set::DynamicAddressSet, addr::Pair, node)
 end
 
 get_leaf_nodes(addrs::DynamicAddressSet) = addrs.leaf_nodes
-
 get_internal_nodes(addrs::DynamicAddressSet) = addrs.internal_nodes
 
 Base.push!(set::DynamicAddressSet, addr) = push_leaf_node!(set, addr)

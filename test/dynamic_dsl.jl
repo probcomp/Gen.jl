@@ -1,8 +1,39 @@
-@testset "lightweight gen function" begin
+using Gen: AddressVisitor, all_visited, visit!, get_visited
 
-##########
-# update #
-##########
+@testset "Dynamic DSL" begin
+
+###################
+# address visitor #
+###################
+
+@testset "address visitor" begin
+    assmt = DynamicAssignment()
+    assmt[:x] = 1
+    assmt[:y => :z] = 2
+
+    visitor = AddressVisitor()
+    visit!(visitor, :x)
+    visit!(visitor, :y => :z)
+    @test all_visited(get_visited(visitor), assmt)
+
+    visitor = AddressVisitor()
+    visit!(visitor, :x)
+    @test !all_visited(get_visited(visitor), assmt)
+
+    visitor = AddressVisitor()
+    visit!(visitor, :y => :z)
+    @test !all_visited(get_visited(visitor), assmt)
+
+    visitor = AddressVisitor()
+    visit!(visitor, :x)
+    visit!(visitor, :y)
+    @test all_visited(get_visited(visitor), assmt)
+end
+
+
+################
+# force update #
+################
 
 @testset "force update" begin
 
@@ -66,7 +97,7 @@
         logpdf(normal, y, 0, 1) +
         logpdf(normal, b, 0, 1))
     expected_weight = expected_new_score - prev_score
-    @test isapprox(expected_new_score, get_call_record(new_trace).score)
+    @test isapprox(expected_new_score, get_score(new_trace))
     @test isapprox(expected_weight, weight)
 
     # test retdiff
@@ -114,7 +145,7 @@ end
     constraints = DynamicAssignment()
     constraints[:branch] = false
     constraints[:z] = z_new
-    (new_trace, weight, discard, retdiff) = fix_force_update(
+    (new_trace, weight, discard, retdiff) = fix_update(
         foo, (), unknownargdiff, trace, constraints)
 
     # test discard
@@ -143,7 +174,7 @@ end
         - logpdf(bernoulli, true, 0.4)
         + logpdf(normal, z_new, 0, 1)
         - logpdf(normal, z, 0, 1))
-    @test isapprox(expected_new_score, get_call_record(new_trace).score)
+    @test isapprox(expected_new_score, get_score(new_trace))
     @test isapprox(expected_weight, weight)
 
     # test retdiff
@@ -194,24 +225,31 @@ end
         # change the argument so that the weights can be nonzer
         prev_mu = mu
         mu = rand()
-        (trace, weight, retdiff) = free_update(foo, (mu,), unknownargdiff, trace, selection)
+        (trace, weight, retdiff) = free_update(
+            foo, (mu,), unknownargdiff, trace, selection)
         assignment = get_assignment(trace)
 
         # test score
         if assignment[:branch]
-            expected_score = logpdf(normal, assignment[:x], mu, 1) + logpdf(normal, assignment[:u => :a], mu, 1) + logpdf(bernoulli, true, 0.4)
+            expected_score = (
+                logpdf(normal, assignment[:x], mu, 1)
+                + logpdf(normal, assignment[:u => :a], mu, 1)
+                + logpdf(bernoulli, true, 0.4))
         else
-            expected_score = logpdf(normal, assignment[:y], mu, 1) + logpdf(normal, assignment[:v => :b], mu, 1) + logpdf(bernoulli, false, 0.4)
+            expected_score = (
+                logpdf(normal, assignment[:y], mu, 1)
+                + logpdf(normal, assignment[:v => :b], mu, 1)
+                + logpdf(bernoulli, false, 0.4))
         end
-        @test isapprox(expected_score, get_call_record(trace).score)
+        @test isapprox(expected_score, get_score(trace))
 
         # test values
         if assignment[:branch]
             @test has_value(assignment, :x)
-            @test has_internal_node(assignment, :u)
+            @test !isempty(get_subassmt(assignment, :u))
         else
             @test has_value(assignment, :y)
-            @test has_internal_node(assignment, :v)
+            @test !isempty(get_subassmt(assignment, :v))
         end
         @test length(collect(get_values_shallow(assignment))) == 2
         @test length(collect(get_subassmts_shallow(assignment))) == 1
@@ -219,11 +257,19 @@ end
         # test weight
         if assignment[:branch] == prev_assignment[:branch]
             if assignment[:branch]
-                expected_weight = logpdf(normal, assignment[:x], mu, 1) + logpdf(normal, assignment[:u => :a], mu, 1)
-                expected_weight -= logpdf(normal, assignment[:x], prev_mu, 1) + logpdf(normal, assignment[:u => :a], prev_mu, 1)
+                expected_weight = (
+                    logpdf(normal, assignment[:x], mu, 1)
+                    + logpdf(normal, assignment[:u => :a], mu, 1))
+                expected_weight -= (
+                    logpdf(normal, assignment[:x], prev_mu, 1)
+                    + logpdf(normal, assignment[:u => :a], prev_mu, 1))
             else
-                expected_weight = logpdf(normal, assignment[:y], mu, 1) + logpdf(normal, assignment[:v => :b], mu, 1)                
-                expected_weight -= logpdf(normal, assignment[:y], prev_mu, 1) + logpdf(normal, assignment[:v => :b], prev_mu, 1)
+                expected_weight = (
+                    logpdf(normal, assignment[:y], mu, 1)
+                    + logpdf(normal, assignment[:v => :b], mu, 1))
+                expected_weight -= (
+                    logpdf(normal, assignment[:y], prev_mu, 1)
+                    + logpdf(normal, assignment[:v => :b], prev_mu, 1))
             end
         else 
             expected_weight = 0.
@@ -238,12 +284,12 @@ end
 
 @testset "backprop" begin
 
-    @ad @gen function bar(@ad(mu_z::Float64))
+    @gen function bar(@grad(mu_z::Float64))
         z = @addr(normal(mu_z, 1), :z)
         return z + mu_z
     end
 
-    @ad @gen function foo(@ad(mu_a::Float64))
+    @gen function foo(@grad(mu_a::Float64))
         a = @addr(normal(mu_a, 1), :a)
         b = @addr(normal(a, 1), :b)
         c = a * b * @addr(bar(a), :bar)
@@ -281,25 +327,26 @@ end
     push_leaf_node!(selection, :a)
     push_leaf_node!(selection, :out)
     retval_grad = 2.
-    ((mu_a_grad,), value_trie, gradient_trie) = backprop_trace(foo, trace, selection, retval_grad)
+    ((mu_a_grad,), value_assmt, gradient_assmt) = backprop_trace(
+        foo, trace, selection, retval_grad)
 
     # check value trie
-    @test get_value(value_trie, :a) == a
-    @test get_value(value_trie, :out) == out
-    @test get_value(value_trie, :bar => :z) == z
-    @test !has_value(value_trie, :b) # was not selected
-    @test length(get_subassmts_shallow(value_trie)) == 1
-    @test length(get_values_shallow(value_trie)) == 2
+    @test get_value(value_assmt, :a) == a
+    @test get_value(value_assmt, :out) == out
+    @test get_value(value_assmt, :bar => :z) == z
+    @test !has_value(value_assmt, :b) # was not selected
+    @test length(collect(get_subassmts_shallow(value_assmt))) == 1
+    @test length(collect(get_values_shallow(value_assmt))) == 2
 
     # check gradient trie
-    @test length(get_subassmts_shallow(gradient_trie)) == 1
-    @test length(get_values_shallow(gradient_trie)) == 2
-    @test !has_value(gradient_trie, :b) # was not selected
+    @test length(collect(get_subassmts_shallow(gradient_assmt))) == 1
+    @test length(collect(get_values_shallow(gradient_assmt))) == 2
+    @test !has_value(gradient_assmt, :b) # was not selected
     @test isapprox(mu_a_grad, finite_diff(f, (mu_a, a, b, z, out), 1, dx))
-    @test isapprox(get_value(gradient_trie, :bar => :z), finite_diff(f, (mu_a, a, b, z, out), 4, dx))
-    @test isapprox(get_value(gradient_trie, :out), finite_diff(f, (mu_a, a, b, z, out), 5, dx))
-    
-
+    @test isapprox(get_value(gradient_assmt, :bar => :z),
+        finite_diff(f, (mu_a, a, b, z, out), 4, dx))
+    @test isapprox(get_value(gradient_assmt, :out),
+        finite_diff(f, (mu_a, a, b, z, out), 5, dx))
 end
 
 end

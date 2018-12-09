@@ -218,7 +218,8 @@ function generate_trace_type_and_methods(ir::StaticIR, name::Symbol)
     static_get_value_exprs = generate_static_get_value(ir, trace_struct_name)
     static_has_value_exprs = generate_static_has_value(ir, trace_struct_name)
     static_get_subassmt_exprs = generate_static_get_subassmt(ir, trace_struct_name)
-    exprs = Expr(:block, trace_struct_expr, has_choices_expr, get_call_record_expr,
+    exprs = Expr(:block, trace_struct_expr, has_choices_expr,
+                 get_args_expr, get_retval_expr,
                  get_assignment_expr, get_schema_expr, get_values_shallow_expr,
                  get_subassmts_shallow_expr, static_get_value_exprs...,
                  static_has_value_exprs..., static_get_subassmt_exprs...)

@@ -11,14 +11,14 @@
     @test assmt[:d => :b] == 3.0
     @test assmt[:e => :a] == 4.0
     @test assmt[:e => :b] == 5.0
-    @test length(get_subassmts_shallow(assmt)) == 2
-    @test length(get_values_shallow(assmt)) == 1
+    @test length(collect(get_subassmts_shallow(assmt))) == 2
+    @test length(collect(get_values_shallow(assmt))) == 1
     subassmt1 = get_subassmt(assmt, :d)
-    @test length(get_values_shallow(subassmt1)) == 2
-    @test length(get_subassmts_shallow(subassmt1)) == 0
+    @test length(collect(get_values_shallow(subassmt1))) == 2
+    @test length(collect(get_subassmts_shallow(subassmt1))) == 0
     subassmt2 = get_subassmt(assmt, :e)
-    @test length(get_values_shallow(subassmt2)) == 2
-    @test length(get_subassmts_shallow(subassmt2)) == 0
+    @test length(collect(get_values_shallow(subassmt2))) == 2
+    @test length(collect(get_subassmts_shallow(subassmt2))) == 0
 end
 
 @testset "dynamic assignment to/from array" begin
@@ -39,14 +39,14 @@ end
     @test assmt[:d => :b] == 3.0
     @test assmt[:e => :a] == 4.0
     @test assmt[:e => :b] == 5.0
-    @test length(get_subassmts_shallow(assmt)) == 2
-    @test length(get_values_shallow(assmt)) == 1
+    @test length(collect(get_subassmts_shallow(assmt))) == 2
+    @test length(collect(get_values_shallow(assmt))) == 1
     subassmt1 = get_subassmt(assmt, :d)
-    @test length(get_values_shallow(subassmt1)) == 2
-    @test length(get_subassmts_shallow(subassmt1)) == 0
+    @test length(collect(get_values_shallow(subassmt1))) == 2
+    @test length(collect(get_subassmts_shallow(subassmt1))) == 0
     subassmt2 = get_subassmt(assmt, :e)
-    @test length(get_values_shallow(subassmt2)) == 2
-    @test length(get_subassmts_shallow(subassmt2)) == 0
+    @test length(collect(get_values_shallow(subassmt2))) == 2
+    @test length(collect(get_subassmts_shallow(subassmt2))) == 0
 end
 
 @testset "internal vector assignment to/from array" begin
@@ -65,7 +65,7 @@ end
     @test assmt[2 => :b] == 4.0
     @test assmt[3 => :a] == 5.0
     @test assmt[3 => :b] == 6.0
-    @test length(get_subassmts_shallow(assmt)) == 3
+    @test length(collect(get_subassmts_shallow(assmt))) == 3
 end
 
 @testset "dynamic assignment merge" begin
@@ -92,8 +92,8 @@ end
     @test assmt[:f => :x] == 1
     @test assmt[:shared => :x] == 1
     @test assmt[:shared => :y] == 4.
-    @test length(get_subassmts_shallow(assmt)) == 4
-    @test length(get_values_shallow(assmt)) == 3
+    @test length(collect(get_subassmts_shallow(assmt))) == 4
+    @test length(collect(get_values_shallow(assmt))) == 3
 end
 
 @testset "static assignment merge" begin
@@ -112,8 +112,115 @@ end
     @test assmt[:f => :x] == 1
     @test assmt[:shared => :x] == 1
     @test assmt[:shared => :y] == 4.
-    @test length(get_subassmts_shallow(assmt)) == 4
-    @test length(get_values_shallow(assmt)) == 3
+    @test length(collect(get_subassmts_shallow(assmt))) == 4
+    @test length(collect(get_values_shallow(assmt))) == 3
+end
+
+@testset "static assignment errors" begin
+
+    # get_assmt on an address that contains a value throws a KeyError
+    assmt = StaticAssignment((x=1,), NamedTuple())
+    threw = false
+    try get_subassmt(assmt, :x) catch KeyError threw = true end
+    @test threw
+
+    # static_get_subassmt on an address that contains a value throws a KeyError
+    assmt = StaticAssignment((x=1,), NamedTuple())
+    threw = false
+    try static_get_subassmt(assmt, Val(:x)) catch KeyError threw = true end
+    @test threw
+
+    # get_assmt on an address whose prefix contains a value throws a KeyError
+    assmt = StaticAssignment((x=1,), NamedTuple())
+    threw = false
+    try get_subassmt(assmt, :x => :y) catch KeyError threw = true end
+    @test threw
+
+    # static_get_assmt on an address whose prefix contains a value throws a KeyError
+    assmt = StaticAssignment((x=1,), NamedTuple())
+    threw = false
+    try static_get_subassmt(assmt, Val(:x)) catch KeyError threw = true end
+    @test threw
+
+    # get_assmt on an address that contains nothing gives empty assignment
+    assmt = StaticAssignment(NamedTuple(), NamedTuple())
+    @test isempty(get_subassmt(assmt, :x))
+    @test isempty(get_subassmt(assmt, :x => :y))
+
+    # static_get_assmt on an address that contains nothing throws a KeyError
+    assmt = StaticAssignment(NamedTuple(), NamedTuple())
+    threw = false
+    try static_get_subassmt(assmt, Val(:x)) catch KeyError threw = true end
+    @test threw
+
+    # get_value on an address that contains a subassmt throws a KeyError
+    subassmt = DynamicAssignment()
+    subassmt[:y] = 1
+    assmt = StaticAssignment(NamedTuple(), (x=subassmt,))
+    threw = false
+    try get_value(assmt, :x) catch KeyError threw = true end
+    @test threw
+
+    # static_get_value on an address that contains a subassmt throws a KeyError
+    subassmt = DynamicAssignment()
+    subassmt[:y] = 1
+    assmt = StaticAssignment(NamedTuple(), (x=subassmt,))
+    threw = false
+    try static_get_value(assmt, Val(:x)) catch KeyError threw = true end
+    @test threw
+
+    # get_value on an address that contains nothing throws a KeyError
+    assmt = StaticAssignment(NamedTuple(), NamedTuple())
+    threw = false
+    try get_value(assmt, :x) catch KeyError threw = true end
+    @test threw
+    threw = false
+    try get_value(assmt, :x => :y) catch KeyError threw = true end
+    @test threw
+
+    # static_get_value on an address that contains nothing throws a KeyError
+    assmt = StaticAssignment(NamedTuple(), NamedTuple())
+    threw = false
+    try static_get_value(assmt, Val(:x)) catch KeyError threw = true end
+    @test threw
+end
+
+@testset "dynamic assignment errors" begin
+
+    # get_assmt on an address that contains a value throws a KeyError
+    assmt = DynamicAssignment()
+    assmt[:x] = 1
+    threw = false
+    try get_subassmt(assmt, :x) catch KeyError threw = true end
+    @test threw
+
+    # get_assmt on an address whose prefix contains a value throws a KeyError
+    assmt = DynamicAssignment()
+    assmt[:x] = 1
+    threw = false
+    try get_subassmt(assmt, :x => :y) catch KeyError threw = true end
+    @test threw
+
+    # get_assmt on an address that contains nothing gives empty assignment
+    assmt = DynamicAssignment()
+    @test isempty(get_subassmt(assmt, :x))
+    @test isempty(get_subassmt(assmt, :x => :y))
+
+    # get_value on an address that contains a subassmt throws a KeyError
+    assmt = DynamicAssignment()
+    assmt[:x => :y] = 1
+    threw = false
+    try get_value(assmt, :x) catch KeyError threw = true end
+    @test threw
+
+    # get_value on an address that contains nothing throws a KeyError
+    assmt = DynamicAssignment()
+    threw = false
+    try get_value(assmt, :x) catch KeyError threw = true end
+    @test threw
+    threw = false
+    try get_value(assmt, :x => :y) catch KeyError threw = true end
+    @test threw
 end
 
 @testset "dynamic assignment overwrite" begin
@@ -123,7 +230,6 @@ end
     assmt[:x] = 1
     assmt[:x] = 2
     @test assmt[:x] == 2
-    @test isempty(get_subassmt(assmt, :x))
 
     # overwrite value with a subassmt
     assmt = DynamicAssignment()
@@ -137,7 +243,9 @@ end
     assmt = DynamicAssignment()
     assmt[:x => :y] = 1
     assmt[:x] = 2
-    @test isempty(get_subassmt(assmt, :x))
+    threw = false
+    try get_subassmt(assmt, :x) catch KeyError threw = true end
+    @test threw
     @test assmt[:x] == 2
 
     # overwrite subassignment with a subassignment
@@ -153,14 +261,14 @@ end
     assmt = DynamicAssignment()
     assmt[:x] = 1
     threw = false
-    try set_value!(assmt, :x => :y, 2) catch threw = true end
+    try set_value!(assmt, :x => :y, 2) catch KeyError threw = true end
     @test threw
 
-    # illegal set address under existing value
+    # illegal set subassmt under existing value
     assmt = DynamicAssignment()
     assmt[:x] = 1
     subassmt = DynamicAssignment(); assmt[:z] = 2
     threw = false
-    try set_subassmt!(assmt, :x => :y, subassmt) catch threw = true end
+    try set_subassmt!(assmt, :x => :y, subassmt) catch KeyError threw = true end
     @test threw
 end

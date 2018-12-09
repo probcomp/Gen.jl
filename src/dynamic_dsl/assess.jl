@@ -49,9 +49,10 @@ function splice(state::GFAssessState, gen_fn::DynamicDSLFunction, args::Tuple)
 end
 
 function assess(gen_fn::DynamicDSLFunction, args::Tuple, assmt::Assignment)
-    state = Gen.GFAssessState(assmt, gen_fn.params)
-    retval = exec(gen_fn, state, args) 
+    state = GFAssessState(assmt, gen_fn.params)
+    retval = exec(gen_fn, state, args)
 
+    visited = get_visited(state.visitor)
     if !all_visited(visited, constraints)
         error("Did not visit all constraints")
     end

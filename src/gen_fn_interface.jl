@@ -17,16 +17,29 @@ Return the return value of the given execution.
 function get_retval end
 
 """
-get_assignment(trace)
+    get_assignment(trace)
 
 Return a value implementing the assignment interface
 """
 function get_assignment end
 
+"""
+    get_score(trace)
+
+**Basic case**
+
+Return \$P(t; x)\$
+
+**General case**
+
+Return \$P(r, t; x) / Q(r; tx, t)\$
+"""
+function get_score end
+
 export get_args
 export get_retval
 export get_assignment
-
+export get_score
 
 ######################
 # GenerativeFunction #

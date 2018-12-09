@@ -107,7 +107,7 @@ function fwd_codegen!(stmts, fwd_marked, back_marked, node::GenerativeFunctionCa
     # for reference by other nodes during back_codegen!
     # could performance optimize this away
     subtrace_fieldname = get_subtrace_fieldname(node)
-    push!(stmts, :($(node.name) = get_call_record(trace.$subtrace_fieldname).retval))
+    push!(stmts, :($(node.name) = get_retval(trace.$subtrace_fieldname)))
 
     # NOTE: we will still potentially run backprop_trace recursively on the generative function,
     # we just might not use its return value gradient.
@@ -319,7 +319,7 @@ function codegen_backprop_trace(gen_fn_type::Type{T}, trace_type, selection_type
 
     # unpack arguments from the trace
     arg_names = Symbol[arg_node.name for arg_node in ir.arg_nodes]
-    push!(stmts, :($(Expr(:tuple, arg_names...)) = get_call_record(trace).args))
+    push!(stmts, :($(Expr(:tuple, arg_names...)) = get_args(trace)))
 
     # forward code-generation pass (initialize gradients to zero, create needed references)
     for node in ir.nodes

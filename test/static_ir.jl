@@ -67,7 +67,7 @@ using Gen: generate_generative_function
         logpdf(normal, y, 0, 1) +
         logpdf(normal, b, 0, 1))
 
-    @test isapprox(score, get_call_record(trace).score)
+    @test isapprox(score, get_score(trace))
 
     prior_score = (
         logpdf(normal, x, 0, 1) +
@@ -122,8 +122,8 @@ end
         logpdf(normal, y_new, 0, 1) +
         logpdf(normal, b_new, 0, 1))
     expected_weight = new_score - prev_score
-    @test isapprox(prev_score, get_call_record(trace).score)
-    @test isapprox(new_score, get_call_record(new_trace).score)
+    @test isapprox(prev_score, get_score(trace))
+    @test isapprox(new_score, get_score(new_trace))
     @test isapprox(expected_weight, weight)
 
     # test retdiff

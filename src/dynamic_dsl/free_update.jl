@@ -7,8 +7,8 @@ mutable struct GFFreeUpdateState
     params::Dict{Symbol,Any}
     argdiff::Any
     retdiff::Any
-    choicediffs::HomogenousTrie{Any,Any}
-    calldiffs::HomogenousTrie{Any,Any}
+    choicediffs::Trie{Any,Any}
+    calldiffs::Trie{Any,Any}
 end
 
 function GFFreeUpdateState(gen_fn, args, argdiff, prev_trace,
@@ -16,7 +16,7 @@ function GFFreeUpdateState(gen_fn, args, argdiff, prev_trace,
     visitor = AddressVisitor()
     GFFreeUpdateState(prev_trace, DynamicDSLTrace(gen_fn, args), selection,
         0., visitor, params, argdiff, DefaultRetDiff(),
-        HomogenousTrie{Any,Any}(), HomogenousTrie{Any,Any}())
+        Trie{Any,Any}(), Trie{Any,Any}())
 end
 
 function addr(state::GFFreeUpdateState, dist::Distribution{T},
@@ -30,9 +30,9 @@ function addr(state::GFFreeUpdateState, dist::Distribution{T},
     # check for previous choice at this key 
     has_previous = has_choice(state.prev_trace, key)
     if has_previous
-        prev_call = get_choice(state.prev_trace, key)
-        prev_retval = prev_call.retval
-        prev_score = prev_call.score
+        prev_choice = get_choice(state.prev_trace, key)
+        prev_retval = prev_choice.retval
+        prev_score = prev_choice.score
     end
 
     # check whether the key was selected
@@ -66,7 +66,7 @@ function addr(state::GFFreeUpdateState, dist::Distribution{T},
     end
 
     # add to the trace
-    add_choice!(state.trace, ChoiceRecord(retval, score))
+    add_choice!(state.trace, key, ChoiceRecord(retval, score))
 
     retval
 end
@@ -133,8 +133,8 @@ function splice(state::GFFreeUpdateState, gen_fn::DynamicDSLFunction,
     exec_for_update(gen_fn, state, args)
 end
 
-function free_delete_recurse(prev_calls::HomogeneousTrie{Any,CallRecord},
-                            visited::EmptyAddressSet)
+function free_delete_recurse(prev_calls::Trie{Any,CallRecord},
+                             visited::EmptyAddressSet)
     noise = 0.
     for (key, call) in get_leaf_nodes(prev_calls)
         noise += call.noise
@@ -145,8 +145,8 @@ function free_delete_recurse(prev_calls::HomogeneousTrie{Any,CallRecord},
     noise
 end
 
-function free_delete_recurse(prev_calls::HomogeneousTrie{Any,CallRecord},
-                            visited::DynamicAddressSet)
+function free_delete_recurse(prev_calls::Trie{Any,CallRecord},
+                             visited::DynamicAddressSet)
     noise = 0.
     for (key, call) in get_leaf_nodes(prev_calls)
         if !has_leaf_node(visited, key)
@@ -168,8 +168,8 @@ function free_update(gen_fn::DynamicDSLFunction, args::Tuple, argdiff,
                      trace::DynamicDSLTrace, selection::AddressSet)
     @assert gen_fn === trace.gen_fn
     state = GFFreeUpdateState(gen_fn, args, argdiff, trace,
-        selection, gen.params)
-    retval = exec_for_update(gen, state, args)
+        selection, gen_fn.params)
+    retval = exec_for_update(gen_fn, state, args)
     set_retval!(state.trace, retval)
 
     visited = state.visitor.visited

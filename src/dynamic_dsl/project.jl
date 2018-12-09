@@ -1,10 +1,11 @@
-function project_recurse(choices::HomogeneousTrie{Any,ChoiceRecord},
+function project_recurse(choices::Trie{Any,ChoiceRecord},
                          selection::AddressSet)
     weight = 0.
     for (key, choice) in get_leaf_nodes(choices)
         if has_leaf_node(selection, key)
             weight += choice.score
         end
+    end
     for (key, subchoices) in get_internal_nodes(choices)
         if has_internal_node(selection, key)
             subselection = get_internal_node(selection, key)
@@ -15,7 +16,7 @@ function project_recurse(choices::HomogeneousTrie{Any,ChoiceRecord},
     weight
 end
 
-function project_recurse(calls::HomogeneousTrie{Any,CallRecord},
+function project_recurse(calls::Trie{Any,CallRecord},
                          selection::AddressSet)
     weight = 0.
     for (key, subselection) in get_internal_nodes(selection)
@@ -25,7 +26,6 @@ function project_recurse(calls::HomogeneousTrie{Any,CallRecord},
         end
     end
     weight
-    
 end
 
 function project(trace::DynamicDSLTrace, selection::AddressSet)
