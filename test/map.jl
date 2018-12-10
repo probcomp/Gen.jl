@@ -7,45 +7,81 @@
 
     set_param!(foo, :std, 1.)
 
-    @gen function bar()
-        xs = [1.0, 2.0]
-        ys = [3.0, 4.0]
-        return @addr(Map(foo)(xs, ys), :map)
+    @gen function bar(n::Int)
+        xs = [1.0, 2.0, 3.0]
+        ys = [3.0, 4.0, 5.0]
+        return @addr(Map(foo)(xs[1:n], ys[1:n]), :map)
     end
 
-    # test initialize 
-    z1, z2 = 1.1, 2.2
-    constraints = DynamicAssignment()
-    constraints[:map => 1 => :z] = z1
-    constraints[:map => 2 => :z] = z2
-    (trace, weight) = initialize(bar, (), constraints)
-    assignment = get_assignment(trace)
-    @test assignment[:map => 1 => :z] == z1
-    @test assignment[:map => 2 => :z] == z2
-    @test isapprox(weight, logpdf(normal, z1, 4., 1.) + logpdf(normal, z2, 6., 1.))
+    @testset "initialize" begin
+        z1, z2 = 1.1, 2.2
+        constraints = DynamicAssignment()
+        constraints[:map => 1 => :z] = z1
+        constraints[:map => 2 => :z] = z2
+        (trace, weight) = initialize(bar, (2,), constraints)
+        assignment = get_assignment(trace)
+        @test assignment[:map => 1 => :z] == z1
+        @test assignment[:map => 2 => :z] == z2
+        @test isapprox(weight, logpdf(normal, z1, 4., 1.) + logpdf(normal, z2, 6., 1.))
+    end
 
-    # test propose
-    # TODO 
-    #assignment = get_assignment(simulate(bar, ()))
-    #@test has_leaf_node(assignment, :map => 1 => :z)
-    #@test has_leaf_node(assignment, :map => 2 => :z)
+    @testset "propose" begin
+        (assmt, weight) = propose(bar, (2,))
+        z1 = assmt[:map => 1 => :z]
+        z2 = assmt[:map => 2 => :z]
+        @test isapprox(weight, logpdf(normal, z1, 4., 1.) + logpdf(normal, z2, 6., 1.))
+    end
 
-    # test assess
-    (weight, retval) = assess(bar, (), constraints)
-    @test length(retval) == 2
-    @test isapprox(weight, logpdf(normal, z1, 4., 1.) + logpdf(normal, z2, 6., 1.))
+    @testset "assess" begin
+        z1, z2 = 1.1, 2.2
+        constraints = DynamicAssignment()
+        constraints[:map => 1 => :z] = z1
+        constraints[:map => 2 => :z] = z2
+        (weight, retval) = assess(bar, (2,), constraints)
+        @test length(retval) == 2
+        @test isapprox(weight, logpdf(normal, z1, 4., 1.) + logpdf(normal, z2, 6., 1.))
+    end
 
-    # test force_update
-    z2_new = 3.3
-    constraints = DynamicAssignment()
-    constraints[:map => 2 => :z] = z2_new
-    (trace, weight, discard, retchange) = force_update(bar, (), nothing, trace, constraints)
-    assignment = get_assignment(trace)
-    @test assignment[:map => 1 => :z] == z1
-    @test assignment[:map => 2 => :z] == z2_new
-    @test discard[:map => 2 => :z] == z2
-    @test isapprox(weight, logpdf(normal, z2_new, 6., 1.) - logpdf(normal, z2, 6., 1.))
+    @testset "force update" begin
 
-    # test backprop_trace
-    # TODO
+        z1, z2 = 1.1, 2.2
+
+        function get_initial_trace()
+            constraints = DynamicAssignment()
+            constraints[:map => 1 => :z] = z1
+            constraints[:map => 2 => :z] = z2
+            (trace, _) = initialize(bar, (2,), constraints)
+            trace
+        end
+
+        # test force_update (increasing length from 2 to 3 and change 2)
+        trace = get_initial_trace()
+        z2_new = 3.3
+        z3_new = 4.4
+        constraints = DynamicAssignment()
+        constraints[:map => 2 => :z] = z2_new
+        constraints[:map => 3 => :z] = z3_new
+        (trace, weight, discard, retchange) = force_update((3,), nothing, trace, constraints)
+        assignment = get_assignment(trace)
+        @test get_args(trace) == (3,)
+        @test assignment[:map => 1 => :z] == z1
+        @test assignment[:map => 2 => :z] == z2_new
+        @test assignment[:map => 3 => :z] == z3_new
+        @test discard[:map => 2 => :z] == z2
+        @test isapprox(weight, logpdf(normal, z3_new, 8., 1.) + logpdf(normal, z2_new, 6., 1.) - logpdf(normal, z2, 6., 1.))
+
+        # test force_update (decreasing length from 2 to 1 and change 1)
+        trace = get_initial_trace()
+        z1_new = 3.3
+        constraints = DynamicAssignment()
+        constraints[:map => 1 => :z] = z1_new
+        (trace, weight, discard, retchange) = force_update((1,), nothing, trace, constraints)
+        assignment = get_assignment(trace)
+        @test get_args(trace) == (1,)
+        @test !has_value(assignment, :map => 2 => :z)
+        @test !has_value(assignment, :map => 3 => :z) # uh oh.
+        @test assignment[:map => 1 => :z] == z1_new
+        @test discard[:map => 2 => :z] == z2
+        @test isapprox(weight, logpdf(normal, z1_new, 4., 1.) - logpdf(normal, z1, 4., 1.) - logpdf(normal, z2, 6., 1.))
+    end
 end

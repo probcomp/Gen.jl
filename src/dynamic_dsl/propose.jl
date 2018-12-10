@@ -36,7 +36,7 @@ function addr(state::GFProposeState, gen_fn::GenerativeFunction{T,U},
     visit!(state.visitor, key)
 
     # get subtrace
-    (subassmt, weight, retval) = propose(gen, args)
+    (subassmt, weight, retval) = propose(gen_fn, args)
 
     # update assignment
     set_subassmt!(state.assmt, key, subassmt)

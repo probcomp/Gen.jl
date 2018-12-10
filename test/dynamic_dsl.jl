@@ -70,7 +70,7 @@ end
     constraints[:y] = y
     constraints[:v => :b] = b
     (new_trace, weight, discard, retdiff) = force_update(
-        foo, (), unknownargdiff, trace, constraints)
+        (), unknownargdiff, trace, constraints)
 
     # test discard
     @test get_value(discard, :branch) == true
@@ -146,7 +146,7 @@ end
     constraints[:branch] = false
     constraints[:z] = z_new
     (new_trace, weight, discard, retdiff) = fix_update(
-        foo, (), unknownargdiff, trace, constraints)
+        (), unknownargdiff, trace, constraints)
 
     # test discard
     @test get_value(discard, :branch) == true
@@ -226,7 +226,7 @@ end
         prev_mu = mu
         mu = rand()
         (trace, weight, retdiff) = free_update(
-            foo, (mu,), unknownargdiff, trace, selection)
+            (mu,), unknownargdiff, trace, selection)
         assignment = get_assignment(trace)
 
         # test score
@@ -328,7 +328,7 @@ end
     push_leaf_node!(selection, :out)
     retval_grad = 2.
     ((mu_a_grad,), value_assmt, gradient_assmt) = backprop_trace(
-        foo, trace, selection, retval_grad)
+        trace, selection, retval_grad)
 
     # check value trie
     @test get_value(value_assmt, :a) == a
@@ -347,6 +347,7 @@ end
         finite_diff(f, (mu_a, a, b, z, out), 4, dx))
     @test isapprox(get_value(gradient_assmt, :out),
         finite_diff(f, (mu_a, a, b, z, out), 5, dx))
+
 end
 
 end

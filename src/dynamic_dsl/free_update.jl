@@ -99,8 +99,9 @@ function addr(state::GFFreeUpdateState, gen_fn::GenerativeFunction{T,U},
     if has_previous
         prev_call = get_call(state.prev_trace, key)
         prev_subtrace = prev_call.subtrace
+        get_gen_fn(prev_subtrace) === gen_fn || gen_fn_changed_error(key)
         (subtrace, weight, retdiff) = free_update(
-            gen_fn, args, argdiff, prev_subtrace, selection)
+            args, argdiff, prev_subtrace, selection)
     else
         (subtrace, weight) = initialize(gen_fn, args, EmptyAssignment())
     end
@@ -164,9 +165,9 @@ function free_delete_recurse(prev_calls::Trie{Any,CallRecord},
     noise
 end
 
-function free_update(gen_fn::DynamicDSLFunction, args::Tuple, argdiff,
-                     trace::DynamicDSLTrace, selection::AddressSet)
-    @assert gen_fn === trace.gen_fn
+function free_update(args::Tuple, argdiff, trace::DynamicDSLTrace,
+                     selection::AddressSet)
+    gen_fn = trace.gen_fn
     state = GFFreeUpdateState(gen_fn, args, argdiff, trace,
         selection, gen_fn.params)
     retval = exec_for_update(gen_fn, state, args)

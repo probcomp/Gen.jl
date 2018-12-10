@@ -317,6 +317,10 @@ function lightweight_retchange_already_set_err()
     error("@retdiff! was already used")
 end
 
+function gen_fn_changed_error(addr)
+    error("Generative function changed at address: $addr")
+end
+
 include("diff.jl")
 include("initialize.jl")
 include("propose.jl")

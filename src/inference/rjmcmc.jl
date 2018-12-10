@@ -1,5 +1,6 @@
-function rjmcmc(model, forward, fwd_args, backward, bwd_args,
+function rjmcmc(forward, fwd_args, backward, bwd_args,
                 injective, injective_args, trace, correction)
+    model = get_gen_fn(trace)
     model_args = get_args(trace)
     model_score = get_score(trace)
     (fwd_assmt, fwd_score) = propose(forward, (trace, fwd_args...,))

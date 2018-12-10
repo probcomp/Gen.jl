@@ -65,7 +65,7 @@ function particle_filter(model::GenerativeFunction{T,U}, model_args_rest::Tuple,
         for i=1:num_particles
             parent = parents[i]
             parent_trace = traces[parent]
-            (next_traces[i], log_weight) = extend(model, (step, model_args_rest...),
+            (next_traces[i], log_weight) = extend((step, model_args_rest...),
                                                   argdiff, parent_trace, observations)
             log_unnormalized_weights[i] += log_weight
         end
@@ -128,7 +128,7 @@ function particle_filter(model::GenerativeFunction{T,U}, model_args_rest::Tuple,
             (proposal_assmt, proposal_weight) = propose(step_proposal, proposal_args)
             constraints = merge(observations, proposal_assmt)
             (next_traces[i], model_weight) = extend(
-                model, (step, model_args_rest...), argdiff, parent_trace, constraints)
+                (step, model_args_rest...), argdiff, parent_trace, constraints)
             log_weight = model_weight - proposal_weight
             log_unnormalized_weights[i] += log_weight
         end

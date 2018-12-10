@@ -5,8 +5,8 @@ mutable struct GFAssessState
     params::Dict{Symbol,Any}
 end
 
-function GFAssessState(constraints, params::Dict{Symbol,Any})
-    GFAssessState(constraints, 0., AddressVisitor(), params)
+function GFAssessState(assmt, params::Dict{Symbol,Any})
+    GFAssessState(assmt, 0., AddressVisitor(), params)
 end
 
 function addr(state::GFAssessState, dist::Distribution{T},
@@ -17,7 +17,7 @@ function addr(state::GFAssessState, dist::Distribution{T},
     visit!(state.visitor, key)
 
     # get return value
-    retval = get_value(state.constraints, key)
+    retval = get_value(state.assmt, key)
 
     # update weight
     state.weight += logpdf(dist, retval, args...)
@@ -53,7 +53,7 @@ function assess(gen_fn::DynamicDSLFunction, args::Tuple, assmt::Assignment)
     retval = exec(gen_fn, state, args)
 
     visited = get_visited(state.visitor)
-    if !all_visited(visited, constraints)
+    if !all_visited(visited, assmt)
         error("Did not visit all constraints")
     end
 

@@ -1,48 +1,33 @@
 # Gen Documentation
 
-TODO:  document HomogenousValueTrie. use similar method names as Assignment, or intentionally different?
-TODO: change get_assignment to get_assmt or just assmt.
-TODO: consider changing get_* to just * for the assignment and trace interfaces.
-TODO: Rename GFTrace to DynamicDSLTrace
-TODO: Rename GFCallRecord, and all other GF- methods and types (they are all specific to Dynamic DSL functions)
-
 ## Assignments
 
 An *assignment* is a map from addresses of random choices to their values.
 Assignments are represented using the abstract type `Assignment`.
-The *assignment interface* is a set of read-only accessor methods that are implemented by all concrete subtypes of `Assignment`:
+Assignments have the following methods:
+```@docs
+has_value
+get_value
+get_subassmt
+get_values_shallow
+get_subassmts_shallow
+to_array
+from_array
+pair
+unpair
+Base.merge
+```
+TODO: change `get_assignment` to `assmt`
+TODO: simplify other method names
 
-- get_address_schema (actually a method of the type, not the instance)
+### Address Schemata
+An *address schema* provides information about the set of addresses of random
+choices in an assignment.
 
-- get_subassmt (if there is a value at this key, throws a KeyError; if there is no value and no sub-assignment, return an EmptyAssignment).
-
-- get_value (if there is now value, throw a KeyError)
-
-- has_value
-
-- get_subassmts_shallow: return an iterator over (key, subassmt) tuples
-
-- get_values_shallow: return an iterator over (key, value) tuples
-
-- Base.isempty (does the assignment contain any random choices or not)
-
-- Base.getindex (alias for get_value)
-
-- `(n, assmt) = _from_array(prototype::Assignment, arr::Vector, start_idx::Int)`
-
-- `n = _fill_array!(prototype::Assignment, arr::Vector, start_idx::Int)`
-
-Generic convenience methods for assignments (need not be implemented by concrete assignment types):
-
-- pair
-
-- unpair
-
-- merge?
-
-- arr = to_array(assmt::Assignment, ::Type)
-
-- assmt = from_array(prototype::Assignment, arr)
+Address schemata are associated with the *type* of an assignment:
+```@docs
+get_address_schema
+```
 
 The remainder if this section describes some concrete types that subtype `Assignment`.
 
@@ -73,7 +58,7 @@ A `StaticAssignment` with leaf symbols `:a` and `:b` and internal key `:c` can b
 trie = StaticAssignment((a=1, b=2), (c=inner_trie,))
 ```
 
-TODO: use generated functions in a lot more places, e.g. get_subassmt
+TODO: use generated functions in a lot more places, e.g. `get_subassmt`
 
 TODO: document static variants of getters:
 
@@ -108,20 +93,9 @@ TODO: consider changing names of method in AddressSet API
 - StaticAddressSet
 
 
-## Traces
-
+## Traces and Generative Functions
 A *trace* is a record of an execution of a generative function.
 There is no abstract type representing all traces.
-Concrete trace types must implement the *trace interface*, which consists of the following methods:
-
-- get_args
-
-- get_retval
-
-- get_assignment
-
-## Generative Function Interface
-
 Generative functions implement the *generative function interface*, which is a set of methods that involve the execution traces and probabilistic behavior of generative functions.
 In the mathematical description of the interface methods, we denote arguments to a function by ``x``, complete assignments of values to addresses of random choices (containing all the random choices made during some execution) by ``t`` and partial assignments by either ``u`` or ``v``.
 We denote a trace of a generative function by the tuple ``(x, t)``.
@@ -149,9 +123,13 @@ free_update
 extend
 backprop_params
 backprop_trace
+get_assignment
+get_args
+get_retval
+get_score
 ```
 
-TODO: document has_argument_grads
+TODO: document `has_argument_grads`
 
 ## Distributions
 
@@ -225,10 +203,11 @@ uniform_discrete
 poisson
 ```
 
+## Trie
+
 # Modeling DSLs
 
 ## Dynamic DSL
 
 TODO: remove the `@ad` return value differentiation flag
 
-## 

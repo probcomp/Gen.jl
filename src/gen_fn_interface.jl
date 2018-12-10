@@ -36,10 +36,18 @@ Return \$P(r, t; x) / Q(r; tx, t)\$
 """
 function get_score end
 
+"""
+    gen_fn::GenerativeFunction = get_gen_fn(trace)
+
+Return the generative function that produced the given trace.
+"""
+function get_gen_fn end
+
 export get_args
 export get_retval
 export get_assignment
 export get_score
+export get_gen_fn
 
 ######################
 # GenerativeFunction #
@@ -90,7 +98,7 @@ function initialize(gen_fn::GenerativeFunction{T,U}, args::Tuple,
 end
 
 """
-    weight = project(gen_fn::GenerativeFunction{T,U}, trace::U, selection::AddressSet)
+    weight = project(trace::U, selection::AddressSet)
 
 Estimate the probability that the selected choices take the values they do in a
 trace. 
@@ -113,13 +121,12 @@ the weight is:
 \\cdot \\frac{P(r; x, t)}{Q(r; x, t)}
 ```
 """
-function project(gen_fn::GenerativeFunction{T,U}, trace::U,
-                 selection::AddressSet) where {T,U}
+function project(trace::U, selection::AddressSet) where {T,U}
     error("Not implemented")
 end
 
 """
-    (assmt, weight, retval) = propose(gen_fn::GenerativeFunction{T,U}, args::Tuple)
+    (assmt, weight, retval) = propose(gen_fn::GenerativeFunction, args::Tuple)
 
 Sample an assignment and compute the probability of proposing that assignment.
 
@@ -142,7 +149,7 @@ function propose(gen_fn::GenerativeFunction{T,U}, args::Tuple) where {T,U}
 end
 
 """
-    (weight, retval) = assess(gen_fn::GenerativeFunction{T,U}, args::Tuple, assmt::Assignment)
+    (weight, retval) = assess(gen_fn::GenerativeFunction, args::Tuple, assmt::Assignment)
 
 Return the probability of proposing an assignment
 
@@ -167,9 +174,8 @@ function assess(gen_fn::GenerativeFunction, args::Tuple, assmt::Assignment)
 end
 
 """
-    (new_trace::U, weight, discard, retdiff) = force_update(gen_fn::GenerativeFunction{T,U},
-                                                            args::Tuple, argdiff, trace::U,
-                                                            assmt::Assignment)
+    (new_trace, weight, discard, retdiff) = force_update(args::Tuple, argdiff, trace,
+                                                         assmt::Assignment)
 
 Update a trace by changing the arguments and/or providing new values for some
 existing random choice(s) and values for any newly introduced random choice(s).
@@ -198,15 +204,13 @@ weight is:
 \\cdot \\frac{P(r'; x', t') Q(r; x, t)}{P(r; x, t) Q(r'; x', t')}
 ```
 """
-function force_update(gen_fn::GenerativeFunction{T,U}, args::Tuple, argdiff,
-                      trace::U, assmt::Assignment) where {T,U}
+function force_update(args::Tuple, argdiff, trace, assmt::Assignment)
     error("Not implemented")
 end
 
 """
-    (new_trace::U, weight, discard, retdiff) = fix_update(gen_fn::GenerativeFunction{T,U},
-                                                          args::Tuple, argdiff, trace::U,
-                                                          assmt::Assignment)
+    (new_trace, weight, discard, retdiff) = fix_update(args::Tuple, argdiff, trace,
+                                                       assmt::Assignment)
 
 Update a trace, by changing the arguments and/or providing new values for some
 existing random choice(s).
@@ -235,15 +239,13 @@ weight is:
 \\cdot \\frac{P(r'; x', t') Q(r; x, t)}{P(r; x, t) Q(r'; x', t')}
 ```
 """
-function fix_update(gen_fn::GenerativeFunction{T,U}, args::Tuple, argdiff,
-                    trace::U, assmt::Assignment) where {T,U}
+function fix_update(args::Tuple, argdiff, trace, assmt::Assignment)
     error("Not implemented")
 end
 
 """
-    (new_trace::U, weight, retdiff) = free_update(gen_fn::GenerativeFunction{T,U},
-                                                  args::Tuple, argdiff, trace::U,
-                                                  selection::AddressSet)
+    (new_trace, weight, retdiff) = free_update(args::Tuple, argdiff, trace,
+                                               selection::AddressSet)
 
 Update a trace by changing the arguments and/or randomly sampling new values
 for selected random choices.
@@ -274,14 +276,12 @@ weight is:
 \\cdot \\frac{P(r'; x', t') Q(r; x, t)}{P(r; x, t) Q(r'; x', t')}
 ```
 """
-function free_update(gen_fn::GenerativeFunction{T,U}, args::Tuple, argdiff,
-                     trace::U, selection::AddressSet) where {T,U}
+function free_update(args::Tuple, argdiff, trace, selection::AddressSet)
     error("Not implemented")
 end
 
 """
-    (new_trace::U, weight, retdiff) = extend(gen_fn::GenerativeFunction{T,U}, args::Tuple,
-                                             argdiff, trace::U, assmt::Assignment)
+    (new_trace, weight, retdiff) = extend(args::Tuple, argdiff, trace, assmt::Assignment)
 
 Extend a trace with new random choices by changing the arguments.
 
@@ -306,13 +306,12 @@ r')\$, and the weight is:
 \\cdot \\frac{P(r'; x', t') Q(r; x, t)}{P(r; x, t) Q(r'; x', t')}
 ```
 """
-function extend(gen_fn::GenerativeFunction{T,U}, args::Tuple, argdiff,
-                trace::U, assmt::Assignment) where {T,U}
+function extend(args::Tuple, argdiff, trace, assmt::Assignment)
     error("Not implemented")
 end
 
 """
-    arg_grads = backprop_params!(gen_fn::GenerativeFunction{T,U}, trace::U, retgrad)
+    arg_grads = backprop_params(trace, retgrad)
 
 Increment gradient accumulators for parameters by the gradient of the
 log-probability of the trace.
@@ -335,15 +334,13 @@ the function by:
 
 Not yet formalized.
 """
-function backprop_params(gen_fn::GenerativeFunction{T,U}, trace::U,
-                         retgrad) where {T,U}
+function backprop_params(trace, retgrad)
     error("Not implemented")
 end
 
 """
-    (arg_grads, choice_values, choice_grads) = backprop_choices(gen_fn::GenerativeFunction{T,U},
-                                                               trace::U, selection::AddressSet,
-                                                               retgrad)
+    (arg_grads, choice_values, choice_grads) = backprop_trace(trace, selection::AddressSet,
+                                                              retgrad)
 
 **Basic case**
 
@@ -365,8 +362,7 @@ Also return the assignment (`choice_values`) that is the restriction of \$t\$ to
 
 Not yet formalized.
 """
-function backprop_trace(gen_fn::GenerativeFunction{T,U}, trace::U,
-                        selection::AddressSet, retgrad) where {T,U}
+function backprop_trace(trace, selection::AddressSet, retgrad)
     error("Not implemented")
 end
 
