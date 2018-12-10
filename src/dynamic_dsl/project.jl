@@ -19,9 +19,21 @@ end
 function project_recurse(calls::Trie{Any,CallRecord},
                          selection::AddressSet)
     weight = 0.
-    for (key, subselection) in get_internal_nodes(selection)
-        if has_internal_node(calls, key)
-            subcalls = get_internal_node(calls, key)
+    for (key, call) in get_leaf_nodes(calls)
+        if has_leaf_node(selection, key)
+            error("An entire sub-assignment was selected at key $key")
+        end
+        if has_internal_node(selection, key)
+            subselection = get_internal_node(selection, key)
+        else
+            subselection = EmptyAddressSet()
+        end
+        weight += project(call.subtrace, subselection)
+    end
+    for (key, subcalls) in get_internal_nodes(calls)
+        if has_internal_node(selection, key)
+            subselection = get_internal_node(selection, key)
+            @assert !isempty(subselection) # otherwise it would not has_internal_node
             weight += project_recurse(subcalls, subselection)
         end
     end

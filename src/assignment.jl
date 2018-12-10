@@ -16,7 +16,7 @@ Return the sub-assignment containing all choices whose address is prefixed by ad
 
 It is an error if the assignment contains a value at the given address. If
 there are no choices whose address is prefixed by addr then return an
-EmptyAssignment.
+`EmptyAssignment`.
 """
 function get_subassmt end
 
@@ -24,14 +24,16 @@ function get_subassmt end
     value = get_value(assmt::Assignment, addr)
 
 Return the value at the given address in the assignment, or throw a KeyError if
-no value exists.
+no value exists. A syntactic sugar is `Base.getindex`:
+
+    value = assmt[addr]
 """
 function get_value end
 
 """
     key_subassmt_iterable = get_subassmts_shallow(assmt::Assignment)
 
-Return an iterable collection of tuples (key, subassmt) for each top-level key
+Return an iterable collection of tuples `(key, subassmt::Assignment)` for each top-level key
 that has a non-empty sub-assignment.
 """
 function get_subassmts_shallow end
@@ -46,35 +48,21 @@ function has_value end
 """
     key_subassmt_iterable = get_values_shallow(assmt::Assignment)
 
-Return an iterable collection of tuples (key, subassmt) for each top-level key
-associated with a value.
+Return an iterable collection of tuples `(key, subassmt::Assignment)` for each
+top-level key associated with a value.
 """
 function get_values_shallow end
 
-"""
-In addition to the methods above, `Assignment`s implement the following:
-
-
-    Base.isempty(assmt)
-
-Are there any primitive random choice anywhere in the hierarchy?
-
-
-    Base.haskey(assmt, addr)
-
-Alias for has_value
-
-
-    Base.getindex(assmt, addr)
-
-Alias for get_value
-
-
-    Base.merge(assmt1, assmt2)
-
-Merge two assignments
-"""
 abstract type Assignment end
+
+"""
+    Base.isempty(assmt::Assignment)
+
+Return true if there are no random choices in the assignment.
+"""
+function Base.isempty(::Assignment)
+    true
+end
 
 get_subassmt(assmt::Assignment, addr) = EmptyAssignment()
 has_value(assmt::Assignment, addr) = false
@@ -147,6 +135,24 @@ function static_get_subassmt end
 function _fill_array! end
 function _from_array end
 
+"""
+    arr::Vector{T} = to_array(assmt::Assignment, ::Type{T}) where {T}
+
+Populate an array with values of choices in the given assignment.
+
+It is an error if each of the values cannot be coerced into a value of the
+given type.
+
+# Implementation
+
+To support `to_array`, a concrete subtype `T <: Assignment` should implement
+the following method:
+
+    n::Int = _fill_array!(assmt::T, arr::Vector{V}, start_idx::Int) where {V}
+
+Populate `arr` with values from the given assignment, starting at `start_idx`,
+and return the number of elements in `arr` that were populated.
+"""
 function to_array(assmt::Assignment, ::Type{T}) where {T}
     arr = Vector{T}(undef, 32)
     n = _fill_array!(assmt, arr, 0)
@@ -155,7 +161,29 @@ function to_array(assmt::Assignment, ::Type{T}) where {T}
     arr
 end
 
-function from_array(proto_assmt::Assignment, arr)
+"""
+    assmt::Assignment = from_array(proto_assmt::Assignment, arr::Vector)
+
+Return an assignment with the same address structure as a prototype
+assignment, but with values read off from the given array.
+
+The order in which addresses are populated is determined by the prototype
+assignment. It is an error if the number of choices in the prototype assignment
+is not equal to the length the array.
+
+# Implementation
+
+To support `from_array`, a concrete subtype `T <: Assignment` should implement
+the following method:
+
+
+    (n::Int, assmt::T) = _from_array(proto_assmt::T, arr::Vector{V}, start_idx::Int) where {V}
+
+Return an assignment with the same address structure as a prototype assignment,
+but with values read off from `arr`, starting at position `start_idx`, and the
+number of elements read from `arr`.
+"""
+function from_array(proto_assmt::Assignment, arr::Vector)
     (n, assmt) = _from_array(proto_assmt, arr, 0)
     if n != length(arr)
         error("Dimension mismatch: $n, $(length(arr))")
@@ -168,6 +196,10 @@ end
     assmt = Base.merge(assmt1::Assignment, assmt2::Assignment)
 
 Merge two assignments.
+
+It is an error if the assignments both have values at the same address, or if
+one assignment has a value at an address that is the prefix of the address of a
+value in the other assignment.
 """
 function Base.merge(assmt1::Assignment, assmt2::Assignment)
     assmt = DynamicAssignment()
@@ -200,11 +232,17 @@ function Base.merge(assmt1::Assignment, assmt2::Assignment)
     return assmt
 end
 
-function Base.values(assmt::Assignment)
-    iterators::Vector = collect(map(values, get_subassmts_shallow(assmt)))
-    push!(iterators, values(get_values_shallow(assmt)))
-    Iterators.flatten(iterators)
-end
+#"""
+    #Base.values(assmt::Assignment)
+#
+#Return an iterator over all values in an assignment (the addresses are not
+#included).
+#"""
+#function Base.values(assmt::Assignment)
+    #iterators::Vector = collect(map(values, get_subassmts_shallow(assmt)))
+    #push!(iterators, values(get_values_shallow(assmt)))
+    #Iterators.flatten(iterators)
+#end
 
 export Assignment
 export get_address_schema
@@ -306,11 +344,25 @@ function StaticAssignment(other::Assignment)
         NamedTuple{internal_keys}(internal_nodes))
 end
 
-function pair(a, b, key1::Symbol, key2::Symbol)
-    StaticAssignment(NamedTuple(), NamedTuple{(key1,key2)}((a, b)))
+"""
+    assmt = pair(assmt1::Assignment, assmt2::Assignment, key1::Symbol, key2::Symbol)
+
+Return an assignment that contains `assmt1` as a sub-assignment under `key1`
+and `assmt2` as a sub-assignment under `key2`.
+"""
+function pair(assmt1::Assignment, assmt2::Assignment, key1::Symbol, key2::Symbol)
+    StaticAssignment(NamedTuple(), NamedTuple{(key1,key2)}((assmt1, assmt2)))
 end
 
-function unpair(assmt, key1::Symbol, key2::Symbol)
+"""
+    (assmt1, assmt2) = unpair(assmt::Assignment, key1::Symbol, key2::Symbol)
+
+Return the two sub-assignments at `key1` and `key2`, one or both of which may be empty.
+
+It is an error if there are any top-level values, or any non-empty top-level
+sub-assignments at keys other than `key1` and `key2`.
+"""
+function unpair(assmt::Assignment, key1::Symbol, key2::Symbol)
     if !isempty(get_values_shallow(assmt)) || length(collect(get_subassmts_shallow(assmt))) > 2
         error("Not a pair")
     end

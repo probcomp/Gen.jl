@@ -1,39 +1,37 @@
-mutable struct MapGenerateState{T,U}
+mutable struct MapInitializeState{T,U}
     score::Float64
+    noise::Float64
     weight::Float64
     subtraces::Vector{U}
-    retvals::Vector{T}
-    num_has_choices::Int
+    retval::Vector{T}
+    num_nonempty::Int
 end
 
-function process_new!(gen::Map{T,U}, args::Tuple,
-                      constraints::Dict{Int,Any}, key::Int,
-                      state::MapGenerateState{T,U}) where {T,U}
+function process!(gen_fn::Map{T,U}, args::Tuple, assmt::Assignment,
+                  key::Int, state::MapInitializeState{T,U}) where {T,U}
     local subtrace::U
+    local retval::T
     kernel_args = get_args_for_key(args, key)
-    if haskey(constraints, key)
-        subconstraints = constraints[key]
-        (subtrace, kernel_weight) = initialize(gen.kernel, kernel_args, subconstraints)
-        state.weight += kernel_weight
-    else
-        subtrace = simulate(gen.kernel, kernel_args)
-    end
-    state.num_has_choices += (has_choices(subtrace) ? 1 : 0)
-    call = get_call_record(subtrace)
-    state.score += call.score
+    subassmt = get_subassmt(assmt, key)
+    (subtrace, weight) = initialize(gen_fn.kernel, kernel_args, subassmt)
+    state.weight += weight 
+    state.noise += project(subtrace, EmptyAddressSet())
+    state.num_nonempty += (isempty(get_assignment(subtrace)) ? 0 : 1)
+    state.score += get_score(subtrace)
     state.subtraces[key] = subtrace
-    state.retvals[key] = call.retval
+    retval = get_retval(subtrace)
+    state.retval[key] = retval
 end
 
-function initialize(gen::Map{T,U}, args::Tuple, constraints::Assignment) where {T,U}
+function initialize(gen_fn::Map{T,U}, args::Tuple, assmt::Assignment) where {T,U}
     len = length(args[1])
-    nodes = collect_map_constraints(constraints, len)
-    state = MapGenerateState{T,U}(0., 0., Vector{U}(undef,len), Vector{T}(undef,len), 0)
+    state = MapInitializeState{T,U}(0., 0., 0., Vector{U}(undef,len), Vector{T}(undef,len), 0)
+    # TODO check for keys that aren't valid constraints
     for key=1:len
-        process_new!(gen, args, nodes, key, state)
+        process!(gen_fn, args, assmt, key, state)
     end
-    trace = VectorTrace{T,U}(
-        PersistentVector{U}(state.subtraces), PersistentVector{T}(state.retvals),
-        args, state.score, len, state.num_has_choices)
+    trace = VectorTrace{MapType,T,U}(gen_fn,
+        PersistentVector{U}(state.subtraces), PersistentVector{T}(state.retval),
+        args, state.score, state.noise, len, state.num_nonempty)
     (trace, state.weight)
 end

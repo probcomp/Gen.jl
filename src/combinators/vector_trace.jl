@@ -1,83 +1,100 @@
-using FunctionalCollections: PersistentVector
+using FunctionalCollections: PersistentVector, assoc, push
 
-#######################################
-# trace for vector of generator calls #
-#######################################
-
-# TODO add bounds checking and reference counting
+#################################################
+# trace for vector of generative function calls #
+#################################################
 
 """
 
 U is the type of the subtrace, R is the return value type for the kernel
 """
-struct VectorTrace{T,U}
+struct VectorTrace{GenFnType,T,U}
+    gen_fn::GenerativeFunction
     subtraces::PersistentVector{U}
-    call::CallRecord{PersistentVector{T}}
+    retval::PersistentVector{T}
+    args::Tuple
 
     # number of active subtraces (may be less than length of subtraces)
     len::Int
 
     # number of active subtraces that are nonempty (used for has_choices)
-    num_has_choices::Int
+    num_nonempty::Int
+
+    score::Float64
+    noise::Float64
 end
 
-function VectorTrace{T,U}(subtraces::PersistentVector{U},
-                          retvals::PersistentVector{T},
-                          args::Tuple, score::Float64,
-                          len::Int, num_has_choices::Int) where {T,U}
-    @assert length(subtraces) == length(retvals)
+function VectorTrace{GenFnType,T,U}(gen_fn::GenerativeFunction,
+                                    subtraces::PersistentVector{U},
+                                    retval::PersistentVector{T},
+                                    args::Tuple, score::Float64, noise::Float64,
+                                    len::Int, num_nonempty::Int) where {GenFnType,T,U}
+    @assert length(subtraces) == length(retval)
     @assert length(subtraces) >= len
-    @assert num_has_choices >= 0
-    call = CallRecord{PersistentVector{T}}(score, retvals, args)
-    VectorTrace{T,U}(subtraces, call, len, num_has_choices)
+    @assert num_nonempty >= 0
+    VectorTrace{GenFnType,T,U}(gen_fn, subtraces, retval, args, len,
+        num_nonempty, score, noise)
 end
 
-function VectorTrace{T,U}(args::Tuple) where {T,U}
+function VectorTrace{GenFnType,T,U}(gen_fn::GenerativeFunction, args::Tuple) where {GenFnType,T,U}
     subtraces = PersistentVector{U}()
     retvals = PersistentVector{T}()
-    VectorTrace{T,U}(subtraces, retvals, args, 0., 0, 0)
+    VectorTrace{GenFnType,T,U}(gen_fn, subtraces, retvals, args, 0, 0, 0., 0.)
 end
 
 # trace API
 
-get_call_record(trace::VectorTrace) = trace.call
-has_choices(trace::VectorTrace) = trace.num_has_choices > 0
 get_assignment(trace::VectorTrace) = VectorTraceAssignment(trace)
+get_retval(trace::VectorTrace) = trace.retval
+get_args(trace::VectorTrace) = trace.args
+get_score(trace::VectorTrace) = trace.score
+get_gen_fn(trace::VectorTrace) = trace.gen_fn
+
+function project(trace::VectorTrace, selection::AddressSet)
+    if !isempty(get_leaf_nodes(selection))
+        error("An entire sub-assignment was selected at key $key")
+    end
+    weight = 0.
+    for key=1:trace.len
+        if has_internal_node(selection, key)
+            subselection = get_internal_node(selection, key)
+        else
+            subselection = EmptyAddressSet()
+        end
+        weight += project(trace.subtraces[key], subselection)
+    end
+    weight
+end
 
 struct VectorTraceAssignment <: Assignment
     trace::VectorTrace
 end
 
-Base.isempty(assignment::VectorTraceAssignment) = has_choices(assignment.trace)
+Base.isempty(assignment::VectorTraceAssignment) = assignment.trace.num_nonempty == 0
 get_address_schema(::Type{VectorTraceAssignment}) = VectorAddressSchema()
 
-function has_internal_node(assignment::VectorTraceAssignment, addr::Int)
-    addr >= 1 && addr <= assignment.trace.len
-end
-
-function get_internal_node(assignment::VectorTraceAssignment, addr::Int)
-    if addr <= assignment.trace.len
-        get_assignment(assignment.trace.subtraces[addr])
+function get_subassmt(assmt::VectorTraceAssignment, addr::Int)
+    if addr <= assmt.trace.len
+        get_assignment(assmt.trace.subtraces[addr])
     else
-        throw(BoundsError(assignment, addr))
+        EmptyAssignment()
     end
 end
 
-function get_internal_nodes(assignment::VectorTraceAssignment)
-    ((i, get_assignment(assignment.trace.subtraces[i])) for i=1:assignment.trace.len)
+function get_subassmts_shallow(assmt::VectorTraceAssignment)
+    ((i, get_assignment(assmt.trace.subtraces[i])) for i=1:assmt.trace.len)
 end
 
-has_internal_node(assignment::VectorTraceAssignment, addr::Pair) = _has_internal_node(assignment, addr)
-get_internal_node(assignment::VectorTraceAssignment, addr::Pair) = _get_internal_node(assignment, addr)
-get_leaf_node(assignment::VectorTraceAssignment, addr::Pair) = _get_leaf_node(assignment, addr)
-has_leaf_node(assignment::VectorTraceAssignment, addr::Pair) = _has_leaf_node(assignment, addr)
-
-get_leaf_nodes(assignment::VectorTraceAssignment) = ()
-
+get_subassmt(assmt::VectorTraceAssignment, addr::Pair) = _get_subassmt(assmt, addr)
+get_value(assmt::VectorTraceAssignment, addr::Pair) = _get_value(assmt, addr)
+has_value(assmt::VectorTraceAssignment, addr::Pair) = _has_value(assmt, addr)
+get_values_shallow(::VectorTraceAssignment) = ()
 
 ##########################################
 # trace for vector of distribution calls #
 ##########################################
+
+# TODO revisit
 
 struct VectorDistTrace{T}
     values::PersistentVector{T}
@@ -102,7 +119,9 @@ end
 
 get_call_record(trace::VectorDistTrace) = trace.call
 has_choices(trace::VectorDistTrace) = trace.len > 0
-get_assignment(trace::VectorDistTrace) = VectorDistTraceAssignment(trace)
+function get_assignment(trace::VectorDistTrace)
+    VectorDistTraceAssignment(trace)
+end
 
 struct VectorDistTraceAssignment <: Assignment
     trace::VectorDistTrace
@@ -111,11 +130,11 @@ end
 Base.isempty(assignment::VectorDistTraceAssignment) = !has_choices(assignment.trace)
 get_address_schema(::Type{VectorDistTraceAssignment}) = VectorAddressSchema()
 
-function has_leaf_node(assignment::VectorDistTraceAssignment, addr::Int)
-    addr >= 1 && addr <= assignment.trace.len
+function has_value(assignment::VectorDistTraceAssignment, addr::Int)
+    addr > 0 && addr <= assignment.trace.len
 end
 
-function get_leaf_node(assignment::VectorDistTraceAssignment, addr::Int)
+function get_value(assignment::VectorDistTraceAssignment, addr::Int)
     if addr <= assignment.trace.len
         assignment.trace.values[addr]
     else

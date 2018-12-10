@@ -100,7 +100,8 @@ function addr(state::GFFixUpdateState, gen_fn::GenerativeFunction{T,U},
     if has_previous
         prev_call = get_call(state.prev_trace, key)
         prev_subtrace = prev_call.subtrace
-        (subtrace, weight, discard, retdiff) = fix_update(gen_fn, args, argdiff,
+        get_gen_fn(prev_subtrace) === gen_fn || gen_fn_changed_error(key)
+        (subtrace, weight, discard, retdiff) = fix_update(args, argdiff,
             prev_subtrace, constraints)
     else
         if !isempty(constraints)
@@ -173,9 +174,9 @@ function fix_delete_recurse(prev_calls::Trie{Any,CallRecord},
     noise
 end
 
-function fix_update(gen_fn::DynamicDSLFunction, args::Tuple, argdiff,
-                    trace::DynamicDSLTrace, constraints::Assignment)
-    @assert gen_fn === trace.gen_fn
+function fix_update(args::Tuple, argdiff, trace::DynamicDSLTrace,
+                    constraints::Assignment)
+    gen_fn = trace.gen_fn
     state = GFFixUpdateState(gen_fn, args, argdiff, trace,
         constraints, gen_fn.params)
     retval = exec_for_update(gen_fn, state, args)

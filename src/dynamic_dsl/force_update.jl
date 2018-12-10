@@ -99,7 +99,8 @@ function addr(state::GFForceUpdateState, gen_fn::GenerativeFunction{T,U},
     if has_previous
         prev_call = get_call(state.prev_trace, key)
         prev_subtrace = prev_call.subtrace
-        (subtrace, weight, discard, retdiff) = force_update(gen_fn, args, argdiff,
+        get_gen_fn(prev_subtrace) === gen_fn || gen_fn_changed_error(key)
+        (subtrace, weight, discard, retdiff) = force_update(args, argdiff,
             prev_subtrace, constraints)
     else
         (subtrace, weight) = initialize(gen_fn, args, constraints)
@@ -229,9 +230,9 @@ function add_unvisited_to_discard!(discard::DynamicAssignment,
     end
 end
 
-function force_update(gen_fn::DynamicDSLFunction, args::Tuple, argdiff,
-                      trace::DynamicDSLTrace, constraints::Assignment)
-    @assert gen_fn === trace.gen_fn
+function force_update(args::Tuple, argdiff, trace::DynamicDSLTrace,
+                      constraints::Assignment)
+    gen_fn = trace.gen_fn
     state = GFForceUpdateState(gen_fn, args, argdiff, trace,
         constraints, gen_fn.params)
     retval = exec_for_update(gen_fn, state, args)
@@ -240,8 +241,6 @@ function force_update(gen_fn::DynamicDSLFunction, args::Tuple, argdiff,
     state.weight -= force_delete_recurse(trace.choices, visited)
     state.weight -= force_delete_recurse(trace.calls, visited)
     add_unvisited_to_discard!(state.discard, visited, get_assignment(trace))
-    println("visited: $visited")
-    println("constraints: $constraints")
     if !all_visited(visited, constraints)
         error("Did not visit all constraints")
     end

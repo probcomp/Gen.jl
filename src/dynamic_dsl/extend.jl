@@ -14,7 +14,7 @@ end
 function GFExtendState(gen_fn, args, argdiff, prev_trace,
                        constraints, params)
     visitor = AddressVisitor()
-    GFExtendState(prev_trace, DynamicDSLTrace(gen_Fn, args), constraints,
+    GFExtendState(prev_trace, DynamicDSLTrace(gen_fn, args), constraints,
         0., visitor, params, argdiff, DefaultRetDiff(),
         Trie{Any,Any}(), Trie{Any,Any}())
 end
@@ -94,7 +94,8 @@ function addr(state::GFExtendState, gen_fn::GenerativeFunction{T,U},
     if has_previous
         prev_call = get_call(state.prev_trace, key)
         prev_subtrace = prev_call.subtrace
-        (subtrace, weight, retdiff) = extend(gen_fn, args, argdiff,
+        get_gen_fn(prev_subtrace) === gen_fn || gen_fn_changed_error(key)
+        (subtrace, weight, retdiff) = extend(args, argdiff,
             prev_subtrace, constraints)
     else
         (subtrace, weight) = initialize(gen_fn, args, constraints)
@@ -128,12 +129,12 @@ function splice(state::GFExtendState, gen_fn::DynamicDSLFunction,
     exec_for_update(gen_fn, state, args)
 end
 
-function extend(gen_fn::DynamicDSLFunction, args::Tuple, argdiff,
-                trace::DynamicDSLTrace, constraints::Assignment)
-    @assert gen_fn === trace.gen_fn
+function extend(args::Tuple, argdiff, trace::DynamicDSLTrace,
+                constraints::Assignment)
+    gen_fn = trace.gen_fn
     state = GFExtendState(gen_fn, args, argdiff, trace,
-        constraints, gf.params)
-    retval = exec_for_update(gf, state, args)
+        constraints, gen_fn.params)
+    retval = exec_for_update(gen_fn, state, args)
     set_retval!(state.trace, retval)
 
     visited = get_visited(state.visitor)

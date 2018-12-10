@@ -18,7 +18,7 @@ function sgd_train_batch(teacher::GenerativeFunction{T,U}, teacher_args::Tuple,
         # generate training batch
         training_assignment = Vector{Any}(undef, conf.batch_size)
         for i=1:conf.batch_size
-            training_assignment[i] = get_assignment(simulate(teacher, teacher_args))
+            (training_assignment[i], _, _) = propose(teacher, teacher_args)
             if verbose && (i % 100 == 0)
                 println("batch $batch, generating training data $i of $(conf.batch_size))")
             end
@@ -33,7 +33,7 @@ function sgd_train_batch(teacher::GenerativeFunction{T,U}, teacher_args::Tuple,
             constraints = conf.constraint_extractor(assignments)
             (student_trace, _) = initialize(batch_student, input, constraints)
             avg_score = get_score(student_trace) / conf.minibatch_size
-            backprop_params(batch_student, student_trace, nothing)
+            backprop_params(student_trace, nothing)
             conf.minibatch_callback(batch, minibatch, avg_score, verbose)
         end
 

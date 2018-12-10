@@ -69,7 +69,7 @@ end
 
 @noinline function special_reverse_exec!(instruction::SpecialInstruction{BackpropParamsRecord})
     record = instruction.func
-    gen = record.gen_fn
+    gen_fn = record.gen_fn
     args_maybe_tracked = instruction.input
     retval_maybe_tracked = instruction.output
     if istracked(retval_maybe_tracked)
@@ -77,8 +77,8 @@ end
     else
         retval_grad = nothing
     end
-    arg_grads = backprop_params(gen, record.subtrace, retval_grad)
-    for (arg, grad, has_grad) in zip(args_maybe_tracked, arg_grads, has_argument_grads(gen))
+    arg_grads = backprop_params(record.subtrace, retval_grad)
+    for (arg, grad, has_grad) in zip(args_maybe_tracked, arg_grads, has_argument_grads(gen_fn))
         if has_grad && istracked(arg)
             increment_deriv!(arg, grad)
         end
@@ -86,7 +86,8 @@ end
     nothing
 end
 
-function backprop_params(gen_fn::DynamicDSLFunction, trace::DynamicDSLTrace, retval_grad)
+function backprop_params(trace::DynamicDSLTrace, retval_grad)
+    gen_fn = trace.gen_fn
     tape = InstructionTape()
     state = GFBackpropParamsState(trace, tape, gen_fn.params)
     args = get_args(trace)
@@ -205,6 +206,7 @@ function addr(state::GFBackpropTraceState, gen_fn::GenerativeFunction{T,U},
         error("Cannot select a whole subtrace, tried to select $key")
     end
     subtrace = get_call(state.trace, key).subtrace
+    get_gen_fn(subtrace) === gen_fn || gen_fn_changed_error(key)
     retval = get_retval(subtrace)
     retval_maybe_tracked = track(retval, state.tape)
 
@@ -233,7 +235,7 @@ end
         retval_grad = nothing
     end
     (arg_grads, value_assmt, gradient_assmt) = backprop_trace(
-        gen_fn, record.subtrace, record.selection, retval_grad)
+        record.subtrace, record.selection, retval_grad)
     println(value_assmt)
     println(gradient_assmt)
     @assert isempty(get_subassmt(record.gradient_assmt, record.key))
@@ -249,9 +251,8 @@ end
     nothing
 end
 
-function backprop_trace(gen_fn::DynamicDSLFunction, trace::DynamicDSLTrace,
-                        selection::AddressSet, retval_grad)
-    @assert gen_fn === trace.gen_fn
+function backprop_trace(trace::DynamicDSLTrace, selection::AddressSet, retval_grad)
+    gen_fn = trace.gen_fn
     tape = InstructionTape()
     state = GFBackpropTraceState(trace, selection, gen_fn.params, tape)
     args = get_args(trace)

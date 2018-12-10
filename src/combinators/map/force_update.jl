@@ -1,4 +1,4 @@
-mutable struct MapFixUpdateState{T,U}
+mutable struct MapForceUpdateState{T,U}
     weight::Float64
     score::Float64
     noise::Float64
@@ -12,7 +12,7 @@ end
 
 function process_retained!(gen_fn::Map{T,U}, args::Tuple,
                            assmt::Assignment, key::Int, kernel_argdiff,
-                           state::MapFixUpdateState{T,U}) where {T,U}
+                           state::MapForceUpdateState{T,U}) where {T,U}
     local subtrace::U
     local prev_subtrace::U
     local retval::T
@@ -20,9 +20,9 @@ function process_retained!(gen_fn::Map{T,U}, args::Tuple,
     subassmt = get_subassmt(assmt, key)
     kernel_args = get_args_for_key(args, key)
 
-    # get new subtrace with recursive call to fix_update()
+    # get new subtrace with recursive call to force_update()
     prev_subtrace = state.subtraces[key]
-    (subtrace, weight, discard, subretdiff) = fix_update(
+    (subtrace, weight, discard, subretdiff) = force_update(
         kernel_args, kernel_argdiff, prev_subtrace, subassmt)
 
     # retrieve retdiff
@@ -48,17 +48,15 @@ function process_retained!(gen_fn::Map{T,U}, args::Tuple,
 end
 
 function process_new!(gen_fn::Map{T,U}, args::Tuple, assmt, key::Int,
-                      state::MapFixUpdateState{T,U}) where {T,U}
+                      state::MapForceUpdateState{T,U}) where {T,U}
     local subtrace::U
     local retval::T
 
-    if !isempty(get_subassmt(assmt, key))
-        error("Tried to constrain new address in fix_update at key $key")
-    end
+    subassmt = get_subassmt(assmt, key)
     kernel_args = get_args_for_key(args, key)
 
     # get subtrace and weight
-    (subtrace, weight) = initialize(gen_fn.kernel, kernel_args, EmptyAssignment())
+    (subtrace, weight) = initialize(gen_fn.kernel, kernel_args, subassmt)
 
     # update state
     state.weight += weight
@@ -80,20 +78,19 @@ function process_new!(gen_fn::Map{T,U}, args::Tuple, assmt, key::Int,
 end
 
 
-function fix_update(args::Tuple, argdiff, trace::VectorTrace{MapType,T,U},
-                    assmt::Assignment) where {T,U}
+function force_update(args::Tuple, argdiff, trace::VectorTrace{MapType,T,U},
+                      assmt::Assignment) where {T,U}
     gen_fn = trace.gen_fn
     (new_length, prev_length) = get_prev_and_new_lengths(args, trace)
     retained_and_constrained = get_retained_and_constrained(assmt, prev_length, new_length)
-    (num_nonempty, score_decrement, noise_decrement) = map_fix_free_update_delete(
+    (discard, num_nonempty, score_decrement, noise_decrement) = map_force_update_delete(
         new_length, prev_length, trace)
-    discard = DynamicAssignment()
     score = trace.score - score_decrement
     noise = trace.noise - noise_decrement
-    state = MapFixUpdateState{T,U}(-noise_decrement, score, noise,
-                                   trace.subtraces, trace.retval,
-                                   discard, min(prev_length, new_length), num_nonempty,
-                                   Dict{Int,Any}())
+    state = MapForceUpdateState{T,U}(-score_decrement, score, noise,
+                                     trace.subtraces, trace.retval,
+                                     discard, min(prev_length, new_length), num_nonempty,
+                                     Dict{Int,Any}())
     process_all_retained!(gen_fn, args, argdiff, assmt, prev_length, new_length, retained_and_constrained, state)
     process_all_new!(gen_fn, args, assmt, prev_length, new_length, state)
     retdiff = compute_retdiff(state.isdiff_retdiffs, new_length, prev_length)

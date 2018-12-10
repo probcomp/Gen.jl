@@ -59,6 +59,7 @@ end
 get_args(trace::DynamicDSLTrace) = trace.args
 get_retval(trace::DynamicDSLTrace) = trace.retval
 get_score(trace::DynamicDSLTrace) = trace.score
+get_gen_fn(trace::DynamicDSLTrace) = trace.gen_fn
 
 struct DynamicDSLTraceAssignment <: Assignment
     trace::DynamicDSLTrace
