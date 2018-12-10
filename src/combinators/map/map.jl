@@ -50,15 +50,28 @@ end
 
 function get_retained_and_constrained(constraints::Assignment, prev_length::Int, new_length::Int)
     keys = Set{Int}()
-    for (key::Int, node) in get_subassmts_shallow(constraints)
-        if key <= new_length
+    for (key::Int, _) in get_subassmts_shallow(constraints)
+        if key > 0 && key <= new_length
             push!(keys, key)
         else
-            error("Constrained key does not exist: $key")
+            error("Constraint namespace does not exist: $key")
         end
     end
     keys 
 end
+
+function get_retained_and_selected(selection::AddressSet, prev_length::Int, new_length::Int)
+    keys = Set{Int}()
+    for (key::Int, _) in get_internal_nodes(selection)
+        if key > 0 && key <= new_length
+            push!(keys, key)
+        else
+            error("Selection namespace does not exist: $key")
+        end
+    end
+    keys 
+end
+
 
 """
 Collect selections indexed by the integer key; check validity of addresses.
@@ -88,8 +101,8 @@ function compute_retdiff(isdiff_retdiffs::Dict{Int,Any}, new_length::Int, prev_l
     end
 end
 
-function discard_deleted_applications(new_length::Int, prev_length::Int,
-                                      prev_trace::VectorTrace)
+function map_force_update_delete(new_length::Int, prev_length::Int,
+                                 prev_trace::VectorTrace)
     num_nonempty = prev_trace.num_nonempty
     discard = DynamicAssignment()
     score_decrement = 0.
@@ -107,6 +120,22 @@ function discard_deleted_applications(new_length::Int, prev_length::Int,
     return (discard, num_nonempty, score_decrement, noise_decrement)
 end
 
+function map_fix_free_update_delete(new_length::Int, prev_length::Int,
+                                    prev_trace::VectorTrace)
+    num_nonempty = prev_trace.num_nonempty
+    score_decrement = 0.
+    noise_decrement = 0.
+    for key=new_length+1:prev_length
+        subtrace = prev_trace.subtraces[key]
+        score_decrement += get_score(subtrace)
+        noise_decrement += project(subtrace, EmptyAddressSet())
+        if !isempty(get_assignment(subtrace))
+            num_nonempty -= 1
+        end
+        @assert num_nonempty >= 0
+    end
+    return (num_nonempty, score_decrement, noise_decrement)
+end
 
 ###########
 # argdiff #
@@ -156,7 +185,7 @@ include("propose.jl")
 include("initialize.jl")
 include("generic_update.jl")
 include("force_update.jl")
-#include("fix_update.jl")
-#include("free_update.jl")
+include("fix_update.jl")
+include("free_update.jl")
 #include("extend.jl")
 #include("backprop_trace.jl")
