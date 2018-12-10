@@ -82,7 +82,7 @@ function force_update(args::Tuple, argdiff, trace::VectorTrace{MapType,T,U},
     gen_fn = trace.gen_fn
     (new_length, prev_length) = get_prev_and_new_lengths(args, trace)
     retained_and_constrained = get_retained_and_constrained(assmt, prev_length, new_length)
-    (discard, num_nonempty, score_decrement, noise_decrement) = discard_deleted_applications(
+    (discard, num_nonempty, score_decrement, noise_decrement) = map_update_discard(
         new_length, prev_length, trace)
     score = trace.score - score_decrement
     noise = trace.noise - noise_decrement

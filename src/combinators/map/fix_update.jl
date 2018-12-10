@@ -1,124 +1,102 @@
-mutable struct MapFixUpdateState{T,U,V,W}
-    kernel::T
-    score::Float64
+mutable struct MapFixUpdateState{T,U}
     weight::Float64
-    isempty::Bool
-    args::U
-    nodes::V
-    deltas::W
+    score::Float64
+    noise::Float64
+    subtraces::PersistentVector{U}
+    retval::PersistentVector{T}
     discard::DynamicAssignment
+    len::Int
+    num_nonempty::Int
+    isdiff_retdiffs::Dict{Int,Any}
 end
 
-function fix_update_existing_trace!(key::Int, state::MapFixUpdateState, subtraces, retvals)
-    node = haskey(state.nodes, key) ? state.nodes[key] : EmptyAssignment()
-    if haskey(state.deltas, key)
-        kernel_delta = state.deltas[key]
+function process_retained!(gen_fn::Map{T,U}, args::Tuple,
+                           assmt::Assignment, key::Int, kernel_argdiff,
+                           state::MapFixUpdateState{T,U}) where {T,U}
+    local subtrace::U
+    local prev_subtrace::U
+    local retval::T
+
+    subassmt = get_subassmt(assmt, key)
+    kernel_args = get_args_for_key(args, key)
+
+    # get new subtrace with recursive call to fix_update()
+    prev_subtrace = state.subtraces[key]
+    (subtrace, weight, discard, subretdiff) = fix_update(
+        kernel_args, kernel_argdiff, prev_subtrace, subassmt)
+
+    # retrieve retdiff
+    if !isnodiff(subretdiff)
+        state.isdiff_retdiffs[key] = subretdiff
+    end
+
+    # update state
+    state.weight += weight
+    set_subassmt!(state.discard, key, discard)
+    state.score += (get_score(subtrace) - get_score(prev_subtrace))
+    state.noise += (project(subtrace, EmptyAddressSet()) - project(subtrace, EmptyAddressSet()))
+    state.subtraces = assoc(state.subtraces, key, subtrace)
+    retval = get_retval(subtrace)
+    state.retval = assoc(state.retval, key, retval)
+    subtrace_empty = isempty(get_assignment(subtrace))
+    prev_subtrace_empty = isempty(get_assignment(prev_subtrace))
+    if !subtrace_empty && prev_subtrace_empty
+        state.num_nonempty += 1
+    elseif subtrace_empty && !prev_subtrace_empty
+        state.num_nonempty -= 1
+    end
+end
+
+function process_new!(gen_fn::Map{T,U}, args::Tuple, assmt, key::Int,
+                      state::MapFixUpdateState{T,U}) where {T,U}
+    local subtrace::U
+    local retval::T
+
+    if !isempty(get_subassmt(assmt, key))
+        error("Tried to constrain new address in fix_update at key $key")
+    end
+    kernel_args = get_args_for_key(args, key)
+
+    # get subtrace and weight
+    (subtrace, weight) = initialize(gen_fn.kernel, kernel_args, EmptyAssignment())
+
+    # update state
+    state.weight += weight
+    state.score += get_score(subtrace)
+    retval = get_retval(subtrace)
+    if key <= length(state.subtraces)
+        state.subtraces = assoc(state.subtraces, key, subtrace)
+        state.retval = assoc(state.retval, key, retval)
     else
-        kernel_delta = nothing
+        state.subtraces = push(state.subtraces, subtrace)
+        state.retval = push(state.retval, retval)
+        @assert length(state.subtraces) == key
     end
-    subtrace = state.subtraces[key]
-    prev_call = get_call_record(subtrace)
-    kernel_args = get_args_for_key(state.args, key)
-    (subtrace, kernel_weight, kernel_discard) = fix_update(
-        state.kernel, kernel_args, kernel_delta, subtrace, node)
-    set_internal_node(state.discard, kernel_discard)
-    state.weight += kernel_weight
-    call = get_call_record(subtrace)
-    state.score += (call.score - prev_call.score)
-    subtraces = assoc(trace, key, subtrace)
-    retvals = assoc(retvals, key, call.retval)
-    state.is_empty = state.is_empty && !has_choices(subtraces)
-    (subtraces, retvals)
-end
-
-function simulate_new_trace!(key::Int, state::MapFixUpdateState, subtraces, retvals, kernel)
-    kernel_args = get_args_for_key(state.args, key)
-    subtrace  = simulate(gen.kernel, kernel_args)
-    subtraces = push(subtraces, subtrace)
-    call = get_call_record(subtrace)
-    state.score += call.score
-    retvals = push(retvals, call.retval)
-    (subtraces, retvals)
-end
-
-
-function fix_update_process_constraints!(nodes, key::Int, node, prev_length, new_length)
-    if key > min(prev_length, new_length)
-        error("fix_update cannot constrain new or deleted addresses; offending key: $key, prev_len: $prev_length, new_len: $new_len")
-    end
-    if key <= new_length
-        push!(to_visit, key)
-        nodes[key] = node
-    else
-        error("Update did not consume constraints at key $key")
+    @assert state.len == key - 1
+    state.len = key
+    if !isempty(get_assignment(subtrace))
+        state.num_nonempty += 1
     end
 end
 
-function fix_update_process_constraints!(nodes, key, node, prev_length, new_length)
-    # key is something other than an Int
-    error("Update did not consume constraints at key $key")
-end
-
-"""
-Update with argument delta information
-"""
-function fix_update(gen::Map, args, delta::MapDelta{T}, trace::VectorTrace, constraints) where {T}
-
+function fix_update(args::Tuple, argdiff, trace::VectorTrace{MapType,T,U},
+                    assmt::Assignment) where {T,U}
+    gen_fn = trace.gen_fn
     (new_length, prev_length) = get_prev_and_new_lengths(args, trace)
+    retained_and_constrained = get_retained_and_constrained(assmt, prev_length, new_length)
+    (discard, num_nonempty, score_decrement, noise_decrement) = map_update_discard(
+        new_length, prev_length, trace)
+    score = trace.score - score_decrement
+    noise = trace.noise - noise_decrement
+    state = MapFixUpdateState{T,U}(-noise_decrement, score, noise,
+                                   trace.subtraces, trace.retval,
+                                   discard, min(prev_length, new_length), num_nonempty,
+                                   Dict{Int,Any}())
+    process_all_retained!(gen_fn, args, argdiff, assmt, prev_length, new_length, retained_and_constrained, state)
+    process_all_new!(gen_fn, args, assmt, prev_length, new_length, state)
+    retdiff = compute_retdiff(state.isdiff_retdiffs, new_length, prev_length)
+    new_trace = VectorTrace{MapType,T,U}(gen_fn, state.subtraces, state.retval, args,  
+        state.score, state.noise, state.len, state.num_nonempty)
 
-    # calculate which existing applications to visit
-    to_visit = Set{Int}()
-    deltas = Dict{Int, T}()
-    for (i, kernel_delta) in zip(delta.changed_args, delta.sub_deltas)
-        if i <= new_length
-            push!(to_visit, i)
-            deltas[i] = kernel_delta
-        end
-    end
-
-    _fix_update(gen, args, delta, trace, constraints, to_visit, deltas)
-end
-
-"""
-Update without argument delta information
-"""
-function fix_update(gen::Map, args, delta::Nothing, trace::VectorTrace, constraints)
-
-    (new_length, prev_length) = get_prev_and_new_lengths(args, trace)
-
-    # visit all existing applications that are preserved
-    to_visit = 1:min(prev_length, new_length)
-    deltas = Dict{Int, Any}() # not used
-
-    _fix_update(gen, args, delta, trace, constraints, to_visit, deltas)
-end
-
-function _fix_update(gen::Map, args, delta::Nothing, trace::VectorTrace, constraints, to_visit, deltas)
-
-    (new_length, prev_length) = get_prev_and_new_lengths(args, trace)
-
-    # collect constraints, indexed by key
-    nodes = Dict{Int, Any}()
-    for (key, node) in get_internal_nodes(constraints)
-        fix_update_process_constraints!(nodes, key, node, prev_length, new_length)
-    end
-
-    # collect initial state
-    discard = DynamicAssignment()
-    state = MapFixUpdateState(gen.kernel, trace.call.score, 0., trace.is_empty, args, nodes, deltas, discard)
-    subtraces = trace.subtraces
-    retvals = trace.call.retvals
-    
-    # visit existing applications
-    for key in to_visit
-        (subtraces, retvals) = fix_update_existing_trace!(key, state, subtraces, retvals)
-    end
-
-    # visit each new application and run simulate on it
-    for key=prev_length+1:new_length
-        (subtraces, retvals) = simulate_new_trace!(key, state, subtraces, retvals)
-    end
-
-    trace = VectorTrace(subtraces, CallRecord(state.score, retvals, args), state.is_empty)
-    (trace, state.weight, discard)
+    return (new_trace, state.weight, discard, retdiff)
 end

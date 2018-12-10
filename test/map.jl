@@ -43,7 +43,6 @@
     end
 
     @testset "force update" begin
-
         z1, z2 = 1.1, 2.2
 
         function get_initial_trace()
@@ -54,7 +53,7 @@
             trace
         end
 
-        # test force_update (increasing length from 2 to 3 and change 2)
+        # increasing length from 2 to 3 and change 2
         trace = get_initial_trace()
         z2_new = 3.3
         z3_new = 4.4
@@ -68,9 +67,10 @@
         @test assignment[:map => 2 => :z] == z2_new
         @test assignment[:map => 3 => :z] == z3_new
         @test discard[:map => 2 => :z] == z2
+        @test isapprox(get_score(trace), logpdf(normal, z1, 4., 1.) + logpdf(normal, z2_new, 6., 1.) + logpdf(normal, z3_new, 8., 1.))
         @test isapprox(weight, logpdf(normal, z3_new, 8., 1.) + logpdf(normal, z2_new, 6., 1.) - logpdf(normal, z2, 6., 1.))
 
-        # test force_update (decreasing length from 2 to 1 and change 1)
+        # decreasing length from 2 to 1 and change 1
         trace = get_initial_trace()
         z1_new = 3.3
         constraints = DynamicAssignment()
@@ -79,9 +79,53 @@
         assignment = get_assignment(trace)
         @test get_args(trace) == (1,)
         @test !has_value(assignment, :map => 2 => :z)
-        @test !has_value(assignment, :map => 3 => :z) # uh oh.
+        @test !has_value(assignment, :map => 3 => :z)
         @test assignment[:map => 1 => :z] == z1_new
         @test discard[:map => 2 => :z] == z2
+        @test isapprox(get_score(trace), logpdf(normal, z1_new, 4., 1.))
         @test isapprox(weight, logpdf(normal, z1_new, 4., 1.) - logpdf(normal, z1, 4., 1.) - logpdf(normal, z2, 6., 1.))
+    end
+
+    @testset "fix update" begin
+        z1, z2 = 1.1, 2.2
+
+        function get_initial_trace()
+            constraints = DynamicAssignment()
+            constraints[:map => 1 => :z] = z1
+            constraints[:map => 2 => :z] = z2
+            (trace, _) = initialize(bar, (2,), constraints)
+            trace
+        end
+
+        # increasing length from 2 to 3 and change 2
+        trace = get_initial_trace()
+        z2_new = 3.3
+        constraints = DynamicAssignment()
+        constraints[:map => 2 => :z] = z2_new
+        (trace, weight, discard, retchange) = fix_update((3,), nothing, trace, constraints)
+        assignment = get_assignment(trace)
+        @test get_args(trace) == (3,)
+        @test assignment[:map => 1 => :z] == z1
+        @test assignment[:map => 2 => :z] == z2_new
+        z3_new = assignment[:map => 3 => :z]
+        @test discard[:map => 2 => :z] == z2
+        score = get_score(trace)
+        @test isapprox(score, logpdf(normal, z1, 4., 1.) + logpdf(normal, z2_new, 6., 1.) + logpdf(normal, z3_new, 8., 1.))
+        @test isapprox(weight, logpdf(normal, z2_new, 6., 1.) - logpdf(normal, z2, 6., 1.))
+
+        # decreasing length from 2 to 1 and change 1
+        trace = get_initial_trace()
+        z1_new = 3.3
+        constraints = DynamicAssignment()
+        constraints[:map => 1 => :z] = z1_new
+        (trace, weight, discard, retchange) = fix_update((1,), nothing, trace, constraints)
+        assignment = get_assignment(trace)
+        @test get_args(trace) == (1,)
+        @test !has_value(assignment, :map => 2 => :z)
+        @test !has_value(assignment, :map => 3 => :z)
+        @test assignment[:map => 1 => :z] == z1_new
+        @test discard[:map => 2 => :z] == z2
+        @test isapprox(get_score(trace), logpdf(normal, z1_new, 4., 1.))
+        @test isapprox(weight, logpdf(normal, z1_new, 4., 1.) - logpdf(normal, z1, 4., 1.))
     end
 end
