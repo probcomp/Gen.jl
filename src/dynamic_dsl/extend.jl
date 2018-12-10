@@ -14,7 +14,7 @@ end
 function GFExtendState(gen_fn, args, argdiff, prev_trace,
                        constraints, params)
     visitor = AddressVisitor()
-    GFExtendState(prev_trace, DynamicDSLTrace(gen_Fn, args), constraints,
+    GFExtendState(prev_trace, DynamicDSLTrace(gen_fn, args), constraints,
         0., visitor, params, argdiff, DefaultRetDiff(),
         Trie{Any,Any}(), Trie{Any,Any}())
 end
@@ -133,8 +133,8 @@ function extend(args::Tuple, argdiff, trace::DynamicDSLTrace,
                 constraints::Assignment)
     gen_fn = trace.gen_fn
     state = GFExtendState(gen_fn, args, argdiff, trace,
-        constraints, gf.params)
-    retval = exec_for_update(gf, state, args)
+        constraints, gen_fn.params)
+    retval = exec_for_update(gen_fn, state, args)
     set_retval!(state.trace, retval)
 
     visited = get_visited(state.visitor)
