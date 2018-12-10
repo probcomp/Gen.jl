@@ -1,11 +1,11 @@
-function backprop_trace(gen::Map{T,U}, trace::VectorTrace{T,U}, selection::AddressSet, retval_grad) where {T,U}
+function backprop_trace(trace::VectorTrace{MapType,T,U}, selection::AddressSet,
+                        retval_grad) where {T,U}
 
-    call = get_call_record(trace)
-    args = call.args
+    args = get_args(trace)
     n_args = length(args)
     len = length(args[1])
     
-    has_grads = has_argument_grads(gen.kernel)
+    has_grads = has_argument_grads(trace.gen_fn.kernel)
     arg_grad = Vector(undef, n_args)
     for (i, has_grad) in enumerate(has_grads)
         if has_grad
@@ -27,9 +27,9 @@ function backprop_trace(gen::Map{T,U}, trace::VectorTrace{T,U}, selection::Addre
         end
         kernel_retval_grad = (retval_grad == nothing) ? nothing : retval_grad[key]
         (kernel_arg_grad::Tuple, kernel_value_trie, kernel_gradient_trie) = backprop_trace(
-            gen.kernel, subtrace, sub_selection, kernel_retval_grad)
-        set_internal_node!(value_trie, key, kernel_value_trie)
-        set_internal_node!(gradient_trie, key, kernel_gradient_trie)
+            subtrace, sub_selection, kernel_retval_grad)
+        set_subassmt!(value_trie, key, kernel_value_trie)
+        set_subassmt!(gradient_trie, key, kernel_gradient_trie)
         for (i, grad, has_grad) in zip(1:n_args, kernel_arg_grad, has_grads)
             if has_grad
                 arg_grad[i][key] = grad
