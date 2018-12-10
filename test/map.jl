@@ -241,4 +241,31 @@
         @test !has_value(gradient_assmt, 1 => :z)
         @test isapprox(gradient_assmt[2 => :z], expected_z2_grad)
     end
+
+    @testset "backprop_params" begin
+        z1, z2 = 1.1, 2.2
+        xs = [1.0, 2.0]
+        ys = [3.0, 4.0]
+
+        function get_initial_trace()
+            constraints = DynamicAssignment()
+            constraints[1 => :z] = z1
+            constraints[2 => :z] = z2
+            (trace, _) = initialize(Map(foo), (xs, ys), constraints)
+            trace
+        end
+
+        retval_grad = rand(2)
+
+        expected_xs_grad = [logpdf_grad(normal, z1, 4., 1.)[2], logpdf_grad(normal, z2, 6., 1.)[2]]
+        expected_ys_grad = [logpdf_grad(normal, z1, 4., 1.)[2], logpdf_grad(normal, z2, 6., 1.)[2]]
+
+        # get gradients wrt xs and ys
+        trace = get_initial_trace()
+        zero_param_grad!(foo, :std)
+        input_grads = backprop_params(trace, retval_grad)
+        @test isapprox(input_grads[1], expected_xs_grad)
+        @test isapprox(input_grads[2], expected_ys_grad)
+        @test isapprox(get_param_grad(foo, :std), logpdf_grad(normal, z1, 4., 1.)[3] + logpdf_grad(normal, z2, 6., 1.)[3])
+    end
 end
