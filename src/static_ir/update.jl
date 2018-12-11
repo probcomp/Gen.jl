@@ -28,19 +28,19 @@ call_discard_var(node::GenerativeFunctionCallNode) = Symbol("$(call_discard_pref
 struct ForwardPassState
     input_changed::Set{Union{RandomChoiceNode,GenerativeFunctionCallNode}}
     value_changed::Set{RegularNode}
-    constrained_choices::Set{RandomChoiceNode}
-    constrained_calls::Set{GenerativeFunctionCallNode}
+    constrained_or_selected_choices::Set{RandomChoiceNode}
+    constrained_or_selected_calls::Set{GenerativeFunctionCallNode}
     discard_calls::Set{GenerativeFunctionCallNode}
 end
 
 function ForwardPassState()
     input_changed = Set{Union{RandomChoiceNode,GenerativeFunctionCallNode}}()
     value_changed = Set{RegularNode}()
-    constrained_choices = Set{RandomChoiceNode}()
-    constrained_calls = Set{GenerativeFunctionCallNode}()
+    constrained_or_selected_choices = Set{RandomChoiceNode}()
+    constrained_or_selected_calls = Set{GenerativeFunctionCallNode}()
     discard_calls = Set{GenerativeFunctionCallNode}()
-    ForwardPassState(input_changed, value_changed, constrained_choices,
-        constrained_calls, discard_calls)
+    ForwardPassState(input_changed, value_changed, constrained_or_selected_choices,
+        constrained_or_selected_calls, discard_calls)
 end
 
 struct BackwardPassState 
@@ -87,7 +87,7 @@ function process_forward!(schema::AddressSchema, state::ForwardPassState,
                           node::RandomChoiceNode)
     @assert isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema)
     if isa(schema, StaticAddressSchema) && (node.addr in leaf_node_keys(schema))
-        push!(state.constrained_choices, node)
+        push!(state.constrained_or_selected_choices, node)
         push!(state.value_changed, node)
     end
     if any(input_node in state.value_changed for input_node in node.inputs)
@@ -99,7 +99,7 @@ function process_forward!(schema::AddressSchema, state::ForwardPassState,
                           node::GenerativeFunctionCallNode)
     @assert isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema)
     if isa(schema, StaticAddressSchema) && (node.addr in internal_node_keys(schema))
-        push!(state.constrained_calls, node)
+        push!(state.constrained_or_selected_calls, node)
         push!(state.value_changed, node)
         push!(state.discard_calls, node)
     end
@@ -133,7 +133,7 @@ end
 
 function process_backward!(fwd::ForwardPassState, back::BackwardPassState,
                            node::RandomChoiceNode)
-    if node in fwd.input_changed || node in fwd.constrained_choices
+    if node in fwd.input_changed || node in fwd.constrained_or_selected_choices
         for input_node in node.inputs
             push!(back.marked, input_node)
         end
@@ -142,7 +142,7 @@ end
 
 function process_backward!(fwd::ForwardPassState, back::BackwardPassState,
                            node::GenerativeFunctionCallNode)
-    if node in fwd.input_changed || node in fwd.constrained_calls
+    if node in fwd.input_changed || node in fwd.constrained_or_selected_calls
         for input_node in node.inputs
             push!(back.marked, input_node)
         end
@@ -173,7 +173,7 @@ end
 function process_codegen!(stmts, fwd::ForwardPassState, back::BackwardPassState,
                           node::ChoiceDiffNode, ::UpdateMode)
     if node in back.marked
-        if node.choice_node in fwd.constrained_choices || node.choice_node in fwd.input_changed
+        if node.choice_node in fwd.constrained_or_selected_choices || node.choice_node in fwd.input_changed
             push!(stmts, :($(node.name) = $(choicediff_var(node.choice_node))))
         else
             push!(stmts, :($(node.name) = NoChoiceDiff()))
@@ -184,7 +184,7 @@ end
 function process_codegen!(stmts, fwd::ForwardPassState, back::BackwardPassState,
                           node::CallDiffNode, ::UpdateMode)
     if node in back.marked
-        if node.call_node in fwd.constrained_calls || node.call_node in fwd.input_changed
+        if node.call_node in fwd.constrained_or_selected_calls || node.call_node in fwd.input_changed
             push!(stmts, :($(node.name) = $(calldiff_var(node.call_node))))
         else
             push!(stmts, :($(node.name) = NoCallDiff()))
@@ -201,13 +201,13 @@ function process_codegen!(stmts, fwd::ForwardPassState, back::BackwardPassState,
 end
 
 function process_codegen!(stmts, fwd::ForwardPassState, back::BackwardPassState,
-                          node::RandomChoiceNode, ::UpdateMode)
+                          node::RandomChoiceNode, ::Union{ForceUpdateMode,FixUpdateMode,ExtendMode})
     args = map((input_node) -> input_node.name, node.inputs)
     new_logpdf = gensym("new_logpdf")
     addr = QuoteNode(node.addr)
     dist = QuoteNode(node.dist)
-    if node in fwd.constrained_choices || node in fwd.input_changed
-        if node in fwd.constrained_choices
+    if node in fwd.constrained_or_selected_choices || node in fwd.input_changed
+        if node in fwd.constrained_or_selected_choices
             push!(stmts, :($(node.name) = static_get_value(constraints, Val($addr))))
             push!(stmts, :($(choice_discard_var(node)) = trace.$(get_value_fieldname(node))))
         else
@@ -215,6 +215,34 @@ function process_codegen!(stmts, fwd::ForwardPassState, back::BackwardPassState,
         end
         push!(stmts, :($new_logpdf = logpdf($dist, $(node.name), $(args...))))
         push!(stmts, :($weight += $new_logpdf - trace.$(get_score_fieldname(node))))
+        push!(stmts, :($total_score_fieldname += $new_logpdf - trace.$(get_score_fieldname(node))))
+        push!(stmts, :($(get_score_fieldname(node)) = $new_logpdf))
+        push!(stmts, :($(choicediff_var(node)) = PrevChoiceDiff(trace.$(get_value_fieldname(node)))))
+    else
+        push!(stmts, :($(node.name) = trace.$(get_value_fieldname(node))))
+        push!(stmts, :($(get_score_fieldname(node)) = trace.$(get_score_fieldname(node))))
+    end
+    push!(stmts, :($(get_value_fieldname(node)) = $(node.name)))
+end
+
+function process_codegen!(stmts, fwd::ForwardPassState, back::BackwardPassState,
+                          node::RandomChoiceNode, ::FreeUpdateMode)
+    args = map((input_node) -> input_node.name, node.inputs)
+    new_logpdf = gensym("new_logpdf")
+    addr = QuoteNode(node.addr)
+    dist = QuoteNode(node.dist)
+    if node in fwd.constrained_or_selected_choices || node in fwd.input_changed
+        if node in fwd.constrained_or_selected_choices
+            # the choice was selected, it does not contribute to the weight
+            push!(stmts, :($(node.name) = random($dist, $(args...))))
+            push!(stmts, :($new_logpdf = logpdf($dist, $(node.name), $(args...))))
+        else
+            # the choice was not selected, and the input to the choice changed
+            # it does contribute to the weight
+            push!(stmts, :($(node.name) = trace.$(get_value_fieldname(node))))
+            push!(stmts, :($new_logpdf = logpdf($dist, $(node.name), $(args...))))
+            push!(stmts, :($weight += $new_logpdf - trace.$(get_score_fieldname(node))))
+        end
         push!(stmts, :($total_score_fieldname += $new_logpdf - trace.$(get_score_fieldname(node))))
         push!(stmts, :($(get_score_fieldname(node)) = $new_logpdf))
         push!(stmts, :($(choicediff_var(node)) = PrevChoiceDiff(trace.$(get_value_fieldname(node)))))
@@ -235,19 +263,50 @@ function process_codegen!(stmts, fwd::ForwardPassState, back::BackwardPassState,
     prev_subtrace = :(trace.$subtrace)
     call_weight = gensym("call_weight")
     call_constraints = gensym("call_constraints")
-    if node in fwd.constrained_calls || node in fwd.input_changed
-        if node in fwd.constrained_calls
+    if node in fwd.constrained_or_selected_calls || node in fwd.input_changed
+        if node in fwd.constrained_or_selected_calls
             push!(stmts, :($call_constraints = static_get_subassmt(constraints, Val($addr))))
         else
             push!(stmts, :($call_constraints = EmptyAssignment()))
         end
         method = isa(mode, ForceUpdateMode) ? :force_update : :fix_update
         push!(stmts, :(($subtrace, $call_weight, $(call_discard_var(node)), $(calldiff_var(node))) = 
-            $method($args_tuple, $(node.argdiff.name), $(prev_subtrace), $call_constraints)
-        ))
+            $method($args_tuple, $(node.argdiff.name), $(prev_subtrace), $call_constraints)))
         push!(stmts, :($weight += $call_weight))
         push!(stmts, :($total_score_fieldname += get_score($subtrace) - get_score($prev_subtrace)))
+        push!(stmts, :($total_noise_fieldname += project($subtrace, EmptyAddressSet()) - project($prev_subtrace, EmptyAddressSet())))
         push!(stmts, :(if !isempty(get_assignment($subtrace)) && isempty(get_assignment($prev_subtrace))
+                            $num_nonempty_fieldname += 1 end))
+        push!(stmts, :(if isempty(get_assignment($subtrace)) && !isempty(get_assignment($prev_subtrace))
+                            $num_nonempty_fieldname -= 1 end))
+    else
+        push!(stmts, :($subtrace = $prev_subtrace))
+    end
+    push!(stmts, :($(node.name) = get_retval($subtrace)))
+end
+
+function process_codegen!(stmts, fwd::ForwardPassState, back::BackwardPassState,
+                          node::GenerativeFunctionCallNode, ::FreeUpdateMode)
+    args = map((input_node) -> input_node.name, node.inputs)
+    args_tuple = Expr(:tuple, args...)
+    addr = QuoteNode(node.addr)
+    gen_fn = QuoteNode(node.generative_function)
+    subtrace = get_subtrace_fieldname(node)
+    prev_subtrace = :(trace.$subtrace)
+    call_weight = gensym("call_weight")
+    call_subselection = gensym("call_subselection")
+    if node in fwd.constrained_or_selected_calls || node in fwd.input_changed
+        if node in fwd.constrained_or_selected_calls
+            push!(stmts, :($call_subselection = Gen.static_get_internal_node(selection, Val($addr))))
+        else
+            push!(stmts, :($call_subselection = EmptyAddressSet()))
+        end
+        push!(stmts, :(($subtrace, $call_weight, $(calldiff_var(node))) = 
+            free_update($args_tuple, $(node.argdiff.name), $(prev_subtrace), $call_subselection)))
+        push!(stmts, :($weight += $call_weight))
+        push!(stmts, :($total_score_fieldname += get_score($subtrace) - get_score($prev_subtrace)))
+        push!(stmts, :($total_noise_fieldname += project($subtrace, EmptyAddressSet()) - project($prev_subtrace, EmptyAddressSet())))
+        push!(stmts, :(if !isempty(get_assignment($subtrace)) && !isempty(get_assignment($prev_subtrace))
                             $num_nonempty_fieldname += 1 end))
         push!(stmts, :(if isempty(get_assignment($subtrace)) && !isempty(get_assignment($prev_subtrace))
                             $num_nonempty_fieldname -= 1 end))
@@ -267,8 +326,8 @@ function process_codegen!(stmts, fwd::ForwardPassState, back::BackwardPassState,
     prev_subtrace = :(trace.$subtrace)
     call_weight = gensym("call_weight")
     call_constraints = gensym("call_constraints")
-    if node in fwd.constrained_calls || node in fwd.input_changed
-        if node in fwd.constrained_calls
+    if node in fwd.constrained_or_selected_calls || node in fwd.input_changed
+        if node in fwd.constrained_or_selected_calls
             push!(stmts, :($call_constraints = static_get_subassmt(constraints, Val($addr))))
         else
             push!(stmts, :($call_constraints = EmptyAssignment()))
@@ -357,18 +416,18 @@ function codegen_force_or_fix_update(args_type::Type, argdiff_type::Type,
     ir = get_ir(gen_fn_type)
 
     # forward marking pass
-    forward_state = ForwardPassState()
-    forward_pass_argdiff!(forward_state, ir.arg_nodes, argdiff_type)
+    fwd_state = ForwardPassState()
+    forward_pass_argdiff!(fwd_state, ir.arg_nodes, argdiff_type)
     for node in ir.nodes
-        process_forward!(schema, forward_state, node)
+        process_forward!(schema, fwd_state, node)
     end
 
     # backward marking pass
-    backward_state = BackwardPassState()
-    push!(backward_state.marked, ir.return_node)
-    push!(backward_state.marked, ir.retdiff_node)
+    bwd_state = BackwardPassState()
+    push!(bwd_state.marked, ir.return_node)
+    push!(bwd_state.marked, ir.retdiff_node)
     for node in reverse(ir.nodes)
-        process_backward!(forward_state, backward_state, node)
+        process_backward!(fwd_state, bwd_state, node)
     end
 
     # forward code generation pass
@@ -376,15 +435,59 @@ function codegen_force_or_fix_update(args_type::Type, argdiff_type::Type,
     initialize_score_weight_num_nonempty!(stmts)
     unpack_arguments!(stmts, ir.arg_nodes)
     for node in ir.nodes
-        process_codegen!(stmts, forward_state, backward_state, node, mode)
+        process_codegen!(stmts, fwd_state, bwd_state, node, mode)
     end
     generate_return_value!(stmts, ir.return_node)
     generate_new_trace!(stmts, trace_type)
-    generate_discard!(stmts, forward_state.constrained_choices, forward_state.discard_calls)
+    generate_discard!(stmts, fwd_state.constrained_or_selected_choices, fwd_state.discard_calls)
     generate_retdiff!(stmts, ir.retdiff_node)
 
-    # return trace and weight and discard
+    # return trace and weight and discard and retdiff
     push!(stmts, :(return ($trace, $weight, $discard, $retdiff)))
+
+    Expr(:block, stmts...)
+end
+
+function codegen_free_update(args_type::Type, argdiff_type::Type,
+                             trace_type::Type{T}, selection_type::Type) where {T<:StaticIRTrace}
+    gen_fn_type = get_gen_fn_type(trace_type)
+    schema = get_address_schema(selection_type)
+
+    # convert the constraints to a static assignment if it is not already one
+    if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
+        return quote free_update(args, argdiff, trace, StaticAddressSet(selection)) end
+    end
+
+    ir = get_ir(gen_fn_type)
+
+    # forward marking pass
+    fwd_state = ForwardPassState()
+    forward_pass_argdiff!(fwd_state, ir.arg_nodes, argdiff_type)
+    for node in ir.nodes
+        process_forward!(schema, fwd_state, node)
+    end
+
+    # backward marking pass
+    bwd_state = BackwardPassState()
+    push!(bwd_state.marked, ir.return_node)
+    push!(bwd_state.marked, ir.retdiff_node)
+    for node in reverse(ir.nodes)
+        process_backward!(fwd_state, bwd_state, node)
+    end
+
+    # forward code generation pass
+    stmts = Expr[]
+    initialize_score_weight_num_nonempty!(stmts)
+    unpack_arguments!(stmts, ir.arg_nodes)
+    for node in ir.nodes
+        process_codegen!(stmts, fwd_state, bwd_state, node, FreeUpdateMode())
+    end
+    generate_return_value!(stmts, ir.return_node)
+    generate_new_trace!(stmts, trace_type)
+    generate_retdiff!(stmts, ir.retdiff_node)
+
+    # return trace and weight and retdiff
+    push!(stmts, :(return ($trace, $weight, $retdiff)))
 
     Expr(:block, stmts...)
 end
@@ -402,18 +505,18 @@ function codegen_extend(args_type::Type, argdiff_type::Type,
     ir = get_ir(gen_fn_type)
 
     # forward marking pass
-    forward_state = ForwardPassState()
-    forward_pass_argdiff!(forward_state, ir.arg_nodes, argdiff_type)
+    fwd_state = ForwardPassState()
+    forward_pass_argdiff!(fwd_state, ir.arg_nodes, argdiff_type)
     for node in ir.nodes
-        process_forward!(schema, forward_state, node)
+        process_forward!(schema, fwd_state, node)
     end
 
     # backward marking pass
-    backward_state = BackwardPassState()
-    push!(backward_state.marked, ir.return_node)
-    push!(backward_state.marked, ir.retdiff_node)
+    bwd_state = BackwardPassState()
+    push!(bwd_state.marked, ir.return_node)
+    push!(bwd_state.marked, ir.retdiff_node)
     for node in reverse(ir.nodes)
-        process_backward!(forward_state, backward_state, node)
+        process_backward!(fwd_state, bwd_state, node)
     end
 
     # forward code generation pass
@@ -421,13 +524,13 @@ function codegen_extend(args_type::Type, argdiff_type::Type,
     initialize_score_weight_num_nonempty!(stmts)
     unpack_arguments!(stmts, ir.arg_nodes)
     for node in ir.nodes
-        process_codegen!(stmts, forward_state, backward_state, node, ExtendMode())
+        process_codegen!(stmts, fwd_state, bwd_state, node, ExtendMode())
     end
     generate_return_value!(stmts, ir.return_node)
     generate_new_trace!(stmts, trace_type)
     generate_retdiff!(stmts, ir.retdiff_node)
 
-    # return trace and weight and discard
+    # return trace and weight and retdiff
     push!(stmts, :(return ($trace, $weight, $retdiff)))
 
     Expr(:block, stmts...)
@@ -449,13 +552,13 @@ push!(Gen.generated_functions, quote
 end
 end)
 
-#push!(Gen.generated_functions, quote
-#@generated function Gen.free_update(args::Tuple,
-                                   #argdiff::Union{NoArgDiff,UnknownArgDiff,MaskedArgDiff},
-                                   #trace::U, constraints::Assignment) where {U}
-    #Gen.codegen_free_update(args, argdiff, trace, constraints)
-#end
-#end)
+push!(Gen.generated_functions, quote
+@generated function Gen.free_update(args::Tuple,
+                                   argdiff::Union{NoArgDiff,UnknownArgDiff,MaskedArgDiff},
+                                   trace::U, selection::AddressSet) where {U}
+    Gen.codegen_free_update(args, argdiff, trace, selection)
+end
+end)
 
 push!(Gen.generated_functions, quote
 @generated function Gen.extend(args::Tuple,
