@@ -1,26 +1,20 @@
-struct StaticIRGenerateState
+struct StaticIRInitializeState
     schema::Union{StaticAddressSchema, EmptyAddressSchema}
     stmts::Vector{Any}
 end
 
-function process!(state::StaticIRGenerateState, node::ArgumentNode)
+function process!(::StaticIRInitializeState, node) end
+
+function process!(state::StaticIRInitializeState, node::ArgumentNode)
     push!(state.stmts, :($(get_value_fieldname(node)) = $(node.name)))
 end
 
-function process!(::StaticIRGenerateState, ::DiffJuliaNode) end
-
-function process!(::StaticIRGenerateState, ::ReceivedArgDiffNode) end
-
-function process!(::StaticIRGenerateState, ::ChoiceDiffNode) end
-
-function process!(::StaticIRGenerateState, ::CallDiffNode) end
-
-function process!(state::StaticIRGenerateState, node::JuliaNode)
+function process!(state::StaticIRInitializeState, node::JuliaNode)
     args = map((input_node) -> input_node.name, node.inputs)
     push!(state.stmts, :($(node.name) = $(QuoteNode(node.fn))($(args...))))
 end
 
-function process!(state::StaticIRGenerateState, node::RandomChoiceNode)
+function process!(state::StaticIRInitializeState, node::RandomChoiceNode)
     schema = state.schema
     args = map((input_node) -> input_node.name, node.inputs)
     incr = gensym("logpdf")
@@ -33,12 +27,15 @@ function process!(state::StaticIRGenerateState, node::RandomChoiceNode)
         push!(state.stmts, :($weight += $incr))
     else
         push!(state.stmts, :($(node.name) = random($dist, $(args...))))
+        push!(state.stmts, :($incr = logpdf($dist, $(node.name), $(args...))))
     end
     push!(state.stmts, :($(get_value_fieldname(node)) = $(node.name)))
-    push!(state.stmts, :($num_has_choices_fieldname += 1))
+    push!(state.stmts, :($(get_score_fieldname(node)) = $incr))
+    push!(state.stmts, :($num_nonempty_fieldname += 1))
+    push!(state.stmts, :($total_score_fieldname += $incr))
 end
 
-function process!(state::StaticIRGenerateState, node::GenerativeFunctionCallNode)
+function process!(state::StaticIRInitializeState, node::GenerativeFunctionCallNode)
     schema = state.schema
     args = map((input_node) -> input_node.name, node.inputs)
     args_tuple = Expr(:tuple, args...)
@@ -51,15 +48,18 @@ function process!(state::StaticIRGenerateState, node::GenerativeFunctionCallNode
     if isa(schema, StaticAddressSchema) && (node.addr in internal_node_keys(schema))
         push!(state.stmts, :($subconstraints = static_get_subassmt(constraints, Val($addr))))
         push!(state.stmts, :(($subtrace, $incr) = initialize($gen_fn, $args_tuple, $subconstraints)))
-        push!(state.stmts, :($weight += $incr))
     else
-        push!(state.stmts, :($subtrace = simulate($gen_fn, $args_tuple)))
+        push!(state.stmts, :(($subtrace, $incr) = initialize($gen_fn, $args_tuple, EmptyAssignment())))
     end
-    push!(state.stmts, :($num_has_choices_fieldname += has_choices($subtrace) ? 1 : 0))
+    push!(state.stmts, :($weight += $incr))
+    push!(state.stmts, :($num_nonempty_fieldname += !isempty(get_assignment($subtrace)) ? 1 : 0))
     push!(state.stmts, :($(node.name) = get_retval($subtrace)))
+    push!(state.stmts, :($total_score_fieldname += get_score($subtrace)))
+    push!(state.stmts, :($total_noise_fieldname += project($subtrace, EmptyAddressSet())))
 end
 
-function codegen_initialize(gen_fn_type::Type{T}, args, constraints_type) where {T <: StaticIRGenerativeFunction}
+function codegen_initialize(gen_fn_type::Type{T}, args,
+                            constraints_type) where {T <: StaticIRGenerativeFunction}
     trace_type = get_trace_type(gen_fn_type)
     schema = get_address_schema(constraints_type)
 
@@ -71,16 +71,18 @@ function codegen_initialize(gen_fn_type::Type{T}, args, constraints_type) where 
     ir = get_ir(gen_fn_type)
     stmts = []
 
-    # initialize score, weight, and num_has_choices
+    # initialize score, weight, and num_nonempty
+    push!(stmts, :($total_score_fieldname = 0.))
+    push!(stmts, :($total_noise_fieldname = 0.))
     push!(stmts, :($weight = 0.))
-    push!(stmts, :($num_has_choices_fieldname = 0))
+    push!(stmts, :($num_nonempty_fieldname = 0))
 
     # unpack arguments
     arg_names = Symbol[arg_node.name for arg_node in ir.arg_nodes]
     push!(stmts, :($(Expr(:tuple, arg_names...)) = args))
 
     # process expression nodes in topological order
-    state = StaticIRGenerateState(schema, stmts)
+    state = StaticIRInitializeState(schema, stmts)
     for node in ir.nodes
         process!(state, node)
     end

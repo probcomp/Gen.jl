@@ -10,7 +10,7 @@ function get_schema end
 
 get_address_schema(::Type{StaticIRTraceAssmt{T}}) where {T} = get_schema(T)
 
-Base.isempty(assmt::StaticIRTraceAssmt) = !has_choices(assmt.trace)
+Base.isempty(assmt::StaticIRTraceAssmt) = isempty(assmt.trace)
 
 static_has_value(assmt::StaticIRTraceAssmt, key) = false
 
@@ -26,6 +26,7 @@ function get_subassmt(assmt::StaticIRTraceAssmt, key::Symbol)
     static_get_subassmt(assmt, Val(key))
 end
 
+get_value(assmt::StaticIRTraceAssmt, addr::Pair) = _get_value(assmt, addr)
 has_value(assmt::StaticIRTraceAssmt, addr::Pair) = _has_value(assmt, addr)
 get_subassmt(assmt::StaticIRTraceAssmt, addr::Pair) = _get_subassmt(assmt, addr)
 
@@ -33,9 +34,11 @@ get_subassmt(assmt::StaticIRTraceAssmt, addr::Pair) = _get_subassmt(assmt, addr)
 # trace type generation #
 #########################
 
+abstract type StaticIRTrace end
+
 const arg_prefix = gensym("arg")
 const choice_value_prefix = gensym("choice_value")
-#const choice_score_prefix = gensym("choice_score")
+const choice_score_prefix = gensym("choice_score")
 const subtrace_prefix = gensym("subtrace")
 
 function get_value_fieldname(node::ArgumentNode)
@@ -54,8 +57,9 @@ function get_subtrace_fieldname(node::GenerativeFunctionCallNode)
     Symbol("$(subtrace_prefix)_$(node.addr)")
 end
 
-const num_has_choices_fieldname = gensym("num_has_choices")
-#const total_score_fieldname = gensym("score")
+const num_nonempty_fieldname = gensym("num_nonempty")
+const total_score_fieldname = gensym("score")
+const total_noise_fieldname = gensym("noise")
 const return_value_fieldname = gensym("retval")
 
 struct TraceField
@@ -80,8 +84,9 @@ function get_trace_fields(ir::StaticIR)
         subtrace_type = get_trace_type(node.generative_function)
         push!(fields, TraceField(subtrace_fieldname, subtrace_type))
     end
-    #push!(fields, TraceField(total_score_fieldname, Float64))
-    push!(fields, TraceField(num_has_choices_fieldname, Int))
+    push!(fields, TraceField(total_score_fieldname, Float64))
+    push!(fields, TraceField(total_noise_fieldname, Float64))
+    push!(fields, TraceField(num_nonempty_fieldname, Int))
     push!(fields, TraceField(return_value_fieldname, ir.return_node.typ))
     return fields
 end
@@ -90,14 +95,20 @@ function generate_trace_struct(ir::StaticIR, trace_struct_name::Symbol)
     mutable = false
     fields = get_trace_fields(ir)
     field_exprs = map((f) -> Expr(:(::), f.fieldname, QuoteNode(f.typ)), fields)
-    Expr(:struct, mutable, trace_struct_name,
+    Expr(:struct, mutable, Expr(:(<:), trace_struct_name, QuoteNode(StaticIRTrace)),
          Expr(:block, field_exprs...))
 end
 
-function generate_has_choices(trace_struct_name::Symbol)
+function generate_isempty(trace_struct_name::Symbol)
     Expr(:function,
-        Expr(:call, :(Gen.has_choices), :(trace::$trace_struct_name)),
-        :(trace.$num_has_choices_fieldname > 0))
+        Expr(:call, :(Base.isempty), :(trace::$trace_struct_name)),
+        Expr(:block, :(trace.$num_nonempty_fieldname == 0)))
+end
+
+function generate_get_score(trace_struct_name::Symbol)
+    Expr(:function,
+        Expr(:call, :(Gen.get_score), :(trace::$trace_struct_name)),
+        Expr(:block, :(trace.$total_score_fieldname)))
 end
 
 function generate_get_args(ir::StaticIR, trace_struct_name::Symbol)
@@ -111,13 +122,13 @@ end
 function generate_get_retval(ir::StaticIR, trace_struct_name::Symbol)
     Expr(:function,
         Expr(:call, :(Gen.get_retval), :(trace::$trace_struct_name)),
-        Expr(:block, trace.$return_value_fieldname))
+        Expr(:block, :(trace.$return_value_fieldname)))
 end
 
 function generate_get_assignment(trace_struct_name::Symbol)
     Expr(:function,
         Expr(:call, :(Gen.get_assignment), :(trace::$trace_struct_name)),
-        Expr(:if, :(has_choices(trace)),
+        Expr(:if, :(!isempty(trace)),
             :(Gen.StaticIRTraceAssmt(trace)),
             :(Gen.EmptyAssignment())))
 end
@@ -208,9 +219,10 @@ end
 function generate_trace_type_and_methods(ir::StaticIR, name::Symbol)
     trace_struct_name = gensym("StaticIRTrace_$name")
     trace_struct_expr = generate_trace_struct(ir, trace_struct_name)
-    has_choices_expr = generate_has_choices(trace_struct_name)
-    get_args_expr = generate_get_args_expr(ir, trace_struct_name)
-    get_retval_expr = generate_get_retval_expr(ir, trace_struct_name)
+    isempty_expr = generate_isempty(trace_struct_name)
+    get_score_expr = generate_get_score(trace_struct_name)
+    get_args_expr = generate_get_args(ir, trace_struct_name)
+    get_retval_expr = generate_get_retval(ir, trace_struct_name)
     get_assignment_expr = generate_get_assignment(trace_struct_name)
     get_schema_expr = generate_get_schema(ir, trace_struct_name)
     get_values_shallow_expr = generate_get_values_shallow(ir, trace_struct_name)
@@ -218,10 +230,12 @@ function generate_trace_type_and_methods(ir::StaticIR, name::Symbol)
     static_get_value_exprs = generate_static_get_value(ir, trace_struct_name)
     static_has_value_exprs = generate_static_has_value(ir, trace_struct_name)
     static_get_subassmt_exprs = generate_static_get_subassmt(ir, trace_struct_name)
-    exprs = Expr(:block, trace_struct_expr, has_choices_expr,
+    exprs = Expr(:block, trace_struct_expr, isempty_expr, get_score_expr,
                  get_args_expr, get_retval_expr,
                  get_assignment_expr, get_schema_expr, get_values_shallow_expr,
                  get_subassmts_shallow_expr, static_get_value_exprs...,
                  static_has_value_exprs..., static_get_subassmt_exprs...)
     (exprs, trace_struct_name)
 end
+
+export StaticIRTrace
