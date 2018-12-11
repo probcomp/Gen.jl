@@ -1,4 +1,4 @@
-function mala(selection::AddressSet, trace, tau)
+function mala(trace, selection::AddressSet, tau)
     model_args = get_args(trace)
     std = sqrt(2 * tau)
 

@@ -1,4 +1,4 @@
-function default_mh(selection::AddressSet, trace)
+function default_mh(trace, selection::AddressSet)
     args = get_args(trace)
     (new_trace, weight) = free_update(args, noargdiff, trace, selection)
     if log(rand()) < weight
