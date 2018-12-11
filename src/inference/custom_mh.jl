@@ -1,5 +1,6 @@
-function custom_mh(proposal::GenerativeFunction,
-                   proposal_args::Tuple, trace,
+function custom_mh(trace,
+                   proposal::GenerativeFunction,
+                   proposal_args::Tuple,
                    correction=(prev_trace, new_trace) -> 0.)
     model_args = get_args(trace)
     proposal_args_forward = (trace, proposal_args...,)

@@ -10,7 +10,7 @@ function assess_momenta(momenta, mass)
     logprob
 end
 
-function hmc(selection::AddressSet, trace::U;
+function hmc(trace::U, selection::AddressSet;
              mass=0.1, L=10, eps=0.1) where {T,U}
     prev_model_score = get_score(trace)
     model_args = get_args(trace)
