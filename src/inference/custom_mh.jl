@@ -12,10 +12,10 @@ function custom_mh(proposal::GenerativeFunction,
     alpha += correction(trace, new_trace)
     if log(rand()) < alpha
         # accept
-        return (new_trace, true)
+        return new_trace
     else
         # reject
-        return (trace, false)
+        return trace
     end
 end
 
