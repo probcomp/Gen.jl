@@ -42,8 +42,26 @@ function has_internal_node(trie::Trie, addr)
     haskey(trie.internal_nodes, addr)
 end
 
+function has_internal_node(trie::Trie, addr::Pair)
+    (first, rest) = addr
+    if haskey(trie.internal_nodes, first)
+        has_internal_node(trie.internal_nodes[first], rest)
+    else
+        false
+    end
+end
+
 function get_internal_node(trie::Trie, addr)
     trie.internal_nodes[addr]
+end
+
+function get_internal_node(trie::Trie, addr::Pair)
+    (first, rest) = addr
+    if haskey(trie.internal_nodes, first)
+        get_internal_node(trie.internal_nodes[first], rest)
+    else
+        throw(KeyError(trie, addr))
+    end
 end
 
 function set_internal_node!(trie::Trie{K,V}, addr, new_node::Trie{K,V}) where {K,V}
@@ -83,8 +101,26 @@ function has_leaf_node(trie::Trie, addr)
     haskey(trie.leaf_nodes, addr)
 end
 
+function has_leaf_node(trie::Trie, addr::Pair)
+    (first, rest) = addr
+    if haskey(trie.internal_nodes, first)
+        has_leaf_node(trie.internal_nodes[first], rest)
+    else
+        false
+    end
+end
+
 function get_leaf_node(trie::Trie, addr)
     trie.leaf_nodes[addr]
+end
+
+function get_leaf_node(trie::Trie, addr::Pair)
+    (first, rest) = addr
+    if haskey(trie.internal_nodes, first)
+        get_leaf_node(trie.internal_nodes[first], rest)
+    else
+        throw(KeyError(trie, addr))
+    end
 end
 
 function set_leaf_node!(trie::Trie, addr, value)
