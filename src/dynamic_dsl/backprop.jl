@@ -256,7 +256,7 @@ function backprop_trace(trace::DynamicDSLTrace, selection::AddressSet, retval_gr
     args = get_args(trace)
     args_maybe_tracked = (map(maybe_track, args, gen_fn.has_argument_grads, fill(tape, length(args)))...,)
     retval_maybe_tracked = exec(gen_fn, state, args_maybe_tracked)
-    if istracked(retval_maybe_tracked)
+    if istracked(retval_maybe_tracked) && retval_grad != nothing
         deriv!(retval_maybe_tracked, retval_grad)
     end
     seed!(state.score)
