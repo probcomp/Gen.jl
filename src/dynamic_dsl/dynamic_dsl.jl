@@ -4,7 +4,7 @@ const DYNAMIC_DSL_ADDR = Symbol("@addr")
 const DYNAMIC_DSL_DIFF = Symbol("@diff")
 const DYNAMIC_DSL_GRAD = Symbol("@grad")
 
-struct DynamicDSLFunction <: GenerativeFunction{Any,DynamicDSLTrace}
+struct DynamicDSLFunction{T} <: GenerativeFunction{T,DynamicDSLTrace}
     params_grad::Dict{Symbol,Any}
     params::Dict{Symbol,Any}
     arg_types::Vector{Type}
@@ -13,18 +13,19 @@ struct DynamicDSLFunction <: GenerativeFunction{Any,DynamicDSLTrace}
     has_argument_grads::Vector{Bool}
 end
 
-function DynamicDSLFunction(arg_types::Vector{Type}, julia_function::Function,
+function DynamicDSLFunction(arg_types::Vector{Type},
+                     julia_function::Function,
                      update_julia_function::Function,
-                     has_argument_grads)
+                     has_argument_grads, ::Type{T}) where {T}
     params_grad = Dict{Symbol,Any}()
     params = Dict{Symbol,Any}()
-    DynamicDSLFunction(params_grad, params, arg_types,
+    DynamicDSLFunction{T}(params_grad, params, arg_types,
                 julia_function, update_julia_function,
                 has_argument_grads)
 end
 
 function (g::DynamicDSLFunction)(args...)
-    trace = simulate(g, args)
+    (trace, _) = initialize(g, args, EmptyAssignment())
     get_retval(trace)
 end
 
@@ -155,7 +156,6 @@ function strip_marked_for_ad(arg::Expr)
     end
 end
 
-
 function parse_gen_function(ast)
     if ast.head != :function
         error("syntax error at $(ast) in $(ast.head)")
@@ -165,10 +165,14 @@ function parse_gen_function(ast)
     end
     signature = ast.args[1]
     body = ast.args[2]
-    if signature.head != :call
+    if signature.head == :(::)
+        (call_signature, return_type) = signature.args
+    elseif signature.head == :call
+        (call_signature, return_type) = (signature, :Any)
+    else
         error("syntax error at $(ast) in $(signature)")
     end
-    args = signature.args[2:end]
+    args = call_signature.args[2:end]
     has_argument_grads = map(marked_for_ad, args)
     args = map(strip_marked_for_ad, args)
 
@@ -185,7 +189,7 @@ function parse_gen_function(ast)
         esc(transform_body_for_update(body, false)))
 
     # create generator and assign it a name
-    generator_name = signature.args[1]
+    generator_name = call_signature.args[1]
     arg_types = map(esc, parse_arg_types(args))
     Expr(:block,
         Expr(:(=), 
@@ -193,7 +197,7 @@ function parse_gen_function(ast)
             Expr(:call, :DynamicDSLFunction,
                 quote Type[$(arg_types...)] end,
                 julia_fn_defn, update_julia_fn_defn,
-                has_argument_grads)))
+                has_argument_grads, return_type)))
 end
 
 function address_not_found_error_msg(addr)
