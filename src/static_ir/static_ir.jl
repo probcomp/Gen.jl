@@ -59,5 +59,5 @@ const retdiff = gensym("retdiff")
 
 include("initialize.jl")
 include("project.jl")
-#include("update.jl")
+include("update.jl")
 #include("backprop.jl")

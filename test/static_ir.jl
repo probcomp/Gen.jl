@@ -96,58 +96,115 @@ end
     @test isapprox(weight, expected_weight)
 end
 
-#@testset "force update" begin
-#
-    ## get a trace
-    #constraints = DynamicAssignment()
-    #(trace,) = initialize(foo, (), constraints)
-    #x_prev = get_assignment(trace)[:x]
-    #a_prev = get_assignment(trace)[:u => :a]
-    #y_prev = get_assignment(trace)[:y]
-    #b_prev = get_assignment(trace)[:v => :b]
-#
-    ## force change to two of the variables
-    #y_new = 1.123
-    #b_new = -2.1
-    #constraints = DynamicAssignment()
-    #constraints[:y] = y_new
-    #constraints[:v => :b] = b_new
-    #(new_trace, weight, discard, retdiff) = force_update(
-        #foo, (), unknownargdiff, trace, constraints)
-#
-    ## test discard
-    #@test get_value(discard, :y) == y_prev
-    #@test get_value(discard, :v => :b) == b_prev
-    #@test length(collect(get_values_shallow(discard))) == 1
-    #@test length(collect(get_subassmts_shallow(discard))) == 1
-#
-    ## test new trace
-    #new_assignment = get_assignment(new_trace)
-    #@test get_value(new_assignment, :y) == y_new
-    #@test get_value(new_assignment, :v => :b) == b_new
-    #@test length(collect(get_values_shallow(new_assignment))) == 2
-    #@test length(collect(get_subassmts_shallow(new_assignment))) == 2
-#
-    ## test score and weight
-    #prev_score = (
-        #logpdf(normal, x_prev, 0, 1) +
-        #logpdf(normal, a_prev, 0, 1) +
-        #logpdf(normal, y_prev, 0, 1) +
-        #logpdf(normal, b_prev, 0, 1))
-    #new_score = (
-        #logpdf(normal, x_prev, 0, 1) +
-        #logpdf(normal, a_prev, 0, 1) +
-        #logpdf(normal, y_new, 0, 1) +
-        #logpdf(normal, b_new, 0, 1))
-    #expected_weight = new_score - prev_score
-    #@test isapprox(prev_score, get_score(trace))
-    #@test isapprox(new_score, get_score(new_trace))
-    #@test isapprox(expected_weight, weight)
-#
-    ## test retdiff
-    #@test retdiff === DefaultRetDiff()
-#end
-#
+@testset "force and update" begin
+
+    # force_update and fix_update have the same expected behavior here
+    for update_fn in [force_update, fix_update]
+
+        # get a trace
+        constraints = DynamicAssignment()
+        (trace,) = initialize(foo, (), constraints)
+        x_prev = get_assignment(trace)[:x]
+        a_prev = get_assignment(trace)[:u => :a]
+        y_prev = get_assignment(trace)[:y]
+        b_prev = get_assignment(trace)[:v => :b]
+    
+        # force change to two of the variables
+        y_new = 1.123
+        b_new = -2.1
+        constraints = DynamicAssignment()
+        constraints[:y] = y_new
+        constraints[:v => :b] = b_new
+        (new_trace, weight, discard, retdiff) = update_fn(
+            (), unknownargdiff, trace, constraints)
+    
+        # test discard
+        @test get_value(discard, :y) == y_prev
+        @test get_value(discard, :v => :b) == b_prev
+        @test length(collect(get_values_shallow(discard))) == 1
+        @test length(collect(get_subassmts_shallow(discard))) == 1
+    
+        # test new trace
+        new_assignment = get_assignment(new_trace)
+        @test get_value(new_assignment, :y) == y_new
+        @test get_value(new_assignment, :v => :b) == b_new
+        @test length(collect(get_values_shallow(new_assignment))) == 2
+        @test length(collect(get_subassmts_shallow(new_assignment))) == 2
+    
+        # test score and weight
+        prev_score = (
+            logpdf(normal, x_prev, 0, 1) +
+            logpdf(normal, a_prev, 0, 1) +
+            logpdf(normal, y_prev, 0, 1) +
+            logpdf(normal, b_prev, 0, 1))
+        new_score = (
+            logpdf(normal, x_prev, 0, 1) +
+            logpdf(normal, a_prev, 0, 1) +
+            logpdf(normal, y_new, 0, 1) +
+            logpdf(normal, b_new, 0, 1))
+        expected_weight = new_score - prev_score
+        @test isapprox(prev_score, get_score(trace))
+        @test isapprox(new_score, get_score(new_trace))
+        @test isapprox(expected_weight, weight)
+    
+        # test retdiff
+        @test retdiff === DefaultRetDiff()
+    end
+end
+
+@testset "fix update" begin
+
+    # get a trace
+    constraints = DynamicAssignment()
+    (trace,) = initialize(foo, (), constraints)
+    x_prev = get_assignment(trace)[:x]
+    a_prev = get_assignment(trace)[:u => :a]
+    y_prev = get_assignment(trace)[:y]
+    b_prev = get_assignment(trace)[:v => :b]
+
+    # force change to two of the variables
+    y_new = 1.123
+    b_new = -2.1
+    constraints = DynamicAssignment()
+    constraints[:y] = y_new
+    constraints[:v => :b] = b_new
+    (new_trace, weight, discard, retdiff) = fix_update(
+        (), unknownargdiff, trace, constraints)
+
+    # test discard
+    @test get_value(discard, :y) == y_prev
+    @test get_value(discard, :v => :b) == b_prev
+    @test length(collect(get_values_shallow(discard))) == 1
+    @test length(collect(get_subassmts_shallow(discard))) == 1
+
+    # test new trace
+    new_assignment = get_assignment(new_trace)
+    @test get_value(new_assignment, :y) == y_new
+    @test get_value(new_assignment, :v => :b) == b_new
+    @test length(collect(get_values_shallow(new_assignment))) == 2
+    @test length(collect(get_subassmts_shallow(new_assignment))) == 2
+
+    # test score and weight
+    prev_score = (
+        logpdf(normal, x_prev, 0, 1) +
+        logpdf(normal, a_prev, 0, 1) +
+        logpdf(normal, y_prev, 0, 1) +
+        logpdf(normal, b_prev, 0, 1))
+    new_score = (
+        logpdf(normal, x_prev, 0, 1) +
+        logpdf(normal, a_prev, 0, 1) +
+        logpdf(normal, y_new, 0, 1) +
+        logpdf(normal, b_new, 0, 1))
+    expected_weight = new_score - prev_score
+    @test isapprox(prev_score, get_score(trace))
+    @test isapprox(new_score, get_score(new_trace))
+    @test isapprox(expected_weight, weight)
+
+    # test retdiff
+    @test retdiff === DefaultRetDiff()
+end
+
+
 #@testset "backprop" begin
 #
     ## bar
