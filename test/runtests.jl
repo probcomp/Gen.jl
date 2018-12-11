@@ -17,7 +17,7 @@ include("assignment.jl")
 include("dynamic_dsl.jl")
 
 include("static_ir.jl")
-#include("static_dsl.jl")
+include("static_dsl.jl")
 #include("injective.jl")
 
 #include("inference.jl")

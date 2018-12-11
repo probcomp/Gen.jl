@@ -236,8 +236,6 @@ end
     end
     (arg_grads, value_assmt, gradient_assmt) = backprop_trace(
         record.subtrace, record.selection, retval_grad)
-    println(value_assmt)
-    println(gradient_assmt)
     @assert isempty(get_subassmt(record.gradient_assmt, record.key))
     @assert !has_value(record.gradient_assmt, record.key)
     set_subassmt!(record.gradient_assmt, record.key, gradient_assmt)

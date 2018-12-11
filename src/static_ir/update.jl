@@ -539,7 +539,7 @@ end
 push!(Gen.generated_functions, quote
 @generated function Gen.force_update(args::Tuple,
                                      argdiff::Union{NoArgDiff,UnknownArgDiff,MaskedArgDiff},
-                                     trace::U, constraints::Assignment) where {U}
+                                     trace::T, constraints::Assignment) where {T<:StaticIRTrace}
     Gen.codegen_force_or_fix_update(args, argdiff, trace, constraints, Gen.ForceUpdateMode())
 end
 end)
@@ -547,7 +547,7 @@ end)
 push!(Gen.generated_functions, quote
 @generated function Gen.fix_update(args::Tuple,
                                    argdiff::Union{NoArgDiff,UnknownArgDiff,MaskedArgDiff},
-                                   trace::U, constraints::Assignment) where {U}
+                                   trace::T, constraints::Assignment) where {T<:StaticIRTrace}
     Gen.codegen_force_or_fix_update(args, argdiff, trace, constraints, Gen.FixUpdateMode())
 end
 end)
@@ -555,7 +555,7 @@ end)
 push!(Gen.generated_functions, quote
 @generated function Gen.free_update(args::Tuple,
                                    argdiff::Union{NoArgDiff,UnknownArgDiff,MaskedArgDiff},
-                                   trace::U, selection::AddressSet) where {U}
+                                   trace::T, selection::AddressSet) where {T<:StaticIRTrace}
     Gen.codegen_free_update(args, argdiff, trace, selection)
 end
 end)
@@ -563,7 +563,7 @@ end)
 push!(Gen.generated_functions, quote
 @generated function Gen.extend(args::Tuple,
                                argdiff::Union{NoArgDiff,UnknownArgDiff,MaskedArgDiff},
-                               trace::U, constraints::Assignment) where {U}
+                               trace::T, constraints::Assignment) where {T<:StaticIRTrace}
     Gen.codegen_extend(args, argdiff, trace, constraints)
 end
 end)
