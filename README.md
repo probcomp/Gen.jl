@@ -1,4 +1,4 @@
-# Gen
+# Gen [![Build Status](https://travis-ci.org/probcomp/gen.svg?branch=master)](https://travis-ci.org/probcomp/gen)
 
 Gen: A General-Purpose Probabilistic Programming System with Programmable Inference
 
