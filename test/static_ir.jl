@@ -44,14 +44,13 @@ using Gen: generate_generative_function
     Gen.load_generated_functions()
 
 
-@testset "generate" begin
+@testset "initialize" begin
 
     y_constraint = 1.123
     b_constraint = -2.1
     constraints = DynamicAssignment()
     constraints[:y] = y_constraint
     constraints[:v => :b] = b_constraint
-    #constraints = StaticAssignment(constraints)
     (trace, weight) = initialize(foo, (), constraints)
     x = get_assignment(trace)[:x]
     a = get_assignment(trace)[:u => :a]
@@ -78,7 +77,84 @@ using Gen: generate_generative_function
     @test isapprox(weight, expected_weight)
 end
 
-@testset "force update" begin
+@testset "project" begin
+
+    y = 1.123
+    b = -2.1
+    assmt = DynamicAssignment()
+    assmt[:y] = y
+    assmt[:v => :b] = b
+    (trace, weight) = initialize(foo, (), assmt)
+    x = get_assignment(trace)[:x]
+    a = get_assignment(trace)[:u => :a]
+    selection = DynamicAddressSet()
+    push_leaf_node!(selection, :y)
+    push_leaf_node!(selection, :u => :a)
+    weight = project(trace, selection)
+
+    expected_weight = logpdf(normal, y, 0., 1.) + logpdf(normal, a, 0., 1)
+    @test isapprox(weight, expected_weight)
+end
+
+@testset "force and update" begin
+
+    # force_update and fix_update have the same expected behavior here
+    for update_fn in [force_update, fix_update]
+
+        # get a trace
+        constraints = DynamicAssignment()
+        (trace,) = initialize(foo, (), constraints)
+        x_prev = get_assignment(trace)[:x]
+        a_prev = get_assignment(trace)[:u => :a]
+        y_prev = get_assignment(trace)[:y]
+        b_prev = get_assignment(trace)[:v => :b]
+    
+        # force change to two of the variables
+        y_new = 1.123
+        b_new = -2.1
+        constraints = DynamicAssignment()
+        constraints[:y] = y_new
+        constraints[:v => :b] = b_new
+        (new_trace, weight, discard, retdiff) = update_fn(
+            (), unknownargdiff, trace, constraints)
+    
+        # test discard
+        @test get_value(discard, :y) == y_prev
+        @test get_value(discard, :v => :b) == b_prev
+        @test length(collect(get_values_shallow(discard))) == 1
+        @test length(collect(get_subassmts_shallow(discard))) == 1
+    
+        # test new trace
+        new_assmt = get_assignment(new_trace)
+        @test get_value(new_assmt, :y) == y_new
+        @test get_value(new_assmt, :v => :b) == b_new
+        @test length(collect(get_values_shallow(new_assmt))) == 2
+        @test length(collect(get_subassmts_shallow(new_assmt))) == 2
+    
+        # test score and weight
+        prev_score = (
+            logpdf(normal, x_prev, 0, 1) +
+            logpdf(normal, a_prev, 0, 1) +
+            logpdf(normal, y_prev, 0, 1) +
+            logpdf(normal, b_prev, 0, 1))
+        new_score = (
+            logpdf(normal, x_prev, 0, 1) +
+            logpdf(normal, a_prev, 0, 1) +
+            logpdf(normal, y_new, 0, 1) +
+            logpdf(normal, b_new, 0, 1))
+        expected_weight = new_score - prev_score
+        @test isapprox(prev_score, get_score(trace))
+        @test isapprox(new_score, get_score(new_trace))
+        @test isapprox(expected_weight, weight)
+    
+        # test retdiff
+        @test retdiff === DefaultRetDiff()
+    end
+end
+
+@testset "free update" begin
+
+    Random.seed!(1)
 
     # get a trace
     constraints = DynamicAssignment()
@@ -88,27 +164,23 @@ end
     y_prev = get_assignment(trace)[:y]
     b_prev = get_assignment(trace)[:v => :b]
 
-    # force change to two of the variables
-    y_new = 1.123
-    b_new = -2.1
-    constraints = DynamicAssignment()
-    constraints[:y] = y_new
-    constraints[:v => :b] = b_new
-    (new_trace, weight, discard, retdiff) = force_update(
-        foo, (), unknownargdiff, trace, constraints)
-
-    # test discard
-    @test get_value(discard, :y) == y_prev
-    @test get_value(discard, :v => :b) == b_prev
-    @test length(collect(get_values_shallow(discard))) == 1
-    @test length(collect(get_subassmts_shallow(discard))) == 1
+    # resample :y and :v => :b
+    selection = DynamicAddressSet()
+    push_leaf_node!(selection, :y)
+    push_leaf_node!(selection, :v => :b)
+    (new_trace, weight, retdiff) = free_update(
+        (), unknownargdiff, trace, selection)
 
     # test new trace
-    new_assignment = get_assignment(new_trace)
-    @test get_value(new_assignment, :y) == y_new
-    @test get_value(new_assignment, :v => :b) == b_new
-    @test length(collect(get_values_shallow(new_assignment))) == 2
-    @test length(collect(get_subassmts_shallow(new_assignment))) == 2
+    new_assmt = get_assignment(new_trace)
+    @test get_value(new_assmt, :x) == x_prev
+    @test get_value(new_assmt, :u => :a) == a_prev
+    y_new = get_value(new_assmt, :y)
+    b_new = get_value(new_assmt, :v => :b)
+    @test y_new != y_prev
+    @test b_new != b_prev
+    @test length(collect(get_values_shallow(new_assmt))) == 2
+    @test length(collect(get_subassmts_shallow(new_assmt))) == 2
 
     # test score and weight
     prev_score = (
@@ -121,10 +193,46 @@ end
         logpdf(normal, a_prev, 0, 1) +
         logpdf(normal, y_new, 0, 1) +
         logpdf(normal, b_new, 0, 1))
-    expected_weight = new_score - prev_score
     @test isapprox(prev_score, get_score(trace))
     @test isapprox(new_score, get_score(new_trace))
-    @test isapprox(expected_weight, weight)
+    @test isapprox(0., weight)
+
+    # test retdiff
+    @test retdiff === DefaultRetDiff()
+end
+
+@testset "extend" begin
+
+    # get a trace
+    constraints = DynamicAssignment()
+    (trace,) = initialize(foo, (), constraints)
+    x_prev = get_assignment(trace)[:x]
+    a_prev = get_assignment(trace)[:u => :a]
+    y_prev = get_assignment(trace)[:y]
+    b_prev = get_assignment(trace)[:v => :b]
+
+    # don't do anything.. TODO write a better test
+    constraints = DynamicAssignment()
+    (new_trace, weight, retdiff) = extend(
+        (), unknownargdiff, trace, constraints)
+
+    # test new trace
+    new_assmt = get_assignment(new_trace)
+    @test get_value(new_assmt, :x) == x_prev
+    @test get_value(new_assmt, :u => :a) == a_prev
+    @test get_value(new_assmt, :y) == y_prev
+    @test get_value(new_assmt, :v => :b) == b_prev
+    @test length(collect(get_values_shallow(new_assmt))) == 2
+    @test length(collect(get_subassmts_shallow(new_assmt))) == 2
+
+    # test score and weight
+    score = (
+        logpdf(normal, x_prev, 0, 1) +
+        logpdf(normal, a_prev, 0, 1) +
+        logpdf(normal, y_prev, 0, 1) +
+        logpdf(normal, b_prev, 0, 1))
+    @test isapprox(score, get_score(new_trace))
+    @test isapprox(0., weight)
 
     # test retdiff
     @test retdiff === DefaultRetDiff()
@@ -182,32 +290,40 @@ end
     constraints[:bar => :z] = z
     (trace, _) = initialize(foo, (mu_a,), constraints)
 
-    # compute gradients
+    # compute gradients with backprop_trace
     selection = DynamicAddressSet()
     push_leaf_node!(selection, :bar => :z)
     push_leaf_node!(selection, :a)
     push_leaf_node!(selection, :out)
     selection = StaticAddressSet(selection)
     retval_grad = 2.
-    ((mu_a_grad,), value_trie, gradient_trie) = backprop_trace(foo, trace, selection, retval_grad)
+    ((mu_a_grad,), value_trie, gradient_trie) = backprop_trace(trace, selection, retval_grad)
+
+    # check input gradient
+    @test isapprox(mu_a_grad, finite_diff(f, (mu_a, a, b, z, out), 1, dx))
 
     # check value trie
-    @test get_leaf_node(value_trie, :a) == a
-    @test get_leaf_node(value_trie, :out) == out
-    @test get_leaf_node(value_trie, :bar => :z) == z
-    @test !has_leaf_node(value_trie, :b) # was not selected
-    @test length(get_internal_nodes(value_trie)) == 1
-    @test length(get_leaf_nodes(value_trie)) == 2
+    @test get_value(value_trie, :a) == a
+    @test get_value(value_trie, :out) == out
+    @test get_value(value_trie, :bar => :z) == z
+    @test !has_value(value_trie, :b) # was not selected
+    @test length(get_subassmts_shallow(value_trie)) == 1
+    @test length(get_values_shallow(value_trie)) == 2
 
     # check gradient trie
-    @test length(get_internal_nodes(gradient_trie)) == 1
-    @test length(get_leaf_nodes(gradient_trie)) == 2
-    @test !has_leaf_node(gradient_trie, :b) # was not selected
-    @test isapprox(mu_a_grad, finite_diff(f, (mu_a, a, b, z, out), 1, dx))
-    @test isapprox(get_leaf_node(gradient_trie, :a), finite_diff(f, (mu_a, a, b, z, out), 2, dx))
-    @test isapprox(get_leaf_node(gradient_trie, :out), finite_diff(f, (mu_a, a, b, z, out), 5, dx))
-    @test isapprox(get_leaf_node(gradient_trie, :bar => :z), finite_diff(f, (mu_a, a, b, z, out), 4, dx))
-end
+    @test length(get_subassmts_shallow(gradient_trie)) == 1
+    @test length(get_values_shallow(gradient_trie)) == 2
+    @test !has_value(gradient_trie, :b) # was not selected
+    @test isapprox(get_value(gradient_trie, :a), finite_diff(f, (mu_a, a, b, z, out), 2, dx))
+    @test isapprox(get_value(gradient_trie, :out), finite_diff(f, (mu_a, a, b, z, out), 5, dx))
+    @test isapprox(get_value(gradient_trie, :bar => :z), finite_diff(f, (mu_a, a, b, z, out), 4, dx))
 
+    # compute gradients with backprop_params
+    retval_grad = 2.
+    (mu_a_grad,) = backprop_params(trace, retval_grad)
+
+    # check input gradient
+    @test isapprox(mu_a_grad, finite_diff(f, (mu_a, a, b, z, out), 1, dx))
+end
 
 end # @testset "static IR"
