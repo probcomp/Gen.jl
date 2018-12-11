@@ -3,10 +3,10 @@ function default_mh(selection::AddressSet, trace)
     (new_trace, weight) = free_update(args, noargdiff, trace, selection)
     if log(rand()) < weight
         # accept
-        return (new_trace, true)
+        return new_trace
     else
         # reject
-        return (trace, false)
+        return trace
     end
 end
 

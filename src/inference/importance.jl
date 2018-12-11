@@ -58,7 +58,7 @@ function importance_resampling(model::GenerativeFunction{T,U}, model_args::Tuple
     for i=2:num_samples
         verbose && println("sample: $i of $num_samples")
         (proposal_assmt, proposal_weight, _) = propose(proposal, proposal_args)
-        constraints = merge(observations, proposal_weight)
+        constraints = merge(observations, proposal_assmt)
         (cand_model_trace, model_weight) = initialize(model, model_args, constraints)
         log_weight = model_weight - proposal_weight
         log_total_weight = logsumexp(log_total_weight, log_weight)
