@@ -161,7 +161,7 @@ end
 function get_subassmts_shallow(assmt::DynamicDSLTraceAssignment)
     calls_iter = ((key, get_assignment(call.subtrace))
         for (key, call) in get_leaf_nodes(assmt.trace.calls))
-    choices_iter = ((key, DynamicDSLChoicesAssmt(subchoices))
+    choices_iter = ((key, DynamicDSLChoicesAssmt(trie))
         for (key, trie) in get_internal_nodes(assmt.trace.choices))
     Iterators.flatten((calls_iter, choices_iter))
 end
@@ -179,23 +179,23 @@ get_value(assmt::DynamicDSLChoicesAssmt, addr::Pair) = _get_value(assmt, addr)
 get_subassmt(assmt::DynamicDSLChoicesAssmt, addr::Pair) = _get_subassmt(assmt, addr)
 
 function get_subassmt(assmt::DynamicDSLChoicesAssmt, addr)
-    DynamicDSLChoicesAssmt(get_internal_node(assmt.trace.choices, addr))
+    DynamicDSLChoicesAssmt(get_internal_node(assmt.choices, addr))
 end
 
 function get_value(assmt::DynamicDSLChoicesAssmt, addr)
-    assmt.trace.choices[addr].retval
+    assmt.choices[addr].retval
 end
 
 function has_value(assmt::DynamicDSLChoicesAssmt, addr)
-    haskey(assmt.trace.choices, addr)
+    haskey(assmt.choices, addr)
 end
 
 function get_subassmts_shallow(assmt::DynamicDSLChoicesAssmt)
-    ((key, DynamicDSLChoicesAssmt(trie)
-     for (key, trie) in get_internal_nodes(assmt.trace.choices)))
+    ((key, DynamicDSLChoicesAssmt(trie))
+     for (key, trie) in get_internal_nodes(assmt.choices))
 end
 
 function get_values_shallow(assmt::DynamicDSLChoicesAssmt)
     ((key, choice.retval)
-     for choice in get_leaf_nodes(assmt.trace.choices))
+     for (key, choice) in get_leaf_nodes(assmt.choices))
 end
