@@ -15,13 +15,11 @@ const dx = 1e-6
 include("autodiff.jl")
 include("assignment.jl")
 include("dynamic_dsl.jl")
-
 include("static_ir.jl")
-include("static_dsl.jl")
-#include("injective.jl")
-
-#include("inference.jl")
-
+#include("static_dsl.jl")
+include("choice_at.jl")
+include("injective.jl")
+include("inference.jl")
 include("distribution.jl")
 include("map.jl")
 

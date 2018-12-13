@@ -1,3 +1,7 @@
+#######################
+# static DSL function #
+#######################
+
 using FunctionalCollections: PersistentVector
 
 struct Params
@@ -257,3 +261,31 @@ data_calldiff = get_node_by_name(ir, :data_calldiff)
 @test ir.retdiff_node === data_calldiff
 
 end # @testset "static DSL"
+
+###############################################
+# static DSl function that uses at_combinator #
+###############################################
+
+@staticgen function foo1()
+    @addr(bernoulli(0.5), :z)
+end
+
+@staticgen function bar1(i::Int)
+    @addr(foo1(), :a => i)
+end
+
+#@staticgen function bar2(i::Int)
+    #@addr(bernoulli(0.5), :a => i => :z)
+#end
+
+Gen.load_generated_functions()
+
+@testset "static DSL at_combinator syntax" begin
+
+(trace, _) = initialize(bar1, (2,), EmptyAssignment())
+println(get_assignment(trace))
+
+#(trace, _) = initialize(bar2, (2,), EmptyAssignment())
+#println(get_assignment(trace))
+
+end
