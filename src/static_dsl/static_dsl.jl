@@ -150,6 +150,11 @@ function parse_random_choice_helper!(bindings, builder, name, typ, addr_expr)
     if isa(addr_expr, Expr) && addr_expr.head == :macrocall && length(addr_expr.args) == 4 && addr_expr.args[1] == STATIC_DSL_ADDR
         @assert isa(addr_expr.args[2], LineNumberNode)
         call = addr_expr.args[3]
+
+        # TODO also support at_combinator for distributions, not just generative functions
+        if !isa(addr_expr.args[4], QuoteNode) || !isa(addr_expr.args[4].value, Symbol)
+            return false
+        end
         addr::Symbol = (addr_expr.args[4]::QuoteNode).value
         if isa(call, Expr) && call.head == :call
             dist = Main.eval(call.args[1])
@@ -181,7 +186,8 @@ function parse_random_choice!(bindings, builder, line::Expr)
         return parse_random_choice_helper!(bindings, builder, name, typ, rhs)
     else
         name = gensym()
-        # TODO this will be inefficient, since it becomes a field in the trace. a concrete type is better.
+        # TODO this will be inefficient, since it becomes a field in the trace.
+        # a concrete type is better.
         # allow a type assertion e.g. @addr(normal(mu, std), :x)::Float64
         typ = Any 
         return parse_random_choice_helper!(bindings, builder, name, typ, line)
@@ -189,26 +195,59 @@ function parse_random_choice!(bindings, builder, line::Expr)
     true
 end
 
+split_addr!(keys, addr_expr::QuoteNode) = push!(keys, addr_expr)
+split_addr!(keys, addr_expr::Symbol) = push!(keys, addr_expr)
+
+function split_addr!(keys, addr_expr::Expr)
+    dump(addr_expr)
+    @assert addr_expr.head == :call
+    @assert length(addr_expr.args) == 3
+    @assert addr_expr.args[1] == :(=>)
+    push!(keys, addr_expr.args[2])
+    split_addr!(keys, addr_expr.args[3])
+end
+
 function parse_gen_fn_call_helper!(bindings, builder, name, typ, addr_expr)
-    if isa(addr_expr, Expr) && addr_expr.head == :macrocall && length(addr_expr.args) >= 4 && addr_expr.args[1] == STATIC_DSL_ADDR
-        @assert isa(addr_expr.args[2], LineNumberNode)
-        call = addr_expr.args[3]
-        addr::Symbol = (addr_expr.args[4]::QuoteNode).value
-        if isa(call, Expr) && call.head == :call
-            gen_fn = Main.eval(call.args[1])
-            if !isa(gen_fn, GenerativeFunction)
-                return false
-            end
-            args = call.args[2:end]
-            inputs = []
-            for arg_expr in args
-                push!(inputs, parse_julia_expr!(bindings, builder, gensym(), Any, arg_expr, false))
-            end
-        else
+    if !(isa(addr_expr, Expr) && addr_expr.head == :macrocall
+        && length(addr_expr.args) >= 4 && addr_expr.args[1] == STATIC_DSL_ADDR)
+        return false
+    end
+    @assert isa(addr_expr.args[2], LineNumberNode)
+    call = addr_expr.args[3]
+    if !isa(call, Expr) || call.head != :call
+        return false
+    end
+    gen_fn = Main.eval(call.args[1])
+    if !isa(gen_fn, GenerativeFunction)
+        return false
+    end
+    local addr::Symbol
+    dump(addr_expr)
+    if isa(addr_expr.args[4], QuoteNode) && isa(addr_expr.args[4].value, Symbol)
+
+        # no intermediate DynamicDSLFunction
+        addr = addr_expr.args[4].value
+        args = call.args[2:end]
+
+    else
+
+        # add intermediate DynamicDSLFunctions
+        keys = []
+        split_addr!(keys, addr_expr.args[4]) # TODO better error msg
+        if !isa(keys[1], QuoteNode) || !isa(keys[1].value, Symbol)
             return false
         end
-    else
-        return false
+        addr = keys[1].value
+        for key in keys[2:end]
+            gen_fn = at_combinator(gen_fn, Any) # TODO do something better than Any
+            println("key: $key, gen_fn: $gen_fn")
+        end
+        args = (call.args[2:end]..., reverse(keys[2:end])...)
+    end
+    
+    inputs = []
+    for arg_expr in args
+        push!(inputs, parse_julia_expr!(bindings, builder, gensym(), Any, arg_expr, false))
     end
     if length(addr_expr.args) == 5
         argdiff_expr = addr_expr.args[5]
