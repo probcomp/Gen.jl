@@ -67,6 +67,8 @@ function addr(state::GFExtendState, dist::Distribution{T},
     # update weight
     if constrained
         state.weight += score
+    elseif has_previous
+        state.weight += score - prev_score
     end
 
     retval 
