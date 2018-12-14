@@ -105,3 +105,15 @@ push!(Gen.generated_functions, quote
     Gen.codegen_initialize(gen_fn, args, constraints)
 end
 end)
+
+function propose(gen_fn::StaticIRGenerativeFunction, args::Tuple)
+    # TODO implement the actual propose
+    (trace, weight) = initialize(gen_fn, args, EmptyAssignment())
+    (get_assignment(trace), weight, get_retval(trace))
+end
+
+function assess(gen_fn::StaticIRGenerativeFunction, args::Tuple, constraints::Assignment)
+    # TODO implement the actual assess
+    (trace, weight) = initialize(gen_fn, args, constraints)
+    (weight, get_retval(trace))
+end

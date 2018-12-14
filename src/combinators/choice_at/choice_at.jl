@@ -1,8 +1,10 @@
-struct ChoiceAtTrace{T,K,A<:Tuple}
+# TODO optimize ChoiceAtTrace using type parameters
+
+struct ChoiceAtTrace
     gen_fn::GenerativeFunction # the ChoiceAtCombinator (not the kernel)
-    value::T
-    key::K
-    kernel_args::A
+    value::Any
+    key::Any
+    kernel_args::Tuple
     score::Float64
 end
 
@@ -18,7 +20,9 @@ end
 
 get_assignment(trace::ChoiceAtTrace) = ChoiceAtAssignment(trace.key, trace.value)
 Base.isempty(::ChoiceAtAssignment) = false
-get_address_schema(::Type{ChoiceAtAssignment}) = SingleDynamicKeyAddressSchema()
+function get_address_schema(::Type{T}) where {T<:ChoiceAtAssignment}
+    SingleDynamicKeyAddressSchema()
+end
 get_value(assmt::ChoiceAtAssignment, addr::Pair) = _get_value(assmt, addr)
 has_value(assmt::ChoiceAtAssignment, addr::Pair) = _has_value(assmt, addr)
 function get_value(assmt::ChoiceAtAssignment{T,K}, addr::K) where {T,K}
@@ -27,7 +31,7 @@ end
 get_subassmts_shallow(assmt::ChoiceAtAssignment) = ()
 get_values_shallow(assmt::ChoiceAtAssignment) = ((assmt.key, assmt.value),)
 
-struct ChoiceAtCombinator{T,K} <: GenerativeFunction{T, ChoiceAtTrace{T,K}}
+struct ChoiceAtCombinator{T,K} <: GenerativeFunction{T, ChoiceAtTrace}
     dist::Distribution{T}
 end
 
@@ -73,8 +77,8 @@ function project(trace::ChoiceAtTrace, selection::AddressSet)
     has_leaf_node(selection, trace.key) ? trace.score : 0.
 end
 
-function force_update(args::Tuple, argdiff, trace::ChoiceAtTrace{U,K},
-                      assmt::Assignment) where {U,K}
+function force_update(args::Tuple, argdiff, trace::ChoiceAtTrace,
+                      assmt::Assignment)
     key = args[end]
     kernel_args = args[1:end-1]
     key_changed = (key != trace.key)
@@ -97,8 +101,8 @@ function force_update(args::Tuple, argdiff, trace::ChoiceAtTrace{U,K},
     (new_trace, weight, discard, DefaultRetDiff())
 end
 
-function fix_update(args::Tuple, argdiff, trace::ChoiceAtTrace{U,K},
-                    assmt::Assignment) where {U,K}
+function fix_update(args::Tuple, argdiff, trace::ChoiceAtTrace,
+                    assmt::Assignment)
     key = args[end]
     kernel_args = args[1:end-1]
     key_changed = (key != trace.key)
@@ -127,8 +131,8 @@ function fix_update(args::Tuple, argdiff, trace::ChoiceAtTrace{U,K},
     (new_trace, weight, discard, DefaultRetDiff())
 end
 
-function free_update(args::Tuple, argdiff, trace::ChoiceAtTrace{U,K},
-                     selection::AddressSet) where {U,K}
+function free_update(args::Tuple, argdiff, trace::ChoiceAtTrace,
+                     selection::AddressSet)
     key = args[end]
     kernel_args = args[1:end-1]
     key_changed = (key != trace.key)
@@ -154,8 +158,8 @@ function free_update(args::Tuple, argdiff, trace::ChoiceAtTrace{U,K},
     (new_trace, weight, DefaultRetDiff())
 end
 
-function extend(args::Tuple, argdiff, trace::ChoiceAtTrace{U,K},
-                assmt::Assignment) where {U,K}
+function extend(args::Tuple, argdiff, trace::ChoiceAtTrace,
+                assmt::Assignment)
     key = args[end]
     kernel_args = args[1:end-1]
     key_changed = (key != trace.key)
@@ -195,7 +199,6 @@ end
 
 function backprop_params(trace::ChoiceAtTrace, retval_grad)
     kernel_arg_grads = logpdf_grad(trace.gen_fn.dist, trace.value, trace.kernel_args...)
-    println("kernel_arg_grads: $kernel_arg_grads")
     (kernel_arg_grads[2:end]..., nothing)
 end
 
