@@ -40,7 +40,8 @@ function parse_arg_expr(arg_expr::Expr)
 end
 
 function parse_static_dsl_function_signature!(bindings, builder, sig)
-    if !isa(sig, Expr) || sig.head != :call || length(sig.args) < 1 || !isa(sig.args[1], Symbol)
+    if (!isa(sig, Expr) || sig.head != :call
+        || length(sig.args) < 1 || !isa(sig.args[1], Symbol))
         static_dsl_syntax_error(sig)
     end
     name = sig.args[1]
@@ -96,7 +97,8 @@ function resolve_symbols(bindings::Dict{Symbol,StaticIRNode}, value)
     Dict{Symbol,StaticIRNode}()
 end
 
-function parse_julia_expr!(bindings, builder, name::Symbol, typ::Type, expr::Expr, diff::Bool)
+function parse_julia_expr!(bindings, builder, name::Symbol, typ::Type,
+                           expr::Expr, diff::Bool)
     resolved = resolve_symbols(bindings, expr)
     inputs = collect(resolved)
     input_symbols = map((x) -> x[1], inputs)
@@ -147,33 +149,64 @@ function parse_julia_assignment!(bindings, builder, line::Expr)
 end
 
 function parse_random_choice_helper!(bindings, builder, name, typ, addr_expr)
-    if isa(addr_expr, Expr) && addr_expr.head == :macrocall && length(addr_expr.args) == 4 && addr_expr.args[1] == STATIC_DSL_ADDR
-        @assert isa(addr_expr.args[2], LineNumberNode)
-        call = addr_expr.args[3]
-
-        # TODO also support at_combinator for distributions, not just generative functions
-        if !isa(addr_expr.args[4], QuoteNode) || !isa(addr_expr.args[4].value, Symbol)
-            return false
-        end
-        addr::Symbol = (addr_expr.args[4]::QuoteNode).value
-        if isa(call, Expr) && call.head == :call
-            dist = Main.eval(call.args[1])
-            if !isa(dist, Distribution)
-                return false
-            end
-            args = call.args[2:end]
-            inputs = []
-            for arg_expr in args
-                push!(inputs, parse_julia_expr!(bindings, builder, gensym(), Any, arg_expr, false))
-            end
-        else
-            return false
-        end
-    else
+    if !(isa(addr_expr, Expr) && addr_expr.head == :macrocall
+        && length(addr_expr.args) == 4 && addr_expr.args[1] == STATIC_DSL_ADDR)
         return false
     end
-    node = add_random_choice_node!(builder, dist, inputs=inputs,
-                                   addr=addr, name=name, typ=typ)
+    @assert isa(addr_expr.args[2], LineNumberNode)
+    call = addr_expr.args[3]
+    if !isa(call, Expr) || call.head != :call
+        return false
+    end
+    local addr::Symbol
+    dist = Main.eval(call.args[1])
+    if !isa(dist, Distribution)
+        return false
+    end
+
+    is_choice_node = isa(addr_expr.args[4], QuoteNode) && isa(addr_expr.args[4].value, Symbol)
+    if is_choice_node
+
+        # no choice_at or call_at combinator
+        addr = addr_expr.args[4].value
+        args = call.args[2:end]
+        
+    else
+
+        # use choice_at combinator(s)
+        keys = []
+        split_addr!(keys, addr_expr.args[4]) # TODO better error msg
+        if !isa(keys[1], QuoteNode) || !isa(keys[1].value, Symbol)
+            return false
+        end
+        @assert length(keys) > 1
+        addr = keys[1].value
+        gen_fn = choice_at(dist, Any) # TODO use a type annotation
+        for key in keys[3:end]
+            # TODO do something better than Any -- i.e. use a type annotation
+            gen_fn = call_at(gen_fn, Any) 
+        end
+        args = (call.args[2:end]..., reverse(keys[2:end])...)
+    end
+
+    # add input nodes
+    inputs = []
+    for arg_expr in args
+        push!(inputs, parse_julia_expr!(bindings, builder, gensym(), Any, arg_expr, false))
+    end
+
+    if is_choice_node
+
+        # random choice node
+        node = add_random_choice_node!(builder, dist, inputs=inputs,
+                                       addr=addr, name=name, typ=typ)
+    else
+
+        # call function node
+        argdiff = add_constant_diff_node!(builder, unknownargdiff)
+        node = add_gen_fn_call_node!(builder, gen_fn, inputs=inputs,
+                                     addr=addr, argdiff=argdiff, name=name, typ=typ)
+    end
     bindings[name] = node
     true
 end
@@ -199,7 +232,6 @@ split_addr!(keys, addr_expr::QuoteNode) = push!(keys, addr_expr)
 split_addr!(keys, addr_expr::Symbol) = push!(keys, addr_expr)
 
 function split_addr!(keys, addr_expr::Expr)
-    dump(addr_expr)
     @assert addr_expr.head == :call
     @assert length(addr_expr.args) == 3
     @assert addr_expr.args[1] == :(=>)
@@ -217,44 +249,50 @@ function parse_gen_fn_call_helper!(bindings, builder, name, typ, addr_expr)
     if !isa(call, Expr) || call.head != :call
         return false
     end
+    local addr::Symbol
     gen_fn = Main.eval(call.args[1])
     if !isa(gen_fn, GenerativeFunction)
         return false
     end
-    local addr::Symbol
-    dump(addr_expr)
+
     if isa(addr_expr.args[4], QuoteNode) && isa(addr_expr.args[4].value, Symbol)
 
-        # no intermediate DynamicDSLFunction
+        # no call_at combinator
         addr = addr_expr.args[4].value
         args = call.args[2:end]
 
     else
 
-        # add intermediate DynamicDSLFunctions
+        # use call_at combinator(s)
         keys = []
         split_addr!(keys, addr_expr.args[4]) # TODO better error msg
         if !isa(keys[1], QuoteNode) || !isa(keys[1].value, Symbol)
             return false
         end
+        @assert length(keys) > 1
         addr = keys[1].value
         for key in keys[2:end]
-            gen_fn = at_combinator(gen_fn, Any) # TODO do something better than Any
-            println("key: $key, gen_fn: $gen_fn")
+            # TODO do something better than Any -- i.e. use a type annotation
+            gen_fn = call_at(gen_fn, Any) 
         end
         args = (call.args[2:end]..., reverse(keys[2:end])...)
     end
     
+    # add input nodes
     inputs = []
     for arg_expr in args
         push!(inputs, parse_julia_expr!(bindings, builder, gensym(), Any, arg_expr, false))
     end
+
+    # argdiff
     if length(addr_expr.args) == 5
         argdiff_expr = addr_expr.args[5]
         argdiff = parse_julia_expr!(bindings, builder, gensym(), Any, argdiff_expr, true)
     else
         argdiff = add_constant_diff_node!(builder, unknownargdiff)
     end
+
+    # call function node
     node = add_gen_fn_call_node!(builder, gen_fn, inputs=inputs,
                                  addr=addr, argdiff=argdiff, name=name, typ=typ)
     bindings[name] = node

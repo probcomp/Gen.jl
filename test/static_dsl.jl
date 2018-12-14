@@ -49,6 +49,32 @@ end
     @diff @retdiff(data_calldiff)
 end
 
+@staticgen function at_choice_example_1(i::Int)
+    ret = @addr(bernoulli(0.5), :x => i)
+end
+
+# @addr(choice_at(bernoulli)(0.5, i), :x)
+
+@staticgen function at_choice_example_2(i::Int)
+    ret = @addr(bernoulli(0.5), :x => i => :y)
+end
+
+# @addr(call_at(choice_at(bernoulli))(0.5, i, :y), :x)
+
+@gen function foo(mu)
+    @addr(normal(mu, 1), :y)
+end
+
+@staticgen function at_call_example_1(i::Int)
+    mu = 1.123
+    ret = @addr(foo(mu), :x => i)
+end
+
+@staticgen function at_call_example_2(i::Int)
+    mu = 1.123
+    ret = @addr(foo(mu), :x => i => :y)
+end
+
 @testset "static DSL" begin
 
 function get_node_by_name(ir, name::Symbol)
@@ -260,32 +286,73 @@ data_calldiff = get_node_by_name(ir, :data_calldiff)
 # retdiff
 @test ir.retdiff_node === data_calldiff
 
+
+####################
+# at_choice syntax #
+####################
+
+# at_choice_example_1
+ir = Gen.get_ir(typeof(at_choice_example_1))
+i = get_node_by_name(ir, :i)
+ret = get_node_by_name(ir, :ret)
+@test isa(ret, Gen.GenerativeFunctionCallNode)
+@test ret.addr == :x
+@test length(ret.inputs) == 2
+@test isa(ret.inputs[1], Gen.JuliaNode) # () -> 0.5
+@test ret.inputs[2] === i
+at = ret.generative_function
+@test isa(at, Gen.ChoiceAtCombinator)
+@test at.dist == bernoulli
+
+# at_choice_example_2
+ir = Gen.get_ir(typeof(at_choice_example_2))
+i = get_node_by_name(ir, :i)
+ret = get_node_by_name(ir, :ret)
+@test isa(ret, Gen.GenerativeFunctionCallNode)
+@test ret.addr == :x
+@test length(ret.inputs) == 3
+@test isa(ret.inputs[1], Gen.JuliaNode) # () -> 0.5
+@test isa(ret.inputs[2], Gen.JuliaNode) # () -> :y
+@test ret.inputs[3] === i
+at = ret.generative_function
+@test isa(at, Gen.CallAtCombinator)
+at2 = at.kernel
+@test isa(at2, Gen.ChoiceAtCombinator)
+@test at2.dist == bernoulli
+
+
+##################
+# at_call syntax #
+##################
+
+# at_call_example_1
+ir = Gen.get_ir(typeof(at_call_example_1))
+i = get_node_by_name(ir, :i)
+ret = get_node_by_name(ir, :ret)
+@test isa(ret, Gen.GenerativeFunctionCallNode)
+@test ret.addr == :x
+@test length(ret.inputs) == 2
+@test isa(ret.inputs[1], Gen.JuliaNode) # () -> 0.5
+@test ret.inputs[2] === i
+at = ret.generative_function
+@test isa(at, Gen.CallAtCombinator)
+@test at.kernel == foo
+
+#at_call_example_2
+ir = Gen.get_ir(typeof(at_call_example_2))
+i = get_node_by_name(ir, :i)
+ret = get_node_by_name(ir, :ret)
+@test isa(ret, Gen.GenerativeFunctionCallNode)
+@test ret.addr == :x
+@test length(ret.inputs) == 3
+@test isa(ret.inputs[1], Gen.JuliaNode) # () -> 0.5
+@test isa(ret.inputs[1], Gen.JuliaNode) # () -> 0.5
+@test isa(ret.inputs[2], Gen.JuliaNode) # () -> :y
+@test ret.inputs[3] === i
+at = ret.generative_function
+@test isa(at, Gen.CallAtCombinator)
+at2 = at.kernel
+@test isa(at2, Gen.CallAtCombinator)
+@test at2.kernel == foo
+
 end # @testset "static DSL"
-
-###############################################
-# static DSl function that uses at_combinator #
-###############################################
-
-@staticgen function foo1()
-    @addr(bernoulli(0.5), :z)
-end
-
-@staticgen function bar1(i::Int)
-    @addr(foo1(), :a => i)
-end
-
-#@staticgen function bar2(i::Int)
-    #@addr(bernoulli(0.5), :a => i => :z)
-#end
-
-Gen.load_generated_functions()
-
-@testset "static DSL at_combinator syntax" begin
-
-(trace, _) = initialize(bar1, (2,), EmptyAssignment())
-println(get_assignment(trace))
-
-#(trace, _) = initialize(bar2, (2,), EmptyAssignment())
-#println(get_assignment(trace))
-
-end

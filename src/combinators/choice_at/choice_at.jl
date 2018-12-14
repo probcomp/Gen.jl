@@ -195,7 +195,6 @@ end
 
 function backprop_params(trace::ChoiceAtTrace, retval_grad)
     kernel_arg_grads = logpdf_grad(trace.gen_fn.dist, trace.value, trace.kernel_args...)
-    println("kernel_arg_grads: $kernel_arg_grads")
     (kernel_arg_grads[2:end]..., nothing)
 end
 
