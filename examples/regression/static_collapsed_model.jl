@@ -1,6 +1,5 @@
 import Distributions
 import Gen: random, logpdf
-using FunctionalCollections: PersistentVector
 
 struct TwoNormals <: Distribution{Float64} end
 const two_normals = TwoNormals()
@@ -19,7 +18,11 @@ function random(::TwoNormals, mu, sigma1, sigma2)
     normal(mu, bernoulli(0.5) ? sigma1 : sigma2)
 end
 
-data_collapsed = MapDist(two_normals)
+@staticgen function generate_datum(mean::Float64, inlier_std::Float64, outlier_std::Float64)
+    @addr(two_normals(mean, inlier_std, outlier_std), :z)
+end
+
+generate_data = Map(generate_datum)
 
 @staticgen function model(xs::Vector{Float64})
     n = length(xs)
@@ -30,6 +33,6 @@ data_collapsed = MapDist(two_normals)
     inlier_std = exp(log_inlier_std)
     outlier_std = exp(log_outlier_std)
     means = slope * xs .+ intercept
-    ys = @addr(data_collapsed(means, fill(inlier_std, n), fill(outlier_std, n)), :data)
+    ys = @addr(generate_data(means, fill(inlier_std, n), fill(outlier_std, n)), :data)
     return ys
 end
