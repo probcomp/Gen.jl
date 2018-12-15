@@ -43,18 +43,18 @@ function do_inference(xs, ys, num_iters)
 
         # steps on the parameters
         for j=1:5
-            trace = custom_mh(model, slope_proposal, (), trace)
-            trace = custom_mh(model, intercept_proposal, (), trace)
-            trace = custom_mh(model, inlier_std_proposal, (), trace)
-            trace = custom_mh(model, outlier_std_proposal, (), trace)
+            trace = custom_mh(trace, slope_proposal, ())
+            trace = custom_mh(trace, intercept_proposal, ())
+            trace = custom_mh(trace, inlier_std_proposal, ())
+            trace = custom_mh(trace, outlier_std_proposal, ())
         end
 
         # step on the outliers
         for j=1:length(xs)
-            trace = custom_mh(model, is_outlier_proposal, (j,), trace)
+            trace = custom_mh(trace, is_outlier_proposal, (j,))
         end
 
-        score = get_call_record(trace).score
+        score = get_score(trace)
         scores[i] = score
 
         # print
@@ -71,12 +71,3 @@ end
 (xs, ys) = make_data_set(200)
 do_inference(xs, ys, 10)
 @time scores = do_inference(xs, ys, 50)
-println(scores)
-
-using PyPlot
-figure(figsize=(4, 2))
-plot(scores)
-ylabel("Log probability density")
-xlabel("Iterations")
-tight_layout()
-savefig("dynamic_mh_scores.png")

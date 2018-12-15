@@ -2,7 +2,11 @@
 # model #
 #########
 
-@gen function datum(x::Float64, @ad(inlier_std), @ad(outlier_std), @ad(slope), @ad(intercept))
+# TODO put this into FunctionalCollections:
+import FunctionalCollections
+Base.IndexStyle(::Type{<:FunctionalCollections.PersistentVector}) = IndexLinear()
+
+@gen function datum(x::Float64, @grad(inlier_std), @grad(outlier_std), @grad(slope), @grad(intercept))::Float64
     is_outlier = @addr(bernoulli(0.5), :z)
     std = is_outlier ? inlier_std : outlier_std
     y = @addr(normal(x * slope + intercept, std), :y)
