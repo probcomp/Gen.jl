@@ -5,15 +5,9 @@ using FunctionalCollections: PersistentVector
 include("static_model.jl")
 include("dataset.jl")
 
-@staticgen function flip_z(z::Bool)
-    @addr(bernoulli(z ? 0.0 : 1.0), :z)
-end
-
-data_proposal = at_dynamic(flip_z, Int)
-
 @staticgen function is_outlier_proposal(prev, i::Int)
     prev_z::Bool = get_assignment(prev)[:data => i => :z]
-    @addr(data_proposal(i, (prev_z,)), :data) 
+    @addr(bernoulli(prev_z ? 0.0 : 1.0), :data => i => :z)
 end
 
 Gen.load_generated_functions()
@@ -46,15 +40,15 @@ function do_inference(xs, ys, num_iters)
     
     scores = Vector{Float64}(undef, num_iters)
     for i=1:num_iters
-        trace = mala(model, line_selection, trace, 0.0001)
-        trace = mala(model, std_selection, trace, 0.0001)
+        trace = mala(trace, line_selection, 0.0001)
+        trace = mala(trace, std_selection, 0.0001)
     
         # step on the outliers
         for j=1:length(xs)
-            trace = custom_mh(model, is_outlier_proposal, (j,), trace)
+            trace = custom_mh(trace, is_outlier_proposal, (j,))
         end
     
-        score = get_call_record(trace).score
+        score = get_score(trace)
         scores[i] = score
     
         # print
@@ -71,12 +65,3 @@ end
 (xs, ys) = make_data_set(200)
 do_inference(xs, ys, 10)
 @time scores = do_inference(xs, ys, 1000)
-println(scores)
-
-using PyPlot
-figure(figsize=(4, 2))
-plot(scores)
-ylabel("Log probability density")
-xlabel("Iterations")
-tight_layout()
-savefig("static_mala_scores.png")
