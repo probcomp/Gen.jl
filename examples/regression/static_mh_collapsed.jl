@@ -29,7 +29,7 @@ Gen.load_generated_functions()
 function do_inference(xs, ys, num_iters)
     observations = DynamicAssignment()
     for (i, y) in enumerate(ys)
-        observations[:data => i] = y
+        observations[:data => i => :z] = y
     end
 
     # initial trace
@@ -39,7 +39,7 @@ function do_inference(xs, ys, num_iters)
     for i=1:num_iters
 
         # steps on the parameters
-        trace = custom_mh(trace, model, slope_proposal, ())
+        trace = custom_mh(trace, slope_proposal, ())
         trace = custom_mh(trace, intercept_proposal, ())
         trace = custom_mh(trace, inlier_std_proposal, ())
         trace = custom_mh(trace, outlier_std_proposal, ())
