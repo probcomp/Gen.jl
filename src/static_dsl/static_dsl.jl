@@ -98,7 +98,7 @@ function resolve_symbols(bindings::Dict{Symbol,StaticIRNode}, value)
 end
 
 function parse_julia_expr!(bindings, builder, name::Symbol, typ::Type,
-                           expr::Expr, diff::Bool)
+                           expr::Union{Expr,QuoteNode}, diff::Bool)
     resolved = resolve_symbols(bindings, expr)
     inputs = collect(resolved)
     input_symbols = map((x) -> x[1], inputs)
@@ -182,7 +182,7 @@ function parse_random_choice_helper!(bindings, builder, name, typ, addr_expr)
         @assert length(keys) > 1
         addr = keys[1].value
         gen_fn = choice_at(dist, Any) # TODO use a type annotation
-        for key in keys[3:end]
+        for i in keys[3:end]
             # TODO do something better than Any -- i.e. use a type annotation
             gen_fn = call_at(gen_fn, Any) 
         end
@@ -275,6 +275,9 @@ function parse_gen_fn_call_helper!(bindings, builder, name, typ, addr_expr)
             # TODO do something better than Any -- i.e. use a type annotation
             gen_fn = call_at(gen_fn, Any) 
         end
+        # args is a tuple of expressions
+        # :(:z) -- it needs to unquote it.. QuoteNode(:z)
+        # :z -- it needs to resolve z in the bindings :z
         args = (call.args[2:end]..., reverse(keys[2:end])...)
     end
     

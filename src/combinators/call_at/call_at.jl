@@ -19,10 +19,12 @@ has_value(assmt::CallAtAssignment, addr::Pair) = _has_value(assmt, addr)
 get_subassmts_shallow(assmt::CallAtAssignment) = ((assmt.key, assmt.subassmt),)
 get_values_shallow(::CallAtAssignment) = ()
 
-struct CallAtTrace{U,K}
+# TODO optimize CallAtTrace using type parameters
+
+struct CallAtTrace
     gen_fn::GenerativeFunction # the ChoiceAtCombinator (not the kernel)
-    subtrace::U
-    key::K
+    subtrace::Any
+    key::Any
 end
 
 get_args(trace::CallAtTrace) = (get_args(trace.subtrace), trace.key)
@@ -34,7 +36,7 @@ function get_assignment(trace::CallAtTrace)
     CallAtAssignment(trace.key, get_assignment(trace.subtrace))
 end
 
-struct CallAtCombinator{T,U,K} <: GenerativeFunction{T, CallAtTrace{U,K}}
+struct CallAtCombinator{T,U,K} <: GenerativeFunction{T, CallAtTrace}
     kernel::GenerativeFunction{T,U}
 end
 
@@ -66,7 +68,7 @@ function initialize(gen_fn::CallAtCombinator{T,U,K}, args::Tuple,
     kernel_args = args[1:end-1]
     subassmt = get_subassmt(assmt, key) 
     (subtrace, weight) = initialize(gen_fn.kernel, kernel_args, subassmt)
-    trace = CallAtTrace{U,K}(gen_fn, subtrace, key)
+    trace = CallAtTrace(gen_fn, subtrace, key)
     (trace, weight)
 end
 
@@ -79,8 +81,8 @@ function project(trace::CallAtTrace, selection::AddressSet)
     project(trace.subtrace, subselection)
 end
 
-function force_update(args::Tuple, argdiff, trace::CallAtTrace{U,K},
-                      assmt::Assignment) where {U,K}
+function force_update(args::Tuple, argdiff, trace::CallAtTrace,
+                      assmt::Assignment)
     key = args[end]
     kernel_args = args[1:end-1]
     key_changed = (key != trace.key)
@@ -95,12 +97,12 @@ function force_update(args::Tuple, argdiff, trace::CallAtTrace{U,K},
             kernel_args, unknownargdiff, trace.subtrace, subassmt)
         discard = CallAtAssignment(key, subdiscard)
     end
-    new_trace = CallAtTrace{U,K}(trace.gen_fn, subtrace, key)
+    new_trace = CallAtTrace(trace.gen_fn, subtrace, key)
     (new_trace, weight, discard, retdiff)
 end
 
-function fix_update(args::Tuple, argdiff, trace::CallAtTrace{U,K},
-                    assmt::Assignment) where {U,K}
+function fix_update(args::Tuple, argdiff, trace::CallAtTrace,
+                    assmt::Assignment)
     key = args[end]
     kernel_args = args[1:end-1]
     key_changed = (key != trace.key)
@@ -118,12 +120,12 @@ function fix_update(args::Tuple, argdiff, trace::CallAtTrace{U,K},
             kernel_args, unknownargdiff, trace.subtrace, subassmt)
         discard = CallAtAssignment(key, subdiscard)
     end
-    new_trace = CallAtTrace{U,K}(trace.gen_fn, subtrace, key)
+    new_trace = CallAtTrace(trace.gen_fn, subtrace, key)
     (new_trace, weight, discard, retdiff)
 end
 
-function free_update(args::Tuple, argdiff, trace::CallAtTrace{U,K},
-                     selection::AddressSet) where {U,K}
+function free_update(args::Tuple, argdiff, trace::CallAtTrace,
+                     selection::AddressSet)
     key = args[end]
     kernel_args = args[1:end-1]
     key_changed = (key != trace.key)
@@ -143,12 +145,12 @@ function free_update(args::Tuple, argdiff, trace::CallAtTrace{U,K},
         (subtrace, weight, retdiff) = free_update(
             kernel_args, unknownargdiff, trace.subtrace, subselection)
     end
-    new_trace = CallAtTrace{U,K}(trace.gen_fn, subtrace, key)
+    new_trace = CallAtTrace(trace.gen_fn, subtrace, key)
     (new_trace, weight, retdiff)
 end
 
-function extend(args::Tuple, argdiff, trace::CallAtTrace{U,K},
-                assmt::Assignment) where {U,K}
+function extend(args::Tuple, argdiff, trace::CallAtTrace,
+                assmt::Assignment)
     key = args[end]
     kernel_args = args[1:end-1]
     key_changed = (key != trace.key)
@@ -158,7 +160,7 @@ function extend(args::Tuple, argdiff, trace::CallAtTrace{U,K},
     end
     (subtrace, weight, retdiff) = extend(
         kernel_args, unknownargdiff, trace.subtrace, subassmt)
-    new_trace = CallAtTrace{U,K}(trace.gen_fn, subtrace, key)
+    new_trace = CallAtTrace(trace.gen_fn, subtrace, key)
     (new_trace, weight, retdiff)
 end
 
