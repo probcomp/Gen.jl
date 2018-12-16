@@ -18,31 +18,25 @@ end
 """
 the first argument to model should be an integer, starting from 1, that indicates the step
 get_observations is a function of the step that returns a choice trie
-rejuvenation_move is a function of the step and the previous trace, that returns a new trace
 """
-function particle_filter(model::GenerativeFunction{T,U}, model_args_rest::Tuple, num_steps::Int,
-                         num_particles::Int, ess_threshold::Real,
-                         get_observations::Function,
-                         rejuvenation_move::Function=(t,trace) -> trace;
-                         verbose::Bool=false) where {T,U}
+function particle_filter_default(model::GenerativeFunction{T,U},
+                                 model_args_rest::Tuple, num_steps::Int,
+                                 num_particles::Int, ess_threshold::Real,
+                                 init_observations::Assignment,
+                                 step_observations::Function;
+                                 verbose::Bool=false) where {T,U}
 
     log_unnormalized_weights = Vector{Float64}(undef, num_particles)
     log_ml_estimate = 0.
-    (observations, _) = get_observations(1)
     traces = Vector{U}(undef, num_particles)
     next_traces = Vector{U}(undef, num_particles)
     for i=1:num_particles
         (traces[i], log_unnormalized_weights[i]) = initialize(
-            model, (1, model_args_rest...), observations)
+            model, (1, model_args_rest...), init_observations)
     end
 
     parents = Vector{Int}(undef, num_particles)
     for step=2:num_steps
-
-        # rejuvenation moves
-        for i=1:num_particles
-            traces[i] = rejuvenation_move(step, traces[i])
-        end
 
         # compute new weights
         (log_total_weight, log_normalized_weights) = normalize_weights(log_unnormalized_weights)
@@ -61,7 +55,7 @@ function particle_filter(model::GenerativeFunction{T,U}, model_args_rest::Tuple,
         end
 
         # extend by one time step
-        (observations, argdiff) = get_observations(step)
+        (observations, argdiff) = step_observations(step)
         for i=1:num_particles
             parent = parents[i]
             parent_trace = traces[parent]
@@ -82,21 +76,20 @@ function particle_filter(model::GenerativeFunction{T,U}, model_args_rest::Tuple,
     return (traces, log_normalized_weights, log_ml_estimate)
 end
 
-function particle_filter(model::GenerativeFunction{T,U}, model_args_rest::Tuple,
-                         num_steps::Int, num_particles::Int, ess_threshold::Real,
-                         get_init_observations_and_proposal_args::Function,
-                         get_step_observations_and_proposal_args::Function,
-                         init_proposal::GenerativeFunction, step_proposal::GenerativeFunction;
-                         verbose::Bool=false) where {T,U}
+function particle_filter_custom(model::GenerativeFunction{T,U}, model_args_rest::Tuple,
+                                num_steps::Int, num_particles::Int, ess_threshold::Real,
+                                init_observations::Assignment, init_proposal_args::Tuple,
+                                step_observations::Function, step_proposal_args::Function,
+                                init_proposal::GenerativeFunction, step_proposal::GenerativeFunction;
+                                verbose::Bool=false) where {T,U}
 
     log_unnormalized_weights = Vector{Float64}(undef, num_particles)
     log_ml_estimate = 0.
-    (observations, proposal_args) = get_init_observations_and_proposal_args()
     traces = Vector{U}(undef, num_particles)
     next_traces = Vector{U}(undef, num_particles)
     for i=1:num_particles
-        (proposal_assmt, proposal_weight) = proposal(init_proposal, proposal_args)
-        constraints = merge(observations, proposal_assmt)
+        (proposal_assmt, proposal_weight) = propose(init_proposal, init_proposal_args)
+        constraints = merge(init_observations, proposal_assmt)
         (traces[i], model_weight) = initialize(model, (1, model_args_rest...), constraints)
         log_unnormalized_weights[i] = model_weight - proposal_weight
     end
@@ -120,11 +113,13 @@ function particle_filter(model::GenerativeFunction{T,U}, model_args_rest::Tuple,
             fill_parents_self!(parents)
         end
 
+        (observations, argdiff) = step_observations(step)
+
         # extend by one time step
         for i=1:num_particles
             parent = parents[i]
             parent_trace = traces[parent]
-            (observations, proposal_args, argdiff) = get_step_observations_and_proposal_args(step, parent_trace)
+            proposal_args = step_proposal_args(step, parent_trace)
             (proposal_assmt, proposal_weight) = propose(step_proposal, proposal_args)
             constraints = merge(observations, proposal_assmt)
             (next_traces[i], model_weight) = extend(
@@ -145,4 +140,5 @@ function particle_filter(model::GenerativeFunction{T,U}, model_args_rest::Tuple,
     return (traces, log_normalized_weights, log_ml_estimate)
 end
 
-export particle_filter
+export particle_filter_custom
+export particle_filter_default
