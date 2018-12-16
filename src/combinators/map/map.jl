@@ -97,7 +97,7 @@ end
 
 function compute_retdiff(isdiff_retdiffs::Dict{Int,Any}, new_length::Int, prev_length::Int)
     if new_length == prev_length && length(isdiff_retdiffs) == 0
-        MapNoRetDiff()
+        NoRetDiff()
     else
         MapCustomRetDiff(isdiff_retdiffs)
     end
@@ -172,11 +172,7 @@ export MapCustomArgDiff
 # retdiff #
 ###########
 
-"""
-The return value of the Map has not changed.
-"""
-struct MapNoRetDiff end
-isnodiff(::MapNoRetDiff) = true
+# may return: NoRetDiff, or MapCustomRetDiff
 
 """
 The number of applications may have changed. retdiff values are provided for
@@ -188,7 +184,7 @@ end
 isnodiff(::MapCustomRetDiff) = false
 
 export MapCustomRetDiff
-export MapNoRetDiff
+
 
 ###############################
 # generator interface methods #

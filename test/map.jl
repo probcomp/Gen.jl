@@ -145,7 +145,7 @@
         @test length(retval) == 2
         @test retval[1] == z1
         @test retval[2] == z2
-        @test isa(retdiff, MapNoRetDiff)
+        @test isa(retdiff, NoRetDiff)
         @test isnodiff(retdiff)
 
         # noargdiff, change 2
@@ -198,7 +198,7 @@
         @test length(retval) == 2
         @test retval[1] == z1
         @test retval[2] == z2
-        @test retdiff == MapNoRetDiff()
+        @test retdiff == NoRetDiff()
         @test isnodiff(retdiff)
     end
 
@@ -284,7 +284,7 @@
         @test length(retval) == 2
         @test retval[1] == z1
         @test retval[2] == z2
-        @test isa(retdiff, MapNoRetDiff)
+        @test isa(retdiff, NoRetDiff)
         @test isnodiff(retdiff)
 
         # noargdiff, change 2
@@ -337,7 +337,7 @@
         @test length(retval) == 2
         @test retval[1] == z1
         @test retval[2] == z2
-        @test retdiff == MapNoRetDiff()
+        @test retdiff == NoRetDiff()
         @test isnodiff(retdiff)
     end
 
@@ -400,7 +400,7 @@
         @test length(retval) == 2
         @test retval[1] == z1
         @test retval[2] == z2
-        @test isa(retdiff, MapNoRetDiff)
+        @test isa(retdiff, NoRetDiff)
         @test isnodiff(retdiff)
 
         # noargdiff, change 2
@@ -448,7 +448,7 @@
         @test length(retval) == 2
         @test retval[1] == z1
         @test retval[2] == z2
-        @test retdiff == MapNoRetDiff()
+        @test retdiff == NoRetDiff()
         @test isnodiff(retdiff)
     end
 
@@ -501,7 +501,7 @@
         @test length(retval) == 2
         @test retval[1] == z1
         @test retval[2] == z2
-        @test isa(retdiff, MapNoRetDiff)
+        @test isa(retdiff, NoRetDiff)
         @test isnodiff(retdiff)
 
         # custom argdiff, no selection
@@ -525,7 +525,7 @@
         @test length(retval) == 2
         @test retval[1] == z1
         @test retval[2] == z2
-        @test retdiff == MapNoRetDiff()
+        @test retdiff == NoRetDiff()
         @test isnodiff(retdiff)
     end
 
