@@ -29,19 +29,19 @@ end
 """
 Custom argdiffs for some retained applications
 """
-function process_all_retained!(gen_fn::Map{T,U}, args::Tuple, argdiff::MapCustomArgDiff{T},
+function process_all_retained!(gen_fn::Map{T,U}, args::Tuple, argdiff::MapCustomArgDiff,
                                assmt_or_selection, prev_length::Int, new_length::Int,
                                retained_and_targeted::Set{Int}, state) where {T,U}
 
     # visit every retained applications with an argdiff or that was targeted
     for key in union(keys(argdiff.retained_argdiffs), retained_and_targeted)
         @assert key <= min(new_length, prev_length)
-        if haskey(argdiff.retained_retdiffs, key)
-            subargdiff = retained_retdiffs[key]
+        if haskey(argdiff.retained_argdiffs, key)
+            subargdiff = argdiff.retained_argdiffs[key]
         else
             subargdiff = noargdiff
         end
-        process_retained!(gen_fn, args, assmt_or_collection, key, subargdiff, state)
+        process_retained!(gen_fn, args, assmt_or_selection, key, subargdiff, state)
     end
 end
 

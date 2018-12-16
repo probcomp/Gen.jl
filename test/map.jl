@@ -1,50 +1,58 @@
 @testset "map combinator" begin
     
-    # TODO test retdiffs
-
     @gen function foo(@grad(x::Float64), @grad(y::Float64))
         @param std::Float64
-        return @addr(normal(x + y, std), :z)
+        z = @addr(normal(x + y, std), :z)
+        @diff begin
+            zdiff = @choicediff(:z)
+            @retdiff(isnodiff(zdiff) ? NoRetDiff() : DefaultRetDiff())
+        end
+        return z
     end
 
     set_param!(foo, :std, 1.)
 
-    @gen function bar(n::Int)
-        @param xs::Vector{Float64}
-        @param ys::Vector{Float64}
-        return @addr(Map(foo)(xs[1:n], ys[1:n]), :map)
-    end
+    bar = Map(foo)
 
-    set_param!(bar, :xs, [1.0, 2.0, 3.0, 4.0])
-    set_param!(bar, :ys, [3.0, 4.0, 5.0, 6.0])
+    #@gen function bar(n::Int)
+        #@param xs::Vector{Float64}
+        #@param ys::Vector{Float64}
+        #return @addr(Map(foo)(xs[1:n], ys[1:n]), :map)
+    #end
+    xs = [1.0, 2.0, 3.0, 4.0]
+    ys = [3.0, 4.0, 5.0, 6.0]
+
+    #set_param!(bar, :xs, [1.0, 2.0, 3.0, 4.0])
+    #set_param!(bar, :ys, [3.0, 4.0, 5.0, 6.0])
 
     @testset "initialize" begin
         z1, z2 = 1.1, 2.2
         constraints = DynamicAssignment()
-        constraints[:map => 1 => :z] = z1
-        constraints[:map => 2 => :z] = z2
-        (trace, weight) = initialize(bar, (2,), constraints)
+        constraints[1 => :z] = z1
+        (trace, weight) = initialize(bar, (xs[1:2], ys[1:2]), constraints)
         assignment = get_assignment(trace)
-        @test assignment[:map => 1 => :z] == z1
-        @test assignment[:map => 2 => :z] == z2
-        @test isapprox(weight, logpdf(normal, z1, 4., 1.) + logpdf(normal, z2, 6., 1.))
+        @test assignment[1 => :z] == z1
+        z2 = assignment[2 => :z]
+        @test isapprox(weight, logpdf(normal, z1, 4., 1.))
     end
 
     @testset "propose" begin
-        (assmt, weight) = propose(bar, (2,))
-        z1 = assmt[:map => 1 => :z]
-        z2 = assmt[:map => 2 => :z]
-        @test isapprox(weight, logpdf(normal, z1, 4., 1.) + logpdf(normal, z2, 6., 1.))
+        (assmt, weight) = propose(bar, (xs[1:2], ys[1:2]))
+        z1 = assmt[1 => :z]
+        z2 = assmt[2 => :z]
+        expected_weight = logpdf(normal, z1, 4., 1.) + logpdf(normal, z2, 6., 1.)
+        @test isapprox(weight, expected_weight)
     end
 
     @testset "assess" begin
         z1, z2 = 1.1, 2.2
         constraints = DynamicAssignment()
-        constraints[:map => 1 => :z] = z1
-        constraints[:map => 2 => :z] = z2
-        (weight, retval) = assess(bar, (2,), constraints)
+        constraints[1 => :z] = z1
+        constraints[2 => :z] = z2
+        (weight, retval) = assess(bar, (xs[1:2], ys[1:2]), constraints)
         @test length(retval) == 2
-        @test isapprox(weight, logpdf(normal, z1, 4., 1.) + logpdf(normal, z2, 6., 1.))
+        expected_weight = logpdf(normal, z1, 4., 1.) + logpdf(normal, z2, 6., 1.)
+        @test isapprox(weight, expected_weight)
     end
 
     @testset "force update" begin
@@ -52,44 +60,146 @@
 
         function get_initial_trace()
             constraints = DynamicAssignment()
-            constraints[:map => 1 => :z] = z1
-            constraints[:map => 2 => :z] = z2
-            (trace, _) = initialize(bar, (2,), constraints)
+            constraints[1 => :z] = z1
+            constraints[2 => :z] = z2
+            (trace, _) = initialize(bar, (xs[1:2], ys[1:2]), constraints)
             trace
         end
 
-        # increasing length from 2 to 3 and change 2
+        # unknownargdiff, increasing length from 2 to 3 and change 2
         trace = get_initial_trace()
         z2_new = 3.3
         z3_new = 4.4
         constraints = DynamicAssignment()
-        constraints[:map => 2 => :z] = z2_new
-        constraints[:map => 3 => :z] = z3_new
-        (trace, weight, discard, retdiff) = force_update((3,), unknownargdiff, trace, constraints)
-        assignment = get_assignment(trace)
-        @test get_args(trace) == (3,)
-        @test assignment[:map => 1 => :z] == z1
-        @test assignment[:map => 2 => :z] == z2_new
-        @test assignment[:map => 3 => :z] == z3_new
-        @test discard[:map => 2 => :z] == z2
-        @test isapprox(get_score(trace), logpdf(normal, z1, 4., 1.) + logpdf(normal, z2_new, 6., 1.) + logpdf(normal, z3_new, 8., 1.))
-        @test isapprox(weight, logpdf(normal, z3_new, 8., 1.) + logpdf(normal, z2_new, 6., 1.) - logpdf(normal, z2, 6., 1.))
+        constraints[2 => :z] = z2_new
+        constraints[3 => :z] = z3_new
+        (trace, weight, discard, retdiff) = force_update(
+            (xs[1:3], ys[1:3]), unknownargdiff, trace, constraints)
+        assmt = get_assignment(trace)
+        @test get_args(trace) == (xs[1:3], ys[1:3])
+        @test assmt[1 => :z] == z1
+        @test assmt[2 => :z] == z2_new
+        @test assmt[3 => :z] == z3_new
+        @test discard[2 => :z] == z2
+        expected_score = (logpdf(normal, z1, 4., 1.)
+            + logpdf(normal, z2_new, 6., 1.)
+            + logpdf(normal, z3_new, 8., 1.))
+        @test isapprox(get_score(trace), expected_score)
+        expected_weight = (logpdf(normal, z3_new, 8., 1.)
+            + logpdf(normal, z2_new, 6., 1.)
+            - logpdf(normal, z2, 6., 1.))
+        @test isapprox(weight, expected_weight)
+        retval = get_retval(trace)
+        @test length(retval) == 3
+        @test retval[1] == z1
+        @test retval[2] == z2_new
+        @test retval[3] == z3_new
+        @test isa(retdiff, MapCustomRetDiff)
+        @test !haskey(retdiff.retained_retdiffs, 1) # no diff
+        @test retdiff.retained_retdiffs[2] == DefaultRetDiff() # retval changed
+        @test !haskey(retdiff.retained_retdiffs, 3) # new, not retained
+        @test !isnodiff(retdiff)
 
-        # decreasing length from 2 to 1 and change 1
+        # unknownargdiff, decreasing length from 2 to 1 and change 1
         trace = get_initial_trace()
         z1_new = 3.3
         constraints = DynamicAssignment()
-        constraints[:map => 1 => :z] = z1_new
-        (trace, weight, discard, retdiff) = force_update((1,), unknownargdiff, trace, constraints)
-        assignment = get_assignment(trace)
-        @test get_args(trace) == (1,)
-        @test !has_value(assignment, :map => 2 => :z)
-        @test !has_value(assignment, :map => 3 => :z)
-        @test assignment[:map => 1 => :z] == z1_new
-        @test discard[:map => 1 => :z] == z1
-        @test discard[:map => 2 => :z] == z2
+        constraints[1 => :z] = z1_new
+        (trace, weight, discard, retdiff) = force_update(
+            (xs[1:1], ys[1:1]), unknownargdiff, trace, constraints)
+        assmt = get_assignment(trace)
+        @test get_args(trace) == (xs[1:1], ys[1:1])
+        @test !has_value(assmt, 2 => :z)
+        @test !has_value(assmt, 3 => :z)
+        @test assmt[1 => :z] == z1_new
+        @test discard[1 => :z] == z1
+        @test discard[2 => :z] == z2
         @test isapprox(get_score(trace), logpdf(normal, z1_new, 4., 1.))
-        @test isapprox(weight, logpdf(normal, z1_new, 4., 1.) - logpdf(normal, z1, 4., 1.) - logpdf(normal, z2, 6., 1.))
+        expected_weight = (logpdf(normal, z1_new, 4., 1.)
+            - logpdf(normal, z1, 4., 1.)
+            - logpdf(normal, z2, 6., 1.))
+        @test isapprox(weight, expected_weight)
+        retval = get_retval(trace)
+        @test length(retval) == 1
+        @test retval[1] == z1_new
+        @test isa(retdiff, MapCustomRetDiff)
+        @test retdiff.retained_retdiffs[1] == DefaultRetDiff() # retval changed
+        @test !haskey(retdiff.retained_retdiffs, 2) # removed, not retained
+        @test !isnodiff(retdiff)
+
+        # noargdiff, change nothing
+        trace = get_initial_trace()
+        constraints = DynamicAssignment()
+        (trace, weight, discard, retdiff) = force_update(
+            (xs[1:2], ys[1:2]), noargdiff, trace, constraints)
+        assmt = get_assignment(trace)
+        @test get_args(trace) == (xs[1:2], ys[1:2])
+        @test assmt[1 => :z] == z1
+        @test assmt[2 => :z] == z2
+        @test isempty(discard)
+        expected_score = (logpdf(normal, z1, 4., 1.)
+            + logpdf(normal, z2, 6., 1.))
+        @test isapprox(get_score(trace), expected_score)
+        @test isapprox(weight, 0.)
+        retval = get_retval(trace)
+        @test length(retval) == 2
+        @test retval[1] == z1
+        @test retval[2] == z2
+        @test isa(retdiff, MapNoRetDiff)
+        @test isnodiff(retdiff)
+
+        # noargdiff, change 2
+        trace = get_initial_trace()
+        z2_new = 3.3
+        constraints = DynamicAssignment()
+        constraints[2 => :z] = z2_new
+        (trace, weight, discard, retdiff) = force_update(
+            (xs[1:2], ys[1:2]), noargdiff, trace, constraints)
+        assmt = get_assignment(trace)
+        @test get_args(trace) == (xs[1:2], ys[1:2])
+        @test assmt[1 => :z] == z1
+        @test assmt[2 => :z] == z2_new
+        @test discard[2 => :z] == z2
+        expected_score = (logpdf(normal, z1, 4., 1.)
+            + logpdf(normal, z2_new, 6., 1.))
+        @test isapprox(get_score(trace), expected_score)
+        expected_weight = (logpdf(normal, z2_new, 6., 1.)
+            - logpdf(normal, z2, 6., 1.))
+        @test isapprox(weight, expected_weight)
+        retval = get_retval(trace)
+        @test length(retval) == 2
+        @test retval[1] == z1
+        @test retval[2] == z2_new
+        @test isa(retdiff, MapCustomRetDiff)
+        @test !haskey(retdiff.retained_retdiffs, 1) # no diff
+        @test retdiff.retained_retdiffs[2] == DefaultRetDiff() # retval changed
+        @test !isnodiff(retdiff)
+
+        # custom argdiff, no constraints
+        trace = get_initial_trace()
+        xs_new = copy(xs)
+        xs_new[1] = -1. # change from 1 to -1
+        argdiff = MapCustomArgDiff(Dict(1 => unknownargdiff))
+        constraints = DynamicAssignment()
+        (trace, weight, discard, retdiff) = force_update(
+            (xs_new[1:2], ys[1:2]), argdiff, trace, constraints)
+        assmt = get_assignment(trace)
+        @test get_args(trace) == (xs_new[1:2], ys[1:2])
+        @test assmt[1 => :z] == z1
+        @test assmt[2 => :z] == z2
+        @test isempty(discard)
+        expected_score = (logpdf(normal, z1, 2., 1.)
+            + logpdf(normal, z2, 6., 1.))
+        @test isapprox(get_score(trace), expected_score)
+        expected_weight = (logpdf(normal, z1, 2., 1.)
+            - logpdf(normal, z1, 4., 1.))
+        @test isapprox(weight, expected_weight)
+        retval = get_retval(trace)
+        @test length(retval) == 2
+        @test retval[1] == z1
+        @test retval[2] == z2
+        @test retdiff == MapNoRetDiff()
+        @test isnodiff(retdiff)
     end
 
     @testset "fix update" begin
@@ -97,45 +207,138 @@
 
         function get_initial_trace()
             constraints = DynamicAssignment()
-            constraints[:map => 1 => :z] = z1
-            constraints[:map => 2 => :z] = z2
-            (trace, _) = initialize(bar, (2,), constraints)
+            constraints[1 => :z] = z1
+            constraints[2 => :z] = z2
+            (trace, _) = initialize(bar, (xs[1:2], ys[1:2]), constraints)
             trace
         end
 
-        # increasing length from 2 to 3 and change 2
+        # unknownargdiff, increasing length from 2 to 3 and change 2
         trace = get_initial_trace()
         z2_new = 3.3
         constraints = DynamicAssignment()
-        constraints[:map => 2 => :z] = z2_new
-        (trace, weight, discard, retdiff) = fix_update((3,), unknownargdiff, trace, constraints)
-        assignment = get_assignment(trace)
-        @test get_args(trace) == (3,)
-        @test assignment[:map => 1 => :z] == z1
-        @test assignment[:map => 2 => :z] == z2_new
-        z3_new = assignment[:map => 3 => :z]
-        @test discard[:map => 2 => :z] == z2
+        constraints[2 => :z] = z2_new
+        (trace, weight, discard, retdiff) = fix_update(
+            (xs[1:3], ys[1:3]), unknownargdiff, trace, constraints)
+        assmt = get_assignment(trace)
+        @test get_args(trace) == (xs[1:3], ys[1:3])
+        @test assmt[1 => :z] == z1
+        @test assmt[2 => :z] == z2_new
+        z3_new = assmt[3 => :z]
+        @test discard[2 => :z] == z2
         score = get_score(trace)
         @test isapprox(score, (logpdf(normal, z1, 4., 1.)
             + logpdf(normal, z2_new, 6., 1.)
             + logpdf(normal, z3_new, 8., 1.)))
         @test isapprox(weight, logpdf(normal, z2_new, 6., 1.) - logpdf(normal, z2, 6., 1.))
+        retval = get_retval(trace)
+        @test length(retval) == 3
+        @test retval[1] == z1
+        @test retval[2] == z2_new
+        @test retval[3] == z3_new
+        @test isa(retdiff, MapCustomRetDiff)
+        @test !haskey(retdiff.retained_retdiffs, 1) # no diff
+        @test retdiff.retained_retdiffs[2] == DefaultRetDiff() # retval changed
+        @test !haskey(retdiff.retained_retdiffs, 3) # new, not retained
+        @test !isnodiff(retdiff)
 
-        # decreasing length from 2 to 1 and change 1
+        # unknownargdiff, decreasing length from 2 to 1 and change 1
         trace = get_initial_trace()
         z1_new = 3.3
         constraints = DynamicAssignment()
-        constraints[:map => 1 => :z] = z1_new
-        (trace, weight, discard, retdiff) = fix_update((1,), unknownargdiff, trace, constraints)
-        assignment = get_assignment(trace)
-        @test get_args(trace) == (1,)
-        @test !has_value(assignment, :map => 2 => :z)
-        @test !has_value(assignment, :map => 3 => :z)
-        @test assignment[:map => 1 => :z] == z1_new
-        @test discard[:map => 1 => :z] == z1
-        @test !has_value(discard, :map => 2 => :z)
+        constraints[1 => :z] = z1_new
+        (trace, weight, discard, retdiff) = fix_update(
+            (xs[1:1], ys[1:1]), unknownargdiff, trace, constraints)
+        assmt = get_assignment(trace)
+        @test get_args(trace) == (xs[1:1], ys[1:1])
+        @test !has_value(assmt, 2 => :z)
+        @test !has_value(assmt, 3 => :z)
+        @test assmt[1 => :z] == z1_new
+        @test discard[1 => :z] == z1
+        @test !has_value(discard, 2 => :z)
         @test isapprox(get_score(trace), logpdf(normal, z1_new, 4., 1.))
         @test isapprox(weight, logpdf(normal, z1_new, 4., 1.) - logpdf(normal, z1, 4., 1.))
+        retval = get_retval(trace)
+        @test length(retval) == 1
+        @test retval[1] == z1_new
+        @test isa(retdiff, MapCustomRetDiff)
+        @test retdiff.retained_retdiffs[1] == DefaultRetDiff() # retval changed
+        @test !haskey(retdiff.retained_retdiffs, 2) # removed, not retained
+        @test !isnodiff(retdiff)
+
+        # noargdiff, change nothing
+        trace = get_initial_trace()
+        constraints = DynamicAssignment()
+        (trace, weight, discard, retdiff) = fix_update(
+            (xs[1:2], ys[1:2]), noargdiff, trace, constraints)
+        assmt = get_assignment(trace)
+        @test get_args(trace) == (xs[1:2], ys[1:2])
+        @test assmt[1 => :z] == z1
+        @test assmt[2 => :z] == z2
+        @test isempty(discard)
+        expected_score = (logpdf(normal, z1, 4., 1.)
+            + logpdf(normal, z2, 6., 1.))
+        @test isapprox(get_score(trace), expected_score)
+        @test isapprox(weight, 0.)
+        retval = get_retval(trace)
+        @test length(retval) == 2
+        @test retval[1] == z1
+        @test retval[2] == z2
+        @test isa(retdiff, MapNoRetDiff)
+        @test isnodiff(retdiff)
+
+        # noargdiff, change 2
+        trace = get_initial_trace()
+        z2_new = 3.3
+        constraints = DynamicAssignment()
+        constraints[2 => :z] = z2_new
+        (trace, weight, discard, retdiff) = fix_update(
+            (xs[1:2], ys[1:2]), noargdiff, trace, constraints)
+        assmt = get_assignment(trace)
+        @test get_args(trace) == (xs[1:2], ys[1:2])
+        @test assmt[1 => :z] == z1
+        @test assmt[2 => :z] == z2_new
+        @test discard[2 => :z] == z2
+        expected_score = (logpdf(normal, z1, 4., 1.)
+            + logpdf(normal, z2_new, 6., 1.))
+        @test isapprox(get_score(trace), expected_score)
+        expected_weight = (logpdf(normal, z2_new, 6., 1.)
+            - logpdf(normal, z2, 6., 1.))
+        @test isapprox(weight, expected_weight)
+        retval = get_retval(trace)
+        @test length(retval) == 2
+        @test retval[1] == z1
+        @test retval[2] == z2_new
+        @test isa(retdiff, MapCustomRetDiff)
+        @test !haskey(retdiff.retained_retdiffs, 1) # no diff
+        @test retdiff.retained_retdiffs[2] == DefaultRetDiff() # retval changed
+        @test !isnodiff(retdiff)
+
+        # custom argdiff, no constraints
+        trace = get_initial_trace()
+        xs_new = copy(xs)
+        xs_new[1] = -1. # change from 1 to -1
+        argdiff = MapCustomArgDiff(Dict(1 => unknownargdiff))
+        constraints = DynamicAssignment()
+        (trace, weight, discard, retdiff) = fix_update(
+            (xs_new[1:2], ys[1:2]), argdiff, trace, constraints)
+        assmt = get_assignment(trace)
+        @test get_args(trace) == (xs_new[1:2], ys[1:2])
+        @test assmt[1 => :z] == z1
+        @test assmt[2 => :z] == z2
+        @test isempty(discard)
+        expected_score = (logpdf(normal, z1, 2., 1.)
+            + logpdf(normal, z2, 6., 1.))
+        @test isapprox(get_score(trace), expected_score)
+        expected_weight = (logpdf(normal, z1, 2., 1.)
+            - logpdf(normal, z1, 4., 1.))
+        @test isapprox(weight, expected_weight)
+        retval = get_retval(trace)
+        @test length(retval) == 2
+        @test retval[1] == z1
+        @test retval[2] == z2
+        @test retdiff == MapNoRetDiff()
+        @test isnodiff(retdiff)
     end
 
     @testset "free update" begin
@@ -143,40 +346,110 @@
 
         function get_initial_trace()
             constraints = DynamicAssignment()
-            constraints[:map => 1 => :z] = z1
-            constraints[:map => 2 => :z] = z2
-            (trace, _) = initialize(bar, (2,), constraints)
+            constraints[1 => :z] = z1
+            constraints[2 => :z] = z2
+            (trace, _) = initialize(bar, (xs[1:2], ys[1:2]), constraints)
             trace
         end
 
-        # increasing length from 2 to 3 and change 2
+        # unknownargdiff, increasing length from 2 to 3 and change 2
         trace = get_initial_trace()
         selection = DynamicAddressSet()
-        push_leaf_node!(selection, :map => 2 => :z)
-        (trace, weight, retdiff) = free_update((3,), unknownargdiff, trace, selection)
-        assignment = get_assignment(trace)
-        @test get_args(trace) == (3,)
-        @test assignment[:map => 1 => :z] == z1
-        z2_new = assignment[:map => 2 => :z]
-        z3_new = assignment[:map => 3 => :z]
+        push_leaf_node!(selection, 2 => :z)
+        (trace, weight, retdiff) = free_update(
+            (xs[1:3], ys[1:3]), unknownargdiff, trace, selection)
+        assmt = get_assignment(trace)
+        @test get_args(trace) == (xs[1:3], ys[1:3])
+        @test assmt[1 => :z] == z1
+        z2_new = assmt[2 => :z]
+        z3_new = assmt[3 => :z]
         score = get_score(trace)
         @test isapprox(score, (logpdf(normal, z1, 4., 1.)
             + logpdf(normal, z2_new, 6., 1.)
             + logpdf(normal, z3_new, 8., 1.)))
         @test isapprox(weight, 0.)
 
-        # decreasing length from 2 to 1 and change 1
+        # unknownargdiff, decreasing length from 2 to 1 and change 1
         trace = get_initial_trace()
         selection = DynamicAddressSet()
-        push_leaf_node!(selection, :map => 1 => :z)
-        (trace, weight, retdiff) = free_update((1,), unknownargdiff, trace, selection)
-        assignment = get_assignment(trace)
-        @test get_args(trace) == (1,)
-        @test !has_value(assignment, :map => 2 => :z)
-        @test !has_value(assignment, :map => 3 => :z)
-        z1_new = assignment[:map => 1 => :z]
+        push_leaf_node!(selection, 1 => :z)
+        (trace, weight, retdiff) = free_update(
+            (xs[1:1], ys[1:1]), unknownargdiff, trace, selection)
+        assmt = get_assignment(trace)
+        @test get_args(trace) == (xs[1:1], ys[1:1])
+        @test !has_value(assmt, 2 => :z)
+        @test !has_value(assmt, 3 => :z)
+        z1_new = assmt[1 => :z]
         @test isapprox(get_score(trace), logpdf(normal, z1_new, 4., 1.))
         @test isapprox(weight, 0.)
+
+        # noargdiff, change nothing
+        trace = get_initial_trace()
+        selection = EmptyAddressSet()
+        (trace, weight, retdiff) = free_update(
+            (xs[1:2], ys[1:2]), noargdiff, trace, selection)
+        assmt = get_assignment(trace)
+        @test get_args(trace) == (xs[1:2], ys[1:2])
+        @test assmt[1 => :z] == z1
+        @test assmt[2 => :z] == z2
+        expected_score = (logpdf(normal, z1, 4., 1.)
+            + logpdf(normal, z2, 6., 1.))
+        @test isapprox(get_score(trace), expected_score)
+        @test isapprox(weight, 0.)
+        retval = get_retval(trace)
+        @test length(retval) == 2
+        @test retval[1] == z1
+        @test retval[2] == z2
+        @test isa(retdiff, MapNoRetDiff)
+        @test isnodiff(retdiff)
+
+        # noargdiff, change 2
+        trace = get_initial_trace()
+        selection = DynamicAddressSet()
+        push_leaf_node!(selection, 2 => :z)
+        (trace, weight, retdiff) = free_update(
+            (xs[1:2], ys[1:2]), noargdiff, trace, selection)
+        assmt = get_assignment(trace)
+        @test get_args(trace) == (xs[1:2], ys[1:2])
+        @test assmt[1 => :z] == z1
+        z2_new = assmt[2 => :z]
+        expected_score = (logpdf(normal, z1, 4., 1.)
+            + logpdf(normal, z2_new, 6., 1.))
+        @test isapprox(get_score(trace), expected_score)
+        @test isapprox(weight, 0.)
+        retval = get_retval(trace)
+        @test length(retval) == 2
+        @test retval[1] == z1
+        @test retval[2] == z2_new
+        @test isa(retdiff, MapCustomRetDiff)
+        @test !haskey(retdiff.retained_retdiffs, 1) # no diff
+        @test retdiff.retained_retdiffs[2] == DefaultRetDiff() # retval changed
+        @test !isnodiff(retdiff)
+
+        # custom argdiff, no selection
+        trace = get_initial_trace()
+        xs_new = copy(xs)
+        xs_new[1] = -1. # change from 1 to -1
+        argdiff = MapCustomArgDiff(Dict(1 => unknownargdiff))
+        selection = EmptyAddressSet()
+        (trace, weight, retdiff) = free_update(
+            (xs_new[1:2], ys[1:2]), argdiff, trace, selection)
+        assmt = get_assignment(trace)
+        @test get_args(trace) == (xs_new[1:2], ys[1:2])
+        @test assmt[1 => :z] == z1
+        @test assmt[2 => :z] == z2
+        expected_score = (logpdf(normal, z1, 2., 1.)
+            + logpdf(normal, z2, 6., 1.))
+        @test isapprox(get_score(trace), expected_score)
+        expected_weight = (logpdf(normal, z1, 2., 1.)
+            - logpdf(normal, z1, 4., 1.))
+        @test isapprox(weight, expected_weight)
+        retval = get_retval(trace)
+        @test length(retval) == 2
+        @test retval[1] == z1
+        @test retval[2] == z2
+        @test retdiff == MapNoRetDiff()
+        @test isnodiff(retdiff)
     end
 
     @testset "extend" begin
@@ -184,30 +457,76 @@
 
         function get_initial_trace()
             constraints = DynamicAssignment()
-            constraints[:map => 1 => :z] = z1
-            constraints[:map => 2 => :z] = z2
-            (trace, _) = initialize(bar, (2,), constraints)
+            constraints[1 => :z] = z1
+            constraints[2 => :z] = z2
+            (trace, _) = initialize(bar, (xs[1:2], ys[1:2]), constraints)
             trace
         end
 
-        # increasing length from 2 to 4; constrain 4 and let 3 be generated from prior
+        # unknownargdiff, increasing length from 2 to 4; constrain 4 and let 3
+        # be generated from prior
         trace = get_initial_trace()
         z4 = 4.4
         constraints = DynamicAssignment()
-        constraints[:map => 4 => :z] = z4
-        (trace, weight, retdiff) = extend((4,), unknownargdiff, trace, constraints)
-        assignment = get_assignment(trace)
-        @test get_args(trace) == (4,)
-        @test assignment[:map => 1 => :z] == z1
-        @test assignment[:map => 2 => :z] == z2
-        @test assignment[:map => 4 => :z] == z4
-        z3 = assignment[:map => 3 => :z]
+        constraints[4 => :z] = z4
+        (trace, weight, retdiff) = extend(
+            (xs[1:4], ys[1:4]), unknownargdiff, trace, constraints)
+        assmt = get_assignment(trace)
+        @test get_args(trace) == (xs[1:4], ys[1:4])
+        @test assmt[1 => :z] == z1
+        @test assmt[2 => :z] == z2
+        @test assmt[4 => :z] == z4
+        z3 = assmt[3 => :z]
         score = get_score(trace)
-        @test isapprox(score, (logpdf(normal, z1, 4., 1.)
+        expected_score = (logpdf(normal, z1, 4., 1.)
             + logpdf(normal, z2, 6., 1.)
             + logpdf(normal, z3, 8., 1.)
-            + logpdf(normal, z4, 10., 1)))
+            + logpdf(normal, z4, 10., 1))
+        @test isapprox(score, expected_score)
         @test isapprox(weight, logpdf(normal, z4 , 10., 1.))
+
+        # noargdiff, change nothing
+        trace = get_initial_trace()
+        (trace, weight, retdiff) = extend(
+            (xs[1:2], ys[1:2]), noargdiff, trace, EmptyAssignment())
+        assmt = get_assignment(trace)
+        @test get_args(trace) == (xs[1:2], ys[1:2])
+        @test assmt[1 => :z] == z1
+        @test assmt[2 => :z] == z2
+        expected_score = (logpdf(normal, z1, 4., 1.)
+            + logpdf(normal, z2, 6., 1.))
+        @test isapprox(get_score(trace), expected_score)
+        @test isapprox(weight, 0.)
+        retval = get_retval(trace)
+        @test length(retval) == 2
+        @test retval[1] == z1
+        @test retval[2] == z2
+        @test isa(retdiff, MapNoRetDiff)
+        @test isnodiff(retdiff)
+
+        # custom argdiff, no selection
+        trace = get_initial_trace()
+        xs_new = copy(xs)
+        xs_new[1] = -1. # change from 1 to -1
+        argdiff = MapCustomArgDiff(Dict(1 => unknownargdiff))
+        (trace, weight, retdiff) = extend(
+            (xs_new[1:2], ys[1:2]), argdiff, trace, EmptyAssignment())
+        assmt = get_assignment(trace)
+        @test get_args(trace) == (xs_new[1:2], ys[1:2])
+        @test assmt[1 => :z] == z1
+        @test assmt[2 => :z] == z2
+        expected_score = (logpdf(normal, z1, 2., 1.)
+            + logpdf(normal, z2, 6., 1.))
+        @test isapprox(get_score(trace), expected_score)
+        expected_weight = (logpdf(normal, z1, 2., 1.)
+            - logpdf(normal, z1, 4., 1.))
+        @test isapprox(weight, expected_weight)
+        retval = get_retval(trace)
+        @test length(retval) == 2
+        @test retval[1] == z1
+        @test retval[2] == z2
+        @test retdiff == MapNoRetDiff()
+        @test isnodiff(retdiff)
     end
 
     @testset "backprop_trace" begin
@@ -219,7 +538,7 @@
             constraints = DynamicAssignment()
             constraints[1 => :z] = z1
             constraints[2 => :z] = z2
-            (trace, _) = initialize(Map(foo), (xs, ys), constraints)
+            (trace, _) = initialize(bar, (xs, ys), constraints)
             trace
         end
 
@@ -251,7 +570,7 @@
             constraints = DynamicAssignment()
             constraints[1 => :z] = z1
             constraints[2 => :z] = z2
-            (trace, _) = initialize(Map(foo), (xs, ys), constraints)
+            (trace, _) = initialize(bar, (xs, ys), constraints)
             trace
         end
 
@@ -266,6 +585,8 @@
         input_grads = backprop_params(trace, retval_grad)
         @test isapprox(input_grads[1], expected_xs_grad)
         @test isapprox(input_grads[2], expected_ys_grad)
-        @test isapprox(get_param_grad(foo, :std), logpdf_grad(normal, z1, 4., 1.)[3] + logpdf_grad(normal, z2, 6., 1.)[3])
+        expected_std_grad = (logpdf_grad(normal, z1, 4., 1.)[3]
+            + logpdf_grad(normal, z2, 6., 1.)[3])
+        @test isapprox(get_param_grad(foo, :std), expected_std_grad)
     end
 end

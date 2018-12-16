@@ -23,6 +23,5 @@ include("injective.jl")
 include("inference.jl")
 include("distribution.jl")
 include("map.jl")
-
-#include("map_dist.jl")
+#include("unfold.jl")
 #include("recurse.jl")

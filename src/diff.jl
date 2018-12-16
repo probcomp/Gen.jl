@@ -25,7 +25,14 @@ A default retdiff value
 struct DefaultRetDiff end
 isnodiff(::DefaultRetDiff) = false
 
+"""
+A default no retdiff value
+"""
+struct NoRetDiff end
+isnodiff(::NoRetDiff) = true
+
 export DefaultRetDiff
+export NoRetDiff
 
 
 """

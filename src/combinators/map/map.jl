@@ -1,8 +1,9 @@
-###################
-# map generator # 
-###################
+##################
+# map combinator # 
+##################
 
-struct MapType end # used for type dispatch on the VectorTrace type (e.g. we will also have a UnfoldType)
+# used for type dispatch on the VectorTrace type (e.g. we will also have a UnfoldType)
+struct MapType end 
 
 """
 GenerativeFunction that makes many independent application of a kernel generator,
@@ -48,6 +49,7 @@ function collect_map_constraints(constraints::Assignment, len::Int)
 end
 
 
+# TODO: used by both map and unfold -- move it?
 function get_retained_and_constrained(constraints::Assignment, prev_length::Int, new_length::Int)
     keys = Set{Int}()
     for (key::Int, _) in get_subassmts_shallow(constraints)
@@ -101,6 +103,7 @@ function compute_retdiff(isdiff_retdiffs::Dict{Int,Any}, new_length::Int, prev_l
     end
 end
 
+# TODO : used by both map and unfold?
 function map_force_update_delete(new_length::Int, prev_length::Int,
                                  prev_trace::VectorTrace)
     num_nonempty = prev_trace.num_nonempty
@@ -137,6 +140,14 @@ function map_fix_free_update_delete(new_length::Int, prev_length::Int,
     return (num_nonempty, score_decrement, noise_decrement)
 end
 
+function map_remove_deleted_applications(subtraces, retval, prev_length, new_length)
+    for i=new_length+1:prev_length
+        subtraces = pop(subtraces)
+        retval = pop(retval)
+    end
+    (subtraces, retval)
+end
+
 ###########
 # argdiff #
 ###########
@@ -153,6 +164,8 @@ struct MapCustomArgDiff{T}
 end
 
 # the kernel function must accept noargdiff and unknownargdiff as argdiffs
+
+export MapCustomArgDiff
 
 
 ###########
@@ -174,7 +187,8 @@ struct MapCustomRetDiff
 end
 isnodiff(::MapCustomRetDiff) = false
 
-
+export MapCustomRetDiff
+export MapNoRetDiff
 
 ###############################
 # generator interface methods #
