@@ -6,7 +6,7 @@ Gen is an extensible and reasonably performant probabilistic computing platform 
 
 Stochastic generative processes are represented in Gen as *generative functions*.
 Generative functions are Julia functions that have been annotated using the `@gen` macro.
-The generative function below takes a vector of x-coordinates, randomly generates the slope and intercept parameters of a line, and returns a randomly vector of y-coordinates sampled near that line, at the given x-coordinates:
+The generative function below takes a vector of x-coordinates, randomly generates the slope and intercept parameters of a line, and returns a random vector of y-coordinates sampled near that line at the given x-coordinates:
 
 ```julia
 @gen function regression_model(xs::Vector{Float64})
@@ -63,8 +63,8 @@ To extract the values of the random choices from a trace, we use the method `get
 assignment = get_assignment(trace)
 ```
 
-The `get_assignment` method returns a *assignment*, which is a trie (prefix tree) that contains the values of random choices.
-Printing the assignment gives a pretty printed representation:
+The `get_assignment` method returns an *assignment*, which is a trie (prefix tree) that contains the values of random choices.
+Printing the assignment gives a pretty-printed representation:
 
 ```julia
 print(assignment)
@@ -85,7 +85,7 @@ print(assignment)
 └── "y-1" : -4.978881121779669
 ```
 
-Generative functions can also call other generative functions, these calls can also be traced using `@addr`:
+Generative functions can also call other generative functions; these calls can also be traced using `@addr`:
 
 ```julia
 @gen function generate_params()
@@ -245,7 +245,7 @@ Therefore, the body of the generative function with the diff code removed must s
 
 Unlike non-diff code, diff code has access to the argdiff value (using `@argdiff()`), and may invoke `@retdiff(<value>)`, which sets the retdiff value.
 Diff code also has access to information about the change to the values of random choices and the change to the return values of calls to other generative functions.
-Changes to the return vlaues of random choices are queried using `@choicediff(<addr>)`, which must be invoked after the `@addr` expression for that address, and returns one of the following values:
+Changes to the return values of random choices are queried using `@choicediff(<addr>)`, which must be invoked after the `@addr` expression for that address, and returns one of the following values:
 ```@docs
 NewChoiceDiff
 NoChoiceDiff
