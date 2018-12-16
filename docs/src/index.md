@@ -54,7 +54,7 @@ We provide the arguments to the function in a tuple:
     
 ```julia
 xs = [-5.0, -3.0, 0.0, 3.0]
-trace = simulate(model, (xs,))
+trace = simulate(regression_model, (xs,))
 ```
 
 The trace that is returned is a form of stack trace of the generative function that contains, among other things, the values for the random choices that were annotated with `@addr`.
@@ -112,7 +112,7 @@ end
 This results in a hierarchical assignment:
 
 ```julia
-trace = simulate(model, (xs,))
+trace = simulate(regression_model, (xs,))
 assignment = get_assignment(trace)
 print(assignment)
 ```
@@ -174,7 +174,7 @@ end
 ```
 
 ```julia
-trace = simulate(model, (xs,))
+trace = simulate(regression_model, (xs,))
 assignment = get_assignment(trace)
 print(assignment)
 ```
