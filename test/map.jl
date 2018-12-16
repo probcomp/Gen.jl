@@ -13,17 +13,8 @@
     set_param!(foo, :std, 1.)
 
     bar = Map(foo)
-
-    #@gen function bar(n::Int)
-        #@param xs::Vector{Float64}
-        #@param ys::Vector{Float64}
-        #return @addr(Map(foo)(xs[1:n], ys[1:n]), :map)
-    #end
     xs = [1.0, 2.0, 3.0, 4.0]
     ys = [3.0, 4.0, 5.0, 6.0]
-
-    #set_param!(bar, :xs, [1.0, 2.0, 3.0, 4.0])
-    #set_param!(bar, :ys, [3.0, 4.0, 5.0, 6.0])
 
     @testset "initialize" begin
         z1, z2 = 1.1, 2.2
@@ -94,7 +85,7 @@
         @test retval[1] == z1
         @test retval[2] == z2_new
         @test retval[3] == z3_new
-        @test isa(retdiff, MapCustomRetDiff)
+        @test isa(retdiff, VectorCustomRetDiff)
         @test !haskey(retdiff.retained_retdiffs, 1) # no diff
         @test retdiff.retained_retdiffs[2] == DefaultRetDiff() # retval changed
         @test !haskey(retdiff.retained_retdiffs, 3) # new, not retained
@@ -122,7 +113,7 @@
         retval = get_retval(trace)
         @test length(retval) == 1
         @test retval[1] == z1_new
-        @test isa(retdiff, MapCustomRetDiff)
+        @test isa(retdiff, VectorCustomRetDiff)
         @test retdiff.retained_retdiffs[1] == DefaultRetDiff() # retval changed
         @test !haskey(retdiff.retained_retdiffs, 2) # removed, not retained
         @test !isnodiff(retdiff)
@@ -170,7 +161,7 @@
         @test length(retval) == 2
         @test retval[1] == z1
         @test retval[2] == z2_new
-        @test isa(retdiff, MapCustomRetDiff)
+        @test isa(retdiff, VectorCustomRetDiff)
         @test !haskey(retdiff.retained_retdiffs, 1) # no diff
         @test retdiff.retained_retdiffs[2] == DefaultRetDiff() # retval changed
         @test !isnodiff(retdiff)
@@ -236,7 +227,7 @@
         @test retval[1] == z1
         @test retval[2] == z2_new
         @test retval[3] == z3_new
-        @test isa(retdiff, MapCustomRetDiff)
+        @test isa(retdiff, VectorCustomRetDiff)
         @test !haskey(retdiff.retained_retdiffs, 1) # no diff
         @test retdiff.retained_retdiffs[2] == DefaultRetDiff() # retval changed
         @test !haskey(retdiff.retained_retdiffs, 3) # new, not retained
@@ -261,7 +252,7 @@
         retval = get_retval(trace)
         @test length(retval) == 1
         @test retval[1] == z1_new
-        @test isa(retdiff, MapCustomRetDiff)
+        @test isa(retdiff, VectorCustomRetDiff)
         @test retdiff.retained_retdiffs[1] == DefaultRetDiff() # retval changed
         @test !haskey(retdiff.retained_retdiffs, 2) # removed, not retained
         @test !isnodiff(retdiff)
@@ -309,7 +300,7 @@
         @test length(retval) == 2
         @test retval[1] == z1
         @test retval[2] == z2_new
-        @test isa(retdiff, MapCustomRetDiff)
+        @test isa(retdiff, VectorCustomRetDiff)
         @test !haskey(retdiff.retained_retdiffs, 1) # no diff
         @test retdiff.retained_retdiffs[2] == DefaultRetDiff() # retval changed
         @test !isnodiff(retdiff)
@@ -421,7 +412,7 @@
         @test length(retval) == 2
         @test retval[1] == z1
         @test retval[2] == z2_new
-        @test isa(retdiff, MapCustomRetDiff)
+        @test isa(retdiff, VectorCustomRetDiff)
         @test !haskey(retdiff.retained_retdiffs, 1) # no diff
         @test retdiff.retained_retdiffs[2] == DefaultRetDiff() # retval changed
         @test !isnodiff(retdiff)
@@ -548,7 +539,7 @@
         expected_ys_grad = [logpdf_grad(normal, z1, 4., 1.)[2], logpdf_grad(normal, z2, 6., 1.)[2]]
         expected_z2_grad = logpdf_grad(normal, z2, 6., 1.)[1] + retval_grad[2]
 
-        # get gradients wrt xs and ys, and wrt address ':map => 2 => :z'
+        # get gradients wrt xs and ys, and wrt address '2 => :z'
         trace = get_initial_trace()
         selection = DynamicAddressSet()
         push_leaf_node!(selection, 2 => :z)

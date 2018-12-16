@@ -29,125 +29,6 @@ function get_prev_and_new_lengths(args::Tuple, prev_trace)
     (new_length, prev_length)
 end
 
-"""
-Collect constraints indexed by the integer key; check validity of addresses.
-"""
-function collect_map_constraints(constraints::Assignment, len::Int)
-    if length(collect(get_values_shallow(constraints))) > 0
-        bad_addr = first(get_values_shallow(constraints))[1]
-        error("Constrained address does not exist: $bad_addr")
-    end
-    subassmts = Dict{Int,Any}()
-    for (key::Int, subassmt) in get_subassmts_shallow(constraints)
-        if key <= len
-            subassmts[key] =  subassmt
-        else
-            error("Constrained address prefix does not exist: $key")
-        end
-    end
-    subassmts
-end
-
-
-# TODO: used by both map and unfold -- move it?
-function get_retained_and_constrained(constraints::Assignment, prev_length::Int, new_length::Int)
-    keys = Set{Int}()
-    for (key::Int, _) in get_subassmts_shallow(constraints)
-        if key > 0 && key <= new_length
-            push!(keys, key)
-        else
-            error("Constraint namespace does not exist: $key")
-        end
-    end
-    keys 
-end
-
-function get_retained_and_selected(selection::AddressSet, prev_length::Int, new_length::Int)
-    keys = Set{Int}()
-    for (key::Int, _) in get_internal_nodes(selection)
-        if key > 0 && key <= new_length
-            push!(keys, key)
-        else
-            error("Selection namespace does not exist: $key")
-        end
-    end
-    keys 
-end
-
-
-"""
-Collect selections indexed by the integer key; check validity of addresses.
-"""
-function collect_map_selections(selection::AddressSet, prev_length::Int, new_length::Int)
-    if length(get_leaf_nodes(selection)) > 0
-        bad_addr = first(get_leaf_nodes(selection))
-        error("Selected address that does not exist: $bad_addr")
-    end
-    subselections = Dict{Int, Any}()
-    for (key::Int, node) in get_internal_nodes(selection)
-        if key <= prev_length && key <= new_length
-            subselections[key] = node
-        else
-            error("Cannot select addresses under namespace: $key")
-        end
-    end
-    subselections
-end
-
-
-function compute_retdiff(isdiff_retdiffs::Dict{Int,Any}, new_length::Int, prev_length::Int)
-    if new_length == prev_length && length(isdiff_retdiffs) == 0
-        NoRetDiff()
-    else
-        MapCustomRetDiff(isdiff_retdiffs)
-    end
-end
-
-# TODO : used by both map and unfold?
-function map_force_update_delete(new_length::Int, prev_length::Int,
-                                 prev_trace::VectorTrace)
-    num_nonempty = prev_trace.num_nonempty
-    discard = DynamicAssignment()
-    score_decrement = 0.
-    noise_decrement = 0.
-    for key=new_length+1:prev_length
-        subtrace = prev_trace.subtraces[key]
-        score_decrement += get_score(subtrace)
-        noise_decrement += project(subtrace, EmptyAddressSet())
-        if !isempty(get_assignment(subtrace))
-            num_nonempty -= 1
-        end
-        @assert num_nonempty >= 0
-        set_subassmt!(discard, key, get_assignment(subtrace))
-    end
-    return (discard, num_nonempty, score_decrement, noise_decrement)
-end
-
-function map_fix_free_update_delete(new_length::Int, prev_length::Int,
-                                    prev_trace::VectorTrace)
-    num_nonempty = prev_trace.num_nonempty
-    score_decrement = 0.
-    noise_decrement = 0.
-    for key=new_length+1:prev_length
-        subtrace = prev_trace.subtraces[key]
-        score_decrement += get_score(subtrace)
-        noise_decrement += project(subtrace, EmptyAddressSet())
-        if !isempty(get_assignment(subtrace))
-            num_nonempty -= 1
-        end
-        @assert num_nonempty >= 0
-    end
-    return (num_nonempty, score_decrement, noise_decrement)
-end
-
-function map_remove_deleted_applications(subtraces, retval, prev_length, new_length)
-    for i=new_length+1:prev_length
-        subtraces = pop(subtraces)
-        retval = pop(retval)
-    end
-    (subtraces, retval)
-end
-
 ###########
 # argdiff #
 ###########
@@ -172,18 +53,7 @@ export MapCustomArgDiff
 # retdiff #
 ###########
 
-# may return: NoRetDiff, or MapCustomRetDiff
-
-"""
-The number of applications may have changed. retdiff values are provided for
-retained applications for which isnodiff() = false.
-"""
-struct MapCustomRetDiff
-    retained_retdiffs::Dict{Int,Any}
-end
-isnodiff(::MapCustomRetDiff) = false
-
-export MapCustomRetDiff
+# may return: NoRetDiff, or VectorCustomRetDiff
 
 
 ###############################

@@ -80,12 +80,12 @@ function fix_update(args::Tuple, argdiff, trace::VectorTrace{MapType,T,U},
     retained_and_constrained = get_retained_and_constrained(assmt, prev_length, new_length)
 
     # handle removed applications
-    (num_nonempty, score_decrement, noise_decrement) = map_fix_free_update_delete(
+    (num_nonempty, score_decrement, noise_decrement) = vector_fix_free_update_delete(
         new_length, prev_length, trace)
     discard = DynamicAssignment()
     score = trace.score - score_decrement
     noise = trace.noise - noise_decrement
-    (subtraces, retval) = map_remove_deleted_applications(
+    (subtraces, retval) = vector_remove_deleted_applications(
         trace.subtraces, trace.retval, prev_length, new_length)
 
     # handle retained and new applications
@@ -97,7 +97,7 @@ function fix_update(args::Tuple, argdiff, trace::VectorTrace{MapType,T,U},
     process_all_new!(gen_fn, args, assmt, prev_length, new_length, state)
 
     # retdiff
-    retdiff = compute_retdiff(state.isdiff_retdiffs, new_length, prev_length)
+    retdiff = vector_compute_retdiff(state.isdiff_retdiffs, new_length, prev_length)
 
     # new trace
     new_trace = VectorTrace{MapType,T,U}(gen_fn, state.subtraces, state.retval, args,  

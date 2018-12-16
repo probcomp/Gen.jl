@@ -87,7 +87,7 @@ function extend(args::Tuple, argdiff, trace::VectorTrace{MapType,T,U},
     process_all_new!(gen_fn, args, assmt, prev_length, new_length, state)
 
     # retdiff
-    retdiff = compute_retdiff(state.isdiff_retdiffs, new_length, prev_length)
+    retdiff = vector_compute_retdiff(state.isdiff_retdiffs, new_length, prev_length)
 
     # new trace
     new_trace = VectorTrace{MapType,T,U}(gen_fn, state.subtraces, state.retval, args,  
