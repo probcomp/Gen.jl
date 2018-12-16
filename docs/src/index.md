@@ -27,8 +27,7 @@ ys = regression_model([-5.0, -3.0, 0.0, 3.0, 5.0])
 ```
 
 Above we have used a generative function to implement a simulation.
-However, what distinguishes generative functions from plain-old simulators is their 
- ability to be *traced*.
+However, what distinguishes generative functions from plain-old simulators is their ability to be *traced*.
 When we *trace* a generative function, we record the random choices that it makes, as well as additional data about the evaluation of the function.
 This capability makes it possible to implement algorithms for probabilistic inference.
 To trace a random choice, we need to give it a unique *address*, using the `@addr` keyword.
@@ -51,7 +50,7 @@ Julia symbols, strings, and integers are common types to use for addresses.
 
 We trace a generative function using the `simulate` method.
 We provide the arguments to the function in a tuple:
-    
+
 ```julia
 xs = [-5.0, -3.0, 0.0, 3.0]
 trace = simulate(regression_model, (xs,))
