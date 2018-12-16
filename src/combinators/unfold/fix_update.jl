@@ -1,4 +1,5 @@
-mutable struct MapFixUpdateState{T,U}
+mutable struct UnfoldFixUpdateState{T,U}
+    init_state::T
     weight::Float64
     score::Float64
     noise::Float64
@@ -9,15 +10,17 @@ mutable struct MapFixUpdateState{T,U}
     isdiff_retdiffs::Dict{Int,Any}
 end
 
-function process_retained!(gen_fn::Map{T,U}, args::Tuple,
+function process_retained!(gen_fn::Unfold{T,U}, params::Tuple,
                            assmt::Assignment, key::Int, kernel_argdiff,
-                           state::MapFixUpdateState{T,U}) where {T,U}
+                           state::UnfoldFixUpdateState{T,U}) where {T,U}
     local subtrace::U
     local prev_subtrace::U
-    local retval::T
+    local prev_state::T
+    local new_state::T
 
     subassmt = get_subassmt(assmt, key)
-    kernel_args = get_args_for_key(args, key)
+    prev_state = (key == 1) ? state.init_state : state.retval[key-1]
+    kernel_args = (key, prev_state, params...)
 
     # get new subtrace with recursive call to fix_update()
     prev_subtrace = state.subtraces[key]
@@ -25,7 +28,8 @@ function process_retained!(gen_fn::Map{T,U}, args::Tuple,
         kernel_args, kernel_argdiff, prev_subtrace, subassmt)
 
     # retrieve retdiff
-    if !isnodiff(subretdiff)
+    is_state_diff = !isnodiff(subretdiff)
+    if is_state_diff
         state.isdiff_retdiffs[key] = subretdiff
     end
 
@@ -35,8 +39,8 @@ function process_retained!(gen_fn::Map{T,U}, args::Tuple,
     state.score += (get_score(subtrace) - get_score(prev_subtrace))
     state.noise += (project(subtrace, EmptyAddressSet()) - project(subtrace, EmptyAddressSet()))
     state.subtraces = assoc(state.subtraces, key, subtrace)
-    retval = get_retval(subtrace)
-    state.retval = assoc(state.retval, key, retval)
+    new_state = get_retval(subtrace)
+    state.retval = assoc(state.retval, key, new_state)
     subtrace_empty = isempty(get_assignment(subtrace))
     prev_subtrace_empty = isempty(get_assignment(prev_subtrace))
     if !subtrace_empty && prev_subtrace_empty
@@ -44,17 +48,21 @@ function process_retained!(gen_fn::Map{T,U}, args::Tuple,
     elseif subtrace_empty && !prev_subtrace_empty
         state.num_nonempty -= 1
     end
+
+    is_state_diff
 end
 
-function process_new!(gen_fn::Map{T,U}, args::Tuple, assmt, key::Int,
-                      state::MapFixUpdateState{T,U}) where {T,U}
+function process_new!(gen_fn::Unfold{T,U}, params::Tuple, assmt, key::Int,
+                      state::UnfoldFixUpdateState{T,U}) where {T,U}
     local subtrace::U
-    local retval::T
+    local prev_state::T
+    local new_state::T
 
     if !isempty(get_subassmt(assmt, key))
-        error("Tried to constrain new address in fix_update at key $key")
+        error("Cannot constrain new addresses in fix_update")
     end
-    kernel_args = get_args_for_key(args, key)
+    prev_state = (key == 1) ? state.init_state : state.retval[key-1]
+    kernel_args = (key, prev_state, params...)
 
     # get subtrace and weight
     (subtrace, weight) = initialize(gen_fn.kernel, kernel_args, EmptyAssignment())
@@ -62,39 +70,55 @@ function process_new!(gen_fn::Map{T,U}, args::Tuple, assmt, key::Int,
     # update state
     state.weight += weight
     state.score += get_score(subtrace)
-    retval = get_retval(subtrace)
+    new_state = get_retval(subtrace)
     @assert key > length(state.subtraces)
     state.subtraces = push(state.subtraces, subtrace)
-    state.retval = push(state.retval, retval)
+    state.retval = push(state.retval, new_state)
     @assert length(state.subtraces) == key
     if !isempty(get_assignment(subtrace))
         state.num_nonempty += 1
     end
 end
 
+function fix_update(args::Tuple, ::NoArgDiff,
+                      trace::VectorTrace{UnfoldType,T,U},
+                      assmt::Assignment) where {T,U}
+    argdiff = UnfoldCustomArgDiff(false, false)
+    fix_update(args, argdiff, trace, assmt)
+end
 
-function fix_update(args::Tuple, argdiff, trace::VectorTrace{MapType,T,U},
-                    assmt::Assignment) where {T,U}
+function fix_update(args::Tuple, ::UnknownArgDiff,
+                      trace::VectorTrace{UnfoldType,T,U},
+                      assmt::Assignment) where {T,U}
+    argdiff = UnfoldCustomArgDiff(true, true)
+    fix_update(args, argdiff, trace, assmt)
+end
+
+function fix_update(args::Tuple, argdiff::UnfoldCustomArgDiff,
+                      trace::VectorTrace{UnfoldType,T,U},
+                      assmt::Assignment) where {T,U}
     gen_fn = trace.gen_fn
-    (new_length, prev_length) = get_prev_and_new_lengths(args, trace)
+    (new_length, init_state, params) = unpack_args(args)
+    check_length(new_length)
+    prev_args = get_args(trace)
+    prev_length = prev_args[1]
     retained_and_constrained = get_retained_and_constrained(assmt, prev_length, new_length)
 
     # handle removed applications
     (num_nonempty, score_decrement, noise_decrement) = vector_fix_free_update_delete(
         new_length, prev_length, trace)
-    score = trace.score - score_decrement
-    noise = trace.noise - noise_decrement
     (subtraces, retval) = vector_remove_deleted_applications(
         trace.subtraces, trace.retval, prev_length, new_length)
+    score = trace.score - score_decrement
+    noise = trace.noise - noise_decrement
 
     # handle retained and new applications
     discard = DynamicAssignment()
-    state = MapFixUpdateState{T,U}(-noise_decrement, score, noise,
-                                   subtraces, retval, discard, num_nonempty,
-                                   Dict{Int,Any}())
-    process_all_retained!(gen_fn, args, argdiff, assmt, prev_length, new_length,
+    state = UnfoldFixUpdateState{T,U}(init_state, -noise_decrement, score, noise,
+        subtraces, retval, discard, num_nonempty, Dict{Int,Any}())
+    process_all_retained!(gen_fn, params, argdiff, assmt, prev_length, new_length,    
                           retained_and_constrained, state)
-    process_all_new!(gen_fn, args, assmt, prev_length, new_length, state)
+    process_all_new!(gen_fn, params, assmt, prev_length, new_length, state)
 
     # retdiff
     retdiff = vector_compute_retdiff(state.isdiff_retdiffs, new_length, prev_length)
@@ -103,5 +127,5 @@ function fix_update(args::Tuple, argdiff, trace::VectorTrace{MapType,T,U},
     new_trace = VectorTrace{MapType,T,U}(gen_fn, state.subtraces, state.retval, args,  
         state.score, state.noise, new_length, state.num_nonempty)
 
-    return (new_trace, state.weight, discard, retdiff)
+    (new_trace, state.weight, discard, retdiff)
 end

@@ -15,8 +15,8 @@ function backprop_trace(trace::VectorTrace{MapType,T,U}, selection::AddressSet,
         end
     end
     
-    value_trie = DynamicAssignment()
-    gradient_trie = DynamicAssignment()
+    value_assmt = DynamicAssignment()
+    gradient_assmt = DynamicAssignment()
     
     for key=1:len
         subtrace = trace.subtraces[key]
@@ -26,17 +26,17 @@ function backprop_trace(trace::VectorTrace{MapType,T,U}, selection::AddressSet,
             sub_selection = EmptyAddressSet()
         end
         kernel_retval_grad = (retval_grad == nothing) ? nothing : retval_grad[key]
-        (kernel_arg_grad::Tuple, kernel_value_trie, kernel_gradient_trie) = backprop_trace(
+        (kernel_arg_grad::Tuple, kernel_value_assmt, kernel_gradient_assmt) = backprop_trace(
             subtrace, sub_selection, kernel_retval_grad)
-        set_subassmt!(value_trie, key, kernel_value_trie)
-        set_subassmt!(gradient_trie, key, kernel_gradient_trie)
+        set_subassmt!(value_assmt, key, kernel_value_assmt)
+        set_subassmt!(gradient_assmt, key, kernel_gradient_assmt)
         for (i, grad, has_grad) in zip(1:n_args, kernel_arg_grad, has_grads)
             if has_grad
                 arg_grad[i][key] = grad
             end
         end
     end
-    ((arg_grad...,), value_trie, gradient_trie)
+    ((arg_grad...,), value_assmt, gradient_assmt)
 end
 
 function backprop_params(trace::VectorTrace{MapType,T,U}, retval_grad) where {T,U}
