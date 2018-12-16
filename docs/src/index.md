@@ -237,6 +237,7 @@ The only requirement placed on retdiff values is that they implement the `isnodi
 
 ### Custom incremental computation in embedded modeling DSL
 
+We now show how argdiffs and retdiffs and can be used for incremental computation in the embedded modeling DSL.
 For generative functions expressed in the embedded modeling DSL, retdiff values are computed by user *diff code* that is placed inline in the body of the generative function definition.
 Diff code consists of Julia statements that can depend on non-diff code, but non-diff code cannot depend on the diff code.
 To distinguish *diff code*  from regular code in the generative function, the `@diff` macro is placed in front of the statement, e.g.:
