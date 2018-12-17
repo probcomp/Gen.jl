@@ -54,20 +54,20 @@ macro swapall(input_addr, output_addr)
 end
 
 mutable struct InjectiveApplyState
-    input::Any
-    output::HomogenousTrie{Any,Any}
+    input::Assignment
+    output::DynamicAssignment
     tape::InstructionTape
-    tracked_reads::HomogenousTrie{Any,TrackedReal}
-    tracked_writes::HomogenousTrie{Any,TrackedReal}
+    tracked_reads::Trie{Any,TrackedReal}
+    tracked_writes::Trie{Any,TrackedReal}
     copied::AddressSet
     visitor::AddressVisitor
 end
 
 function InjectiveApplyState(input)
-    output = HomogenousTrie{Any,Any}()
+    output = DynamicAssignment()
     tape = InstructionTape()
-    tracked_reads = HomogenousTrie{Any,TrackedReal}()
-    tracked_writes = HomogenousTrie{Any,TrackedReal}()
+    tracked_reads = Trie{Any,TrackedReal}()
+    tracked_writes = Trie{Any,TrackedReal}()
     copied = DynamicAddressSet()
     visitor = AddressVisitor()
     InjectiveApplyState(input, output, tape, tracked_reads, tracked_writes, copied, visitor)
@@ -92,14 +92,14 @@ function read(state::InjectiveApplyState, addr)
         # use the existing tracked read value
         get_leaf_node(state.tracked_reads, addr)::TrackedReal
     else
-        value = get_leaf_node(state.input, addr)
+        value = get_value(state.input, addr)
         maybe_track_value!(state, addr, value)
     end
 end
 
 function write_to_addr(state::InjectiveApplyState, value, addr)
     visit!(state.visitor, addr)
-    set_leaf_node!(state.output, addr, value)
+    set_value!(state.output, addr, value)
     nothing
 end
 
@@ -107,16 +107,16 @@ function write_to_addr(state::InjectiveApplyState, tracked_value::TrackedReal, a
     visit!(state.visitor, addr)
     # TODO what if user tries to write same tracked value to two diff addrs?
     set_leaf_node!(state.tracked_writes, addr, tracked_value)
-    set_leaf_node!(state.output, addr, ReverseDiff.value(tracked_value))
+    set_value!(state.output, addr, ReverseDiff.value(tracked_value))
     nothing
 end
 
 function copy_addr(state::InjectiveApplyState, input_addr, output_addr)
     visit!(state.visitor, output_addr)
-    if !has_leaf_node(state.input, input_addr)
+    if !has_value(state.input, input_addr)
         error("Value at $input_addr not found in input ($(state.input))")
     end
-    value = get_leaf_node(state.input, input_addr)
+    value = get_value(state.input, input_addr)
     set_leaf_node!(state.output, output_addr, value)
     push_leaf_node!(state.copied, input_addr)
     nothing
@@ -129,11 +129,8 @@ end
 
 function copyall(state::InjectiveApplyState, input_addr, output_addr)
     visit!(state.visitor, output_addr)
-    if !has_internal_node(state.input, input_addr)
-        error("Namespace at $input_addr not found in input")
-    end
-    node = get_internal_node(state.input, input_addr)
-    set_internal_node!(state.output, output_addr, node)
+    subassmt = get_subassmt(state.input, input_addr)
+    set_subassmt!(state.output, output_addr, subassmt)
     push_leaf_node!(state.copied, input_addr)
     nothing
 end
@@ -145,13 +142,13 @@ end
 
 function addr(state::InjectiveApplyState, fn::InjectiveFunction, args, output_addr)
     visit!(state.visitor, output_addr)
-    sub_assignment = HomogenousTrie{Any,Any}()
-    sub_tracked_writes = HomogenousTrie{Any,TrackedReal}()
+    subassmt = DynamicAssignment()
+    sub_tracked_writes = Trie{Any,TrackedReal}()
     visitor = AddressVisitor()
-    sub_state = InjectiveApplyState(state.input, sub_assignment,
+    sub_state = InjectiveApplyState(state.input, subassmt,
         state.tape, state.tracked_reads, sub_tracked_writes, state.copied, visitor)
     value = exec(fn, sub_state, args)
-    set_internal_node!(state.output, output_addr, sub_assignment)
+    set_subassmt!(state.output, output_addr, subassmt)
     set_internal_node!(state.tracked_writes, output_addr, sub_tracked_writes)
     value
 end

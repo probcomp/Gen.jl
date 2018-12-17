@@ -1,9 +1,9 @@
-function mala(model::GenerativeFunction{T,U}, selection::AddressSet, trace::U, tau) where {T,U}
-    model_args = get_call_record(trace).args
+function mala(trace, selection::AddressSet, tau)
+    model_args = get_args(trace)
     std = sqrt(2 * tau)
 
     # forward proposal
-    (_, values_trie, gradient_trie) = backprop_trace(model, trace, selection, nothing)
+    (_, values_trie, gradient_trie) = backprop_trace(trace, selection, nothing)
     values = to_array(values_trie, Float64)
     gradient = to_array(gradient_trie, Float64)
     forward_mu = values + tau * gradient
@@ -16,11 +16,11 @@ function mala(model::GenerativeFunction{T,U}, selection::AddressSet, trace::U, t
 
     # evaluate model weight
     constraints = from_array(values_trie, proposed_values)
-    (new_trace, weight, discard) = update(
-        model, model_args, noargdiff, trace, constraints)
+    (new_trace, weight, discard) = force_update(
+        model_args, noargdiff, trace, constraints)
 
     # backward proposal
-    (_, _, backward_gradient_trie) = backprop_trace(model, new_trace, selection, nothing)
+    (_, _, backward_gradient_trie) = backprop_trace(new_trace, selection, nothing)
     backward_gradient = to_array(backward_gradient_trie, Float64)
     @assert length(backward_gradient) == length(values)
     backward_score = 0.

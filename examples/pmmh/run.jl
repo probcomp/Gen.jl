@@ -4,8 +4,8 @@ include("model.jl")
 # particle marginal metropolis-hastings
 
 @staticgen function var_proposal(prev)
-    var_x::Float64 = get_assignment(prev)[:var_x]
-    var_y::Float64 = get_assignment(prev)[:var_y]
+    var_x::Float64 = get_assmt(prev)[:var_x]
+    var_y::Float64 = get_assmt(prev)[:var_y]
     #@addr(normal(var_x, sqrt(0.15)), :var_x)
     #@addr(normal(var_y, sqrt(0.08)), :var_y)
     @addr(normal(var_x, sqrt(0.5)), :var_x)
@@ -43,9 +43,7 @@ function strip_lineinfo(expr)
 end
 
 println("\n######################################################################\n")
-obs = get_assignment(simulate(obs_sub, (1.2,)))
-#println(strip_lineinfo(
-    #Gen.codegen_generate(typeof(kernel), Tuple{Int,State,Params}, typeof(obs), Nothing)))
+obs = get_assmt(simulate(obs_sub, (1.2,)))
 import InteractiveUtils
     InteractiveUtils.code_warntype(
         generate,
@@ -58,8 +56,8 @@ println("\n#####################################################################
 
 function initial_collapsed_trace(ys)
     T = length(ys)
-    constraints = get_assignment(simulate(observer, (ys,)))
-    (trace, weight) = generate(model_collapsed, (T,), constraints)
+    constraints = get_assmt(simulate(observer, (ys,)))
+    (trace, weight) = initialize(model_collapsed, (T,), constraints)
     trace
 end
 
@@ -77,7 +75,7 @@ function do_inference(n)
         score = get_call_record(trace).score
         println("score: $score")
         trace = custom_mh(model_collapsed, var_proposal, (), trace)
-        choices = get_assignment(trace)
+        choices = get_assmt(trace)
 	    println("var_x: $(choices[:var_x]), var_y: $(choices[:var_y])")
     end
 end

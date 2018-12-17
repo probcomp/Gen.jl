@@ -1,8 +1,39 @@
-@testset "lightweight gen function" begin
+using Gen: AddressVisitor, all_visited, visit!, get_visited
 
-##########
-# update #
-##########
+@testset "Dynamic DSL" begin
+
+###################
+# address visitor #
+###################
+
+@testset "address visitor" begin
+    assmt = DynamicAssignment()
+    assmt[:x] = 1
+    assmt[:y => :z] = 2
+
+    visitor = AddressVisitor()
+    visit!(visitor, :x)
+    visit!(visitor, :y => :z)
+    @test all_visited(get_visited(visitor), assmt)
+
+    visitor = AddressVisitor()
+    visit!(visitor, :x)
+    @test !all_visited(get_visited(visitor), assmt)
+
+    visitor = AddressVisitor()
+    visit!(visitor, :y => :z)
+    @test !all_visited(get_visited(visitor), assmt)
+
+    visitor = AddressVisitor()
+    visit!(visitor, :x)
+    visit!(visitor, :y)
+    @test all_visited(get_visited(visitor), assmt)
+end
+
+
+################
+# force update #
+################
 
 @testset "force update" begin
 
@@ -27,9 +58,9 @@
     # get a trace which follows the first branch
     constraints = DynamicAssignment()
     constraints[:branch] = true
-    (trace,) = generate(foo, (), constraints)
-    x = get_assignment(trace)[:x]
-    a = get_assignment(trace)[:u => :a]
+    (trace,) = initialize(foo, (), constraints)
+    x = get_assmt(trace)[:x]
+    a = get_assmt(trace)[:u => :a]
 
     # force to follow the second branch
     y = 1.123
@@ -38,23 +69,23 @@
     constraints[:branch] = false
     constraints[:y] = y
     constraints[:v => :b] = b
-    (new_trace, weight, discard, retdiff) = update(
-        foo, (), unknownargdiff, trace, constraints)
+    (new_trace, weight, discard, retdiff) = force_update(
+        (), unknownargdiff, trace, constraints)
 
     # test discard
-    @test get_leaf_node(discard, :branch) == true
-    @test get_leaf_node(discard, :x) == x
-    @test get_leaf_node(discard, :u => :a) == a
-    @test length(collect(get_leaf_nodes(discard))) == 2
-    @test length(collect(get_internal_nodes(discard))) == 1
+    @test get_value(discard, :branch) == true
+    @test get_value(discard, :x) == x
+    @test get_value(discard, :u => :a) == a
+    @test length(collect(get_values_shallow(discard))) == 2
+    @test length(collect(get_subassmts_shallow(discard))) == 1
 
     # test new trace
-    new_assignment = get_assignment(new_trace)
-    @test get_leaf_node(new_assignment, :branch) == false
-    @test get_leaf_node(new_assignment, :y) == y
-    @test get_leaf_node(new_assignment, :v => :b) == b
-    @test length(collect(get_leaf_nodes(new_assignment))) == 2
-    @test length(collect(get_internal_nodes(new_assignment))) == 1
+    new_assignment = get_assmt(new_trace)
+    @test get_value(new_assignment, :branch) == false
+    @test get_value(new_assignment, :y) == y
+    @test get_value(new_assignment, :v => :b) == b
+    @test length(collect(get_values_shallow(new_assignment))) == 2
+    @test length(collect(get_subassmts_shallow(new_assignment))) == 1
 
     # test score and weight
     prev_score = (
@@ -66,7 +97,7 @@
         logpdf(normal, y, 0, 1) +
         logpdf(normal, b, 0, 1))
     expected_weight = expected_new_score - prev_score
-    @test isapprox(expected_new_score, get_call_record(new_trace).score)
+    @test isapprox(expected_new_score, get_score(new_trace))
     @test isapprox(expected_weight, weight)
 
     # test retdiff
@@ -102,10 +133,10 @@ end
     # get a trace which follows the first branch
     constraints = DynamicAssignment()
     constraints[:branch] = true
-    (trace,) = generate(foo, (), constraints)
-    x = get_assignment(trace)[:x]
-    a = get_assignment(trace)[:u => :a]
-    z = get_assignment(trace)[:z]
+    (trace,) = initialize(foo, (), constraints)
+    x = get_assmt(trace)[:x]
+    a = get_assmt(trace)[:u => :a]
+    z = get_assmt(trace)[:z]
 
     # force to follow the second branch, and change z
     y = 1.123
@@ -115,22 +146,22 @@ end
     constraints[:branch] = false
     constraints[:z] = z_new
     (new_trace, weight, discard, retdiff) = fix_update(
-        foo, (), unknownargdiff, trace, constraints)
+        (), unknownargdiff, trace, constraints)
 
     # test discard
-    @test get_leaf_node(discard, :branch) == true
-    @test get_leaf_node(discard, :z) == z
-    @test length(collect(get_leaf_nodes(discard))) == 2
-    @test length(collect(get_internal_nodes(discard))) == 0
+    @test get_value(discard, :branch) == true
+    @test get_value(discard, :z) == z
+    @test length(collect(get_values_shallow(discard))) == 2
+    @test length(collect(get_subassmts_shallow(discard))) == 0
 
     # test new trace
-    new_assignment = get_assignment(new_trace)
-    @test get_leaf_node(new_assignment, :branch) == false
-    @test get_leaf_node(new_assignment, :z) == z_new
-    y = get_leaf_node(new_assignment, :y)
-    b = get_leaf_node(new_assignment, :v => :b)
-    @test length(collect(get_leaf_nodes(new_assignment))) == 3
-    @test length(collect(get_internal_nodes(new_assignment))) == 1
+    new_assignment = get_assmt(new_trace)
+    @test get_value(new_assignment, :branch) == false
+    @test get_value(new_assignment, :z) == z_new
+    y = get_value(new_assignment, :y)
+    b = get_value(new_assignment, :v => :b)
+    @test length(collect(get_values_shallow(new_assignment))) == 3
+    @test length(collect(get_subassmts_shallow(new_assignment))) == 1
 
     # test score and weight
     expected_new_score = (
@@ -143,7 +174,7 @@ end
         - logpdf(bernoulli, true, 0.4)
         + logpdf(normal, z_new, 0, 1)
         - logpdf(normal, z, 0, 1))
-    @test isapprox(expected_new_score, get_call_record(new_trace).score)
+    @test isapprox(expected_new_score, get_score(new_trace))
     @test isapprox(expected_weight, weight)
 
     # test retdiff
@@ -155,7 +186,7 @@ end
 # free_update #
 ###############
 
-@testset "regenerate" begin
+@testset "free_update" begin
 
     @gen function bar(mu)
         @addr(normal(mu, 1), :a)
@@ -179,9 +210,9 @@ end
     mu = 0.123
     constraints = DynamicAssignment()
     constraints[:branch] = true
-    (trace,) = generate(foo, (mu,), constraints)
-    x = get_assignment(trace)[:x]
-    a = get_assignment(trace)[:u => :a]
+    (trace,) = initialize(foo, (mu,), constraints)
+    x = get_assmt(trace)[:x]
+    a = get_assmt(trace)[:u => :a]
 
     # resimulate branch
     selection = DynamicAddressSet()
@@ -189,41 +220,56 @@ end
 
     # try 10 times, so we are likely to get both a stay and a switch
     for i=1:10
-        prev_assignment = get_assignment(trace)
+        prev_assignment = get_assmt(trace)
 
         # change the argument so that the weights can be nonzer
         prev_mu = mu
         mu = rand()
-        (trace, weight, retdiff) = regenerate(foo, (mu,), unknownargdiff, trace, selection)
-        assignment = get_assignment(trace)
+        (trace, weight, retdiff) = free_update(
+            (mu,), unknownargdiff, trace, selection)
+        assignment = get_assmt(trace)
 
         # test score
         if assignment[:branch]
-            expected_score = logpdf(normal, assignment[:x], mu, 1) + logpdf(normal, assignment[:u => :a], mu, 1) + logpdf(bernoulli, true, 0.4)
+            expected_score = (
+                logpdf(normal, assignment[:x], mu, 1)
+                + logpdf(normal, assignment[:u => :a], mu, 1)
+                + logpdf(bernoulli, true, 0.4))
         else
-            expected_score = logpdf(normal, assignment[:y], mu, 1) + logpdf(normal, assignment[:v => :b], mu, 1) + logpdf(bernoulli, false, 0.4)
+            expected_score = (
+                logpdf(normal, assignment[:y], mu, 1)
+                + logpdf(normal, assignment[:v => :b], mu, 1)
+                + logpdf(bernoulli, false, 0.4))
         end
-        @test isapprox(expected_score, get_call_record(trace).score)
+        @test isapprox(expected_score, get_score(trace))
 
         # test values
         if assignment[:branch]
-            @test has_leaf_node(assignment, :x)
-            @test has_internal_node(assignment, :u)
+            @test has_value(assignment, :x)
+            @test !isempty(get_subassmt(assignment, :u))
         else
-            @test has_leaf_node(assignment, :y)
-            @test has_internal_node(assignment, :v)
+            @test has_value(assignment, :y)
+            @test !isempty(get_subassmt(assignment, :v))
         end
-        @test length(collect(get_leaf_nodes(assignment))) == 2
-        @test length(collect(get_internal_nodes(assignment))) == 1
+        @test length(collect(get_values_shallow(assignment))) == 2
+        @test length(collect(get_subassmts_shallow(assignment))) == 1
 
         # test weight
         if assignment[:branch] == prev_assignment[:branch]
             if assignment[:branch]
-                expected_weight = logpdf(normal, assignment[:x], mu, 1) + logpdf(normal, assignment[:u => :a], mu, 1)
-                expected_weight -= logpdf(normal, assignment[:x], prev_mu, 1) + logpdf(normal, assignment[:u => :a], prev_mu, 1)
+                expected_weight = (
+                    logpdf(normal, assignment[:x], mu, 1)
+                    + logpdf(normal, assignment[:u => :a], mu, 1))
+                expected_weight -= (
+                    logpdf(normal, assignment[:x], prev_mu, 1)
+                    + logpdf(normal, assignment[:u => :a], prev_mu, 1))
             else
-                expected_weight = logpdf(normal, assignment[:y], mu, 1) + logpdf(normal, assignment[:v => :b], mu, 1)                
-                expected_weight -= logpdf(normal, assignment[:y], prev_mu, 1) + logpdf(normal, assignment[:v => :b], prev_mu, 1)
+                expected_weight = (
+                    logpdf(normal, assignment[:y], mu, 1)
+                    + logpdf(normal, assignment[:v => :b], mu, 1))
+                expected_weight -= (
+                    logpdf(normal, assignment[:y], prev_mu, 1)
+                    + logpdf(normal, assignment[:v => :b], prev_mu, 1))
             end
         else 
             expected_weight = 0.
@@ -238,12 +284,12 @@ end
 
 @testset "backprop" begin
 
-    @ad @gen function bar(@ad(mu_z::Float64))
+    @gen function bar(@grad(mu_z::Float64))
         z = @addr(normal(mu_z, 1), :z)
         return z + mu_z
     end
 
-    @ad @gen function foo(@ad(mu_a::Float64))
+    @gen function foo(@grad(mu_a::Float64))
         a = @addr(normal(mu_a, 1), :a)
         b = @addr(normal(a, 1), :b)
         c = a * b * @addr(bar(a), :bar)
@@ -273,7 +319,7 @@ end
     constraints[:b] = b
     constraints[:out] = out
     constraints[:bar => :z] = z
-    trace = assess(foo, (mu_a,), constraints)
+    (trace, _) = initialize(foo, (mu_a,), constraints)
 
     # compute gradients
     selection = DynamicAddressSet()
@@ -281,24 +327,26 @@ end
     push_leaf_node!(selection, :a)
     push_leaf_node!(selection, :out)
     retval_grad = 2.
-    ((mu_a_grad,), value_trie, gradient_trie) = backprop_trace(foo, trace, selection, retval_grad)
+    ((mu_a_grad,), value_assmt, gradient_assmt) = backprop_trace(
+        trace, selection, retval_grad)
 
     # check value trie
-    @test get_leaf_node(value_trie, :a) == a
-    @test get_leaf_node(value_trie, :out) == out
-    @test get_leaf_node(value_trie, :bar => :z) == z
-    @test !has_leaf_node(value_trie, :b) # was not selected
-    @test length(get_internal_nodes(value_trie)) == 1
-    @test length(get_leaf_nodes(value_trie)) == 2
+    @test get_value(value_assmt, :a) == a
+    @test get_value(value_assmt, :out) == out
+    @test get_value(value_assmt, :bar => :z) == z
+    @test !has_value(value_assmt, :b) # was not selected
+    @test length(collect(get_subassmts_shallow(value_assmt))) == 1
+    @test length(collect(get_values_shallow(value_assmt))) == 2
 
     # check gradient trie
-    @test length(get_internal_nodes(gradient_trie)) == 1
-    @test length(get_leaf_nodes(gradient_trie)) == 2
-    @test !has_leaf_node(gradient_trie, :b) # was not selected
+    @test length(collect(get_subassmts_shallow(gradient_assmt))) == 1
+    @test length(collect(get_values_shallow(gradient_assmt))) == 2
+    @test !has_value(gradient_assmt, :b) # was not selected
     @test isapprox(mu_a_grad, finite_diff(f, (mu_a, a, b, z, out), 1, dx))
-    @test isapprox(get_leaf_node(gradient_trie, :bar => :z), finite_diff(f, (mu_a, a, b, z, out), 4, dx))
-    @test isapprox(get_leaf_node(gradient_trie, :out), finite_diff(f, (mu_a, a, b, z, out), 5, dx))
-    
+    @test isapprox(get_value(gradient_assmt, :bar => :z),
+        finite_diff(f, (mu_a, a, b, z, out), 4, dx))
+    @test isapprox(get_value(gradient_assmt, :out),
+        finite_diff(f, (mu_a, a, b, z, out), 5, dx))
 
 end
 

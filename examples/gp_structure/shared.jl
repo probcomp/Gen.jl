@@ -1,10 +1,10 @@
 using Gen
 using Gen: get_child
-import Statistics
 import LinearAlgebra
 import CSV
-using PyPlot: figure, subplot, plot, scatter, gca, savefig
 import Random
+
+using Statistics: mean
 
 # TODO: figure out the correction for the probablity of picking the given node
 # in the forward and backward proposal
@@ -19,7 +19,7 @@ function get_airline_dataset()
     ys = df[2]
     xs .-= minimum(xs) # set x minimum to 0.
     xs /= maximum(xs) # scale x so that maximum is at 1.
-    ys .-= Statistics.mean(ys) # set y mean to 0.
+    ys .-= mean(ys) # set y mean to 0.
     ys *= 4 / (maximum(ys) - minimum(ys)) # make it fit in the window [-2, 2]
     return (xs, ys)
 end
@@ -209,11 +209,19 @@ function compute_log_likelihood(cov_matrix::Matrix{Float64}, ys::Vector{Float64}
 end
 
 """
-Predict output values for some new input values
+Return predictive log likelihood on new input values
 """
-function predict_ys(covariance_fn::Node, noise::Float64,
-                    xs::Vector{Float64}, ys::Vector{Float64},
-                    new_xs::Vector{Float64})
+function predictive_ll(covariance_fn::Node, noise::Float64,
+                       xs::Vector{Float64}, ys::Vector{Float64},
+                       new_xs::Vector{Float64}, new_ys::Vector{Float64})
+    (conditional_mu, conditional_cov_matrix) = compute_predictive(
+        covariance_fn, noise, xs, ys, new_xs)
+    logpdf(mvnormal, new_ys, conditional_mu, conditional_cov_matrix)
+end
+
+function compute_predictive(covariance_fn::Node, noise::Float64,
+                            xs::Vector{Float64}, ys::Vector{Float64},
+                            new_xs::Vector{Float64})
     n_prev = length(xs)
     n_new = length(new_xs)
     means = zeros(n_prev + n_new)
@@ -228,8 +236,23 @@ function predict_ys(covariance_fn::Node, noise::Float64,
     conditional_mu = mu2 + cov_matrix_21 * (cov_matrix_11 \ (ys - mu1))
     conditional_cov_matrix = cov_matrix_22 - cov_matrix_21 * (cov_matrix_11 \ cov_matrix_12)
     conditional_cov_matrix = 0.5 * conditional_cov_matrix + 0.5 * conditional_cov_matrix'
-    new_ys = mvnormal(conditional_mu, conditional_cov_matrix)
-    return new_ys
+    (conditional_mu, conditional_cov_matrix)
+end
+
+"""
+Predict output values for some new input values
+"""
+function predict_ys(covariance_fn::Node, noise::Float64,
+                    xs::Vector{Float64}, ys::Vector{Float64},
+                    new_xs::Vector{Float64})
+    (conditional_mu, conditional_cov_matrix) = compute_predictive(
+        covariance_fn, noise, xs, ys, new_xs)
+    mvnormal(conditional_mu, conditional_cov_matrix)
+end
+
+function compute_mse(covariance_fn, noise, xs_train, ys_train, xs_test, ys_test)
+    (conditional_mu, _) = compute_predictive(covariance_fn, noise, xs_train, ys_train, xs_test)
+    mean(sum((conditional_mu .- ys_test) .^ 2))
 end
 
 const CONSTANT = 1 # 0.2

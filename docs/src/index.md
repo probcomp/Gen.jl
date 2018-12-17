@@ -6,7 +6,7 @@ Gen is an extensible and reasonably performant probabilistic computing platform 
 
 Stochastic generative processes are represented in Gen as *generative functions*.
 Generative functions are Julia functions that have been annotated using the `@gen` macro.
-The generative function below takes a vector of x-coordinates, randomly generates the slope and intercept parameters of a line, and returns a randomly vector of y-coordinates sampled near that line, at the given x-coordinates:
+The generative function below takes a vector of x-coordinates, randomly generates the slope and intercept parameters of a line, and returns a random vector of y-coordinates sampled near that line at the given x-coordinates:
 
 ```julia
 @gen function regression_model(xs::Vector{Float64})
@@ -27,8 +27,7 @@ ys = regression_model([-5.0, -3.0, 0.0, 3.0, 5.0])
 ```
 
 Above we have used a generative function to implement a simulation.
-However, what distinguishes generative functions from plain-old simulators is their 
- ability to be *traced*.
+However, what distinguishes generative functions from plain-old simulators is their ability to be *traced*.
 When we *trace* a generative function, we record the random choices that it makes, as well as additional data about the evaluation of the function.
 This capability makes it possible to implement algorithms for probabilistic inference.
 To trace a random choice, we need to give it a unique *address*, using the `@addr` keyword.
@@ -51,21 +50,21 @@ Julia symbols, strings, and integers are common types to use for addresses.
 
 We trace a generative function using the `simulate` method.
 We provide the arguments to the function in a tuple:
-    
+
 ```julia
 xs = [-5.0, -3.0, 0.0, 3.0]
-trace = simulate(model, (xs,))
+trace = simulate(regression_model, (xs,))
 ```
 
 The trace that is returned is a form of stack trace of the generative function that contains, among other things, the values for the random choices that were annotated with `@addr`.
-To extract the values of the random choices from a trace, we use the method `get_assignment`:
+To extract the values of the random choices from a trace, we use the method `get_assmt`:
 
 ```julia
-assignment = get_assignment(trace)
+assignment = get_assmt(trace)
 ```
 
-The `get_assignment` method returns a *assignment*, which is a trie (prefix tree) that contains the values of random choices.
-Printing the assignment gives a pretty printed representation:
+The `get_assmt` method returns an *assignment*, which is a trie (prefix tree) that contains the values of random choices.
+Printing the assignment gives a pretty-printed representation:
 
 ```julia
 print(assignment)
@@ -86,7 +85,7 @@ print(assignment)
 └── "y-1" : -4.978881121779669
 ```
 
-Generative functions can also call other generative functions, these calls can also be traced using `@addr`:
+Generative functions can also call other generative functions; these calls can also be traced using `@addr`:
 
 ```julia
 @gen function generate_params()
@@ -112,8 +111,8 @@ end
 This results in a hierarchical assignment:
 
 ```julia
-trace = simulate(model, (xs,))
-assignment = get_assignment(trace)
+trace = simulate(regression_model, (xs,))
+assignment = get_assmt(trace)
 print(assignment)
 ```
 
@@ -174,8 +173,8 @@ end
 ```
 
 ```julia
-trace = simulate(model, (xs,))
-assignment = get_assignment(trace)
+trace = simulate(regression_model, (xs,))
+assignment = get_assmt(trace)
 print(assignment)
 ```
 
@@ -212,16 +211,22 @@ print(assignment)
 
 ## Incremental Computation
 
-Getting good asymptotic scaling for iterative local search algorithms like MCMC or MAP optimization relies on the ability to update a trace efficiently, when a small number of random choice(s) are changed, or when there is a small change to the arguments of the function.
+Getting good asymptotic scaling for iterative local search algorithms like MCMC or MAP optimization relies on the ability to update a trace efficiently in two common scenarios: (i) when a small number of random choice(s) are changed; or (ii) when there is a small change to the arguments of the function.
 
-To support this, generative functions use *argdiffs* and *retdiffs*, which describe the change made to the arguments of the generative function, relative to the arguments in the previous trace, and the change to the return value of a generative function, relative to the return value in the previous trace.
+To enable efficient trace updates, generative functions use *argdiffs* and *retdiffs*:
+- An *argdiff* describes the change made to the arguments of the generative function, relative to the arguments in the previous trace.
+- A *retdiff* describes the change to the return value of a generative function, relative to the return value in the previous trace.
+
 The update generative function API methods `update`, `fix_update`, and `extend` accept the argdiff value, alongside the new arguments to the function, the previous trace, and other parameters; and return the new trace and the retdiff value.
 
 ### Argdiffs
 
 An argument difference value, or *argdiff*, is associated with a pair of argument tuples `args::Tuple` and `new_args::Tuple`.
 The update methods for a generative function accept different types of argdiff values, that depend on the generative function.
-Two singleton data types are provided for expressing that there is no difference to the argument (`noargdiff::NoArgDiff`) and that there is an unknown difference in the arguments (`unknownargdiff::UnknownArgDiff`).
+Two singleton data types are provided:
+- `noargdiff::NoArgDiff`, for expressing that there is no difference to the argument.
+- `unknownargdiff::UnknownArgDiff`, for expressing that there is an unknown difference in the arguments.
+
 Generative functions may or may not accept these types as argdiffs, depending on the generative function.
 
 ### Retdiffs
@@ -232,6 +237,9 @@ The only requirement placed on retdiff values is that they implement the `isnodi
 
 ### Custom incremental computation in embedded modeling DSL
 
+<!-- TODO: This section is a bit confusing, in particular the macros @choicediff and @calldiff appear suddenly and are not clear or well-motivated. Should introduce them earlier and explain more.-->
+
+We now show how argdiffs and retdiffs and can be used for incremental computation in the embedded modeling DSL.
 For generative functions expressed in the embedded modeling DSL, retdiff values are computed by user *diff code* that is placed inline in the body of the generative function definition.
 Diff code consists of Julia statements that can depend on non-diff code, but non-diff code cannot depend on the diff code.
 To distinguish *diff code*  from regular code in the generative function, the `@diff` macro is placed in front of the statement, e.g.:
@@ -246,7 +254,7 @@ Therefore, the body of the generative function with the diff code removed must s
 
 Unlike non-diff code, diff code has access to the argdiff value (using `@argdiff()`), and may invoke `@retdiff(<value>)`, which sets the retdiff value.
 Diff code also has access to information about the change to the values of random choices and the change to the return values of calls to other generative functions.
-Changes to the return vlaues of random choices are queried using `@choicediff(<addr>)`, which must be invoked after the `@addr` expression for that address, and returns one of the following values:
+Changes to the return values of random choices are queried using `@choicediff(<addr>)`, which must be invoked after the `@addr` expression for that address, and returns one of the following values:
 ```@docs
 NewChoiceDiff
 NoChoiceDiff
@@ -255,7 +263,7 @@ PrevChoiceDiff
 Diff code also has access to the retdiff values associated with calls it makes to generative functions, using `@calldiff(<addr>)`, which returns a value of one of the following types:
 ```@docs
 NewCallDiff
-NoCalldiff
+NoCallDiff
 UnknownCallDiff
 CustomCallDiff
 ```
@@ -291,10 +299,10 @@ mala_selection = StaticAddressSet(set)
 @compiled @gen function mala_proposal(prev, tau)
     std::Float64 = sqrt(2*tau)
     gradients::StaticChoiceTrie = backprop_trace(model, prev, mala_selection, nothing)[3]
-    @addr(normal(get_assignment(prev)[:slope] + tau * gradients[:slope], std), :slope)
-    @addr(normal(get_assignment(prev)[:intercept] + tau * gradients[:intercept], std), :intercept)
-    @addr(normal(get_assignment(prev)[:inlier_std] + tau * gradients[:inlier_std], std), :inlier_std)
-    @addr(normal(get_assignment(prev)[:outlier_std] + tau * gradients[:outlier_std], std), :outlier_std)
+    @addr(normal(get_assmt(prev)[:slope] + tau * gradients[:slope], std), :slope)
+    @addr(normal(get_assmt(prev)[:intercept] + tau * gradients[:intercept], std), :intercept)
+    @addr(normal(get_assmt(prev)[:inlier_std] + tau * gradients[:inlier_std], std), :inlier_std)
+    @addr(normal(get_assmt(prev)[:outlier_std] + tau * gradients[:outlier_std], std), :outlier_std)
 end
 
 mala_move(trace, tau::Float64) = mh(model, mala_proposal, (tau,), trace)
@@ -318,7 +326,7 @@ function generate_mala_move(model, addrs)
     for addr in addrs
         quote_addr = QuoteNode(addr)
         push!(stmts, :(
-            @addr(normal(get_assignment(prev)[$quote_addr] + tau * gradients[$quote_addr], std),
+            @addr(normal(get_assmt(prev)[$quote_addr] + tau * gradients[$quote_addr], std),
                   $quote_addr)
         ))
     end

@@ -125,8 +125,8 @@ Gen.isnodiff(::StringDiff) = false
     Random.seed!(1)
     strings = Set{String}()
     for i=1:1000
-        trace = simulate(pcfg, (nothing, 1))
-        push!(strings, get_call_record(trace).retval)
+        (trace, _) = initialize(pcfg, (nothing, 1), EmptyAssignment())
+        push!(strings, get_retval(trace))
     end
     @test "(.aa)" in strings
     @test "(-aa)" in strings
@@ -161,12 +161,12 @@ Gen.isnodiff(::StringDiff) = false
     constraints[(3, Val(:aggregation)) => :prefix] = true
     constraints[(4, Val(:production)) => :rule] = 4
     constraints[(4, Val(:aggregation)) => :prefix] = false
-    (trace, actual_weight) = generate(pcfg, (nothing, 1), constraints)
+    (trace, actual_weight) = initialize(pcfg, (nothing, 1), constraints)
     @test isapprox(actual_weight, expected_weight)
-    @test isapprox(get_call_record(trace).score, actual_weight)
-    @test get_call_record(trace).args == (nothing, 1)
-    @test get_call_record(trace).retval == "(.b(.a(.b(-bb)b)a)b)"
-    assignment = get_assignment(trace)
+    @test isapprox(get_score(trace), actual_weight)
+    @test get_args(trace) == (nothing, 1)
+    @test get_retval(trace) == "(.b(.a(.b(-bb)b)a)b)"
+    assignment = get_assmt(trace)
     @test assignment[(1, Val(:production)) => :rule] == 2
     @test assignment[(1, Val(:aggregation)) => :prefix] == true
     @test assignment[(2, Val(:production)) => :rule] == 1
@@ -179,13 +179,13 @@ Gen.isnodiff(::StringDiff) = false
     # update non-structure choice
     new_constraints = DynamicAssignment()
     new_constraints[(3, Val(:aggregation)) => :prefix] = false
-    (new_trace, weight, discard, retdiff) = update(pcfg, (nothing, 1), noargdiff, trace, new_constraints)
+    (new_trace, weight, discard, retdiff) = force_update((nothing, 1), noargdiff, trace, new_constraints)
     @test isapprox(weight, log(0.6) - log(0.4))
     expected_score = log(0.26) + log(0.24) + log(0.26) + log(0.27) + log(0.4) + log(0.4) + log(0.6) + log(0.6)
-    @test isapprox(get_call_record(new_trace).score, expected_score)
-    @test get_call_record(new_trace).args == (nothing, 1)
-    @test get_call_record(new_trace).retval == "(.b(.a(-b(-bb)b)a)b)"
-    assignment = get_assignment(new_trace)
+    @test isapprox(get_score(new_trace), expected_score)
+    @test get_args(new_trace) == (nothing, 1)
+    @test get_retval(new_trace) == "(.b(.a(-b(-bb)b)a)b)"
+    assignment = get_assmt(new_trace)
     @test assignment[(1, Val(:production)) => :rule] == 2
     @test assignment[(1, Val(:aggregation)) => :prefix] == true
     @test assignment[(2, Val(:production)) => :rule] == 1
@@ -195,32 +195,32 @@ Gen.isnodiff(::StringDiff) = false
     @test assignment[(4, Val(:production)) => :rule] == 4
     @test assignment[(4, Val(:aggregation)) => :prefix] == false
     @test discard[(3, Val(:aggregation)) => :prefix] == true
-    @test length(get_internal_nodes(discard)) == 1
-    @test length(get_leaf_nodes(discard)) == 0
-    @test length(get_internal_nodes(get_internal_node(discard,(3, Val(:aggregation))))) == 0
-    @test length(get_leaf_nodes(get_internal_node(discard,(3, Val(:aggregation))))) == 1
+    @test length(collect(get_subassmts_shallow(discard))) == 1
+    @test length(collect(get_values_shallow(discard))) == 0
+    @test length(collect(get_subassmts_shallow(get_subassmt(discard,(3, Val(:aggregation)))))) == 0
+    @test length(collect(get_values_shallow(get_subassmt(discard,(3, Val(:aggregation)))))) == 1
     @test retdiff == StringDiff()
 
     # update structure choice, so that string becomes: (.b(.a(.aa)a)b)
     # note: we reuse the prefix choice from node 3 (true)
     new_constraints = DynamicAssignment()
     new_constraints[(3, Val(:production)) => :rule] = 3 # change from rule 2 to rule 3
-    (new_trace, weight, discard, retdiff) = update(pcfg, (nothing, 1), noargdiff, trace, new_constraints)
+    (new_trace, weight, discard, retdiff) = force_update((nothing, 1), noargdiff, trace, new_constraints)
     @test isapprox(weight, log(0.23) - log(0.26) - log(0.27) - log(0.6))
-    @test isapprox(get_call_record(new_trace).score, log(0.26) + log(0.24) + log(0.23) + log(0.4) + log(0.4) + log(0.4))
-    @test get_call_record(new_trace).args == (nothing, 1)
-    @test get_call_record(new_trace).retval == "(.b(.a(.aa)a)b)"
-    assignment = get_assignment(new_trace)
+    @test isapprox(get_score(new_trace), log(0.26) + log(0.24) + log(0.23) + log(0.4) + log(0.4) + log(0.4))
+    @test get_args(new_trace) == (nothing, 1)
+    @test get_retval(new_trace) == "(.b(.a(.aa)a)b)"
+    assignment = get_assmt(new_trace)
     @test assignment[(1, Val(:production)) => :rule] == 2
     @test assignment[(1, Val(:aggregation)) => :prefix] == true
     @test assignment[(2, Val(:production)) => :rule] == 1
     @test assignment[(2, Val(:aggregation)) => :prefix] == true
     @test assignment[(3, Val(:production)) => :rule] == 3
     @test assignment[(3, Val(:aggregation)) => :prefix] == true
-    @test !has_internal_node(assignment, (4, Val(:production))) # FAIL
-    @test !has_internal_node(assignment, (4, Val(:aggregation)))
+    @test isempty(get_subassmt(assignment, (4, Val(:production)))) # FAIL
+    @test isempty(get_subassmt(assignment, (4, Val(:aggregation))))
     @test discard[(3, Val(:production)) => :rule] == 2
-    @test !has_leaf_node(discard, (3, Val(:aggregation)) => :prefix)
+    @test !has_value(discard, (3, Val(:aggregation)) => :prefix)
     @test discard[(4, Val(:production)) => :rule] == 4
     @test discard[(4, Val(:aggregation)) => :prefix] == false
     @test retdiff == StringDiff()

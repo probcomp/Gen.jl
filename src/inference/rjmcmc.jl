@@ -1,19 +1,15 @@
-function rjmcmc(model, forward, forward_args_rest, backward, backward_args_rest,
-                injective, injective_args, trace, correction)
-    model_args = get_call_record(trace).args
-    model_score = get_call_record(trace).score
-    forward_args = (trace, forward_args_rest...,)
-    forward_trace = simulate(forward, forward_args)
-    forward_score = get_call_record(forward_trace).score
-    input = pair(get_assignment(trace), get_assignment(forward_trace), :model, :proposal)
+function rjmcmc(trace, forward, fwd_args, backward, bwd_args,
+                injective, injective_args, correction)
+    model = get_gen_fn(trace)
+    model_args = get_args(trace)
+    model_score = get_score(trace)
+    (fwd_assmt, fwd_score) = propose(forward, (trace, fwd_args...,))
+    input = pair(get_assmt(trace), fwd_assmt, :model, :proposal)
     (output, logabsdet) = apply(injective, injective_args, input)
-    (model_constraints, backward_constraints) = unpair(output, :model, :proposal)
-    new_trace = assess(model, model_args, model_constraints)
-    new_model_score = get_call_record(new_trace).score
-    backward_args = (new_trace, backward_args_rest...,)
-    backward_trace = assess(backward, backward_args, backward_constraints)
-    backward_score = get_call_record(backward_trace).score
-    alpha = new_model_score - model_score - forward_score + backward_score + logabsdet + correction(new_trace)
+    (model_constraints, bwd_assmt) = unpair(output, :model, :proposal)
+    (new_trace, new_model_score) = initialize(model, model_args, model_constraints)
+    (bwd_score, _) = assess(backward, (new_trace, bwd_args...), bwd_assmt)
+    alpha = new_model_score - model_score - fwd_score + bwd_score + logabsdet + correction(new_trace)
     if log(rand()) < alpha
         # accept
         return new_trace

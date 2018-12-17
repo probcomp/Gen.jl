@@ -20,7 +20,7 @@ const num_train = 100 #10000
 function generate_training_data()
     traces = Vector{Any}(num_train)
     for i=1:num_train
-        traces[i] = get_assignment(simulate(model, ()))
+        traces[i] = get_assmt(simulate(model, ()))
         if i % 100 == 0
             println("$i of $num_train")
         end
@@ -92,7 +92,7 @@ function train_inference_network(all_traces, num_iter)
         @assert length(traces) == minibatch_size
         scores = Vector{Float64}(minibatch_size)
         for (i, model_choices) in enumerate(traces)
-            (proposal_trace, _) = project(proposal, (model_choices,), model_choices)
+            (proposal_trace, _) = project(proposal, (model_choices,), model_choices) # TODO add a function to translate, can't use project() for this..
             backprop_params(proposal, proposal_trace, nothing)
             scores[i] = get_call_record(proposal_trace).score
         end

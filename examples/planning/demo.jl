@@ -66,7 +66,7 @@ function inference(measurements::Vector{Point}, start::Point, iters::Int)
     constraints[:start_x] = start.x
     constraints[:start_y] = start.y
 
-    (trace, _) = generate(model, (scene, times[1:t]), constraints)
+    (trace, _) = initialize(model, (scene, times[1:t]), constraints)
 
     for iter=1:iters
         trace = custom_mh(model, stop_proposal, (), trace)
@@ -87,14 +87,14 @@ function experiment()
     constraints[:stop_x] = 0.5
     constraints[:stop_y] = 0.5
     constraints[:noise] = 0.1
-    (trace, _) = generate(model, (scene, times), constraints)
+    (trace, _) = initialize(model, (scene, times), constraints)
 
     figure(figsize=(4, 4))
     ax = gca()
     render(scene, trace, ax)
     savefig("ground_truth.png")
 
-    assignment = get_assignment(trace)
+    assignment = get_assmt(trace)
     measurements = [Point(assignment[i => :x], assignment[i => :y]) for i=1:length(times)]
     start = Point(assignment[:start_x], assignment[:start_y])
 

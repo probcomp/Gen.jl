@@ -93,12 +93,12 @@ end
 function smc(var_x, var_y, T::Int, N, ess_threshold, ys::AbstractArray{Float64,1})
     log_unnormalized_weights = Vector{Float64}(undef, N)
     log_ml_estimate = 0.
-    obs = get_assignment(simulate(single_step_observer2, (1, (ys[1],))))
+    obs = get_assmt(simulate(single_step_observer2, (1, (ys[1],))))
     traces = Vector{Gen.get_trace_type(hmm2)}(undef, N)
     next_traces = Vector{Gen.get_trace_type(hmm2)}(undef, N)
     args = (1, State(NaN, NaN), Params(var_x, var_y))
     for i=1:N
-        (traces[i], log_unnormalized_weights[i]) = generate(hmm2, args, obs)
+        (traces[i], log_unnormalized_weights[i]) = initialize(hmm2, args, obs)
     end
     num_resamples = 0
     args_change = UnfoldCustomArgDiff(true, false, false)
@@ -116,7 +116,7 @@ function smc(var_x, var_y, T::Int, N, ess_threshold, ys::AbstractArray{Float64,1
         else
             parents = 1:N
         end
-        obs = get_assignment(simulate(single_step_observer2, (t, (ys[t],))))
+        obs = get_assmt(simulate(single_step_observer2, (t, (ys[t],))))
         args = (t, State(NaN, NaN), Params(var_x, var_y))
         for i=1:N
             parent = parents[i]
@@ -139,7 +139,7 @@ end
 ##########################################
 
 using Gen: VectorDistTrace, VectorDistTraceAssignment
-import Gen: get_call_record, has_choices, get_assignment, simulate, assess
+import Gen: get_call_record, has_choices, get_assmt, simulate, assess
 
 struct CollapsedHMMTrace
     vector::VectorDistTrace{Float64}
@@ -148,7 +148,7 @@ end
 
 get_call_record(trace::CollapsedHMMTrace) = trace.vector.call
 has_choices(trace::CollapsedHMMTrace) = length(trace.vector.call.retval) > 0
-get_assignment(trace::CollapsedHMMTrace) = CollapsedHMMAssignment(get_assignment(trace.vector))
+get_assmt(trace::CollapsedHMMTrace) = CollapsedHMMAssignment(get_assmt(trace.vector))
 
 struct CollapsedHMMAssignment <: Assignment
     y_assignment::VectorDistTraceAssignment

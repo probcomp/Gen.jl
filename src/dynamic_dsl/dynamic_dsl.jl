@@ -1,41 +1,45 @@
 include("trace.jl")
 
-struct DynamicDSLFunction <: GenerativeFunction{Any,GFTrace}
+const DYNAMIC_DSL_ADDR = Symbol("@addr")
+const DYNAMIC_DSL_DIFF = Symbol("@diff")
+const DYNAMIC_DSL_GRAD = Symbol("@grad")
+
+struct DynamicDSLFunction{T} <: GenerativeFunction{T,DynamicDSLTrace}
     params_grad::Dict{Symbol,Any}
     params::Dict{Symbol,Any}
     arg_types::Vector{Type}
     julia_function::Function
     update_julia_function::Function
     has_argument_grads::Vector{Bool}
-    accepts_output_grad::Bool
 end
 
-function DynamicDSLFunction(arg_types::Vector{Type}, julia_function::Function,
+function DynamicDSLFunction(arg_types::Vector{Type},
+                     julia_function::Function,
                      update_julia_function::Function,
-                     has_argument_grads, accepts_output_grad::Bool)
+                     has_argument_grads, ::Type{T}) where {T}
     params_grad = Dict{Symbol,Any}()
     params = Dict{Symbol,Any}()
-    DynamicDSLFunction(params_grad, params, arg_types,
+    DynamicDSLFunction{T}(params_grad, params, arg_types,
                 julia_function, update_julia_function,
-                has_argument_grads, accepts_output_grad)
+                has_argument_grads)
 end
 
 function (g::DynamicDSLFunction)(args...)
-    trace = simulate(g, args)
-    call = get_call_record(trace)
-    call.retval
+    (trace, _) = initialize(g, args, EmptyAssignment())
+    get_retval(trace)
 end
 
+function exec(gf::DynamicDSLFunction, state, args::Tuple)
+    gf.julia_function(state, args...)
+end
 
-exec(gf::DynamicDSLFunction, state, args::Tuple) = gf.julia_function(state, args...)
-exec_for_update(gf::DynamicDSLFunction, state, args::Tuple) = gf.update_julia_function(state, args...)
+function exec_for_update(gf::DynamicDSLFunction, state, args::Tuple)
+    gf.update_julia_function(state, args...)
+end
 
 # whether there is a gradient of score with respect to each argument
 # it returns 'nothing' for those arguemnts that don't have a derivatice
 has_argument_grads(gen::DynamicDSLFunction) = gen.has_argument_grads
-
-# if it is true, then it expects a value, otherwise it expects 'nothing'
-accepts_output_grad(gen::DynamicDSLFunction) = gen.accepts_output_grad
 
 function parse_arg_types(args)
     types = Vector{Any}()
@@ -52,20 +56,9 @@ function parse_arg_types(args)
     types
 end
 
-macro ad(ast)
-    if (!isa(ast, Expr)
-        || ast.head != :macrocall
-        || ast.args[1] != Symbol("@gen")
-        || length(ast.args) != 3
-        || !isa(ast.args[2], LineNumberNode))
-        error("Syntax error in @ad $ast")
-    end
-    parse_gen_function(ast.args[3], true)
-end
-
 macro addr(expr::Expr, addr, addrdiff)
     if expr.head != :call
-        error("syntax error in @addr at $(expr)")
+        error("syntax error in $DYNAMIC_DSL_ADDR at $(expr)")
     end
     fn = esc(expr.args[1])
     args = map(esc, expr.args[2:end])
@@ -73,7 +66,7 @@ macro addr(expr::Expr, addr, addrdiff)
 end
 
 macro gen(ast)
-    parse_gen_function(ast, false)
+    parse_gen_function(ast)
 end
 
 function args_for_gf_julia_fn(args, has_argument_grads)
@@ -98,10 +91,10 @@ end
 transform_body_for_non_update(ast) = ast
 
 function transform_body_for_non_update(ast::Expr)
-    @assert !(ast.head == :macrocall && ast.args[1] == Symbol("@diff"))
+    @assert !(ast.head == :macrocall && ast.args[1] == DYNAMIC_DSL_DIFF)
 
     # remove the argdiff argument from @addr expressions
-    if ast.head == :macrocall && ast.args[1] == Symbol("@addr")
+    if ast.head == :macrocall && ast.args[1] == DYNAMIC_DSL_ADDR
         if length(ast.args) == 5
             @assert isa(ast.args[2], LineNumberNode)
             # remove the last argument
@@ -112,7 +105,7 @@ function transform_body_for_non_update(ast::Expr)
     # remove any @diff sub-expressions, and recurse
     new_args = Vector()
     for arg in ast.args
-        if !(isa(arg, Expr) && arg.head == :macrocall && arg.args[1] == Symbol("@diff"))
+        if !(isa(arg, Expr) && arg.head == :macrocall && arg.args[1] == DYNAMIC_DSL_DIFF)
             push!(new_args, transform_body_for_non_update(arg))
         end
     end
@@ -122,10 +115,10 @@ end
 transform_body_for_update(ast, in_diff) = ast
 
 function transform_body_for_update(ast::Expr, in_diff::Bool)
-    @assert !(ast.head == :macrocall && ast.args[1] == Symbol("@diff"))
+    @assert !(ast.head == :macrocall && ast.args[1] == DYNAMIC_DSL_DIFF)
     new_args = Vector()
     for arg in ast.args
-        if isa(arg, Expr) && arg.head == :macrocall && arg.args[1] == Symbol("@diff")
+        if isa(arg, Expr) && arg.head == :macrocall && arg.args[1] == DYNAMIC_DSL_DIFF
             if in_diff
                 error("Got nested @diff at: $arg")
             end
@@ -143,8 +136,27 @@ function transform_body_for_update(ast::Expr, in_diff::Bool)
     Expr(ast.head, new_args...)
 end
 
+marked_for_ad(arg::Symbol) = false
 
-function parse_gen_function(ast, ad_annotation::Bool)
+marked_for_ad(arg::Expr) = (arg.head == :macrocall && arg.args[1] == DYNAMIC_DSL_GRAD)
+
+strip_marked_for_ad(arg::Symbol) = arg
+
+function strip_marked_for_ad(arg::Expr) 
+    if (arg.head == :macrocall && arg.args[1] == DYNAMIC_DSL_GRAD)
+		if length(arg.args) == 3 && isa(arg.args[2], LineNumberNode)
+			arg.args[3]
+		elseif length(arg.args) == 2
+			arg.args[2]
+		else
+            error("Syntax error at $arg")
+        end
+    else
+        arg
+    end
+end
+
+function parse_gen_function(ast)
     if ast.head != :function
         error("syntax error at $(ast) in $(ast.head)")
     end
@@ -153,10 +165,14 @@ function parse_gen_function(ast, ad_annotation::Bool)
     end
     signature = ast.args[1]
     body = ast.args[2]
-    if signature.head != :call
+    if signature.head == :(::)
+        (call_signature, return_type) = signature.args
+    elseif signature.head == :call
+        (call_signature, return_type) = (signature, :Any)
+    else
         error("syntax error at $(ast) in $(signature)")
     end
-    args = signature.args[2:end]
+    args = call_signature.args[2:end]
     has_argument_grads = map(marked_for_ad, args)
     args = map(strip_marked_for_ad, args)
 
@@ -173,7 +189,7 @@ function parse_gen_function(ast, ad_annotation::Bool)
         esc(transform_body_for_update(body, false)))
 
     # create generator and assign it a name
-    generator_name = signature.args[1]
+    generator_name = call_signature.args[1]
     arg_types = map(esc, parse_arg_types(args))
     Expr(:block,
         Expr(:(=), 
@@ -181,7 +197,7 @@ function parse_gen_function(ast, ad_annotation::Bool)
             Expr(:call, :DynamicDSLFunction,
                 quote Type[$(arg_types...)] end,
                 julia_fn_defn, update_julia_fn_defn,
-                has_argument_grads, ad_annotation)))
+                has_argument_grads, return_type)))
 end
 
 function address_not_found_error_msg(addr)
@@ -231,7 +247,7 @@ function init_param!(gf::DynamicDSLFunction, name::Symbol, value)
 end
 
 #########
-# delta #
+# diffs #
 #########
 
 macro argdiff()
@@ -250,6 +266,11 @@ macro retdiff(value)
     Expr(:call, :set_ret_diff!, esc(state), esc(value))
 end
 
+set_ret_diff!(state, value) = state.retdiff = value
+
+get_arg_diff(state) = state.argdiff
+
+
 ##################
 # AddressVisitor #
 ##################
@@ -264,45 +285,35 @@ function visit!(visitor::AddressVisitor, addr)
     push_leaf_node!(visitor.visited, addr)
 end
 
-function _diff(trie, addrs::AddressSet)
-    diff_trie = HomogenousTrie{Any,Any}()
-
-    for (key_field, value) in get_leaf_nodes(trie)
-        if !has_leaf_node(addrs, key_field)
-            set_leaf_node!(diff_trie, key_field, value)
-        end
+function all_visited(visited::AddressSet, assmt::Assignment)
+    allvisited = true
+    for (key, _) in get_values_shallow(assmt)
+        allvisited = allvisited && has_leaf_node(visited, key)
     end
-
-    for (key_field, node) in get_internal_nodes(trie)
-        if !has_leaf_node(addrs, key_field)
-            if has_internal_node(addrs, key_field)
-                sub_addrs = get_internal_node(addrs, key_field)
+    for (key, subassmt) in get_subassmts_shallow(assmt)
+        if !has_leaf_node(visited, key)
+            if has_internal_node(visited, key)
+                subvisited = get_internal_node(visited, key)
             else
-                sub_addrs = EmptyAddressSet()
+                subvisited = EmptyAddressSet()
             end
-            diff_node = _diff(node, sub_addrs)
-            if !isempty(diff_node)
-                set_internal_node!(diff_trie, key_field, diff_node)
-            end
+            allvisited = allvisited && all_visited(subvisited, subassmt)
         end
     end
-
-    diff_trie
+    allvisited
 end
 
-function get_unvisited(visitor::AddressVisitor, choices)
-    _diff(choices, visitor.visited)
-end
+get_visited(visitor) = visitor.visited
 
-function lightweight_check_no_internal_node(constraints::Assignment, addr)
-    if has_internal_node(constraints, addr)
-        error("Expected a value at address $addr but trace contained an assignment")
+function check_no_subassmt(constraints::Assignment, addr)
+    if !isempty(get_subassmt(constraints, addr))
+        error("Expected a value at address $addr but found a sub-assignment")
     end
 end
 
-function lightweight_check_no_leaf_node(constraints::Assignment, addr)
-    if has_leaf_node(constraints, addr)
-        error("Expected an assignment at address $addr but trace contained a value")
+function check_no_value(constraints::Assignment, addr)
+    if has_value(constraints, addr)
+        error("Expected a sub-assignment at address $addr but found a value")
     end
 end
 
@@ -310,19 +321,27 @@ function lightweight_retchange_already_set_err()
     error("@retdiff! was already used")
 end
 
-include("generate.jl")
-include("update.jl")
-include("project.jl")
-include("ungenerate.jl")
-include("backprop_params.jl")
-include("backprop_trace.jl")
+function gen_fn_changed_error(addr)
+    error("Generative function changed at address: $addr")
+end
 
+include("diff.jl")
+include("initialize.jl")
+include("propose.jl")
+include("assess.jl")
+include("project.jl")
+include("force_update.jl")
+include("fix_update.jl")
+include("free_update.jl")
+include("extend.jl")
+include("backprop.jl")
+
+export DynamicDSLFunction
 export set_param!, get_param, get_param_grad, zero_param_grad!, init_param!
-export @ad
-export @delta
 export @param
 export @addr
 export @gen
-export @choicediff, @calldiff
+export @choicediff
+export @calldiff
 export @argdiff
 export @retdiff

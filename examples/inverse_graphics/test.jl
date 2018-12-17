@@ -16,7 +16,7 @@ function do_inference(input_image)
     observations["image"] = input_image
 
     # fill in latent variables using proposal
-    latents = get_assignment(simulate(proposal, (observations,)))
+    latents = get_assmt(simulate(proposal, (observations,)))
     x = latents["x"]
     y = latents["y"]
     s = latents["size"]
@@ -25,7 +25,7 @@ function do_inference(input_image)
     println("x: $x, y: $y, size: $s, letter: $letter, angle: $angle")
 
     # predicted image given latents
-    (trace, _) = generate(model, (), latents)
+    (trace, _) = initialize(model, (), latents)
     predicted = get_call_record(trace).retval
     predicted =  min.(fill(1, size(predicted)), max.(zero(predicted), predicted))
 end

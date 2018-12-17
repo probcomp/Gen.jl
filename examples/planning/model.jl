@@ -45,7 +45,7 @@ function render(scene::Scene, trace, ax;
                 show_path=true, show_noise=true,
                 start_alpha=1., stop_alpha=1., path_alpha=1.)
     (start, stop, speed, noise, maybe_path, locations) = get_call_record(trace).retval
-    assignment = get_assignment(trace)
+    assignment = get_assmt(trace)
     render(scene, ax)
     sca(ax)
     if show_start
