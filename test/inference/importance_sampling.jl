@@ -21,7 +21,7 @@
     @test isapprox(logsumexp(log_weights), 0., atol=1e-14)
     @test !isnan(lml_est)
     for trace in traces
-        @test get_assignment(trace)[:y] == y
+        @test get_assmt(trace)[:y] == y
     end
 
     (traces, log_weights, lml_est) = importance_sampling(model, (), observations, proposal, (), n)
@@ -30,18 +30,18 @@
     @test isapprox(logsumexp(log_weights), 0., atol=1e-14)
     @test !isnan(lml_est)
     for trace in traces
-        @test get_assignment(trace)[:y] == y
+        @test get_assmt(trace)[:y] == y
     end
 
     (trace, lml_est) = importance_resampling(model, (), observations, n)
     @test isapprox(logsumexp(log_weights), 0., atol=1e-14)
     @test !isnan(lml_est)
-    @test get_assignment(trace)[:y] == y
+    @test get_assmt(trace)[:y] == y
 
     (trace, lml_est) = importance_resampling(model, (), observations, proposal, (), n)
     @test isapprox(logsumexp(log_weights), 0., atol=1e-14)
     @test !isnan(lml_est)
-    @test get_assignment(trace)[:y] == y
+    @test get_assmt(trace)[:y] == y
 end
 
 

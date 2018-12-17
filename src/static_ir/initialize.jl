@@ -52,7 +52,7 @@ function process!(state::StaticIRInitializeState, node::GenerativeFunctionCallNo
         push!(state.stmts, :(($subtrace, $incr) = initialize($gen_fn, $args_tuple, EmptyAssignment())))
     end
     push!(state.stmts, :($weight += $incr))
-    push!(state.stmts, :($num_nonempty_fieldname += !isempty(get_assignment($subtrace)) ? 1 : 0))
+    push!(state.stmts, :($num_nonempty_fieldname += !isempty(get_assmt($subtrace)) ? 1 : 0))
     push!(state.stmts, :($(node.name) = get_retval($subtrace)))
     push!(state.stmts, :($total_score_fieldname += get_score($subtrace)))
     push!(state.stmts, :($total_noise_fieldname += project($subtrace, EmptyAddressSet())))
@@ -109,7 +109,7 @@ end)
 function propose(gen_fn::StaticIRGenerativeFunction, args::Tuple)
     # TODO implement the actual propose
     (trace, weight) = initialize(gen_fn, args, EmptyAssignment())
-    (get_assignment(trace), weight, get_retval(trace))
+    (get_assmt(trace), weight, get_retval(trace))
 end
 
 function assess(gen_fn::StaticIRGenerativeFunction, args::Tuple, constraints::Assignment)

@@ -282,7 +282,7 @@ function generate_value_gradient_trie(selected_choices::Set{RandomChoiceNode},
 
     selected_calls_vec = collect(selected_calls)
     quoted_internal_keys = map((node) -> QuoteNode(node.addr), selected_calls_vec)
-    internal_values = map((node) -> :(get_assignment(trace.$(get_subtrace_fieldname(node)))),
+    internal_values = map((node) -> :(get_assmt(trace.$(get_subtrace_fieldname(node)))),
                           selected_calls_vec)
     internal_gradients = map((node) -> gradient_trie_var(node), selected_calls_vec)
 

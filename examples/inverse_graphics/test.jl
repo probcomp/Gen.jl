@@ -16,7 +16,7 @@ function do_inference(input_image)
     observations["image"] = input_image
 
     # fill in latent variables using proposal
-    latents = get_assignment(simulate(proposal, (observations,)))
+    latents = get_assmt(simulate(proposal, (observations,)))
     x = latents["x"]
     y = latents["y"]
     s = latents["size"]

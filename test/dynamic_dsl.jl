@@ -59,8 +59,8 @@ end
     constraints = DynamicAssignment()
     constraints[:branch] = true
     (trace,) = initialize(foo, (), constraints)
-    x = get_assignment(trace)[:x]
-    a = get_assignment(trace)[:u => :a]
+    x = get_assmt(trace)[:x]
+    a = get_assmt(trace)[:u => :a]
 
     # force to follow the second branch
     y = 1.123
@@ -80,7 +80,7 @@ end
     @test length(collect(get_subassmts_shallow(discard))) == 1
 
     # test new trace
-    new_assignment = get_assignment(new_trace)
+    new_assignment = get_assmt(new_trace)
     @test get_value(new_assignment, :branch) == false
     @test get_value(new_assignment, :y) == y
     @test get_value(new_assignment, :v => :b) == b
@@ -134,9 +134,9 @@ end
     constraints = DynamicAssignment()
     constraints[:branch] = true
     (trace,) = initialize(foo, (), constraints)
-    x = get_assignment(trace)[:x]
-    a = get_assignment(trace)[:u => :a]
-    z = get_assignment(trace)[:z]
+    x = get_assmt(trace)[:x]
+    a = get_assmt(trace)[:u => :a]
+    z = get_assmt(trace)[:z]
 
     # force to follow the second branch, and change z
     y = 1.123
@@ -155,7 +155,7 @@ end
     @test length(collect(get_subassmts_shallow(discard))) == 0
 
     # test new trace
-    new_assignment = get_assignment(new_trace)
+    new_assignment = get_assmt(new_trace)
     @test get_value(new_assignment, :branch) == false
     @test get_value(new_assignment, :z) == z_new
     y = get_value(new_assignment, :y)
@@ -211,8 +211,8 @@ end
     constraints = DynamicAssignment()
     constraints[:branch] = true
     (trace,) = initialize(foo, (mu,), constraints)
-    x = get_assignment(trace)[:x]
-    a = get_assignment(trace)[:u => :a]
+    x = get_assmt(trace)[:x]
+    a = get_assmt(trace)[:u => :a]
 
     # resimulate branch
     selection = DynamicAddressSet()
@@ -220,14 +220,14 @@ end
 
     # try 10 times, so we are likely to get both a stay and a switch
     for i=1:10
-        prev_assignment = get_assignment(trace)
+        prev_assignment = get_assmt(trace)
 
         # change the argument so that the weights can be nonzer
         prev_mu = mu
         mu = rand()
         (trace, weight, retdiff) = free_update(
             (mu,), unknownargdiff, trace, selection)
-        assignment = get_assignment(trace)
+        assignment = get_assmt(trace)
 
         # test score
         if assignment[:branch]

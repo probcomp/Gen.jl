@@ -27,7 +27,7 @@
 
         # without constraint
         (trace, weight) = initialize(at, (0.4, 3), EmptyAssignment())
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test weight == 0.
         y = assmt[3 => :y]
         @test get_retval(trace) == 0.4 + y
@@ -39,7 +39,7 @@
         constraints = DynamicAssignment()
         constraints[3 => :y] = y
         (trace, weight) = initialize(at, (0.4, 3), constraints)
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test assmt[3 => :y] == y
         @test get_retval(trace) == 0.4 + y
         @test isapprox(weight, logpdf(normal, y, 0.4, 1.))
@@ -69,7 +69,7 @@
         # change kernel_args, same key, no constraint
         (new_trace, weight, discard, retdiff) = force_update((0.2, 3), unknownargdiff,
             trace, EmptyAssignment())
-        assmt = get_assignment(new_trace)
+        assmt = get_assmt(new_trace)
         @test assmt[3 => :y] == y
         @test length(collect(get_values_shallow(assmt))) == 0
         @test length(collect(get_subassmts_shallow(assmt))) == 1
@@ -84,7 +84,7 @@
         constraints[3 => :y] = y_new
         (new_trace, weight, discard, retdiff) = force_update((0.2, 3), unknownargdiff,
             trace, constraints)
-        assmt = get_assignment(new_trace)
+        assmt = get_assmt(new_trace)
         @test assmt[3 => :y] == y_new
         @test length(collect(get_values_shallow(assmt))) == 0
         @test length(collect(get_subassmts_shallow(assmt))) == 1
@@ -101,7 +101,7 @@
         constraints[4 => :y] = y_new
         (new_trace, weight, discard, retdiff) = force_update((0.2, 4), unknownargdiff,
             trace, constraints)
-        assmt = get_assignment(new_trace)
+        assmt = get_assmt(new_trace)
         @test assmt[4 => :y] == y_new
         @test length(collect(get_values_shallow(assmt))) == 0
         @test length(collect(get_subassmts_shallow(assmt))) == 1
@@ -119,7 +119,7 @@
         # change kernel_args, same key, no constraint
         (new_trace, weight, discard, retdiff) = fix_update((0.2, 3), unknownargdiff,
             trace, EmptyAssignment())
-        assmt = get_assignment(new_trace)
+        assmt = get_assmt(new_trace)
         @test assmt[3 => :y] == y
         @test length(collect(get_values_shallow(assmt))) == 0
         @test length(collect(get_subassmts_shallow(assmt))) == 1
@@ -134,7 +134,7 @@
         constraints[3 => :y] = y_new
         (new_trace, weight, discard, retdiff) = fix_update((0.2, 3), unknownargdiff,
             trace, constraints)
-        assmt = get_assignment(new_trace)
+        assmt = get_assmt(new_trace)
         @test assmt[3 => :y] == y_new
         @test length(collect(get_values_shallow(assmt))) == 0
         @test length(collect(get_subassmts_shallow(assmt))) == 1
@@ -148,7 +148,7 @@
         # change kernel_args, different key, no constraint
         (new_trace, weight, discard, retdiff) = fix_update((0.2, 4), unknownargdiff,
             trace, EmptyAssignment())
-        assmt = get_assignment(new_trace)
+        assmt = get_assmt(new_trace)
         y_new = assmt[4 => :y]
         @test length(collect(get_values_shallow(assmt))) == 0
         @test length(collect(get_subassmts_shallow(assmt))) == 1
@@ -164,7 +164,7 @@
         # change kernel_args, same key, not selected
         (new_trace, weight, retdiff) = free_update((0.2, 3), unknownargdiff,
             trace, EmptyAddressSet())
-        assmt = get_assignment(new_trace)
+        assmt = get_assmt(new_trace)
         @test assmt[3 => :y] == y
         @test length(collect(get_values_shallow(assmt))) == 0
         @test length(collect(get_subassmts_shallow(assmt))) == 1
@@ -177,7 +177,7 @@
         push_leaf_node!(selection, 3 => :y)
         (new_trace, weight, retdiff) = free_update((0.2, 3), unknownargdiff,
             trace, selection)
-        assmt = get_assignment(new_trace)
+        assmt = get_assmt(new_trace)
         y_new = assmt[3 => :y]
         @test length(collect(get_values_shallow(assmt))) == 0
         @test length(collect(get_subassmts_shallow(assmt))) == 1
@@ -188,7 +188,7 @@
         # change kernel_args, different key, not selected
         (new_trace, weight, retdiff) = free_update((0.2, 4), unknownargdiff,
             trace, EmptyAddressSet())
-        assmt = get_assignment(new_trace)
+        assmt = get_assmt(new_trace)
         y_new = assmt[4 => :y]
         @test length(collect(get_values_shallow(assmt))) == 0
         @test length(collect(get_subassmts_shallow(assmt))) == 1
@@ -203,7 +203,7 @@
         # change kernel_args, same key, no constraint (the only valid input)
         (new_trace, weight, retdiff) = extend((0.2, 3), unknownargdiff,
             trace, EmptyAssignment())
-        assmt = get_assignment(new_trace)
+        assmt = get_assmt(new_trace)
         @test assmt[3 => :y] == y
         @test length(collect(get_values_shallow(assmt))) == 0
         @test length(collect(get_subassmts_shallow(assmt))) == 1

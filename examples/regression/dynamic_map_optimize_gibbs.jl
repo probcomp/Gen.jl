@@ -48,7 +48,7 @@ function do_inference(xs, ys, num_iters)
         scores[i] = score
     
         # print
-        assignment = get_assignment(trace)
+        assignment = get_assmt(trace)
         slope = assignment[:slope]
         intercept = assignment[:intercept]
         inlier_std = exp(assignment[:log_inlier_std])

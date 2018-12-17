@@ -5,27 +5,27 @@ include("dynamic_model.jl")
 include("dataset.jl")
 
 @gen function slope_proposal(prev)
-    slope = get_assignment(prev)[:slope]
+    slope = get_assmt(prev)[:slope]
     @addr(normal(slope, 0.5), :slope)
 end
 
 @gen function intercept_proposal(prev)
-    intercept = get_assignment(prev)[:intercept]
+    intercept = get_assmt(prev)[:intercept]
     @addr(normal(intercept, 0.5), :intercept)
 end
 
 @gen function inlier_std_proposal(prev)
-    log_inlier_std = get_assignment(prev)[:log_inlier_std]
+    log_inlier_std = get_assmt(prev)[:log_inlier_std]
     @addr(normal(log_inlier_std, 0.5), :log_inlier_std)
 end
 
 @gen function outlier_std_proposal(prev)
-    log_outlier_std = get_assignment(prev)[:log_outlier_std]
+    log_outlier_std = get_assmt(prev)[:log_outlier_std]
     @addr(normal(log_outlier_std, 0.5), :log_outlier_std)
 end
 
 @gen function is_outlier_proposal(prev, i::Int)
-    prev = get_assignment(prev)[:data => i => :z]
+    prev = get_assmt(prev)[:data => i => :z]
     @addr(bernoulli(prev ? 0.0 : 1.0), :data => i => :z)
 end
 
@@ -58,7 +58,7 @@ function do_inference(xs, ys, num_iters)
         scores[i] = score
 
         # print
-        assignment = get_assignment(trace)
+        assignment = get_assmt(trace)
         slope = assignment[:slope]
         intercept = assignment[:intercept]
         inlier_std = exp(assignment[:log_inlier_std])

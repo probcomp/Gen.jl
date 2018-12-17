@@ -44,7 +44,7 @@ end
 
 # trace API
 
-get_assignment(trace::VectorTrace) = VectorTraceAssignment(trace)
+get_assmt(trace::VectorTrace) = VectorTraceAssignment(trace)
 get_retval(trace::VectorTrace) = trace.retval
 get_args(trace::VectorTrace) = trace.args
 get_score(trace::VectorTrace) = trace.score
@@ -75,14 +75,14 @@ get_address_schema(::Type{VectorTraceAssignment}) = VectorAddressSchema()
 
 function get_subassmt(assmt::VectorTraceAssignment, addr::Int)
     if addr <= assmt.trace.len
-        get_assignment(assmt.trace.subtraces[addr])
+        get_assmt(assmt.trace.subtraces[addr])
     else
         EmptyAssignment()
     end
 end
 
 function get_subassmts_shallow(assmt::VectorTraceAssignment)
-    ((i, get_assignment(assmt.trace.subtraces[i])) for i=1:assmt.trace.len)
+    ((i, get_assmt(assmt.trace.subtraces[i])) for i=1:assmt.trace.len)
 end
 
 get_subassmt(assmt::VectorTraceAssignment, addr::Pair) = _get_subassmt(assmt, addr)
@@ -150,11 +150,11 @@ function vector_force_update_delete(new_length::Int, prev_length::Int,
         subtrace = prev_trace.subtraces[key]
         score_decrement += get_score(subtrace)
         noise_decrement += project(subtrace, EmptyAddressSet())
-        if !isempty(get_assignment(subtrace))
+        if !isempty(get_assmt(subtrace))
             num_nonempty -= 1
         end
         @assert num_nonempty >= 0
-        set_subassmt!(discard, key, get_assignment(subtrace))
+        set_subassmt!(discard, key, get_assmt(subtrace))
     end
     return (discard, num_nonempty, score_decrement, noise_decrement)
 end
@@ -168,7 +168,7 @@ function vector_fix_free_update_delete(new_length::Int, prev_length::Int,
         subtrace = prev_trace.subtraces[key]
         score_decrement += get_score(subtrace)
         noise_decrement += project(subtrace, EmptyAddressSet())
-        if !isempty(get_assignment(subtrace))
+        if !isempty(get_assmt(subtrace))
             num_nonempty -= 1
         end
         @assert num_nonempty >= 0

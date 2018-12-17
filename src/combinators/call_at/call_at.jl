@@ -32,8 +32,8 @@ get_retval(trace::CallAtTrace) = get_retval(trace.subtrace)
 get_score(trace::CallAtTrace) = get_score(trace.subtrace)
 get_gen_fn(trace::CallAtTrace) = trace.gen_fn
 
-function get_assignment(trace::CallAtTrace)
-    CallAtAssignment(trace.key, get_assignment(trace.subtrace))
+function get_assmt(trace::CallAtTrace)
+    CallAtAssignment(trace.key, get_assmt(trace.subtrace))
 end
 
 struct CallAtCombinator{T,U,K} <: GenerativeFunction{T, CallAtTrace}
@@ -90,7 +90,7 @@ function force_update(args::Tuple, argdiff, trace::CallAtTrace,
     if key_changed
         (subtrace, weight) = initialize(trace.gen_fn.kernel, kernel_args, subassmt)
         weight -= get_score(trace.subtrace)
-        discard = get_assignment(trace)
+        discard = get_assmt(trace)
         retdiff = DefaultRetDiff()
     else
         (subtrace, weight, subdiscard, retdiff) = force_update(

@@ -18,7 +18,7 @@ struct ChoiceAtAssignment{T,K} <: Assignment
     value::T
 end
 
-get_assignment(trace::ChoiceAtTrace) = ChoiceAtAssignment(trace.key, trace.value)
+get_assmt(trace::ChoiceAtTrace) = ChoiceAtAssignment(trace.key, trace.value)
 Base.isempty(::ChoiceAtAssignment) = false
 function get_address_schema(::Type{T}) where {T<:ChoiceAtAssignment}
     SingleDynamicKeyAddressSchema()

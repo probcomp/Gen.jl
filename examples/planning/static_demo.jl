@@ -81,7 +81,7 @@ function experiment()
     render(scene, trace, ax)
     savefig("ground_truth.png")
 
-    assignment = get_assignment(trace)
+    assignment = get_assmt(trace)
     measurements = [Point(
         assignment[:measurements => i => :x],
         assignment[:measurements => i => :y]) for i=1:length(times)]

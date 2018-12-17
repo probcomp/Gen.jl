@@ -5,7 +5,7 @@ include("static_model.jl")
 include("dataset.jl")
 
 @staticgen function is_outlier_proposal(prev, i::Int)
-    prev_z::Bool = get_assignment(prev)[:data => i => :z]
+    prev_z::Bool = get_assmt(prev)[:data => i => :z]
     @addr(bernoulli(prev_z ? 0.0 : 1.0), :data => i => :z)
 end
 
@@ -51,7 +51,7 @@ function do_inference(xs, ys, num_iters)
         scores[i] = score
     
         # print
-        assignment = get_assignment(trace)
+        assignment = get_assmt(trace)
         slope = assignment[:slope]
         intercept = assignment[:intercept]
         inlier_std = exp(assignment[:log_inlier_std])

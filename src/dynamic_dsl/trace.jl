@@ -48,7 +48,7 @@ function add_call!(trace::DynamicDSLTrace, addr, subtrace)
     score = get_score(subtrace)
     noise = project(subtrace, EmptyAddressSet())
     call = CallRecord(subtrace, score, noise)
-    subassmt = get_assignment(subtrace)
+    subassmt = get_assmt(subtrace)
     trace.isempty = trace.isempty && isempty(subassmt)
     trace.calls[addr] = call
     trace.score += score
@@ -69,7 +69,7 @@ struct DynamicDSLTraceAssignment <: Assignment
     end
 end
 
-function get_assignment(trace::DynamicDSLTrace)
+function get_assmt(trace::DynamicDSLTrace)
     if !trace.isempty
         DynamicDSLTraceAssignment(trace)
     else
@@ -83,7 +83,7 @@ Base.isempty(::DynamicDSLTraceAssignment) = false
 function _get_subassmt(calls::Trie, addr::Pair)
     (first, rest) = addr
     if haskey(calls, first)
-        get_subassmt(get_assignment(calls[first].subtrace), rest)
+        get_subassmt(get_assmt(calls[first].subtrace), rest)
     elseif has_internal_node(calls, first)
         subcalls = get_internal_node(calls, first)
         _get_subassmt(subcalls, rest)
@@ -99,7 +99,7 @@ end
 function get_subassmt(assmt::DynamicDSLTraceAssignment, addr)
     if haskey(assmt.trace.calls, addr)
         call = assmt.trace.calls[addr]
-        get_assignment(call.subtrace)
+        get_assmt(call.subtrace)
     else
         EmptyAssignment()
     end
@@ -108,7 +108,7 @@ end
 function _has_value(calls::Trie, addr::Pair)
     (first, rest) = addr
     if haskey(calls, first)
-        has_value(get_assignment(calls[first].subtrace), rest)
+        has_value(get_assmt(calls[first].subtrace), rest)
     elseif has_internal_node(calls, first)
         subcalls = get_internal_node(calls, first)
         _has_value(subcalls, rest)
@@ -132,7 +132,7 @@ end
 function _get_value(calls::Trie, addr::Pair)
     (first, rest) = addr
     if haskey(calls, first)
-        get_value(get_assignment(calls[first].subtrace), rest)
+        get_value(get_assmt(calls[first].subtrace), rest)
     elseif has_internal_node(calls, first)
         subcalls = get_internal_node(calls, first)
         _get_value(subcalls, rest)
@@ -159,7 +159,7 @@ function get_values_shallow(assmt::DynamicDSLTraceAssignment)
 end
 
 function get_subassmts_shallow(assmt::DynamicDSLTraceAssignment)
-    calls_iter = ((key, get_assignment(call.subtrace))
+    calls_iter = ((key, get_assmt(call.subtrace))
         for (key, call) in get_leaf_nodes(assmt.trace.calls))
     choices_iter = ((key, DynamicDSLChoicesAssmt(trie))
         for (key, trie) in get_internal_nodes(assmt.trace.choices))

@@ -35,8 +35,8 @@ function process_retained!(gen_fn::Map{T,U}, args::Tuple,
     state.subtraces = assoc(state.subtraces, key, subtrace)
     retval = get_retval(subtrace)
     state.retval = assoc(state.retval, key, retval)
-    subtrace_empty = isempty(get_assignment(subtrace))
-    prev_subtrace_empty = isempty(get_assignment(prev_subtrace))
+    subtrace_empty = isempty(get_assmt(subtrace))
+    prev_subtrace_empty = isempty(get_assmt(prev_subtrace))
     @assert !(subtrace_empty && !prev_subtrace_empty)
     if !subtrace_empty && prev_subtrace_empty
         state.num_nonempty += 1
@@ -62,7 +62,7 @@ function process_new!(gen_fn::Map{T,U}, args::Tuple, assmt, key::Int,
     state.subtraces = push(state.subtraces, subtrace)
     state.retval = push(state.retval, retval)
     @assert length(state.subtraces) == key
-    if !isempty(get_assignment(subtrace))
+    if !isempty(get_assmt(subtrace))
         state.num_nonempty += 1
     end
 end

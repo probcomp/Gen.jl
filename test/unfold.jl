@@ -26,7 +26,7 @@
         constraints[1 => :x] = x1
         constraints[3 => :x] = x3
         (trace, weight) = initialize(foo, (3, x_init, alpha, beta), constraints)
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test assmt[1 => :x] == x1
         @test assmt[3 => :x] == x3
         @test length(collect(get_values_shallow(assmt))) == 0
@@ -113,7 +113,7 @@
         constraints[3 => :x] = x3_new
         (trace, weight, discard, retdiff) = force_update((3, x_init, alpha_new, beta),
             unknownargdiff, trace, constraints)
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test get_args(trace) == (3, x_init, alpha_new, beta)
         @test assmt[1 => :x] == x1
         @test assmt[2 => :x] == x2_new
@@ -149,7 +149,7 @@
         constraints[1 => :x] = x1_new
         (trace, weight, discard, retdiff) = force_update((1, x_init, alpha_new, beta),
             unknownargdiff, trace, constraints)
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test get_args(trace) == (1, x_init, alpha_new, beta)
         @test !has_value(assmt, 2 => :x)
         @test !has_value(assmt, 3 => :x)
@@ -173,7 +173,7 @@
         trace = get_initial_trace()
         (trace, weight, discard, retdiff) = force_update((2, x_init, alpha, beta),
             noargdiff, trace, EmptyAssignment())
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test get_args(trace) == (2, x_init, alpha, beta)
         @test assmt[1 => :x] == x1
         @test assmt[2 => :x] == x2
@@ -196,7 +196,7 @@
         constraints[2 => :x] = x2_new
         (trace, weight, discard, retdiff) = force_update((2, x_init, alpha, beta),
             noargdiff, trace, constraints)
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test get_args(trace) == (2, x_init, alpha, beta)
         @test assmt[1 => :x] == x1
         @test assmt[2 => :x] == x2_new
@@ -221,7 +221,7 @@
         x_init_new = 0.1
         (trace, weight, discard, retdiff) = force_update((2, x_init_new, alpha, beta),
             UnfoldCustomArgDiff(true, false), trace, EmptyAssignment())
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test get_args(trace) == (2, x_init_new, alpha, beta)
         @test assmt[1 => :x] == x1
         @test assmt[2 => :x] == x2
@@ -244,7 +244,7 @@
         alpha_new = 0.5
         (trace, weight, discard, retdiff) = force_update((2, x_init, alpha_new, beta),
             UnfoldCustomArgDiff(false, true), trace, EmptyAssignment())
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test get_args(trace) == (2, x_init, alpha_new, beta)
         @test assmt[1 => :x] == x1
         @test assmt[2 => :x] == x2
@@ -288,7 +288,7 @@
         constraints[2 => :x] = x2_new
         (trace, weight, discard, retdiff) = fix_update((3, x_init, alpha_new, beta),
             unknownargdiff, trace, constraints)
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test get_args(trace) == (3, x_init, alpha_new, beta)
         @test assmt[1 => :x] == x1
         @test assmt[2 => :x] == x2_new
@@ -322,7 +322,7 @@
         constraints[1 => :x] = x1_new
         (trace, weight, discard, retdiff) = fix_update((1, x_init, alpha_new, beta),
             unknownargdiff, trace, constraints)
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test get_args(trace) == (1, x_init, alpha_new, beta)
         @test !has_value(assmt, 2 => :x)
         @test !has_value(assmt, 3 => :x)
@@ -345,7 +345,7 @@
         trace = get_initial_trace()
         (trace, weight, discard, retdiff) = fix_update((2, x_init, alpha, beta),
             noargdiff, trace, EmptyAssignment())
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test get_args(trace) == (2, x_init, alpha, beta)
         @test assmt[1 => :x] == x1
         @test assmt[2 => :x] == x2
@@ -368,7 +368,7 @@
         constraints[2 => :x] = x2_new
         (trace, weight, discard, retdiff) = fix_update((2, x_init, alpha, beta),
             noargdiff, trace, constraints)
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test get_args(trace) == (2, x_init, alpha, beta)
         @test assmt[1 => :x] == x1
         @test assmt[2 => :x] == x2_new
@@ -393,7 +393,7 @@
         x_init_new = -0.1
         (trace, weight, discard, retdiff) = fix_update((2, x_init_new, alpha, beta),
             UnfoldCustomArgDiff(true, false), trace, EmptyAssignment())
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test get_args(trace) == (2, x_init_new, alpha, beta)
         @test assmt[1 => :x] == x1
         @test assmt[2 => :x] == x2
@@ -416,7 +416,7 @@
         alpha_new = 0.5
         (trace, weight, discard, retdiff) = fix_update((2, x_init, alpha_new, beta),
             UnfoldCustomArgDiff(false, true), trace, EmptyAssignment())
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test get_args(trace) == (2, x_init, alpha_new, beta)
         @test assmt[1 => :x] == x1
         @test assmt[2 => :x] == x2
@@ -459,7 +459,7 @@
         push_leaf_node!(selection, 2 => :x)
         (trace, weight, retdiff) = free_update((3, x_init, alpha_new, beta),
             unknownargdiff, trace, selection)
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test get_args(trace) == (3, x_init, alpha_new, beta)
         @test assmt[1 => :x] == x1
         x2_new = assmt[2 => :x]
@@ -489,7 +489,7 @@
         push_leaf_node!(selection, 1 => :x)
         (trace, weight, retdiff) = free_update((1, x_init, alpha_new, beta),
             unknownargdiff, trace, selection)
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test get_args(trace) == (1, x_init, alpha_new, beta)
         @test !has_value(assmt, 2 => :x)
         @test !has_value(assmt, 3 => :x)
@@ -508,7 +508,7 @@
         trace = get_initial_trace()
         (trace, weight, retdiff) = free_update((2, x_init, alpha, beta),
             noargdiff, trace, EmptyAddressSet())
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test get_args(trace) == (2, x_init, alpha, beta)
         @test assmt[1 => :x] == x1
         @test assmt[2 => :x] == x2
@@ -530,7 +530,7 @@
         push_leaf_node!(selection, 2 => :x)
         (trace, weight, retdiff) = free_update((2, x_init, alpha, beta),
             noargdiff, trace, selection)
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test get_args(trace) == (2, x_init, alpha, beta)
         @test assmt[1 => :x] == x1
         x2_new = assmt[2 => :x]
@@ -552,7 +552,7 @@
         x_init_new = -0.1
         (trace, weight, retdiff) = free_update((2, x_init_new, alpha, beta),
             UnfoldCustomArgDiff(true, false), trace, EmptyAddressSet())
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test get_args(trace) == (2, x_init_new, alpha, beta)
         @test assmt[1 => :x] == x1
         @test assmt[2 => :x] == x2
@@ -574,7 +574,7 @@
         alpha_new = 0.5
         (trace, weight, retdiff) = free_update((2, x_init, alpha_new, beta),
             UnfoldCustomArgDiff(false, true), trace, EmptyAddressSet())
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test get_args(trace) == (2, x_init, alpha_new, beta)
         @test assmt[1 => :x] == x1
         @test assmt[2 => :x] == x2
@@ -619,7 +619,7 @@
         constraints[4 => :x] = x4_new
         (trace, weight, retdiff) = extend((4, x_init, alpha_new, beta),
             unknownargdiff, trace, constraints)
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test get_args(trace) == (4, x_init, alpha_new, beta)
         @test assmt[1 => :x] == x1
         @test assmt[2 => :x] == x2

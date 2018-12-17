@@ -17,7 +17,7 @@ function process!(gen_fn::Unfold{T,U}, params::Tuple, assmt::Assignment,
     (subtrace, weight) = initialize(gen_fn.kernel, kernel_args, subassmt)
     state.weight += weight 
     state.noise += project(subtrace, EmptyAddressSet())
-    state.num_nonempty += (isempty(get_assignment(subtrace)) ? 0 : 1)
+    state.num_nonempty += (isempty(get_assmt(subtrace)) ? 0 : 1)
     state.score += get_score(subtrace)
     state.subtraces[key] = subtrace
     new_state = get_retval(subtrace)

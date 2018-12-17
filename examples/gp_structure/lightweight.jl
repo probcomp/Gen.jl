@@ -105,7 +105,7 @@ function inference(xs::Vector{Float64}, ys::Vector{Float64}, num_iters::Int)
         println(get_score(trace))
     end
     
-    noise = get_assignment(trace)[:noise]
+    noise = get_assmt(trace)[:noise]
     return (covariance_fn, noise)
 end
 

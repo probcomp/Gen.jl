@@ -166,7 +166,7 @@ Gen.isnodiff(::StringDiff) = false
     @test isapprox(get_score(trace), actual_weight)
     @test get_args(trace) == (nothing, 1)
     @test get_retval(trace) == "(.b(.a(.b(-bb)b)a)b)"
-    assignment = get_assignment(trace)
+    assignment = get_assmt(trace)
     @test assignment[(1, Val(:production)) => :rule] == 2
     @test assignment[(1, Val(:aggregation)) => :prefix] == true
     @test assignment[(2, Val(:production)) => :rule] == 1
@@ -185,7 +185,7 @@ Gen.isnodiff(::StringDiff) = false
     @test isapprox(get_score(new_trace), expected_score)
     @test get_args(new_trace) == (nothing, 1)
     @test get_retval(new_trace) == "(.b(.a(-b(-bb)b)a)b)"
-    assignment = get_assignment(new_trace)
+    assignment = get_assmt(new_trace)
     @test assignment[(1, Val(:production)) => :rule] == 2
     @test assignment[(1, Val(:aggregation)) => :prefix] == true
     @test assignment[(2, Val(:production)) => :rule] == 1
@@ -210,7 +210,7 @@ Gen.isnodiff(::StringDiff) = false
     @test isapprox(get_score(new_trace), log(0.26) + log(0.24) + log(0.23) + log(0.4) + log(0.4) + log(0.4))
     @test get_args(new_trace) == (nothing, 1)
     @test get_retval(new_trace) == "(.b(.a(.aa)a)b)"
-    assignment = get_assignment(new_trace)
+    assignment = get_assmt(new_trace)
     @test assignment[(1, Val(:production)) => :rule] == 2
     @test assignment[(1, Val(:aggregation)) => :prefix] == true
     @test assignment[(2, Val(:production)) => :rule] == 1

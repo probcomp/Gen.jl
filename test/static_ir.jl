@@ -52,10 +52,10 @@ using Gen: generate_generative_function
     constraints[:y] = y_constraint
     constraints[:v => :b] = b_constraint
     (trace, weight) = initialize(foo, (), constraints)
-    x = get_assignment(trace)[:x]
-    a = get_assignment(trace)[:u => :a]
-    y = get_assignment(trace)[:y]
-    b = get_assignment(trace)[:v => :b]
+    x = get_assmt(trace)[:x]
+    a = get_assmt(trace)[:u => :a]
+    y = get_assmt(trace)[:y]
+    b = get_assmt(trace)[:v => :b]
 
     @test isapprox(y, y_constraint)
     @test isapprox(b, b_constraint)
@@ -85,8 +85,8 @@ end
     assmt[:y] = y
     assmt[:v => :b] = b
     (trace, weight) = initialize(foo, (), assmt)
-    x = get_assignment(trace)[:x]
-    a = get_assignment(trace)[:u => :a]
+    x = get_assmt(trace)[:x]
+    a = get_assmt(trace)[:u => :a]
     selection = DynamicAddressSet()
     push_leaf_node!(selection, :y)
     push_leaf_node!(selection, :u => :a)
@@ -104,10 +104,10 @@ end
         # get a trace
         constraints = DynamicAssignment()
         (trace,) = initialize(foo, (), constraints)
-        x_prev = get_assignment(trace)[:x]
-        a_prev = get_assignment(trace)[:u => :a]
-        y_prev = get_assignment(trace)[:y]
-        b_prev = get_assignment(trace)[:v => :b]
+        x_prev = get_assmt(trace)[:x]
+        a_prev = get_assmt(trace)[:u => :a]
+        y_prev = get_assmt(trace)[:y]
+        b_prev = get_assmt(trace)[:v => :b]
     
         # force change to two of the variables
         y_new = 1.123
@@ -125,7 +125,7 @@ end
         @test length(collect(get_subassmts_shallow(discard))) == 1
     
         # test new trace
-        new_assmt = get_assignment(new_trace)
+        new_assmt = get_assmt(new_trace)
         @test get_value(new_assmt, :y) == y_new
         @test get_value(new_assmt, :v => :b) == b_new
         @test length(collect(get_values_shallow(new_assmt))) == 2
@@ -159,10 +159,10 @@ end
     # get a trace
     constraints = DynamicAssignment()
     (trace,) = initialize(foo, (), constraints)
-    x_prev = get_assignment(trace)[:x]
-    a_prev = get_assignment(trace)[:u => :a]
-    y_prev = get_assignment(trace)[:y]
-    b_prev = get_assignment(trace)[:v => :b]
+    x_prev = get_assmt(trace)[:x]
+    a_prev = get_assmt(trace)[:u => :a]
+    y_prev = get_assmt(trace)[:y]
+    b_prev = get_assmt(trace)[:v => :b]
 
     # resample :y and :v => :b
     selection = DynamicAddressSet()
@@ -172,7 +172,7 @@ end
         (), unknownargdiff, trace, selection)
 
     # test new trace
-    new_assmt = get_assignment(new_trace)
+    new_assmt = get_assmt(new_trace)
     @test get_value(new_assmt, :x) == x_prev
     @test get_value(new_assmt, :u => :a) == a_prev
     y_new = get_value(new_assmt, :y)
@@ -206,10 +206,10 @@ end
     # get a trace
     constraints = DynamicAssignment()
     (trace,) = initialize(foo, (), constraints)
-    x_prev = get_assignment(trace)[:x]
-    a_prev = get_assignment(trace)[:u => :a]
-    y_prev = get_assignment(trace)[:y]
-    b_prev = get_assignment(trace)[:v => :b]
+    x_prev = get_assmt(trace)[:x]
+    a_prev = get_assmt(trace)[:u => :a]
+    y_prev = get_assmt(trace)[:y]
+    b_prev = get_assmt(trace)[:v => :b]
 
     # don't do anything.. TODO write a better test
     constraints = DynamicAssignment()
@@ -217,7 +217,7 @@ end
         (), unknownargdiff, trace, constraints)
 
     # test new trace
-    new_assmt = get_assignment(new_trace)
+    new_assmt = get_assmt(new_trace)
     @test get_value(new_assmt, :x) == x_prev
     @test get_value(new_assmt, :u => :a) == a_prev
     @test get_value(new_assmt, :y) == y_prev

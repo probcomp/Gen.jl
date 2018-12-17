@@ -240,7 +240,7 @@ function force_update(args::Tuple, argdiff, trace::DynamicDSLTrace,
     visited = get_visited(state.visitor)
     state.weight -= force_delete_recurse(trace.choices, visited)
     state.weight -= force_delete_recurse(trace.calls, visited)
-    add_unvisited_to_discard!(state.discard, visited, get_assignment(trace))
+    add_unvisited_to_discard!(state.discard, visited, get_assmt(trace))
     if !all_visited(visited, constraints)
         error("Did not visit all constraints")
     end

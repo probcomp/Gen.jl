@@ -125,9 +125,9 @@ function generate_get_retval(ir::StaticIR, trace_struct_name::Symbol)
         Expr(:block, :(trace.$return_value_fieldname)))
 end
 
-function generate_get_assignment(trace_struct_name::Symbol)
+function generate_get_assmt(trace_struct_name::Symbol)
     Expr(:function,
-        Expr(:call, :(Gen.get_assignment), :(trace::$trace_struct_name)),
+        Expr(:call, :(Gen.get_assmt), :(trace::$trace_struct_name)),
         Expr(:if, :(!isempty(trace)),
             :(Gen.StaticIRTraceAssmt(trace)),
             :(Gen.EmptyAssignment())))
@@ -151,7 +151,7 @@ function generate_get_subassmts_shallow(ir::StaticIR, trace_struct_name::Symbol)
     for node in ir.call_nodes
         addr = node.addr
         subtrace = :(assmt.trace.$(get_subtrace_fieldname(node)))
-        push!(elements, :(($(QuoteNode(addr)), get_assignment($subtrace))))
+        push!(elements, :(($(QuoteNode(addr)), get_assmt($subtrace))))
     end
     Expr(:function, 
         Expr(:call, :(Gen.get_subassmts_shallow),
@@ -191,7 +191,7 @@ function generate_static_get_subassmt(ir::StaticIR, trace_struct_name::Symbol)
                         :(assmt::Gen.StaticIRTraceAssmt{$trace_struct_name}),
                         :(::Val{$(QuoteNode(node.addr))})),
             Expr(:block,
-                :(get_assignment(assmt.trace.$(get_subtrace_fieldname(node)))))))
+                :(get_assmt(assmt.trace.$(get_subtrace_fieldname(node)))))))
     end
 
     # throw a KeyError if get_subassmt is run on an address containing a value
@@ -223,7 +223,7 @@ function generate_trace_type_and_methods(ir::StaticIR, name::Symbol)
     get_score_expr = generate_get_score(trace_struct_name)
     get_args_expr = generate_get_args(ir, trace_struct_name)
     get_retval_expr = generate_get_retval(ir, trace_struct_name)
-    get_assignment_expr = generate_get_assignment(trace_struct_name)
+    get_assmt_expr = generate_get_assmt(trace_struct_name)
     get_schema_expr = generate_get_schema(ir, trace_struct_name)
     get_values_shallow_expr = generate_get_values_shallow(ir, trace_struct_name)
     get_subassmts_shallow_expr = generate_get_subassmts_shallow(ir, trace_struct_name)
@@ -232,7 +232,7 @@ function generate_trace_type_and_methods(ir::StaticIR, name::Symbol)
     static_get_subassmt_exprs = generate_static_get_subassmt(ir, trace_struct_name)
     exprs = Expr(:block, trace_struct_expr, isempty_expr, get_score_expr,
                  get_args_expr, get_retval_expr,
-                 get_assignment_expr, get_schema_expr, get_values_shallow_expr,
+                 get_assmt_expr, get_schema_expr, get_values_shallow_expr,
                  get_subassmts_shallow_expr, static_get_value_exprs...,
                  static_has_value_exprs..., static_get_subassmt_exprs...)
     (exprs, trace_struct_name)

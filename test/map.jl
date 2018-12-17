@@ -21,7 +21,7 @@
         constraints = DynamicAssignment()
         constraints[1 => :z] = z1
         (trace, weight) = initialize(bar, (xs[1:2], ys[1:2]), constraints)
-        assignment = get_assignment(trace)
+        assignment = get_assmt(trace)
         @test assignment[1 => :z] == z1
         z2 = assignment[2 => :z]
         @test isapprox(weight, logpdf(normal, z1, 4., 1.))
@@ -66,7 +66,7 @@
         constraints[3 => :z] = z3_new
         (trace, weight, discard, retdiff) = force_update(
             (xs[1:3], ys[1:3]), unknownargdiff, trace, constraints)
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test get_args(trace) == (xs[1:3], ys[1:3])
         @test assmt[1 => :z] == z1
         @test assmt[2 => :z] == z2_new
@@ -98,7 +98,7 @@
         constraints[1 => :z] = z1_new
         (trace, weight, discard, retdiff) = force_update(
             (xs[1:1], ys[1:1]), unknownargdiff, trace, constraints)
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test get_args(trace) == (xs[1:1], ys[1:1])
         @test !has_value(assmt, 2 => :z)
         @test !has_value(assmt, 3 => :z)
@@ -123,7 +123,7 @@
         constraints = DynamicAssignment()
         (trace, weight, discard, retdiff) = force_update(
             (xs[1:2], ys[1:2]), noargdiff, trace, constraints)
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test get_args(trace) == (xs[1:2], ys[1:2])
         @test assmt[1 => :z] == z1
         @test assmt[2 => :z] == z2
@@ -146,7 +146,7 @@
         constraints[2 => :z] = z2_new
         (trace, weight, discard, retdiff) = force_update(
             (xs[1:2], ys[1:2]), noargdiff, trace, constraints)
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test get_args(trace) == (xs[1:2], ys[1:2])
         @test assmt[1 => :z] == z1
         @test assmt[2 => :z] == z2_new
@@ -174,7 +174,7 @@
         constraints = DynamicAssignment()
         (trace, weight, discard, retdiff) = force_update(
             (xs_new[1:2], ys[1:2]), argdiff, trace, constraints)
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test get_args(trace) == (xs_new[1:2], ys[1:2])
         @test assmt[1 => :z] == z1
         @test assmt[2 => :z] == z2
@@ -211,7 +211,7 @@
         constraints[2 => :z] = z2_new
         (trace, weight, discard, retdiff) = fix_update(
             (xs[1:3], ys[1:3]), unknownargdiff, trace, constraints)
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test get_args(trace) == (xs[1:3], ys[1:3])
         @test assmt[1 => :z] == z1
         @test assmt[2 => :z] == z2_new
@@ -240,7 +240,7 @@
         constraints[1 => :z] = z1_new
         (trace, weight, discard, retdiff) = fix_update(
             (xs[1:1], ys[1:1]), unknownargdiff, trace, constraints)
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test get_args(trace) == (xs[1:1], ys[1:1])
         @test !has_value(assmt, 2 => :z)
         @test !has_value(assmt, 3 => :z)
@@ -262,7 +262,7 @@
         constraints = DynamicAssignment()
         (trace, weight, discard, retdiff) = fix_update(
             (xs[1:2], ys[1:2]), noargdiff, trace, constraints)
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test get_args(trace) == (xs[1:2], ys[1:2])
         @test assmt[1 => :z] == z1
         @test assmt[2 => :z] == z2
@@ -285,7 +285,7 @@
         constraints[2 => :z] = z2_new
         (trace, weight, discard, retdiff) = fix_update(
             (xs[1:2], ys[1:2]), noargdiff, trace, constraints)
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test get_args(trace) == (xs[1:2], ys[1:2])
         @test assmt[1 => :z] == z1
         @test assmt[2 => :z] == z2_new
@@ -313,7 +313,7 @@
         constraints = DynamicAssignment()
         (trace, weight, discard, retdiff) = fix_update(
             (xs_new[1:2], ys[1:2]), argdiff, trace, constraints)
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test get_args(trace) == (xs_new[1:2], ys[1:2])
         @test assmt[1 => :z] == z1
         @test assmt[2 => :z] == z2
@@ -349,7 +349,7 @@
         push_leaf_node!(selection, 2 => :z)
         (trace, weight, retdiff) = free_update(
             (xs[1:3], ys[1:3]), unknownargdiff, trace, selection)
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test get_args(trace) == (xs[1:3], ys[1:3])
         @test assmt[1 => :z] == z1
         z2_new = assmt[2 => :z]
@@ -366,7 +366,7 @@
         push_leaf_node!(selection, 1 => :z)
         (trace, weight, retdiff) = free_update(
             (xs[1:1], ys[1:1]), unknownargdiff, trace, selection)
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test get_args(trace) == (xs[1:1], ys[1:1])
         @test !has_value(assmt, 2 => :z)
         @test !has_value(assmt, 3 => :z)
@@ -379,7 +379,7 @@
         selection = EmptyAddressSet()
         (trace, weight, retdiff) = free_update(
             (xs[1:2], ys[1:2]), noargdiff, trace, selection)
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test get_args(trace) == (xs[1:2], ys[1:2])
         @test assmt[1 => :z] == z1
         @test assmt[2 => :z] == z2
@@ -400,7 +400,7 @@
         push_leaf_node!(selection, 2 => :z)
         (trace, weight, retdiff) = free_update(
             (xs[1:2], ys[1:2]), noargdiff, trace, selection)
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test get_args(trace) == (xs[1:2], ys[1:2])
         @test assmt[1 => :z] == z1
         z2_new = assmt[2 => :z]
@@ -425,7 +425,7 @@
         selection = EmptyAddressSet()
         (trace, weight, retdiff) = free_update(
             (xs_new[1:2], ys[1:2]), argdiff, trace, selection)
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test get_args(trace) == (xs_new[1:2], ys[1:2])
         @test assmt[1 => :z] == z1
         @test assmt[2 => :z] == z2
@@ -462,7 +462,7 @@
         constraints[4 => :z] = z4
         (trace, weight, retdiff) = extend(
             (xs[1:4], ys[1:4]), unknownargdiff, trace, constraints)
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test get_args(trace) == (xs[1:4], ys[1:4])
         @test assmt[1 => :z] == z1
         @test assmt[2 => :z] == z2
@@ -480,7 +480,7 @@
         trace = get_initial_trace()
         (trace, weight, retdiff) = extend(
             (xs[1:2], ys[1:2]), noargdiff, trace, EmptyAssignment())
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test get_args(trace) == (xs[1:2], ys[1:2])
         @test assmt[1 => :z] == z1
         @test assmt[2 => :z] == z2
@@ -502,7 +502,7 @@
         argdiff = MapCustomArgDiff(Dict(1 => unknownargdiff))
         (trace, weight, retdiff) = extend(
             (xs_new[1:2], ys[1:2]), argdiff, trace, EmptyAssignment())
-        assmt = get_assignment(trace)
+        assmt = get_assmt(trace)
         @test get_args(trace) == (xs_new[1:2], ys[1:2])
         @test assmt[1 => :z] == z1
         @test assmt[2 => :z] == z2

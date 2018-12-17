@@ -278,7 +278,7 @@ function render_lightweight_hmm_trace(scene::Scene, start::Point, stop::Point,
     end
     
     # plot measured locations
-    assignment = get_assignment(trace)
+    assignment = get_assmt(trace)
     if show_measurements
         measured_xs = [assignment[(:x, i)] for i=1:length(locations)]
         measured_ys = [assignment[(:y, i)] for i=1:length(locations)]
@@ -332,7 +332,7 @@ function render_static_hmm_trace(scene::Scene, start::Point, stop::Point,
     end
     
     # plot measured locations
-    assignment = get_assignment(trace)
+    assignment = get_assmt(trace)
     if show_measurements
         measured_xs = [assignment[i => :x] for i=1:length(locations)]
         measured_ys = [assignment[i => :y] for i=1:length(locations)]
@@ -499,7 +499,7 @@ function particle_filtering_static_hmm_custom_proposal(params::Params,
         observations = DynamicAssignment()
         observations[step => :x] = measured_xs[step]
         observations[step => :y] = measured_ys[step]
-        prev_dist = get_assignment(trace)[step-1 => :dist]
+        prev_dist = get_assmt(trace)[step-1 => :dist]
         dt = step==1 ? times[step] : times[step] - times[step-1]
         proposal_args = (step, (dt, prev_dist, noise,
                          Point(measured_xs[step], measured_ys[step]),
@@ -609,7 +609,7 @@ function particle_filtering_lightweight_hmm_custom_proposal(params::Params,
         observations = DynamicAssignment()
         observations[(:x, step)] = measured_xs[step]
         observations[(:y, step)] = measured_ys[step]
-        prev_dist = get_assignment(trace)[(:dist, step-1)]
+        prev_dist = get_assmt(trace)[(:dist, step-1)]
         proposal_args = (step, prev_dist, noise,
                          Point(measured_xs[step], measured_ys[step]),
                          precomputed.posterior_var_d, precomputed.posterior_covars,  path,
@@ -722,7 +722,7 @@ function particle_filtering_lightweight_markov_hmm_custom_proposal(params::Param
         observations = DynamicAssignment()
         observations[step => :x] = measured_xs[step]
         observations[step => :y] = measured_ys[step]
-        prev_dist = get_assignment(trace)[step-1 => :dist]
+        prev_dist = get_assmt(trace)[step-1 => :dist]
         dt = step==1 ? times[step] : times[step] - times[step-1]
         proposal_args = (step, (dt, prev_dist, noise,
                          Point(measured_xs[step], measured_ys[step]),
@@ -784,7 +784,7 @@ function experiment()
     # generate ground truth locations and observations
     model_args = (length(times), path, precomputed.distances_from_start, times, speed, noise, dist_slack)
     trace = simulate(lightweight_hmm, model_args)
-    assignment = get_assignment(trace)
+    assignment = get_assmt(trace)
     measured_xs = [assignment[(:x, i)] for i=1:length(times)]
     measured_ys = [assignment[(:y, i)] for i=1:length(times)]
     actual_dists = [assignment[(:dist, i)] for i=1:length(times)]

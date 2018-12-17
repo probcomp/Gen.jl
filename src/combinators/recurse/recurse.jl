@@ -39,7 +39,7 @@ struct RecurseTraceAssignment <: Assignment
     trace::RecurseTrace
 end
 
-get_assignment(trace::RecurseTrace) = RecurseTraceAssignment(trace)
+get_assmt(trace::RecurseTrace) = RecurseTraceAssignment(trace)
 
 function Base.isempty(assmt::RecurseTraceAssignment)
     assmt.trace.num_has_choices == 0
@@ -53,7 +53,7 @@ function get_subassmt(assmt::RecurseTraceAssignment,
     if !haskey(assmt.trace.aggregation_traces, idx)
         EmptyAssignment()
     else
-        get_assignment(assmt.trace.production_traces[idx])
+        get_assmt(assmt.trace.production_traces[idx])
     end
 end
 
@@ -63,7 +63,7 @@ function get_subassmt(assmt::RecurseTraceAssignment,
     if !haskey(assmt.trace.aggregation_traces, idx)
         EmptyAssignment()
     else
-        get_assignment(assmt.trace.aggregation_traces[idx])
+        get_assmt(assmt.trace.aggregation_traces[idx])
     end
 end
 
@@ -82,9 +82,9 @@ end
 get_values_shallow(assmt::RecurseTraceAssignment) = ()
 
 function get_subassmts_shallow(assmt::RecurseTraceAssignment)
-    production_iter = (((idx, Val(:production)), get_assignment(subtrace))
+    production_iter = (((idx, Val(:production)), get_assmt(subtrace))
         for (idx, subtrace) in assmt.trace.production_traces)
-    aggregation_iter = (((idx, Val(:aggregation)), get_assignment(subtrace))
+    aggregation_iter = (((idx, Val(:aggregation)), get_assmt(subtrace))
         for (idx, subtrace) in assmt.trace.aggregation_traces)
     Iterators.flatten((production_iter, aggregation_iter))
 end
@@ -267,7 +267,7 @@ function initialize(gen_fn::Recurse{S,T,U,V,W,X,Y,DV,DU,DW}, args::Tuple{U,Int},
         for child_num in 1:length(children_inputs)
             push!(prod_to_visit, get_child(cur, child_num, gen_fn.max_branch))
         end
-        if !isempty(get_assignment(subtrace))
+        if !isempty(get_assmt(subtrace))
             num_has_choices += 1
         end
     end
@@ -284,7 +284,7 @@ function initialize(gen_fn::Recurse{S,T,U,V,W,X,Y,DV,DU,DW}, args::Tuple{U,Int},
         score += get_score(subtrace)
         aggregation_traces = assoc(aggregation_traces, cur, subtrace)
         weight += subweight
-        if !isempty(get_assignment(subtrace))
+        if !isempty(get_assmt(subtrace))
             num_has_choices += 1
         end
     end
@@ -346,12 +346,12 @@ function dissoc_subtree!(discard::DynamicAssignment,
     num_has_choices = 0
     production_subtrace = production_traces[root]
     aggregation_subtrace = aggregation_traces[root]
-	set_subassmt!(discard, (root, Val(:production)), get_assignment(production_subtrace))
-	set_subassmt!(discard, (root, Val(:aggregation)), get_assignment(aggregation_subtrace))
-    if !isempty(get_assignment(production_subtrace))
+	set_subassmt!(discard, (root, Val(:production)), get_assmt(production_subtrace))
+	set_subassmt!(discard, (root, Val(:aggregation)), get_assmt(aggregation_subtrace))
+    if !isempty(get_assmt(production_subtrace))
         num_has_choices += 1
     end
-    if !isempty(get_assignment(aggregation_subtrace))
+    if !isempty(get_assmt(aggregation_subtrace))
         num_has_choices += 1
     end
     num_children = get_num_children(production_subtrace)
@@ -495,17 +495,17 @@ function force_update(new_args::Tuple{U,Int},
             score += subweight
 
             # update num_has_choices
-            if !isempty(get_assignment(prev_subtrace)) && isempty(get_assignment(subtrace))
+            if !isempty(get_assmt(prev_subtrace)) && isempty(get_assmt(subtrace))
                 num_has_choices -= 1
-            elseif isempty(get_assignment(prev_subtrace)) && !isempty(get_assignment(subtrace))
+            elseif isempty(get_assmt(prev_subtrace)) && !isempty(get_assmt(subtrace))
                 num_has_choices += 1
             end
 
             # delete children (and their descendants), both production and aggregation nodes
             for child_num=new_num_children+1:prev_num_children
                 child = get_child(cur, child_num, gen_fn.max_branch)
-                set_subassmt!(discard, (child, Val(:production)), get_assignment(production_traces[child]))
-                set_subassmt!(discard, (child, Val(:aggregation)), get_assignment(aggregation_traces[child]))
+                set_subassmt!(discard, (child, Val(:production)), get_assmt(production_traces[child]))
+                set_subassmt!(discard, (child, Val(:aggregation)), get_assmt(aggregation_traces[child]))
                 (production_traces, aggregation_traces, removed_score, removed_num_has_choices) = dissoc_subtree!(
                     discard, production_traces, aggregation_traces, child, gen_fn.max_branch)
                 score -= removed_score
@@ -543,7 +543,7 @@ function force_update(new_args::Tuple{U,Int},
             score += get_score(subtrace)
 
             # update num_has_choices
-            if !isempty(get_assignment(subtrace))
+            if !isempty(get_assmt(subtrace))
                 num_has_choices += 1
             end
 
@@ -599,9 +599,9 @@ function force_update(new_args::Tuple{U,Int},
             set_subassmt!(discard, (cur, Val(:aggregation)), subdiscard)
 
             # update num_has_choices
-            if !isempty(get_assignment(prev_subtrace)) && isempty(get_assignment(subtrace))
+            if !isempty(get_assmt(prev_subtrace)) && isempty(get_assmt(subtrace))
                 num_has_choices -= 1
-            elseif isempty(get_assignment(prev_subtrace)) && !isempty(get_assignment(subtrace))
+            elseif isempty(get_assmt(prev_subtrace)) && !isempty(get_assmt(subtrace))
                 num_has_choices += 1
             end
  
@@ -625,7 +625,7 @@ function force_update(new_args::Tuple{U,Int},
             score += get_score(subtrace)
 
             # update num_has_choices
-            if !isempty(get_assignment(subtrace))
+            if !isempty(get_assmt(subtrace))
                 num_has_choices += 1
             end
 

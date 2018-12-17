@@ -17,7 +17,7 @@ pair
 unpair
 Base.merge
 ```
-TODO: change `get_assignment` to `assmt`
+TODO: change `get_assmt` to `assmt`
 TODO: simplify other method names
 
 ### Address Schemata
@@ -123,7 +123,7 @@ free_update
 extend
 backprop_params
 backprop_trace
-get_assignment
+get_assmt
 get_args
 get_retval
 get_score

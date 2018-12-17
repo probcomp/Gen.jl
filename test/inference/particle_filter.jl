@@ -114,11 +114,11 @@ end
     function step_proposal_args(step::Int, prev_trace)
         @assert step > 1
         @assert isempty(
-            get_subassmt(get_assignment(prev_trace), :chain => (step - 1)))
+            get_subassmt(get_assmt(prev_trace), :chain => (step - 1)))
         if step > 2
-            prev_z = get_assignment(prev_trace)[:chain => (step - 2) => :z]
+            prev_z = get_assmt(prev_trace)[:chain => (step - 2) => :z]
         else
-            prev_z = get_assignment(prev_trace)[:z_init]
+            prev_z = get_assmt(prev_trace)[:z_init]
         end
         (step - 1, prev_z, obs_x[step])
     end

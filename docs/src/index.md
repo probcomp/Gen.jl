@@ -57,13 +57,13 @@ trace = simulate(regression_model, (xs,))
 ```
 
 The trace that is returned is a form of stack trace of the generative function that contains, among other things, the values for the random choices that were annotated with `@addr`.
-To extract the values of the random choices from a trace, we use the method `get_assignment`:
+To extract the values of the random choices from a trace, we use the method `get_assmt`:
 
 ```julia
-assignment = get_assignment(trace)
+assignment = get_assmt(trace)
 ```
 
-The `get_assignment` method returns an *assignment*, which is a trie (prefix tree) that contains the values of random choices.
+The `get_assmt` method returns an *assignment*, which is a trie (prefix tree) that contains the values of random choices.
 Printing the assignment gives a pretty-printed representation:
 
 ```julia
@@ -112,7 +112,7 @@ This results in a hierarchical assignment:
 
 ```julia
 trace = simulate(regression_model, (xs,))
-assignment = get_assignment(trace)
+assignment = get_assmt(trace)
 print(assignment)
 ```
 
@@ -174,7 +174,7 @@ end
 
 ```julia
 trace = simulate(regression_model, (xs,))
-assignment = get_assignment(trace)
+assignment = get_assmt(trace)
 print(assignment)
 ```
 
@@ -299,10 +299,10 @@ mala_selection = StaticAddressSet(set)
 @compiled @gen function mala_proposal(prev, tau)
     std::Float64 = sqrt(2*tau)
     gradients::StaticChoiceTrie = backprop_trace(model, prev, mala_selection, nothing)[3]
-    @addr(normal(get_assignment(prev)[:slope] + tau * gradients[:slope], std), :slope)
-    @addr(normal(get_assignment(prev)[:intercept] + tau * gradients[:intercept], std), :intercept)
-    @addr(normal(get_assignment(prev)[:inlier_std] + tau * gradients[:inlier_std], std), :inlier_std)
-    @addr(normal(get_assignment(prev)[:outlier_std] + tau * gradients[:outlier_std], std), :outlier_std)
+    @addr(normal(get_assmt(prev)[:slope] + tau * gradients[:slope], std), :slope)
+    @addr(normal(get_assmt(prev)[:intercept] + tau * gradients[:intercept], std), :intercept)
+    @addr(normal(get_assmt(prev)[:inlier_std] + tau * gradients[:inlier_std], std), :inlier_std)
+    @addr(normal(get_assmt(prev)[:outlier_std] + tau * gradients[:outlier_std], std), :outlier_std)
 end
 
 mala_move(trace, tau::Float64) = mh(model, mala_proposal, (tau,), trace)
@@ -326,7 +326,7 @@ function generate_mala_move(model, addrs)
     for addr in addrs
         quote_addr = QuoteNode(addr)
         push!(stmts, :(
-            @addr(normal(get_assignment(prev)[$quote_addr] + tau * gradients[$quote_addr], std),
+            @addr(normal(get_assmt(prev)[$quote_addr] + tau * gradients[$quote_addr], std),
                   $quote_addr)
         ))
     end

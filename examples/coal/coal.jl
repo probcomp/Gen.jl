@@ -139,7 +139,7 @@ end
 
 function render(trace; ymax=0.02)
     T = get_call_record(trace).args[1]
-    assignment = get_assignment(trace)
+    assignment = get_assmt(trace)
     k = assignment["k"]
     bounds = vcat([0.], sort([assignment["cp$i"] for i=1:k]), [T])
     rates = [assignment["h$i"] for i=1:k+1]
@@ -175,13 +175,13 @@ end
 #############################
 
 @gen function height_proposal(prev, i::Int)
-    prev_assignment = get_assignment(prev)
+    prev_assignment = get_assmt(prev)
     height = prev_assignment["h$i"]
     @addr(uniform_continuous(height/2., height*2.), "h$i")
 end
 
 @gen function position_proposal(prev, i::Int)
-    prev_assignment = get_assignment(prev)
+    prev_assignment = get_assmt(prev)
     k = prev_assignment["k"]
     lower = (i == 1) ? 0. : prev_assignment["cp$(i-1)"]
     upper = (i == k) ? T : prev_assignment["cp$(i+1)"]
@@ -189,13 +189,13 @@ end
 end
 
 function height_move(trace)
-    k = get_assignment(trace)["k"]
+    k = get_assmt(trace)["k"]
     i = random(uniform_discrete, 1, k+1)
     custom_mh(model, height_proposal, (i,), trace)
 end
 
 function position_move(trace)
-    k = get_assignment(trace)["k"]
+    k = get_assmt(trace)["k"]
     i = random(uniform_discrete, 1, k)
     custom_mh(model, position_proposal, (i,), trace)
 end
@@ -209,7 +209,7 @@ end
 # the current change point at i, and all after, will be shifted right
 # the new change point will be placed between cp$(i-1) and the current cp$i
 @gen function birth_proposal(prev, T, i::Int)
-    prev_assignment = get_assignment(prev)
+    prev_assignment = get_assmt(prev)
     k = prev_assignment["k"]
     lower = (i == 1) ? 0. : prev_assignment["cp$(i-1)"]
     upper = (i == k+1) ? T : prev_assignment["cp$i"]
@@ -330,7 +330,7 @@ function birth_move(trace)
     # the probability that the one we introduce will get deleted, given that
     # we choose a death move, is: 1/(k+1); which is also the probability that
     # we choose the i that we choose here
-    k = get_assignment(trace)["k"]
+    k = get_assmt(trace)["k"]
     i = random(uniform_discrete, 1, k+1)
     # prob_b = 1, but prob_d = 0.25, so we correct by -log(4)
     correction = (new_trace) -> (k == 0 ? -log(4) : 0)
@@ -343,7 +343,7 @@ function birth_move(trace)
 end
 
 function death_move(trace)
-    k = get_assignment(trace)["k"]
+    k = get_assmt(trace)["k"]
     @assert k > 0
     i = random(uniform_discrete, 1, k)
     correction = (new_trace) -> (k == 0 ? log(4) : 0)
@@ -375,7 +375,7 @@ k_selection = DynamicAddressSet()
 push_leaf_node!(k_selection, "k")
 
 function generic_mcmc_step(trace)
-    k = get_assignment(trace)["k"]
+    k = get_assmt(trace)["k"]
     if k > 0
         prob_h = 1./3
         prob_p = 1./3
@@ -401,7 +401,7 @@ end
 #########################0
 
 function mcmc_step(trace)
-    k = get_assignment(trace)["k"]
+    k = get_assmt(trace)["k"]
     if k > 0
         prob_h = 0.25
         prob_p = 0.25
@@ -431,7 +431,7 @@ function do_mcmc(T, num_steps::Int)
     (trace, _) = initialize(model, (T,), observations)
     for iter=1:num_steps
         if iter % 1000 == 0
-            println("iter $iter of $num_steps, k: $(get_assignment(trace)["k"])")
+            println("iter $iter of $num_steps, k: $(get_assmt(trace)["k"])")
         end
         #trace = mcmc_step(trace)
         trace = generic_mcmc_step(trace)
@@ -478,7 +478,7 @@ function show_posterior_samples()
 end
 
 function get_rate_vector(trace, test_points)
-    assignment = get_assignment(trace)
+    assignment = get_assmt(trace)
     k = assignment["k"]
     cps = [assignment["cp$i"] for i=1:k]
     hs = [assignment["h$i"] for i=1:k+1]
@@ -510,7 +510,7 @@ function plot_posterior_mean_rate()
         (trace, _) = initialize(model, (T,), observations)
         for iter=1:num_steps
             if iter % 1000 == 0
-                println("iter $iter of $num_steps, k: $(get_assignment(trace)["k"])")
+                println("iter $iter of $num_steps, k: $(get_assmt(trace)["k"])")
             end
             trace = mcmc_step(trace)
             if iter > 4000
@@ -545,7 +545,7 @@ function plot_trace_plot()
     for iter=1:burn_in + 5000
         (trace, accept) = mcmc_step(trace)
         if iter > burn_in
-            push!(num_clusters_vec, get_assignment(trace)["k"])
+            push!(num_clusters_vec, get_assmt(trace)["k"])
         end
     end
     plt.figure()
@@ -564,7 +564,7 @@ function plot_trace_plot()
     for iter=1:burn_in + 5000
         trace = generic_mcmc_step(trace)
         if iter > burn_in
-            push!(num_clusters_vec, get_assignment(trace)["k"])
+            push!(num_clusters_vec, get_assmt(trace)["k"])
         end
     end
     plt.subplot(2, 1, 1)
@@ -578,7 +578,7 @@ function plot_trace_plot()
     for iter=1:burn_in + 5000
         trace = mcmc_step(trace)
         if iter > burn_in
-            push!(num_clusters_vec, get_assignment(trace)["k"])
+            push!(num_clusters_vec, get_assmt(trace)["k"])
         end
     end
     plt.subplot(2, 1, 2)

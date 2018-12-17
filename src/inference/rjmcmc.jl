@@ -4,7 +4,7 @@ function rjmcmc(trace, forward, fwd_args, backward, bwd_args,
     model_args = get_args(trace)
     model_score = get_score(trace)
     (fwd_assmt, fwd_score) = propose(forward, (trace, fwd_args...,))
-    input = pair(get_assignment(trace), fwd_assmt, :model, :proposal)
+    input = pair(get_assmt(trace), fwd_assmt, :model, :proposal)
     (output, logabsdet) = apply(injective, injective_args, input)
     (model_constraints, bwd_assmt) = unpair(output, :model, :proposal)
     (new_trace, new_model_score) = initialize(model, model_args, model_constraints)

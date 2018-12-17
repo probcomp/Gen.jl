@@ -17,11 +17,11 @@ Return the return value of the given execution.
 function get_retval end
 
 """
-    get_assignment(trace)
+    get_assmt(trace)
 
 Return a value implementing the assignment interface
 """
-function get_assignment end
+function get_assmt end
 
 """
     get_score(trace)
@@ -45,7 +45,7 @@ function get_gen_fn end
 
 export get_args
 export get_retval
-export get_assignment
+export get_assmt
 export get_score
 export get_gen_fn
 
