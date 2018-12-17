@@ -51,9 +51,9 @@ function hmc(trace::U, selection::AddressSet;
     # accept or reject
     alpha = new_model_score - prev_model_score + new_momenta_score - prev_momenta_score
     if log(rand()) < alpha
-        new_trace
+        (new_trace, true)
     else
-        trace
+        (trace, false)
     end
 end
 

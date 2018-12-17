@@ -12,10 +12,10 @@ function rjmcmc(trace, forward, fwd_args, backward, bwd_args,
     alpha = new_model_score - model_score - fwd_score + bwd_score + logabsdet + correction(new_trace)
     if log(rand()) < alpha
         # accept
-        return new_trace
+        (new_trace, true)
     else
         # reject
-        return trace
+        (trace, false)
     end
 end
 

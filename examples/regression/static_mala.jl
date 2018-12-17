@@ -40,12 +40,12 @@ function do_inference(xs, ys, num_iters)
     
     scores = Vector{Float64}(undef, num_iters)
     for i=1:num_iters
-        trace = mala(trace, line_selection, 0.0001)
-        trace = mala(trace, std_selection, 0.0001)
+        (trace, _) = mala(trace, line_selection, 0.0001)
+        (trace, _) = mala(trace, std_selection, 0.0001)
     
         # step on the outliers
         for j=1:length(xs)
-            trace = custom_mh(trace, is_outlier_proposal, (j,))
+            (trace, _) = custom_mh(trace, is_outlier_proposal, (j,))
         end
     
         score = get_score(trace)

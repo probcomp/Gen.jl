@@ -359,18 +359,6 @@ end
 # Generic MCMC inference #
 ##########################
 
-function resimulation_mh(selection, trace)
-    model_args = get_call_record(trace).args
-    (new_trace, weight) = free_update(model, model_args, NoArgDiff(), trace, selection)
-    if log(rand()) < weight
-        # accept
-        return new_trace
-    else
-        # reject
-        return trace
-    end
-end
-
 k_selection = DynamicAddressSet()
 push_leaf_node!(k_selection, "k")
 
@@ -391,7 +379,7 @@ function generic_mcmc_step(trace)
     elseif move_type == 2
         position_move(trace)
     else
-        resimulation_mh(k_selection, trace)
+        default_mh(trace, k_selection)
     end
 end
 
@@ -433,8 +421,7 @@ function do_mcmc(T, num_steps::Int)
         if iter % 1000 == 0
             println("iter $iter of $num_steps, k: $(get_assmt(trace)["k"])")
         end
-        #trace = mcmc_step(trace)
-        trace = generic_mcmc_step(trace)
+        (trace, _) = generic_mcmc_step(trace)
     end
     trace
 end
@@ -512,7 +499,7 @@ function plot_posterior_mean_rate()
             if iter % 1000 == 0
                 println("iter $iter of $num_steps, k: $(get_assmt(trace)["k"])")
             end
-            trace = mcmc_step(trace)
+            (trace, _) = mcmc_step(trace)
             if iter > 4000
                 num_samples += 1
                 rate_vector = get_rate_vector(trace, test_points)
@@ -562,7 +549,7 @@ function plot_trace_plot()
     num_clusters_vec = Int[]
     burn_in = 20000
     for iter=1:burn_in + 5000
-        trace = generic_mcmc_step(trace)
+        (trace, ) = generic_mcmc_step(trace)
         if iter > burn_in
             push!(num_clusters_vec, get_assmt(trace)["k"])
         end
@@ -576,7 +563,7 @@ function plot_trace_plot()
     num_clusters_vec = Int[]
     burn_in = 20000
     for iter=1:burn_in + 5000
-        trace = mcmc_step(trace)
+        (trace, _) = mcmc_step(trace)
         if iter > burn_in
             push!(num_clusters_vec, get_assmt(trace)["k"])
         end

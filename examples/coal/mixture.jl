@@ -82,23 +82,12 @@ end
 # generic trans-dimensional move #
 ##################################
 
-function resimulation_mh(selection, trace)
-    model_args = get_call_record(trace).args
-    (new_trace, weight) = free_update(model, model_args, NoArgDiff(), trace, selection)
-    if log(rand()) < weight
-        # accept
-        return (new_trace, true)
-    else
-        # reject
-        return (trace, false)
-    end
-end
 
 branch_selection = DynamicAddressSet()
 push_leaf_node!(branch_selection, :branch)
 
 function generic_transdim_move(trace)
-    resimulation_mh(branch_selection, trace)
+    resimulation_mh(trace, branch_selection)
 end
 
 one_cluster_params = DynamicAddressSet()
@@ -116,11 +105,11 @@ push_leaf_node!(w1_selection, :w1)
 
 function fixed_dim_move(trace)
     if get_assmt(trace)[:branch]
-        (trace, accept) = resimulation_mh(one_cluster_params, trace)
-        mala(model, one_cluster_params, trace, 0.01)
+        (trace, _) = default_mh(one_cluster_params, trace)
+        (trace, _) = mala(trace, one_cluster_params, 0.01)
     else
-        (trace, accept) = resimulation_mh(two_cluster_params, trace)
-        mala(model, two_cluster_params, trace, 0.01)
+        (trace, _) = default_mh(two_cluster_params, trace)
+        (trace, _) = mala(trace, two_cluster_params, 0.01)
     end
     trace
 end
