@@ -10,14 +10,14 @@ Tested with Julia 1.0.2
 
 ### Installing
 
-Enter the Julia package manager (`]`), optionally activate your chosen environment, then run:
+Start the Julia REPL, enter the Julia package manager (`]`), optionally activate your chosen environment, then run:
 ```
 (v1.0) pkg> add https://github.com/probcomp/Gen
 ```
 
 ### Running Tests
 
-Enter the Julia package manager (`]`), optionally activate your chosen environment, then run:
+Start the Julia REPL, enter the Julia package manager (`]`), optionally activate your chosen environment, then run:
 ```
 (v1.0) pkg> test Gen
 ```
