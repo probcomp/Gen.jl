@@ -79,7 +79,7 @@ function correction(prev_trace, new_trace)
     log(prev_size) - log(new_size)
 end
 
-function inference(xs::Vector{Float64}, ys::Vector{Float64}, num_iters::Int)
+function inference(xs::Vector{Float64}, ys::Vector{Float64}, num_iters::Int, callback)
 
     # observed data
     constraints = DynamicAssignment()
@@ -90,10 +90,14 @@ function inference(xs::Vector{Float64}, ys::Vector{Float64}, num_iters::Int)
 
     # do MCMC
     local covariance_fn::Node
+    local noise::Float64
     for iter=1:num_iters
 
-        # randomly pick a node to expand
         covariance_fn = get_retval(trace)
+        noise = get_assmt(trace)[:noise]
+        callback(covariance_fn, noise)
+
+        # randomly pick a node to expand
         root = pick_random_node(covariance_fn, 1, max_branch)
 
         # do MH move on the subtree
@@ -101,45 +105,34 @@ function inference(xs::Vector{Float64}, ys::Vector{Float64}, num_iters::Int)
 
         # do MH move on the top-level white noise
         trace = custom_mh(trace, noise_proposal, ())
-
-        println(get_score(trace))
     end
-    
-    noise = get_assmt(trace)[:noise]
-    return (covariance_fn, noise)
+    (covariance_fn, noise)
 end
 
 function experiment()
 
     # load and rescale the airline dataset
     (xs, ys) = get_airline_dataset()
-
-    # get the x values to predict on (observed range as well as forecasts)
-    new_xs = collect(range(0, stop=1.5, length=200))
+    xs_train = xs[1:100]
+    ys_train = ys[1:100]
+    xs_test = xs[101:end]
+    ys_test = ys[101:end]
 
     # set seed
     Random.seed!(0)
 
-    figure(figsize=(32,32))
-    for i=1:16
-        subplot(4, 4, i)
-
-        # do inference, time it
-        @time (covariance_fn, noise) = inference(xs, ys, 1000)
-
-        # sample predictions
-        new_ys = predict_ys(covariance_fn, noise, xs, ys, new_xs)
-
-        # plot observed data
-        plot(xs, ys, color="black")
-
-        # plot predictions
-        plot(new_xs, new_ys, color="red")
-
-        gca()[:set_xlim]((0, 1.5))
-        gca()[:set_ylim]((-3, 3))
+    # print MSE and predictive log likelihood on test data
+    callback = (covariance_fn, noise) -> begin
+        pred_ll = predictive_ll(covariance_fn, noise, xs_train, ys_train, xs_test, ys_test)
+        mse = compute_mse(covariance_fn, noise, xs_train, ys_train, xs_test, ys_test)
+        println("mse: $mse, predictive log likelihood: $pred_ll")
     end
-    savefig("lightweight.png")
+
+    # do inference, time it
+    @time (covariance_fn, noise) = inference(xs_train, ys_train, 1000, callback)
+
+    # sample predictions
+    pred_ys = predict_ys(covariance_fn, noise, xs_train, ys_train, xs_test)
 end
 
 experiment()
