@@ -32,10 +32,10 @@ uuid = "34da2185-b29b-5c13-b0c7-acf172513d20"
 version = "1.4.0"
 
 [[DataStructures]]
-deps = ["InteractiveUtils", "Random", "Serialization", "Test"]
-git-tree-sha1 = "2afbbd0294306b0b74a753c196be50b35edb625c"
+deps = ["InteractiveUtils", "OrderedCollections", "Random", "Serialization", "Test"]
+git-tree-sha1 = "8fc6e166e24fda04b2b648d4260cdad241788c54"
 uuid = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
-version = "0.11.1"
+version = "0.14.0"
 
 [[Dates]]
 deps = ["Printf"]
@@ -82,10 +82,8 @@ version = "1.0.0"
 [[FunctionalCollections]]
 deps = ["Test"]
 git-tree-sha1 = "04cb9cfaa6ba5311973994fe3496ddec19b6292a"
-repo-rev = "b261b9daa8ea438f1a63c78fe10d722ba581583c"
-repo-url = "https://github.com/JuliaCollections/FunctionalCollections.jl.git"
 uuid = "de31a74c-ac4f-5751-b3fd-e18cd04993ca"
-version = "0.4.0+"
+version = "0.5.0"
 
 [[InteractiveUtils]]
 deps = ["LinearAlgebra", "Markdown"]
@@ -93,9 +91,9 @@ uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
 
 [[JSON]]
 deps = ["Dates", "Distributed", "Mmap", "Sockets", "Test", "Unicode"]
-git-tree-sha1 = "fec8e4d433072731466d37ed0061b3ba7f70eeb9"
+git-tree-sha1 = "1f7a25b53ec67f5e9422f1f551ee216503f4a0fa"
 uuid = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
-version = "0.19.0"
+version = "0.20.0"
 
 [[LibGit2]]
 uuid = "76f85450-5226-5b5a-8eaa-529ad045b433"
@@ -128,6 +126,12 @@ deps = ["Compat"]
 git-tree-sha1 = "ce3b85e484a5d4c71dd5316215069311135fa9f2"
 uuid = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
 version = "0.3.2"
+
+[[OrderedCollections]]
+deps = ["Random", "Serialization", "Test"]
+git-tree-sha1 = "85619a3f3e17bb4761fe1b1fd47f0e979f964d5b"
+uuid = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
+version = "1.0.2"
 
 [[PDMats]]
 deps = ["Arpack", "LinearAlgebra", "SparseArrays", "SuiteSparse", "Test"]
