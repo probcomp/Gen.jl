@@ -125,7 +125,7 @@ Gen.isnodiff(::StringDiff) = false
     Random.seed!(1)
     strings = Set{String}()
     for i=1:1000
-        trace = simulate(pcfg, (nothing, 1))
+        (trace, _) = initialize(pcfg, (nothing, 1), EmptyAssignment())
         push!(strings, get_retval(trace))
     end
     @test "(.aa)" in strings
@@ -179,7 +179,7 @@ Gen.isnodiff(::StringDiff) = false
     # update non-structure choice
     new_constraints = DynamicAssignment()
     new_constraints[(3, Val(:aggregation)) => :prefix] = false
-    (new_trace, weight, discard, retdiff) = force_update(pcfg, (nothing, 1), noargdiff, trace, new_constraints)
+    (new_trace, weight, discard, retdiff) = force_update((nothing, 1), noargdiff, trace, new_constraints)
     @test isapprox(weight, log(0.6) - log(0.4))
     expected_score = log(0.26) + log(0.24) + log(0.26) + log(0.27) + log(0.4) + log(0.4) + log(0.6) + log(0.6)
     @test isapprox(get_score(new_trace), expected_score)
@@ -197,15 +197,15 @@ Gen.isnodiff(::StringDiff) = false
     @test discard[(3, Val(:aggregation)) => :prefix] == true
     @test length(collect(get_subassmts_shallow(discard))) == 1
     @test length(collect(get_values_shallow(discard))) == 0
-    @test length(collect(get_subassmts_shallow(get_subassmt)(discard,(3, Val(:aggregation))))) == 0
-    @test length(collect(get_values_shallow(get_subassmt)(discard,(3, Val(:aggregation))))) == 1
+    @test length(collect(get_subassmts_shallow(get_subassmt(discard,(3, Val(:aggregation)))))) == 0
+    @test length(collect(get_values_shallow(get_subassmt(discard,(3, Val(:aggregation)))))) == 1
     @test retdiff == StringDiff()
 
     # update structure choice, so that string becomes: (.b(.a(.aa)a)b)
     # note: we reuse the prefix choice from node 3 (true)
     new_constraints = DynamicAssignment()
     new_constraints[(3, Val(:production)) => :rule] = 3 # change from rule 2 to rule 3
-    (new_trace, weight, discard, retdiff) = force_update(pcfg, (nothing, 1), noargdiff, trace, new_constraints)
+    (new_trace, weight, discard, retdiff) = force_update((nothing, 1), noargdiff, trace, new_constraints)
     @test isapprox(weight, log(0.23) - log(0.26) - log(0.27) - log(0.6))
     @test isapprox(get_score(new_trace), log(0.26) + log(0.24) + log(0.23) + log(0.4) + log(0.4) + log(0.4))
     @test get_args(new_trace) == (nothing, 1)

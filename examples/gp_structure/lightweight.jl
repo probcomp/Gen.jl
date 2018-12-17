@@ -74,8 +74,8 @@ end
 end
 
 function correction(prev_trace, new_trace)
-    prev_size = size(get_call_record(prev_trace).retval)
-    new_size = size(get_call_record(new_trace).retval)
+    prev_size = size(get_retval(prev_trace))
+    new_size = size(get_retval(new_trace))
     log(prev_size) - log(new_size)
 end
 
@@ -93,14 +93,16 @@ function inference(xs::Vector{Float64}, ys::Vector{Float64}, num_iters::Int)
     for iter=1:num_iters
 
         # randomly pick a node to expand
-        covariance_fn = get_call_record(trace).retval
+        covariance_fn = get_retval(trace)
         root = pick_random_node(covariance_fn, 1, max_branch)
 
         # do MH move on the subtree
-        trace = custom_mh(model, subtree_proposal, (root,), trace, correction)
+        trace = custom_mh(trace, subtree_proposal, (root,), correction)
 
         # do MH move on the top-level white noise
-        trace = custom_mh(model, noise_proposal, (), trace)
+        trace = custom_mh(trace, noise_proposal, ())
+
+        println(get_score(trace))
     end
     
     noise = get_assignment(trace)[:noise]
