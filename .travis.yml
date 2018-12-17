@@ -1,3 +1,6 @@
+# See http://docs.travis-ci.com/user/languages/julia/ and https://juliadocs.github.io/Documenter.jl/stable/man/hosting/#Hosting-Documentation-1
+# See status of Travis builds at https://travis-ci.org/probcomp/Gen
+
 language: julia
 julia:
   - 1.0
