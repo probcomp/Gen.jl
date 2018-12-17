@@ -4,7 +4,10 @@ julia:
 
 jobs:
   include:
-    - stage: "Documentation"
+    - stage: test
+      script:
+        - julia -e 'using Pkg; Pkg.build(); Pkg.test()'
+    - stage: docs
       julia: 1.0
       os: linux
       script:
