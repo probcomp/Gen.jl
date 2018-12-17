@@ -6,23 +6,14 @@ Gen: A General-Purpose Probabilistic Programming System with Programmable Infere
 
 ## Documentation
 
-(Very fragmentary and out of date) [documentation](https://probcomp-1.csail.mit.edu/gen)
+Documentation of the most recently tagged version: [https://probcomp.github.io/Gen/stable/](https://probcomp.github.io/Gen/stable/)
 
 ## Installing
 
-Obtain Julia 1.0.2 or later.
-
-Start the Julia REPL, enter the Julia package manager (`]`), optionally activate your chosen environment, then run:
+The package can be installed with the Julia package manager. From the Julia REPL, type `]` to enter the Pkg REPL mode and run:
 ```
-(v1.0) pkg> add https://github.com/probcomp/Gen
-(v1.0) pkg> add FunctionalCollections#b261b9d
-```
-
-## Running Tests
-
-Start the Julia REPL, enter the Julia package manager (`]`), optionally activate your chosen environment, then run:
-```
-(v1.0) pkg> test Gen
+pkg> add https://github.com/probcomp/Gen
+pkg> add FunctionalCollections#b261b9d
 ```
 
 ## Citing Gen
