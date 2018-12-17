@@ -13,7 +13,6 @@ Documentation of the most recently tagged version: [https://probcomp.github.io/G
 The package can be installed with the Julia package manager. From the Julia REPL, type `]` to enter the Pkg REPL mode and run:
 ```
 pkg> add https://github.com/probcomp/Gen
-pkg> add FunctionalCollections#b261b9d
 ```
 
 ## Citing Gen
