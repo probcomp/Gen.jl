@@ -12,8 +12,7 @@ end
 
 export logsumexp
 
-include("custom_mh.jl")
-include("default_mh.jl")
+include("mh.jl")
 include("hmc.jl")
 include("mala.jl")
 include("rjmcmc.jl")

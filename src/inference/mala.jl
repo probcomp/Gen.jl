@@ -32,9 +32,9 @@ function mala(trace, selection::AddressSet, tau)
     # accept or reject
     alpha = weight - forward_score + backward_score
     if log(rand()) < alpha
-        return new_trace
+        (new_trace, true)
     else
-        return trace
+        (trace, false)
     end
 end
 

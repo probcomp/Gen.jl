@@ -1,3 +1,15 @@
+function default_mh(trace, selection::AddressSet)
+    args = get_args(trace)
+    (new_trace, weight) = free_update(args, noargdiff, trace, selection)
+    if log(rand()) < weight
+        # accept
+        return (new_trace, true)
+    else
+        # reject
+        return (trace, false)
+    end
+end
+
 function custom_mh(trace,
                    proposal::GenerativeFunction,
                    proposal_args::Tuple,
@@ -13,11 +25,12 @@ function custom_mh(trace,
     alpha += correction(trace, new_trace)
     if log(rand()) < alpha
         # accept
-        return new_trace
+        return (new_trace, true)
     else
         # reject
-        return trace
+        return (trace, false)
     end
 end
 
 export custom_mh
+export default_mh
