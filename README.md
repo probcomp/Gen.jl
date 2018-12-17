@@ -15,6 +15,7 @@ Obtain Julia 1.0.2 or later.
 Start the Julia REPL, enter the Julia package manager (`]`), optionally activate your chosen environment, then run:
 ```
 (v1.0) pkg> add https://github.com/probcomp/Gen
+(v1.0) pkg> add FunctionalCollections#b261b9d
 ```
 
 ## Running Tests
