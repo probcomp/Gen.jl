@@ -8,6 +8,20 @@ Gen: A General-Purpose Probabilistic Programming System with Programmable Infere
 
 Tested with Julia 1.0.2
 
+### Installing
+
+Enter the Julia package manager (`]`), optionally activate your chosen environment, then run:
+```
+(v1.0) pkg> add https://github.com/probcomp/Gen
+```
+
+### Running Tests
+
+Enter the Julia package manager (`]`), optionally activate your chosen environment, then run:
+```
+(v1.0) pkg> test Gen
+```
+
 ### Publications related to Gen
 
 Gen: A General-Purpose Probabilistic Programming System with Programmable Inference. Cusumano-Towner, M. F.; Saad, F. A.; Lew, A.; and Mansinghka, V. K. Technical Report MIT-CSAIL-TR-2018-020, Computer Science and Artificial Intelligence Laboratory, Massachusetts Institute of Technology, Cambridge, Massachusetts, November 2018. [URL](http://hdl.handle.net/1721.1/119255).
