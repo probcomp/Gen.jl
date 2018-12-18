@@ -12,7 +12,7 @@ struct Params
     outlier_std::Float64
 end
 
-@staticgen function datum(x, @grad(params::Params)) # TODO @grad on params?
+@staticgen function datum(x, @grad(params::Params))
     is_outlier::Bool = @addr(bernoulli(params.prob_outlier), :z)
     std::Float64 = is_outlier ? params.inlier_std : params.outlier_std
     y::Float64 = @addr(normal(x * params.slope + params.intercept, std), :y)
