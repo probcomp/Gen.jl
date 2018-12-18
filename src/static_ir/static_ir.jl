@@ -38,11 +38,10 @@ function generate_generative_function(ir::StaticIR, name::Symbol)
         Gen.get_ir(::Type{$gen_fn_type_name}) = $(QuoteNode(ir))
         Gen.get_trace_type(::Type{$gen_fn_type_name}) = $trace_struct_name
         Gen.has_argument_grads(::$gen_fn_type_name) = $(QuoteNode(has_argument_grads))
-        $name = $gen_fn_type_name()
         Gen.get_gen_fn(::$trace_struct_name) = $gen_fn_type_name()
         Gen.get_gen_fn_type(::Type{$trace_struct_name}) = $gen_fn_type_name
     end
-    Expr(:block, trace_defns, gen_fn_defn)
+    Expr(:block, trace_defns, gen_fn_defn, Expr(:call, gen_fn_type_name))
 end
 
 

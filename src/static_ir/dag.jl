@@ -202,9 +202,9 @@ function add_constant_diff_node!(builder::StaticIRBuilder, val::T, name::Symbol=
     node
 end
 
-function add_random_choice_node!(builder::StaticIRBuilder, dist::Distribution;
-                                 inputs::Vector=[], addr::Symbol=gensym(),
-                                 name::Symbol=gensym(), typ::Type=Any)
+function add_addr_node!(builder::StaticIRBuilder, dist::Distribution;
+                        inputs::Vector=[], addr::Symbol=gensym(),
+                        name::Symbol=gensym(), typ::Type=Any)
     check_unique_var(builder, name)
     check_addr_unique(builder, addr)
     check_inputs_exist(builder, inputs)
@@ -215,10 +215,10 @@ function add_random_choice_node!(builder::StaticIRBuilder, dist::Distribution;
     node
 end
 
-function add_gen_fn_call_node!(builder::StaticIRBuilder, gen_fn::GenerativeFunction;
-                               inputs::Vector=[], addr::Symbol=gensym(),
-                               argdiff::StaticIRNode=add_constant_node!(builder, unknownargdiff),
-                               name::Symbol=gensym(), typ::Type=Any)
+function add_addr_node!(builder::StaticIRBuilder, gen_fn::GenerativeFunction;
+                        inputs::Vector=[], addr::Symbol=gensym(),
+                        argdiff::StaticIRNode=add_constant_node!(builder, unknownargdiff),
+                        name::Symbol=gensym(), typ::Type=Any)
     check_unique_var(builder, name)
     check_addr_unique(builder, addr)
     check_inputs_exist(builder, inputs)
@@ -292,8 +292,7 @@ export add_argument_node!
 export add_julia_node!
 export add_constant_node!
 export add_constant_diff_node!
-export add_random_choice_node!
-export add_gen_fn_call_node!
+export add_addr_node!
 export add_received_argdiff_node!
 export add_choicediff_node!
 export add_calldiff_node!
