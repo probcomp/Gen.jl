@@ -5,8 +5,11 @@ makedocs(
     sitename = "Gen",
     modules = [Gen],
     pages = [
-        "index.md",
-        "documentation.md"
+        "Home" => "index.md",
+        "Getting Started" => "getting_started.md",
+        "Tutorials" => "tutorials.md",
+        "Guide" => "guide.md",
+        "Reference" => "ref.md"
     ]
 )
 
