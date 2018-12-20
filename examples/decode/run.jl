@@ -171,8 +171,8 @@ function do_inference(msg::Vector{T}, num_iter::Int) where {T <: AbstractString}
         end
 
         for m=1:length(alphas)
-            (trace, accepted) = rjmcmc(trace, swap_proposal, (m,), swap_bijection)
-            (trace, exchange_accepted) = rjmcmc(trace, exchange_proposal, (m,), exchange_bijection)
+            (trace, accepted) = general_mh(trace, swap_proposal, (m,), swap_bijection)
+            (trace, exchange_accepted) = general_mh(trace, exchange_proposal, (m,), exchange_bijection)
         end
     end
 end
@@ -184,7 +184,8 @@ seed!(2) # OK
 seed!(3) # OK
 seed!(4) # OK
 seed!(5) # OK
-seed!(6)
+seed!(6) # OK
+# it seems robust to initialization!
 
 original_text = """
 to be or not to be that is the question

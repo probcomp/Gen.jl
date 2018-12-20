@@ -15,7 +15,6 @@ export logsumexp
 include("mh.jl")
 include("hmc.jl")
 include("mala.jl")
-include("rjmcmc.jl")
 include("importance.jl")
 include("particle_filter.jl")
 include("map_optimize.jl")

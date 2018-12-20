@@ -192,7 +192,7 @@ function height_bijection(input::Assignment, context)
     (output, 0.)
 end
 
-height_move(trace) = rjmcmc(trace, height_proposal, (), height_bijection)
+height_move(trace) = general_mh(trace, height_proposal, (), height_bijection)
 
 
 #################
@@ -217,7 +217,7 @@ function position_bijection(input::Assignment, context)
     (output, 0.)
 end
 
-position_move(trace) = rjmcmc(trace, position_proposal, (), position_bijection)
+position_move(trace) = general_mh(trace, position_proposal, (), position_bijection)
 
 
 ######################
@@ -372,7 +372,7 @@ function birth_death_bijection(input::Assignment, context)
     (output, logabsdet)
 end
 
-birth_death_move(trace) = rjmcmc(trace, birth_death_proposal, (), birth_death_bijection)
+birth_death_move(trace) = general_mh(trace, birth_death_proposal, (), birth_death_bijection)
 
 function mcmc_step(trace)
     k = get_assmt(trace)["k"]

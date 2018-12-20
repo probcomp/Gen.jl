@@ -186,17 +186,17 @@ end
 end
 
 correction = (new_trace) -> 0.
-function rjmcmc_transdim_move(trace)
+function general_mh_transdim_move(trace)
     branch = get_assmt(trace)[:branch]
     n = get_call_record(trace).args[1]
     if branch
-        rjmcmc(model,
+        general_mh(model,
             split_proposal, (),
             merge_proposal, (),
             split_injection, (n,),
             trace, correction)
     else
-        rjmcmc(model,
+        general_mh(model,
             merge_proposal, (),
             split_proposal, (),
             merge_injection, (n,),
@@ -244,7 +244,7 @@ function plot_trace_plot()
     burn_in = 10000
     scores = Float64[]
     for iter=1:burn_in + 2000
-        (trace, accept) = rjmcmc_transdim_move(trace)
+        (trace, accept) = general_mh_transdim_move(trace)
         trace = fixed_dim_move(trace)
         score = get_call_record(trace).score
         if iter > burn_in
