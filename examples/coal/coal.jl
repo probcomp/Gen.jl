@@ -275,92 +275,100 @@ function new_heights_inverse(prev_height, next_height, cur_cp, prev_cp, next_cp)
     (new_height, u)
 end
 
-@inj function birth_death(T)
+@inj function birth_transform(k, i, T)
+    # birth move
+    @write(k + 1, :model => "k")
+
+    # set new changepoints
+    for j=1:i-1
+        @copy(:model => "cp$j", :model => "cp$j")
+    end
+    @copy(:proposal => :new_cp, :model => "cp$i")
+    for j=i:k
+        @copy(:model => "cp$j", :model => "cp$(j+1)")
+    end
+
+    # compute new heights
+    cur_height = @read(:model => "h$i")
+    prev_cp = (i == 1) ? 0. : @read(:model => "cp$(i-1)")
+    next_cp = (i == k+1) ? T : @read(:model => "cp$i")
+    new_cp = @read(:proposal => :new_cp)
+    u = @read(:proposal => :u)
+    (new_h_prev, new_h_next) = new_heights(cur_height, new_cp, prev_cp, next_cp, u)
+
+    # set new heights
+    for j=1:i-1
+        @copy(:model => "h$j", :model => "h$j")
+    end
+    @write(new_h_prev, :model => "h$i")
+    @write(new_h_next, :model => "h$(i+1)")
+    for j=i+1:k+1
+        @copy(:model => "h$j", :model => "h$(j+1)")
+    end
+
+    # the reverse is a death move
+    @write(false, :proposal => :isbirth)
+    nothing
+end
+
+@inj function death_transform(k, i, T)
+    # death move
+    @write(k - 1, :model => "k")
+    @assert k > 0
+
+    # change points
+    for j=1:i-1
+        @copy(:model => "cp$j", :model => "cp$j")
+    end
+    for j=i+1:k
+        @copy(:model => "cp$j", :model => "cp$(j-1)")
+    end
+
+    # compute new height
+    cur_cp = @read(:model => "cp$i")
+    prev_cp = (i == 1) ? 0. : @read(:model => "cp$(i-1)")
+    next_cp = (i == k) ? T : @read(:model => "cp$(i+1)")
+    prev_height = @read(:model => "h$i")
+    next_height = @read(:model => "h$(i+1)")
+    (new_height, u) = new_heights_inverse(prev_height, next_height, cur_cp, prev_cp, next_cp)
+
+    # heights
+    for j=1:i-1
+        @copy(:model => "h$j", :model => "h$j")
+    end
+    @write(new_height, :model => "h$i")
+    for j=i+2:k+1
+        @copy(:model => "h$j", :model => "h$(j-1)")
+    end
+
+    @copy(:model => "cp$i", :proposal => :new_cp)
+    @write(u, :proposal => :u)
+
+    # if new k = 0 the reverse proposal does not sample at :isbirth
+    if k > 1
+        @write(true, :proposal => :isbirth)
+    end
+    nothing
+end
+
+@inj function birth_death_transform(T)
     k = @read(:model => "k")
     isbirth = (k == 0) || @read(:proposal => :isbirth)
     i = @read(:proposal => :i)
     @write(i, :proposal => :i)
     if isbirth
-        # birth move
-        @write(k + 1, :model => "k")
-
-        # set new changepoints
-        for j=1:i-1
-            @copy(:model => "cp$j", :model => "cp$j")
-        end
-        @copy(:proposal => :new_cp, :model => "cp$i")
-        for j=i:k
-            @copy(:model => "cp$j", :model => "cp$(j+1)")
-        end
-
-        # compute new heights
-        cur_height = @read(:model => "h$i")
-        prev_cp = (i == 1) ? 0. : @read(:model => "cp$(i-1)")
-        next_cp = (i == k+1) ? T : @read(:model => "cp$i")
-        new_cp = @read(:proposal => :new_cp)
-        u = @read(:proposal => :u)
-        (new_h_prev, new_h_next) = new_heights(cur_height, new_cp, prev_cp, next_cp, u)
-
-        # set new heights
-        for j=1:i-1
-            @copy(:model => "h$j", :model => "h$j")
-        end
-        @write(new_h_prev, :model => "h$i")
-        @write(new_h_next, :model => "h$(i+1)")
-        for j=i+1:k+1
-            @copy(:model => "h$j", :model => "h$(j+1)")
-        end
-
-        # the reverse is a death move
-        @write(false, :proposal => :isbirth)
+        @splice(birth_transform(k, i, T))
     else
-        # death move
-        @write(k - 1, :model => "k")
-        @assert k > 0
-
-        # change points
-        for j=1:i-1
-            @copy(:model => "cp$j", :model => "cp$j")
-        end
-        for j=i+1:k
-            @copy(:model => "cp$j", :model => "cp$(j-1)")
-        end
-
-        # compute new height
-        cur_cp = @read(:model => "cp$i")
-        prev_cp = (i == 1) ? 0. : @read(:model => "cp$(i-1)")
-        next_cp = (i == k) ? T : @read(:model => "cp$(i+1)")
-        prev_height = @read(:model => "h$i")
-        next_height = @read(:model => "h$(i+1)")
-        (new_height, u) = new_heights_inverse(prev_height, next_height, cur_cp, prev_cp, next_cp)
-
-        # heights
-        for j=1:i-1
-            @copy(:model => "h$j", :model => "h$j")
-        end
-        @write(new_height, :model => "h$i")
-        for j=i+2:k+1
-            @copy(:model => "h$j", :model => "h$(j-1)")
-        end
-
-        @copy(:model => "cp$i", :proposal => :new_cp)
-        @write(u, :proposal => :u)
-
-        # if new k = 0 the reverse proposal does not sample at :isbirth
-        if k > 1
-            @write(true, :proposal => :isbirth)
-        end
+        @splice(death_transform(k, i, T))
     end
-
     @copy(:model => "points", :model => "points")
-
     nothing
 end
 
 function birth_death_bijection(input::Assignment, context)
     (model_args, _) = context
     T = model_args[1]
-    (output, logabsdet, _) = apply(birth_death, (T,), input)
+    (output, logabsdet, _) = apply(birth_death_transform, (T,), input)
     (output, logabsdet)
 end
 
@@ -376,6 +384,16 @@ function mcmc_step(trace)
     trace
 end
 
+function simple_mcmc_step(trace)
+    k = get_assmt(trace)["k"]
+    (trace, _) = height_move(trace)
+    if k > 0
+        (trace, _) = position_move(trace)
+    end
+    (trace, _) = default_mh(trace, k_selection)
+    trace
+end
+
 function do_mcmc(T, num_steps::Int)
     (trace, _) = initialize(model, (T,), observations)
     for iter=1:num_steps
@@ -384,6 +402,20 @@ function do_mcmc(T, num_steps::Int)
             println("iter $iter of $num_steps, k: $k")
         end
         trace = mcmc_step(trace)
+    end
+    trace
+end
+
+const k_selection = select("k")
+
+function do_simple_mcmc(T, num_steps::Int)
+    (trace, _) = initialize(model, (T,), observations)
+    for iter=1:num_steps
+        k = get_assmt(trace)["k"]
+        if iter % 1000 == 0
+            println("iter $iter of $num_steps, k: $k")
+        end
+        trace = simple_mcmc_step(trace)
     end
     trace
 end
@@ -399,7 +431,7 @@ Random.seed!(1)
 # load data set
 import CSV
 function load_data_set()
-    df = CSV.read("coal.csv")
+    df = CSV.read("$(@__DIR__)/coal.csv")
     dates = df[1]
     dates = dates .- minimum(dates)
     dates * 365.25 # convert years to days
@@ -415,11 +447,21 @@ function show_posterior_samples()
     for i=1:16
         println("replicate $i")
         subplot(4, 4, i)
-        trace = do_mcmc(T, 5000)
+        trace = do_mcmc(T, 200)
         render(trace; ymax=0.015)
     end
     tight_layout(pad=0)
     savefig("posterior_samples.pdf")
+
+    figure(figsize=(16,16))
+    for i=1:16
+        println("replicate $i")
+        subplot(4, 4, i)
+        trace = do_simple_mcmc(T, 200)
+        render(trace; ymax=0.015)
+    end
+    tight_layout(pad=0)
+    savefig("posterior_samples_simple.pdf")
 end
 
 function get_rate_vector(trace, test_points)
@@ -483,37 +525,36 @@ function plot_posterior_mean_rate()
 end
 
 function plot_trace_plot()
-    # show the number of clusters
-    (trace, _) = initialize(model, (T,), observations)
-    num_clusters_vec = Int[]
-    burn_in = 20000
-    for iter=1:burn_in + 5000
-        trace = mcmc_step(trace)
-        if iter > burn_in
-            push!(num_clusters_vec, get_assmt(trace)["k"])
-        end
-    end
-    figure()
-    plot(num_clusters_vec)
-    ax = gca()
-    savefig("trace_plot_rjmcmc.pdf")
-end
-
-function plot_trace_plot()
     figure(figsize=(8, 4))
 
     # reversible jump
     (trace, _) = initialize(model, (T,), observations)
     height1 = Float64[]
     num_clusters_vec = Int[]
-    burn_in = 20000
-    for iter=1:burn_in + 5000
+    burn_in = 0
+    for iter=1:burn_in + 1000 
         trace = mcmc_step(trace)
         if iter > burn_in
             push!(num_clusters_vec, get_assmt(trace)["k"])
         end
     end
+    subplot(2, 1, 1)
     plot(num_clusters_vec, "b")
+
+    # simple MCMC
+    (trace, _) = initialize(model, (T,), observations)
+    height1 = Float64[]
+    num_clusters_vec = Int[]
+    burn_in = 0
+    for iter=1:burn_in + 1000 
+        trace = simple_mcmc_step(trace)
+        if iter > burn_in
+            push!(num_clusters_vec, get_assmt(trace)["k"])
+        end
+    end
+    subplot(2, 1, 2)
+    plot(num_clusters_vec, "b")
+
     savefig("trace_plot.pdf")
 end
 
