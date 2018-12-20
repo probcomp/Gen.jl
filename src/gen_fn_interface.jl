@@ -92,9 +92,13 @@ t)\$, the trace is \$(x, t, r)\$ and the weight is:
 \\cdot \\frac{P(r; x, t)}{Q(r; x, t)}
 ```
 """
-function initialize(gen_fn::GenerativeFunction{T,U}, args::Tuple,
-                    assmt::Assignment) where {T,U}
+function initialize(gen_fn::GenerativeFunction, args::Tuple,
+                    assmt::Assignment)
     error("Not implemented")
+end
+
+function initialize(gen_fn::GenerativeFunction, args::Tuple)
+    initialize(gen_fn, args, EmptyAssignment())
 end
 
 """
@@ -121,7 +125,7 @@ the weight is:
 \\cdot \\frac{P(r; x, t)}{Q(r; x, t)}
 ```
 """
-function project(trace::U, selection::AddressSet) where {T,U}
+function project(trace, selection::AddressSet)
     error("Not implemented")
 end
 
@@ -144,7 +148,7 @@ P(t; x)
 \\cdot \\frac{P(r; x, t)}{Q(r; x, t)}
 ```
 """
-function propose(gen_fn::GenerativeFunction{T,U}, args::Tuple) where {T,U}
+function propose(gen_fn::GenerativeFunction, args::Tuple)
     error("Not implemented")
 end
 
