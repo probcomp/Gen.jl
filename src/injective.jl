@@ -117,7 +117,7 @@ function copy_addr(state::InjectiveApplyState, input_addr, output_addr)
         error("Value at $input_addr not found in input ($(state.input))")
     end
     value = get_value(state.input, input_addr)
-    set_leaf_node!(state.output, output_addr, value)
+    set_value!(state.output, output_addr, value)
     push!(state.copied, input_addr)
     nothing
 end
