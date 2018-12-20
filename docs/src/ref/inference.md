@@ -1,0 +1,34 @@
+# Inference Library
+
+## Importance Sampling
+```@docs
+importance_sampling
+importance_resampling
+```
+
+## Markov Chain Monte Carlo
+The following inference library methods take a trace and return a new trace.
+```@docs
+default_mh
+simple_mh
+custom_mh
+general_mh
+mala
+hmc
+```
+
+## Optimization over Random Choices
+```@docs
+map_optimize
+```
+
+## Particle Filtering
+```@docs
+particle_filter_default
+particle_filter_custom
+```
+
+## Training Generative Functions
+```@docs
+sgd_train_batch
+```

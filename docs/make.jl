@@ -9,7 +9,15 @@ makedocs(
         "Getting Started" => "getting_started.md",
         "Tutorials" => "tutorials.md",
         "Guide" => "guide.md",
-        "Reference" => "ref.md"
+        "Reference" => [
+            "Modeling Languages" => "ref/modeling.md",
+            "Generative Function Combinators" => "ref/combinators.md",
+            "Assignments" => "ref/assignments.md",
+            "Selections" => "ref/selections.md",
+            "Inference Library" => "ref/inference.md",
+            "Generative Function Interface" => "ref/gfi.md",
+            "Probability Distributions" => "ref/distributions.md"
+         ]
     ]
 )
 
