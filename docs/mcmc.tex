@@ -1,0 +1,75 @@
+\documentclass{article}
+\usepackage{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{url}
+
+\newcommand{\reals}{\mathbb{R}}
+\newcommand{\normal}{\mathcal{N}}
+\newcommand{\pathx}{x}
+\newcommand{\pathy}{y}
+\newcommand{\measx}{\tilde{x}}
+\newcommand{\measy}{\tilde{y}}
+
+\title{Detailed balance for Gen's \texttt{general\_mh} operator}
+\author{Marco Cusumano-Towner}
+
+\begin{document}
+
+\maketitle
+
+This document shows that Gen's \texttt{general\_mh} operator satisfies detailed balance, given that its requirements are satisfied, and given that only discrete random choices are made.
+
+\paragraph{Requirements for \texttt{general\_mh}}
+Let $p(t; x)$ denote the distribution on assignments $t$ of the model generative function, parametrized by arguments $x \in X$.
+Let $q(u; t, x, y)$ denote the distribution on assignments $u$ of the proposal generative function, parametrized by a model assignment $t$, model arguments $x$, and proposal arguments $y \in Y$.
+A proposal distribution must be defined for all $(x, y, t)$ such that $x \in X$, $y \in Y$, and $p(t; x) > 0$.
+For some $x \in X$ and $y \in Y$, let $Z_{x,y} = \{(t, u) : p(t; x) > 0, q(u; t, x, y) > 0\}$.
+We also require a bijection $f_{x,y} : Z_{x,y} \to Z_{x,y}$ such that $f^{-1}_{x,y} = f_{x,y}$ (i.e. $f_{x,y}$ is its own inverse).
+Let $f_{x,y}(t, u) = (f^T_{x,y}(t, u), f^U_{x,y}(t, u))$.
+
+\paragraph{The \texttt{general\_mh} procedure}
+The \texttt{general\_mh} operator takes a $x \in X$, $y \in Y$, and $t$ such that $p(t; x) > 0$, and samples $u \sim q(\cdot; t, x, y)$.
+Then, it applies the bijection to obtain $(t', u') = f_{x,y}(t, u)$.
+Then, it computes the following acceptance probability:
+\[
+\alpha(x, y, t, u) = \min\left\{ 1, \frac{p(t'; x) q(u'; t', x, y)}{p(t; x) q(u; t, x, y)} \right\}
+\]
+With probability $\alpha(x, y, t, u)$ it returns a trace containing the new assignment $t'$ and otherwise it returns a trace containing the original assignment $t$.
+Let $k(t'; t, x, y)$ denote the distribution on return value assignments of the procedure given inputs $x, y, t$, given by:
+\begin{align}
+    k(t'; t, x, y)
+    &= \sum_{u} q(u; t, x, y) \left( \delta(f^T_{x,y}(t, u), t') \alpha(x, y, t, u) + (1 - \alpha(x, y, t, u)) \delta(t, t') \right)\\
+    &= \sum_{u : f^T_{x,y}(t, u) = t'} q(u; t, x, y) \alpha(x, y, t, u) + \delta(t, t') \sum_u q(u; t, x, y) (1 - \alpha(x, y, t, u))
+\end{align}
+where $\delta$ is the Kronecker delta.
+
+\paragraph{Detailed balance}
+We now show that for all $x \in X$ and $y \in Y$, and for all $t$ such that $p(t; x) > 0$ and all $t'$ such that $p(t'; x) > 0$:
+\begin{equation} \label{eq:db}
+p(t; x) k(t'; t, x, y) = p(t'; x) k(t;, t', x, y)
+\end{equation}
+First, consider the terms on both sides of Equation~(\ref{eq:db}) that are associated with acceptance:
+\begin{align}
+p(t; x) \sum_{u : f^T_{x,y}(t, u) = t'} q(u; t, x, y) \alpha(x, y, t, u) &= p(t'; x) \sum_{u' : f^T_{x,y}(t', u') = t} q(u'; t', x, y) \alpha(x, y, t', u')
+\end{align}
+To show equality, establish a one-to-one correspondence between the sets $\{u : f^T_{x,y}(t, u) = t'\}$ and $\{u' : f^T_{x,y}(t', u') = t\}$ that index the sums, given by $u' = g_{x,y,t,t'}(u) = f^U_{x,y}(t, u)$, and $g_{x,y,t,t'}^{-1}(u') = f_{x,y}^U(t', u')$.
+That $g_{x,y,t,t'}$ is a bijection follows from the fact that $f_{x,y}$ is a bijection.
+For each such pair $(u, u')$, it suffices to show:
+\begin{align}
+p(t; x) q(u; t, x, y) \alpha(x, y, t, u) &= p(t'; x) q(u'; t', x, y) \alpha(x, y, t', u')
+\end{align}
+It suffices to show that:
+\begin{align}
+    \frac{\alpha(x, y, t, u)}{\alpha(x, y, t', u')} = \frac{p(t'; x) q(u'; t', x, y)}{p(t; x) q(u; t, x, y)}
+\end{align}
+This can be shown by considering two cases: Either $\alpha(x, y, t, u) \ge 1$ in which case $\alpha(x, y, t', u') \le 1$, or $\alpha(x, y, t', u') > 1$ in which case $\alpha(x, y, t', u') < 1$.
+Next, consider the terms on both sides of Equation~(\ref{eq:db}) that are associated with rejection:
+\begin{align}
+    \delta(t, t') \sum_u q(u; t, x, y) (1 - \alpha(x, y, t, u)) = \delta(t', t) \sum_{u'} q(u'; t', x, y) (1 - \alpha(x, y, t', u'))
+\end{align}
+If $t \ne t'$ then we have $\delta(t, t') = \delta(t', t) = 0$ and we are done.
+If $t = t'$ then renaming $u'$ to $u$ on the right-hand side gives the equivalance.
+
+\end{document}
