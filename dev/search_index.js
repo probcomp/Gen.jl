@@ -13,7 +13,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Home",
     "title": "Gen",
     "category": "section",
-    "text": "A General-Purpose Probabilistic Programming System with Programmable InferencePages = [\n    \"getting_started.md\",\n    \"tutorials.md\",\n    \"guide.md\",\n    \"ref.md\"\n]\nDepth = 2"
+    "text": "A General-Purpose Probabilistic Programming System with Programmable InferencePages = [\n    \"getting_started.md\",\n    \"tutorials.md\",\n    \"guide.md\",\n]\nDepth = 2ReferencePages = [\n    \"ref/modeling.md\",\n    \"ref/combinators.md\",\n    \"ref/assignments.md\",\n    \"ref/selections.md\",\n    \"ref/inference.md\",\n    \"ref/gfi.md\",\n    \"ref/distributions.md\"\n]\nDepth = 2"
 },
 
 {
@@ -313,427 +313,515 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "ref/#",
-    "page": "Reference",
-    "title": "Reference",
+    "location": "ref/modeling/#",
+    "page": "Modeling Languages",
+    "title": "Modeling Languages",
     "category": "page",
     "text": ""
 },
 
 {
-    "location": "ref/#Reference-1",
-    "page": "Reference",
-    "title": "Reference",
-    "category": "section",
-    "text": ""
-},
-
-{
-    "location": "ref/#Modeling-Languages-1",
-    "page": "Reference",
+    "location": "ref/modeling/#Modeling-Languages-1",
+    "page": "Modeling Languages",
     "title": "Modeling Languages",
     "category": "section",
-    "text": ""
+    "text": "Gen provides two embedded DSLs for defining generative functions. Both DSLs are based on Julia function definition syntax."
 },
 
 {
-    "location": "ref/#Addresses-of-Random-Choices-1",
-    "page": "Reference",
-    "title": "Addresses of Random Choices",
-    "category": "section",
-    "text": ""
-},
-
-{
-    "location": "ref/#Dynamic-DSL-1",
-    "page": "Reference",
+    "location": "ref/modeling/#Dynamic-DSL-1",
+    "page": "Modeling Languages",
     "title": "Dynamic DSL",
     "category": "section",
-    "text": ""
+    "text": "Dynamic DSL functions are defined using the @gen macro in front of a Julia function definition. We will refer to Dynamic DSL functions as @gen functions from here forward.Here is a sample @gen function that samples two random choices:@gen function foo(prob::Float64)\n    z1 = @addr(bernoulli(prob), :a)\n    z2 = @addr(bernoulli(prob), :b)\n    return z1 || z2\nendAfter running this code, foo is a Julia value of type DynamicDSLFunction, which is a subtype of GenerativeFunction."
 },
 
 {
-    "location": "ref/#Static-DSL-1",
-    "page": "Reference",
+    "location": "ref/modeling/#Making-Random-Choices-1",
+    "page": "Modeling Languages",
+    "title": "Making Random Choices",
+    "category": "section",
+    "text": "Random choices are made by applying a Probability Distribution to some arguments:val::Bool = bernoulli(0.5)Within the context of a @gen function, wrapping the right-hand side of the expression associates the random choice with an address, and evaluates to the value of the random choice. Addresses can be any Julia value. Here, we give the Julia symbol address :z:val::Bool = @addr(bernoulli(0.5), :z)Not all random choices need to be given addresses. An address is required if the random choice will be observed, or will be referenced by a custom inference algorithm (e.g. if it will be proposed to by a custom proposal distribution)."
+},
+
+{
+    "location": "ref/modeling/#Calling-Generative-Functions-1",
+    "page": "Modeling Languages",
+    "title": "Calling Generative Functions",
+    "category": "section",
+    "text": "@gen functions can invoke other generative functions in three possible ways.Untraced call: If foo is a generative function, we can invoke foo from within the body of a @gen function using regular call syntax. The random choices made within the call are not given addresses in our trace, and are therefore non-addressable random choices (see Generative Function Interface for details on non-addressable random choices).val = foo(0.5)Traced call with shared namespace: We can include the addressable random choices made by foo in the caller\'s trace using @splice:val = @splice(foo(0.5))Now, all random choices made by foo are included in our trace. The caller must guarantee that there are no address collisions.Traced call with hierarchical namespace: We can include the addressable random choices made by foo in the caller\'s trace, under a namespace, using @addr:val = @addr(foo(0.5), :x)Now, all random choices made by foo are included in our trace, under the namespace :x. For example, if foo makes random choices at addresses :a and :b, these choices will have addresses :x => :a and :x => :b in the caller\'s trace."
+},
+
+{
+    "location": "ref/modeling/#Using-Composite-Addresses-1",
+    "page": "Modeling Languages",
+    "title": "Using Composite Addresses",
+    "category": "section",
+    "text": "In Julia, Pair values can be constructed using the => operator. For example, :a => :b is equivalent to Pair(:a, :b) and :a => :b => :c is equivalent to Pair(:a, Pair(:b, :c)). A Pair value (e.g. :a => :b => :c) can be passed as the address field in an @addr expression, provided that there is not also a random choice or generative function called with @addr at any prefix of the address.Concretely, the following are invalid within the body of a generative function:@addr(normal(0, 1), :a => :b => :c)\n@addr(normal(0, 1), :a => :b)@addr(normal(0, 1), :a => :b => :c)\n@addr(normal(0, 1), :a)@addr(normal(0, 1), :a => :b => :c)\n@addr(foo(0.5), :a => :b)@addr(normal(0, 1), :a)\n@addr(foo(0.5), :a => :b)The following are valid:@addr(normal(0, 1), :a => :b)\n@addr(normal(0, 1), :a => :c)@addr(normal(0, 1), :a => :b)\n@addr(foo(0.5), :a => :c)"
+},
+
+{
+    "location": "ref/modeling/#Returning-1",
+    "page": "Modeling Languages",
+    "title": "Returning",
+    "category": "section",
+    "text": "Like regular Julia functions, @gen functions return either the expression used in a return keyword, or by evaluating the last expression in the function body. Note that the return value of a @gen function is distinct from its trace."
+},
+
+{
+    "location": "ref/modeling/#Static-DSL-1",
+    "page": "Modeling Languages",
     "title": "Static DSL",
     "category": "section",
+    "text": "Static DSL functions are defined using the @staticgen macro."
+},
+
+{
+    "location": "ref/combinators/#",
+    "page": "Generative Function Combinators",
+    "title": "Generative Function Combinators",
+    "category": "page",
     "text": ""
 },
 
 {
-    "location": "ref/#Combinators-1",
-    "page": "Reference",
-    "title": "Combinators",
+    "location": "ref/combinators/#Generative-Function-Combinators-1",
+    "page": "Generative Function Combinators",
+    "title": "Generative Function Combinators",
     "category": "section",
     "text": ""
 },
 
 {
-    "location": "ref/#Gen.has_value",
-    "page": "Reference",
+    "location": "ref/assignments/#",
+    "page": "Assignments",
+    "title": "Assignments",
+    "category": "page",
+    "text": ""
+},
+
+{
+    "location": "ref/assignments/#Gen.has_value",
+    "page": "Assignments",
     "title": "Gen.has_value",
     "category": "function",
     "text": "has_value(assmt::Assignment, addr)\n\nReturn true if there is a value at the given address.\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/#Gen.get_value",
-    "page": "Reference",
+    "location": "ref/assignments/#Gen.get_value",
+    "page": "Assignments",
     "title": "Gen.get_value",
     "category": "function",
     "text": "value = get_value(assmt::Assignment, addr)\n\nReturn the value at the given address in the assignment, or throw a KeyError if no value exists. A syntactic sugar is Base.getindex:\n\nvalue = assmt[addr]\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/#Gen.get_subassmt",
-    "page": "Reference",
+    "location": "ref/assignments/#Gen.get_subassmt",
+    "page": "Assignments",
     "title": "Gen.get_subassmt",
     "category": "function",
     "text": "subassmt = get_subassmt(assmt::Assignment, addr)\n\nReturn the sub-assignment containing all choices whose address is prefixed by addr.\n\nIt is an error if the assignment contains a value at the given address. If there are no choices whose address is prefixed by addr then return an EmptyAssignment.\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/#Gen.get_values_shallow",
-    "page": "Reference",
+    "location": "ref/assignments/#Gen.get_values_shallow",
+    "page": "Assignments",
     "title": "Gen.get_values_shallow",
     "category": "function",
     "text": "key_subassmt_iterable = get_values_shallow(assmt::Assignment)\n\nReturn an iterable collection of tuples (key, subassmt::Assignment) for each top-level key associated with a value.\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/#Gen.get_subassmts_shallow",
-    "page": "Reference",
+    "location": "ref/assignments/#Gen.get_subassmts_shallow",
+    "page": "Assignments",
     "title": "Gen.get_subassmts_shallow",
     "category": "function",
     "text": "key_subassmt_iterable = get_subassmts_shallow(assmt::Assignment)\n\nReturn an iterable collection of tuples (key, subassmt::Assignment) for each top-level key that has a non-empty sub-assignment.\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/#Gen.to_array",
-    "page": "Reference",
+    "location": "ref/assignments/#Gen.to_array",
+    "page": "Assignments",
     "title": "Gen.to_array",
     "category": "function",
     "text": "arr::Vector{T} = to_array(assmt::Assignment, ::Type{T}) where {T}\n\nPopulate an array with values of choices in the given assignment.\n\nIt is an error if each of the values cannot be coerced into a value of the given type.\n\nImplementation\n\nTo support to_array, a concrete subtype T <: Assignment should implement the following method:\n\nn::Int = _fill_array!(assmt::T, arr::Vector{V}, start_idx::Int) where {V}\n\nPopulate arr with values from the given assignment, starting at start_idx, and return the number of elements in arr that were populated.\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/#Gen.from_array",
-    "page": "Reference",
+    "location": "ref/assignments/#Gen.from_array",
+    "page": "Assignments",
     "title": "Gen.from_array",
     "category": "function",
     "text": "assmt::Assignment = from_array(proto_assmt::Assignment, arr::Vector)\n\nReturn an assignment with the same address structure as a prototype assignment, but with values read off from the given array.\n\nThe order in which addresses are populated is determined by the prototype assignment. It is an error if the number of choices in the prototype assignment is not equal to the length the array.\n\nImplementation\n\nTo support from_array, a concrete subtype T <: Assignment should implement the following method:\n\n(n::Int, assmt::T) = _from_array(proto_assmt::T, arr::Vector{V}, start_idx::Int) where {V}\n\nReturn an assignment with the same address structure as a prototype assignment, but with values read off from arr, starting at position start_idx, and the number of elements read from arr.\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/#Assignments-1",
-    "page": "Reference",
+    "location": "ref/assignments/#Assignments-1",
+    "page": "Assignments",
     "title": "Assignments",
     "category": "section",
     "text": "An assignment is a map from addresses of random choices to their values. Assignments are constructed by users to express observations and/or constraints on the traces of generative functions. Assignments are also returned by certain Gen inference methods, and are used internally by various Gen inference methods.There are various concrete types for assignments, each of which is a subtype of Assignment. Assignments provide the following methods:has_value\nget_value\nget_subassmt\nget_values_shallow\nget_subassmts_shallow\nto_array\nfrom_arrayNote that none of these methods mutate the assignment.Assignments also provide Base.isempty, which tests of there are no random choices in the assignment, and Base.merge, which takes two assignments, and returns a new assignment containing all random choices in either assignment. It is an error if the assignments both have values at the same address, or if one assignment has a value at an address that is the prefix of the address of a value in the other assignment."
 },
 
 {
-    "location": "ref/#Gen.DynamicAssignment",
-    "page": "Reference",
+    "location": "ref/assignments/#Gen.DynamicAssignment",
+    "page": "Assignments",
     "title": "Gen.DynamicAssignment",
     "category": "type",
     "text": "assmt = DynamicAssignment()\n\nConstruct an empty dynamic assignment.\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/#Gen.set_value!",
-    "page": "Reference",
+    "location": "ref/assignments/#Gen.set_value!",
+    "page": "Assignments",
     "title": "Gen.set_value!",
     "category": "function",
     "text": "set_value!(assmt::DynamicAssignment, addr, value)\n\nSet the given value for the given address.\n\nWill cause any previous value or sub-assignment at this address to be deleted. It is an error if there is already a value present at some prefix of the given address.\n\nThe following syntactic sugar is provided:\n\nassmt[addr] = value\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/#Gen.set_subassmt!",
-    "page": "Reference",
+    "location": "ref/assignments/#Gen.set_subassmt!",
+    "page": "Assignments",
     "title": "Gen.set_subassmt!",
     "category": "function",
     "text": "set_subassmt!(assmt::DynamicAssignment, addr, subassmt::Assignment)\n\nReplace the sub-assignment rooted at the given address with the given sub-assignment. Set the given value for the given address.\n\nWill cause any previous value or sub-assignment at the given address to be deleted. It is an error if there is already a value present at some prefix of address.\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/#Dynamic-Assignment-1",
-    "page": "Reference",
+    "location": "ref/assignments/#Dynamic-Assignment-1",
+    "page": "Assignments",
     "title": "Dynamic Assignment",
     "category": "section",
     "text": "One concrete assignment type is DynamicAssignment, which is mutable. Users construct DynamicAssignments and populate them for use as observations or constraints, e.g.:assmt = DynamicAssignment()\nassmt[:x] = true\nassmt[\"foo\"] = 1.25\nassmt[:y => 1 => :z] = -6.3DynamicAssignment\nset_value!\nset_subassmt!"
 },
 
 {
-    "location": "ref/#Selections-1",
-    "page": "Reference",
+    "location": "ref/selections/#",
+    "page": "Selections",
+    "title": "Selections",
+    "category": "page",
+    "text": ""
+},
+
+{
+    "location": "ref/selections/#Selections-1",
+    "page": "Selections",
     "title": "Selections",
     "category": "section",
     "text": "A selection is a set of addresses. Users typically construct selections and pass them to Gen inference library methods.There are various concrete types for selections, each of which is a subtype of AddressSet. One such concrete type is DynamicAddressSet, which users can populate using Base.push!, e.g.:sel = DynamicAddressSet()\npush!(sel, :x)\npush!(sel, \"foo\")\npush!(sel, :y => 1 => :z)There is also the following syntactic sugar:sel = select(:x, \"foo\", :y => 1 => :z)"
 },
 
 {
-    "location": "ref/#Inference-Library-1",
-    "page": "Reference",
+    "location": "ref/inference/#",
+    "page": "Inference Library",
+    "title": "Inference Library",
+    "category": "page",
+    "text": ""
+},
+
+{
+    "location": "ref/inference/#Inference-Library-1",
+    "page": "Inference Library",
     "title": "Inference Library",
     "category": "section",
     "text": ""
 },
 
 {
-    "location": "ref/#Gen.importance_sampling",
-    "page": "Reference",
+    "location": "ref/inference/#Gen.importance_sampling",
+    "page": "Inference Library",
     "title": "Gen.importance_sampling",
     "category": "function",
     "text": "(traces, log_norm_weights, lml_est) = importance_sampling(model::GenerativeFunction,\n    model_args::Tuple, observations::Assignment, num_samples::Int)\n\n(traces, log_norm_weights, lml_est) = importance_sampling(model::GenerativeFunction,\n    model_args::Tuple, observations::Assignment,\n    proposal::GenerativeFunction, proposal_args::Tuple,\n    num_samples::Int)\n\nRun importance sampling, returning a vector of traces with associated log weights.\n\nThe log-weights are normalized. Also return the estimate of the marginal likelihood of the observations (lml_est). The observations are addresses that must be sampled by the model in the given model arguments. The first variant uses the internal proposal distribution of the model. The second variant uses a custom proposal distribution defined by the given generative function. All addresses of random choices sampled by the proposal should also be sampled by the model function.\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/#Gen.importance_resampling",
-    "page": "Reference",
+    "location": "ref/inference/#Gen.importance_resampling",
+    "page": "Inference Library",
     "title": "Gen.importance_resampling",
     "category": "function",
     "text": "(trace, lml_est) = importance_resampling(model::GenerativeFunction,\n    model_args::Tuple, observations::Assignment, num_samples::Int)\n\n(traces, lml_est) = importance_resampling(model::GenerativeFunction,\n    model_args::Tuple, observations::Assignment,\n    proposal::GenerativeFunction, proposal_args::Tuple,\n    num_samples::Int)\n\nRun sampling importance resampling, returning a single trace.\n\nUnlike importance_sampling, the memory used constant in the number of samples.\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/#Importance-Sampling-1",
-    "page": "Reference",
+    "location": "ref/inference/#Importance-Sampling-1",
+    "page": "Inference Library",
     "title": "Importance Sampling",
     "category": "section",
     "text": "importance_sampling\nimportance_resampling"
 },
 
 {
-    "location": "ref/#Gen.default_mh",
-    "page": "Reference",
+    "location": "ref/inference/#Gen.default_mh",
+    "page": "Inference Library",
     "title": "Gen.default_mh",
     "category": "function",
     "text": "(new_trace, accepted) = default_mh(trace, selection::AddressSet)\n\nPerform a Metropolis-Hastings update that proposes new values for the selected addresses from the internal proposal (often using ancestral sampling).\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/#Gen.simple_mh",
-    "page": "Reference",
+    "location": "ref/inference/#Gen.simple_mh",
+    "page": "Inference Library",
     "title": "Gen.simple_mh",
     "category": "function",
     "text": "(new_trace, accepted) = simple_mh(trace, proposal::GenerativeFunction, proposal_args::Tuple)\n\nPerform a Metropolis-Hastings update that proposes new values for some subset of random choices in the given trace using the given proposal generative function.\n\nThe proposal generative function should take as its first argument the current trace of the model, and remaining arguments proposal_args. All addresses sampled by the proposal must be in the existing model trace. The proposal may modify the control flow of the model, but values of new addresses in the model are sampled from the model\'s internal proposal distribution.\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/#Gen.custom_mh",
-    "page": "Reference",
+    "location": "ref/inference/#Gen.custom_mh",
+    "page": "Inference Library",
     "title": "Gen.custom_mh",
     "category": "function",
     "text": "(new_trace, accepted) = custom_mh(trace, proposal::GenerativeFunction, proposal_args::Tuple)\n\nPerform a Metropolis-Hastings update that proposes new values for some subset of random choices in the given trace using the given proposal generative function.\n\nThe proposal generative function should take as its first argument the current trace of the model, and remaining arguments proposal_args. If the proposal modifies addresses that determine the control flow in the model, values must be provided by the proposal for any addresses that are newly sampled by the model.\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/#Gen.general_mh",
-    "page": "Reference",
+    "location": "ref/inference/#Gen.general_mh",
+    "page": "Inference Library",
     "title": "Gen.general_mh",
     "category": "function",
     "text": "(new_trace, accepted) = general_mh(trace, proposal, proposal_args, bijection)\n\nApply a MCMC update constructed from a bijection and a proposal that satisfies detailed balance.\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/#Gen.mala",
-    "page": "Reference",
+    "location": "ref/inference/#Gen.mala",
+    "page": "Inference Library",
     "title": "Gen.mala",
     "category": "function",
     "text": "(new_trace, accepted) = mala(trace, selection::AddressSet, tau::Real)\n\nApply a Metropolis-Adjusted Langevin Algorithm (MALA) update.\n\nReference URL\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/#Gen.hmc",
-    "page": "Reference",
+    "location": "ref/inference/#Gen.hmc",
+    "page": "Inference Library",
     "title": "Gen.hmc",
     "category": "function",
     "text": "(new_trace, accepted) = hmc(trace, selection::AddressSet, mass=0.1, L=10, eps=0.1)\n\nApply a Hamiltonian Monte Carlo (HMC) update.\n\nNeal, Radford M. \"MCMC using Hamiltonian dynamics.\" Handbook of Markov Chain Monte Carlo 2.11 (2011): 2.\n\nReference URL\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/#Markov-Chain-Monte-Carlo-1",
-    "page": "Reference",
+    "location": "ref/inference/#Markov-Chain-Monte-Carlo-1",
+    "page": "Inference Library",
     "title": "Markov Chain Monte Carlo",
     "category": "section",
-    "text": "default_mh\nsimple_mh\ncustom_mh\ngeneral_mh\nmala\nhmc"
+    "text": "The following inference library methods take a trace and return a new trace.default_mh\nsimple_mh\ncustom_mh\ngeneral_mh\nmala\nhmc"
 },
 
 {
-    "location": "ref/#Gen.map_optimize",
-    "page": "Reference",
+    "location": "ref/inference/#Gen.map_optimize",
+    "page": "Inference Library",
     "title": "Gen.map_optimize",
     "category": "function",
     "text": "new_trace = map_optimize(trace, selection::AddressSet, \n    max_step_size=0.1, tau=0.5, min_step_size=1e-16, verbose=false)\n\nPerform backtracking gradient ascent to optimize the log probability of the trace over selected continuous choices.\n\nSelected random choices must have support on the entire real line.\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/#Optimization-over-Random-Choices-1",
-    "page": "Reference",
+    "location": "ref/inference/#Optimization-over-Random-Choices-1",
+    "page": "Inference Library",
     "title": "Optimization over Random Choices",
     "category": "section",
     "text": "map_optimize"
 },
 
 {
-    "location": "ref/#Gen.particle_filter_default",
-    "page": "Reference",
+    "location": "ref/inference/#Gen.particle_filter_default",
+    "page": "Inference Library",
     "title": "Gen.particle_filter_default",
     "category": "function",
     "text": "(traces, log_norm_weights, lml_est) = particle_filter_default(\n    model::GenerativeFunction, model_args::Tuple, num_steps::Int,\n    num_particles::Int, ess_threshold::Real,\n    init_observations::Assignment, step_observations::Function;\n    verbose=false)\n\nRun particle filtering using the internal proposal of the model.\n\nThe first argument to the model must be an integer, starting with 1, that defines the step. The remaining arguments are given by model_args. The model traces will be initialized with step=1 using the constraints given by init_observations. Then, the step will be consecutively incremented by 1. The function step_observations takes the step and returns a tuple (observations, argdiff) where observations is an assignment containing the values for newly observed random choices for the step, and argdiff describes the argument change from the previous step to the current step.\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/#Gen.particle_filter_custom",
-    "page": "Reference",
+    "location": "ref/inference/#Gen.particle_filter_custom",
+    "page": "Inference Library",
     "title": "Gen.particle_filter_custom",
     "category": "function",
     "text": "(traces, log_norm_weights, lml_est) = particle_filter_custom(\n    model::GenerativeFunction, model_args::Tuple, num_steps::Int,\n    num_steps::Int, num_particles::Int, ess_threshold::Real,\n    init_observations::Assignment, init_proposal_args::Tuple,\n    step_observations::Function, step_proposal_args::Function,\n    init_proposal::GenerativeFunction, step_proposal::GenerativeFunction;\n    verbose::Bool=false)\n\nRun particle filtering using custom proposal(s) at each step.\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/#Particle-Filtering-1",
-    "page": "Reference",
+    "location": "ref/inference/#Particle-Filtering-1",
+    "page": "Inference Library",
     "title": "Particle Filtering",
     "category": "section",
     "text": "particle_filter_default\nparticle_filter_custom"
 },
 
 {
-    "location": "ref/#Gen.sgd_train_batch",
-    "page": "Reference",
+    "location": "ref/inference/#Gen.sgd_train_batch",
+    "page": "Inference Library",
     "title": "Gen.sgd_train_batch",
     "category": "function",
     "text": "sgd_train_batch(teacher::GenerativeFunction, teacher_args::Tuple,\n    batch_student::GenerativeFunction, conf::SGDTrainConf; verbose=false)\n\nTrain a batched (vectorized) student generative function on assignments sampled from a teacher generative function.\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/#Training-Generative-Functions-1",
-    "page": "Reference",
+    "location": "ref/inference/#Training-Generative-Functions-1",
+    "page": "Inference Library",
     "title": "Training Generative Functions",
     "category": "section",
     "text": "sgd_train_batch"
 },
 
 {
-    "location": "ref/#Gen.initialize",
-    "page": "Reference",
+    "location": "ref/gfi/#",
+    "page": "Generative Function Interface",
+    "title": "Generative Function Interface",
+    "category": "page",
+    "text": ""
+},
+
+{
+    "location": "ref/gfi/#Gen.initialize",
+    "page": "Generative Function Interface",
     "title": "Gen.initialize",
     "category": "function",
     "text": "(trace::U, weight) = initialize(gen_fn::GenerativeFunction{T,U}, args::Tuple,\n                                assmt::Assignment)\n\nReturn a trace of a generative function that is consistent with the given assignment.\n\nBasic case\n\nGiven arguments x (args) and assignment u (assmt), sample t sim Q(cdot u x) and return the trace (x t) (trace).  Also return the weight (weight):\n\nfracP(t x)Q(t u x)\n\nGeneral case\n\nIdentical to the basic case, except that we also sample r sim Q(cdot x t), the trace is (x t r) and the weight is:\n\nfracP(t x)Q(t u x)\ncdot fracP(r x t)Q(r x t)\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/#Gen.project",
-    "page": "Reference",
+    "location": "ref/gfi/#Gen.project",
+    "page": "Generative Function Interface",
     "title": "Gen.project",
     "category": "function",
     "text": "weight = project(trace::U, selection::AddressSet)\n\nEstimate the probability that the selected choices take the values they do in a trace. \n\nBasic case\n\nGiven a trace (x t) (trace) and a set of addresses A (selection), let u denote the restriction of t to A. Return the weight (weight):\n\nfracP(t x)Q(t u x)\n\nGeneral case\n\nIdentical to the basic case except that the previous trace is (x t r) and the weight is:\n\nfracP(t x)Q(t u x)\ncdot fracP(r x t)Q(r x t)\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/#Gen.propose",
-    "page": "Reference",
+    "location": "ref/gfi/#Gen.propose",
+    "page": "Generative Function Interface",
     "title": "Gen.propose",
     "category": "function",
     "text": "(assmt, weight, retval) = propose(gen_fn::GenerativeFunction, args::Tuple)\n\nSample an assignment and compute the probability of proposing that assignment.\n\nBasic case\n\nGiven arguments (args), sample t sim P(cdot x), and return t (assmt) and the weight (weight) P(t x).\n\nGeneral case\n\nIdentical to the basic case, except that we also sample r sim P(cdot x t), and the weight is:\n\nP(t x)\ncdot fracP(r x t)Q(r x t)\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/#Gen.assess",
-    "page": "Reference",
+    "location": "ref/gfi/#Gen.assess",
+    "page": "Generative Function Interface",
     "title": "Gen.assess",
     "category": "function",
     "text": "(weight, retval) = assess(gen_fn::GenerativeFunction, args::Tuple, assmt::Assignment)\n\nReturn the probability of proposing an assignment\n\nBasic case\n\nGiven arguments x (args) and an assignment t (assmt) such that P(t x)  0, return the weight (weight) P(t x).  It is an error if P(t x) = 0.\n\nGeneral case\n\nIdentical to the basic case except that we also sample r sim Q(cdot x t), and the weight is:\n\nP(t x)\ncdot fracP(r x t)Q(r x t)\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/#Gen.force_update",
-    "page": "Reference",
+    "location": "ref/gfi/#Gen.force_update",
+    "page": "Generative Function Interface",
     "title": "Gen.force_update",
     "category": "function",
     "text": "(new_trace, weight, discard, retdiff) = force_update(args::Tuple, argdiff, trace,\n                                                     assmt::Assignment)\n\nUpdate a trace by changing the arguments and/or providing new values for some existing random choice(s) and values for any newly introduced random choice(s).\n\nBasic case\n\nGiven a previous trace (x t) (trace), new arguments x (args), and an assignment u (assmt), return a new trace (x t) (new_trace) that is consistent with u.  The values of choices in t are deterministically copied either from t or from u (with u taking precedence).  All choices in u must appear in t.  Also return an assignment v (discard) containing the choices in t that were overwritten by values from u, and any choices in t whose address does not appear in t.  Also return the weight (weight):\n\nfracP(t x)P(t x)\n\nGeneral case\n\nIdentical to the basic case except that the previous trace is (x t r), the new trace is (x t r) where r sim Q(cdot x t), and the weight is:\n\nfracP(t x)P(t x)\ncdot fracP(r x t) Q(r x t)P(r x t) Q(r x t)\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/#Gen.fix_update",
-    "page": "Reference",
+    "location": "ref/gfi/#Gen.fix_update",
+    "page": "Generative Function Interface",
     "title": "Gen.fix_update",
     "category": "function",
     "text": "(new_trace, weight, discard, retdiff) = fix_update(args::Tuple, argdiff, trace,\n                                                   assmt::Assignment)\n\nUpdate a trace, by changing the arguments and/or providing new values for some existing random choice(s).\n\nBasic case\n\nGiven a previous trace (x t) (trace), new arguments x (args), and an assignment u (assmt), return a new trace (x t) (new_trace) that is consistent with u.  Let u + t denote the merge of u and t (with u taking precedence).  Sample t sim Q(cdot u + t x). All addresses in u must appear in t and in t.  Also return an assignment v (discard) containing the values from t for addresses in u.  Also return the weight (weight):\n\nfracP(t x)P(t x) cdot fracQ(t v + t x)Q(t u + t x)\n\nGeneral case\n\nIdentical to the basic case except that the previous trace is (x t r), the new trace is (x t r) where r sim Q(cdot x t), and the weight is:\n\nfracP(t x)P(t x)\ncdot fracQ(t v + t x)Q(t u + t x)\ncdot fracP(r x t) Q(r x t)P(r x t) Q(r x t)\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/#Gen.free_update",
-    "page": "Reference",
+    "location": "ref/gfi/#Gen.free_update",
+    "page": "Generative Function Interface",
     "title": "Gen.free_update",
     "category": "function",
     "text": "(new_trace, weight, retdiff) = free_update(args::Tuple, argdiff, trace,\n                                           selection::AddressSet)\n\nUpdate a trace by changing the arguments and/or randomly sampling new values for selected random choices.\n\nBasic case\n\nGiven a previous trace (x t) (trace), new arguments x (args), and a set of addresses A (selection), return a new trace (x t) (new_trace) such that t agrees with t on all addresses not in A (t and t may have different sets of addresses).  Let u denote the restriction of t to the complement of A.  Sample t sim Q(cdot u x).  Return the new trace (x t) (new_trace) and the weight (weight):\n\nfracP(t x)P(t x)\ncdot fracQ(t u x)Q(t u x)\n\nwhere u is the restriction of t to the complement of A.\n\nGeneral case\n\nIdentical to the basic case except that the previous trace is (x t r), the new trace is (x t r) where r sim Q(cdot x t), and the weight is:\n\nfracP(t x)P(t x)\ncdot fracQ(t u x)Q(t u x)\ncdot fracP(r x t) Q(r x t)P(r x t) Q(r x t)\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/#Gen.extend",
-    "page": "Reference",
+    "location": "ref/gfi/#Gen.extend",
+    "page": "Generative Function Interface",
     "title": "Gen.extend",
     "category": "function",
     "text": "(new_trace, weight, retdiff) = extend(args::Tuple, argdiff, trace, assmt::Assignment)\n\nExtend a trace with new random choices by changing the arguments.\n\nBasic case\n\nGiven a previous trace (x t) (trace), new arguments x (args), and an assignment u (assmt) that shares no addresses with t, return a new trace (x t) (new_trace) such that t agrees with t on all addresses in t and t agrees with u on all addresses in u. Sample t sim Q(cdot t + u x). Also return the weight (weight):\n\nfracP(t x)P(t x) Q(t t + u x)\n\nGeneral case\n\nIdentical to the basic case except that the previous trace is (x t r), and we also sample r sim Q(cdot t x), the new trace is (x t r), and the weight is:\n\nfracP(t x)P(t x) Q(t t + u x)\ncdot fracP(r x t) Q(r x t)P(r x t) Q(r x t)\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/#Gen.backprop_params",
-    "page": "Reference",
+    "location": "ref/gfi/#Gen.backprop_params",
+    "page": "Generative Function Interface",
     "title": "Gen.backprop_params",
     "category": "function",
     "text": "arg_grads = backprop_params(trace, retgrad)\n\nIncrement gradient accumulators for parameters by the gradient of the log-probability of the trace.\n\nBasic case\n\nGiven a previous trace (x t) (trace) and a gradient with respect to the return value _y J (retgrad), return the following gradient (arg_grads) with respect to the arguments x:\n\n_x left( log P(t x) + J right)\n\nAlso increment the gradient accumulators for the static parameters Θ of the function by:\n\n_Θ left( log P(t x) + J right)\n\nGeneral case\n\nNot yet formalized.\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/#Gen.backprop_trace",
-    "page": "Reference",
+    "location": "ref/gfi/#Gen.backprop_trace",
+    "page": "Generative Function Interface",
     "title": "Gen.backprop_trace",
     "category": "function",
     "text": "(arg_grads, choice_values, choice_grads) = backprop_trace(trace, selection::AddressSet,\n                                                          retgrad)\n\nBasic case\n\nGiven a previous trace (x t) (trace) and a gradient with respect to the return value _y J (retgrad), return the following gradient (arg_grads) with respect to the arguments x:\n\n_x left( log P(t x) + J right)\n\nAlso given a set of addresses A (selection) that are continuous-valued random choices, return the folowing gradient (choice_grads) with respect to the values of these choices:\n\n_A left( log P(t x) + J right)\n\nAlso return the assignment (choice_values) that is the restriction of t to A.\n\nGeneral case\n\nNot yet formalized.\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/#Gen.get_assmt",
-    "page": "Reference",
+    "location": "ref/gfi/#Gen.get_assmt",
+    "page": "Generative Function Interface",
     "title": "Gen.get_assmt",
     "category": "function",
     "text": "get_assmt(trace)\n\nReturn a value implementing the assignment interface\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/#Gen.get_args",
-    "page": "Reference",
+    "location": "ref/gfi/#Gen.get_args",
+    "page": "Generative Function Interface",
     "title": "Gen.get_args",
     "category": "function",
     "text": "get_args(trace)\n\nReturn the argument tuple for a given execution.\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/#Gen.get_retval",
-    "page": "Reference",
+    "location": "ref/gfi/#Gen.get_retval",
+    "page": "Generative Function Interface",
     "title": "Gen.get_retval",
     "category": "function",
     "text": "get_retval(trace)\n\nReturn the return value of the given execution.\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/#Gen.get_score",
-    "page": "Reference",
+    "location": "ref/gfi/#Gen.get_score",
+    "page": "Generative Function Interface",
     "title": "Gen.get_score",
     "category": "function",
     "text": "get_score(trace)\n\nBasic case\n\nReturn P(t x)\n\nGeneral case\n\nReturn P(r t x)  Q(r tx t)\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/#Generative-Function-Interface-1",
-    "page": "Reference",
+    "location": "ref/gfi/#Generative-Function-Interface-1",
+    "page": "Generative Function Interface",
     "title": "Generative Function Interface",
     "category": "section",
     "text": "A trace is a record of an execution of a generative function. There is no abstract type representing all traces. Generative functions implement the generative function interface, which is a set of methods that involve the execution traces and probabilistic behavior of generative functions. In the mathematical description of the interface methods, we denote arguments to a function by x, complete assignments of values to addresses of random choices (containing all the random choices made during some execution) by t and partial assignments by either u or v. We denote a trace of a generative function by the tuple (x t). We say that two assignments u and t agree when they assign addresses that appear in both assignments to the same values (they can different or even disjoint sets of addresses and still agree). A generative function is associated with a family of probability distributions P(t x) on assignments t, parameterized by arguments x, and a second family of distributions Q(t u x) on assignments t parameterized by partial assignment u and arguments x. Q is called the internal proposal family of the generative function, and satisfies that if u and t agree then P(t x)  0 if and only if Q(t x u)  0, and that Q(t x u)  0 implies that u and t agree. See the Gen technical report for additional details.Generative functions may also use non-addressable random choices, denoted r. Unlike regular (addressable) random choices, non-addressable random choices do not have addresses, and the value of non-addressable random choices is not exposed through the generative function interface. However, the state of non-addressable random choices is maintained in the trace. A trace that contains non-addressable random choices is denoted (x t r). Non-addressable random choices manifest to the user of the interface as stochasticity in weights returned by generative function interface methods. The behavior of non-addressable random choices is defined by an additional pair of families of distributions associated with the generative function, denoted Q(r x t) and P(r x t), which are defined for P(t x)  0, and which satisfy Q(r x t)  0 if and only if P(r x t)  0. For each generative function below, we describe its semantics first in the basic setting where there is no non-addressable random choices, and then in the more general setting that may include non-addressable random choices.initialize\nproject\npropose\nassess\nforce_update\nfix_update\nfree_update\nextend\nbackprop_params\nbackprop_trace\nget_assmt\nget_args\nget_retval\nget_score"
+},
+
+{
+    "location": "ref/distributions/#",
+    "page": "Probability Distributions",
+    "title": "Probability Distributions",
+    "category": "page",
+    "text": ""
+},
+
+{
+    "location": "ref/distributions/#Probability-Distributions-1",
+    "page": "Probability Distributions",
+    "title": "Probability Distributions",
+    "category": "section",
+    "text": ""
+},
+
+{
+    "location": "ref/distributions/#Built-In-Distributions-1",
+    "page": "Probability Distributions",
+    "title": "Built-In Distributions",
+    "category": "section",
+    "text": "bernoulli\nnormal\nmvnormal\ngamma\ninv_gamma\nbeta\ncategorical\nuniform\nuniform_discrete\npoisson"
+},
+
+{
+    "location": "ref/distributions/#Defining-New-Distributions-1",
+    "page": "Probability Distributions",
+    "title": "Defining New Distributions",
+    "category": "section",
+    "text": "Probability distributions are singleton types whose supertype is Distribution{T}, where T indicates the data type of the random sample.abstract type Distribution{T} endBy convention, distributions have a global constant lower-case name for the singleton value. For example:struct Bernoulli <: Distribution{Bool} end\nconst bernoulli = Bernoulli()Distributions must implement two methods, random and logpdf.random returns a random sample from the distribution:x::Bool = random(bernoulli, 0.5)\nx::Bool = random(Bernoulli(), 0.5)logpdf returns the log probability (density) of the distribution at a given value:logpdf(bernoulli, false, 0.5)\nlogpdf(Bernoulli(), false, 0.5)Distribution values are also callable, which is a syntactic sugar with the same behavior of calling random:bernoulli(0.5) # identical to random(bernoulli, 0.5) and random(Bernoulli(), 0.5)"
 },
 
 ]}
