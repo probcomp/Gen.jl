@@ -37,15 +37,23 @@ var documenterSearchIndex = {"docs": [
     "page": "Getting Started",
     "title": "Installation",
     "category": "section",
-    "text": "First, obtain Julia 1.0 or later, available here.The Gen package can be installed with the Julia package manager. From the Julia REPL, type ] to enter the Pkg REPL mode and then run:pkg> add https://github.com/probcomp/Gen(Optional) Install the GenViz package:pkg> add https://github.com/probcomp/GenViz"
+    "text": "First, obtain Julia 1.0 or later, available here.The Gen package can be installed with the Julia package manager. From the Julia REPL, type ] to enter the Pkg REPL mode and then run:pkg> add https://github.com/probcomp/Gen"
 },
 
 {
-    "location": "getting_started/#Example-1",
+    "location": "getting_started/#Quick-Start-1",
     "page": "Getting Started",
-    "title": "Example",
+    "title": "Quick Start",
     "category": "section",
-    "text": "using Gen\n\n@gen function my_model(xs)\n    slope = @addr(normal(0, 2), :slope)\n    intercept = @addr(normal(0, 10), :intercept)\n    for (i, x) in enumerate(xs)\n        @addr(normal(slope * x + intercept, 1), \"y-$i\")\n    end\nend\n\nfunction my_inference_program(xs, ys, num_iters)\n    constraints = DynamicAssignment()\n    for (i, y) in enumerate(ys)\n        constraints[\"y-$i\"] = y\n    end\n    (trace, _) = initialize(my_model, (xs,), constraints)\n    slope_selection = select(:slope)\n    intercept_selection = select(:intercept)\n    for iter=1:num_iters\n        (trace, _) = default_mh(trace, slope_selection)\n        (trace, _) = default_mh(trace, intercept_selection)\n    end\n    assmt = get_assmt(trace)\n    return (assmt[:slope], assmt[:intercept])\nend\n\nxs = [1., 2., 3., 4., 5., 6., 7., 8., 9., 10.]\nys = [8.23, 5.87, 3.99, 2.59, 0.23, -0.66, -3.53, -6.91, -7.24, -9.90]\n(slope, intercept) = my_inference_program(xs, ys, 1000)"
+    "text": "There are three main components to a typical Gen program. First, we define a generative model, which are like Julia functions, but extended with some extra syntax. The model below samples slope and intercept parameters, and then samples a y-coordinate for each of the x-coordinates that it takes as input.using Gen\n\n@gen function my_model(xs::Vector{Float64})\n    slope = @addr(normal(0, 2), :slope)\n    intercept = @addr(normal(0, 10), :intercept)\n    for (i, x) in enumerate(xs)\n        @addr(normal(slope * x + intercept, 1), \"y-$i\")\n    end\nendThen, we write an inference program that implements an algorithm for manipulating the execution traces of the model. Inference programs are regular Julia code. The inference program below takes a data set, and runs a simple MCMC algorithm to fit slope and intercept parameters:function my_inference_program(xs::Vector{Float64}, ys::Vector{Float64}, num_iters::Int)\n    constraints = DynamicAssignment()\n    for (i, y) in enumerate(ys)\n        constraints[\"y-$i\"] = y\n    end\n    (trace, _) = initialize(my_model, (xs,), constraints)\n    slope_selection = select(:slope)\n    intercept_selection = select(:intercept)\n    for iter=1:num_iters\n        (trace, _) = default_mh(trace, slope_selection)\n        (trace, _) = default_mh(trace, intercept_selection)\n    end\n    assmt = get_assmt(trace)\n    return (assmt[:slope], assmt[:intercept])\nendFinally, we run the inference program on some data, and get the results:xs = [1., 2., 3., 4., 5., 6., 7., 8., 9., 10.]\nys = [8.23, 5.87, 3.99, 2.59, 0.23, -0.66, -3.53, -6.91, -7.24, -9.90]\n(slope, intercept) = my_inference_program(xs, ys, 1000)\nprintln(\"slope: $slope, intercept: $slope\")"
+},
+
+{
+    "location": "getting_started/#Visualization-Framework-1",
+    "page": "Getting Started",
+    "title": "Visualization Framework",
+    "category": "section",
+    "text": "Because inference programs are regular Julia code, users can use whatever visualization or plotting libraries from the Julia ecosystem that they want. However, we have paired Gen with the GenViz package, which is specialized for visualizing the output and operation of inference algorithms written in Gen."
 },
 
 {
