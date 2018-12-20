@@ -17,6 +17,8 @@ pkg> add https://github.com/probcomp/GenViz
 ## Example
 
 ```jldoctest
+using Gen
+
 # 1. define a generative model
 
 @gen function my_model(xs)
