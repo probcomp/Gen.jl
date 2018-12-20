@@ -27,6 +27,12 @@
 
 ### Iterative Inference: MCMC and MAP Optimization
 
+#### Default MH
+
+#### Custom MH
+
+#### General MH
+
 ### Amortized Inference
 
 ### Expectation Maximiziation

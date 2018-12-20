@@ -9,6 +9,12 @@ struct SGDTrainConf
     batch_callback::Function
 end
 
+"""
+    sgd_train_batch(teacher::GenerativeFunction, teacher_args::Tuple,
+        batch_student::GenerativeFunction, conf::SGDTrainConf; verbose=false)
+
+Train a batched (vectorized) student generative function on assignments sampled from a teacher generative function.
+"""
 function sgd_train_batch(teacher::GenerativeFunction{T,U}, teacher_args::Tuple,
                          batch_student::GenerativeFunction{V,W}, conf::SGDTrainConf,
                          verbose=false) where {T,U,V,W}

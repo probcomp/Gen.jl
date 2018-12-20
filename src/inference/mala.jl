@@ -1,4 +1,12 @@
-function mala(trace, selection::AddressSet, tau)
+
+"""
+    (new_trace, accepted) = mala(trace, selection::AddressSet, tau::Real)
+
+Apply a Metropolis-Adjusted Langevin Algorithm (MALA) update.
+
+[Reference URL](https://en.wikipedia.org/wiki/Metropolis-adjusted_Langevin_algorithm)
+"""
+function mala(trace, selection::AddressSet, tau::Real)
     model_args = get_args(trace)
     std = sqrt(2 * tau)
 

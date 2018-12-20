@@ -16,8 +16,19 @@ function fill_parents_self!(parents::Vector{Int})
 end
 
 """
-the first argument to model should be an integer, starting from 1, that indicates the step
-get_observations is a function of the step that returns a choice trie
+    (traces, log_norm_weights, lml_est) = particle_filter_default(
+        model::GenerativeFunction, model_args::Tuple, num_steps::Int,
+        num_particles::Int, ess_threshold::Real,
+        init_observations::Assignment, step_observations::Function;
+        verbose=false)
+        
+Run particle filtering using the internal proposal of the model.
+
+The first argument to the model must be an integer, starting with 1, that defines the step.
+The remaining arguments are given by `model_args`.
+The model traces will be initialized with `step=1` using the constraints given by `init_observations`.
+Then, the `step` will be consecutively incremented by 1.
+The function `step_observations` takes the step and returns a tuple `(observations, argdiff)` where `observations` is an assignment containing the values for newly observed random choices for the step, and `argdiff` describes the argument change from the previous step to the current step.
 """
 function particle_filter_default(model::GenerativeFunction{T,U},
                                  model_args_rest::Tuple, num_steps::Int,
@@ -76,6 +87,17 @@ function particle_filter_default(model::GenerativeFunction{T,U},
     return (traces, log_normalized_weights, log_ml_estimate)
 end
 
+"""
+    (traces, log_norm_weights, lml_est) = particle_filter_custom(
+        model::GenerativeFunction, model_args::Tuple, num_steps::Int,
+        num_steps::Int, num_particles::Int, ess_threshold::Real,
+        init_observations::Assignment, init_proposal_args::Tuple,
+        step_observations::Function, step_proposal_args::Function,
+        init_proposal::GenerativeFunction, step_proposal::GenerativeFunction;
+        verbose::Bool=false)
+        
+Run particle filtering using custom proposal(s) at each step.
+"""
 function particle_filter_custom(model::GenerativeFunction{T,U}, model_args_rest::Tuple,
                                 num_steps::Int, num_particles::Int, ess_threshold::Real,
                                 init_observations::Assignment, init_proposal_args::Tuple,

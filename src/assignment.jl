@@ -512,7 +512,14 @@ end
 
 # invariant: all internal nodes are nonempty
 
-DynamicAssignment() = DynamicAssignment(Dict(), Dict())
+"""
+    assmt = DynamicAssignment()
+
+Construct an empty dynamic assignment.
+"""
+function DynamicAssignment()
+    DynamicAssignment(Dict(), Dict())
+end
 
 get_address_schema(::Type{DynamicAssignment}) = DynamicAddressSchema()
 
@@ -546,6 +553,18 @@ end
 
 # mutation (not part of the assignment interface)
 
+"""
+    set_value!(assmt::DynamicAssignment, addr, value)
+
+Set the given value for the given address.
+
+Will cause any previous value or sub-assignment at this address to be deleted.
+It is an error if there is already a value present at some prefix of the given address.
+
+The following syntactic sugar is provided:
+
+    assmt[addr] = value
+"""
 function set_value!(assmt::DynamicAssignment, addr, value)
     delete!(assmt.internal_nodes, addr)
     assmt.leaf_nodes[addr] = value
@@ -568,6 +587,15 @@ function set_value!(assmt::DynamicAssignment, addr::Pair, value)
     set_value!(node, rest, value)
 end
 
+"""
+    set_subassmt!(assmt::DynamicAssignment, addr, subassmt::Assignment)
+
+Replace the sub-assignment rooted at the given address with the given sub-assignment.
+Set the given value for the given address.
+
+Will cause any previous value or sub-assignment at the given address to be deleted.
+It is an error if there is already a value present at some prefix of address.
+"""
 function set_subassmt!(assmt::DynamicAssignment, addr, new_node)
     delete!(assmt.leaf_nodes, addr)
     delete!(assmt.internal_nodes, addr)
