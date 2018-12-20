@@ -285,5 +285,13 @@ get_internal_nodes(addrs::DynamicAddressSet) = addrs.internal_nodes
 
 Base.push!(set::DynamicAddressSet, addr) = push_leaf_node!(set, addr)
 
+function select(addrs...)
+    selection = DynamicAddressSet()
+    for addr in addrs
+        push!(selection, addr)
+    end
+    selection
+end
+
 export DynamicAddressSet
-export push_leaf_node!, set_internal_node!
+export set_internal_node!, select

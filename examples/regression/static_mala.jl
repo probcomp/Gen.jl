@@ -12,19 +12,8 @@ end
 
 Gen.load_generated_functions()
 
-line_selection = let
-    s = DynamicAddressSet()
-    push!(s, :slope)
-    push!(s, :intercept)
-    StaticAddressSet(s)
-end
-
-std_selection = let
-    s = DynamicAddressSet()
-    push!(s, :log_inlier_std)
-    push!(s, :log_outlier_std)
-    StaticAddressSet(s)
-end
+line_selection = StaticAddressSet(select(:slope, :intercept))
+std_selection = StaticAddressSet(select(:log_inlier_std, :log_outlier_std))
 
 function do_inference(xs, ys, num_iters)
 

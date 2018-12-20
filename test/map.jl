@@ -345,8 +345,7 @@
 
         # unknownargdiff, increasing length from 2 to 3 and change 2
         trace = get_initial_trace()
-        selection = DynamicAddressSet()
-        push_leaf_node!(selection, 2 => :z)
+        selection = select(2 => :z)
         (trace, weight, retdiff) = free_update(
             (xs[1:3], ys[1:3]), unknownargdiff, trace, selection)
         assmt = get_assmt(trace)
@@ -362,8 +361,7 @@
 
         # unknownargdiff, decreasing length from 2 to 1 and change 1
         trace = get_initial_trace()
-        selection = DynamicAddressSet()
-        push_leaf_node!(selection, 1 => :z)
+        selection = select(1 => :z)
         (trace, weight, retdiff) = free_update(
             (xs[1:1], ys[1:1]), unknownargdiff, trace, selection)
         assmt = get_assmt(trace)
@@ -396,8 +394,7 @@
 
         # noargdiff, change 2
         trace = get_initial_trace()
-        selection = DynamicAddressSet()
-        push_leaf_node!(selection, 2 => :z)
+        selection = select(2 => :z)
         (trace, weight, retdiff) = free_update(
             (xs[1:2], ys[1:2]), noargdiff, trace, selection)
         assmt = get_assmt(trace)
@@ -541,8 +538,7 @@
 
         # get gradients wrt xs and ys, and wrt address '2 => :z'
         trace = get_initial_trace()
-        selection = DynamicAddressSet()
-        push_leaf_node!(selection, 2 => :z)
+        selection = select(2 => :z)
         (input_grads, value_assmt, gradient_assmt) = backprop_trace(trace, selection, retval_grad)
         @test isapprox(input_grads[1], expected_xs_grad)
         @test isapprox(input_grads[2], expected_ys_grad)

@@ -15,13 +15,8 @@ include("dataset.jl")
     @addr(bernoulli(prob_true), :data => i => :z)
 end
 
-slope_intercept_selection = DynamicAddressSet()
-push!(slope_intercept_selection, :slope)
-push!(slope_intercept_selection, :intercept)
-
-std_selection = DynamicAddressSet()
-push!(std_selection, :log_inlier_std)
-push!(std_selection, :log_outlier_std)
+slope_intercept_selection = select(:slope, :intercept)
+std_selection = select(:log_inlier_std, :log_outlier_std)
 
 function do_inference(xs, ys, num_iters)
     observations = DynamicAssignment()

@@ -71,7 +71,7 @@ end
 
 function select_addr(state::SelectionState, addr)
     visit!(state.visitor, addr)
-    push_leaf_node!(state.selection, addr)
+    push!(state.selection, addr)
 end
 
 function splice(state::SelectionState, fn::SelectionFunction, args::Tuple)
@@ -90,7 +90,7 @@ end
 function select(addrs...)
     set = DynamicAddressSet()
     for addr in addrs
-        push_leaf_node!(set, addr)
+        push!(set, addr)
     end
     return set
 end

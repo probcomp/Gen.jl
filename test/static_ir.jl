@@ -87,9 +87,7 @@ end
     (trace, weight) = initialize(foo, (), assmt)
     x = get_assmt(trace)[:x]
     a = get_assmt(trace)[:u => :a]
-    selection = DynamicAddressSet()
-    push_leaf_node!(selection, :y)
-    push_leaf_node!(selection, :u => :a)
+    selection = select(:y, :u => :a)
     weight = project(trace, selection)
 
     expected_weight = logpdf(normal, y, 0., 1.) + logpdf(normal, a, 0., 1)
@@ -165,9 +163,7 @@ end
     b_prev = get_assmt(trace)[:v => :b]
 
     # resample :y and :v => :b
-    selection = DynamicAddressSet()
-    push_leaf_node!(selection, :y)
-    push_leaf_node!(selection, :v => :b)
+    selection = select(:y, :v => :b)
     (new_trace, weight, retdiff) = free_update(
         (), unknownargdiff, trace, selection)
 
@@ -291,10 +287,7 @@ end
     (trace, _) = initialize(foo, (mu_a,), constraints)
 
     # compute gradients with backprop_trace
-    selection = DynamicAddressSet()
-    push_leaf_node!(selection, :bar => :z)
-    push_leaf_node!(selection, :a)
-    push_leaf_node!(selection, :out)
+    selection = select(:bar => :z, :a, :out)
     selection = StaticAddressSet(selection)
     retval_grad = 2.
     ((mu_a_grad,), value_trie, gradient_trie) = backprop_trace(trace, selection, retval_grad)

@@ -360,7 +360,7 @@ end
 ##########################
 
 k_selection = DynamicAddressSet()
-push_leaf_node!(k_selection, "k")
+push!(k_selection, "k")
 
 function generic_mcmc_step(trace)
     k = get_assmt(trace)["k"]

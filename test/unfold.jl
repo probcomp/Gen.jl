@@ -455,8 +455,7 @@
         # unknownargdiff, increasing length from 2 to 3 and change 2 and change params
         trace = get_initial_trace()
         alpha_new = 0.5
-        selection = DynamicAddressSet()
-        push_leaf_node!(selection, 2 => :x)
+        selection = select(2 => :x)
         (trace, weight, retdiff) = free_update((3, x_init, alpha_new, beta),
             unknownargdiff, trace, selection)
         assmt = get_assmt(trace)
@@ -485,8 +484,7 @@
         # unknownargdiff, decreasing length from 2 to 1 and change 1 and change params
         trace = get_initial_trace()
         alpha_new = 0.5
-        selection = DynamicAddressSet()
-        push_leaf_node!(selection, 1 => :x)
+        selection = select(1 => :x)
         (trace, weight, retdiff) = free_update((1, x_init, alpha_new, beta),
             unknownargdiff, trace, selection)
         assmt = get_assmt(trace)
@@ -526,8 +524,7 @@
         # noargdiff, change x2
         trace = get_initial_trace()
         x2_new = 3.3
-        selection = DynamicAddressSet()
-        push_leaf_node!(selection, 2 => :x)
+        selection = select(2 => :x)
         (trace, weight, retdiff) = free_update((2, x_init, alpha, beta),
             noargdiff, trace, selection)
         assmt = get_assmt(trace)

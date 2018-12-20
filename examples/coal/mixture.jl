@@ -82,26 +82,17 @@ end
 # generic trans-dimensional move #
 ##################################
 
-
-branch_selection = DynamicAddressSet()
-push_leaf_node!(branch_selection, :branch)
+branch_selection = select(:branch)
 
 function generic_transdim_move(trace)
     resimulation_mh(trace, branch_selection)
 end
 
-one_cluster_params = DynamicAddressSet()
-push_leaf_node!(one_cluster_params, :mu)
-push_leaf_node!(one_cluster_params, :std)
+one_cluster_params = select(:mu, :std)
 
-two_cluster_params = DynamicAddressSet()
-push_leaf_node!(two_cluster_params, :mu1)
-push_leaf_node!(two_cluster_params, :mu2)
-push_leaf_node!(two_cluster_params, :std1)
-push_leaf_node!(two_cluster_params, :std2)
+two_cluster_params = select(:mu1, :mu2, :std1, :std2)
 
-w1_selection = DynamicAddressSet()
-push_leaf_node!(w1_selection, :w1)
+w1_selection = select(:w1)
 
 function fixed_dim_move(trace)
     if get_assmt(trace)[:branch]

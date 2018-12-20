@@ -282,7 +282,7 @@ end
 AddressVisitor() = AddressVisitor(DynamicAddressSet())
 
 function visit!(visitor::AddressVisitor, addr)
-    push_leaf_node!(visitor.visited, addr)
+    push!(visitor.visited, addr)
 end
 
 function all_visited(visited::AddressSet, assmt::Assignment)

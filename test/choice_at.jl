@@ -52,8 +52,7 @@
     @testset "project" begin
         trace = get_trace()
         @test isapprox(project(trace, EmptyAddressSet()), 0.)
-        selection = DynamicAddressSet()
-        push_leaf_node!(selection, 3)
+        selection = select(3)
         @test isapprox(project(trace, selection), log(0.4))
     end
 
@@ -158,8 +157,7 @@
         @test isapprox(get_score(new_trace), log(0.2))
 
         # change kernel_args, same key, selected
-        selection = DynamicAddressSet()
-        push_leaf_node!(selection, 3)
+        selection = select(3)
         (new_trace, weight, retdiff) = free_update((0.2, 3), unknownargdiff,
             trace, selection)
         assmt = get_assmt(new_trace)
@@ -213,8 +211,7 @@
         @test input_grads[3] == nothing # the key has no gradient
 
         # selected without retval_grad
-        selection = DynamicAddressSet()
-        push_leaf_node!(selection, 3)
+        selection = select(3)
         (input_grads, value_assmt, gradient_assmt) = backprop_trace(
             trace, selection, nothing)
         @test value_assmt[3] == y
@@ -230,8 +227,7 @@
 
         # selected with retval_grad
         retval_grad = 1.234
-        selection = DynamicAddressSet()
-        push_leaf_node!(selection, 3)
+        selection = select(3)
         (input_grads, value_assmt, gradient_assmt) = backprop_trace(
             trace, selection, retval_grad)
         @test value_assmt[3] == y

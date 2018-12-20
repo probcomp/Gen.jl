@@ -15,17 +15,10 @@ function do_inference(xs, ys, num_iters)
         observations[:data => i => :y] = y
     end
 
-    slope_sel = DynamicAddressSet()
-    push!(slope_sel, :slope)
-
-    intercept_sel = DynamicAddressSet()
-    push!(intercept_sel, :intercept)
-
-    inlier_std_sel = DynamicAddressSet()
-    push!(inlier_std_sel, :log_inlier_std)
-
-    outlier_std_sel = DynamicAddressSet()
-    push!(outlier_std_sel, :log_outlier_std)
+    slope_sel = select(:slope)
+    intercept_sel = select(:intercept)
+    inlier_std_sel = select(:log_inlier_std)
+    outlier_std_sel = select(:log_outlier_std)
     
     # initial trace
     (trace, _) = initialize(model, (xs,), observations)

@@ -118,7 +118,7 @@ function copy_addr(state::InjectiveApplyState, input_addr, output_addr)
     end
     value = get_value(state.input, input_addr)
     set_leaf_node!(state.output, output_addr, value)
-    push_leaf_node!(state.copied, input_addr)
+    push!(state.copied, input_addr)
     nothing
 end
 
@@ -131,7 +131,7 @@ function copyall(state::InjectiveApplyState, input_addr, output_addr)
     visit!(state.visitor, output_addr)
     subassmt = get_subassmt(state.input, input_addr)
     set_subassmt!(state.output, output_addr, subassmt)
-    push_leaf_node!(state.copied, input_addr)
+    push!(state.copied, input_addr)
     nothing
 end
 

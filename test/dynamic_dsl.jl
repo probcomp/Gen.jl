@@ -215,8 +215,7 @@ end
     a = get_assmt(trace)[:u => :a]
 
     # resimulate branch
-    selection = DynamicAddressSet()
-    push_leaf_node!(selection, :branch)
+    selection = select(:branch)
 
     # try 10 times, so we are likely to get both a stay and a switch
     for i=1:10
@@ -322,10 +321,7 @@ end
     (trace, _) = initialize(foo, (mu_a,), constraints)
 
     # compute gradients
-    selection = DynamicAddressSet()
-    push_leaf_node!(selection, :bar => :z)
-    push_leaf_node!(selection, :a)
-    push_leaf_node!(selection, :out)
+    selection = select(:bar => :z, :a, :out)
     retval_grad = 2.
     ((mu_a_grad,), value_assmt, gradient_assmt) = backprop_trace(
         trace, selection, retval_grad)
