@@ -1,5 +1,4 @@
-using PyCall
-@pyimport matplotlib.pyplot as plt
+using PyPlot
 
 using Gen
 
@@ -138,7 +137,7 @@ end
 end
 
 function render(trace; ymax=0.02)
-    T = get_call_record(trace).args[1]
+    T = get_args(trace)[1]
     assignment = get_assmt(trace)
     k = assignment["k"]
     bounds = vcat([0.], sort([assignment["cp$i"] for i=1:k]), [T])
@@ -147,79 +146,107 @@ function render(trace; ymax=0.02)
         lower = bounds[i]
         upper = bounds[i+1]
         rate = rates[i]
-        plt.plot([lower, upper], [rate, rate], color="black", linewidth=2)
+        plot([lower, upper], [rate, rate], color="black", linewidth=2)
     end
     points = assignment["points"]
-    plt.scatter(points, -rand(length(points)) * (ymax/5.), color="black", s=5)
-    ax = plt.gca()
+    scatter(points, -rand(length(points)) * (ymax/5.), color="black", s=5)
+    ax = gca()
     xlim = [0., T]
-    plt.plot(xlim, [0., 0.], "--")
+    plot(xlim, [0., 0.], "--")
     ax[:set_xlim](xlim)
     ax[:set_ylim](-ymax/5., ymax)
 end
 
 function show_prior_samples()
-    plt.figure(figsize=(16,16))
+    figure(figsize=(16,16))
     T = 40000.
     for i=1:16
-        plt.subplot(4, 4, i)
-        trace = simulate(model, (T,))
+        println("simulating $i")
+        subplot(4, 4, i)
+        (trace, ) = initialize(model, (T,), EmptyAssignment())
         render(trace; ymax=0.015)
     end
-    plt.tight_layout(pad=0)
-    plt.savefig("prior_samples.pdf")
+    tight_layout(pad=0)
+    savefig("prior_samples.pdf")
 end
 
-#############################
-# height and position moves #
-#############################
 
-@gen function height_proposal(prev, i::Int)
-    prev_assignment = get_assmt(prev)
-    height = prev_assignment["h$i"]
-    @addr(uniform_continuous(height/2., height*2.), "h$i")
+###############
+# height move #
+###############
+
+@gen function height_proposal(trace)
+    assmt = get_assmt(trace)
+    k = assmt["k"]
+    i = @addr(uniform_discrete(1, k+1), :i)
+    height = assmt["h$i"]
+    @addr(uniform_continuous(height/2., height*2.), :height)
 end
 
-@gen function position_proposal(prev, i::Int)
-    prev_assignment = get_assmt(prev)
-    k = prev_assignment["k"]
-    lower = (i == 1) ? 0. : prev_assignment["cp$(i-1)"]
-    upper = (i == k) ? T : prev_assignment["cp$(i+1)"]
-    @addr(uniform_continuous(lower, upper), "cp$i")
+function height_bijection(input::Assignment, context)
+    i = input[:proposal => :i]
+    output = DynamicAssignment()
+    output[:proposal => :i] = i
+    output[:model => "h$i"] = input[:proposal => :height]
+    output[:proposal => :height] = input[:model => "h$i"]
+    (output, 0.)
 end
 
-function height_move(trace)
-    k = get_assmt(trace)["k"]
-    i = random(uniform_discrete, 1, k+1)
-    custom_mh(model, height_proposal, (i,), trace)
+height_move(trace) = rjmcmc(trace, height_proposal, (), height_bijection)
+
+
+#################
+# position move #
+#################
+
+@gen function position_proposal(trace)
+    assmt = get_assmt(trace)
+    k = assmt["k"]
+    i = @addr(uniform_discrete(1, k), :i)
+    lower = (i == 1) ? 0. : assmt["cp$(i-1)"]
+    upper = (i == k) ? T : assmt["cp$(i+1)"]
+    @addr(uniform_continuous(lower, upper), :cp)
 end
 
-function position_move(trace)
-    k = get_assmt(trace)["k"]
-    i = random(uniform_discrete, 1, k)
-    custom_mh(model, position_proposal, (i,), trace)
+function position_bijection(input::Assignment, context)
+    i = input[:proposal => :i]
+    output = DynamicAssignment()
+    output[:proposal => :i] = i
+    output[:model => "cp$i"] = input[:proposal => :cp]
+    output[:proposal => :cp] = input[:model => "cp$i"]
+    (output, 0.)
 end
+
+position_move(trace) = rjmcmc(trace, position_proposal, (), position_bijection)
 
 
 ######################
 # birth / death move #
 ######################
 
-# insert a new change point at i, where 1 <= i <= k+1
-# the current change point at i, and all after, will be shifted right
-# the new change point will be placed between cp$(i-1) and the current cp$i
-@gen function birth_proposal(prev, T, i::Int)
-    prev_assignment = get_assmt(prev)
-    k = prev_assignment["k"]
-    lower = (i == 1) ? 0. : prev_assignment["cp$(i-1)"]
-    upper = (i == k+1) ? T : prev_assignment["cp$i"]
-    @addr(uniform_continuous(lower, upper), "new-cp")
-    @addr(uniform_continuous(0., 1.), "u")
+@gen function birth_death_proposal(trace)
+    T = get_args(trace)[1]
+    assmt = get_assmt(trace)
+    k = assmt["k"]
+    if k == 0
+        # birth only
+        isbirth = true
+    else
+        # randomly choose birth or death
+        isbirth = @addr(bernoulli(0.5), :isbirth)
+    end
+    if isbirth
+        i = @addr(uniform_discrete(1, k+1), :i)
+        lower = (i == 1) ? 0. : assmt["cp$(i-1)"]
+        upper = (i == k+1) ? T : assmt["cp$i"]
+        @addr(uniform_continuous(lower, upper), :new_cp)
+        @addr(uniform_continuous(0., 1.), :u)
+    else
+        @addr(uniform_discrete(1, k), :i)
+    end
 end
 
-@gen function death_proposal(prev) end
-
-function birth_move_new_heights(cur_height, new_cp, prev_cp, next_cp, u)
+function new_heights(cur_height, new_cp, prev_cp, next_cp, u)
     d_prev = new_cp - prev_cp
     d_next = next_cp - new_cp
     @assert d_prev > 0
@@ -234,46 +261,7 @@ function birth_move_new_heights(cur_height, new_cp, prev_cp, next_cp, u)
     (new_h_prev, new_h_next)
 end
 
-const MODEL = :model
-const PROPOSAL = :proposal
-
-@inj function birth_injection(T, i::Int)
-
-    # increment k
-    k = @read(MODEL => "k")
-    @write(k+1, MODEL => "k")
-
-    # changepoints
-    for j=1:i-1
-        @copy(MODEL => "cp$j", MODEL => "cp$j")
-    end
-    @copy(PROPOSAL => "new-cp", MODEL => "cp$i")
-    for j=i:k
-        @copy(MODEL => "cp$j", MODEL => "cp$(j+1)")
-    end
-
-    # compute new heights
-    cur_height = @read(MODEL => "h$i")
-    prev_cp = (i == 1) ? 0. : @read(MODEL => "cp$(i-1)")
-    next_cp = (i == k+1) ? T : @read(MODEL => "cp$i")
-    new_cp = @read(PROPOSAL => "new-cp")
-    u = @read(PROPOSAL => "u")
-    (new_h_prev, new_h_next) = birth_move_new_heights(cur_height, new_cp, prev_cp, next_cp, u)
-
-    # heights
-    for j=1:i-1
-        @copy(MODEL => "h$j", MODEL => "h$j")
-    end
-    @write(new_h_prev, MODEL => "h$i")
-    @write(new_h_next, MODEL => "h$(i+1)")
-    for j=i+1:k+1
-        @copy(MODEL => "h$j", MODEL => "h$(j+1)")
-    end
-
-    @copy(MODEL => "points", MODEL => "points")
-end
-
-function death_move_u_new_height(prev_height, next_height, cur_cp, prev_cp, next_cp)
+function new_heights_inverse(prev_height, next_height, cur_cp, prev_cp, next_cp)
     d_prev = cur_cp - prev_cp
     d_next = next_cp - cur_cp
     @assert d_prev > 0
@@ -287,141 +275,115 @@ function death_move_u_new_height(prev_height, next_height, cur_cp, prev_cp, next
     (new_height, u)
 end
 
-@inj function death_injection(T, i::Int)
+@inj function birth_death(T)
+    k = @read(:model => "k")
+    isbirth = (k == 0) || @read(:proposal => :isbirth)
+    i = @read(:proposal => :i)
+    @write(i, :proposal => :i)
+    if isbirth
+        # birth move
+        @write(k + 1, :model => "k")
 
-    # decrement k
-    k = @read(MODEL => "k")
-    @assert k > 0
-    @write(k-1, MODEL => "k")
+        # set new changepoints
+        for j=1:i-1
+            @copy(:model => "cp$j", :model => "cp$j")
+        end
+        @copy(:proposal => :new_cp, :model => "cp$i")
+        for j=i:k
+            @copy(:model => "cp$j", :model => "cp$(j+1)")
+        end
 
-    # change points
-    for j=1:i-1
-        @copy(MODEL => "cp$j", MODEL => "cp$j")
-    end
-    for j=i+1:k
-        @copy(MODEL => "cp$j", MODEL => "cp$(j-1)")
-    end
+        # compute new heights
+        cur_height = @read(:model => "h$i")
+        prev_cp = (i == 1) ? 0. : @read(:model => "cp$(i-1)")
+        next_cp = (i == k+1) ? T : @read(:model => "cp$i")
+        new_cp = @read(:proposal => :new_cp)
+        u = @read(:proposal => :u)
+        (new_h_prev, new_h_next) = new_heights(cur_height, new_cp, prev_cp, next_cp, u)
 
-    # compute new height
-    cur_cp = @read(MODEL => "cp$i")
-    prev_cp = (i == 1) ? 0. : @read(MODEL => "cp$(i-1)")
-    next_cp = (i == k) ? T : @read(MODEL => "cp$(i+1)")
-    prev_height = @read(MODEL => "h$i")
-    next_height = @read(MODEL => "h$(i+1)")
-    (new_height, u) = death_move_u_new_height(prev_height, next_height, cur_cp, prev_cp, next_cp)
+        # set new heights
+        for j=1:i-1
+            @copy(:model => "h$j", :model => "h$j")
+        end
+        @write(new_h_prev, :model => "h$i")
+        @write(new_h_next, :model => "h$(i+1)")
+        for j=i+1:k+1
+            @copy(:model => "h$j", :model => "h$(j+1)")
+        end
 
-    # heights
-    for j=1:i-1
-        @copy(MODEL => "h$j", MODEL => "h$j")
-    end
-    @write(new_height, MODEL => "h$i")
-    for j=i+2:k+1
-        @copy(MODEL => "h$j", MODEL => "h$(j-1)")
-    end
-
-    @copy(MODEL => "points", MODEL => "points")
-
-    @copy(MODEL => "cp$i", PROPOSAL => "new-cp")
-    @write(u, PROPOSAL => "u")
-end
-
-function birth_move(trace)
-    # if k > 0, then prob_b = 0.25 and prob_d = 0.25
-    # the probability that the one we introduce will get deleted, given that
-    # we choose a death move, is: 1/(k+1); which is also the probability that
-    # we choose the i that we choose here
-    k = get_assmt(trace)["k"]
-    i = random(uniform_discrete, 1, k+1)
-    # prob_b = 1, but prob_d = 0.25, so we correct by -log(4)
-    correction = (new_trace) -> (k == 0 ? -log(4) : 0)
-    T = get_call_record(trace).args[1]
-    rjmcmc(model,
-        birth_proposal, (T, i),
-        death_proposal, (),
-        birth_injection, (T, i),
-        trace, correction)
-end
-
-function death_move(trace)
-    k = get_assmt(trace)["k"]
-    @assert k > 0
-    i = random(uniform_discrete, 1, k)
-    correction = (new_trace) -> (k == 0 ? log(4) : 0)
-    T = get_call_record(trace).args[1]
-    rjmcmc(model,
-        death_proposal, (),
-        birth_proposal, (T, i),
-        death_injection, (T, i),
-        trace, correction)
-end
-
-##########################
-# Generic MCMC inference #
-##########################
-
-k_selection = DynamicAddressSet()
-push!(k_selection, "k")
-
-function generic_mcmc_step(trace)
-    k = get_assmt(trace)["k"]
-    if k > 0
-        prob_h = 1./3
-        prob_p = 1./3
-        prob_change_k = 1./3
+        # the reverse is a death move
+        @write(false, :proposal => :isbirth)
     else
-        prob_h = 0.
-        prob_p = 0.
-        prob_change_k = 1
+        # death move
+        @write(k - 1, :model => "k")
+        @assert k > 0
+
+        # change points
+        for j=1:i-1
+            @copy(:model => "cp$j", :model => "cp$j")
+        end
+        for j=i+1:k
+            @copy(:model => "cp$j", :model => "cp$(j-1)")
+        end
+
+        # compute new height
+        cur_cp = @read(:model => "cp$i")
+        prev_cp = (i == 1) ? 0. : @read(:model => "cp$(i-1)")
+        next_cp = (i == k) ? T : @read(:model => "cp$(i+1)")
+        prev_height = @read(:model => "h$i")
+        next_height = @read(:model => "h$(i+1)")
+        (new_height, u) = new_heights_inverse(prev_height, next_height, cur_cp, prev_cp, next_cp)
+
+        # heights
+        for j=1:i-1
+            @copy(:model => "h$j", :model => "h$j")
+        end
+        @write(new_height, :model => "h$i")
+        for j=i+2:k+1
+            @copy(:model => "h$j", :model => "h$(j-1)")
+        end
+
+        @copy(:model => "cp$i", :proposal => :new_cp)
+        @write(u, :proposal => :u)
+
+        # if new k = 0 the reverse proposal does not sample at :isbirth
+        if k > 1
+            @write(true, :proposal => :isbirth)
+        end
     end
-    move_type = random(categorical, [prob_h, prob_p, prob_change_k])
-    if move_type == 1
-        height_move(trace)
-    elseif move_type == 2
-        position_move(trace)
-    else
-        default_mh(trace, k_selection)
-    end
+
+    @copy(:model => "points", :model => "points")
+
+    nothing
 end
 
+function birth_death_bijection(input::Assignment, context)
+    (model_args, _) = context
+    T = model_args[1]
+    (output, logabsdet, _) = apply(birth_death, (T,), input)
+    (output, logabsdet)
+end
 
-#########################
-# RJMCMC MCMC inference #
-#########################0
+birth_death_move(trace) = rjmcmc(trace, birth_death_proposal, (), birth_death_bijection)
 
 function mcmc_step(trace)
     k = get_assmt(trace)["k"]
+    (trace, _) = height_move(trace)
     if k > 0
-        prob_h = 0.25
-        prob_p = 0.25
-        prob_b = 0.25
-        prob_d = 0.25
-    else
-        prob_h = 0.
-        prob_p = 0.
-        prob_b = 1.
-        prob_d = 0.
+        (trace, _) = position_move(trace)
     end
-    move_type = random(categorical, [prob_h, prob_p, prob_b, prob_d])
-    if move_type == 1
-        height_move(trace)
-    elseif move_type == 2
-        position_move(trace)
-    elseif move_type == 3
-        birth_move(trace)
-    elseif move_type == 4
-        death_move(trace)
-    else
-        error("Unknown move type $move_type")
-    end
+    (trace, _) = birth_death_move(trace)
+    trace
 end
 
 function do_mcmc(T, num_steps::Int)
     (trace, _) = initialize(model, (T,), observations)
     for iter=1:num_steps
+        k = get_assmt(trace)["k"]
         if iter % 1000 == 0
-            println("iter $iter of $num_steps, k: $(get_assmt(trace)["k"])")
+            println("iter $iter of $num_steps, k: $k")
         end
-        (trace, _) = generic_mcmc_step(trace)
+        trace = mcmc_step(trace)
     end
     trace
 end
@@ -430,8 +392,6 @@ end
 ########################
 # inference experiment #
 ########################
-
-Gen.load_generated_functions()
 
 import Random
 Random.seed!(1)
@@ -451,17 +411,15 @@ const observations = DynamicAssignment()
 observations["points"] = points
 
 function show_posterior_samples()
-    plt.figure(figsize=(16,16))
+    figure(figsize=(16,16))
     for i=1:16
         println("replicate $i")
-        tic()
-        plt.subplot(4, 4, i)
-        trace = do_mcmc(T, 5000)#10000)
-        toc()
+        subplot(4, 4, i)
+        trace = do_mcmc(T, 5000)
         render(trace; ymax=0.015)
     end
-    plt.tight_layout(pad=0)
-    plt.savefig("posterior_samples.pdf")
+    tight_layout(pad=0)
+    savefig("posterior_samples.pdf")
 end
 
 function get_rate_vector(trace, test_points)
@@ -499,7 +457,7 @@ function plot_posterior_mean_rate()
             if iter % 1000 == 0
                 println("iter $iter of $num_steps, k: $(get_assmt(trace)["k"])")
             end
-            (trace, _) = mcmc_step(trace)
+            trace = mcmc_step(trace)
             if iter > 4000
                 num_samples += 1
                 rate_vector = get_rate_vector(trace, test_points)
@@ -513,15 +471,15 @@ function plot_posterior_mean_rate()
         posterior_mean_rate += rate / Float64(num_samples)
     end
     ymax = 0.010
-    plt.figure()
-    plt.plot(test_points, posterior_mean_rate, color="black")
-    plt.scatter(points, -rand(length(points)) * (ymax/6.), color="black", s=5)
-    ax = plt.gca()
+    figure()
+    plot(test_points, posterior_mean_rate, color="black")
+    scatter(points, -rand(length(points)) * (ymax/6.), color="black", s=5)
+    ax = gca()
     xlim = [0., T]
-    plt.plot(xlim, [0., 0.], "--")
+    plot(xlim, [0., 0.], "--")
     ax[:set_xlim](xlim)
     ax[:set_ylim](-ymax/5., ymax)
-    plt.savefig("posterior_mean_rate.pdf")
+    savefig("posterior_mean_rate.pdf")
 end
 
 function plot_trace_plot()
@@ -530,32 +488,19 @@ function plot_trace_plot()
     num_clusters_vec = Int[]
     burn_in = 20000
     for iter=1:burn_in + 5000
-        (trace, accept) = mcmc_step(trace)
+        trace = mcmc_step(trace)
         if iter > burn_in
             push!(num_clusters_vec, get_assmt(trace)["k"])
         end
     end
-    plt.figure()
-    plt.plot(num_clusters_vec)
-    ax = plt.gca()
-    plt.savefig("trace_plot_rjmcmc.pdf")
+    figure()
+    plot(num_clusters_vec)
+    ax = gca()
+    savefig("trace_plot_rjmcmc.pdf")
 end
 
 function plot_trace_plot()
-    plt.figure(figsize=(8, 4))
-
-    # generic
-    (trace, _) = initialize(model, (T,), observations)
-    num_clusters_vec = Int[]
-    burn_in = 20000
-    for iter=1:burn_in + 5000
-        (trace, ) = generic_mcmc_step(trace)
-        if iter > burn_in
-            push!(num_clusters_vec, get_assmt(trace)["k"])
-        end
-    end
-    plt.subplot(2, 1, 1)
-    plt.plot(num_clusters_vec, "r")
+    figure(figsize=(8, 4))
 
     # reversible jump
     (trace, _) = initialize(model, (T,), observations)
@@ -563,19 +508,14 @@ function plot_trace_plot()
     num_clusters_vec = Int[]
     burn_in = 20000
     for iter=1:burn_in + 5000
-        (trace, _) = mcmc_step(trace)
+        trace = mcmc_step(trace)
         if iter > burn_in
             push!(num_clusters_vec, get_assmt(trace)["k"])
         end
     end
-    plt.subplot(2, 1, 2)
-    plt.plot(num_clusters_vec, "b")
-
-    ax = plt.gca()
-    plt.savefig("trace_plot.pdf")
+    plot(num_clusters_vec, "b")
+    savefig("trace_plot.pdf")
 end
-
-
 
 println("showing prior samples...")
 show_prior_samples()
