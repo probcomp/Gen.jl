@@ -19,18 +19,13 @@ pkg> add https://github.com/probcomp/GenViz
 ```jldoctest
 using Gen
 
-# 1. define a generative model
-
 @gen function my_model(xs)
     slope = @addr(normal(0, 2), :slope)
     intercept = @addr(normal(0, 10), :intercept)
-    ys = Vector{Float64}(undef, length(xs))
     for (i, x) in enumerate(xs)
-        ys[i] = @addr(normal(slope * x + intercept, 1), "y-$i")
+        @addr(normal(slope * x + intercept, 1), "y-$i")
     end
 end
-
-# 2. define an inference program
 
 function my_inference_program(xs, ys, num_iters)
     constraints = DynamicAssignment()
@@ -48,10 +43,10 @@ function my_inference_program(xs, ys, num_iters)
     return (assmt[:slope], assmt[:intercept])
 end
 
-# 3. run inference program for a particular data set
-
 xs = [1., 2., 3., 4., 5., 6., 7., 8., 9., 10.]
 ys = [8.23, 5.87, 3.99, 2.59, 0.23, -0.66, -3.53, -6.91, -7.24, -9.90]
 (slope, intercept) = my_inference_program(xs, ys, 1000)
+
 # output
+
 ```

@@ -3,9 +3,8 @@ using Gen
 @gen function my_model(xs)
     slope = @addr(normal(0, 2), :slope)
     intercept = @addr(normal(0, 10), :intercept)
-    ys = Vector{Float64}(undef, length(xs))
     for (i, x) in enumerate(xs)
-        ys[i] = @addr(normal(slope * x + intercept, 1), "y-$i")
+        @addr(normal(slope * x + intercept, 1), "y-$i")
     end
 end
 
