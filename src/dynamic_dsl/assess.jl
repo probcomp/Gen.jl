@@ -52,9 +52,9 @@ function assess(gen_fn::DynamicDSLFunction, args::Tuple, assmt::Assignment)
     state = GFAssessState(assmt, gen_fn.params)
     retval = exec(gen_fn, state, args)
 
-    visited = get_visited(state.visitor)
-    if !all_visited(visited, assmt)
-        error("Did not visit all constraints")
+    unvisited = get_unvisited(get_visited(state.visitor), assmt)
+    if !isempty(unvisited)
+        error("Assess did not visit the following constraint addresses:\n$unvisited")
     end
 
     (state.weight, retval)

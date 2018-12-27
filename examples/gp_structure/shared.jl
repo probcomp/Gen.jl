@@ -32,46 +32,8 @@ end
 Node in a tree representing a covariance function
 """
 abstract type Node end
-
-"""
-    size(::Node)
-
-Number of nodes in the subtree rooted at this node.
-"""
-function size end
-
-"""
-    pick_random_node(::Node, cur::Int, max_branch::Int)
-
-Return a random node in the subtree rooted at the given node, whose integer
-index is given.
-"""
-function pick_random_node end
-
 abstract type LeafNode <: Node end
-
-size(::LeafNode) = 1
-
 abstract type BinaryOpNode <: Node end
-
-size(node::BinaryOpNode) = node.size
-
-pick_random_node(node::LeafNode, cur::Int, max_branch::Int) = cur
-
-function pick_random_node(node::BinaryOpNode, cur::Int, max_branch::Int)
-    if bernoulli(0.5)
-        # pick this node
-        cur
-    else
-        # recursively pick from the subtrees
-        if bernoulli(0.5)
-            pick_random_node(node.left, get_child(cur, 1, max_branch), max_branch)
-        else
-            pick_random_node(node.right, get_child(cur, 2, max_branch), max_branch)
-        end
-    end
-end
-
 
 """
 Constant kernel
@@ -146,10 +108,9 @@ Plus node
 struct Plus <: BinaryOpNode
     left::Node
     right::Node
-    size::Int
 end
 
-Plus(left, right) = Plus(left, right, size(left) + size(right) + 1)
+Plus(left, right) = Plus(left, right)
 
 function eval_cov(node::Plus, x1, x2)
     eval_cov(node.left, x1, x2) + eval_cov(node.right, x1, x2)
@@ -166,10 +127,9 @@ Times node
 struct Times <: BinaryOpNode
     left::Node
     right::Node
-    size::Int
 end
 
-Times(left, right) = Times(left, right, size(left) + size(right) + 1)
+Times(left, right) = Times(left, right)
 
 function eval_cov(node::Times, x1, x2)
     eval_cov(node.left, x1, x2) * eval_cov(node.right, x1, x2)
@@ -261,6 +221,7 @@ const SQUARED_EXP = 3 # 0.2
 const PERIODIC = 4 # 0.2
 const PLUS = 5 # binary 0.1
 const TIMES = 6 # binary 0.1
+const BINARY_OPS = Set{Int}([PLUS, TIMES])
 
 const node_dist = Float64[0.2, 0.2, 0.2, 0.2, 0.1, 0.1]
 
@@ -273,3 +234,15 @@ const node_type_to_num_children = Dict(
     TIMES => 2)
 
 const max_branch = 2
+
+@gen function pick_random_node(node::Node, cur::Int, depth::Int)
+    if isa(node, LeafNode)
+        (cur, depth)
+    elseif @addr(bernoulli(0.5), :done => depth)
+        (cur, depth)
+    elseif @addr(bernoulli(0.5), :recurse_left => cur)
+        @splice(pick_random_node(node.left, get_child(cur, 1, max_branch), depth+1))
+    else
+        @splice(pick_random_node(node.right, get_child(cur, 2, max_branch), depth+1))
+    end
+end
