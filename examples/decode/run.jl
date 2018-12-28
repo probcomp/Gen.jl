@@ -1,7 +1,7 @@
 using Gen
 using JSON
 
-# get map from character to integer in 1..27
+# get map from character to integer in 1..26
 alphabet = collect('a':'z')
 push!(alphabet, ' ')
 letter_to_int = Dict{Char,Int}()
@@ -11,7 +11,7 @@ end
 
 # load bigram data into a transition matrix
 # bigrams.json from https://gist.github.com/lydell/c439049abac2c9226e53 
-data = JSON.parsefile("bigrams.json")
+data = JSON.parsefile("$(@__DIR__)/bigrams.json")
 counts = zeros(Int64, (26, 26))
 for (bigram, count) in data
     first = letter_to_int[bigram[1]]
@@ -47,18 +47,20 @@ par_model = Map(model)
     @addr(uniform_discrete(1, 26), :j)
 end
 
-function swap_bijection(input::Assignment, context)
-    (model_args, proposal_args) = context
+function swap_involution(trace, fwd_assmt::Assignment, fwd_ret, proposal_args::Tuple)
+    assmt = get_assmt(trace)
+    model_args = get_args(trace)
     (m,) = proposal_args
     (alphas, word_lengths_all,) = model_args
     word_lengths = word_lengths_all[1]
-    output = DynamicAssignment()
-    i = input[:proposal => :i]
-    j = input[:proposal => :j]
-    output[:proposal => :j] = i
-    output[:proposal => :i] = j
-    output[:model => m => (:code, i)] = input[:model => m => (:code, j)]
-    output[:model => m => (:code, j)] = input[:model => m => (:code, i)]
+    bwd_assmt = DynamicAssignment()
+    i = fwd_assmt[:i]
+    j = fwd_assmt[:j]
+    bwd_assmt[:j] = i
+    bwd_assmt[:i] = j
+    constraints = DynamicAssignment()
+    constraints[m => (:code, i)] = assmt[m => (:code, j)]
+    constraints[m => (:code, j)] = assmt[m => (:code, i)]
 
     for (k, len) in enumerate(word_lengths)
 
@@ -66,7 +68,7 @@ function swap_bijection(input::Assignment, context)
         for l=1:len
             local curval::Int
             local newval::Int
-            curval = input[:model => m => :text => (k, l)]
+            curval = assmt[m => :text => (k, l)]
             if curval == i
                 newval = j
             elseif curval == j
@@ -74,27 +76,30 @@ function swap_bijection(input::Assignment, context)
             else
                 newval = curval
             end
-            output[:model => m => :text => (k, l)] = newval
+            constraints[m => :text => (k, l)] = newval
         end
     end
-
-    (output, 0.)
+    
+    (new_trace, weight, _, _) = force_update(model_args, noargdiff, trace, constraints)
+    (new_trace, bwd_assmt, weight)
 end
 
 @gen function exchange_proposal(prev_trace, m::Int)
     # exchange change m with (((m-1)+1)%n)+1
 end
 
-function exchange_bijection(input::Assignment, context)
-    (model_args, proposal_args) = context
+function exchange_involution(trace, fwd_assmt::Assignment, fwd_ret, proposal_args::Tuple)
+    assmt = get_assmt(trace)
+    model_args = get_args(trace)
     (alphas, word_lengths) = model_args
     (m,) = proposal_args
-    output = DynamicAssignment()
+    constraints = DynamicAssignment()
     n = length(alphas)
     m_plus_one = (((m-1)+1)%n)+1
-    set_subassmt!(output, :model => m_plus_one, get_subassmt(input, :model => m))
-    set_subassmt!(output, :model => m, get_subassmt(input, :model => m_plus_one))
-    (output, 0.)
+    set_subassmt!(constraints, m_plus_one, get_subassmt(assmt, m))
+    set_subassmt!(constraints, m, get_subassmt(assmt, m_plus_one))
+    (new_trace, weight, _, _) = force_update(model_args, noargdiff, trace, constraints)
+    (new_trace, EmptyAssignment(), weight)
 end
 
 function to_sentence(words::Vector{Vector{Int}})
@@ -128,7 +133,7 @@ end
 function do_inference(msg::Vector{T}, num_iter::Int) where {T <: AbstractString}
     assmt = DynamicAssignment()
 
-    alphas = collect(range(0, stop=1, length=20))
+    alphas = collect(range(0, stop=1, length=10))
 
     for m=1:length(alphas)
         # set initial code to the identity
@@ -162,6 +167,7 @@ function do_inference(msg::Vector{T}, num_iter::Int) where {T <: AbstractString}
             assmt = get_assmt(trace)
             @assert length(retval) == length(alphas)
             println()
+            println()
             for m=1:length(alphas)
                 code = retval[m]
                 original_words = get_original_words(get_subassmt(assmt, m), word_lengths)
@@ -171,8 +177,8 @@ function do_inference(msg::Vector{T}, num_iter::Int) where {T <: AbstractString}
         end
 
         for m=1:length(alphas)
-            (trace, accepted) = general_mh(trace, swap_proposal, (m,), swap_bijection)
-            (trace, exchange_accepted) = general_mh(trace, exchange_proposal, (m,), exchange_bijection)
+            (trace, _) = general_mh(trace, swap_proposal, (m,), swap_involution)
+            (trace, _) = general_mh(trace, exchange_proposal, (m,), exchange_involution)
         end
     end
 end

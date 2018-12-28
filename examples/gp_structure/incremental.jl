@@ -193,20 +193,46 @@ end
     else
         error("Unknown node type: $node_type")
     end
+
+    node_type
 end
 
-@gen function subtree_proposal(prev_trace, root::Int)
-    @addr(subtree_proposal_recursive(root), :tree, noargdiff)
+@gen function subtree_proposal(prev_trace)
+    prev_subtree_node::Node = get_retval(prev_trace)
+    (subtree_idx::Int, depth::Int) = @addr(pick_random_node(prev_subtree_node, 1, 0), :choose_subtree_root)
+    new_subtree_node_type::Int = @addr(subtree_proposal_recursive(subtree_idx), :subtree)
+    (subtree_idx, depth, new_subtree_node_type)
 end
+
+function subtree_involution(trace, fwd_assmt::Assignment, fwd_ret::Tuple, proposal_args::Tuple)
+    (subtree_idx, subtree_depth, new_subtree_type) = fwd_ret
+    model_args = get_args(trace)
+
+    # populate constraints
+    constraints = DynamicAssignment()
+    set_subassmt!(constraints, :tree, get_subassmt(fwd_assmt, :subtree))
+
+    # obtain new trace and discard, which contains the previous subtree
+    (new_trace, weight, discard, _) = force_update(model_args, noargdiff, trace, constraints)
+
+    # populate backward assignment
+    bwd_assmt = DynamicAssignment()
+    set_subassmt!(bwd_assmt, :choose_subtree_root => :recurse_left,
+        get_subassmt(fwd_assmt, :choose_subtree_root => :recurse_left))
+    for depth=0:subtree_depth-1
+        bwd_assmt[:choose_subtree_root => :done => depth] = false
+    end
+    if new_subtree_type in BINARY_OPS
+        bwd_assmt[:choose_subtree_root => :done => subtree_depth] = true
+    end
+    set_subassmt!(bwd_assmt, :subtree, get_subassmt(discard, :tree))
+
+    (new_trace, bwd_assmt, weight)
+end
+
 
 @gen function noise_proposal(prev_trace)
     @addr(gamma(1, 1), :noise)
-end
-
-function correction(prev_trace, new_trace)
-    prev_size = size(get_retval(prev_trace))
-    new_size = size(get_retval(new_trace))
-    log(prev_size) - log(new_size)
 end
 
 function inference(xs::Vector{Float64}, ys::Vector{Float64}, num_iters::Int, callback)
@@ -228,10 +254,10 @@ function inference(xs::Vector{Float64}, ys::Vector{Float64}, num_iters::Int, cal
         callback(covariance_fn, noise)
 
         # randomly pick a node to expand
-        root = pick_random_node(covariance_fn, 1, max_branch)
+        #root = pick_random_node(covariance_fn, 1, max_branch)
 
         # do MH move on the subtree
-        (trace, _) = custom_mh(trace, subtree_proposal, (root,), correction)
+        (trace, _) = general_mh(trace, subtree_proposal, (), subtree_involution)
         
         # do MH move on the top-level white noise
         (trace, _) = custom_mh(trace, noise_proposal, ())

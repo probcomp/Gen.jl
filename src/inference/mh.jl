@@ -71,26 +71,28 @@ function custom_mh(trace, proposal::GenerativeFunction, proposal_args::Tuple,
 end
 
 """
+    (new_trace, accepted) = general_mh(trace, proposal::GenerativeFunction, proposal_args::Tuple, involution::Function)
 
-    (new_trace, accepted) = general_mh(trace, proposal, proposal_args, bijection)
+Perform a generalized Metropolis-Hastings update based on an involution (bijection that is its own inverse) on a space of assignments.
 
-Apply a MCMC update constructed from a bijection and a proposal that satisfies detailed balance.
+The `involution' Julia function has the following signature:
+
+    (new_trace, bwd_assmt::Assignment, weight) = involution(trace, fwd_assmt::Assignment, fwd_ret, proposal_args::Tuple)
+
+The generative function `proposal` is executed on arguments `(trace, proposal_args...)`, producing an assignment `fwd_assmt` and return value `fwd_ret`.
+For each value of model arguments (contained in `trace`) and `proposal_args`, the `involution` function applies an involution that maps the tuple `(get_assmt(trace), fwd_assmt)` to the tuple `(get_assmt(new_trace), bwd_assmt)`.
+Note that `fwd_ret` is a deterministic function of `fwd_assmt` and `proposal_args`.
+When only discrete random choices are used, the `weight` must be equal to `get_score(new_trace) - get_score(trace)`.
+
+**Including Continuous Random Choices**
+When continuous random choices are used, the `weight` must include an additive term that is the determinant of the the Jacobian of the bijection on the continuous random choices that is obtained by currying the involution on the discrete random choices.
 """
-function general_mh(trace, proposal::GenerativeFunction, proposal_args::Tuple,
-                    bijection::Function)
-    model = get_gen_fn(trace)
-    model_args = get_args(trace)
-    model_score = get_score(trace)
-    (fwd_assmt, fwd_score, _) = propose(proposal, (trace, proposal_args...,))
-    input = pair(get_assmt(trace), fwd_assmt, :model, :proposal)
-    context = (model_args, proposal_args)
-    (output, logabsdet) = bijection(input, context)
-    (constraints, bwd_assmt) = unpair(output, :model, :proposal)
-    (new_trace, _, _, _) = force_update(model_args, noargdiff, trace, constraints)
-    new_model_score = get_score(new_trace)
+function general_mh(trace, proposal::GenerativeFunction,
+                    proposal_args::Tuple, involution::Function)
+    (fwd_assmt, fwd_score, fwd_ret) = propose(proposal, (trace, proposal_args...,))
+    (new_trace, bwd_assmt, weight) = involution(trace, fwd_assmt, fwd_ret, proposal_args)
     (bwd_score, _) = assess(proposal, (new_trace, proposal_args...), bwd_assmt)
-    alpha = new_model_score - model_score - fwd_score + bwd_score + logabsdet
-    if log(rand()) < alpha
+    if log(rand()) < weight - fwd_score + bwd_score
         # accept
         (new_trace, true)
     else

@@ -1,8 +1,8 @@
 using PyPlot
+using ReverseDiff
+using LinearAlgebra: det
 
 using Gen
-
-#import Gen: Distribution, logpdf
 
 # Example from Section 4 of Reversible jump Markov chain Monte Carlo
 # computation and Bayesian model determination 
@@ -111,16 +111,21 @@ end
 # model #
 #########
 
+const K = :k
+const EVENTS = :events
+const CHANGEPT = :changept
+const RATE = :rate
+
 @gen function model(T::Float64)
 
     # prior on number of change points
-    k = @addr(poisson(3.), "k")
+    k = @addr(poisson(3.), K)
 
     # prior on the location of (sorted) change points
     change_pts = Vector{Float64}(undef, k)
     lower = 0.
     for i=1:k
-        cp = @addr(min_uniform_continuous(lower, T, k-i+1), "cp$i")
+        cp = @addr(min_uniform_continuous(lower, T, k-i+1), (CHANGEPT, i))
         change_pts[i] = cp
         lower = cp
     end
@@ -129,26 +134,26 @@ end
     # h$i is the rate for cp$(i-1) to cp$i where cp0 := 0 and where cp$(k+1) := T
     alpha = 1.
     beta = 200.
-    rates = Float64[@addr(Gen.gamma(alpha, 1. / beta), "h$i") for i=1:k+1]
+    rates = Float64[@addr(Gen.gamma(alpha, 1. / beta), (RATE, i)) for i=1:k+1]
 
     # poisson process
     bounds = vcat([0.], change_pts, [T])
-    @addr(piecewise_poisson_process(bounds, rates), "points")
+    @addr(piecewise_poisson_process(bounds, rates), EVENTS)
 end
 
 function render(trace; ymax=0.02)
     T = get_args(trace)[1]
-    assignment = get_assmt(trace)
-    k = assignment["k"]
-    bounds = vcat([0.], sort([assignment["cp$i"] for i=1:k]), [T])
-    rates = [assignment["h$i"] for i=1:k+1]
+    assmt = get_assmt(trace)
+    k = assmt[:k]
+    bounds = vcat([0.], sort([assmt[(CHANGEPT, i)] for i=1:k]), [T])
+    rates = [assmt[(RATE, i)] for i=1:k+1]
     for i=1:length(rates)
         lower = bounds[i]
         upper = bounds[i+1]
         rate = rates[i]
         plot([lower, upper], [rate, rate], color="black", linewidth=2)
     end
-    points = assignment["points"]
+    points = assmt[EVENTS]
     scatter(points, -rand(length(points)) * (ymax/5.), color="black", s=5)
     ax = gca()
     xlim = [0., T]
@@ -171,28 +176,39 @@ function show_prior_samples()
 end
 
 
-###############
-# height move #
-###############
+#############
+# rate move #
+#############
 
-@gen function height_proposal(trace)
+@gen function rate_proposal(trace)
     assmt = get_assmt(trace)
-    k = assmt["k"]
-    i = @addr(uniform_discrete(1, k+1), :i)
-    height = assmt["h$i"]
-    @addr(uniform_continuous(height/2., height*2.), :height)
+
+    # pick a random segment whose rate to change
+    i = @addr(uniform_discrete(1, assmt[K]+1), :i)
+
+    # propose new value for the rate
+    cur_rate = assmt[(RATE, i)]
+    @addr(uniform_continuous(cur_rate/2., cur_rate*2.), :new_rate)
 end
 
-function height_bijection(input::Assignment, context)
-    i = input[:proposal => :i]
-    output = DynamicAssignment()
-    output[:proposal => :i] = i
-    output[:model => "h$i"] = input[:proposal => :height]
-    output[:proposal => :height] = input[:model => "h$i"]
-    (output, 0.)
+# it is an involution because it:
+# - maintains i = fwd_assmt[:i] constant
+# - swaps assmt[(RATE, i)] with fwd_assmt[:new_rate]
+
+function rate_involution(trace, fwd_assmt::Assignment, fwd_ret, proposal_args::Tuple)
+    assmt = get_assmt(trace)
+    model_args = get_args(trace)
+    bwd_assmt = DynamicAssignment()
+    constraints = DynamicAssignment()
+    i = fwd_assmt[:i]
+    bwd_assmt[:i] = i
+    constraints[(RATE, i)] = fwd_assmt[:new_rate]
+    bwd_assmt[:new_rate] = assmt[(RATE, i)]
+    (new_trace, weight, _, _) = force_update(model_args, noargdiff, trace, constraints)
+    (new_trace, bwd_assmt, weight)
 end
 
-height_move(trace) = general_mh(trace, height_proposal, (), height_bijection)
+rate_move(trace) = general_mh(trace, rate_proposal, (), rate_involution)
 
 
 #################
@@ -201,182 +217,202 @@ height_move(trace) = general_mh(trace, height_proposal, (), height_bijection)
 
 @gen function position_proposal(trace)
     assmt = get_assmt(trace)
-    k = assmt["k"]
+    k = assmt[K]
+    @assert k > 0
+
+    # pick a random changepoint to change
     i = @addr(uniform_discrete(1, k), :i)
-    lower = (i == 1) ? 0. : assmt["cp$(i-1)"]
-    upper = (i == k) ? T : assmt["cp$(i+1)"]
-    @addr(uniform_continuous(lower, upper), :cp)
+
+    lower = (i == 1) ? 0. : assmt[(CHANGEPT, i-1)]
+    upper = (i == k) ? T : assmt[(CHANGEPT, i+1)]
+    @addr(uniform_continuous(lower, upper), :new_changept)
 end
 
-function position_bijection(input::Assignment, context)
-    i = input[:proposal => :i]
-    output = DynamicAssignment()
-    output[:proposal => :i] = i
-    output[:model => "cp$i"] = input[:proposal => :cp]
-    output[:proposal => :cp] = input[:model => "cp$i"]
-    (output, 0.)
+# it is an involution because it:
+# - maintains i = fwd_assmt[:i] constant
+# - swaps assmt[(CHANGEPT, i)] with fwd_assmt[:new_changept]
+
+function position_involution(trace, fwd_assmt::Assignment, fwd_ret, proposal_args::Tuple)
+    assmt = get_assmt(trace)
+    model_args = get_args(trace)
+    bwd_assmt = DynamicAssignment()
+    constraints = DynamicAssignment()
+    i = fwd_assmt[:i]
+    bwd_assmt[:i] = i
+    constraints[(CHANGEPT, i)] = fwd_assmt[:new_changept]
+    bwd_assmt[:new_changept] = assmt[(CHANGEPT, i)]
+    (new_trace, weight, _, _) = force_update(model_args, noargdiff, trace, constraints)
+    (new_trace, bwd_assmt, weight)
 end
 
-position_move(trace) = general_mh(trace, position_proposal, (), position_bijection)
+position_move(trace) = general_mh(trace, position_proposal, (), position_involution)
 
 
 ######################
 # birth / death move #
 ######################
 
+const CHOSEN = :chosen
+const IS_BIRTH = :is_birth
+const NEW_CHANGEPT = :new_changept
+const U = :u
+
 @gen function birth_death_proposal(trace)
     T = get_args(trace)[1]
     assmt = get_assmt(trace)
-    k = assmt["k"]
-    if k == 0
-        # birth only
-        isbirth = true
-    else
-        # randomly choose birth or death
-        isbirth = @addr(bernoulli(0.5), :isbirth)
-    end
+    k = assmt[K]
+
+    # if k = 0, then always do a birth move
+    # if k > 0, then randomly choose a birth or death move
+    isbirth = (k == 0) ? true : @addr(bernoulli(0.5), IS_BIRTH)
+
     if isbirth
-        i = @addr(uniform_discrete(1, k+1), :i)
-        lower = (i == 1) ? 0. : assmt["cp$(i-1)"]
-        upper = (i == k+1) ? T : assmt["cp$i"]
-        @addr(uniform_continuous(lower, upper), :new_cp)
-        @addr(uniform_continuous(0., 1.), :u)
+        # pick the segment in which to insert the new changepoint
+        # changepoints before move:  | 1     2    3 |
+        # new changepoint (i = 2):   |    *         |
+        # changepoints after move:   | 1  2  3    4 |
+        i = @addr(uniform_discrete(1, k+1), CHOSEN)
+        lower = (i == 1) ? 0. : assmt[(CHANGEPT, i-1)]
+        upper = (i == k+1) ? T : assmt[(CHANGEPT, i)]
+        @addr(uniform_continuous(lower, upper), NEW_CHANGEPT)
+        @addr(uniform_continuous(0., 1.), U)
     else
-        @addr(uniform_discrete(1, k), :i)
+        # pick the changepoint to be deleted
+        # changepoints before move:     | 1  2  3    4 |
+        # deleted changepoint (i = 2):  |    *         |
+        # changepoints after move:      | 1     2    3 |
+        @addr(uniform_discrete(1, k), CHOSEN)
     end
 end
 
-function new_heights(cur_height, new_cp, prev_cp, next_cp, u)
-    d_prev = new_cp - prev_cp
-    d_next = next_cp - new_cp
-    @assert d_prev > 0
-    @assert d_next > 0
-    d_total = d_prev + d_next
-    log_cur_height = log(cur_height)
-    log_ratio = log(1 - u) - log(u)
-    new_h_prev = exp(log_cur_height - (d_prev / d_total) * log_ratio)
-    new_h_next = exp(log_cur_height + (d_next / d_total) * log_ratio)
-    @assert new_h_prev > 0.
-    @assert new_h_next > 0.
-    (new_h_prev, new_h_next)
-end
-
-function new_heights_inverse(prev_height, next_height, cur_cp, prev_cp, next_cp)
+function new_rates(arr)
+    (cur_rate, u, cur_cp, prev_cp, next_cp) = arr
     d_prev = cur_cp - prev_cp
     d_next = next_cp - cur_cp
     @assert d_prev > 0
     @assert d_next > 0
     d_total = d_prev + d_next
-    log_prev_height = log(prev_height)
-    log_next_height = log(next_height)
-    new_height = exp((d_prev / d_total) * log_prev_height + (d_next / d_total) * log_next_height)
-    u = prev_height / (prev_height + next_height)
-    @assert new_height > 0.
-    (new_height, u)
+    log_cur_rate = log(cur_rate)
+    log_ratio = log(1 - u) - log(u)
+    prev_rate = exp(log_cur_rate - (d_next / d_total) * log_ratio)
+    next_rate = exp(log_cur_rate + (d_prev / d_total) * log_ratio)
+    @assert prev_rate > 0.
+    @assert next_rate > 0.
+    [prev_rate, next_rate]
 end
 
-@inj function birth_transform(k, i, T)
-    # birth move
-    @write(k + 1, :model => "k")
-
-    # set new changepoints
-    for j=1:i-1
-        @copy(:model => "cp$j", :model => "cp$j")
-    end
-    @copy(:proposal => :new_cp, :model => "cp$i")
-    for j=i:k
-        @copy(:model => "cp$j", :model => "cp$(j+1)")
-    end
-
-    # compute new heights
-    cur_height = @read(:model => "h$i")
-    prev_cp = (i == 1) ? 0. : @read(:model => "cp$(i-1)")
-    next_cp = (i == k+1) ? T : @read(:model => "cp$i")
-    new_cp = @read(:proposal => :new_cp)
-    u = @read(:proposal => :u)
-    (new_h_prev, new_h_next) = new_heights(cur_height, new_cp, prev_cp, next_cp, u)
-
-    # set new heights
-    for j=1:i-1
-        @copy(:model => "h$j", :model => "h$j")
-    end
-    @write(new_h_prev, :model => "h$i")
-    @write(new_h_next, :model => "h$(i+1)")
-    for j=i+1:k+1
-        @copy(:model => "h$j", :model => "h$(j+1)")
-    end
-
-    # the reverse is a death move
-    @write(false, :proposal => :isbirth)
-    nothing
+function new_rates_inverse(arr)
+    (prev_rate, next_rate, cur_cp, prev_cp, next_cp) = arr
+    d_prev = cur_cp - prev_cp
+    d_next = next_cp - cur_cp
+    @assert d_prev > 0
+    @assert d_next > 0
+    d_total = d_prev + d_next
+    log_prev_rate = log(prev_rate)
+    log_next_rate = log(next_rate)
+    cur_rate = exp((d_prev / d_total) * log_prev_rate + (d_next / d_total) * log_next_rate)
+    u = prev_rate / (prev_rate + next_rate)
+    @assert cur_rate > 0.
+    [cur_rate, u]
 end
 
-@inj function death_transform(k, i, T)
-    # death move
-    @write(k - 1, :model => "k")
-    @assert k > 0
+# it is an involution because:
+# - it switches back and forth between birth move and death move
+# - it maintains fwd_assmt[CHOSEN] constant (applying it twice will first insert a new
+#   changepoint and then remove that same changepoint)
+# - new_rates, curried on cp_new, cp_prev, and cp_next, is the inverse of new_rates_inverse.
 
-    # change points
-    for j=1:i-1
-        @copy(:model => "cp$j", :model => "cp$j")
-    end
-    for j=i+1:k
-        @copy(:model => "cp$j", :model => "cp$(j-1)")
-    end
-
-    # compute new height
-    cur_cp = @read(:model => "cp$i")
-    prev_cp = (i == 1) ? 0. : @read(:model => "cp$(i-1)")
-    next_cp = (i == k) ? T : @read(:model => "cp$(i+1)")
-    prev_height = @read(:model => "h$i")
-    next_height = @read(:model => "h$(i+1)")
-    (new_height, u) = new_heights_inverse(prev_height, next_height, cur_cp, prev_cp, next_cp)
-
-    # heights
-    for j=1:i-1
-        @copy(:model => "h$j", :model => "h$j")
-    end
-    @write(new_height, :model => "h$i")
-    for j=i+2:k+1
-        @copy(:model => "h$j", :model => "h$(j-1)")
-    end
-
-    @copy(:model => "cp$i", :proposal => :new_cp)
-    @write(u, :proposal => :u)
-
-    # if new k = 0 the reverse proposal does not sample at :isbirth
-    if k > 1
-        @write(true, :proposal => :isbirth)
-    end
-    nothing
-end
-
-@inj function birth_death_transform(T)
-    k = @read(:model => "k")
-    isbirth = (k == 0) || @read(:proposal => :isbirth)
-    i = @read(:proposal => :i)
-    @write(i, :proposal => :i)
-    if isbirth
-        @splice(birth_transform(k, i, T))
-    else
-        @splice(death_transform(k, i, T))
-    end
-    @copy(:model => "points", :model => "points")
-    nothing
-end
-
-function birth_death_bijection(input::Assignment, context)
-    (model_args, _) = context
+function birth_death_involution(trace, fwd_assmt::Assignment, fwd_ret, proposal_args::Tuple)
+    assmt = get_assmt(trace)
+    model_args = get_args(trace)
     T = model_args[1]
-    (output, logabsdet, _) = apply(birth_death_transform, (T,), input)
-    (output, logabsdet)
+
+    bwd_assmt = DynamicAssignment()
+
+    # current number of changepoints
+    k = assmt[K]
+    
+    # if k == 0, then we can only do a birth move
+    isbirth = (k == 0) || fwd_assmt[IS_BIRTH]
+
+    # if we are a birth move, the inverse is a death move
+    if k > 1 || isbirth
+        bwd_assmt[IS_BIRTH] = !isbirth
+    end
+    
+    # the changepoint to be added or deleted
+    i = fwd_assmt[CHOSEN]
+    bwd_assmt[CHOSEN] = i
+
+    # populate constraints
+    constraints = DynamicAssignment()
+    if isbirth
+        constraints[K] = k + 1
+
+        cp_new = fwd_assmt[NEW_CHANGEPT]
+        cp_prev = (i == 1) ? 0. : assmt[(CHANGEPT, i-1)]
+        cp_next = (i == k+1) ? T : assmt[(CHANGEPT, i)]
+
+        # set new changepoint
+        constraints[(CHANGEPT, i)] = cp_new
+
+        # shift up changepoints
+        for j=i+1:k+1
+            constraints[(CHANGEPT, j)] = assmt[(CHANGEPT, j-1)]
+        end
+
+        # compute new rates
+        h_cur = assmt[(RATE, i)]
+        u = fwd_assmt[U]
+        (h_prev, h_next) = new_rates([h_cur, u, cp_new, cp_prev, cp_next])
+        J = ReverseDiff.jacobian(new_rates, [h_cur, u, cp_new, cp_prev, cp_next])[:,1:2]
+
+        # set new rates
+        constraints[(RATE, i)] = h_prev
+        constraints[(RATE, i+1)] = h_next
+
+        # shift up rates
+        for j=i+2:k+2
+            constraints[(RATE, j)] = assmt[(RATE, j-1)]
+        end
+    else
+        constraints[K] = k - 1
+
+        cp_deleted = assmt[(CHANGEPT, i)]
+        cp_prev = (i == 1) ? 0. : assmt[(CHANGEPT, i-1)]
+        cp_next = (i == k) ? T : assmt[(CHANGEPT, i+1)]
+        bwd_assmt[NEW_CHANGEPT] = cp_deleted 
+
+        # shift down changepoints
+        for j=i:k-1
+            constraints[(CHANGEPT, j)] = assmt[(CHANGEPT, j+1)]
+        end
+
+        # compute cur rate and u
+        h_prev = assmt[(RATE, i)]
+        h_next = assmt[(RATE, i+1)]
+        (h_cur, u) = new_rates_inverse([h_prev, h_next, cp_deleted, cp_prev, cp_next])
+        J = ReverseDiff.jacobian(new_rates_inverse, [h_prev, h_next, cp_deleted, cp_prev, cp_next])[:,1:2]
+        bwd_assmt[U] = u
+
+        # set cur rate
+        constraints[(RATE, i)] = h_cur
+
+        # shift down rates
+        for j=i+1:k
+            constraints[(RATE, j)] = assmt[(RATE, j+1)]
+        end
+    end
+
+    (new_trace, weight, _, _) = force_update(model_args, noargdiff, trace, constraints)
+    (new_trace, bwd_assmt, weight + log(abs(det(J))))
 end
 
-birth_death_move(trace) = general_mh(trace, birth_death_proposal, (), birth_death_bijection)
+birth_death_move(trace) = general_mh(trace, birth_death_proposal, (), birth_death_involution)
 
 function mcmc_step(trace)
-    k = get_assmt(trace)["k"]
-    (trace, _) = height_move(trace)
+    k = get_assmt(trace)[K]
+    (trace, _) = rate_move(trace)
     if k > 0
         (trace, _) = position_move(trace)
     end
@@ -385,8 +421,8 @@ function mcmc_step(trace)
 end
 
 function simple_mcmc_step(trace)
-    k = get_assmt(trace)["k"]
-    (trace, _) = height_move(trace)
+    k = get_assmt(trace)[K]
+    (trace, _) = rate_move(trace)
     if k > 0
         (trace, _) = position_move(trace)
     end
@@ -397,7 +433,7 @@ end
 function do_mcmc(T, num_steps::Int)
     (trace, _) = initialize(model, (T,), observations)
     for iter=1:num_steps
-        k = get_assmt(trace)["k"]
+        k = get_assmt(trace)[K]
         if iter % 1000 == 0
             println("iter $iter of $num_steps, k: $k")
         end
@@ -406,12 +442,12 @@ function do_mcmc(T, num_steps::Int)
     trace
 end
 
-const k_selection = select("k")
+const k_selection = select(K)
 
 function do_simple_mcmc(T, num_steps::Int)
     (trace, _) = initialize(model, (T,), observations)
     for iter=1:num_steps
-        k = get_assmt(trace)["k"]
+        k = get_assmt(trace)[K]
         if iter % 1000 == 0
             println("iter $iter of $num_steps, k: $k")
         end
@@ -440,7 +476,7 @@ end
 const points = load_data_set()
 const T = maximum(points)
 const observations = DynamicAssignment()
-observations["points"] = points
+observations[EVENTS] = points
 
 function show_posterior_samples()
     figure(figsize=(16,16))
@@ -465,10 +501,10 @@ function show_posterior_samples()
 end
 
 function get_rate_vector(trace, test_points)
-    assignment = get_assmt(trace)
-    k = assignment["k"]
-    cps = [assignment["cp$i"] for i=1:k]
-    hs = [assignment["h$i"] for i=1:k+1]
+    assmt = get_assmt(trace)
+    k = assmt[K]
+    cps = [assmt[(CHANGEPT, i)] for i=1:k]
+    hs = [assmt[(RATE, i)] for i=1:k+1]
     rate = Vector{Float64}()
     cur_h_idx = 1
     cur_h = hs[cur_h_idx]
@@ -492,12 +528,12 @@ function plot_posterior_mean_rate()
     test_points = collect(1.0:10.0:T)
     rates = Vector{Vector{Float64}}()
     num_samples = 0
-    num_steps = 5000 # 20000
-    for reps=1:10
+    num_steps = 8000
+    for reps=1:20
         (trace, _) = initialize(model, (T,), observations)
         for iter=1:num_steps
             if iter % 1000 == 0
-                println("iter $iter of $num_steps, k: $(get_assmt(trace)["k"])")
+                println("iter $iter of $num_steps, k: $(get_assmt(trace)[K])")
             end
             trace = mcmc_step(trace)
             if iter > 4000
@@ -529,13 +565,13 @@ function plot_trace_plot()
 
     # reversible jump
     (trace, _) = initialize(model, (T,), observations)
-    height1 = Float64[]
+    rate1 = Float64[]
     num_clusters_vec = Int[]
     burn_in = 0
     for iter=1:burn_in + 1000 
         trace = mcmc_step(trace)
         if iter > burn_in
-            push!(num_clusters_vec, get_assmt(trace)["k"])
+            push!(num_clusters_vec, get_assmt(trace)[K])
         end
     end
     subplot(2, 1, 1)
@@ -543,13 +579,13 @@ function plot_trace_plot()
 
     # simple MCMC
     (trace, _) = initialize(model, (T,), observations)
-    height1 = Float64[]
+    rate1 = Float64[]
     num_clusters_vec = Int[]
     burn_in = 0
     for iter=1:burn_in + 1000 
         trace = simple_mcmc_step(trace)
         if iter > burn_in
-            push!(num_clusters_vec, get_assmt(trace)["k"])
+            push!(num_clusters_vec, get_assmt(trace)[K])
         end
     end
     subplot(2, 1, 2)

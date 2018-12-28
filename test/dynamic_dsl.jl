@@ -6,6 +6,8 @@ using Gen: AddressVisitor, all_visited, visit!, get_visited
 # address visitor #
 ###################
 
+# TODO also test get_unvisited
+
 @testset "address visitor" begin
     assmt = DynamicAssignment()
     assmt[:x] = 1

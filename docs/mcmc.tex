@@ -19,14 +19,15 @@
 
 \maketitle
 
-This document shows that Gen's \texttt{general\_mh} operator satisfies detailed balance, given that its requirements are satisfied, and given that only discrete random choices are made.
+\section{Discrete Random Choices Only}
+This section shows that Gen's \texttt{general\_mh} operator satisfies detailed balance, given that its requirements are satisfied, and given that only discrete random choices are made.
 
 \paragraph{Requirements for \texttt{general\_mh}}
 Let $p(t; x)$ denote the distribution on assignments $t$ of the model generative function, parametrized by arguments $x \in X$.
 Let $q(u; t, x, y)$ denote the distribution on assignments $u$ of the proposal generative function, parametrized by a model assignment $t$, model arguments $x$, and proposal arguments $y \in Y$.
 A proposal distribution must be defined for all $(x, y, t)$ such that $x \in X$, $y \in Y$, and $p(t; x) > 0$.
 For some $x \in X$ and $y \in Y$, let $Z_{x,y} = \{(t, u) : p(t; x) > 0, q(u; t, x, y) > 0\}$.
-We also require a bijection $f_{x,y} : Z_{x,y} \to Z_{x,y}$ such that $f^{-1}_{x,y} = f_{x,y}$ (i.e. $f_{x,y}$ is its own inverse).
+We also require a bijection $f_{x,y} : Z_{x,y} \to Z_{x,y}$ such that $f^{-1}_{x,y} = f_{x,y}$ (i.e. $f_{x,y}$ is its own inverse or an `involution').
 Let $f_{x,y}(t, u) = (f^T_{x,y}(t, u), f^U_{x,y}(t, u))$.
 
 \paragraph{The \texttt{general\_mh} procedure}
@@ -71,5 +72,12 @@ Next, consider the terms on both sides of Equation~(\ref{eq:db}) that are associ
 \end{align}
 If $t \ne t'$ then we have $\delta(t, t') = \delta(t', t) = 0$ and we are done.
 If $t = t'$ then renaming $u'$ to $u$ on the right-hand side gives the equivalance.
+
+\section{Including Continuous Random Choices}
+To extend \texttt{general\_mh} to handle continuous random choices, we need to require further structure on the involution $f_{x,y}$.
+In particular, we require that $f_{x,y}$ can be decomposed into (i) an involution $f_{x,y,\mathrm{disc}} = f_{x,y,\mathrm{disc}}^{-1}$ on the discrete random choices, and (ii) a family of diffeomorphisms on the continuous random choices, indexed by assignments to the discrete random choices.
+For any value $d$ of the discrete random choices, we require a bijection $f_{x,y,\mathrm{cont},d}$ on the such that $f^{-1}_{x,y,\mathrm{cont},d}$ = $f_{x,y,\mathrm{cont},f_{x,y,\mathrm{disc}}(d)}$.
+Then, the involution $(d', r') = f_{x,y}(d, r)$ where $d, d'$ are the previous and new assignments to the discrete-valued choices, and $r, r'$ are the previous and new assignments to the continuous random choices, is constructed by first evaluating $d' = f_{x,y,\mathrm{disc}}(d)$ and then by evaluating $r' = f_{x,y,\mathrm{cont},d}(r)$.
+The log-determinant of the Jacobian matrix of $f_{x,y,\mathrm{cont},d}$ is evaluated at $r$ and added to the log acceptance ratio.
 
 \end{document}

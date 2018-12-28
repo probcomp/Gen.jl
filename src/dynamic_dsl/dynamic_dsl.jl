@@ -303,6 +303,27 @@ function all_visited(visited::AddressSet, assmt::Assignment)
     allvisited
 end
 
+function get_unvisited(visited::AddressSet, assmt::Assignment)
+    unvisited = DynamicAssignment()
+    for (key, _) in get_values_shallow(assmt)
+        if !has_leaf_node(visited, key)
+            set_value!(unvisited, key, get_value(assmt, key))
+        end
+    end
+    for (key, subassmt) in get_subassmts_shallow(assmt)
+        if !has_leaf_node(visited, key)
+            if has_internal_node(visited, key)
+                subvisited = get_internal_node(visited, key)
+            else
+                subvisited = EmptyAddressSet()
+            end
+            sub_unvisited = get_unvisited(subvisited, subassmt)
+            set_subassmt!(unvisited, key, sub_unvisited)
+        end
+    end
+    unvisited
+end
+
 get_visited(visitor) = visitor.visited
 
 function check_no_subassmt(constraints::Assignment, addr)
