@@ -19,7 +19,7 @@ end
 
 After running this code, `foo` is a Julia value of type `DynamicDSLFunction`, which is a subtype of `GenerativeFunction`.
 
-### Making Random Choices
+### Making random choices
 
 Random choices are made by applying a probability distribution to some arguments:
 ```julia
@@ -40,7 +40,7 @@ This discipline will simplify reasoning about the probabilistic behavior of the 
 If the support of a random choice needs to change, consider using a different address for each distinct support.
 
 
-### Calling Generative Functions
+### Calling generative functions
 
 `@gen` functions can invoke other generative functions in three ways:
 
@@ -67,7 +67,7 @@ val = @addr(foo(0.5), :x)
 Now, all random choices made by `foo` are included in our trace, under the namespace `:x`.
 For example, if `foo` makes random choices at addresses `:a` and `:b`, these choices will have addresses `:x => :a` and `:x => :b` in the caller's trace.
 
-### Using Composite Addresses
+### Using composite addresses
 
 In Julia, `Pair` values can be constructed using the `=>` operator.
 For example, `:a => :b` is equivalent to `Pair(:a, :b)` and `:a => :b => :c` is equivalent to `Pair(:a, Pair(:b, :c))`.
@@ -111,11 +111,11 @@ This example is **valid** because `:a => :b` and `:a => :c` are not prefixes of 
 @addr(foo(0.5), :a => :c)
 ```
 
-
-### Return Value
+### Return value
 
 Like regular Julia functions, `@gen` functions return either the expression used in a `return` keyword, or by evaluating the last expression in the function body.
-Note that the return value of a `@gen` function is distinct from its trace.
+Note that the return value of a `@gen` function is different from a trace of `@gen` function, which contains the return value associated with an execution as well as the assignment to each random choice made during the execution.
+See [Generative Function Interface](@ref) for more information about traces.
 
 
 ## Static DSL
@@ -137,12 +137,16 @@ After running this code, `foo` is a Julia value whose type is a subtype of `Stat
 The Static DSL permits a subset of the syntax permitted by the Dynamic DSL.
 In particular, each statement must be one of the following forms:
 
-    - `<symbol> = <julia-expr>`
-    - `<symbol> = `@addr(<dist>(..),<symbol> [ => ..])`
-    - `@addr(<dist>(..),<symbol> [ => ..])`
-    - `return <julia-expr>`
+- `<symbol> = <julia-expr>`
+
+- `<symbol> = `@addr(<dist|gen-fn>(..),<symbol> [ => ..])`
+
+- `@addr(<dist|gen-fn>(..),<symbol> [ => ..])`
+
+- `return <julia-expr>`
+
 
 Note that the `@addr` keyword may only appear in at the top-level of the right-hand-side expresssion.
-Also, addresses used with the `@addr` keyword must be a literal Julia symbol (e.g. `:a`). If multi-part addresses are used, the first component in the multi-part address must be a literal Julia symbol (e.g. `:a = i` is valid).
+Also, addresses used with the `@addr` keyword must be a literal Julia symbol (e.g. `:a`). If multi-part addresses are used, the first component in the multi-part address must be a literal Julia symbol (e.g. `:a => i` is valid).
 
 Also, symbols used on the left-hand-side of assignment statements must be unique (this is called 'static single assignment' (SSA) form) (this is called 'static single-assignment' (SSA) form).
