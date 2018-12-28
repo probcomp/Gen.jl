@@ -121,3 +121,28 @@ Note that the return value of a `@gen` function is distinct from its trace.
 ## Static DSL
 
 *Static DSL* functions are defined using the `@staticgen` macro.
+We will refer to Static DSL functions as '`@staticgen` functions' from here forward.
+
+Here is an example `@staticgen` function that samples two random choices:
+```julia
+@staticgen function foo(prob::Float64)
+    z1 = @addr(bernoulli(prob), :a)
+    z2 = @addr(bernoulli(prob), :b)
+    return z1 || z2
+end
+```
+
+After running this code, `foo` is a Julia value whose type is a subtype of `StaticIRGenerativeFunction`, which is a subtype of `GenerativeFunction`.
+
+The Static DSL permits a subset of the syntax permitted by the Dynamic DSL.
+In particular, each statement must be one of the following forms:
+
+    - `<symbol> = <julia-expr>`
+    - `<symbol> = `@addr(<dist>(..),<symbol> [ => ..])`
+    - `@addr(<dist>(..),<symbol> [ => ..])`
+    - `return <julia-expr>`
+
+Note that the `@addr` keyword may only appear in at the top-level of the right-hand-side expresssion.
+Also, addresses used with the `@addr` keyword must be a literal Julia symbol (e.g. `:a`). If multi-part addresses are used, the first component in the multi-part address must be a literal Julia symbol (e.g. `:a = i` is valid).
+
+Also, symbols used on the left-hand-side of assignment statements must be unique (this is called 'static single assignment' (SSA) form) (this is called 'static single-assignment' (SSA) form).
