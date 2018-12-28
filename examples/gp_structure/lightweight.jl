@@ -80,14 +80,14 @@ function subtree_involution(trace, fwd_assmt::Assignment, fwd_ret::Tuple, propos
     (subtree_idx, subtree_depth, new_subtree_node) = fwd_ret
     model_args = get_args(trace)
 
-    # populate constraints
+    # populate constraints with proposed subtree
     constraints = DynamicAssignment()
     set_subassmt!(constraints, :tree, get_subassmt(fwd_assmt, :subtree))
 
     # obtain new trace and discard, which contains the previous subtree
     (new_trace, weight, discard, _) = force_update(model_args, noargdiff, trace, constraints)
 
-    # populate backward assignment
+    # populate backward assignment with choice of root
     bwd_assmt = DynamicAssignment()
     set_subassmt!(bwd_assmt, :choose_subtree_root => :recurse_left,
         get_subassmt(fwd_assmt, :choose_subtree_root => :recurse_left))
@@ -97,6 +97,8 @@ function subtree_involution(trace, fwd_assmt::Assignment, fwd_ret::Tuple, propos
     if !isa(new_subtree_node, LeafNode)
         bwd_assmt[:choose_subtree_root => :done => subtree_depth] = true
     end
+
+    # populate backward assignment with the previous subtree
     set_subassmt!(bwd_assmt, :subtree, get_subassmt(discard, :tree))
 
     (new_trace, bwd_assmt, weight)
