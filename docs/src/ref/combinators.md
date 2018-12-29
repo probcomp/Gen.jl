@@ -7,7 +7,7 @@ However, generative function combinators are not 'higher order generative functi
 
 ## Map combinator
 
-The *map combinator* takes a generative function as input, and returns a generative function that applies the given generative function independently to a vector of arguments.
+The *map* combinator takes a generative function as input, and returns a generative function that applies the given generative function independently to a vector of arguments.
 The returned generative function has one argument with type `Vector{T}` for each argument of type `T` of the input generative function.
 The length of each argument, which must be the same for each argument, determines the number of times the input generative function is called (N).
 Each call to the input function is made under address namespace i for i=1..N.
@@ -36,9 +36,6 @@ ys = [0.5, 1.0]
 This causes `foo` to be invoked twice, once with arguments `(xs[1], ys[1])` in address namespace `1` and once with arguments `(xs[2], ys[2])` in address namespace `2`.
 The resulting trace has random choices at addresses `1 => :z` and `2 => :z`.
 
-
 ## Unfold combinator
 
 ## Recurse combinator
-
-

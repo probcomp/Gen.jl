@@ -128,7 +128,8 @@ Here is an example `@staticgen` function that samples two random choices:
 @staticgen function foo(prob::Float64)
     z1 = @addr(bernoulli(prob), :a)
     z2 = @addr(bernoulli(prob), :b)
-    return z1 || z2
+    z3 = z1 || z2
+    return z3
 end
 ```
 
@@ -143,10 +144,30 @@ In particular, each statement must be one of the following forms:
 
 - `@addr(<dist|gen-fn>(..),<symbol> [ => ..])`
 
-- `return <julia-expr>`
+- `return <symbol>`
 
 
 Note that the `@addr` keyword may only appear in at the top-level of the right-hand-side expresssion.
 Also, addresses used with the `@addr` keyword must be a literal Julia symbol (e.g. `:a`). If multi-part addresses are used, the first component in the multi-part address must be a literal Julia symbol (e.g. `:a => i` is valid).
 
 Also, symbols used on the left-hand-side of assignment statements must be unique (this is called 'static single assignment' (SSA) form) (this is called 'static single-assignment' (SSA) form).
+
+### Loading generated functions
+
+Before a `@staticgen` function can be invoked at runtime, `Gen.load_generated_functions()` method must be called.
+Typically, this call immediately preceeds the execution of the inference algorithm.
+
+
+### Performance tips
+
+For better performance, annotate the left-hand side of random choices with the type.
+This permits a more optimized trace data structure to be generated for the generative function.
+For example:
+```julia
+@staticgen function foo(prob::Float64)
+    z1::Bool = @addr(bernoulli(prob), :a)
+    z2::Bool = @addr(bernoulli(prob), :b)
+    z3 = z1 || z2
+    return z3
+end
+```
