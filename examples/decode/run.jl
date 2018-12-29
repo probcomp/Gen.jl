@@ -12,74 +12,70 @@ end
 # load bigram data into a transition matrix
 # bigrams.json from https://gist.github.com/lydell/c439049abac2c9226e53 
 data = JSON.parsefile("$(@__DIR__)/bigrams.json")
-counts = zeros(Int64, (26, 26))
+counts = zeros(Int64, (27, 27))
 for (bigram, count) in data
     first = letter_to_int[bigram[1]]
     second = letter_to_int[bigram[2]]
     counts[second, first] = count
 end
 counts = counts .+ 1 # remove zeros
-const probs = sum(counts, dims=1)[:] / sum(counts)
+start_counts = [counts[i,27] for i=1:27]
+const probs = start_counts / sum(start_counts)
 const transition = counts ./ sum(counts, dims=1)
 
-@gen function generate_original_text(alpha::Float64, word_lengths::Vector{Int})
-    my_probs = probs .* (1 - alpha) .+ fill(1 / 26., 26) .* alpha
-    my_transition = transition * (1 - alpha) .+ fill(1 / 26., 26, 26) .* alpha
+@gen function generate_original_text(alpha::Float64, len::Int)
+    my_probs = probs .* (1 - alpha) .+ fill(1 / 27., 27) .* alpha
+    my_transition = transition * (1 - alpha) .+ fill(1 / 27., 27, 27) .* alpha
     local cur::Int
-    for (k, len) in enumerate(word_lengths)
-        cur = @addr(categorical(my_probs), (k, 1))
-        for l=2:len
-            cur = @addr(categorical(my_transition[:,cur]), (k, l))
-        end
+    cur = @addr(categorical(my_probs), 1)
+    for l=2:len
+        cur = @addr(categorical(my_transition[:,cur]), l)
     end
 end
 
-@gen function model(alpha::Float64, word_lengths::Vector{Int})
-    @addr(generate_original_text(alpha, word_lengths), :text)
-    code = Int[@addr(uniform_discrete(1, 26), (:code, l)) for l=1:26]
+@gen function model(alpha::Float64, len::Int)
+    @addr(generate_original_text(alpha, len), :text)
+    code = Int[@addr(uniform_discrete(1, 27), (:code, l)) for l=1:27]
     code
 end
 
 par_model = Map(model)
 
 @gen function swap_proposal(prev_trace, m::Int)
-    @addr(uniform_discrete(1, 26), :i)
-    @addr(uniform_discrete(1, 26), :j)
+    @addr(uniform_discrete(1, 27), :i)
+    @addr(uniform_discrete(1, 27), :j)
 end
 
 function swap_involution(trace, fwd_assmt::Assignment, fwd_ret, proposal_args::Tuple)
     assmt = get_assmt(trace)
     model_args = get_args(trace)
-    (m,) = proposal_args
-    (alphas, word_lengths_all,) = model_args
-    word_lengths = word_lengths_all[1]
+    (replica,) = proposal_args
+    (alphas, len_repeated) = model_args
+    len::Int = len_repeated[1]
     bwd_assmt = DynamicAssignment()
     i = fwd_assmt[:i]
     j = fwd_assmt[:j]
     bwd_assmt[:j] = i
     bwd_assmt[:i] = j
     constraints = DynamicAssignment()
-    constraints[m => (:code, i)] = assmt[m => (:code, j)]
-    constraints[m => (:code, j)] = assmt[m => (:code, i)]
+    constraints[replica => (:code, i)] = assmt[replica => (:code, j)]
+    constraints[replica => (:code, j)] = assmt[replica => (:code, i)]
 
-    for (k, len) in enumerate(word_lengths)
-
-        # update the latent words
-        for l=1:len
-            local curval::Int
-            local newval::Int
-            curval = assmt[m => :text => (k, l)]
-            if curval == i
-                newval = j
-            elseif curval == j
-                newval = i
-            else
-                newval = curval
-            end
-            constraints[m => :text => (k, l)] = newval
+    # update the latent letters
+    for l=1:len
+        local cur_char::Int
+        local new_char::Int
+        cur_char = assmt[replica => :text => l]
+        if cur_char == i
+            new_char = j
+        elseif cur_char == j
+            new_char = i
+        else
+            new_char = cur_char
         end
+        constraints[replica => :text => l] = new_char
     end
-    
+
     (new_trace, weight, _, _) = force_update(model_args, noargdiff, trace, constraints)
     (new_trace, bwd_assmt, weight)
 end
@@ -91,72 +87,48 @@ end
 function exchange_involution(trace, fwd_assmt::Assignment, fwd_ret, proposal_args::Tuple)
     assmt = get_assmt(trace)
     model_args = get_args(trace)
-    (alphas, word_lengths) = model_args
-    (m,) = proposal_args
+    (alphas, _) = model_args
+    (replica,) = proposal_args
     constraints = DynamicAssignment()
-    n = length(alphas)
-    m_plus_one = (((m-1)+1)%n)+1
-    set_subassmt!(constraints, m_plus_one, get_subassmt(assmt, m))
-    set_subassmt!(constraints, m, get_subassmt(assmt, m_plus_one))
+    num_replicas = length(alphas)
+    replica_plus_one = (((replica-1)+1)%num_replicas)+1
+    set_subassmt!(constraints, replica_plus_one, get_subassmt(assmt, replica))
+    set_subassmt!(constraints, replica, get_subassmt(assmt, replica_plus_one))
     (new_trace, weight, _, _) = force_update(model_args, noargdiff, trace, constraints)
     (new_trace, EmptyAssignment(), weight)
 end
 
-function to_sentence(words::Vector{Vector{Int}})
-    join(map((word) -> join(alphabet[word]), words), " ")
+to_string(text::Vector{Int}) = join(alphabet[text])
+
+function get_original_text(assmt::Assignment, len::Int)
+    Int[assmt[:text => l] for l=1:len]
 end
 
-function get_original_words(assmt::Assignment, word_lengths::Vector{Int})
-    original_words = Vector{Vector{Int}}(undef, length(word_lengths))
-    for (k, len) in enumerate(word_lengths)
-        word = Vector{Int}(undef, len)
-        for l=1:len
-            word[l] = assmt[:text => (k, l)]
-        end
-        original_words[k] = word
-    end
-    original_words
+function get_output_text(original_text::Vector{Int}, code::Vector{Int})
+    code[original_text]
 end
 
-function get_output_words(original_words::Vector{Vector{Int}}, code::Vector{Int})
-    output_words = Vector{Vector{Int}}(undef, length(original_words))
-    for (k, original_word) in enumerate(original_words)
-        output_word = Vector{Int}(undef, length(original_word))
-        for (l, letter) in enumerate(original_word)
-            output_word[l] = code[letter]
-        end
-        output_words[k] = output_word
-    end
-    output_words
-end
-
-function do_inference(msg::Vector{T}, num_iter::Int) where {T <: AbstractString}
+function do_inference(encoded_text::AbstractString, num_iter::Int)
+    len = length(encoded_text)
     assmt = DynamicAssignment()
 
     alphas = collect(range(0, stop=1, length=10))
+    num_replicas = length(alphas)
 
-    for m=1:length(alphas)
+    for replica=1:num_replicas
         # set initial code to the identity
-        for l=1:26
-            assmt[m => (:code, l)] = l
+        for l=1:27
+            assmt[replica => (:code, l)] = l
         end
 
-        # initialize original words
-        for (k, word) in enumerate(msg)
-            for (l, letter) in enumerate(word)
-                assmt[m => :text => (k, l)] = letter_to_int[letter]
-            end
+        # initialize original text 
+        for (l, char) in enumerate(encoded_text)
+            assmt[replica => :text => l] = letter_to_int[char]
         end
     end
         
-    # word lengths
-    word_lengths = Vector{Int}()
-    for word in msg
-        push!(word_lengths, length(word))
-    end
-
     # initial trace
-    (trace, _) = initialize(par_model, (alphas, fill(word_lengths, length(alphas)),), assmt)
+    (trace, _) = initialize(par_model, (alphas, fill(len, num_replicas)), assmt)
 
     # do MCMC
     for iter=1:num_iter
@@ -168,32 +140,28 @@ function do_inference(msg::Vector{T}, num_iter::Int) where {T <: AbstractString}
             @assert length(retval) == length(alphas)
             println()
             println()
-            for m=1:length(alphas)
-                code = retval[m]
-                original_words = get_original_words(get_subassmt(assmt, m), word_lengths)
-                output_words = get_output_words(original_words, code)
-                println("$(to_sentence(original_words[1:30]))...")
+            for replica=1:num_replicas
+                code = retval[replica]
+                original_text = get_original_text(get_subassmt(assmt, replica), len)
+                output_text = get_output_text(original_text, code)
+                println("$(to_string(original_text[1:120]))...")
             end
         end
 
-        for m=1:length(alphas)
-            (trace, _) = general_mh(trace, swap_proposal, (m,), swap_involution)
-            (trace, _) = general_mh(trace, exchange_proposal, (m,), exchange_involution)
+        for replica=1:num_replicas
+            (trace, _) = general_mh(trace, swap_proposal, (replica,), swap_involution)
+            (trace, _) = general_mh(trace, exchange_proposal, (replica,), exchange_involution)
         end
     end
 end
 
 using Random: randperm, seed!
 
-seed!(1) # OK
-seed!(2) # OK
-seed!(3) # OK
-seed!(4) # OK
-seed!(5) # OK
-seed!(6) # OK
-# it seems robust to initialization!
+seed!(1)
+seed!(2)
+seed!(3)
 
-original_text = """
+original_text = join(split("""
 to be or not to be that is the question
 whether tis nobler in the mind to suffer
 the slings and arrows of outrageous fortune
@@ -218,13 +186,13 @@ with a bare bodkin who would fardels bear
 to grunt and sweat under a weary life
 but that the dread of something after death
 the undiscovered country from whose bourn
-"""
-original_text = join(split(original_text, "\n"), " ")
-#original_text = original_text[1:20]
-#println(original_text)
-code = randperm(26)
-original_words = map((str) -> map((letter) -> letter_to_int[letter], collect(str)), split(original_text))
-output_words = map((word) -> map((letter) -> code[letter], word), original_words)
-msg = map((word) -> join(alphabet[word]), output_words)
-println(join(msg, " "))
-do_inference(msg, 100000)
+""", "\n"), " ")
+
+println("original text:")
+println(original_text)
+code = randperm(27)
+original_text_int = map((char) -> letter_to_int[char], collect(original_text))
+encoded_text = join(map((letter_int) -> alphabet[letter_int], code[original_text_int]))
+println("encoded text:")
+println(encoded_text)
+do_inference(encoded_text, 100000)
