@@ -139,7 +139,7 @@ In particular, each statement must be one of the following forms:
 
 - `<symbol> = <julia-expr>`
 
-- `<symbol> = `@addr(<dist|gen-fn>(..),<symbol> [ => ..])`
+- `<symbol> = @addr(<dist|gen-fn>(..),<symbol> [ => ..])`
 
 - `@addr(<dist|gen-fn>(..),<symbol> [ => ..])`
 
