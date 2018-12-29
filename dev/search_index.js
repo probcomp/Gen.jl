@@ -373,7 +373,23 @@ var documenterSearchIndex = {"docs": [
     "page": "Modeling Languages",
     "title": "Static DSL",
     "category": "section",
-    "text": "Static DSL functions are defined using the @staticgen macro. We will refer to Static DSL functions as \'@staticgen functions\' from here forward.Here is an example @staticgen function that samples two random choices:@staticgen function foo(prob::Float64)\n    z1 = @addr(bernoulli(prob), :a)\n    z2 = @addr(bernoulli(prob), :b)\n    return z1 || z2\nendAfter running this code, foo is a Julia value whose type is a subtype of StaticIRGenerativeFunction, which is a subtype of GenerativeFunction.The Static DSL permits a subset of the syntax permitted by the Dynamic DSL. In particular, each statement must be one of the following forms:<symbol> = <julia-expr>\n<symbol> = @addr(<dist|gen-fn>(..),<symbol> [ => ..])\n@addr(<dist|gen-fn>(..),<symbol> [ => ..])\nreturn <julia-expr>Note that the @addr keyword may only appear in at the top-level of the right-hand-side expresssion. Also, addresses used with the @addr keyword must be a literal Julia symbol (e.g. :a). If multi-part addresses are used, the first component in the multi-part address must be a literal Julia symbol (e.g. :a => i is valid).Also, symbols used on the left-hand-side of assignment statements must be unique (this is called \'static single assignment\' (SSA) form) (this is called \'static single-assignment\' (SSA) form)."
+    "text": "Static DSL functions are defined using the @staticgen macro. We will refer to Static DSL functions as \'@staticgen functions\' from here forward.Here is an example @staticgen function that samples two random choices:@staticgen function foo(prob::Float64)\n    z1 = @addr(bernoulli(prob), :a)\n    z2 = @addr(bernoulli(prob), :b)\n    z3 = z1 || z2\n    return z3\nendAfter running this code, foo is a Julia value whose type is a subtype of StaticIRGenerativeFunction, which is a subtype of GenerativeFunction.The Static DSL permits a subset of the syntax permitted by the Dynamic DSL. In particular, each statement must be one of the following forms:<symbol> = <julia-expr>\n<symbol> = @addr(<dist|gen-fn>(..),<symbol> [ => ..])\n@addr(<dist|gen-fn>(..),<symbol> [ => ..])\nreturn <symbol>Note that the @addr keyword may only appear in at the top-level of the right-hand-side expresssion. Also, addresses used with the @addr keyword must be a literal Julia symbol (e.g. :a). If multi-part addresses are used, the first component in the multi-part address must be a literal Julia symbol (e.g. :a => i is valid).Also, symbols used on the left-hand-side of assignment statements must be unique (this is called \'static single assignment\' (SSA) form) (this is called \'static single-assignment\' (SSA) form)."
+},
+
+{
+    "location": "ref/modeling/#Loading-generated-functions-1",
+    "page": "Modeling Languages",
+    "title": "Loading generated functions",
+    "category": "section",
+    "text": "Before a @staticgen function can be invoked at runtime, Gen.load_generated_functions() method must be called. Typically, this call immediately preceeds the execution of the inference algorithm."
+},
+
+{
+    "location": "ref/modeling/#Performance-tips-1",
+    "page": "Modeling Languages",
+    "title": "Performance tips",
+    "category": "section",
+    "text": "For better performance, annotate the left-hand side of random choices with the type. This permits a more optimized trace data structure to be generated for the generative function. For example:@staticgen function foo(prob::Float64)\n    z1::Bool = @addr(bernoulli(prob), :a)\n    z2::Bool = @addr(bernoulli(prob), :b)\n    z3 = z1 || z2\n    return z3\nend"
 },
 
 {
