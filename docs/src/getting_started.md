@@ -100,9 +100,9 @@ The `"vue/dist"` is a path to a custom _trace renderer_ that draws the (x, y) po
 
 3. In the inference program, it puts the current trace into the visualization at each iteration:
 ```julia
-    for iter=1:num_iters
-        putTrace!(viz, 1, trace_to_dict(trace))
-        (trace, _) = default_mh(trace, slope_selection)
-        (trace, _) = default_mh(trace, intercept_selection)
-    end
+for iter=1:num_iters
+    putTrace!(viz, 1, trace_to_dict(trace))
+    (trace, _) = default_mh(trace, slope_selection)
+    (trace, _) = default_mh(trace, intercept_selection)
+end
 ```
