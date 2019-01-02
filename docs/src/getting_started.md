@@ -11,9 +11,11 @@ pkg> add https://github.com/probcomp/Gen
 
 ## Quick Start
 
+Let's write a short Gen program that does Bayesian linear regression: given a set of points in the (x, y) plane, we want to find a line that fits them well.
+
 There are three main components to a typical Gen program.
-First, we define a generative model, which are like Julia functions, but extended with some extra syntax.
-The model below samples slope and intercept parameters, and then samples a y-coordinate for each of the x-coordinates that it takes as input.
+
+First, we define a _generative model_: a Julia function, extended with some extra syntax, that, conceptually, simulates a fake dataset. The model below samples `slope` and `intercept` parameters, and then for each of the x-coordinates that it accepts as input, samples a corresponding y-coordinate. We name the random choices we make with `@addr`, so we can refer to them in our inference program.
 
 ```julia
 using Gen
@@ -27,23 +29,35 @@ using Gen
 end
 ```
 
-Then, we write an inference program that implements an algorithm for manipulating the execution traces of the model.
-Inference programs are regular Julia code.
-The inference program below takes a data set, and runs a simple MCMC algorithm to fit slope and intercept parameters:
+Second, we write an _inference program_ that implements an algorithm for manipulating the execution traces of the model.
+Inference programs are regular Julia code, and make use of Gen's standard inference library.
+
+The inference program below takes in a data set, and runs an iterative MCMC algorithm to fit `slope` and `intercept` parameters:
 
 ```julia
 function my_inference_program(xs::Vector{Float64}, ys::Vector{Float64}, num_iters::Int)
+    # Create a set of constraints fixing the 
+    # y coordinates to the observed y values
     constraints = DynamicAssignment()
     for (i, y) in enumerate(ys)
         constraints["y-$i"] = y
     end
+    
+    # Run the model, constrained by `constraints`,
+    # to get an initial execution trace
     (trace, _) = initialize(my_model, (xs,), constraints)
+    
+    # Iteratively update the slope then the intercept,
+    # using Gen's default_mh operator.
     slope_selection = select(:slope)
     intercept_selection = select(:intercept)
     for iter=1:num_iters
         (trace, _) = default_mh(trace, slope_selection)
         (trace, _) = default_mh(trace, intercept_selection)
     end
+    
+    # From the final trace, read out the slope and
+    # the intercept.
     assmt = get_assmt(trace)
     return (assmt[:slope], assmt[:intercept])
 end
