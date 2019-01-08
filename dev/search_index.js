@@ -929,11 +929,19 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "ref/distributions/#Gen.beta_uniform",
+    "page": "Probability Distributions",
+    "title": "Gen.beta_uniform",
+    "category": "constant",
+    "text": "beta_uniform(theta::Real, alpha::Real, beta::Real)\n\nSamples a Float64 value from a mixture of a uniform distribution on 0, 1 and a beta distribution with parameters alpha and beta (with probability theta).\n\n\n\n\n\n"
+},
+
+{
     "location": "ref/distributions/#Built-In-Distributions-1",
     "page": "Probability Distributions",
     "title": "Built-In Distributions",
     "category": "section",
-    "text": "bernoulli\nnormal\nmvnormal\ngamma\ninv_gamma\nbeta\ncategorical\nuniform\nuniform_discrete\npoisson\npiecewise_uniform"
+    "text": "bernoulli\nnormal\nmvnormal\ngamma\ninv_gamma\nbeta\ncategorical\nuniform\nuniform_discrete\npoisson\npiecewise_uniform\nbeta_uniform"
 },
 
 {
