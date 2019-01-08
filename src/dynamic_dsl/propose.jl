@@ -48,7 +48,11 @@ function addr(state::GFProposeState, gen_fn::GenerativeFunction{T,U},
 end
 
 function splice(state::GFProposeState, gen_fn::DynamicDSLFunction, args::Tuple)
-    exec(gen_fn, state, args)
+    prev_params = state.params
+    state.params = gen_fn.params
+    retval = exec(gen_fn, state, args)
+    state.params = prev_params
+    retval
 end
 
 function propose(gen_fn::DynamicDSLFunction, args::Tuple)

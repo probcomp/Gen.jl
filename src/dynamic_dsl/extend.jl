@@ -128,7 +128,11 @@ end
 
 function splice(state::GFExtendState, gen_fn::DynamicDSLFunction,
                 args::Tuple)
-    exec_for_update(gen_fn, state, args)
+    prev_params = state.params
+    state.params = gen_fn.params
+    retval = exec(gen_fn, state, args)
+    state.params = prev_params
+    retval
 end
 
 function extend(args::Tuple, argdiff, trace::DynamicDSLTrace,

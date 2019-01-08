@@ -283,19 +283,28 @@ end
 
 end
 
-@testset "backprop" begin
+##################
+# backprop_trace #
+##################
+
+@testset "backprop trace" begin
 
     @gen function bar(@grad(mu_z::Float64))
-        z = @addr(normal(mu_z, 1), :z)
+        @param theta1::Float64
+        z = @addr(normal(mu_z + theta1, 1), :z)
         return z + mu_z
     end
 
     @gen function foo(@grad(mu_a::Float64))
+        @param theta2::Float64
         a = @addr(normal(mu_a, 1), :a)
         b = @addr(normal(a, 1), :b)
         c = a * b * @addr(bar(a), :bar)
-        return @addr(normal(c, 1), :out)
+        return @addr(normal(c, 1), :out) + (theta2 * 3)
     end
+
+    init_param!(bar, :theta1, 0.)
+    init_param!(foo, :theta2, 0.)
 
     function f(mu_a, a, b, z, out)
         lpdf = 0.
@@ -322,11 +331,14 @@ end
     constraints[:bar => :z] = z
     (trace, _) = initialize(foo, (mu_a,), constraints)
 
-    # compute gradients
+    # compute gradients using backprop_trace
     selection = select(:bar => :z, :a, :out)
     retval_grad = 2.
     ((mu_a_grad,), value_assmt, gradient_assmt) = backprop_trace(
         trace, selection, retval_grad)
+
+    # check input gradient
+    @test isapprox(mu_a_grad, finite_diff(f, (mu_a, a, b, z, out), 1, dx))
 
     # check value trie
     @test get_value(value_assmt, :a) == a
@@ -340,12 +352,44 @@ end
     @test length(collect(get_subassmts_shallow(gradient_assmt))) == 1
     @test length(collect(get_values_shallow(gradient_assmt))) == 2
     @test !has_value(gradient_assmt, :b) # was not selected
-    @test isapprox(mu_a_grad, finite_diff(f, (mu_a, a, b, z, out), 1, dx))
     @test isapprox(get_value(gradient_assmt, :bar => :z),
         finite_diff(f, (mu_a, a, b, z, out), 4, dx))
     @test isapprox(get_value(gradient_assmt, :out),
         finite_diff(f, (mu_a, a, b, z, out), 5, dx))
 
+    # compute gradients using backprop_params
+    selection = select(:bar => :z, :a, :out)
+    retval_grad = 2.
+    (mu_a_grad,) = backprop_params(trace, retval_grad)
+
+    # check input gradient
+    @test isapprox(mu_a_grad, finite_diff(f, (mu_a, a, b, z, out), 1, dx))
+
+    # check parameter gradient
+    theta1_grad = get_param_grad(bar, :theta1)
+    theta2_grad = get_param_grad(foo, :theta2)
+    @test isapprox(theta1_grad, logpdf_grad(normal, z, a, 1)[2])
+    @test isapprox(theta2_grad, 3 * 2)
+
+end
+
+@testset "backprop params with splice" begin
+
+    @gen function baz()
+        @param theta::Float64
+        return theta
+    end
+
+    init_param!(baz, :theta, 0.)
+
+    @gen function foo()
+        return @splice(baz())
+    end
+
+    (trace, _) = initialize(foo, ())
+    retval_grad = 2.
+    backprop_params(trace, retval_grad)
+    @test isapprox(get_param_grad(baz, :theta), retval_grad)
 end
 
 end

@@ -45,7 +45,11 @@ function addr(state::GFAssessState, gen_fn::GenerativeFunction{T,U},
 end
 
 function splice(state::GFAssessState, gen_fn::DynamicDSLFunction, args::Tuple)
-    exec(gen_fn, state, args)
+    prev_params = state.params
+    state.params = gen_fn.params
+    retval = exec(gen_fn, state, args)
+    state.params = prev_params
+    retval
 end
 
 function assess(gen_fn::DynamicDSLFunction, args::Tuple, assmt::Assignment)

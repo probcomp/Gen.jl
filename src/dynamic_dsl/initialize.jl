@@ -71,7 +71,11 @@ end
 
 function splice(state::GFInitializeState, gen_fn::DynamicDSLFunction,
                 args::Tuple)
-    exec(gen_fn, state, args)
+    prev_params = state.params
+    state.params = gen_fn.params
+    retval = exec(gen_fn, state, args)
+    state.params = prev_params
+    retval
 end
 
 function initialize(gen_fn::DynamicDSLFunction, args::Tuple,

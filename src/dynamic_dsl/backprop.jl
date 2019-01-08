@@ -16,16 +16,28 @@ mutable struct GFBackpropParamsState
     score::TrackedReal
     tape::InstructionTape
     visitor::AddressVisitor
+
+    # only those tracked parameters that are in scope (not including splice calls)
     tracked_params::Dict{Symbol,Any}
+
+    # tracked parameters for all (nested) @splice calls
+    splice_tracked_params::Dict{Tuple{GenerativeFunction,Symbol},Any}
 end
 
-function GFBackpropParamsState(trace::DynamicDSLTrace, tape, params)
+function track_params(tape, params)
     tracked_params = Dict{Symbol,Any}()
     for (name, value) in params
         tracked_params[name] = track(value, tape)
     end
+    tracked_params
+end
+
+function GFBackpropParamsState(trace::DynamicDSLTrace, tape, params)
+    tracked_params = track_params(tape, params)
+    splice_tracked_params = Dict{Tuple{GenerativeFunction,Symbol},Any}()
     score = track(0., tape)
-    GFBackpropParamsState(trace, score, tape, AddressVisitor(), tracked_params)
+    GFBackpropParamsState(trace, score, tape, AddressVisitor(), tracked_params,
+        splice_tracked_params)
 end
 
 function read_param(state::GFBackpropParamsState, name::Symbol)
@@ -64,7 +76,30 @@ end
 
 function splice(state::GFBackpropParamsState, gen_fn::DynamicDSLFunction,
                 args::Tuple)
-    exec(gen_fn, state, args)
+
+    # save previous tracked parameter scope
+    prev_tracked_params = state.tracked_params
+    
+    # construct new tracked parameter scope
+    state.tracked_params = Dict{Symbol,Any}()
+    for name in keys(gen_fn.params)
+        if haskey(state.splice_tracked_params, (gen_fn, name))
+            # parameter was already tracked in another @splice
+            state.tracked_params[name] = state.splice_tracked_params[(gen_fn, name)]
+        else
+            # parameter was not already tracked
+            tracked = track(get_param(gen_fn, name), state.tape)
+            state.tracked_params[name] = tracked
+            state.splice_tracked_params[(gen_fn, name)] = tracked
+        end
+    end
+
+    retval = exec(gen_fn, state, args)
+
+    # restore previous tracked parameter scope
+    state.tracked_params = prev_tracked_params
+
+    retval
 end
 
 @noinline function special_reverse_exec!(instruction::SpecialInstruction{BackpropParamsRecord})
@@ -99,9 +134,14 @@ function backprop_params(trace::DynamicDSLTrace, retval_grad)
     seed!(state.score)
     reverse_pass!(tape)
 
-    # increment the gradient accumulators for static parameters
+    # increment the gradient accumulators for static parameters in scope
     for (name, tracked) in state.tracked_params
         gen_fn.params_grad[name] += deriv(tracked)
+    end
+
+    # increment the gradient accumulators for static parameters in splice calls
+    for ((spliced_gen_fn, name), tracked) in state.splice_tracked_params
+        spliced_gen_fn.params_grad[name] += deriv(tracked)
     end
 
     # return gradients with respect to inputs
@@ -223,6 +263,16 @@ function addr(state::GFBackpropTraceState, gen_fn::GenerativeFunction{T,U},
     record!(state.tape, SpecialInstruction, record, (args...,), retval_maybe_tracked)
     retval_maybe_tracked 
 end
+
+function splice(state::GFBackpropTraceState, gen_fn::DynamicDSLFunction,
+                args::Tuple)
+    prev_params = state.params
+    state.params = gen_fn.params
+    retval = exec(gen_fn, state, args)
+    state.params = prev_params
+    retval
+end
+
 
 @noinline function special_reverse_exec!(instruction::SpecialInstruction{BackpropTraceRecord})
     record = instruction.func
