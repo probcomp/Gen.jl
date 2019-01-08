@@ -13,6 +13,7 @@ categorical
 uniform
 uniform_discrete
 poisson
+piecewise_uniform
 ```
 
 ## Defining New Distributions
