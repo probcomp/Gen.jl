@@ -14,6 +14,7 @@ uniform
 uniform_discrete
 poisson
 piecewise_uniform
+beta_uniform
 ```
 
 ## Defining New Distributions

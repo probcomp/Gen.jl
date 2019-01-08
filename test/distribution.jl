@@ -37,3 +37,13 @@ end
     @test isapprox(actual[3][1], finite_diff_vec(f, args, 3, 1, dx))
     @test isapprox(actual[3][2], finite_diff_vec(f, args, 3, 2, dx))
 end
+
+@testset "beta uniform mixture" begin
+    f = (x, theta, alpha, beta) -> logpdf(beta_uniform, x, theta, alpha, beta)
+    args = (0.5, 0.4, 10., 2.)
+    actual = logpdf_grad(beta_uniform, args...)
+    @test isapprox(actual[1], finite_diff(f, args, 1, dx))
+    @test isapprox(actual[2], finite_diff(f, args, 2, dx))
+    @test isapprox(actual[3], finite_diff(f, args, 3, dx))
+    @test isapprox(actual[4], finite_diff(f, args, 4, dx))
+end
