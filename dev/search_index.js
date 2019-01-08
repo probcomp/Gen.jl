@@ -689,14 +689,6 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "ref/inference/#Gen.sgd_train_batch",
-    "page": "Inference Library",
-    "title": "Gen.sgd_train_batch",
-    "category": "function",
-    "text": "sgd_train_batch(teacher::GenerativeFunction, teacher_args::Tuple,\n    batch_student::GenerativeFunction, conf::SGDTrainConf; verbose=false)\n\nTrain a batched (vectorized) student generative function on assignments sampled from a teacher generative function.\n\n\n\n\n\n"
-},
-
-{
     "location": "ref/inference/#Training-Generative-Functions-1",
     "page": "Inference Library",
     "title": "Training Generative Functions",
