@@ -50,7 +50,9 @@ function addr(state::GFBackpropParamsState, dist::Distribution{T},
     local retval::T
     visit!(state.visitor, key)
     retval = get_choice(state.trace, key).retval
-    state.score += logpdf(dist, retval, args...) # TODO use logpdf_grad?
+    # TODO check has_argument_grads against the tracked vs untracked status of args?
+    # TODO use logpdf_grad instead of logpdf?
+    state.score += logpdf(dist, retval, args...) 
     retval
 end
 
@@ -60,22 +62,25 @@ struct BackpropParamsRecord
 end
 
 function addr(state::GFBackpropParamsState, gen_fn::GenerativeFunction{T},
-              args, key) where {T}
+              args_maybe_tracked, key) where {T}
     local retval::T
     visit!(state.visitor, key)
     subtrace = get_call(state.trace, key).subtrace
     retval = get_retval(subtrace)
-    retval_maybe_tracked = track(retval, state.tape)
-    # some of the args may be tracked (see special_reverse_exec!)
-    # note: we still need to run backprop_params on gen_Fn even if it does not
-    # accept an output gradient, because it may make random choices.
+    if accepts_output_grad(gen_fn)
+        retval_maybe_tracked = track(retval, state.tape)
+        @assert istracked(retval_maybe_tracked)
+    else
+        retval_maybe_tracked = retval
+        @assert !istracked(retval_maybe_tracked)
+    end
     record!(state.tape, SpecialInstruction,
-        BackpropParamsRecord(gen_fn, subtrace), (args...,), retval_maybe_tracked)
+        BackpropParamsRecord(gen_fn, subtrace), (args_maybe_tracked...,), retval_maybe_tracked)
     retval_maybe_tracked 
 end
 
 function splice(state::GFBackpropParamsState, gen_fn::DynamicDSLFunction,
-                args::Tuple)
+                args_maybe_tracked::Tuple)
 
     # save previous tracked parameter scope
     prev_tracked_params = state.tracked_params
@@ -94,12 +99,12 @@ function splice(state::GFBackpropParamsState, gen_fn::DynamicDSLFunction,
         end
     end
 
-    retval = exec(gen_fn, state, args)
+    retval_maybe_tracked = exec(gen_fn, state, args_maybe_tracked)
 
     # restore previous tracked parameter scope
     state.tracked_params = prev_tracked_params
 
-    retval
+    retval_maybe_tracked
 end
 
 @noinline function special_reverse_exec!(instruction::SpecialInstruction{BackpropParamsRecord})
@@ -107,15 +112,26 @@ end
     gen_fn = record.gen_fn
     args_maybe_tracked = instruction.input
     retval_maybe_tracked = instruction.output
-    if istracked(retval_maybe_tracked)
+    if accepts_output_grad(gen_fn)
+        @assert istracked(retval_maybe_tracked)
         retval_grad = deriv(retval_maybe_tracked)
     else
+        @assert !istracked(retval_maybe_tracked)
         retval_grad = nothing
     end
     arg_grads = backprop_params(record.subtrace, retval_grad)
-    for (arg, grad, has_grad) in zip(args_maybe_tracked, arg_grads, has_argument_grads(gen_fn))
+
+    # if has_argument_grads(gen_fn) is true for a given argument, then that
+    # argument may or may not be tracked. if has_argument_grads(gen_fn) is
+    # false for a given argument, then that argument must not be tracked.
+    # otherwise it is an error.
+    # note: code duplication with backprop_params
+    for (i, (arg, grad, has_grad)) in enumerate(
+            zip(args_maybe_tracked, arg_grads, has_argument_grads(gen_fn)))
         if has_grad && istracked(arg)
             increment_deriv!(arg, grad)
+        elseif !has_grad && istracked(arg)
+            error("Gradient required but not available for argument $i of $gen_fn")
         end
     end
     nothing
@@ -126,10 +142,25 @@ function backprop_params(trace::DynamicDSLTrace, retval_grad)
     tape = InstructionTape()
     state = GFBackpropParamsState(trace, tape, gen_fn.params)
     args = get_args(trace)
-    args_maybe_tracked = (map(maybe_track, args, gen_fn.has_argument_grads, fill(tape, length(args)))...,)
+    args_maybe_tracked = (map(maybe_track,
+        args, gen_fn.has_argument_grads, fill(tape, length(args)))...,)
     retval_maybe_tracked = exec(gen_fn, state, args_maybe_tracked)
-    if istracked(retval_maybe_tracked)
-        deriv!(retval_maybe_tracked, retval_grad)
+
+    # note: code duplication with backprop_trace
+    if accepts_output_grad(gen_fn)
+        if retval_grad == nothing
+            error("Return value gradient required but not provided")
+        end
+        if istracked(retval_maybe_tracked)
+            deriv!(retval_maybe_tracked, retval_grad)
+        end
+        # note: if accepts_output_grad(gen_fn) and
+        # !istracked(retval_maybe_tracked), this means the return value did not
+        # depend on the gradient source elements for this trace. that is okay.
+    else
+        if retval_grad != nothing
+            error("Return value gradient not supported, but got $retval_grad != nothing")
+        end
     end
     seed!(state.score)
     reverse_pass!(tape)
@@ -144,8 +175,7 @@ function backprop_params(trace::DynamicDSLTrace, retval_grad)
         spliced_gen_fn.params_grad[name] += deriv(tracked)
     end
 
-    # return gradients with respect to inputs
-    # NOTE: if a value isn't tracked the gradient is nothing
+    # return gradients with respect to arguments with gradients, or nothing
     input_grads::Tuple = (map((arg, has_grad) -> has_grad ? deriv(arg) : nothing,
                              args_maybe_tracked, gen_fn.has_argument_grads)...,)
     input_grads
@@ -216,14 +246,16 @@ function addr(state::GFBackpropTraceState, dist::Distribution{T},
     if has_internal_node(state.selection, key)
         error("Got internal node but expected leaf node in selection at $key")
     end
+    # TODO check has_argument_grads against the tracked vs untracked status of args?
+    # TODO use logpdf_grad instead of logpdf?
     if has_leaf_node(state.selection, key)
         tracked_retval = track(retval, state.tape)
         set_leaf_node!(state.tracked_choices, key, tracked_retval)
-        score_tracked = logpdf(dist, tracked_retval, args...) # TODO use logpdf_grad?
+        score_tracked = logpdf(dist, tracked_retval, args...)
         state.score += score_tracked
         return tracked_retval
     else
-        state.score += logpdf(dist, retval, args...) # TODO use logpdf_grad?
+        state.score += logpdf(dist, retval, args...)
         return retval
     end
 end
@@ -238,7 +270,7 @@ struct BackpropTraceRecord
 end
 
 function addr(state::GFBackpropTraceState, gen_fn::GenerativeFunction{T,U},
-              args, key) where {T,U}
+              args_maybe_tracked, key) where {T,U}
     local retval::T
     local subtrace::U
     visit!(state.visitor, key)
@@ -248,11 +280,13 @@ function addr(state::GFBackpropTraceState, gen_fn::GenerativeFunction{T,U},
     subtrace = get_call(state.trace, key).subtrace
     get_gen_fn(subtrace) === gen_fn || gen_fn_changed_error(key)
     retval = get_retval(subtrace)
-    retval_maybe_tracked = track(retval, state.tape)
-
-    # some of the args may be tracked (see special_reverse_exec!)
-    # note: we still need to run backprop_params on gen_fn, even if it does not
-    # accept an output gradient, because it may make random choices.
+    if accepts_output_grad(gen_fn)
+        retval_maybe_tracked = track(retval, state.tape)
+        @assert istracked(retval_maybe_tracked)
+    else
+        retval_maybe_tracked = retval
+        @assert !istracked(retval_maybe_tracked)
+    end
     if has_internal_node(state.selection, key)
         selection = get_internal_node(state.selection, key)
     else
@@ -260,15 +294,15 @@ function addr(state::GFBackpropTraceState, gen_fn::GenerativeFunction{T,U},
     end
     record = BackpropTraceRecord(gen_fn, subtrace, selection, state.value_assmt,
         state.gradient_assmt, key)
-    record!(state.tape, SpecialInstruction, record, (args...,), retval_maybe_tracked)
+    record!(state.tape, SpecialInstruction, record, (args_maybe_tracked...,), retval_maybe_tracked)
     retval_maybe_tracked 
 end
 
 function splice(state::GFBackpropTraceState, gen_fn::DynamicDSLFunction,
-                args::Tuple)
+                args_maybe_tracked::Tuple)
     prev_params = state.params
     state.params = gen_fn.params
-    retval = exec(gen_fn, state, args)
+    retval = exec(gen_fn, state, args_maybe_tracked)
     state.params = prev_params
     retval
 end
@@ -279,9 +313,11 @@ end
     gen_fn = record.gen_fn
     args_maybe_tracked = instruction.input
     retval_maybe_tracked = instruction.output
-    if istracked(retval_maybe_tracked)
+    if accepts_output_grad(gen_fn)
+        @assert istracked(retval_maybe_tracked)
         retval_grad = deriv(retval_maybe_tracked)
     else
+        @assert !istracked(retval_maybe_tracked)
         retval_grad = nothing
     end
     (arg_grads, value_assmt, gradient_assmt) = backprop_trace(
@@ -291,9 +327,17 @@ end
     set_subassmt!(record.gradient_assmt, record.key, gradient_assmt)
     set_subassmt!(record.value_assmt, record.key, value_assmt)
 
-    for (arg, grad, has_grad) in zip(args_maybe_tracked, arg_grads, has_argument_grads(gen_fn))
+    # if has_argument_grads(gen_fn) is true for a given argument, then that
+    # argument may or may not be tracked. if has_argument_grads(gen_fn) is
+    # false for a given argument, then that argument must not be tracked.
+    # otherwise it is an error.
+    # note: code duplication with backprop_params
+    for (i, (arg, grad, has_grad)) in enumerate(
+            zip(args_maybe_tracked, arg_grads, has_argument_grads(gen_fn)))
         if has_grad && istracked(arg)
             increment_deriv!(arg, grad)
+        elseif !has_grad && istracked(arg)
+            error("Gradient required but not available for argument $i of $gen_fn")
         end
     end
     nothing
@@ -304,11 +348,27 @@ function backprop_trace(trace::DynamicDSLTrace, selection::AddressSet, retval_gr
     tape = InstructionTape()
     state = GFBackpropTraceState(trace, selection, gen_fn.params, tape)
     args = get_args(trace)
-    args_maybe_tracked = (map(maybe_track, args, gen_fn.has_argument_grads, fill(tape, length(args)))...,)
+    args_maybe_tracked = (map(maybe_track,
+        args, gen_fn.has_argument_grads, fill(tape, length(args)))...,)
     retval_maybe_tracked = exec(gen_fn, state, args_maybe_tracked)
-    if istracked(retval_maybe_tracked) && retval_grad != nothing
-        deriv!(retval_maybe_tracked, retval_grad)
+
+    # note: code duplication with backprop_params
+    if accepts_output_grad(gen_fn)
+        if retval_grad == nothing
+            error("Return value gradient required but not provided")
+        end
+        if istracked(retval_maybe_tracked)
+            deriv!(retval_maybe_tracked, retval_grad)
+        end
+        # note: if accepts_output_grad(gen_fn) and
+        # !istracked(retval_maybe_tracked), this means the return value did not
+        # depend on the gradient source elements for this trace. that is okay.
+    else
+        if retval_grad != nothing
+            error("Return value gradient not supported, but got $retval_grad != nothing")
+        end
     end
+
     seed!(state.score)
     reverse_pass!(tape)
 
@@ -316,7 +376,7 @@ function backprop_trace(trace::DynamicDSLTrace, selection::AddressSet, retval_gr
     fill_gradient_assmt!(state.gradient_assmt, state.tracked_choices)
     fill_value_assmt!(state.value_assmt, state.tracked_choices)
 
-    # return gradients with respect to inputs
+    # return gradients with respect to arguments with gradients, or nothing
     # NOTE: if a value isn't tracked the gradient is nothing
     input_grads::Tuple = (map((arg, has_grad) -> has_grad ? deriv(arg) : nothing,
                              args_maybe_tracked, gen_fn.has_argument_grads)...,)

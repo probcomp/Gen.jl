@@ -2,11 +2,11 @@ import ReverseDiff
 using ReverseDiff: InstructionTape, SpecialInstruction
 
 # do not track through Bool and Integers
-ReverseDiff.track(x::Bool, tape::InstructionTape=InstructionTape()) = x
-ReverseDiff.track(x::Integer, tape::InstructionTape=InstructionTape()) = x
+#ReverseDiff.track(x::Bool, tape::InstructionTape=InstructionTape()) = x
+#ReverseDiff.track(x::Integer, tape::InstructionTape=InstructionTape()) = x
 
 # if a value can't be tracked, return the untracked value silently
-ReverseDiff.track(x, tape::InstructionTape=InstructionTape()) = x
+#ReverseDiff.track(x, tape::InstructionTape=InstructionTape()) = x
 
 ########
 # fill #
