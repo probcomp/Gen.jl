@@ -62,12 +62,16 @@ get_return_type(::GenerativeFunction{T,U}) where {T,U} = T
 get_trace_type(::GenerativeFunction{T,U}) where {T,U} = U
 
 """
-Return a tuple of booleans indicating whether a gradient is available, for each argument
+    has::Tuple = has_argument_grads(gen_fn::GenerativeFunction)
+
+Return a tuple of booleans indicating whether a gradient is available for each argument.
 """
 function has_argument_grads end
 
 """
-Return a boolean indicating whether the return value is dependent on the *gradient source elements*.
+    req::Bool = accepts_output_grad(gen_fn::GenerativeFunction)
+
+Return a boolean indicating whether the return value is dependent on any of the *gradient source elements* for any trace.
 
 The gradient source elements are:
 

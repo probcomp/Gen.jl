@@ -118,6 +118,29 @@ Note that the return value of a `@gen` function is different from a trace of `@g
 See [Generative Function Interface](@ref) for more information about traces.
 
 
+### Automatic differentiation
+
+Gen can use automatic differentiation to compute gradients with respect to trainable parameters of generative functions, function arguments, and the values of certain random choices.
+
+A `@gen function` may have a fixed set of its arguments annotated with `@grad`, which indicates that the log probability (density) of the trace is a differentiable function of that argument.
+For example, in the function below, we indicate that the log probability is differentiable with respect to `y`:
+```julia
+@gen function foo(x, @grad(y))
+    if x > 5
+        @addr(normal(y, 1), :z)
+    else
+        @addr(normal(y, 10), :z)
+    end
+end
+```
+
+TODO: discuss output gradient
+
+TODO: discuss parameters
+
+
+
+
 ## Static DSL
 
 *Static DSL* functions are defined using the `@staticgen` macro.
