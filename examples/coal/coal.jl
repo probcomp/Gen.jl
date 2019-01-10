@@ -1,5 +1,5 @@
 using PyPlot
-using ReverseDiff
+using ReverseDiff: jacobian
 using LinearAlgebra: det
 
 using Gen
@@ -365,7 +365,7 @@ function birth_death_involution(trace, fwd_assmt::Assignment, fwd_ret, proposal_
         h_cur = assmt[(RATE, i)]
         u = fwd_assmt[U]
         (h_prev, h_next) = new_rates([h_cur, u, cp_new, cp_prev, cp_next])
-        J = ReverseDiff.jacobian(new_rates, [h_cur, u, cp_new, cp_prev, cp_next])[:,1:2]
+        J = jacobian(new_rates, [h_cur, u, cp_new, cp_prev, cp_next])[:,1:2]
 
         # set new rates
         constraints[(RATE, i)] = h_prev
@@ -392,7 +392,7 @@ function birth_death_involution(trace, fwd_assmt::Assignment, fwd_ret, proposal_
         h_prev = assmt[(RATE, i)]
         h_next = assmt[(RATE, i+1)]
         (h_cur, u) = new_rates_inverse([h_prev, h_next, cp_deleted, cp_prev, cp_next])
-        J = ReverseDiff.jacobian(new_rates_inverse, [h_prev, h_next, cp_deleted, cp_prev, cp_next])[:,1:2]
+        J = jacobian(new_rates_inverse, [h_prev, h_next, cp_deleted, cp_prev, cp_next])[:,1:2]
         bwd_assmt[U] = u
 
         # set cur rate

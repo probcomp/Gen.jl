@@ -4,7 +4,7 @@ import Random
 include("static_model.jl")
 include("dataset.jl")
 
-@staticgen function is_outlier_proposal(prev, i::Int)
+@gen (static) function is_outlier_proposal(prev, i::Int)
     prev_z::Bool = get_assmt(prev)[:data => i => :z]
     @addr(bernoulli(prev_z ? 0.0 : 1.0), :data => i => :z)
 end

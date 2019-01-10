@@ -37,7 +37,7 @@ end
 # the kernel accepts two special arguments (the time step t and the return
 # value of the previous tieration, followed by the rest of the arguments,
 # specified as an argument to unfold)
-@staticgen function kernel(t::Int, state::State, params::Params)
+@gen (static) function kernel(t::Int, state::State, params::Params)
     x::Float64 = @addr(normal(t > 1 ? x_mean(state.x, t) : 0.,
                               t > 1 ? sqrt(params.var_x) : 5.), :x)
     y::Float64 = @addr(normal(y_mean(x), sqrt(params.var_y)), :y)
@@ -63,13 +63,13 @@ hmm2 = Unfold(kernel)
     @addr(dirac(y), :y => t)
 end
 
-@staticgen function obs_sub(y::Float64)
+@gen (static) function obs_sub(y::Float64)
     @addr(dirac(y), :y)
 end
 
 single_step_observer2 = at_dynamic(obs_sub, Int)
 
-#@staticgen function single_step_observer2(t::Int, y::Float64)
+#@gen (static) function single_step_observer2(t::Int, y::Float64)
     #@addr(at_dynamic(obs_sub,Int)(t, (y,)))
     #@addr(dirac(y), t => :y)
 #end
@@ -213,7 +213,7 @@ function Gen.update(generator::CollapsedHMM, new_args, args_change, trace, const
     (new_trace, weight, EmptyAssignment(), nothing)
 end
 
-@staticgen function model_collapsed(T::Int)
+@gen (static) function model_collapsed(T::Int)
     var_x::Float64 = @addr(gamma(1, 1), :var_x)
     var_y::Float64 = @addr(gamma(1, 1), :var_y)
     @addr(collapsed_hmm(var_x, var_y, T, 4096, 2048), :hmm)

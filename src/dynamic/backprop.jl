@@ -1,8 +1,3 @@
-import ReverseDiff
-using ReverseDiff: SpecialInstruction, istracked, increment_deriv!, deriv, TrackedArray, deriv!
-using ReverseDiff: InstructionTape, TrackedReal, seed!, unseed!, reverse_pass!, record!
-import ReverseDiff: special_reverse_exec!, track
-
 function maybe_track(arg, has_argument_grad::Bool, tape)
     has_argument_grad ? track(arg, tape) : arg
 end
@@ -74,7 +69,7 @@ function addr(state::GFBackpropParamsState, gen_fn::GenerativeFunction{T},
         retval_maybe_tracked = retval
         @assert !istracked(retval_maybe_tracked)
     end
-    record!(state.tape, SpecialInstruction,
+    record!(state.tape, ReverseDiff.SpecialInstruction,
         BackpropParamsRecord(gen_fn, subtrace), (args_maybe_tracked...,), retval_maybe_tracked)
     retval_maybe_tracked 
 end
@@ -107,7 +102,8 @@ function splice(state::GFBackpropParamsState, gen_fn::DynamicDSLFunction,
     retval_maybe_tracked
 end
 
-@noinline function special_reverse_exec!(instruction::SpecialInstruction{BackpropParamsRecord})
+@noinline function ReverseDiff.special_reverse_exec!(
+        instruction::ReverseDiff.SpecialInstruction{BackpropParamsRecord})
     record = instruction.func
     gen_fn = record.gen_fn
     args_maybe_tracked = instruction.input
@@ -139,7 +135,7 @@ end
 
 function backprop_params(trace::DynamicDSLTrace, retval_grad)
     gen_fn = trace.gen_fn
-    tape = InstructionTape()
+    tape = new_tape()
     state = GFBackpropParamsState(trace, tape, gen_fn.params)
     args = get_args(trace)
     args_maybe_tracked = (map(maybe_track,
@@ -226,7 +222,7 @@ end
 function fill_value_assmt!(value_assmt::DynamicAssignment,
                           tracked_trie::Trie{Any,TrackedReal})
     for (key, tracked) in get_leaf_nodes(tracked_trie)
-        set_value!(value_assmt, key, ReverseDiff.value(tracked))
+        set_value!(value_assmt, key, value(tracked))
     end
     # NOTE: there should be no address collision between these primitive
     # choices and the gen_fn invocations, as enforced by the visitor
@@ -294,7 +290,7 @@ function addr(state::GFBackpropTraceState, gen_fn::GenerativeFunction{T,U},
     end
     record = BackpropTraceRecord(gen_fn, subtrace, selection, state.value_assmt,
         state.gradient_assmt, key)
-    record!(state.tape, SpecialInstruction, record, (args_maybe_tracked...,), retval_maybe_tracked)
+    record!(state.tape, ReverseDiff.SpecialInstruction, record, (args_maybe_tracked...,), retval_maybe_tracked)
     retval_maybe_tracked 
 end
 
@@ -307,8 +303,8 @@ function splice(state::GFBackpropTraceState, gen_fn::DynamicDSLFunction,
     retval
 end
 
-
-@noinline function special_reverse_exec!(instruction::SpecialInstruction{BackpropTraceRecord})
+@noinline function ReverseDiff.special_reverse_exec!(
+        instruction::ReverseDiff.SpecialInstruction{BackpropTraceRecord})
     record = instruction.func
     gen_fn = record.gen_fn
     args_maybe_tracked = instruction.input
@@ -345,7 +341,7 @@ end
 
 function backprop_trace(trace::DynamicDSLTrace, selection::AddressSet, retval_grad)
     gen_fn = trace.gen_fn
-    tape = InstructionTape()
+    tape = new_tape()
     state = GFBackpropTraceState(trace, selection, gen_fn.params, tape)
     args = get_args(trace)
     args_maybe_tracked = (map(maybe_track,

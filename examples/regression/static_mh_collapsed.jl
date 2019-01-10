@@ -4,22 +4,22 @@ import Random
 include("static_collapsed_model.jl")
 include("dataset.jl")
 
-@staticgen function slope_proposal(prev)
+@gen (static) function slope_proposal(prev)
     slope = get_assmt(prev)[:slope]
     @addr(normal(slope, 0.5), :slope)
 end
 
-@staticgen function intercept_proposal(prev)
+@gen (static) function intercept_proposal(prev)
     intercept = get_assmt(prev)[:intercept]
     @addr(normal(intercept, 0.5), :intercept)
 end
 
-@staticgen function inlier_std_proposal(prev)
+@gen (static) function inlier_std_proposal(prev)
     log_inlier_std = get_assmt(prev)[:log_inlier_std]
     @addr(normal(log_inlier_std, 0.5), :log_inlier_std)
 end
 
-@staticgen function outlier_std_proposal(prev)
+@gen (static) function outlier_std_proposal(prev)
     log_outlier_std = get_assmt(prev)[:log_outlier_std]
     @addr(normal(log_outlier_std, 0.5), :log_outlier_std)
 end

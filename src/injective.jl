@@ -1,5 +1,3 @@
-import ReverseDiff
-import ReverseDiff: TrackedReal, InstructionTape, seed!, unseed!, reverse_pass!, deriv
 using LinearAlgebra: logabsdet
 
 ##########################
@@ -65,7 +63,7 @@ end
 
 function InjectiveApplyState(input)
     output = DynamicAssignment()
-    tape = InstructionTape()
+    tape = new_tape()
     tracked_reads = Trie{Any,TrackedReal}()
     tracked_writes = Trie{Any,TrackedReal}()
     copied = DynamicAddressSet()
