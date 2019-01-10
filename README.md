@@ -2,11 +2,9 @@
 
 Gen: A General-Purpose Probabilistic Programming System with Programmable Inference
 
-*Warning: This is unstable and currently unsupported research software. We are currently working on stabilizing the implementation, and developing documentation and tutorials.*
+*Warning: This is rapidly evolving and currently unsupported research software. We are currently working on stabilizing the implementation, and developing documentation and tutorials.*
 
 ## Documentation
-
-Documentation of the most recently tagged version: [https://probcomp.github.io/Gen/stable/](https://probcomp.github.io/Gen/stable/)
 
 Documentation of the development version: [https://probcomp.github.io/Gen/dev/](https://probcomp.github.io/Gen/dev/)
 
