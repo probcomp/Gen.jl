@@ -11,18 +11,22 @@ struct DynamicDSLFunction{T} <: GenerativeFunction{T,DynamicDSLTrace}
     julia_function::Function
     update_julia_function::Function
     has_argument_grads::Vector{Bool}
+    accepts_output_grad::Bool
 end
 
 function DynamicDSLFunction(arg_types::Vector{Type},
                      julia_function::Function,
                      update_julia_function::Function,
-                     has_argument_grads, ::Type{T}) where {T}
+                     has_argument_grads, ::Type{T},
+                     accepts_output_grad::Bool) where {T}
     params_grad = Dict{Symbol,Any}()
     params = Dict{Symbol,Any}()
     DynamicDSLFunction{T}(params_grad, params, arg_types,
                 julia_function, update_julia_function,
-                has_argument_grads)
+                has_argument_grads, accepts_output_grad)
 end
+
+accepts_output_grad(gen_fn::DynamicDSLFunction) = gen_fn.accepts_output_grad
 
 function (g::DynamicDSLFunction)(args...)
     (trace, _) = initialize(g, args, EmptyAssignment())
@@ -65,8 +69,31 @@ macro addr(expr::Expr, addr, addrdiff)
     Expr(:call, :addr, esc(state), fn, Expr(:tuple, args...), esc(addr), esc(addrdiff))
 end
 
+macro gen(annotations, ast)
+
+    # parse the annotations
+    annotation_set = Set{Symbol}()
+    if isa(annotations, Symbol)
+        push!(annotation_set, annotations)
+    elseif isa(annotations, Expr) && annotations.head == :tuple
+        for annotation in annotations.args
+            if !isa(annotation, Symbol)
+                error("syntax error in annotations at $annotation")
+            else
+                push!(annotation_set, annotation)
+            end
+        end
+    else
+        error("syntax error in annotations at $annotations")
+    end
+
+    # parse the function definition
+    parse_gen_function(ast, annotation_set)
+end
+
 macro gen(ast)
-    parse_gen_function(ast)
+    annotation_set = Set{Symbol}()
+    parse_gen_function(ast, annotation_set)
 end
 
 function args_for_gf_julia_fn(args, has_argument_grads)
@@ -156,12 +183,12 @@ function strip_marked_for_ad(arg::Expr)
     end
 end
 
-function parse_gen_function(ast)
+function parse_gen_function(ast, annotations)
     if ast.head != :function
-        error("syntax error at $(ast) in $(ast.head)")
+        error("syntax error at $ast in $(ast.head)")
     end
     if length(ast.args) != 2
-        error("syntax error at $(ast) in $(ast.args)")
+        error("syntax error at $ast in $(ast.args)")
     end
     signature = ast.args[1]
     body = ast.args[2]
@@ -170,7 +197,7 @@ function parse_gen_function(ast)
     elseif signature.head == :call
         (call_signature, return_type) = (signature, :Any)
     else
-        error("syntax error at $(ast) in $(signature)")
+        error("syntax error at $(signature)")
     end
     args = call_signature.args[2:end]
     has_argument_grads = map(marked_for_ad, args)
@@ -197,7 +224,8 @@ function parse_gen_function(ast)
             Expr(:call, :DynamicDSLFunction,
                 quote Type[$(arg_types...)] end,
                 julia_fn_defn, update_julia_fn_defn,
-                has_argument_grads, return_type)))
+                has_argument_grads, return_type,
+                :grad in annotations)))
 end
 
 function address_not_found_error_msg(addr)

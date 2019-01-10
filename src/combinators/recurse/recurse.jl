@@ -135,6 +135,9 @@ function Recurse(production_kernel::GenerativeFunction{X,S},
     Recurse{S,T,U,V,W,X,Y,DV,DU,DW}(production_kernel, aggregation_kernel, max_branch)
 end
 
+# TODO
+accepts_output_grad(::Recurse) = false
+
 function get_child(parent::Int, child_num::Int, max_branch::Int)
     @assert child_num >= 1 && child_num <= max_branch
     (parent - 1) * max_branch + child_num + 1

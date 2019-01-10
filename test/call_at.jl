@@ -1,6 +1,6 @@
 @testset "call_at combinator" begin
 
-    @gen function foo(@grad(x::Float64))
+    @gen (grad) function foo(@grad(x::Float64))
         return x + @addr(normal(x, 1), :y)
     end
 
@@ -213,26 +213,13 @@
         (trace, y) = get_trace()
 
         # not selected
+        retval_grad = 1.234
         (input_grads, value_assmt, gradient_assmt) = backprop_trace(
-            trace, EmptyAddressSet(), nothing)
+            trace, EmptyAddressSet(), retval_grad)
         @test isempty(value_assmt)
         @test isempty(gradient_assmt)
         @test length(input_grads) == 2
-        @test isapprox(input_grads[1], logpdf_grad(normal, y, 0.4, 1.0)[2])
-        @test input_grads[2] == nothing # the key has no gradient
-
-        # selected without retval_grad
-        selection = select(3 => :y)
-        (input_grads, value_assmt, gradient_assmt) = backprop_trace(
-            trace, selection, nothing)
-        @test value_assmt[3 => :y] == y
-        @test isapprox(gradient_assmt[3 => :y], logpdf_grad(normal, y, 0.4, 1.0)[1])
-        @test length(collect(get_values_shallow(gradient_assmt))) == 0
-        @test length(collect(get_subassmts_shallow(gradient_assmt))) == 1
-        @test length(collect(get_values_shallow(value_assmt))) == 0
-        @test length(collect(get_subassmts_shallow(value_assmt))) == 1
-        @test length(input_grads) == 2
-        @test isapprox(input_grads[1], logpdf_grad(normal, y, 0.4, 1.0)[2])
+        @test isapprox(input_grads[1], logpdf_grad(normal, y, 0.4, 1.0)[2] + retval_grad)
         @test input_grads[2] == nothing # the key has no gradient
 
         # selected with retval_grad
