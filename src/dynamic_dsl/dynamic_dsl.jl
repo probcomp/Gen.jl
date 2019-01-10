@@ -2,7 +2,18 @@ include("trace.jl")
 
 const DYNAMIC_DSL_ADDR = Symbol("@addr")
 const DYNAMIC_DSL_DIFF = Symbol("@diff")
-const DYNAMIC_DSL_GRAD = Symbol("@grad")
+const DSL_STATIC_ANNOTATION = :static
+const DSL_ARG_GRAD_ANNOTATION = :grad
+const DSL_RET_GRAD_ANNOTATION = :grad
+
+struct Argument
+    name::Symbol
+    typ::Union{Symbol,Expr}
+    annotations::Set{Symbol}
+end
+
+Argument(name, typ) = Argument(name, typ, Set{Symbol}())
+
 
 struct DynamicDSLFunction{T} <: GenerativeFunction{T,DynamicDSLTrace}
     params_grad::Dict{Symbol,Any}
@@ -45,21 +56,6 @@ end
 # it returns 'nothing' for those arguemnts that don't have a derivatice
 has_argument_grads(gen::DynamicDSLFunction) = gen.has_argument_grads
 
-function parse_arg_types(args)
-    types = Vector{Any}()
-    for arg in args
-        if isa(arg, Expr) && arg.head == :(::)
-            typ = arg.args[2]
-            push!(types, typ)
-        elseif isa(arg, Symbol)
-            push!(types, :Any)
-        else
-            error("Error parsing argument to generative function: $arg")
-        end
-    end
-    types
-end
-
 macro addr(expr::Expr, addr, addrdiff)
     if expr.head != :call
         error("syntax error in $DYNAMIC_DSL_ADDR at $(expr)")
@@ -69,50 +65,35 @@ macro addr(expr::Expr, addr, addrdiff)
     Expr(:call, :addr, esc(state), fn, Expr(:tuple, args...), esc(addr), esc(addrdiff))
 end
 
-macro gen(annotations, ast)
-
-    # parse the annotations
-    annotation_set = Set{Symbol}()
-    if isa(annotations, Symbol)
-        push!(annotation_set, annotations)
-    elseif isa(annotations, Expr) && annotations.head == :tuple
-        for annotation in annotations.args
+function parse_annotations(annotations_expr)
+    annotations = Set{Symbol}()
+    if isa(annotations_expr, Symbol)
+        push!(annotations, annotations_expr)
+    elseif isa(annotations_expr, Expr) && annotations_expr.head == :tuple
+        for annotation in annotations_expr.args
             if !isa(annotation, Symbol)
-                error("syntax error in annotations at $annotation")
+                error("syntax error in annotations_expr at $annotation")
             else
-                push!(annotation_set, annotation)
+                push!(annotations, annotation)
             end
         end
     else
         error("syntax error in annotations at $annotations")
     end
+    annotations
+end
+
+macro gen(annotations_expr, ast)
+
+    # parse the annotations
+    annotations = parse_annotations(annotations_expr)
 
     # parse the function definition
-    parse_gen_function(ast, annotation_set)
+    parse_gen_function(ast, annotations)
 end
 
 macro gen(ast)
-    annotation_set = Set{Symbol}()
-    parse_gen_function(ast, annotation_set)
-end
-
-function args_for_gf_julia_fn(args, has_argument_grads)
-    # if an argument is marked for AD, we change remove the type annotation for
-    # the Julia function implementation, because we use reverse mode AD using
-    # boxed tracked values. we don't give any type information about the argument.
-    escaped_args = []
-    for (arg, has_grad) in zip(args, has_argument_grads)
-        if has_grad
-            if isa(arg, Expr) && arg.head == :(::)
-                push!(escaped_args, esc(arg.args[1]))
-            elseif isa(arg, Symbol)
-                push!(escaped_args, esc(arg))
-            end
-        else
-            push!(escaped_args, esc(arg))
-        end
-    end
-    escaped_args
+    parse_gen_function(ast, Set{Symbol}())
 end
 
 transform_body_for_non_update(ast) = ast
@@ -163,24 +144,24 @@ function transform_body_for_update(ast::Expr, in_diff::Bool)
     Expr(ast.head, new_args...)
 end
 
-marked_for_ad(arg::Symbol) = false
-
-marked_for_ad(arg::Expr) = (arg.head == :macrocall && arg.args[1] == DYNAMIC_DSL_GRAD)
-
-strip_marked_for_ad(arg::Symbol) = arg
-
-function strip_marked_for_ad(arg::Expr) 
-    if (arg.head == :macrocall && arg.args[1] == DYNAMIC_DSL_GRAD)
-		if length(arg.args) == 3 && isa(arg.args[2], LineNumberNode)
-			arg.args[3]
-		elseif length(arg.args) == 2
-			arg.args[2]
-		else
-            error("Syntax error at $arg")
-        end
+function parse_arg(expr)
+    if isa(expr, Symbol)
+        # x
+        arg = Argument(expr, :Any)
+    elseif isa(expr, Expr) && expr.head == :(::)
+        # x::Int
+        arg = Argument(expr.args[1], expr.args[2])
+    elseif isa(expr, Expr) && expr.head == :call
+        # (grad,foo)(x::Int)
+        annotations_expr = expr.args[1]
+        sub_arg = parse_arg(expr.args[2])
+        annotations = parse_annotations(annotations_expr)
+        arg = Argument(sub_arg.name, sub_arg.typ, annotations)
     else
-        arg
+        dump(expr)
+        error("syntax error in gen function argument at $expr")
     end
+    arg
 end
 
 function parse_gen_function(ast, annotations)
@@ -199,12 +180,20 @@ function parse_gen_function(ast, annotations)
     else
         error("syntax error at $(signature)")
     end
-    args = call_signature.args[2:end]
-    has_argument_grads = map(marked_for_ad, args)
-    args = map(strip_marked_for_ad, args)
+    name = call_signature.args[1]
+    args = map(parse_arg, call_signature.args[2:end])
+    static = DSL_STATIC_ANNOTATION in annotations
+    if static
+        # TODO implement, invoke static_dsl/static_dsl.jl
+        #make_static_gen_function(name, args, body, return_type, annotations)
+    else
+        make_dynamic_gen_function(name, args, body, return_type, annotations)
+    end
+end
 
+function make_dynamic_gen_function(name, args, body, return_type, annotations)
     # julia function definition (for a non-update behavior)
-    escaped_args = args_for_gf_julia_fn(args, has_argument_grads)
+    escaped_args = map((arg) -> esc(arg.name), args)
     gf_args = [esc(state), escaped_args...]
     julia_fn_defn = Expr(:function,
         Expr(:tuple, gf_args...),
@@ -216,16 +205,18 @@ function parse_gen_function(ast, annotations)
         esc(transform_body_for_update(body, false)))
 
     # create generator and assign it a name
-    generator_name = call_signature.args[1]
-    arg_types = map(esc, parse_arg_types(args))
+    arg_types = map((arg) -> esc(arg.typ), args)
+    has_argument_grads = map(
+        (arg) -> (DSL_ARG_GRAD_ANNOTATION in arg.annotations), args)
+    accepts_output_grad = DSL_RET_GRAD_ANNOTATION in annotations
     Expr(:block,
         Expr(:(=), 
-            esc(generator_name),
+            esc(name),
             Expr(:call, :DynamicDSLFunction,
                 quote Type[$(arg_types...)] end,
                 julia_fn_defn, update_julia_fn_defn,
                 has_argument_grads, return_type,
-                :grad in annotations)))
+                accepts_output_grad)))
 end
 
 function address_not_found_error_msg(addr)

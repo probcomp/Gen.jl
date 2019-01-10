@@ -289,13 +289,13 @@ end
 
 @testset "backprop_trace and backprop_params" begin
 
-    @gen (grad) function bar(@grad(mu_z::Float64))
+    @gen (grad) function bar((grad)(mu_z::Float64))
         @param theta1::Float64
         z = @addr(normal(mu_z + theta1, 1), :z)
         return z + mu_z
     end
 
-    @gen (grad) function foo(@grad(mu_a::Float64))
+    @gen (grad) function foo((grad)(mu_a::Float64))
         @param theta2::Float64
         a = @addr(normal(mu_a, 1), :a)
         b = @addr(normal(a, 1), :b)

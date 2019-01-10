@@ -1,6 +1,6 @@
 @testset "unfold combinator" begin
 
-    @gen function kernel(t::Int, x::Float64, @grad(alpha::Float64), @grad(beta::Float64))
+    @gen function kernel(t::Int, x::Float64, (grad)(alpha::Float64), (grad)(beta::Float64))
         @param std::Float64
         x = @addr(normal(x * alpha + beta, std), :x)
         @diff begin

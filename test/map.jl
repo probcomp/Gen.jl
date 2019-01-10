@@ -1,6 +1,6 @@
 @testset "map combinator" begin
     
-    @gen (grad) function foo(@grad(x::Float64), @grad(y::Float64))
+    @gen (grad) function foo((grad)(x::Float64), (grad)(y::Float64))
         @param std::Float64
         z = @addr(normal(x + y, std), :z)
         @diff begin
