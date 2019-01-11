@@ -55,7 +55,11 @@ function address_not_found_error_msg(addr)
 end
 
 function read_param(state, name::Symbol)
-    state.params[name]
+    if haskey(state.params, name)
+        state.params[name]
+    else
+        throw(UndefVarError(name))
+    end
 end
 
 
@@ -91,6 +95,13 @@ function zero_param_grad!(gf::DynamicDSLFunction, name::Symbol)
     gf.params_grad[name] = zero(gf.params[name])
 end
 
+"""
+    init_param!(gen_fn, name::Symbol, value)
+
+Initialize the the value of a named static parameter of a generative function.
+
+Also initializes the gradient accumulator for that parameter to `zero(value)`.
+"""
 function init_param!(gf::DynamicDSLFunction, name::Symbol, value)
     set_param!(gf, name, value)
     zero_param_grad!(gf, name)
