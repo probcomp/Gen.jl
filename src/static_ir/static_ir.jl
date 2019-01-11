@@ -30,6 +30,7 @@ function generate_generative_function(ir::StaticIR, name::Symbol)
     return_type = QuoteNode(ir.return_node.typ)
     trace_type = trace_struct_name
     has_argument_grads = tuple(map((node) -> node.compute_grad, ir.arg_nodes)...)
+    accepts_output_grad = ir.accepts_output_grad
 
     gen_fn_defn = quote
         struct $gen_fn_type_name <: Gen.StaticIRGenerativeFunction{$return_type,$trace_type}
@@ -38,6 +39,7 @@ function generate_generative_function(ir::StaticIR, name::Symbol)
         Gen.get_ir(::Type{$gen_fn_type_name}) = $(QuoteNode(ir))
         Gen.get_trace_type(::Type{$gen_fn_type_name}) = $trace_struct_name
         Gen.has_argument_grads(::$gen_fn_type_name) = $(QuoteNode(has_argument_grads))
+        Gen.accepts_output_grad(::$gen_fn_type_name) = $(QuoteNode(accepts_output_grad))
         Gen.get_gen_fn(::$trace_struct_name) = $gen_fn_type_name()
         Gen.get_gen_fn_type(::Type{$trace_struct_name}) = $gen_fn_type_name
     end

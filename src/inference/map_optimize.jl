@@ -9,7 +9,9 @@ Selected random choices must have support on the entire real line.
 function map_optimize(trace, selection::AddressSet;
                       max_step_size=0.1, tau=0.5, min_step_size=1e-16, verbose=false)
     model_args = get_args(trace)
-    (_, values, gradient) = backprop_trace(trace, selection, nothing)
+    retval_grad = accepts_output_grad(get_gen_fn(trace)) ? zero(get_retval(trace)) : nothing
+
+    (_, values, gradient) = backprop_trace(trace, selection, retval_grad)
     values_vec = to_array(values, Float64)
     gradient_vec = to_array(gradient, Float64)
     step_size = max_step_size

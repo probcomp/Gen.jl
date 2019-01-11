@@ -9,9 +9,10 @@ Apply a Metropolis-Adjusted Langevin Algorithm (MALA) update.
 function mala(trace, selection::AddressSet, tau::Real)
     model_args = get_args(trace)
     std = sqrt(2 * tau)
+    retval_grad = accepts_output_grad(get_gen_fn(trace)) ? zero(get_retval(trace)) : nothing
 
     # forward proposal
-    (_, values_trie, gradient_trie) = backprop_trace(trace, selection, nothing)
+    (_, values_trie, gradient_trie) = backprop_trace(trace, selection, retval_grad)
     values = to_array(values_trie, Float64)
     gradient = to_array(gradient_trie, Float64)
     forward_mu = values + tau * gradient
@@ -28,7 +29,7 @@ function mala(trace, selection::AddressSet, tau::Real)
         model_args, noargdiff, trace, constraints)
 
     # backward proposal
-    (_, _, backward_gradient_trie) = backprop_trace(new_trace, selection, nothing)
+    (_, _, backward_gradient_trie) = backprop_trace(new_trace, selection, retval_grad)
     backward_gradient = to_array(backward_gradient_trie, Float64)
     @assert length(backward_gradient) == length(values)
     backward_score = 0.

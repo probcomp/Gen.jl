@@ -81,7 +81,8 @@ function train!(opt::SGDOptimizer, gen_fn::GenerativeFunction, data_generator::F
             minibatch_assmts = epoch_assmts[minibatch_idx]
             for (inputs, constraints) in zip(minibatch_inputs, minibatch_assmts)
                 (trace, _) = initialize(gen_fn, inputs, constraints)
-                backprop_params(trace, nothing)
+                retval_grad = accepts_output_grad(gen_fn) ? zero(get_retval(trace)) : nothing
+                backprop_params(trace, retval_grad)
             end
     
             # do the SGD update

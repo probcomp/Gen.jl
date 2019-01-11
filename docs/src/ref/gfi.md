@@ -53,4 +53,5 @@ get_assmt
 get_args
 get_retval
 get_score
+get_gen_fn
 ```

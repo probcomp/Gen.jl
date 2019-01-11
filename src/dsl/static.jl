@@ -332,6 +332,8 @@ function make_static_gen_function(name, args, body, return_type, annotations)
     stmts = Expr[]
     push!(stmts, :(bindings = Dict{Symbol, StaticIRNode}()))
     push!(stmts, :(builder = StaticIRBuilder())) # NOTE: we are relying on the gensym
+    accepts_output_grad = DSL_RET_GRAD_ANNOTATION in annotations
+    push!(stmts, :(set_accepts_output_grad!(builder, $(QuoteNode(accepts_output_grad)))))
     bindings = Dict{Symbol,Symbol}() # map from variable name to node name
     for arg in args
         node = gensym()

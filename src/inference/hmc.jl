@@ -23,6 +23,7 @@ function hmc(trace::U, selection::AddressSet;
              mass=0.1, L=10, eps=0.1) where {T,U}
     prev_model_score = get_score(trace)
     model_args = get_args(trace)
+    retval_grad = accepts_output_grad(get_gen_fn(trace)) ? zero(get_retval(trace)) : nothing
 
     # run leapfrog dynamics
     new_trace = trace
@@ -31,7 +32,7 @@ function hmc(trace::U, selection::AddressSet;
     for step=1:L
 
         # half step on momenta
-        (_, values_trie, gradient_trie) = backprop_trace(new_trace, selection, nothing)
+        (_, values_trie, gradient_trie) = backprop_trace(new_trace, selection, retval_grad)
         values = to_array(values_trie, Float64)
         gradient = to_array(gradient_trie, Float64)
         if step == 1
@@ -46,7 +47,7 @@ function hmc(trace::U, selection::AddressSet;
 
         # half step on momenta
         (new_trace, _, _) = force_update(model_args, noargdiff, new_trace, values_trie)
-        (_, _, gradient_trie) = backprop_trace(model, new_trace, selection, nothing)
+        (_, _, gradient_trie) = backprop_trace(new_trace, selection, retval_grad)
         gradient = to_array(gradient_trie, Float64)
         momenta += (eps / 2) * gradient
     end

@@ -74,6 +74,7 @@ struct StaticIR
     return_node::RegularNode
     retdiff_node::StaticIRNode
     received_argdiff_node::ReceivedArgDiffNode
+    accepts_output_grad::Bool
 end
 
 mutable struct StaticIRBuilder
@@ -88,6 +89,7 @@ mutable struct StaticIRBuilder
     vars::Set{Symbol}
     addrs_to_choice_nodes::Dict{Symbol,RandomChoiceNode}
     addrs_to_call_nodes::Dict{Symbol,GenerativeFunctionCallNode}
+    accepts_output_grad::Bool
 end
 
 function StaticIRBuilder()
@@ -102,9 +104,11 @@ function StaticIRBuilder()
     vars = Set{Symbol}()
     addrs_to_choice_nodes = Dict{Symbol,RandomChoiceNode}()
     addrs_to_call_nodes = Dict{Symbol,GenerativeFunctionCallNode}()
+    accepts_output_grad = false
     StaticIRBuilder(nodes, node_set, arg_nodes, choice_nodes, call_nodes,
         return_node, retdiff_node,
-        received_argdiff_node, vars, addrs_to_choice_nodes, addrs_to_call_nodes)
+        received_argdiff_node, vars, addrs_to_choice_nodes, addrs_to_call_nodes,
+        accepts_output_grad)
 end
 
 function build_ir(builder::StaticIRBuilder)
@@ -124,7 +128,8 @@ function build_ir(builder::StaticIRBuilder)
         builder.call_nodes,
         builder.return_node,
         builder.retdiff_node,
-        builder.received_argdiff_node)
+        builder.received_argdiff_node,
+        builder.accepts_output_grad)
 end
 
 function check_unique_var(builder::StaticIRBuilder, name::Symbol)
@@ -269,6 +274,10 @@ function set_retdiff_node!(builder::StaticIRBuilder, node::StaticIRNode)
     end
     builder.retdiff_node = node
     nothing
+end
+
+function set_accepts_output_grad!(builder::StaticIRBuilder, value::Bool)
+    builder.accepts_output_grad = value
 end
 
 export StaticIR, StaticIRBuilder, build_ir
