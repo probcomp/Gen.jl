@@ -501,7 +501,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Assignments",
     "title": "Gen.get_values_shallow",
     "category": "function",
-    "text": "key_subassmt_iterable = get_values_shallow(assmt::Assignment)\n\nReturn an iterable collection of tuples (key, subassmt::Assignment) for each top-level key associated with a value.\n\n\n\n\n\n"
+    "text": "key_subassmt_iterable = get_values_shallow(assmt::Assignment)\n\nReturn an iterable collection of tuples (key, value) for each top-level key associated with a value.\n\n\n\n\n\n"
 },
 
 {
@@ -529,11 +529,19 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "ref/assignments/#Gen.address_set",
+    "page": "Assignments",
+    "title": "Gen.address_set",
+    "category": "function",
+    "text": "addrs::AddressSet = address_set(assmt::Assignment)\n\nReturn an AddressSet containing the addresses of values in the given assignment.\n\n\n\n\n\n"
+},
+
+{
     "location": "ref/assignments/#Assignments-1",
     "page": "Assignments",
     "title": "Assignments",
     "category": "section",
-    "text": "An assignment is a map from addresses of random choices to their values. Assignments are constructed by users to express observations and/or constraints on the traces of generative functions. Assignments are also returned by certain Gen inference methods, and are used internally by various Gen inference methods.There are various concrete types for assignments, each of which is a subtype of Assignment. Assignments provide the following methods:has_value\nget_value\nget_subassmt\nget_values_shallow\nget_subassmts_shallow\nto_array\nfrom_arrayNote that none of these methods mutate the assignment.Assignments also provide Base.isempty, which tests of there are no random choices in the assignment, and Base.merge, which takes two assignments, and returns a new assignment containing all random choices in either assignment. It is an error if the assignments both have values at the same address, or if one assignment has a value at an address that is the prefix of the address of a value in the other assignment."
+    "text": "An assignment is a map from addresses of random choices to their values. Assignments are constructed by users to express observations and/or constraints on the traces of generative functions. Assignments are also returned by certain Gen inference methods, and are used internally by various Gen inference methods.There are various concrete types for assignments, each of which is a subtype of Assignment. Assignments provide the following methods:has_value\nget_value\nget_subassmt\nget_values_shallow\nget_subassmts_shallow\nto_array\nfrom_array\naddress_setNote that none of these methods mutate the assignment.Assignments also provide Base.isempty, which tests of there are no random choices in the assignment, and Base.merge, which takes two assignments, and returns a new assignment containing all random choices in either assignment. It is an error if the assignments both have values at the same address, or if one assignment has a value at an address that is the prefix of the address of a value in the other assignment."
 },
 
 {
@@ -541,7 +549,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Assignments",
     "title": "Gen.DynamicAssignment",
     "category": "type",
-    "text": "assmt = DynamicAssignment()\n\nConstruct an empty dynamic assignment.\n\n\n\n\n\n"
+    "text": "assmt = DynamicAssignment()\n\nConstruct an empty assignment.\n\nassmt = DynamicAssignment(pairs...)\n\nConstruct an assignment containing each of the given (addr, value) pair.\n\n\n\n\n\n"
 },
 
 {
@@ -565,7 +573,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Assignments",
     "title": "Dynamic Assignment",
     "category": "section",
-    "text": "One concrete assignment type is DynamicAssignment, which is mutable. Users construct DynamicAssignments and populate them for use as observations or constraints, e.g.:assmt = DynamicAssignment()\nassmt[:x] = true\nassmt[\"foo\"] = 1.25\nassmt[:y => 1 => :z] = -6.3DynamicAssignment\nset_value!\nset_subassmt!"
+    "text": "One concrete assignment type is DynamicAssignment, which is mutable. Users construct DynamicAssignments and populate them for use as observations or constraints, e.g.:assmt = DynamicAssignment()\nassmt[:x] = true\nassmt[\"foo\"] = 1.25\nassmt[:y => 1 => :z] = -6.3There is also a constructor for DynamicAssignment that takes initial (address, value) pairs:assmt = DynamicAssignment((:x, true), (\"foo\", 1.25), (:y => 1 => :z, -6.3))DynamicAssignment\nset_value!\nset_subassmt!"
 },
 
 {
