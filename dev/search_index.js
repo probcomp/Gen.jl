@@ -905,11 +905,19 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "ref/gfi/#Gen.get_gen_fn",
+    "page": "Generative Function Interface",
+    "title": "Gen.get_gen_fn",
+    "category": "function",
+    "text": "gen_fn::GenerativeFunction = get_gen_fn(trace)\n\nReturn the generative function that produced the given trace.\n\n\n\n\n\n"
+},
+
+{
     "location": "ref/gfi/#Interface-methods-1",
     "page": "Generative Function Interface",
     "title": "Interface methods",
     "category": "section",
-    "text": "has_argument_grads\naccepts_output_grad\ninitialize\nproject\npropose\nassess\nforce_update\nfix_update\nfree_update\nextend\nbackprop_params\nbackprop_trace\nget_assmt\nget_args\nget_retval\nget_score"
+    "text": "has_argument_grads\naccepts_output_grad\ninitialize\nproject\npropose\nassess\nforce_update\nfix_update\nfree_update\nextend\nbackprop_params\nbackprop_trace\nget_assmt\nget_args\nget_retval\nget_score\nget_gen_fn"
 },
 
 {
