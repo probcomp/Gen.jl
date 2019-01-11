@@ -13,14 +13,14 @@ function get_locations(maybe_path::Nullable{Path}, start::Point,
     end
 end
 
-@staticgen function measurement(point::Point, noise::Float64)
+@gen (static) function measurement(point::Point, noise::Float64)
     @addr(normal(point.x, noise), :x)
     @addr(normal(point.y, noise), :y)
 end
 
 measurements = Map(measurement)
 
-@staticgen function model(scene::Scene, times::Vector{Float64})
+@gen (static) function model(scene::Scene, times::Vector{Float64})
 
     # start point of the agent
     start_x::Float64 = @addr(uniform(0, 1), :start_x)

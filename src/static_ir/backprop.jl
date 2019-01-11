@@ -10,6 +10,15 @@ value_trie_var(node::GenerativeFunctionCallNode) = Symbol("$(value_trie_prefix)_
 const gradient_trie_prefix = gensym("gradient_trie")
 gradient_trie_var(node::GenerativeFunctionCallNode) = Symbol("$(gradient_trie_prefix)_$(node.addr)")
 
+const tape_prefix = gensym("tape")
+tape_var(node::JuliaNode) = Symbol("$(tape_prefix)_$(node.name)")
+
+const maybe_tracked_value_prefix = gensym("maybe_tracked_value")
+maybe_tracked_value_var(node::JuliaNode) = Symbol("$(maybe_tracked_value_prefix)_$(node.name)")
+
+const maybe_tracked_arg_prefix = gensym("maybe_tracked_arg")
+maybe_tracked_arg_var(node::JuliaNode, i::Int) = Symbol("$(maybe_tracked_arg_prefix)_$(node.name)_$i")
+
 function fwd_pass!(selected_choices, selected_calls, fwd_marked, node::ArgumentNode)
     if node.compute_grad
         push!(fwd_marked, node)
@@ -74,17 +83,38 @@ end
 
 function fwd_codegen!(stmts, fwd_marked, back_marked, node::JuliaNode)
 
-    # we need the value for initializing gradient to zero (to get the type and
-    # e.g. shape), and for reference by other nodes during back_codegen! we
-    # could be more selective about which JuliaNodes need to be evalutaed, that
-    # is a performance optimization for the future
-    args = map((input_node) -> input_node.name, node.inputs)
-    push!(stmts, :($(node.name) = $(QuoteNode(node.fn))($(args...))))
-
     if node in back_marked && any(input_node in fwd_marked for input_node in node.inputs)
+
+        # tracked forward execution
+        tape = tape_var(node)
+        push!(stmts, :($tape = Gen.new_tape()))
+        args_maybe_tracked = Symbol[]
+        for (i, input_node) in enumerate(node.inputs)
+            arg = input_node.name
+            arg_maybe_tracked = maybe_tracked_arg_var(node, i)
+            if input_node in fwd_marked
+                push!(stmts, :($arg_maybe_tracked = Gen.track($arg, $tape)))
+            else
+                push!(stmts, :($arg_maybe_tracked = $arg))
+            end
+            push!(args_maybe_tracked, arg_maybe_tracked)
+        end
+        maybe_tracked_value = maybe_tracked_value_var(node)
+        push!(stmts, :($maybe_tracked_value = $(QuoteNode(node.fn))($(args_maybe_tracked...))))
+        push!(stmts, :($(node.name) = Gen.value($maybe_tracked_value)))
 
         # initialize gradient to zero
         push!(stmts, :($(gradient_var(node)) = zero($(node.name))))
+    else
+
+        # regular forward execution.
+    
+        # we need the value for initializing gradient to zero (to get the type
+        # and e.g. shape), and for reference by other nodes during
+        # back_codegen! we could be more selective about which JuliaNodes need
+        # to be evalutaed, that is a performance optimization for the future
+        args = map((input_node) -> input_node.name, node.inputs)
+        push!(stmts, :($(node.name) = $(QuoteNode(node.fn))($(args...))))
     end
 end
 
@@ -139,22 +169,15 @@ function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked, node:
     end
     if node in back_marked && any(input_node in fwd_marked for input_node in node.inputs)
 
-        # compute gradient with respect to parents
-        # NOTE: some of the fields in this tuple may be 'nothing'
-        input_grads = gensym("input_grads")
-        args = map((input_node) -> input_node.name, node.inputs)
-        args_tuple = Expr(:tuple, args...)
-        push!(stmts, :($input_grads::Tuple = $(QuoteNode(node.grad_fn))($(gradient_var(node)), $(node.name), $args_tuple)))
+        # do backward pass through the Julia code
+        push!(stmts, :(Gen.deriv!($(maybe_tracked_value_var(node)), $(gradient_var(node)))))
+        push!(stmts, :(Gen.reverse_pass!($(tape_var(node)))))
 
         # increment gradients of input nodes that are in fwd_marked
         for (i, input_node) in enumerate(node.inputs)
-            
-            # NOTE: it will be a runtime error if we try to add 'nothing'
-            # we could require the JuliaNode to statically report which inputs
-            # it takes gradients with respect to, and check this at compile
-            # time. TODO future work
             if input_node in fwd_marked
-                push!(stmts, :($(gradient_var(input_node)) += $input_grads[$(QuoteNode(i))]))
+                arg_maybe_tracked = maybe_tracked_arg_var(node, i)
+                push!(stmts, :($(gradient_var(input_node)) += Gen.deriv($arg_maybe_tracked)))
             end
         end
     end

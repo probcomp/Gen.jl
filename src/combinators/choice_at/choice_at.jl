@@ -35,6 +35,15 @@ struct ChoiceAtCombinator{T,K} <: GenerativeFunction{T, ChoiceAtTrace}
     dist::Distribution{T}
 end
 
+accepts_output_grad(gen_fn::ChoiceAtCombinator) = has_output_grad(gen_fn.dist)
+
+# TODO
+# accepts_output_grad is true if the return value is dependent on the 'gradient source elements'
+# if the random choice itself is not a 'gradient source element' then it is independent (false)
+# if the random choice is a 'gradient source element', then the return value is dependent (true)
+# we will consider the random choice as a gradient source element if the
+# distribution has has_output_grad = true)
+
 function choice_at(dist::Distribution{T}, ::Type{K}) where {T,K}
     ChoiceAtCombinator{T,K}(dist)
 end
@@ -181,10 +190,18 @@ function extend(args::Tuple, argdiff, trace::ChoiceAtTrace,
 end
 
 function backprop_trace(trace::ChoiceAtTrace, selection::AddressSet, retval_grad)
+    if retval_grad == nothing && accepts_output_grad(trace.gen_fn)
+        error("return value gradient required but not provided")
+    elseif retval_grad != nothing && !accepts_output_grad(trace.gen_fn)
+        error("return value gradient not accepted but one was provided")
+    end
     kernel_arg_grads = logpdf_grad(trace.gen_fn.dist, trace.value, trace.kernel_args...)
     if has_leaf_node(selection, trace.key)
         value_assmt = ChoiceAtAssignment(trace.key, trace.value)
         choice_grad = kernel_arg_grads[1]
+        if choice_grad == nothing
+            error("gradient not available for selected choice")
+        end
         if retval_grad != nothing
             choice_grad += retval_grad
         end
@@ -198,6 +215,11 @@ function backprop_trace(trace::ChoiceAtTrace, selection::AddressSet, retval_grad
 end
 
 function backprop_params(trace::ChoiceAtTrace, retval_grad)
+    if retval_grad == nothing && accepts_output_grad(trace.gen_fn)
+        error("return value gradient required but not provided")
+    elseif retval_grad != nothing && !accepts_output_grad(trace.gen_fn)
+        error("return value gradient not accepted but one was provided")
+    end
     kernel_arg_grads = logpdf_grad(trace.gen_fn.dist, trace.value, trace.kernel_args...)
     (kernel_arg_grads[2:end]..., nothing)
 end

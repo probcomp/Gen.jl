@@ -8,19 +8,50 @@ module Gen
     end
     export generated_functions
 
+    # built-in extensions to the reverse mode AD
     include("backprop.jl")
+
+    # addresses and address selections
     include("address.jl")
+
+    # abstract and built-in concrete assignment data types
     include("assignment.jl")
+
+    # a homogeneous trie data type (not for use as assignment)
     include("trie.jl")
+
+    # generative function interface
     include("gen_fn_interface.jl")
+
+    # built-in data types for arg-diff and ret-diff values
     include("diff.jl")
+
+    # built-in probability disributions
     include("distribution.jl")
+
+    # utilities for parsing
     include("dsl_common.jl")
-    include("dynamic_dsl/dynamic_dsl.jl")
+
+    # dynamic embedded generative function
+    include("dynamic/dynamic.jl")
+
+    # static IR generative function
     include("static_ir/static_ir.jl")
-    include("static_dsl/static_dsl.jl")
+
+    # DSLs for defining dynamic embedded and static IR generative functions
+    # 'Dynamic DSL' and 'Static DSL'
+    include("dsl/dsl.jl")
+
+    # generative function combinators
     include("combinators/combinators.jl")
+
+    # injective function DSL (not currently documented)
     include("injective.jl")
+
+    # selection DSL (not currently documented)
     include("selection.jl")
+
+    # inference and learning library
     include("inference/inference.jl")
-end # module
+
+end # module Gen

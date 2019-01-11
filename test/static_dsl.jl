@@ -12,7 +12,7 @@ struct Params
     outlier_std::Float64
 end
 
-@staticgen function datum(x, @grad(params::Params))
+@gen (static) function datum(x, (grad)(params::Params))
     is_outlier::Bool = @addr(bernoulli(params.prob_outlier), :z)
     std::Float64 = is_outlier ? params.inlier_std : params.outlier_std
     y::Float64 = @addr(normal(x * params.slope + params.intercept, std), :y)
@@ -30,7 +30,7 @@ function compute_argdiff(inlier_std_diff, outlier_std_diff, slope_diff, intercep
     end
 end
 
-@staticgen function model(xs::Vector{Float64})
+@gen (static) function model(xs::Vector{Float64})
     n = length(xs)
     inlier_std::Float64 = @addr(gamma(1, 1), :inlier_std)
     outlier_std::Float64 = @addr(gamma(1, 1), :outlier_std)
@@ -49,13 +49,13 @@ end
     @diff @retdiff(data_calldiff)
 end
 
-@staticgen function at_choice_example_1(i::Int)
+@gen (static) function at_choice_example_1(i::Int)
     ret = @addr(bernoulli(0.5), :x => i)
 end
 
 # @addr(choice_at(bernoulli)(0.5, i), :x)
 
-@staticgen function at_choice_example_2(i::Int)
+@gen (static) function at_choice_example_2(i::Int)
     ret = @addr(bernoulli(0.5), :x => i => :y)
 end
 
@@ -65,12 +65,12 @@ end
     @addr(normal(mu, 1), :y)
 end
 
-@staticgen function at_call_example_1(i::Int)
+@gen (static) function at_call_example_1(i::Int)
     mu = 1.123
     ret = @addr(foo(mu), :x => i)
 end
 
-@staticgen function at_call_example_2(i::Int)
+@gen (static) function at_call_example_2(i::Int)
     mu = 1.123
     ret = @addr(foo(mu), :x => i => :y)
 end

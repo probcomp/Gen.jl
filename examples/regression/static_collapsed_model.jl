@@ -18,13 +18,13 @@ function random(::TwoNormals, mu, sigma1, sigma2)
     normal(mu, bernoulli(0.5) ? sigma1 : sigma2)
 end
 
-@staticgen function generate_datum(mean::Float64, inlier_std::Float64, outlier_std::Float64)
+@gen (static) function generate_datum(mean::Float64, inlier_std::Float64, outlier_std::Float64)
     @addr(two_normals(mean, inlier_std, outlier_std), :z)
 end
 
 generate_data = Map(generate_datum)
 
-@staticgen function model(xs::Vector{Float64})
+@gen (static) function model(xs::Vector{Float64})
     n = length(xs)
     slope::Float64 = @addr(normal(0, 2), :slope)
     intercept::Float64 = @addr(normal(0, 2), :intercept)

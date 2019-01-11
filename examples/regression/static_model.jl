@@ -1,5 +1,5 @@
-@staticgen function datum(x::Float64, @grad(inlier_std::Float64), @grad(outlier_std::Float64),
-                          @grad(slope::Float64), @grad(intercept::Float64))
+@gen (static) function datum(x::Float64, (grad)(inlier_std::Float64), (grad)(outlier_std::Float64),
+                          (grad)(slope::Float64), (grad)(intercept::Float64))
     is_outlier::Bool = @addr(bernoulli(0.5), :z)
     std = is_outlier ? inlier_std : outlier_std
     y::Float64 = @addr(normal(x * slope + intercept, std), :y)
@@ -17,7 +17,7 @@ function compute_argdiff(inlier_std_diff, outlier_std_diff, slope_diff, intercep
     end
 end
 
-@staticgen function model(xs::Vector{Float64})
+@gen (static) function model(xs::Vector{Float64})
     n = length(xs)
     inlier_log_std::Float64 = @addr(normal(0, 2), :log_inlier_std)
     outlier_log_std::Float64 = @addr(normal(0, 2), :log_outlier_std)

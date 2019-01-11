@@ -31,7 +31,7 @@
 
         # with constraints
         constraints = DynamicAssignment()
-        set_value!(constraints, 3, true)
+        constraints[3] = true
         (trace, weight) = initialize(at, (0.4, 3), constraints)
         value = get_retval(trace)
         @test value == true
@@ -44,7 +44,7 @@
 
     function get_trace()
         constraints = DynamicAssignment()
-        set_value!(constraints, 3, true)
+        constraints[3] = true
         (trace, _) = initialize(at, (0.4, 3), constraints)
         trace
     end
@@ -202,24 +202,9 @@
 
         # not selected
         (input_grads, value_assmt, gradient_assmt) = backprop_trace(
-            trace, EmptyAddressSet(), nothing)
+            trace, EmptyAddressSet(), 1.2)
         @test isempty(value_assmt)
         @test isempty(gradient_assmt)
-        @test length(input_grads) == 3
-        @test isapprox(input_grads[1], logpdf_grad(normal, y, 0.0, 1.0)[2])
-        @test isapprox(input_grads[2], logpdf_grad(normal, y, 0.0, 1.0)[3])
-        @test input_grads[3] == nothing # the key has no gradient
-
-        # selected without retval_grad
-        selection = select(3)
-        (input_grads, value_assmt, gradient_assmt) = backprop_trace(
-            trace, selection, nothing)
-        @test value_assmt[3] == y
-        @test isapprox(gradient_assmt[3], logpdf_grad(normal, y, 0.0, 1.0)[1])
-        @test length(collect(get_values_shallow(gradient_assmt))) == 1
-        @test length(collect(get_subassmts_shallow(gradient_assmt))) == 0
-        @test length(collect(get_values_shallow(value_assmt))) == 1
-        @test length(collect(get_subassmts_shallow(value_assmt))) == 0
         @test length(input_grads) == 3
         @test isapprox(input_grads[1], logpdf_grad(normal, y, 0.0, 1.0)[2])
         @test isapprox(input_grads[2], logpdf_grad(normal, y, 0.0, 1.0)[3])

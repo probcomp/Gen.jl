@@ -4,31 +4,31 @@ import Random
 include("static_model.jl")
 include("dataset.jl")
 
-@staticgen function slope_proposal(prev)
+@gen (static) function slope_proposal(prev)
     slope = get_assmt(prev)[:slope]
     @addr(normal(slope, 0.5), :slope)
 end
 
-@staticgen function intercept_proposal(prev)
+@gen (static) function intercept_proposal(prev)
     intercept = get_assmt(prev)[:intercept]
     @addr(normal(intercept, 0.5), :intercept)
 end
 
-@staticgen function inlier_std_proposal(prev)
+@gen (static) function inlier_std_proposal(prev)
     log_inlier_std = get_assmt(prev)[:log_inlier_std]
     @addr(normal(log_inlier_std, 0.5), :log_inlier_std)
 end
 
-@staticgen function outlier_std_proposal(prev)
+@gen (static) function outlier_std_proposal(prev)
     log_outlier_std = get_assmt(prev)[:log_outlier_std]
     @addr(normal(log_outlier_std, 0.5), :log_outlier_std)
 end
 
-@staticgen function flip_z(z::Bool)
+@gen (static) function flip_z(z::Bool)
     @addr(bernoulli(z ? 0.0 : 1.0), :z)
 end
 
-@staticgen function is_outlier_proposal(prev, i::Int)
+@gen (static) function is_outlier_proposal(prev, i::Int)
     prev_z::Bool = get_assmt(prev)[:data => i => :z]
     @addr(bernoulli(prev_z ? 0.0 : 1.0), :data => i => :z)
 end

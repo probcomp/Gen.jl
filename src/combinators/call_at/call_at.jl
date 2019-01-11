@@ -44,6 +44,10 @@ function call_at(kernel::GenerativeFunction{T,U}, ::Type{K}) where {T,U,K}
     CallAtCombinator{T,U,K}(kernel)
 end
 
+function accepts_output_grad(gen_fn::CallAtCombinator)
+    accepts_output_grad(gen_fn.kernel)
+end
+
 function assess(gen_fn::CallAtCombinator, args::Tuple, assmt::Assignment)
     key = args[end]
     kernel_args = args[1:end-1]

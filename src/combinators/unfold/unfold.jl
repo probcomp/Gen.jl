@@ -11,10 +11,11 @@ end
 export Unfold
 
 function has_argument_grads(gen_fn::Unfold)
-    # TODO checkme
-    # (length, prev_state, params...)
     (false, has_argument_grads(gen_fn.kernel)[2:end]...)
 end
+
+# TODO
+accepts_output_grad(gen_fn::Unfold) = false
 
 struct UnfoldCustomArgDiff
     init_changed::Bool

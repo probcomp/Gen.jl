@@ -15,7 +15,6 @@ struct JuliaNode <: RegularNode
     inputs::Vector{RegularNode}
     name::Symbol
     typ::Type
-    grad_fn::Function
 end
 
 struct RandomChoiceNode <: RegularNode
@@ -163,34 +162,19 @@ function add_argument_node!(builder::StaticIRBuilder;
     node
 end
 
-import ReverseDiff
-
-function make_grad(fn::Function)
-    function (value_grad, value, args::Tuple)
-        tape = ReverseDiff.InstructionTape()
-        maybe_tracked_args = map((arg) -> ReverseDiff.track(arg, tape), args)
-        maybe_tracked_value = fn(maybe_tracked_args...)
-        ReverseDiff.deriv!(maybe_tracked_value, value_grad)
-        ReverseDiff.reverse_pass!(tape)
-        map((mt) -> ReverseDiff.istracked(mt) ? ReverseDiff.deriv(mt) : nothing, maybe_tracked_args)
-    end
-end
-
 function add_julia_node!(builder::StaticIRBuilder, fn::Function;
                          inputs::Vector=[],
-                         name::Symbol=gensym(), typ::Type=Any,
-                         grad_fn::Function=make_grad(fn))
+                         name::Symbol=gensym(), typ::Type=Any)
     check_unique_var(builder, name)
     check_inputs_exist(builder, inputs)
-    node = JuliaNode(fn, inputs, name, typ, grad_fn)
+    node = JuliaNode(fn, inputs, name, typ)
     _add_node!(builder, node)
     node
 end
 
 function add_constant_node!(builder::StaticIRBuilder, val::T, name::Symbol=gensym()) where {T}
     check_unique_var(builder, name)
-    grad_fn = (val_grad, val) -> ()
-    node = JuliaNode(() -> val, [], name, T, grad_fn)
+    node = JuliaNode(() -> val, [], name, T)
     _add_node!(builder, node)
     node
 end

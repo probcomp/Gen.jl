@@ -10,7 +10,7 @@ makedocs(
         "Tutorials" => "tutorials.md",
         "Guide" => "guide.md",
         "Reference" => [
-            "Modeling Languages" => "ref/modeling.md",
+            "Built-in Modeling Language" => "ref/modeling.md",
             "Generative Function Combinators" => "ref/combinators.md",
             "Assignments" => "ref/assignments.md",
             "Selections" => "ref/selections.md",

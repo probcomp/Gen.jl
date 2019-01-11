@@ -62,9 +62,26 @@ get_return_type(::GenerativeFunction{T,U}) where {T,U} = T
 get_trace_type(::GenerativeFunction{T,U}) where {T,U} = U
 
 """
-Returns a tuple of booleans indicating whether a gradient is available, for each argument
+    bools::Tuple = has_argument_grads(gen_fn::GenerativeFunction)
+
+Return a tuple of booleans indicating whether a gradient is available for each of its arguments.
 """
 function has_argument_grads end
+
+"""
+    req::Bool = accepts_output_grad(gen_fn::GenerativeFunction)
+
+Return a boolean indicating whether the return value is dependent on any of the *gradient source elements* for any trace.
+
+The gradient source elements are:
+
+- Any argument whose position is true in `has_argument_grads`
+
+- Any static parameter
+
+- Random choices made at a set of addresses that are selectable by `backprop_trace`.
+"""
+function accepts_output_grad end
 
 
 """
@@ -371,6 +388,8 @@ function backprop_trace(trace, selection::AddressSet, retgrad)
 end
 
 export GenerativeFunction
+export has_argument_grads
+export accepts_output_grad
 export initialize
 export project
 export propose

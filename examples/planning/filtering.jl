@@ -76,7 +76,7 @@ end
 
 lightweight_hmm_with_markov = Unfold(lightweight_hmm_kernel)
 
-@staticgen function static_hmm_kernel(t::Int, prev_state::KernelState, params::KernelParams)
+@gen (static) function static_hmm_kernel(t::Int, prev_state::KernelState, params::KernelParams)
     # NOTE: if t = 1 then prev_state will have all NaNs
     dist::Float64 = @addr(normal(dist_mean(prev_state, params, t), params.dist_slack), :dist)
     loc::Point = walk_path(params.path, params.distances_from_start, dist)
@@ -172,7 +172,7 @@ end
 
 lightweight_markov_fancy_proposal = at_dynamic(markov_fancy_proposal_inner, Int)
 
-@staticgen function static_markov_fancy_proposal_inner(dt::Float64, prev_dist::Float64, noise :: Float64, obs :: Point,
+@gen (static) function static_markov_fancy_proposal_inner(dt::Float64, prev_dist::Float64, noise :: Float64, obs :: Point,
                                         posterior_var_d :: Float64, posterior_covars :: Vector{Matrix{Float64}},
                                         path :: Path, distances_from_start :: Vector{Float64},
                                         speed::Float64, dist_slack::Float64)

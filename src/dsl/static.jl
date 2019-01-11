@@ -10,55 +10,6 @@ function static_dsl_syntax_error(expr)
     error("Syntax error when parsing static DSL function at $expr")
 end
 
-function parse_arg_expr(arg_expr::Symbol)
-    arg_name = arg_expr
-    typ = QuoteNode(Any)
-    (arg_name, typ, false)
-end
-
-function parse_arg_expr(arg_expr::Expr)
-    local arg_name::Symbol
-    if arg_expr.head == :(::)
-        @assert length(arg_expr.args) <= 2
-        if length(arg_expr.args) == 1
-            arg_name = gensym()
-            typ = arg_expr.args[1]
-        elseif length(arg_expr.args) == 2
-            if !isa(arg_expr.args[1], Symbol)
-                static_dsl_syntax_error(arg_expr.args[1])
-            end
-            arg_name = arg_expr.args[1]
-            typ = arg_expr.args[2]
-        end
-        (arg_name, typ, false)
-    elseif arg_expr.head == :macrocall && arg_expr.args[1] == STATIC_DSL_GRAD
-        @assert isa(arg_expr.args[2], LineNumberNode)
-        (arg_name, typ, _) = parse_arg_expr(arg_expr.args[3])
-        (arg_name, typ, true)
-    else
-        static_dsl_syntax_error(arg_expr)
-    end
-end
-
-function parse_static_dsl_function_signature!(stmts::Vector{Expr},
-                                              bindings::Dict{Symbol,Symbol},
-                                              expr)
-    if (!isa(expr, Expr) || expr.head != :call
-        || length(expr.args) < 1 || !isa(expr.args[1], Symbol))
-        static_dsl_syntax_error(expr)
-    end
-    name = expr.args[1]
-    for arg_expr in expr.args[2:end]
-        (arg_name, typ, compute_grad) = parse_arg_expr(arg_expr)
-        node = gensym()
-        push!(stmts, :($(esc(node)) = add_argument_node!(
-            builder, name=$(QuoteNode(arg_name)), typ=$(esc(typ)),
-            compute_grad=$(QuoteNode(compute_grad)))))
-        bindings[arg_name] = node 
-    end
-    name
-end
-
 function parse_lhs(lhs)
     if isa(lhs, Symbol)
         name = lhs
@@ -186,7 +137,7 @@ function parse_addr_expr!(stmts, bindings, name, typ, addr_expr)
         @assert length(keys) > 1
         addr = keys[1].value
         for key in keys[2:end]
-            push!(stmts, :($(esc(gen_fn_or_dist))= choice_or_call_at($(esc(gen_fn_or_dist)), $(QuoteNode(Any)))))
+            push!(stmts, :($(esc(gen_fn_or_dist)) = choice_or_call_at($(esc(gen_fn_or_dist)), $(QuoteNode(Any)))))
         end
         args = (call.args[2:end]..., reverse(keys[2:end])...)
     end
@@ -376,25 +327,21 @@ function parse_static_dsl_function_body!(stmts::Vector{Expr},
     end
 end
 
-macro staticgen(ast)
-
-    # parse the signature
-    if !isa(ast, Expr) || ast.head != :function || length(ast.args) != 2
-        static_dsl_syntax_error(ast)
-    end
-    signature_expr = ast.args[1]
-    body_expr = ast.args[2]
-
+function make_static_gen_function(name, args, body, return_type, annotations)
     # generate code that builds the IR, then generates code from it and evaluates it
     stmts = Expr[]
     push!(stmts, :(bindings = Dict{Symbol, StaticIRNode}()))
     push!(stmts, :(builder = StaticIRBuilder())) # NOTE: we are relying on the gensym
     bindings = Dict{Symbol,Symbol}() # map from variable name to node name
-    name = parse_static_dsl_function_signature!(stmts, bindings, signature_expr)
-    parse_static_dsl_function_body!(stmts, bindings, body_expr)
+    for arg in args
+        node = gensym()
+        push!(stmts, :($(esc(node)) = add_argument_node!(
+            builder, name=$(QuoteNode(arg.name)), typ=$(esc(arg.typ)),
+            compute_grad=$(QuoteNode(DSL_ARG_GRAD_ANNOTATION in arg.annotations)))))
+        bindings[arg.name] = node 
+    end
+    parse_static_dsl_function_body!(stmts, bindings, body)
     push!(stmts, :(ir = build_ir(builder)))
     push!(stmts, :($(esc(name)) = eval(generate_generative_function(ir, $(QuoteNode(name))))))
     Expr(:block, stmts...)
 end
-
-export @staticgen
