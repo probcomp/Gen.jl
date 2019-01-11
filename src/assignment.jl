@@ -48,7 +48,7 @@ function has_value end
 """
     key_subassmt_iterable = get_values_shallow(assmt::Assignment)
 
-Return an iterable collection of tuples `(key, subassmt::Assignment)` for each
+Return an iterable collection of tuples `(key, value)` for each
 top-level key associated with a value.
 """
 function get_values_shallow end
@@ -58,7 +58,7 @@ abstract type Assignment end
 """
     Base.isempty(assmt::Assignment)
 
-Return true if there are no random choices in the assignment.
+Return true if there are no values in the assignment.
 """
 function Base.isempty(::Assignment)
     true
@@ -232,17 +232,21 @@ function Base.merge(assmt1::Assignment, assmt2::Assignment)
     return assmt
 end
 
-#"""
-    #Base.values(assmt::Assignment)
-#
-#Return an iterator over all values in an assignment (the addresses are not
-#included).
-#"""
-#function Base.values(assmt::Assignment)
-    #iterators::Vector = collect(map(values, get_subassmts_shallow(assmt)))
-    #push!(iterators, values(get_values_shallow(assmt)))
-    #Iterators.flatten(iterators)
-#end
+"""
+    addrs::AddressSet = address_set(assmt::Assignment)
+
+Return an `AddressSet` containing the addresses of values in the given assignment.
+"""
+function address_set(assmt::Assignment)
+    set = DynamicAddressSet()
+    for (key, _) in get_values_shallow(assmt)
+        push_leaf_node!(set, key)
+    end
+    for (key, subassmt) in get_subassmts_shallow(assmt)
+        set_internal_node!(set, key, address_set(subassmt))
+    end
+    set
+end
 
 export Assignment
 export get_address_schema
@@ -254,6 +258,7 @@ export get_values_shallow
 export static_get_value
 export static_get_subassmt
 export to_array, from_array
+export address_set
 
 
 ######################
