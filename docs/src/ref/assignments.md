@@ -14,6 +14,7 @@ get_values_shallow
 get_subassmts_shallow
 to_array
 from_array
+address_set
 ```
 Note that none of these methods mutate the assignment.
 
@@ -34,6 +35,11 @@ assmt = DynamicAssignment()
 assmt[:x] = true
 assmt["foo"] = 1.25
 assmt[:y => 1 => :z] = -6.3
+```
+
+There is also a constructor for `DynamicAssignment` that takes initial (address, value) pairs:
+```julia
+assmt = DynamicAssignment((:x, true), ("foo", 1.25), (:y => 1 => :z, -6.3))
 ```
 
 ```@docs

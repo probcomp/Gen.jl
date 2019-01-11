@@ -272,3 +272,26 @@ end
     try set_subassmt!(assmt, :x => :y, subassmt) catch KeyError threw = true end
     @test threw
 end
+
+@testset "address_set" begin
+
+    assmt = DynamicAssignment()
+    assmt[:x] = 1
+    assmt[:y => :a] = 2
+    assmt[:y => :b] = 3
+    assmt[:y => :c => :z] = 4
+
+    set = address_set(assmt)
+    @test has_leaf_node(set, :x)
+    @test has_leaf_node(set, :y => :a)
+    @test has_leaf_node(set, :y => :b)
+    @test has_leaf_node(set, :y => :c => :z)
+end
+
+@testset "dynamic assignment constructor" begin
+
+    assmt = DynamicAssignment((:x, 1), (:y => :a, 2), (:y => :b, 3))
+    @test assmt[:x] == 1
+    @test assmt[:y => :a] == 2
+    @test assmt[:y => :b] == 3
+end
