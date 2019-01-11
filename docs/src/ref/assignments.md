@@ -37,6 +37,11 @@ assmt["foo"] = 1.25
 assmt[:y => 1 => :z] = -6.3
 ```
 
+There is also a constructor for `DynamicAssignment` that takes initial (address, value) pairs:
+```julia
+assmt = DynamicAssignment((:x, true), ("foo", 1.25), (:y => 1 => :z, -6.3))
+```
+
 ```@docs
 DynamicAssignment
 set_value!

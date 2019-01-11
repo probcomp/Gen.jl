@@ -520,10 +520,22 @@ end
 """
     assmt = DynamicAssignment()
 
-Construct an empty dynamic assignment.
+Construct an empty assignment.
+
+    assmt = DynamicAssignment(pairs...)
+
+Construct an assignment containing each of the given (addr, value) pair.
 """
 function DynamicAssignment()
     DynamicAssignment(Dict(), Dict())
+end
+
+function DynamicAssignment(pairs...)
+    assmt = DynamicAssignment()
+    for (addr, value) in pairs
+        assmt[addr] = value
+    end
+    assmt
 end
 
 get_address_schema(::Type{DynamicAssignment}) = DynamicAddressSchema()
