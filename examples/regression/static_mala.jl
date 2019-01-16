@@ -29,8 +29,8 @@ function do_inference(xs, ys, num_iters)
     
     scores = Vector{Float64}(undef, num_iters)
     for i=1:num_iters
-        (trace, _) = mala(trace, line_selection, 0.0001)
-        (trace, _) = mala(trace, std_selection, 0.0001)
+        (trace, _) = mala(trace, line_selection, 0.001)
+        (trace, _) = mala(trace, std_selection, 0.001)
     
         # step on the outliers
         for j=1:length(xs)
@@ -53,4 +53,4 @@ end
 
 (xs, ys) = make_data_set(200)
 do_inference(xs, ys, 10)
-@time scores = do_inference(xs, ys, 1000)
+@time scores = do_inference(xs, ys, 100)
