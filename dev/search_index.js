@@ -13,7 +13,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Home",
     "title": "Gen",
     "category": "section",
-    "text": "A General-Purpose Probabilistic Programming System with Programmable InferencePages = [\n    \"getting_started.md\",\n    \"tutorials.md\",\n    \"guide.md\",\n]\nDepth = 2ReferencePages = [\n    \"ref/modeling.md\",\n    \"ref/combinators.md\",\n    \"ref/assignments.md\",\n    \"ref/selections.md\",\n    \"ref/inference.md\",\n    \"ref/gfi.md\",\n    \"ref/distributions.md\"\n]\nDepth = 2"
+    "text": "A General-Purpose Probabilistic Programming System with Programmable InferencePages = [\n    \"getting_started.md\",\n    \"tutorials.md\",\n    \"guide.md\",\n]\nDepth = 2ReferencePages = [\n    \"ref/modeling.md\",\n    \"ref/combinators.md\",\n    \"ref/assignments.md\",\n    \"ref/selections.md\",\n    \"ref/parameter_optimization.md\",\n    \"ref/inference.md\",\n    \"ref/gfi.md\",\n    \"ref/distributions.md\"\n]\nDepth = 2"
 },
 
 {
@@ -593,6 +593,54 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "ref/parameter_optimization/#",
+    "page": "Optimizing Static Parameters",
+    "title": "Optimizing Static Parameters",
+    "category": "page",
+    "text": ""
+},
+
+{
+    "location": "ref/parameter_optimization/#Gen.GradientDescent",
+    "page": "Optimizing Static Parameters",
+    "title": "Gen.GradientDescent",
+    "category": "type",
+    "text": "conf = GradientDescent(step_size_init, step_size_beta)\n\nConfiguration for stochastic gradient descent update with step size given by (t::Int) -> step_size_init * (step_size_beta + 1) / (step_size_beta + t) where t is the iteration number.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/parameter_optimization/#Gen.ADAM",
+    "page": "Optimizing Static Parameters",
+    "title": "Gen.ADAM",
+    "category": "type",
+    "text": "conf = ADAM(learning_rate, beta1, beta2)\n\nConfiguration for ADAM update.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/parameter_optimization/#Gen.ParamUpdate",
+    "page": "Optimizing Static Parameters",
+    "title": "Gen.ParamUpdate",
+    "category": "type",
+    "text": "update = ParamUpdate(conf, param_lists...)\n\nReturn an update configured by conf that applies to set of parameters defined by param_lists.\n\nEach element in param_lists value is is pair of a generative function and a vector of its parameter references.\n\nExample. To construct an update that applies a gradient descent update to the parameters :a and :b of generative function foo and the parameter :theta of generative function :bar:\n\nupdate = ParamUpdate(GradientDescent(0.001, 100), foo => [:a, :b], bar => [:theta])\n\n\n\nupdate = ParamUpdate(conf, gen_fn::GenerativeFunction)\n\nReturn an update configured by conf that applies to all trainable parameters owned by the given generative function.\n\nNote that trainable parameters not owned by the given generative function will not be updated, even if they are used during execution of the function. This is syntactic sugar for the constructor form above.\n\nExample. If generative function foo has parameters :a and :b, to construct an update that applies a gradient descent update to the parameters :a and :b:\n\nupdate = ParamUpdate(GradientDescent(0.001, 100), foo)\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/parameter_optimization/#Gen.apply!",
+    "page": "Optimizing Static Parameters",
+    "title": "Gen.apply!",
+    "category": "function",
+    "text": "apply!(update::ParamUpdate)\n\nPerform one step of the update.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/parameter_optimization/#Optimizing-Static-Parameters-1",
+    "page": "Optimizing Static Parameters",
+    "title": "Optimizing Static Parameters",
+    "category": "section",
+    "text": "Gradient-based optimization of the static parameters of generative functions is based on interleaving (1) accumulation of gradients with respect to static parameters using backprop_params with (2) updates to the static parameters that read from the gradients, mutate the value of the static parameters, and reset the gradients to zero.Gen has built-in support for the following configuration types of updates:GradientDescent\nADAMParameter updates are constructed by combining a configuration value with the set of static parameters that it should be applied to:ParamUpdateFinally, an update is applied with:apply!"
+},
+
+{
     "location": "ref/inference/#",
     "page": "Inference Library",
     "title": "Inference Library",
@@ -717,7 +765,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Inference Library",
     "title": "Gen.train!",
     "category": "function",
-    "text": "train!(gen_fn::GenerativeFunction, data_generator::Function, conf, param_lists,\n       num_epoch, epoch_size, num_minibatch, minibatch_size; verbose::Bool=false)\n\nTrain the given generative function to maximize the expected conditional log probability (density) that gen_fn generates the assignment constraints given inputs, where the expectation is taken under the output distribution of data_generator.\n\nThe function data_generator is a function of no arguments that returns a tuple (inputs, constraints) where inputs is a Tuple of inputs (arguments) to gen_fn, and constraints is an Assignment. conf configures the optimization algorithm used. param_lists is a map from generative function to lists of its parameters. This is equivalent to minimizing the expected KL divergence from the conditional distribution constraints | inputs of the data generator to the distribution represented by the generative function, where the expectation is taken under the marginal distribution on inputs determined by the data generator.\n\n\n\n\n\n"
+    "text": "train!(gen_fn::GenerativeFunction, data_generator::Function,\n       update::ParamUpdate,\n       num_epoch, epoch_size, num_minibatch, minibatch_size; verbose::Bool=false)\n\nTrain the given generative function to maximize the expected conditional log probability (density) that gen_fn generates the assignment constraints given inputs, where the expectation is taken under the output distribution of data_generator.\n\nThe function data_generator is a function of no arguments that returns a tuple (inputs, constraints) where inputs is a Tuple of inputs (arguments) to gen_fn, and constraints is an Assignment. conf configures the optimization algorithm used. param_lists is a map from generative function to lists of its parameters. This is equivalent to minimizing the expected KL divergence from the conditional distribution constraints | inputs of the data generator to the distribution represented by the generative function, where the expectation is taken under the marginal distribution on inputs determined by the data generator.\n\n\n\n\n\n"
 },
 
 {
@@ -733,7 +781,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Inference Library",
     "title": "Gen.black_box_vi!",
     "category": "function",
-    "text": "black_box_vi!(model::GenerativeFunction, args::Tuple,\n              observations::Assignment,\n              proposal::GenerativeFunction, proposal_args::Tuple,\n              opt::Optimizer;\n              iters=1000, samples_per_iter=100, verbose=false)\n\nFit the parameters of a generative function (proposal) to the posterior distribution implied by the given model and observations using stochastic gradient methods.\n\n\n\n\n\n"
+    "text": "black_box_vi!(model::GenerativeFunction, args::Tuple,\n              observations::Assignment,\n              proposal::GenerativeFunction, proposal_args::Tuple,\n              update::ParamUpdate;\n              iters=1000, samples_per_iter=100, verbose=false)\n\nFit the parameters of a generative function (proposal) to the posterior distribution implied by the given model and observations using stochastic gradient methods.\n\n\n\n\n\n"
 },
 
 {
@@ -1062,6 +1110,38 @@ var documenterSearchIndex = {"docs": [
     "title": "Defining New Distributions",
     "category": "section",
     "text": "Probability distributions are singleton types whose supertype is Distribution{T}, where T indicates the data type of the random sample.abstract type Distribution{T} endBy convention, distributions have a global constant lower-case name for the singleton value. For example:struct Bernoulli <: Distribution{Bool} end\nconst bernoulli = Bernoulli()Distributions must implement two methods, random and logpdf.random returns a random sample from the distribution:x::Bool = random(bernoulli, 0.5)\nx::Bool = random(Bernoulli(), 0.5)logpdf returns the log probability (density) of the distribution at a given value:logpdf(bernoulli, false, 0.5)\nlogpdf(Bernoulli(), false, 0.5)Distribution values are also callable, which is a syntactic sugar with the same behavior of calling random:bernoulli(0.5) # identical to random(bernoulli, 0.5) and random(Bernoulli(), 0.5)"
+},
+
+{
+    "location": "ref/internals/parameter_optimization/#",
+    "page": "Optimizing Static Parameters",
+    "title": "Optimizing Static Parameters",
+    "category": "page",
+    "text": ""
+},
+
+{
+    "location": "ref/internals/parameter_optimization/#Gen.init",
+    "page": "Optimizing Static Parameters",
+    "title": "Gen.init",
+    "category": "function",
+    "text": "state = init(conf, gen_fn::GenerativeFunction, param_list::Vector)\n\nGet the initial state for a parameter update to the given parameters of the given generative function.\n\nparam_list is a vector of references to parameters of gen_fn. conf configures the update.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/internals/parameter_optimization/#Gen.apply_update!",
+    "page": "Optimizing Static Parameters",
+    "title": "Gen.apply_update!",
+    "category": "function",
+    "text": "apply_update!(state)\n\nApply one parameter update, mutating the values of the static parameters, and possibly also the given state.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/internals/parameter_optimization/#Optimizing-Static-Parameters-1",
+    "page": "Optimizing Static Parameters",
+    "title": "Optimizing Static Parameters",
+    "category": "section",
+    "text": "To add support for a new type of gradient-based parameter update, create a new type with the following methods deifned for the types of generative functions that are to be supported.Gen.init\nGen.apply_update!"
 },
 
 ]}
