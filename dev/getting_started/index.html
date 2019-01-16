@@ -20,12 +20,12 @@ end</code></pre><p>Second, we write an <em>inference program</em> that implement
     (trace, _) = initialize(my_model, (xs,), constraints)
     
     # Iteratively update the slope then the intercept,
-    # using Gen&#39;s default_mh operator.
+    # using Gen&#39;s metropolis_hastings operator.
     slope_selection = select(:slope)
     intercept_selection = select(:intercept)
     for iter=1:num_iters
-        (trace, _) = default_mh(trace, slope_selection)
-        (trace, _) = default_mh(trace, intercept_selection)
+        (trace, _) = metropolis_hastings(trace, slope_selection)
+        (trace, _) = metropolis_hastings(trace, intercept_selection)
     end
     
     # From the final trace, read out the slope and
@@ -44,6 +44,6 @@ viz = Viz(server, joinpath(@__DIR__, &quot;vue/dist&quot;), Dict(&quot;xs&quot; 
 # Open the visualization in a browser
 openInBrowser(viz)</code></pre><p>The <code>&quot;vue/dist&quot;</code> is a path to a custom <em>trace renderer</em> that draws the (x, y) points and the line represented by a trace; see the GenViz documentation for more details. The code for the renderer is <a href="https://github.com/probcomp/gen-examples/blob/master/quickstart/vue/src/components/Trace.vue">here</a>.</p><ol><li>It passes the visualization object into the inference program.</li></ol><pre><code class="language-julia">(slope, intercept) = my_inference_program(xs, ys, 1000000, viz)</code></pre><ol><li>In the inference program, it puts the current trace into the visualization at each iteration:</li></ol><pre><code class="language-julia">for iter=1:num_iters
     putTrace!(viz, 1, trace_to_dict(trace))
-    (trace, _) = default_mh(trace, slope_selection)
-    (trace, _) = default_mh(trace, intercept_selection)
+    (trace, _) = metropolis_hastings(trace, slope_selection)
+    (trace, _) = metropolis_hastings(trace, intercept_selection)
 end</code></pre><footer><hr/><a class="previous" href="../"><span class="direction">Previous</span><span class="title">Home</span></a><a class="next" href="../tutorials/"><span class="direction">Next</span><span class="title">Tutorials</span></a></footer></article></body></html>
