@@ -28,7 +28,12 @@ particle_filter_default
 particle_filter_custom
 ```
 
-## Training Generative Functions
+## Supervised Training
 ```@docs
-sgd_train_batch
+train!
+```
+
+## Variational Inference
+```@docs
+black_box_vi!
 ```
