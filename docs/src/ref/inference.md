@@ -9,10 +9,8 @@ importance_resampling
 ## Markov Chain Monte Carlo
 The following inference library methods take a trace and return a new trace.
 ```@docs
-default_mh
-simple_mh
-custom_mh
-general_mh
+metropolis_hastings
+mh
 mala
 hmc
 ```

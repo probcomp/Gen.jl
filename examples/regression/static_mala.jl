@@ -34,7 +34,7 @@ function do_inference(xs, ys, num_iters)
     
         # step on the outliers
         for j=1:length(xs)
-            (trace, _) = custom_mh(trace, is_outlier_proposal, (j,))
+            (trace, _) = metropolis_hastings(trace, is_outlier_proposal, (j,))
         end
     
         score = get_score(trace)

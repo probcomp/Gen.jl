@@ -36,7 +36,7 @@ function do_inference(xs, ys, num_iters)
     
         # gibbs step on the outliers
         for j=1:length(xs)
-            (trace, _) = custom_mh(trace, gibbs_proposal, (j,))
+            (trace, _) = metropolis_hastings(trace, gibbs_proposal, (j,))
         end
     
         score = get_score(trace)

@@ -43,15 +43,15 @@ function do_inference(xs, ys, num_iters)
 
         # steps on the parameters
         for j=1:5
-            (trace, _) = custom_mh(trace, slope_proposal, ())
-            (trace, _) = custom_mh(trace, intercept_proposal, ())
-            (trace, _) = custom_mh(trace, inlier_std_proposal, ())
-            (trace, _) = custom_mh(trace, outlier_std_proposal, ())
+            (trace, _) = metropolis_hastings(trace, slope_proposal, ())
+            (trace, _) = metropolis_hastings(trace, intercept_proposal, ())
+            (trace, _) = metropolis_hastings(trace, inlier_std_proposal, ())
+            (trace, _) = metropolis_hastings(trace, outlier_std_proposal, ())
         end
 
         # step on the outliers
         for j=1:length(xs)
-            (trace, _) = custom_mh(trace, is_outlier_proposal, (j,))
+            (trace, _) = metropolis_hastings(trace, is_outlier_proposal, (j,))
         end
 
         score = get_score(trace)

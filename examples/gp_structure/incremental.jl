@@ -257,10 +257,10 @@ function inference(xs::Vector{Float64}, ys::Vector{Float64}, num_iters::Int, cal
         #root = pick_random_node(covariance_fn, 1, max_branch)
 
         # do MH move on the subtree
-        (trace, _) = general_mh(trace, subtree_proposal, (), subtree_involution)
+        (trace, _) = metropolis_hastings(trace, subtree_proposal, (), subtree_involution)
         
         # do MH move on the top-level white noise
-        (trace, _) = custom_mh(trace, noise_proposal, ())
+        (trace, _) = metropolis_hastings(trace, noise_proposal, ())
     end
     return (covariance_fn, noise)
 end
