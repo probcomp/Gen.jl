@@ -208,7 +208,7 @@ function rate_involution(trace, fwd_assmt::Assignment, fwd_ret, proposal_args::T
     (new_trace, bwd_assmt, weight)
 end
 
-rate_move(trace) = general_mh(trace, rate_proposal, (), rate_involution)
+rate_move(trace) = metropolis_hastings(trace, rate_proposal, (), rate_involution)
 
 
 #################
@@ -245,7 +245,7 @@ function position_involution(trace, fwd_assmt::Assignment, fwd_ret, proposal_arg
     (new_trace, bwd_assmt, weight)
 end
 
-position_move(trace) = general_mh(trace, position_proposal, (), position_involution)
+position_move(trace) = metropolis_hastings(trace, position_proposal, (), position_involution)
 
 
 ######################
@@ -408,7 +408,7 @@ function birth_death_involution(trace, fwd_assmt::Assignment, fwd_ret, proposal_
     (new_trace, bwd_assmt, weight + log(abs(det(J))))
 end
 
-birth_death_move(trace) = general_mh(trace, birth_death_proposal, (), birth_death_involution)
+birth_death_move(trace) = metropolis_hastings(trace, birth_death_proposal, (), birth_death_involution)
 
 function mcmc_step(trace)
     k = get_assmt(trace)[K]
@@ -426,7 +426,7 @@ function simple_mcmc_step(trace)
     if k > 0
         (trace, _) = position_move(trace)
     end
-    (trace, _) = default_mh(trace, k_selection)
+    (trace, _) = metropolis_hastings(trace, k_selection)
     trace
 end
 

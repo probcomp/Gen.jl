@@ -149,8 +149,8 @@ function do_inference(encoded_text::AbstractString, num_iter::Int)
         end
 
         for replica=1:num_replicas
-            (trace, _) = general_mh(trace, swap_proposal, (replica,), swap_involution)
-            (trace, _) = general_mh(trace, exchange_proposal, (replica,), exchange_involution)
+            (trace, _) = metropolis_hastings(trace, swap_proposal, (replica,), swap_involution)
+            (trace, _) = metropolis_hastings(trace, exchange_proposal, (replica,), exchange_involution)
         end
     end
 end

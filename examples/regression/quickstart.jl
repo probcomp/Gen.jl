@@ -17,8 +17,8 @@ function my_inference_program(xs, ys, num_iters)
     slope_selection = select(:slope)
     intercept_selection = select(:intercept)
     for iter=1:num_iters
-        (trace, _) = default_mh(trace, slope_selection)
-        (trace, _) = default_mh(trace, intercept_selection)
+        (trace, _) = metropolis_hastings(trace, slope_selection)
+        (trace, _) = metropolis_hastings(trace, intercept_selection)
     end
     assmt = get_assmt(trace)
     return (assmt[:slope], assmt[:intercept])

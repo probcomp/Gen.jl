@@ -69,9 +69,9 @@ function inference(measurements::Vector{Point}, start::Point, iters::Int)
     (trace, _) = initialize(model, (scene, times[1:t]), constraints)
 
     for iter=1:iters
-        (trace, _) = custom_mh(model, stop_proposal, (), trace)
-        (trace, _) = custom_mh(model, speed_proposal, (), trace)
-        (trace, _) = custom_mh(model, noise_proposal, (), trace)
+        (trace, _) = metropolis_hastings(trace, stop_proposal, ())
+        (trace, _) = metropolis_hastings(trace, speed_proposal, ())
+        (trace, _) = metropolis_hastings(trace, noise_proposal, ())
     end
 
     return trace
