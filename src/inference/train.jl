@@ -1,5 +1,6 @@
 """
-    train!(gen_fn::GenerativeFunction, data_generator::Function, conf, param_lists,
+    train!(gen_fn::GenerativeFunction, data_generator::Function,
+           update::ParamUpdate,
            num_epoch, epoch_size, num_minibatch, minibatch_size; verbose::Bool=false)
 
 Train the given generative function to maximize the expected conditional log probability (density) that `gen_fn` generates the assignment `constraints` given inputs, where the expectation is taken under the output distribution of `data_generator`.
@@ -10,7 +11,7 @@ The function `data_generator` is a function of no arguments that returns a tuple
 This is equivalent to minimizing the expected KL divergence from the conditional distribution `constraints | inputs` of the data generator to the distribution represented by the generative function, where the expectation is taken under the marginal distribution on `inputs` determined by the data generator.
 """
 function train!(gen_fn::GenerativeFunction, data_generator::Function,
-                opt::Optimizer,
+                update::ParamUpdate,
                 num_epoch, epoch_size, num_minibatch, minibatch_size;
                 verbose::Bool=false)
 
@@ -40,7 +41,7 @@ function train!(gen_fn::GenerativeFunction, data_generator::Function,
                 retval_grad = accepts_output_grad(gen_fn) ? zero(get_retval(trace)) : nothing
                 backprop_params(trace, retval_grad)
             end
-            apply_update!(opt)
+            apply!(update)
         end
 
         # evaluate score on held out data

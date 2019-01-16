@@ -18,6 +18,7 @@ Pages = [
     "ref/combinators.md",
     "ref/assignments.md",
     "ref/selections.md",
+    "ref/parameter_optimization.md",
     "ref/inference.md",
     "ref/gfi.md",
     "ref/distributions.md"

@@ -2,7 +2,7 @@
     black_box_vi!(model::GenerativeFunction, args::Tuple,
                   observations::Assignment,
                   proposal::GenerativeFunction, proposal_args::Tuple,
-                  opt::Optimizer;
+                  update::ParamUpdate;
                   iters=1000, samples_per_iter=100, verbose=false)
 
 Fit the parameters of a generative function (`proposal`) to the posterior distribution implied by the given model and observations using stochastic gradient methods.
@@ -10,7 +10,7 @@ Fit the parameters of a generative function (`proposal`) to the posterior distri
 function black_box_vi!(model::GenerativeFunction, args::Tuple,
                        observations::Assignment,
                        proposal::GenerativeFunction, proposal_args::Tuple,
-                       opt::Optimizer;
+                       update::ParamUpdate;
                        iters=1000, samples_per_iter=100, verbose=false)
     for iter=1:iters
         for sample=1:samples_per_iter
@@ -30,7 +30,7 @@ function black_box_vi!(model::GenerativeFunction, args::Tuple,
         end
 
         # do an update
-        apply_update!(opt)
+        apply!(update)
 
         # evaluate score with different samples
         avg_log_weight = 0.

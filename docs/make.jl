@@ -9,14 +9,18 @@ makedocs(
         "Getting Started" => "getting_started.md",
         "Tutorials" => "tutorials.md",
         "Guide" => "guide.md",
-        "Reference" => [
+        "Language and API Reference" => [
             "Built-in Modeling Language" => "ref/modeling.md",
             "Generative Function Combinators" => "ref/combinators.md",
             "Assignments" => "ref/assignments.md",
             "Selections" => "ref/selections.md",
+            "Optimizing Static Parameters" => "ref/parameter_optimization.md",
             "Inference Library" => "ref/inference.md",
             "Generative Function Interface" => "ref/gfi.md",
-            "Probability Distributions" => "ref/distributions.md"
+            "Probability Distributions" => "ref/distributions.md",
+         ],
+        "Internals" => [
+            "Optimizing Static Parameters" => "ref/internals/parameter_optimization.md"
          ]
     ]
 )

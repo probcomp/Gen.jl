@@ -6,7 +6,7 @@ mutable struct GradientDescentDynamicDSLState
     t::Int
 end
 
-function init(conf::GradientDescentConf, gen_fn::DynamicDSLFunction, param_list::Vector)
+function init(conf::GradientDescent, gen_fn::DynamicDSLFunction, param_list::Vector)
     GradientDescentDynamicDSLState(conf.step_size_init, conf.step_size_beta,
         gen_fn, param_list, 1)
 end

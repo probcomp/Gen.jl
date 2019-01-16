@@ -21,8 +21,8 @@
     init_param!(approx, :intercept_log_std, 0.)
 
     observations = DynamicAssignment()
-    opt = Optimizer(GradientDescentConf(0.001, 100000), approx)
-    black_box_vi!(model, (), observations, approx, (), opt;
+    update = ParamUpdate(GradientDescent(0.001, 100000), approx)
+    black_box_vi!(model, (), observations, approx, (), update;
         iters=500, samples_per_iter=1000, verbose=false)
     slope_mu = get_param(approx, :slope_mu)
     slope_log_std = get_param(approx, :slope_log_std)
