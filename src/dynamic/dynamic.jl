@@ -107,7 +107,7 @@ function init_param!(gf::DynamicDSLFunction, name::Symbol, value)
     zero_param_grad!(gf, name)
 end
 
-get_param_names(gf::DynamicDSLFunction) = keys(gf.params)
+get_params(gf::DynamicDSLFunction) = keys(gf.params)
 
 #########
 # diffs #
@@ -219,9 +219,10 @@ include("fix_update.jl")
 include("free_update.jl")
 include("extend.jl")
 include("backprop.jl")
+include("optimization.jl")
 
 export DynamicDSLFunction
-export set_param!, get_param, get_param_grad, zero_param_grad!, init_param!, get_param_names
+export set_param!, get_param, get_param_grad, zero_param_grad!, init_param!
 export @param
 export @addr
 export @gen

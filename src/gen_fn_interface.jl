@@ -83,6 +83,12 @@ The gradient source elements are:
 """
 function accepts_output_grad end
 
+"""
+    get_params(gen_fn::GenerativeFunction)
+
+Return an iterable over the trainable parameters of the generative function.
+"""
+get_params(::GenerativeFunction) = ()
 
 """
     (trace::U, weight) = initialize(gen_fn::GenerativeFunction{T,U}, args::Tuple,
@@ -332,10 +338,11 @@ function extend(args::Tuple, argdiff, trace, assmt::Assignment)
 end
 
 """
-    arg_grads = backprop_params(trace, retgrad)
+    arg_grads = backprop_params(trace, retgrad, scaler=1.)
 
 Increment gradient accumulators for parameters by the gradient of the
-log-probability of the trace.
+log-probability of the trace, optionally scaled, and return the gradient with
+respect to the arguments (not scaled).
 
 **Basic case**
 
@@ -355,9 +362,11 @@ the function by:
 
 Not yet formalized.
 """
-function backprop_params(trace, retgrad)
+function backprop_params(trace, retgrad, scaler)
     error("Not implemented")
 end
+
+backprop_params(trace, retgrad) = backprop_params(trace, retgrad, 1.)
 
 """
     (arg_grads, choice_values, choice_grads) = backprop_trace(trace, selection::AddressSet,
@@ -390,6 +399,7 @@ end
 export GenerativeFunction
 export has_argument_grads
 export accepts_output_grad
+export get_params
 export initialize
 export project
 export propose
