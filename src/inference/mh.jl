@@ -74,9 +74,9 @@ function metropolis_hastings(trace, proposal::GenerativeFunction,
 end
 
 """
-    (new_trace, accepted) = metropolis_hastings(trace, selection::AddressSet)
-    (new_trace, accepted) = metropolis_hastings(trace, proposal::GenerativeFunction, proposal_args::Tuple)
-    (new_trace, accepted) = metropolis_hastings(trace, proposal::GenerativeFunction, proposal_args::Tuple, involution::Function)
+    (new_trace, accepted) = mh(trace, selection::AddressSet)
+    (new_trace, accepted) = mh(trace, proposal::GenerativeFunction, proposal_args::Tuple)
+    (new_trace, accepted) = mh(trace, proposal::GenerativeFunction, proposal_args::Tuple, involution::Function)
 
 Alias for [`metropolis_hastings`](@ref). Perform a Metropolis-Hastings update on the given trace.
 """
