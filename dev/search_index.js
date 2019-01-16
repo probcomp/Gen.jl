@@ -729,11 +729,35 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "ref/inference/#Training-Generative-Functions-1",
+    "location": "ref/inference/#Gen.train!",
     "page": "Inference Library",
-    "title": "Training Generative Functions",
+    "title": "Gen.train!",
+    "category": "function",
+    "text": "train!(gen_fn::GenerativeFunction, data_generator::Function, conf, param_lists,\n       num_epoch, epoch_size, num_minibatch, minibatch_size; verbose::Bool=false)\n\nTrain the given generative function to maximize the expected conditional log probability (density) that gen_fn generates the assignment constraints given inputs, where the expectation is taken under the output distribution of data_generator.\n\nThe function data_generator is a function of no arguments that returns a tuple (inputs, constraints) where inputs is a Tuple of inputs (arguments) to gen_fn, and constraints is an Assignment. conf configures the optimization algorithm used. param_lists is a map from generative function to lists of its parameters. This is equivalent to minimizing the expected KL divergence from the conditional distribution constraints | inputs of the data generator to the distribution represented by the generative function, where the expectation is taken under the marginal distribution on inputs determined by the data generator.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/inference/#Supervised-Training-1",
+    "page": "Inference Library",
+    "title": "Supervised Training",
     "category": "section",
-    "text": "sgd_train_batch"
+    "text": "train!"
+},
+
+{
+    "location": "ref/inference/#Gen.black_box_vi!",
+    "page": "Inference Library",
+    "title": "Gen.black_box_vi!",
+    "category": "function",
+    "text": "black_box_vi!(model::GenerativeFunction, args::Tuple,\n              observations::Assignment,\n              proposal::GenerativeFunction, proposal_args::Tuple,\n              opt::Optimizer;\n              iters=1000, samples_per_iter=100, verbose=false)\n\nFit the parameters of a generative function (proposal) to the posterior distribution implied by the given model and observations using stochastic gradient methods.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/inference/#Variational-Inference-1",
+    "page": "Inference Library",
+    "title": "Variational Inference",
+    "category": "section",
+    "text": "black_box_vi!"
 },
 
 {
@@ -861,7 +885,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Generative Function Interface",
     "title": "Gen.backprop_params",
     "category": "function",
-    "text": "arg_grads = backprop_params(trace, retgrad)\n\nIncrement gradient accumulators for parameters by the gradient of the log-probability of the trace.\n\nBasic case\n\nGiven a previous trace (x t) (trace) and a gradient with respect to the return value _y J (retgrad), return the following gradient (arg_grads) with respect to the arguments x:\n\n_x left( log P(t x) + J right)\n\nAlso increment the gradient accumulators for the static parameters Θ of the function by:\n\n_Θ left( log P(t x) + J right)\n\nGeneral case\n\nNot yet formalized.\n\n\n\n\n\n"
+    "text": "arg_grads = backprop_params(trace, retgrad, scaler=1.)\n\nIncrement gradient accumulators for parameters by the gradient of the log-probability of the trace, optionally scaled, and return the gradient with respect to the arguments (not scaled).\n\nBasic case\n\nGiven a previous trace (x t) (trace) and a gradient with respect to the return value _y J (retgrad), return the following gradient (arg_grads) with respect to the arguments x:\n\n_x left( log P(t x) + J right)\n\nAlso increment the gradient accumulators for the static parameters Θ of the function by:\n\n_Θ left( log P(t x) + J right)\n\nGeneral case\n\nNot yet formalized.\n\n\n\n\n\n"
 },
 
 {
@@ -913,11 +937,19 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "ref/gfi/#Gen.get_params",
+    "page": "Generative Function Interface",
+    "title": "Gen.get_params",
+    "category": "function",
+    "text": "get_params(gen_fn::GenerativeFunction)\n\nReturn an iterable over the trainable parameters of the generative function.\n\n\n\n\n\n"
+},
+
+{
     "location": "ref/gfi/#Interface-methods-1",
     "page": "Generative Function Interface",
     "title": "Interface methods",
     "category": "section",
-    "text": "has_argument_grads\naccepts_output_grad\ninitialize\nproject\npropose\nassess\nforce_update\nfix_update\nfree_update\nextend\nbackprop_params\nbackprop_trace\nget_assmt\nget_args\nget_retval\nget_score\nget_gen_fn"
+    "text": "has_argument_grads\naccepts_output_grad\ninitialize\nproject\npropose\nassess\nforce_update\nfix_update\nfree_update\nextend\nbackprop_params\nbackprop_trace\nget_assmt\nget_args\nget_retval\nget_score\nget_gen_fn\nget_params"
 },
 
 {
