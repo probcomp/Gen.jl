@@ -32,6 +32,9 @@ module Gen
     # utilities for parsing
     include("dsl_common.jl")
 
+    # optimization of trainable parameters
+    include("optimization.jl")
+
     # dynamic embedded generative function
     include("dynamic/dynamic.jl")
 

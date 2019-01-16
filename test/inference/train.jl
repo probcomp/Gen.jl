@@ -107,12 +107,9 @@
     end
 
     # use stochastic gradient descent
-
-    param_names = [:theta1, :theta2, :theta3, :theta4, :theta5]
-
-    opt = SGDOptimizer(param_names, 2000, 50, 1, 50;
-        step_size_init=0.01, step_size_beta=100000)
-    train!(opt, student, data_generator; verbose=false)
+    opt = Optimizer(GradientDescentConf(0.01, 1000000), student)
+    train!(student, data_generator, opt, 2000, 50, 1, 50;
+        verbose=false)
 
     # p(x | z=0) = p(x | z=1) = 0.5
     @test isapprox(get_param(student, :theta1), 0., atol=0.2)

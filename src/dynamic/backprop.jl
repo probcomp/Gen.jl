@@ -11,6 +11,7 @@ mutable struct GFBackpropParamsState
     score::TrackedReal
     tape::InstructionTape
     visitor::AddressVisitor
+    scaler::Float64
 
     # only those tracked parameters that are in scope (not including splice calls)
     tracked_params::Dict{Symbol,Any}
@@ -27,12 +28,12 @@ function track_params(tape, params)
     tracked_params
 end
 
-function GFBackpropParamsState(trace::DynamicDSLTrace, tape, params)
+function GFBackpropParamsState(trace::DynamicDSLTrace, tape, params, scaler)
     tracked_params = track_params(tape, params)
     splice_tracked_params = Dict{Tuple{GenerativeFunction,Symbol},Any}()
     score = track(0., tape)
-    GFBackpropParamsState(trace, score, tape, AddressVisitor(), tracked_params,
-        splice_tracked_params)
+    GFBackpropParamsState(trace, score, tape, AddressVisitor(), scaler,
+        tracked_params, splice_tracked_params)
 end
 
 function read_param(state::GFBackpropParamsState, name::Symbol)
@@ -54,6 +55,7 @@ end
 struct BackpropParamsRecord
     gen_fn::GenerativeFunction
     subtrace::Any
+    scaler::Float64
 end
 
 function addr(state::GFBackpropParamsState, gen_fn::GenerativeFunction{T},
@@ -70,7 +72,8 @@ function addr(state::GFBackpropParamsState, gen_fn::GenerativeFunction{T},
         @assert !istracked(retval_maybe_tracked)
     end
     record!(state.tape, ReverseDiff.SpecialInstruction,
-        BackpropParamsRecord(gen_fn, subtrace), (args_maybe_tracked...,), retval_maybe_tracked)
+        BackpropParamsRecord(gen_fn, subtrace, state.scaler),
+        (args_maybe_tracked...,), retval_maybe_tracked)
     retval_maybe_tracked 
 end
 
@@ -115,7 +118,7 @@ end
         @assert !istracked(retval_maybe_tracked)
         retval_grad = nothing
     end
-    arg_grads = backprop_params(record.subtrace, retval_grad)
+    arg_grads = backprop_params(record.subtrace, retval_grad, record.scaler)
 
     # if has_argument_grads(gen_fn) is true for a given argument, then that
     # argument may or may not be tracked. if has_argument_grads(gen_fn) is
@@ -133,10 +136,10 @@ end
     nothing
 end
 
-function backprop_params(trace::DynamicDSLTrace, retval_grad)
+function backprop_params(trace::DynamicDSLTrace, retval_grad, scaler=1.)
     gen_fn = trace.gen_fn
     tape = new_tape()
-    state = GFBackpropParamsState(trace, tape, gen_fn.params)
+    state = GFBackpropParamsState(trace, tape, gen_fn.params, scaler)
     args = get_args(trace)
     args_maybe_tracked = (map(maybe_track,
         args, gen_fn.has_argument_grads, fill(tape, length(args)))...,)
@@ -163,12 +166,12 @@ function backprop_params(trace::DynamicDSLTrace, retval_grad)
 
     # increment the gradient accumulators for static parameters in scope
     for (name, tracked) in state.tracked_params
-        gen_fn.params_grad[name] += deriv(tracked)
+        gen_fn.params_grad[name] += deriv(tracked) * state.scaler
     end
 
     # increment the gradient accumulators for static parameters in splice calls
     for ((spliced_gen_fn, name), tracked) in state.splice_tracked_params
-        spliced_gen_fn.params_grad[name] += deriv(tracked)
+        spliced_gen_fn.params_grad[name] += deriv(tracked) * state.scaler
     end
 
     # return gradients with respect to arguments with gradients, or nothing
