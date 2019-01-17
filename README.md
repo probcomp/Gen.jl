@@ -8,13 +8,6 @@ Gen: A General-Purpose Probabilistic Programming System with Programmable Infere
 
 Documentation of the development version: [https://probcomp.github.io/Gen/dev/](https://probcomp.github.io/Gen/dev/)
 
-## Installing
-
-The package can be installed with the Julia package manager. From the Julia REPL, type `]` to enter the Pkg REPL mode and run:
-```
-pkg> add https://github.com/probcomp/Gen
-```
-
 ## Citing Gen
 
 Please cite Gen using the following:
