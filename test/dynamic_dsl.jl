@@ -104,6 +104,39 @@ end
 
     # test retdiff
     @test retdiff === DefaultRetDiff()
+
+    # Addresses under the :data namespace will be visited,
+    # but nothing there will be discarded.
+    @gen function loopy()
+        a = @addr(normal(0, 1), :a)
+        for i=1:5
+            @addr(normal(a, 1), :data => i)
+        end
+    end
+
+    # Get an initial trace
+    constraints = DynamicAssignment()
+    constraints[:a] = 0
+    for i=1:5
+        constraints[:data => i] = 0
+    end
+    (trace,) = initialize(loopy, (), constraints)
+
+    # Update a
+    constraints = DynamicAssignment()
+    constraints[:a] = 1
+    (new_trace, weight, discard, retdiff) = force_update(
+        (), noargdiff, trace, constraints)
+
+    # Test discard, score, weight, retdiff
+    @test get_value(discard, :a) == 0
+    prev_score = logpdf(normal, 0, 0, 1) * 6
+    expected_new_score = logpdf(normal, 1, 0, 1) + 5 * logpdf(normal, 0, 1, 1)
+    expected_weight = expected_new_score - prev_score
+    @test isapprox(expected_new_score, get_score(new_trace))
+    @test isapprox(expected_weight, weight)
+    @test retdiff === DefaultRetDiff()
+
 end
 
 

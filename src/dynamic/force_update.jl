@@ -224,7 +224,7 @@ function add_unvisited_to_discard!(discard::DynamicAssignment,
         elseif has_internal_node(visited, key)
             subvisited = get_internal_node(visited, key)
             subdiscard = get_subassmt(discard, key)
-            add_unvisited_to_discard!(subdiscard, subvisited, subassmt)
+            add_unvisited_to_discard!(isempty(subdiscard) ? DynamicAssignment() : subdiscard, subvisited, subassmt)
             set_subassmt!(discard, key, subdiscard)
         else
             # none of this subassmt was visited, so we discard the whole thing
