@@ -290,8 +290,7 @@ end
 
 @testset "dynamic assignment constructor" begin
 
-    assmt = DynamicAssignment((:x, 1), (:y => :a, 2), (:y => :b, 3))
+    assmt = DynamicAssignment((:x, 1), (:y => :a, 2))
     @test assmt[:x] == 1
     @test assmt[:y => :a] == 2
-    @test assmt[:y => :b] == 3
 end

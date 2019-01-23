@@ -513,6 +513,9 @@ export pair, unpair
 struct DynamicAssignment <: Assignment
     leaf_nodes::Dict{Any,Any}
     internal_nodes::Dict{Any,Any}
+    function DynamicAssignment(leaf_nodes::Dict{Any,Any}, internal_nodes::Dict{Any,Any})
+        new(leaf_nodes, internal_nodes)
+    end
 end
 
 # invariant: all internal nodes are nonempty
@@ -522,7 +525,7 @@ end
 
 Construct an empty assignment.
 
-    assmt = DynamicAssignment(pairs...)
+    assmt = DynamicAssignment(tuples...)
 
 Construct an assignment containing each of the given (addr, value) pair.
 """
@@ -530,9 +533,9 @@ function DynamicAssignment()
     DynamicAssignment(Dict(), Dict())
 end
 
-function DynamicAssignment(pairs...)
+function DynamicAssignment(tuples...)
     assmt = DynamicAssignment()
-    for (addr, value) in pairs
+    for (addr, value) in tuples 
         assmt[addr] = value
     end
     assmt
