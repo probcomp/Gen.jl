@@ -549,7 +549,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Assignments",
     "title": "Gen.DynamicAssignment",
     "category": "type",
-    "text": "assmt = DynamicAssignment()\n\nConstruct an empty assignment.\n\nassmt = DynamicAssignment(pairs...)\n\nConstruct an assignment containing each of the given (addr, value) pair.\n\n\n\n\n\n"
+    "text": "assmt = DynamicAssignment()\n\nConstruct an empty assignment.\n\nassmt = DynamicAssignment(tuples...)\n\nConstruct an assignment containing each of the given (addr, value) pair.\n\n\n\n\n\n"
 },
 
 {
