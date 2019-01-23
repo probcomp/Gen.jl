@@ -15,6 +15,7 @@ function train!(gen_fn::GenerativeFunction, data_generator::Function,
                 num_epoch, epoch_size, num_minibatch, minibatch_size;
                 verbose::Bool=false)
 
+    history = Vector{Float64}(undef, num_epoch)
     for epoch=1:num_epoch
 
         # generate data for epoch
@@ -52,11 +53,14 @@ function train!(gen_fn::GenerativeFunction, data_generator::Function,
             avg_score += weight
         end
         avg_score /= epoch_size
+        
+        history[epoch] = avg_score
 
         if verbose
             println("epoch $epoch avg score: $avg_score")
         end
     end
+    return history
 end
 
 export train!
