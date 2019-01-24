@@ -36,7 +36,8 @@ get_call(trace::DynamicDSLTrace, addr) = trace.calls[addr]
 
 function add_choice!(trace::DynamicDSLTrace, addr, choice::ChoiceRecord)
     if haskey(trace.calls, addr) || haskey(trace.choices, addr)
-        error("Value or subtrace already present at address $addr")
+        error("Value or subtrace already present at address $addr.
+            The same address cannot be reused for multiple random choices.")
     end
     trace.choices[addr] = choice
     trace.score += choice.score
@@ -45,7 +46,8 @@ end
 
 function add_call!(trace::DynamicDSLTrace, addr, subtrace)
     if haskey(trace.calls, addr) || haskey(trace.choices, addr)
-        error("Value or subtrace already present at address $addr")
+        error("Value or subtrace already present at address $addr.
+            The same address cannot be reused for multiple random choices.")
     end
     score = get_score(subtrace)
     noise = project(subtrace, EmptyAddressSet())
