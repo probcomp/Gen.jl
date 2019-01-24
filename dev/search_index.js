@@ -325,7 +325,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Built-in Modeling Language",
     "title": "Built-in Modeling Language",
     "category": "section",
-    "text": "Gen provides a built-in embedded modeling language for defining generative functions. The language uses a syntax that extends Julia\'s syntax for defining regular Julia functions.Generative functions in the modeling language are identified using the @gen keyword in front of a Julia function definition. Here is an example @gen function that samples two random choices:@gen function foo(prob::Float64)\n    z1 = @addr(bernoulli(prob), :a)\n    z2 = @addr(bernoulli(prob), :b)\n    return z1 || z2\nendAfter running this code, foo is a Julia value of type DynamicDSLFunction, which is a subtype of GenerativeFunction. We can call the resulting generative function:retval::Bool = foo(0.5)We can also trace its execution:(trace, _) = initialize(foo, (0.5,))See Generative Function Interface for the full set of operations supported by a generative function. Note that the built-in modeling language described in this section is only one of many ways of defining a generative function – generative functions can also be constructed using other embedded languages, or by directly implementing the methods of the generative function interface. However, the built-in modeling language is intended to being flexible enough cover a wide range of use cases and to use when learning the Gen programming model.In the remainder of this section, we refer to generative functions defined using the embedded modeling language as @gen functions."
+    "text": "Gen provides a built-in embedded modeling language for defining generative functions. The language uses a syntax that extends Julia\'s syntax for defining regular Julia functions.Generative functions in the modeling language are identified using the @gen keyword in front of a Julia function definition. Here is an example @gen function that samples two random choices:@gen function foo(prob::Float64)\n    z1 = @addr(bernoulli(prob), :a)\n    z2 = @addr(bernoulli(prob), :b)\n    return z1 || z2\nendAfter running this code, foo is a Julia value of type DynamicDSLFunction, which is a subtype of GenerativeFunction. We can call the resulting generative function like we would a regular Julia function:retval::Bool = foo(0.5)We can also trace its execution:(trace, _) = initialize(foo, (0.5,))See Generative Function Interface for the full set of operations supported by a generative function. Note that the built-in modeling language described in this section is only one of many ways of defining a generative function – generative functions can also be constructed using other embedded languages, or by directly implementing the methods of the generative function interface. However, the built-in modeling language is intended to being flexible enough cover a wide range of use cases. In the remainder of this section, we refer to generative functions defined using the built-in modeling language as @gen functions."
 },
 
 {
@@ -333,7 +333,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Built-in Modeling Language",
     "title": "Annotations",
     "category": "section",
-    "text": "Annotations are a syntactic construct in the modeling language that allows users to provide additional information about how @gen functions should be interpreted. There are two types of annotations – argument annotations and function annotations.Argument annotations. In addition to type declarations on arguments like regular Julia functions, @gen functions also support additional annotations on arguments. Each argument can have the following different syntactic forms:y: No type declaration; no annotations.\ny::Float64: Type declaration; but no annotations.\n(grad)(y): No type declaration provided;, annotated with grad.\n(grad)(y::Float64): Type declaration provided; and annotated with grad.Currently, the possible argument annotations are:grad (see Differentiable programming).Function annotations. The @gen function itself can also be optionally associated with zero or more annotations, which are separate from the per-argument annotations. Function-level annotations use the following different syntactic forms:@gen function foo(<args>) <body> end: No function annotations.\n@gen (grad) function foo(<args>) <body> end: The function has the grad annotation.\n@gen (grad,static) function foo(<args>) <body> end: The function has both the grad and static annotations.Currently the possible function annotations are:grad (see Differentiable programming).\nstatic (see Static DSL)."
+    "text": "Annotations are a syntactic construct in the built-in modeling language that allows users to provide additional information about how @gen functions should be interpreted. Annotations are optional, and not necessary to understand the basics of Gen. There are two types of annotations – argument annotations and function annotations.Argument annotations. In addition to type declarations on arguments like regular Julia functions, @gen functions also support additional annotations on arguments. Each argument can have the following different syntactic forms:y: No type declaration; no annotations.\ny::Float64: Type declaration; but no annotations.\n(grad)(y): No type declaration provided;, annotated with grad.\n(grad)(y::Float64): Type declaration provided; and annotated with grad.Currently, the possible argument annotations are:grad (see Differentiable programming).Function annotations. The @gen function itself can also be optionally associated with zero or more annotations, which are separate from the per-argument annotations. Function-level annotations use the following different syntactic forms:@gen function foo(<args>) <body> end: No function annotations.\n@gen (grad) function foo(<args>) <body> end: The function has the grad annotation.\n@gen (grad,static) function foo(<args>) <body> end: The function has both the grad and static annotations.Currently the possible function annotations are:grad (see Differentiable programming).\nstatic (see Static DSL)."
 },
 
 {
@@ -341,7 +341,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Built-in Modeling Language",
     "title": "Making random choices",
     "category": "section",
-    "text": "Random choices are made by applying a probability distribution to some arguments:val::Bool = bernoulli(0.5)See Probability Distributions for the set of built-in probability distributions.In the body of a @gen function, wrapping the right-hand side of the expression with an @addr expression associates the random choice with an address, and evaluates to the value of the random choice. The syntax is:@addr(<distribution>(<args>), <addr>)Addresses can be any Julia value. Here, we give the Julia symbol address :z to a Bernoulli random choice.val::Bool = @addr(bernoulli(0.5), :z)Not all random choices need to be given addresses. An address is required if the random choice will be observed, or will be referenced by a custom inference algorithm (e.g. if it will be proposed to by a custom proposal distribution).It is recommended to ensure that the support of a random choice at a given address (the set of values with nonzero probability or probability density) is constant across all possible executions of the @gen function. This discipline will simplify reasoning about the probabilistic behavior of the function, and will help avoid difficult-to-debug NaNs or Infs from appearing. If the support of a random choice needs to change, consider using a different address for each distinct support."
+    "text": "Random choices are made by calling a probability distribution on some arguments:val::Bool = bernoulli(0.5)See Probability Distributions for the set of built-in probability distributions, and for information on implementing new probability distributions.In the body of a @gen function, wrapping a call to a random choice with an @addr expression associates the random choice with an address, and evaluates to the value of the random choice. The syntax is:@addr(<distribution>(<args>), <addr>)Addresses can be any Julia value. Here, we give the Julia symbol address :z to a Bernoulli random choice.val::Bool = @addr(bernoulli(0.5), :z)Not all random choices need to be given addresses. An address is required if the random choice will be observed, or will be referenced by a custom inference algorithm (e.g. if it will be proposed to by a custom proposal distribution).It is recommended to ensure that the support of a random choice at a given address (the set of values with nonzero probability or probability density) is constant across all possible executions of the @gen function. This discipline will simplify reasoning about the probabilistic behavior of the function, and will help avoid difficult-to-debug NaNs or Infs from appearing. If the support of a random choice needs to change, consider using a different address for each distinct support."
 },
 
 {
@@ -349,7 +349,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Built-in Modeling Language",
     "title": "Calling generative functions",
     "category": "section",
-    "text": "@gen functions can invoke other generative functions in three ways:Untraced call: If foo is a generative function, we can invoke foo from within the body of a @gen function using regular call syntax. The random choices made within the call are not given addresses in our trace, and are therefore non-addressable random choices (see Generative Function Interface for details on non-addressable random choices).val = foo(0.5)Traced call with shared address namespace: We can include the addressable random choices made by foo in the caller\'s trace using @splice:val = @splice(foo(0.5))Now, all random choices made by foo are included in our trace. The caller must guarantee that there are no address collisions.Traced call with a nested address namespace: We can include the addressable random choices made by foo in the caller\'s trace, under a namespace, using @addr:val = @addr(foo(0.5), :x)Now, all random choices made by foo are included in our trace, under the namespace :x. For example, if foo makes random choices at addresses :a and :b, these choices will have addresses :x => :a and :x => :b in the caller\'s trace."
+    "text": "@gen functions can invoke other generative functions in three ways:Untraced call: If foo is a generative function, we can invoke foo from within the body of a @gen function using regular call syntax. The random choices made within the call are not given addresses in our trace, and are therefore non-addressable random choices (see Generative Function Interface for details on non-addressable random choices).val = foo(0.5)Traced call with a nested address namespace: We can include the addressable random choices made by foo in the caller\'s trace, under a namespace, using @addr:val = @addr(foo(0.5), :x)Now, all random choices made by foo are included in our trace, under the namespace :x. For example, if foo makes random choices at addresses :a and :b, these choices will have addresses :x => :a and :x => :b in the caller\'s trace.Traced call with shared address namespace: We can include the addressable random choices made by foo in the caller\'s trace using @splice:val = @splice(foo(0.5))Now, all random choices made by foo are included in our trace. The caller must guarantee that there are no address collisions. NOTE: This type of call can only be used when calling other @gen functions. Other types of generative functions cannot be called in this way."
 },
 
 {
@@ -373,15 +373,47 @@ var documenterSearchIndex = {"docs": [
     "page": "Built-in Modeling Language",
     "title": "Gen.init_param!",
     "category": "function",
-    "text": "init_param!(gen_fn, name::Symbol, value)\n\nInitialize the the value of a named static parameter of a generative function.\n\nAlso initializes the gradient accumulator for that parameter to zero(value).\n\n\n\n\n\n"
+    "text": "init_param!(gen_fn::DynamicDSLFunction, name::Symbol, value)\n\nInitialize the the value of a named trainable parameter of a generative function.\n\nAlso initializes the gradient accumulator for that parameter to zero(value).\n\nExample:\n\ninit_param!(foo, :theta, 0.6)\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/modeling/#Static-parameters-1",
+    "location": "ref/modeling/#Gen.get_param",
     "page": "Built-in Modeling Language",
-    "title": "Static parameters",
+    "title": "Gen.get_param",
+    "category": "function",
+    "text": "value = get_param(gen_fn::DynamicDSlFunction, name::Symbol)\n\nGet the current value of a trainable parameter of the generative function.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/modeling/#Gen.get_param_grad",
+    "page": "Built-in Modeling Language",
+    "title": "Gen.get_param_grad",
+    "category": "function",
+    "text": "value = get_param_grad(gen_fn::DynamicDSlFunction, name::Symbol)\n\nGet the current value of the gradient accumulator for a trainable parameter of the generative function.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/modeling/#Gen.set_param!",
+    "page": "Built-in Modeling Language",
+    "title": "Gen.set_param!",
+    "category": "function",
+    "text": "set_param!(gen_fn::DynamicDSlFunction, name::Symbol, value)\n\nSet the value of a trainable parameter of the generative function.\n\nNOTE: Does not update the gradient accumulator value.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/modeling/#Gen.zero_param_grad!",
+    "page": "Built-in Modeling Language",
+    "title": "Gen.zero_param_grad!",
+    "category": "function",
+    "text": "value = zero_param_grad!(gen_fn::DynamicDSlFunction, name::Symbol)\n\nReset the gradient accumlator for a trainable parameter of the generative function to all zeros.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/modeling/#Trainable-parameters-1",
+    "page": "Built-in Modeling Language",
+    "title": "Trainable parameters",
     "category": "section",
-    "text": "A @gen function may begin with an optional block of static paramter declarations. The block consists of a sequence of statements, beginning with @param, that declare the name and Julia type for each static parameter. The function below has a single static parameter theta with type Float64:@gen function foo(prob::Float64)\n    @param theta::Float64\n    z1 = @addr(bernoulli(prob), :a)\n    z2 = @addr(bernoulli(theta), :b)\n    return z1 || z2\nendStatic parameters obey the same scoping rules as Julia local variables defined at the beginning of the function body. The value of a static parameter is undefined until it is initialized using the following method:init_param!For example:init_param!(foo, :theta, 0.6)Static parameters are designed to be trained using gradient-based methods. This is discussed in Differentiable programming."
+    "text": "A @gen function may begin with an optional block of trainable parameter declarations. The block consists of a sequence of statements, beginning with @param, that declare the name and Julia type for each trainable parameter. The function below has a single trainable parameter theta with type Float64:@gen function foo(prob::Float64)\n    @param theta::Float64\n    z1 = @addr(bernoulli(prob), :a)\n    z2 = @addr(bernoulli(theta), :b)\n    return z1 || z2\nendTrainable parameters obey the same scoping rules as Julia local variables defined at the beginning of the function body. The value of a trainable parameter is undefined until it is initialized using init_param!. In addition to the current value, each trainable parameter has a current gradient accumulator value. The gradent accumulator value has the same shape (e.g. array dimension) as the parameter value. It is initialized to all zeros, and is incremented by backprop_params.The following methods are exported for the trainable parameters of @gen functions:init_param!\nget_param\nget_param_grad\nset_param!\nzero_param_grad!Trainable parameters are designed to be trained using gradient-based methods. This is discussed in the next section."
 },
 
 {
@@ -389,7 +421,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Built-in Modeling Language",
     "title": "Differentiable programming",
     "category": "section",
-    "text": "@gen functions can use automatic differentiation to compute gradients with respect to (i) all or a subset of the arguments to the function, and (ii) the values of certain random choices, (iii) the static parameters of the @gen function. We first discuss the semantics of these gradient computations, and then discuss what how to write and use Julia code in the body of a @gen function so that it can be automatically differentiated by the gradient computation."
+    "text": "Given a trace of a @gen function, Gen supports automatic differentiation of the log probability (density) of all of the random choices made in the trace with respect to the following types of inputs:all or a subset of the arguments to the function.\nthe values of all or a subset of random choices.\nall or a subset of trainable parameters of the @gen function.We first discuss the semantics of these gradient computations, and then discuss what how to write and use Julia code in the body of a @gen function so that it can be automatically differentiated by the gradient computation."
 },
 
 {
@@ -397,7 +429,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Built-in Modeling Language",
     "title": "Supported gradient computations",
     "category": "section",
-    "text": "Gradients with respect to arguments. A @gen function may have a fixed set of its arguments annotated with grad, which indicates that gradients with respect to that argument should be supported. For example, in the function below, we indicate that we want to support differentiation with respect to the y argument, but that we do not want to support differentiation with respect to the x argument.@gen function foo(x, (grad)(y))\n    if x > 5\n        @addr(normal(y, 1), :z)\n    else\n        @addr(normal(y, 10), :z)\n    end\nendBy default, the function being differentiated is the log probability (density) of the random choices. For the function foo above, when x > 5, the gradient with respect to y is the gradient of the log probability density of a normal distribution with standard deviation 1, with respect to its mean, evaluated at mean y. When x <= 5, we instead differentiate the log density of a normal distribution with standard deviation 10, relative to its mean.Gradients with respect to values of random choices. The author of a @gen function also identifies a set of addresses of random choices with respect to which they wish to support gradients of the log probability (density). Gradients of the log probability (density) with respect to the values of random choices are used in gradient-based numerical optimization of random choices, as well as certain MCMC updates that require gradient information.Gradients with respect to static parameters. The gradient of the log probability (density) with respect to the static parameters can also be computed using automatic differentiation. Currently, the log probability (density) must be a differentiable function of all static parameters.Gradients of a function of the return value. Differentiable programming in Gen composes across function calls. If the return value of the @gen function is conditionally dependent on source elements including (i) any arguments annotated with grad or (ii) any random choices for which gradients are supported, or (ii) any static parameters, then the gradient computation requires a gradient of the an external function with respect to the return value in order to the compute the correct gradients. Thus, the function being differentiated always includes a term representing the log probability (density) of all random choices made by the function, but can be extended with a term that depends on the return value of the function. The author of a @gen function can indicate that the return value depends on the source elements (causing the gradient with respect to the return value is required for all gradient computations) by adding the grad annotation to the @gen function itself. For example, in the function below, the return value is conditionally dependent (and actually identical to) on the random value at address :z:@gen function foo(x, (grad)(y))\n    if x > 5\n        @addr(normal(y, 1), :z)\n    else\n        @addr(normal(y, 10), :z)\n    end\nendIf the author of foo wished to support the computation of gradients with respect to the value of :z, they would need to add the grad annotation to foo using the following syntax:@gen (grad) function foo(x, (grad)(y))\n    if x > 5\n        @addr(normal(y, 1), :z)\n    else\n        @addr(normal(y, 10), :z)\n    end\nend"
+    "text": "Gradients with respect to arguments. A @gen function may have a fixed set of its arguments annotated with grad, which indicates that gradients with respect to that argument should be supported. For example, in the function below, we indicate that we want to support differentiation with respect to the y argument, but that we do not want to support differentiation with respect to the x argument.@gen function foo(x, (grad)(y))\n    if x > 5\n        @addr(normal(y, 1), :z)\n    else\n        @addr(normal(y, 10), :z)\n    end\nendFor the function foo above, when x > 5, the gradient with respect to y is the gradient of the log probability density of a normal distribution with standard deviation 1, with respect to its mean, evaluated at mean y. When x <= 5, we instead differentiate the log density of a normal distribution with standard deviation 10, relative to its mean.Gradients with respect to values of random choices. The author of a @gen function also identifies a set of addresses of random choices with respect to which they wish to support gradients of the log probability (density). Gradients of the log probability (density) with respect to the values of random choices are used in gradient-based numerical optimization of random choices, as well as certain MCMC updates that require gradient information.Gradients with respect to trainable parameters. The gradient of the log probability (density) with respect to the trainable parameters can also be computed using automatic differentiation. Currently, the log probability (density) must be a differentiable function of all trainable parameters.Gradients of a function of the return value. Differentiable programming in Gen composes across function calls. If the return value of the @gen function is conditionally dependent on source elements including (i) any arguments annotated with grad or (ii) any random choices for which gradients are supported, or (ii) any trainable parameters, then the gradient computation requires a gradient of the an external function with respect to the return value in order to the compute the correct gradients. Thus, the function being differentiated always includes a term representing the log probability (density) of all random choices made by the function, but can be extended with a term that depends on the return value of the function. The author of a @gen function can indicate that the return value depends on the source elements (causing the gradient with respect to the return value is required for all gradient computations) by adding the grad annotation to the @gen function itself. For example, in the function below, the return value is conditionally dependent (and actually identical to) on the random value at address :z:@gen function foo(x, (grad)(y))\n    if x > 5\n        return @addr(normal(y, 1), :z)\n    else\n        return @addr(normal(y, 10), :z)\n    end\nendIf the author of foo wished to support the computation of gradients with respect to the value of :z, they would need to add the grad annotation to foo using the following syntax:@gen (grad) function foo(x, (grad)(y))\n    if x > 5\n        return @addr(normal(y, 1), :z)\n    else\n        return @addr(normal(y, 10), :z)\n    end\nend"
 },
 
 {
@@ -405,7 +437,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Built-in Modeling Language",
     "title": "Writing differentiable code",
     "category": "section",
-    "text": "In order to compute the gradients described above, the code in the body of the @gen function needs to be differentiable. Code in the body of a @gen function consists of:Julia code\nMaking random choices\nCalling generative functionsWe now discuss how to ensure that code of each of these forms is differentiable. Note that the procedures for differentiation of code described below are only performed during certain operations on @gen functions (backprop_trace and backprop_params).Julia code. Julia code used within a body of a @gen function is made differentiable using the ReverseDiff package, which implements  reverse-mode automatic differentiation. Specifically, values whose gradient is required (either values of arguments, random choices, or static parameters) are \'tracked\' by boxing them into special values and storing the tracked value on a \'tape\'. For example a Float64 value is boxed into a ReverseDiff.TrackedReal value. Methods (including e.g. arithmetic operators) are defined that operate on these tracked values and produce other tracked values as a result. As the computation proceeds all the values are placed onto the tape, with back-references to the parent operation and operands. Arithmetic operators, array and linear algebra functions, and common special numerical functions, as well as broadcasting, are automatically supported. See ReverseDiff for more details.Making random choices. When making a random choice, each argument is either a tracked value or not. If the argument is a tracked value, then the probability distribution must support differentiation of the log probability (density) with respect to that argument. Otherwise, an error is thrown. The has_argument_grads function indicates which arguments support differentiation for a given distribution (see Probability Distributions). If the gradient is required for the value of a random choice, the distribution must support differentiation of the log probability (density) with respect to the value. This is indicated by the has_output_grad function.Calling generative functions. Like distributions, generative functions indicate which of their arguments support differentiation, using the has_argument_grads function. It is an error if a tracked value is passed as an argument of a generative function, when differentiation is not supported by the generative function for that argument. If a generative function gen_fn has accepts_output_grad(gen_fn) = true, then the return value of the generative function call will be tracked and will propagate further through the caller @gen function\'s computation."
+    "text": "In order to compute the gradients described above, the code in the body of the @gen function needs to be differentiable. Code in the body of a @gen function consists of:Julia code\nMaking random choices\nCalling generative functionsWe now discuss how to ensure that code of each of these forms is differentiable. Note that the procedures for differentiation of code described below are only performed during certain operations on @gen functions (backprop_trace and backprop_params).Julia code. Julia code used within a body of a @gen function is made differentiable using the ReverseDiff package, which implements  reverse-mode automatic differentiation. Specifically, values whose gradient is required (either values of arguments, random choices, or trainable parameters) are \'tracked\' by boxing them into special values and storing the tracked value on a \'tape\'. For example a Float64 value is boxed into a ReverseDiff.TrackedReal value. Methods (including e.g. arithmetic operators) are defined that operate on these tracked values and produce other tracked values as a result. As the computation proceeds all the values are placed onto the tape, with back-references to the parent operation and operands. Arithmetic operators, array and linear algebra functions, and common special numerical functions, as well as broadcasting, are automatically supported. See ReverseDiff for more details.Making random choices. When making a random choice, each argument is either a tracked value or not. If the argument is a tracked value, then the probability distribution must support differentiation of the log probability (density) with respect to that argument. Otherwise, an error is thrown. The has_argument_grads function indicates which arguments support differentiation for a given distribution (see Probability Distributions). If the gradient is required for the value of a random choice, the distribution must support differentiation of the log probability (density) with respect to the value. This is indicated by the has_output_grad function.Calling generative functions. Like distributions, generative functions indicate which of their arguments support differentiation, using the has_argument_grads function. It is an error if a tracked value is passed as an argument of a generative function, when differentiation is not supported by the generative function for that argument. If a generative function gen_fn has accepts_output_grad(gen_fn) = true, then the return value of the generative function call will be tracked and will propagate further through the caller @gen function\'s computation."
 },
 
 {
@@ -421,7 +453,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Built-in Modeling Language",
     "title": "Static DSL",
     "category": "section",
-    "text": "The Static DSL supports a subset of the built-in modeling language. A static DSL function is identified by adding the static annotation to the function. For example:@gen (static) function foo(prob::Float64)\n    z1 = @addr(bernoulli(prob), :a)\n    z2 = @addr(bernoulli(prob), :b)\n    z3 = z1 || z2\n    return z3\nendAfter running this code, foo is a Julia value whose type is a subtype of StaticIRGenerativeFunction, which is a subtype of GenerativeFunction.The static DSL permits a subset of the syntax of the built-in modeling language. In particular, each statement must be one of the following forms:<symbol> = <julia-expr>\n<symbol> = @addr(<dist|gen-fn>(..),<symbol> [ => ..])\n@addr(<dist|gen-fn>(..),<symbol> [ => ..])\nreturn <symbol>Currently, static parameters are not supported in static DSL functions.Note that the @addr keyword may only appear in at the top-level of the right-hand-side expresssion. Also, addresses used with the @addr keyword must be a literal Julia symbol (e.g. :a). If multi-part addresses are used, the first component in the multi-part address must be a literal Julia symbol (e.g. :a => i is valid).Also, symbols used on the left-hand-side of assignment statements must be unique (this is called \'static single assignment\' (SSA) form) (this is called \'static single-assignment\' (SSA) form).Loading generated functions. Before a static DSL function can be invoked at runtime, Gen.load_generated_functions() method must be called. Typically, this call immediately preceeds the execution of the inference algorithm.Performance tips. For better performance, annotate the left-hand side of random choices with the type. This permits a more optimized trace data structure to be generated for the generative function. For example:@gen (static) function foo(prob::Float64)\n    z1::Bool = @addr(bernoulli(prob), :a)\n    z2::Bool = @addr(bernoulli(prob), :b)\n    z3 = z1 || z2\n    return z3\nend"
+    "text": "The Static DSL supports a subset of the built-in modeling language. A static DSL function is identified by adding the static annotation to the function. For example:@gen (static) function foo(prob::Float64)\n    z1 = @addr(bernoulli(prob), :a)\n    z2 = @addr(bernoulli(prob), :b)\n    z3 = z1 || z2\n    return z3\nendAfter running this code, foo is a Julia value whose type is a subtype of StaticIRGenerativeFunction, which is a subtype of GenerativeFunction.The static DSL permits a subset of the syntax of the built-in modeling language. In particular, each statement must be one of the following forms:<symbol> = <julia-expr>\n<symbol> = @addr(<dist|gen-fn>(..),<symbol> [ => ..])\n@addr(<dist|gen-fn>(..),<symbol> [ => ..])\nreturn <symbol>Currently, trainable parameters are not supported in static DSL functions.Note that the @addr keyword may only appear in at the top-level of the right-hand-side expresssion. Also, addresses used with the @addr keyword must be a literal Julia symbol (e.g. :a). If multi-part addresses are used, the first component in the multi-part address must be a literal Julia symbol (e.g. :a => i is valid).Also, symbols used on the left-hand-side of assignment statements must be unique (this is called \'static single assignment\' (SSA) form) (this is called \'static single-assignment\' (SSA) form).Loading generated functions. Before a static DSL function can be invoked at runtime, Gen.load_generated_functions() method must be called. Typically, this call immediately preceeds the execution of the inference algorithm.Performance tips. For better performance, annotate the left-hand side of random choices with the type. This permits a more optimized trace data structure to be generated for the generative function. For example:@gen (static) function foo(prob::Float64)\n    z1::Bool = @addr(bernoulli(prob), :a)\n    z2::Bool = @addr(bernoulli(prob), :b)\n    z3 = z1 || z2\n    return z3\nend"
 },
 
 {
@@ -594,15 +626,55 @@ var documenterSearchIndex = {"docs": [
 
 {
     "location": "ref/parameter_optimization/#",
-    "page": "Optimizing Static Parameters",
-    "title": "Optimizing Static Parameters",
+    "page": "Optimizing Trainable Parameters",
+    "title": "Optimizing Trainable Parameters",
     "category": "page",
     "text": ""
 },
 
 {
+    "location": "ref/parameter_optimization/#Optimizing-Trainable-Parameters-1",
+    "page": "Optimizing Trainable Parameters",
+    "title": "Optimizing Trainable Parameters",
+    "category": "section",
+    "text": "Trainable parameters of generative functions are initialized differently depending on the type of generative function. Trainable parameters of the built-in modeling language are initialized with init_param!.Gradient-based optimization of the trainable parameters of generative functions is based on interleaving two steps:Incrementing gradient accumulators for trainable parameters by calling backprop_params on one or more traces.\nUpdating the value of trainable parameters and resetting the gradient accumulators to zero, by calling apply! on a parameter update, as described below."
+},
+
+{
+    "location": "ref/parameter_optimization/#Gen.ParamUpdate",
+    "page": "Optimizing Trainable Parameters",
+    "title": "Gen.ParamUpdate",
+    "category": "type",
+    "text": "update = ParamUpdate(conf, param_lists...)\n\nReturn an update configured by conf that applies to set of parameters defined by param_lists.\n\nEach element in param_lists value is is pair of a generative function and a vector of its parameter references.\n\nExample. To construct an update that applies a gradient descent update to the parameters :a and :b of generative function foo and the parameter :theta of generative function :bar:\n\nupdate = ParamUpdate(GradientDescent(0.001, 100), foo => [:a, :b], bar => [:theta])\n\n\n\nSyntactic sugar for the constructor form above.\n\nupdate = ParamUpdate(conf, gen_fn::GenerativeFunction)\n\nReturn an update configured by conf that applies to all trainable parameters owned by the given generative function.\n\nNote that trainable parameters not owned by the given generative function will not be updated, even if they are used during execution of the function.\n\nExample. If generative function foo has parameters :a and :b, to construct an update that applies a gradient descent update to the parameters :a and :b:\n\nupdate = ParamUpdate(GradientDescent(0.001, 100), foo)\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/parameter_optimization/#Gen.apply!",
+    "page": "Optimizing Trainable Parameters",
+    "title": "Gen.apply!",
+    "category": "function",
+    "text": "apply!(update::ParamUpdate)\n\nPerform one step of the update.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/parameter_optimization/#Parameter-update-1",
+    "page": "Optimizing Trainable Parameters",
+    "title": "Parameter update",
+    "category": "section",
+    "text": "A parameter update reads from the gradient accumulators for certain trainable parameters, updates the values of those parameters, and resets the gradient accumulators to zero. A paramter update is constructed by combining an update configuration with the set of trainable parameters to which the update should be applied:ParamUpdateThe set of possible update configurations is described in Update configurations. An update is applied with:apply!"
+},
+
+{
+    "location": "ref/parameter_optimization/#Gen.FixedStepGradientDescent",
+    "page": "Optimizing Trainable Parameters",
+    "title": "Gen.FixedStepGradientDescent",
+    "category": "type",
+    "text": "conf = FixedStepGradientDescent(step_size)\n\nConfiguration for stochastic gradient descent update with fixed step size.\n\n\n\n\n\n"
+},
+
+{
     "location": "ref/parameter_optimization/#Gen.GradientDescent",
-    "page": "Optimizing Static Parameters",
+    "page": "Optimizing Trainable Parameters",
     "title": "Gen.GradientDescent",
     "category": "type",
     "text": "conf = GradientDescent(step_size_init, step_size_beta)\n\nConfiguration for stochastic gradient descent update with step size given by (t::Int) -> step_size_init * (step_size_beta + 1) / (step_size_beta + t) where t is the iteration number.\n\n\n\n\n\n"
@@ -610,34 +682,18 @@ var documenterSearchIndex = {"docs": [
 
 {
     "location": "ref/parameter_optimization/#Gen.ADAM",
-    "page": "Optimizing Static Parameters",
+    "page": "Optimizing Trainable Parameters",
     "title": "Gen.ADAM",
     "category": "type",
-    "text": "conf = ADAM(learning_rate, beta1, beta2)\n\nConfiguration for ADAM update.\n\n\n\n\n\n"
+    "text": "conf = ADAM(learning_rate, beta1, beta2, epsilon)\n\nConfiguration for ADAM update.\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/parameter_optimization/#Gen.ParamUpdate",
-    "page": "Optimizing Static Parameters",
-    "title": "Gen.ParamUpdate",
-    "category": "type",
-    "text": "update = ParamUpdate(conf, param_lists...)\n\nReturn an update configured by conf that applies to set of parameters defined by param_lists.\n\nEach element in param_lists value is is pair of a generative function and a vector of its parameter references.\n\nExample. To construct an update that applies a gradient descent update to the parameters :a and :b of generative function foo and the parameter :theta of generative function :bar:\n\nupdate = ParamUpdate(GradientDescent(0.001, 100), foo => [:a, :b], bar => [:theta])\n\n\n\nupdate = ParamUpdate(conf, gen_fn::GenerativeFunction)\n\nReturn an update configured by conf that applies to all trainable parameters owned by the given generative function.\n\nNote that trainable parameters not owned by the given generative function will not be updated, even if they are used during execution of the function. This is syntactic sugar for the constructor form above.\n\nExample. If generative function foo has parameters :a and :b, to construct an update that applies a gradient descent update to the parameters :a and :b:\n\nupdate = ParamUpdate(GradientDescent(0.001, 100), foo)\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/parameter_optimization/#Gen.apply!",
-    "page": "Optimizing Static Parameters",
-    "title": "Gen.apply!",
-    "category": "function",
-    "text": "apply!(update::ParamUpdate)\n\nPerform one step of the update.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/parameter_optimization/#Optimizing-Static-Parameters-1",
-    "page": "Optimizing Static Parameters",
-    "title": "Optimizing Static Parameters",
+    "location": "ref/parameter_optimization/#Update-configurations-1",
+    "page": "Optimizing Trainable Parameters",
+    "title": "Update configurations",
     "category": "section",
-    "text": "Gradient-based optimization of the static parameters of generative functions is based on interleaving (1) accumulation of gradients with respect to static parameters using backprop_params with (2) updates to the static parameters that read from the gradients, mutate the value of the static parameters, and reset the gradients to zero.Gen has built-in support for the following configuration types of updates:GradientDescent\nADAMParameter updates are constructed by combining a configuration value with the set of static parameters that it should be applied to:ParamUpdateFinally, an update is applied with:apply!"
+    "text": "Gen has built-in support for the following types of update configurations.FixedStepGradientDescent\nGradientDescent\nADAMFor adding new types of update configurations, see Optimizing Trainable Parameters (Internal)."
 },
 
 {
@@ -825,9 +881,9 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "ref/gfi/#Static-parameters-1",
+    "location": "ref/gfi/#Trainable-parameters-1",
     "page": "Generative Function Interface",
-    "title": "Static parameters",
+    "title": "Trainable parameters",
     "category": "section",
     "text": ""
 },
@@ -837,7 +893,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Generative Function Interface",
     "title": "Gen.has_argument_grads",
     "category": "function",
-    "text": "bools::Tuple = has_argument_grads(gen_fn::GenerativeFunction)\n\nReturn a tuple of booleans indicating whether a gradient is available for each of its arguments.\n\n\n\n\n\n"
+    "text": "bools::Tuple = has_argument_grads(gen_fn::Union{GenerativeFunction,Distribution})\n\nReturn a tuple of booleans indicating whether a gradient is available for each of its arguments.\n\n\n\n\n\n"
 },
 
 {
@@ -1105,43 +1161,75 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "ref/distributions/#Gen.random",
+    "page": "Probability Distributions",
+    "title": "Gen.random",
+    "category": "function",
+    "text": "val::T = random(dist::Distribution{T}, args...)\n\nSample a random choice from the given distribution with the given arguments.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/distributions/#Gen.logpdf",
+    "page": "Probability Distributions",
+    "title": "Gen.logpdf",
+    "category": "function",
+    "text": "lpdf = logpdf(dist::Distribution{T}, value::T, args...)\n\nEvaluate the log probability (density) of the value.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/distributions/#Gen.has_output_grad",
+    "page": "Probability Distributions",
+    "title": "Gen.has_output_grad",
+    "category": "function",
+    "text": "has::Bool = has_output_grad(dist::Distribution)\n\nReturn true of the gradient if the distribution computes the gradient of the logpdf with respect to the value of the random choice.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/distributions/#Gen.logpdf_grad",
+    "page": "Probability Distributions",
+    "title": "Gen.logpdf_grad",
+    "category": "function",
+    "text": "grads::Tuple = logpdf_grad(dist::Distribution{T}, value::T, args...)\n\nCompute the gradient of the logpdf with respect to the value, and each of the arguments.\n\nIf has_output_grad returns false, then the first element of the returned tuple is nothing. Otherwise, the first element of the tuple is the gradient with respect to the value. If the return value of has_argument_grads has a false value for at position i, then the i+1th element of the returned tuple has value nothing. Otherwise, this element contains the gradient with respect to the ith argument.\n\n\n\n\n\n"
+},
+
+{
     "location": "ref/distributions/#Defining-New-Distributions-1",
     "page": "Probability Distributions",
     "title": "Defining New Distributions",
     "category": "section",
-    "text": "Probability distributions are singleton types whose supertype is Distribution{T}, where T indicates the data type of the random sample.abstract type Distribution{T} endBy convention, distributions have a global constant lower-case name for the singleton value. For example:struct Bernoulli <: Distribution{Bool} end\nconst bernoulli = Bernoulli()Distributions must implement two methods, random and logpdf.random returns a random sample from the distribution:x::Bool = random(bernoulli, 0.5)\nx::Bool = random(Bernoulli(), 0.5)logpdf returns the log probability (density) of the distribution at a given value:logpdf(bernoulli, false, 0.5)\nlogpdf(Bernoulli(), false, 0.5)Distribution values are also callable, which is a syntactic sugar with the same behavior of calling random:bernoulli(0.5) # identical to random(bernoulli, 0.5) and random(Bernoulli(), 0.5)"
+    "text": "Probability distributions are singleton types whose supertype is Distribution{T}, where T indicates the data type of the random sample.abstract type Distribution{T} endBy convention, distributions have a global constant lower-case name for the singleton value. For example:struct Bernoulli <: Distribution{Bool} end\nconst bernoulli = Bernoulli()Distributions must implement two methods, random and logpdf.random returns a random sample from the distribution:x::Bool = random(bernoulli, 0.5)\nx::Bool = random(Bernoulli(), 0.5)logpdf returns the log probability (density) of the distribution at a given value:logpdf(bernoulli, false, 0.5)\nlogpdf(Bernoulli(), false, 0.5)Distribution values should also be callable, which is a syntactic sugar with the same behavior of calling random:bernoulli(0.5) # identical to random(bernoulli, 0.5) and random(Bernoulli(), 0.5)A new Distribution type must implement the following methods:random\nlogpdf\nhas_output_grad\nlogpdf_gradA new Distribution type must also implement has_argument_grads."
 },
 
 {
     "location": "ref/internals/parameter_optimization/#",
-    "page": "Optimizing Static Parameters",
-    "title": "Optimizing Static Parameters",
+    "page": "Optimizing Trainable Parameters",
+    "title": "Optimizing Trainable Parameters",
     "category": "page",
     "text": ""
 },
 
 {
-    "location": "ref/internals/parameter_optimization/#Gen.init",
-    "page": "Optimizing Static Parameters",
-    "title": "Gen.init",
+    "location": "ref/internals/parameter_optimization/#Gen.init_update_state",
+    "page": "Optimizing Trainable Parameters",
+    "title": "Gen.init_update_state",
     "category": "function",
-    "text": "state = init(conf, gen_fn::GenerativeFunction, param_list::Vector)\n\nGet the initial state for a parameter update to the given parameters of the given generative function.\n\nparam_list is a vector of references to parameters of gen_fn. conf configures the update.\n\n\n\n\n\n"
+    "text": "state = init_update_state(conf, gen_fn::GenerativeFunction, param_list::Vector)\n\nGet the initial state for a parameter update to the given parameters of the given generative function.\n\nparam_list is a vector of references to parameters of gen_fn. conf configures the update.\n\n\n\n\n\n"
 },
 
 {
     "location": "ref/internals/parameter_optimization/#Gen.apply_update!",
-    "page": "Optimizing Static Parameters",
+    "page": "Optimizing Trainable Parameters",
     "title": "Gen.apply_update!",
     "category": "function",
     "text": "apply_update!(state)\n\nApply one parameter update, mutating the values of the static parameters, and possibly also the given state.\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/internals/parameter_optimization/#Optimizing-Static-Parameters-1",
-    "page": "Optimizing Static Parameters",
-    "title": "Optimizing Static Parameters",
+    "location": "ref/internals/parameter_optimization/#optimizing-internal-1",
+    "page": "Optimizing Trainable Parameters",
+    "title": "Optimizing Trainable Parameters",
     "category": "section",
-    "text": "To add support for a new type of gradient-based parameter update, create a new type with the following methods deifned for the types of generative functions that are to be supported.Gen.init\nGen.apply_update!"
+    "text": "To add support for a new type of gradient-based parameter update, create a new type with the following methods deifned for the types of generative functions that are to be supported.Gen.init_update_state\nGen.apply_update!"
 },
 
 ]}
