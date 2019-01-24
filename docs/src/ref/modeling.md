@@ -52,9 +52,9 @@ Function-level annotations use the following different syntactic forms:
 
 - `@gen function foo(<args>) <body> end`: No function annotations.
 
-- `@gen function (grad) foo(<args>) <body> end`: The function has the `grad` annotation. 
+- `@gen (grad) function foo(<args>) <body> end`: The function has the `grad` annotation.
 
-- `@gen function (grad,static) foo(<args>) <body> end`: The function has both the `grad` and `static` annotations.
+- `@gen (grad,static) function foo(<args>) <body> end`: The function has both the `grad` and `static` annotations.
 
 Currently the possible function annotations are:
 
