@@ -244,35 +244,59 @@ export inv_gamma
 struct Beta <: Distribution{Float64} end
 
 """
-    beta(alpha::Real, beta::Real)
+    beta(alpha::Real, beta::Real, lower::Real, upper::Real)
 
-Sample a `Float64` from a beta distribution.
+Sample a `Float64` from a beta distribution, rescaled to the interval (lower, upper).
 """
 const beta = Beta()
 
-function logpdf(::Beta, x::Real, alpha::Real, beta::Real)
-    (alpha - 1) * log(x) + (beta - 1) * log1p(-x) - lbeta(alpha, beta)
+function logpdf(::Beta, x::Real, alpha::Real, beta::Real, lower::Real, upper::Real)
+    x_scaled = (x - lower) / (upper - lower)
+    (alpha - 1) * log(x_scaled) + (beta - 1) * log1p(-x_scaled) - lbeta(alpha, beta) - log(upper - lower)
 end
 
-function logpdf_grad(::Beta, x::Real, alpha::Real, beta::Real)
-    if 0 <= x <= 1
-        deriv_x = (alpha - 1) / x - (beta - 1) / (1 - x)
-        deriv_alpha = log(x) - (digamma(alpha) - digamma(alpha + beta))
-        deriv_beta = log1p(-x) - (digamma(beta) - digamma(alpha + beta))
+# scale(x, lower, upper) = (x - lower) / (upper - lower)
+
+# d betalogpdf(scale(x, lower, upper)) - log(upper - lower) / dx = d(scale(x)) / dx * dd..
+
+# d betalogpdf(scale(x, lower, upper)) - log(upper - lower) / dupper
+# = - 1. / span + (dbetalogpdf(y)/dy) * dscale(x, lower, upper) / dupper
+# = - 1. / span + (dbetalogpdf(y)/dy) * (x - lower) * -1 / (span^2)
+
+# d betalogpdf(scale(x, lower, upper)) - log(upper - lower) / dupper
+# = - 1. / span + (dbetalogpdf(y)/dy) * dscale(x, lower, upper) / dlower
+# = - 1. / span + (dbetalogpdf(y)/dy) * (x - lower) * -1 / (span^2)
+
+# (x - lower) * ((upper - lower)^{-1})
+# -1. / span + (x - lower) * -1 * / (span^2) * -1
+
+# d(sclae(x, lower, upper)) / dx = 1 ./ (upper - lower)
+# d(Scale(x, lower, upper)) / d lower = (x - lower) * -1 * -1 * / (upper - lower)^2 + 
+# d(Scale(x, lower, upper)) / d upper = (x - lower) * -1 * / (upper - lower)^2
+
+function logpdf_grad(::Beta, x::Real, alpha::Real, beta::Real, lower::Real, upper::Real)
+    if lower <= x <= upper
+        span = upper - lower
+        x_scaled = (x - lower) / span
+        deriv_x = (alpha - 1) / x_scaled - (beta - 1) / (1 - x_scaled)
+        deriv_alpha = log(x_scaled) - (digamma(alpha) - digamma(alpha + beta))
+        deriv_beta = log1p(-x_scaled) - (digamma(beta) - digamma(alpha + beta))
+        deriv_lower = 1. / span + deriv_x * (-1 ./ span + (x - lower) / (span * span))
+        deriv_upper = - 1. / span - deriv_x * (x - lower) / (span * span)
     else
         error("x is outside of support: $x")
     end
-    (deriv_x, deriv_alpha, deriv_beta)
+    (deriv_x / span, deriv_alpha, deriv_beta, deriv_lower, deriv_upper)
 end
 
-function random(::Beta, alpha::Real, beta::Real)
+function random(::Beta, alpha::Real, beta::Real, lower::Real, upper::Real)
     rand(Distributions.Beta(alpha, beta))
 end
 
 (::Beta)(alpha, beta) = random(Beta(), alpha, beta)
 
 has_output_grad(::Beta) = true
-has_argument_grads(::Beta) = (true, true)
+has_argument_grads(::Beta) = (true, true, true, true)
 
 export beta
 
@@ -505,37 +529,39 @@ Samples a `Float64` value from a mixture of a uniform distribution on [0, 1] wit
 """
 const beta_uniform = BetaUniformMixture()
 
-function logpdf(::BetaUniformMixture, x::Real, theta::Real, alpha::Real, beta::Real)
-    lbeta = log(theta) + logpdf(Beta(), x, alpha, beta)
-    luniform = log(1.0 - theta)
+function logpdf(::BetaUniformMixture, x::Real, theta::Real, alpha::Real, beta::Real, lower::Real, upper::Real)
+    lbeta = log(theta) + logpdf(Beta(), x, alpha, beta, lower, upper)
+    luniform = log(1.0 - theta) + logpdf(uniform_continuous, x, lower, upper)
     logsumexp(lbeta, luniform)
 end
 
-function logpdf_grad(::BetaUniformMixture, x::Real, theta::Real, alpha::Real, beta::Real)
-    beta_logpdf = logpdf(Beta(), x, alpha, beta)
-    uniform_logpdf = logpdf(uniform_continuous, x, 0., 1.)
-    beta_grad = logpdf_grad(Beta(), x, alpha, beta)
-    uniform_grad = logpdf_grad(uniform_continuous, x, 0., 1.)
+function logpdf_grad(::BetaUniformMixture, x::Real, theta::Real, alpha::Real, beta::Real, lower::Real, upper::Real)
+    beta_logpdf = logpdf(Beta(), x, alpha, beta, lower, upper)
+    uniform_logpdf = logpdf(uniform_continuous, x, lower, upper)
+    beta_grad = logpdf_grad(Beta(), x, alpha, beta, lower, upper)
+    uniform_grad = logpdf_grad(uniform_continuous, x, lower, upper)
     w1 = 1. / (1. + exp(log(1. - theta) + uniform_logpdf - log(theta) - beta_logpdf))
     w2 = 1. - w1
     x_deriv = w1 * beta_grad[1] + w2 * uniform_grad[1]
     alpha_deriv = w1 * beta_grad[2]
     beta_deriv = w1 * beta_grad[3]
     theta_deriv = (exp(beta_logpdf) - exp(uniform_logpdf)) / (theta * exp(beta_logpdf) + (1. - theta) * exp(uniform_logpdf))
-    (x_deriv, theta_deriv, alpha_deriv, beta_deriv)
+    lower_deriv = w1 * beta_grad[4] + w2 * uniform_grad[2]
+    upper_deriv = w1 * beta_grad[5] + w2 * uniform_grad[3]
+    (x_deriv, theta_deriv, alpha_deriv, beta_deriv, lower_deriv, upper_deriv)
 end
 
-function random(::BetaUniformMixture, theta::Real, alpha::Real, beta::Real)
+function random(::BetaUniformMixture, theta::Real, alpha::Real, beta::Real, lower::Real, upper::Real)
     if bernoulli(theta)
-        random(Beta(), alpha, beta)
+        random(Beta(), alpha, beta, lower, upper)
     else
-        random(uniform_continuous, 0., 1.)
+        random(uniform_continuous, lower, upper)
     end
 end
 
-(::BetaUniformMixture)(theta, alpha, beta) = random(BetaUniformMixture(), theta, alpha, beta)
+(::BetaUniformMixture)(theta, alpha, beta, lower, upper) = random(BetaUniformMixture(), theta, alpha, beta, lower, upper)
 
 has_output_grad(::BetaUniformMixture) = true
-has_argument_grads(::BetaUniformMixture) = (true, true, true)
+has_argument_grads(::BetaUniformMixture) = (true, true, true, true, true)
 
 export beta_uniform

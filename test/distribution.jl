@@ -9,12 +9,14 @@
 end
 
 @testset "beta" begin
-    f = (x, alpha, beta_param) -> logpdf(beta, x, alpha, beta_param)
-    args = (0.4, 0.2, 0.3)
+    f = (x, alpha, beta_param, lower, upper) -> logpdf(beta, x, alpha, beta_param, lower, upper)
+    args = (0.4, 0.2, 0.3, -1.0, 1.0)
     actual = logpdf_grad(beta, args...)
     @test isapprox(actual[1], finite_diff(f, args, 1, dx))
     @test isapprox(actual[2], finite_diff(f, args, 2, dx))
     @test isapprox(actual[3], finite_diff(f, args, 3, dx))
+    @test isapprox(actual[4], finite_diff(f, args, 4, dx))
+    @test isapprox(actual[5], finite_diff(f, args, 5, dx))
 end
 
 @testset "normal" begin
@@ -39,11 +41,13 @@ end
 end
 
 @testset "beta uniform mixture" begin
-    f = (x, theta, alpha, beta) -> logpdf(beta_uniform, x, theta, alpha, beta)
-    args = (0.5, 0.4, 10., 2.)
+    f = (x, theta, alpha, beta, lower, upper) -> logpdf(beta_uniform, x, theta, alpha, beta, lower, upper)
+    args = (0.5, 0.4, 10., 2., -1., 1.)
     actual = logpdf_grad(beta_uniform, args...)
     @test isapprox(actual[1], finite_diff(f, args, 1, dx))
     @test isapprox(actual[2], finite_diff(f, args, 2, dx))
     @test isapprox(actual[3], finite_diff(f, args, 3, dx))
     @test isapprox(actual[4], finite_diff(f, args, 4, dx))
+    @test isapprox(actual[5], finite_diff(f, args, 5, dx))
+    @test isapprox(actual[6], finite_diff(f, args, 6, dx))
 end
