@@ -14,13 +14,13 @@ makedocs(
             "Generative Function Combinators" => "ref/combinators.md",
             "Assignments" => "ref/assignments.md",
             "Selections" => "ref/selections.md",
-            "Optimizing Static Parameters" => "ref/parameter_optimization.md",
+            "Optimizing Trainable Parameters" => "ref/parameter_optimization.md",
             "Inference Library" => "ref/inference.md",
             "Generative Function Interface" => "ref/gfi.md",
             "Probability Distributions" => "ref/distributions.md",
          ],
         "Internals" => [
-            "Optimizing Static Parameters" => "ref/internals/parameter_optimization.md"
+            "Optimizing Trainable Parameters" => "ref/internals/parameter_optimization.md"
          ]
     ]
 )

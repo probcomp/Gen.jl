@@ -62,7 +62,7 @@ get_return_type(::GenerativeFunction{T,U}) where {T,U} = T
 get_trace_type(::GenerativeFunction{T,U}) where {T,U} = U
 
 """
-    bools::Tuple = has_argument_grads(gen_fn::GenerativeFunction)
+    bools::Tuple = has_argument_grads(gen_fn::Union{GenerativeFunction,Distribution})
 
 Return a tuple of booleans indicating whether a gradient is available for each of its arguments.
 """

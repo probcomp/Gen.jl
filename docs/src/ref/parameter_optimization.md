@@ -1,18 +1,33 @@
-# Optimizing Static Parameters
+# Optimizing Trainable Parameters
 
-Gradient-based optimization of the static parameters of generative functions is based on interleaving (1) accumulation of gradients with respect to static parameters using `backprop_params` with (2) updates to the static parameters that read from the gradients, mutate the value of the static parameters, and reset the gradients to zero.
+Trainable parameters of generative functions are initialized differently depending on the type of generative function.
+Trainable parameters of the built-in modeling language are initialized with [`init_param!`](@ref).
 
-Gen has built-in support for the following configuration types of updates:
-```@docs
-GradientDescent
-ADAM
-```
-Parameter updates are constructed by combining a configuration value with the set of static parameters that it should be applied to:
+Gradient-based optimization of the trainable parameters of generative functions is based on interleaving two steps:
+
+- Incrementing gradient accumulators for trainable parameters by calling [`backprop_params`](@ref) on one or more traces.
+
+- Updating the value of trainable parameters and resetting the gradient accumulators to zero, by calling [`apply!`](@ref) on a *parameter update*, as described below.
+
+## Parameter update
+
+A *parameter update* reads from the gradient accumulators for certain trainable parameters, updates the values of those parameters, and resets the gradient accumulators to zero.
+A paramter update is constructed by combining an *update configuration* with the set of trainable parameters to which the update should be applied:
 ```@docs
 ParamUpdate
 ```
-Finally, an update is applied with:
+The set of possible update configurations is described in [Update configurations](@ref).
+An update is applied with:
 ```@docs
 apply!
 ```
 
+## Update configurations
+
+Gen has built-in support for the following types of update configurations.
+```@docs
+FixedStepGradientDescent
+GradientDescent
+ADAM
+```
+For adding new types of update configurations, see [Optimizing Trainable Parameters (Internal)](@ref optimizing-internal).

@@ -49,8 +49,17 @@ logpdf(bernoulli, false, 0.5)
 logpdf(Bernoulli(), false, 0.5)
 ```
 
-Distribution values are also callable, which is a syntactic sugar with the same behavior of calling `random`:
+Distribution values should also be callable, which is a syntactic sugar with the same behavior of calling `random`:
 
 ```julia
 bernoulli(0.5) # identical to random(bernoulli, 0.5) and random(Bernoulli(), 0.5)
 ```
+
+A new Distribution type must implement the following methods:
+```@docs
+random
+logpdf
+has_output_grad
+logpdf_grad
+```
+A new Distribution type must also implement [`has_argument_grads`](@ref).

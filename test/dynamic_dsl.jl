@@ -425,4 +425,34 @@ end
     @test isapprox(get_param_grad(baz, :theta), retval_grad)
 end
 
+@testset "gradient descent with fixed step size" begin
+    @gen (grad) function foo()
+        @param theta::Float64
+        return theta
+    end
+    init_param!(foo, :theta, 0.)
+    (trace, ) = initialize(foo, ())
+    backprop_params(trace, 1.)
+    conf = FixedStepGradientDescent(0.001)
+    state = Gen.init_update_state(conf, foo, [:theta])
+    Gen.apply_update!(state)
+    @test isapprox(get_param(foo, :theta), 0.001)
+    @test isapprox(get_param_grad(foo, :theta), 0.)
+end
+
+@testset "gradient descent with shrinking step size" begin
+    @gen (grad) function foo()
+        @param theta::Float64
+        return theta
+    end
+    init_param!(foo, :theta, 0.)
+    (trace, ) = initialize(foo, ())
+    backprop_params(trace, 1.)
+    conf = GradientDescent(0.001, 1000)
+    state = Gen.init_update_state(conf, foo, [:theta])
+    Gen.apply_update!(state)
+    @test isapprox(get_param(foo, :theta), 0.001)
+    @test isapprox(get_param_grad(foo, :theta), 0.)
+end
+
 end

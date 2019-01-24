@@ -30,7 +30,7 @@ Similarly, a generative function supports gradients with respect the value of ra
 If the return value of the function is conditionally independent of each element in the gradient source set given the other elements in the gradient source set and values of all other random choices, for all possible traces of the function, then the generative function requires a *return value gradient* to compute gradients with respect to elements of the gradient source set.
 This static property of the generative function is reported by `accepts_output_grad`.
 
-### Static parameters
+### Trainable parameters
 
 
 
