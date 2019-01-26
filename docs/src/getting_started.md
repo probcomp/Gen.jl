@@ -53,11 +53,9 @@ function my_inference_program(xs::Vector{Float64}, ys::Vector{Float64}, num_iter
     
     # Iteratively update the slope then the intercept,
     # using Gen's metropolis_hastings operator.
-    slope_selection = select(:slope)
-    intercept_selection = select(:intercept)
     for iter=1:num_iters
-        (trace, _) = metropolis_hastings(trace, slope_selection)
-        (trace, _) = metropolis_hastings(trace, intercept_selection)
+        (trace, _) = metropolis_hastings(trace, select(:slope))
+        (trace, _) = metropolis_hastings(trace, select(:intercept))
     end
     
     # From the final trace, read out the slope and
@@ -106,7 +104,7 @@ The `"vue/dist"` is a path to a custom _trace renderer_ that draws the (x, y) po
 ```julia
 for iter=1:num_iters
     putTrace!(viz, 1, trace_to_dict(trace))
-    (trace, _) = metropolis_hastings(trace, slope_selection)
-    (trace, _) = metropolis_hastings(trace, intercept_selection)
+    (trace, _) = metropolis_hastings(trace, select(:slope))
+    (trace, _) = metropolis_hastings(trace, select(:intercept))
 end
 ```
