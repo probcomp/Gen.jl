@@ -357,7 +357,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Generative Functions",
     "title": "Gen.project",
     "category": "function",
-    "text": "weight = project(trace::U, selection::AddressSet)\n\nEstimate the probability that the selected choices take the values they do in a trace. \n\nWithout non-addressed randomness\n\nGiven a trace (x t) (trace) and a set of addresses A (selection), let u denote the restriction of t to A. Return the weight (weight):\n\nlog fracp(t x)q(t u x)\n\nWith non-addressed randomness\n\nIdentical to the basic case except that the previous trace is (x t r) and the weight is:\n\nlog fracp(t x)q(t u x)\ncdot fracp(r x t)q(r x t)\n\n\n\n\n\n"
+    "text": "weight = project(trace::U, selection::AddressSet)\n\nEstimate the probability that the selected choices take the values they do in a trace. \n\nGiven a trace (x t r) (trace) and a set of addresses A (selection), let u denote the restriction of t to A. Return the weight (weight):\n\nlog fracp(r t x)q(t u x) q(r x t)\n\n\n\n\n\n"
 },
 
 {
