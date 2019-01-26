@@ -147,22 +147,11 @@ end
 Estimate the probability that the selected choices take the values they do in a
 trace. 
 
-**Without non-addressed randomness**
-
-Given a trace \$(x, t)\$ (`trace`) and a set of addresses \$A\$ (`selection`),
+Given a trace \$(x, t, r)\$ (`trace`) and a set of addresses \$A\$ (`selection`),
 let \$u\$ denote the restriction of \$t\$ to \$A\$. Return the weight
 (`weight`):
 ```math
-\\log \\frac{p(t; x)}{q(t; u, x)}
-```
-
-**With non-addressed randomness**
-
-Identical to the basic case except that the previous trace is \$(x, t, r)\$ and
-the weight is:
-```math
-\\log \\frac{p(t; x)}{q(t; u, x)}
-\\cdot \\frac{p(r; x, t)}{q(r; x, t)}
+\\log \\frac{p(r, t; x)}{q(t; u, x) q(r; x, t)}
 ```
 """
 function project(trace, selection::AddressSet)
@@ -174,7 +163,7 @@ end
 
 Sample an assignment and compute the probability of proposing that assignment.
 
-Given arguments (`args`), sample \$t' \\sim p(\\cdot; x)\$ and \$r \\sim p(\\cdot; x,
+Given arguments (`args`), sample \$t \\sim p(\\cdot; x)\$ and \$r \\sim p(\\cdot; x,
 t)\$, and return \$t\$
 (`assmt`) and the weight (`weight`):
 ```math
