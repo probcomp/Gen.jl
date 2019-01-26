@@ -6,9 +6,15 @@
 struct MapType end 
 
 """
-GenerativeFunction that makes many independent application of a kernel generator,
-similar to 'map'.  The arguments are a tuple of vectors, each of of length N,
-where N is the nubmer of applications of the kernel.
+    gen_fn = Map(kernel::GenerativeFunction)
+
+Return a new generative function that applies the kernel independently for a vector of inputs.
+
+The returned generative function has one argument with type `Vector{X}` for each argument of the input generative function with type `X`.
+The length of each argument, which must be the same for each argument, determines the number of times the input generative function is called (N).
+Each call to the input function is made under address namespace i for i=1..N.
+The return value of the returned function has type `FunctionalCollections.PersistentVector{Y}` where `Y` is the type of the return value of the input function.
+The map combinator is similar to the 'map' higher order function in functional programming, except that the map combinator returns a new generative function that must then be separately applied.
 """
 struct Map{T,U} <: GenerativeFunction{PersistentVector{T},VectorTrace{MapType,T,U}}
     kernel::GenerativeFunction{T,U}
@@ -34,27 +40,20 @@ end
 # argdiff #
 ###########
 
-# accepts: NoArgDiff, UnknownArgDiff, and MapCustomArgDiff
-
 """
-The number of applications may have changed. Custom argdiffs are provided for
-retained applications whose arguments may have changed. If a retained
-application does not appear, then its argdiff if `noargdiff`.
+    argdiff = MapCustomArgDiff{T}(retained_argdiffs::Dict{Int,T})
+
+Construct an argdiff value that contains argdiff information for some subset of applications of the kernel.
+
+If the number of applications of the kernel, which is determined from the the length of hte input vector(s), has changed, then `retained_argdiffs` may only contain argdiffs for kernel applications that exist both in the previous trace and and the new trace.
+For each `i` in `keys(retained_argdiffs)`, `retained_argdiffs[i]` contains the argdiff information for the `i`th application.
+If an entry is not provided for some `i` that exists in both the previous and new traces, then its argdiff will be assumed to be [`NoArgDiff`](@ref).
 """
 struct MapCustomArgDiff{T}
     retained_argdiffs::Dict{Int,T} 
 end
 
-# the kernel function must accept noargdiff and unknownargdiff as argdiffs
-
 export MapCustomArgDiff
-
-
-###########
-# retdiff #
-###########
-
-# may return: NoRetDiff, or VectorCustomRetDiff
 
 
 ###############################

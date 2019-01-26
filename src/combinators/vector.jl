@@ -121,8 +121,13 @@ end
 
 
 """
-The number of applications may have changed. retdiff values are provided for
-retained applications for which isnodiff() = false.
+    retdiff = VectorCustomRetDiff(retained_retdiffs:Dict{Int,Any})
+
+Construct a retdiff that provides retdiff information about some elements of the returned vector.
+
+If the length of the vector has changed, then `retained_retdiffs` may only contain retdiffs for positions in the vector that exist in both the previous and new vector.
+For each `i` in `keys(retained_retdiffs)`, `retained_retdiffs[i]` contains the retdiff information for the `i`th position.
+A missing entry for some `i` that exists in both the previous and new vectors indicates that its value has not changed.
 """
 struct VectorCustomRetDiff
     retained_retdiffs::Dict{Int,Any}

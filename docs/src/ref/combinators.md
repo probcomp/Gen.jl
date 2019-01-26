@@ -7,35 +7,166 @@ However, generative function combinators are not 'higher order generative functi
 
 ## Map combinator
 
-The *map* combinator takes a generative function as input, and returns a generative function that applies the given generative function independently to a vector of arguments.
-The returned generative function has one argument with type `Vector{T}` for each argument of type `T` of the input generative function.
-The length of each argument, which must be the same for each argument, determines the number of times the input generative function is called (N).
-Each call to the input function is made under address namespace i for i=1..N.
-The return value of the returned function has type `Vector{T}` where `T` is the type of the return value of the input function.
-The map combinator is similar to the 'map' higher order function in functional programming, except that the map combinator returns a new generative function that must then be separately applied.
+```@docs
+Map
+```
+
+In the schematic below, the kernel is denoted ``\mathcal{G}_{\mathrm{k}}``.
+```@raw html
+<div style="text-align:center">
+    <img src="../../images/map_combinator.png" alt="schematic of map combinator" width="50%"/>
+</div>
+```
 
 For example, consider the following generative function, which makes one random choice at address `:z`:
 ```julia
-@gen function foo(x::Float64, y::Float64)
-    @addr(normal(x + y, 1.0), :z)
+@gen function foo(x1::Float64, x2::Float64)
+    y = @addr(normal(x1 + x2, 1.0), :z)
+    return y
 end
 ```
-
 We apply the map combinator to produce a new generative function `bar`:
 ```julia
 bar = Map(foo)
 ```
-
 We can then obtain a trace of `bar`:
 ```julia
-xs = [0.0, 0.5]
-ys = [0.5, 1.0]
-(trace, _) = initialize(bar, (xs, ys))
+(trace, _) = initialize(bar, ([0.0, 0.5], [0.5, 1.0]))
+```
+This causes `foo` to be invoked twice, once with arguments `(0.0, 0.5)` in address namespace `1` and once with arguments `(0.5, 1.0)` in address namespace `2`.
+If the resulting trace has random choices:
+```
+│
+├── 1
+│   │
+│   └── :z : -0.5757913836706721
+│
+└── 2
+    │
+    └── :z : 0.7357177113395333
+```
+then the return value is:
+```
+FunctionalCollections.PersistentVector{Any}[-0.575791, 0.735718]
 ```
 
-This causes `foo` to be invoked twice, once with arguments `(xs[1], ys[1])` in address namespace `1` and once with arguments `(xs[2], ys[2])` in address namespace `2`.
-The resulting trace has random choices at addresses `1 => :z` and `2 => :z`.
+### Argdiffs
+
+Generative functions produced by this combinator accept the following argdiff types:
+
+- [`NoArgDiff`](@ref)
+
+- [`UnknownArgDiff`](@ref)
+
+- [`MapCustomArgDiff`](@ref)
+
+```@docs
+MapCustomArgDiff
+```
+
+### Retdiffs
+
+Generative functions produced by this combinator may return retdiffs that are one of the following types:
+
+- [`NoRetDiff`](@ref)
+
+- [`VectorCustomRetDiff`](@ref)
+
+```@docs
+VectorCustomRetDiff
+```
+
+
 
 ## Unfold combinator
 
+```@docs
+Unfold
+```
+
+In the schematic below, the kernel is denoted ``\mathcal{G}_{\mathrm{k}}``.
+The initial state is denoted ``y_0``, the number of applications is ``n``, and the remaining arguments to the kernel not including the state, are ``z``.
+```@raw html
+<div style="text-align:center">
+    <img src="../../images/unfold_combinator.png" alt="schematic of unfold combinator" width="70%"/>
+</div>
+```
+
+For example, consider the following kernel, with state type `Bool`, which makes one random choice at address `:z`:
+```julia
+@gen function foo(t::Int, y_prev::Bool, z1::Float64, z2::Float64)
+    y = @addr(bernoulli(y_prev ? z1 : z2), :y)
+    return y
+end
+```
+We apply the map combinator to produce a new generative function `bar`:
+```julia
+bar = Map(foo)
+```
+We can then obtain a trace of `bar`:
+```julia
+(trace, _) = initialize(bar, (5, false, 0.05, 0.95))
+```
+This causes `foo` to be invoked five times.
+The resulting trace may contain the following random choices:
+```
+│
+├── 1
+│   │
+│   └── :y : true
+│
+├── 2
+│   │
+│   └── :y : false
+│
+├── 3
+│   │
+│   └── :y : true
+│
+├── 4
+│   │
+│   └── :y : false
+│
+└── 5
+    │
+    └── :y : true
+
+```
+then the return value is:
+```
+FunctionalCollections.PersistentVector{Any}[true, false, true, false, true]
+```
+
+### Argdiffs
+
+Generative functions produced by this combinator accept the following argdiff types:
+
+- [`NoArgDiff`](@ref)
+
+- [`UnknownArgDiff`](@ref)
+
+- [`UnfoldCustomArgDiff`](@ref)
+
+```@docs
+UnfoldCustomArgDiff
+```
+
+### Retdiffs
+
+Generative functions produced by this combinator may return retdiffs that are one of the following types:
+
+- [`NoRetDiff`](@ref)
+
+- [`VectorCustomRetDiff`](@ref)
+
+
 ## Recurse combinator
+
+TODO: document me
+
+```@raw html
+<div style="text-align:center">
+    <img src="../../images/recurse_combinator.png" alt="schematic of recurse combinatokr" width="70%"/>
+</div>
+```
+
