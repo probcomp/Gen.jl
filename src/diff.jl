@@ -6,10 +6,20 @@
 # combinators accept these types for their argdiff values. user generative
 # functions may or may not accept these.
 
+"""
+    const noargdiff = NoArgDiff()
+
+Indication that there was no change to the arguments of the generative function.
+"""
 struct NoArgDiff end
 const noargdiff = NoArgDiff()
 export NoArgDiff, noargdiff
 
+"""
+    const unknownargdiff = UnknownArgDiff()
+
+Indication that no information is provided about the change to the arguments of the generative function.
+"""
 struct UnknownArgDiff end
 const unknownargdiff = UnknownArgDiff()
 export UnknownArgDiff, unknownargdiff
@@ -20,29 +30,33 @@ export UnknownArgDiff, unknownargdiff
 ############
 
 """
-A default retdiff value
+    const defaultretdiff = DefaultRetDiff()
+
+A default retdiff value that provides no information about the return value difference.
 """
 struct DefaultRetDiff end
+const defaultretdiff = DefaultRetDiff()
+export DefaultRetDiff, defaultretdiff
 isnodiff(::DefaultRetDiff) = false
 
 """
-A default no retdiff value
+    const noretdiff = NoRetDiff()
+
+A retdiff value that indicates that there was no difference to the return value.
 """
 struct NoRetDiff end
+const noretdiff = NoRetDiff()
+export NoRetDiff, noretdiff
 isnodiff(::NoRetDiff) = true
 
-export DefaultRetDiff
-export NoRetDiff
-
-
 """
-Every retdiff value must implement this function.
+    isnodiff(retdiff)::Bool
+
+Return true if the given retdiff value indicates no change to the return value.
 """
 function isnodiff end
-
-isnodiff(retdiff::Bool) = retdiff
-
 export isnodiff
+isnodiff(retdiff::Bool) = retdiff
 
 
 ############

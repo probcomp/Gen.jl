@@ -19,7 +19,6 @@ For example, the [Built-in Modeling Language](@ref) allows generative functions 
     end
 end
 ```
-Generative functions must implement the the methods of the [Generative Function Interface](@ref).
 Generative functions behave like Julia functions in some respects.
 For example, we can call a generative function `foo` on arguments and get an output value using regular Julia call syntax:
 ```julia-repl
@@ -28,97 +27,204 @@ For example, we can call a generative function `foo` on arguments and get an out
 ```
 However, generative functions are distinct from Julia functions because they support additional behaviors, described in the remainder of this section.
 
-## Probabilistic semantics
+## Mathematical definition
 
-Generative functions may use randomness, but they may not mutate externally observable state.
-We represent the randomness used during an execution as a map from unique **addresses** to values, denoted ``t : A \to V`` where ``A`` is an address set and ``V`` is a set of possible values that random choices can take.
+Generative functions represent computations that accept some arguments, may use randomness internally, return an output, and cannot mutate externally observable state.
+We represent the randomness used during an execution of a generative function as a map from unique **addresses** to values, denoted ``t : A \to V`` where ``A`` is an address set and ``V`` is a set of possible values that random choices can take.
 In this section, we assume that random choices are discrete to simplify notation.
-We say that two random choice maps ``t`` and ``s`` **agree** if they assign the same value for all addresses that is in both of their domains.
-Formally, every generative function is associated with three mathematical objects:
+We say that two random choice maps ``t`` and ``s`` **agree** if they assign the same value for any address that is in both of their domains.
 
-### Input type
+Generative functions may also use **non-addressed randomness**, which is not included in the map ``t``.
+However, the state of non-addressed random choices *is* maintained by the trace internally.
+We denote non-addressed randomness by ``r``.
+Non-addressed randomness is useful for example, when calling black box Julia code that implements a randomized algorithm.
+
+The observable behavior of every generative function is defined by the following mathematical objects:
+
+### 1. Input type
 The set of valid argument tuples to the function, denoted ``X``.
 
-### Probability distribution family
-A family of probability distributions ``p(t; x)`` on maps ``t`` from random choice addresses to their values, indexed by arguments ``x``, for all ``x \in X``.
+### 2. Probability distribution family
+A family of probability distributions ``p(t, r; x)`` on maps ``t`` from random choice addresses to their values, and non-addressed randomness ``r``, indexed by arguments ``x``, for all ``x \in X``.
 Note that the distribution must be normalized:
 ```math
-\sum_{t} p(t; x) = 1 \;\; \mbox{for all} \;\; x \in X
+\sum_{t, r} p(t, r; x) = 1 \;\; \mbox{for all} \;\; x \in X
 ```
 This corresponds to a requirement that the function terminate with probabability 1 for all valid arguments.
+We use ``p(t; x)`` to denote the marginal distribution on the map ``t``:
+```math
+p(t; x) := \sum_{r} p(t, r; x)
+```
+And we denote the conditional distribution on non-addressed randomness ``r``, given the map ``t``, as:
+```math
+p(r; x, t) := p(t, r; x) / p(t; x)
+```
 
-### Return value function
+### 3. Return value function
 A (deterministic) function ``f`` that maps the tuple ``(x, t)`` of the arguments and the random choice map to the return value of the function (which we denote by ``y``).
+Note that the return value cannot depend on the non-addressed randomness.
 
-### Internal proposal distribution family
+### 4. Internal proposal distribution family
 A family of probability distributions ``q(t; x, u)`` on maps ``t`` from random choice addresses to their values, indexed by tuples ``(x, u)`` where ``u`` is a map from random choice addresses to values, and where ``x`` are the arguments to the function.
-It must be normalized for all valid ``(x, u)``:
+It must satisfy the following conditions:
 ```math
 \sum_{t} q(t; x, u) = 1 \;\; \mbox{for all} \;\; x \in X, u
 ```
-Also, it must satisfy the following condition:
 ```math
 p(t; x) > 0 \mbox{ if and only if } q(t; x, u) > 0 \mbox{ for all } u \mbox{ where } u \mbox{ and } t \mbox{ agree }
 ```
-Finally, we require that:
 ```math
 q(t; x, u) > 0 \mbox{ implies that } u \mbox{ and } t \mbox{ agree }.
 ```
+There is also a family of probability distributions ``q(r; x, t)`` on non-addressed randomness, that satisfies:
+```math
+q(r; x, t) > 0 \mbox{ if and only if } p(r; x, t) > 0
+```
 
-
-## Execution traces
+## Traces
 
 An **execution trace** (or just *trace*) is a record of an execution of a generative function.
 There is no abstract type representing all traces.
 Different concrete types of generative functions use different data structures and different Jula types for their traces.
 The trace type that a generative function uses is the second type parameter of the [`GenerativeFunction`](@ref) abstract type.
 
-A trace of a generative function can be produced using [`initialize`](@ref):
-```julia
-(trace, weight) = initialize(foo, (2, 4))
+A trace of a generative function can be produced using:
+```@docs
+initialize
 ```
 
 The trace contains various information about the execution, including:
 
-The arguments to the function, which is retrieved with [`get_args`](@ref):
-```julia-repl
->julia get_args(trace)
-(2, 4)
+The arguments to the generative function:
+```@docs
+get_args
 ```
 
-The return value of the function, which is retrieved with [`get_retval`](@ref):
-```julia-repl
->julia get_retval(trace)
-7
+The return value of the generative function:
+```@docs
+get_retval
 ```
 
-The map from addresses of random choices to their values, which is retrieved with [`get_assmt`](@ref), and has abstract type [`Assignment`](@ref).
-```julia-repl
->julia println(get_assmt(trace))
-│
-└── :z : false
+The map ``t`` from addresses of random choices to their values:
+```@docs
+get_assmt
 ```
 
-The log probability that the random choices took the values they did for the arguments, available with [`get_score`](@ref):
-```julia-repl
->julia get_score(trace)
--0.6931471805599453
+The log probability that the random choices took the values they did:
+```@docs
+get_score
 ```
 
-A reference to the generative function that was executed, which is retrieved with [`get_gen_fn`](@ref):
-```julia-repl
->julia foo === get_gen_fn(trace)
-true
+A reference to the generative function that was executed:
+```@docs
+get_gen_fn
 ```
 
 ## Trace update methods
 
-There are several methods that take a trace of a generative function as input and return a new trace of the generative function based on adjustments to the execution history of the function:
+It is often important to update or adjust the trace of a generative function.
+In Gen, traces are **persistent data structures**, meaning they can be treated as immutable values.
+There are several methods that take a trace of a generative function as input and return a new trace of the generative function based on adjustments to the execution history of the function.
+We will illustrate these methods using the following generative function:
+```julia
+@gen function foo()
+    val = @addr(bernoulli(0.3), :a)
+    if @addr(bernoulli(0.4), :b)
+        val = @addr(bernoulli(0.6), :c) && val
+    else
+        val = @addr(bernoulli(0.1), :d) && val
+    end
+    val = @addr(bernoulli(0.7), :e) && val
+    return val
+end
+```
+Suppose we have a trace (`trace`) with initial choices:
+```
+│
+├── :a : false
+│
+├── :b : true
+│
+├── :c : false
+│
+└── :e : true
+```
+Note that address `:d` is not present because the branch in which `:d` is sampled was not taken because random choice `:b` had value `true`.
 
-- [`force_update`](@ref)
-- [`fix_update`](@ref)
-- [`free_update`](@ref)
-- [`extend`](@ref)
+### Force Update
+```@docs
+force_update
+```
+Suppose we run [`force_update`](@ref) on the example `trace`, with the following constraints:
+```
+│
+├── :b : false
+│
+└── :d : true
+```
+```julia
+constraints = DynamicAssignment((:b, false), (:d, true))
+(new_trace, w, discard, _) = force_update((), noargdiff, trace, constraints)
+```
+Then `get_assmt(new_trace)` will be:
+```
+│
+├── :a : false
+│
+├── :b : false
+│
+├── :d : true
+│
+└── :e : true
+```
+and `discard` will be:
+```
+│
+├── :b : true
+│
+└── :c : false
+```
+Note that the discard contains both the previous values of addresses that were overwritten, and the values for addresses that were in the previous trace but are no longer in the new trace.
+The weight (`w`) is computed as:
+```math
+p(t'; x) = 0.7 × 0.4 × 0.4 × 0.7 = 0.0784\\
+p(t; x') = 0.7 × 0.6 × 0.1 × 0.7 = 0.0294\\
+w = \log p(t'; x')/p(t; x) = \log 0.0294/0.0784 = \log 0.375
+```
+
+### Free Update
+```@docs
+free_update
+```
+Suppose we run [`free_update`](@ref) on the example `trace`, with selection `:a` and `:b`:
+```julia
+(new_trace, w, _) = free_update((), noargdiff, trace, select(:a, :b))
+```
+Then, a new value for `:a` will be sampled from `bernoulli(0.3)`, and a new value for `:b` will be sampled from `bernoulli(0.4)`.
+If the new value for `:b` is `true`, then the previous value for `:c` (`false`) will be retained.
+If the new value for `:b` is `false`, then a new value for `:d` will be sampled from `bernoulli(0.7)`.
+The previous value for `:c` will always be retained.
+Suppose the new value for `:a` is `true`, and the new value for `:b` is `true`.
+Then `get_assmt(new_trace)` will be:
+```
+│
+├── :a : true
+│
+├── :b : true 
+│
+├── :c : false
+│
+└── :e : true
+```
+The weight (`w`) is ``\log 1 = 0``.
+
+
+### Extend
+```@docs
+extend
+```
+
+### Argdiffs
 
 In addition to the input trace, and other arguments that indicate how to adjust the trace, each of these methods also accepts an **args** argument and an **argdiff** argument.
 The args argument contains the new arguments to the generative function, which may differ from the previous arguments to the generative function (which can be retrieved by applying [`get_args`](@ref) to the previous trace).
@@ -126,6 +232,31 @@ In many cases, the adjustment to the execution specified by the other arguments 
 Therefore, it is often possible to generate the new trace and the appropriate log probability ratios required for these methods without revisiting every state of the computation of the generative function.
 To enable this, the argdiff argument provides additional information about the *difference* between the previous arguments to the generative function, and the new arguments.
 This argdiff information permits the implementation of the update method to avoid inspecting the entire argument data structure to identify which parts were updated.
+Note that the correctness of the argdiff is in general not verified by Gen---passing incorrect argdiff information may result in incorrect behavior.
+
+The trace update methods for all generative functions above should accept at least the following types of argdiffs:
+```@docs
+NoArgDiff
+UnknownArgDiff
+```
+Generative functions may also accept custom types for their argdiffs that allow more precise information about the different to be supplied.
+It is the responsibility of the author of a generative function to specify the valid argdiff types in the documentation of their function, and it is the responsibility of the user of a generative function to construct and pass in the appropriate argdiff value.
+
+### Retdiffs
+
+To enable generative functions that invoke other functions to efficiently make use of incremental computation, the trace update methods of generative functions also return a **retdiff** value, which provides information about the difference in the return value of the previous trace an the return value of the new trace.
+
+Generative functions may return arbitrary retdiff values, provided that the type has the following method:
+```@docs
+isnodiff
+```
+It is the responsibility of the author of the generative function to document the possible retdiff values that may be returned, and how the should be interpreted.
+There are two generic constant retdiff provided for authors of generative functions to use in simple cases:
+```@docs
+DefaultRetDiff
+NoRetDiff
+```
+
 
 ## Differentiable programming
 
@@ -137,56 +268,17 @@ Similarly, a generative function supports gradients with respect the value of ra
 If the return value of the function is conditionally independent of each element in the gradient source set given the other elements in the gradient source set and values of all other random choices, for all possible traces of the function, then the generative function requires a *return value gradient* to compute gradients with respect to elements of the gradient source set.
 This static property of the generative function is reported by `accepts_output_grad`.
 
-## Trainable parameters
-
-## Non-addressed randomness
-
-Generative functions may also use **non-addressable randomness**, which is not returned by [`get_assmt`](@ref).
-However, the state of non-addressable random choices *is* maintained by the trace internally.
-We denote non-addressable randomness by ``r``.
-The probabilistic semantics are extended for a generative function with non-addressable randomness as follows:
-
-### Input type
-No extension necessary
-
-### Probability distribution family
-A family of probability distributions ``p(t, r; x)`` that is normalized for all ``x \in X``, that factors according to:
-```math
-p(t, r; x) = p(t; x) p(r; t, x)
-```
-
-### Return value function
-The return value *cannot* be a function of the non-addressable randomness.
-It remains a function ``f`` on tuples ``(x, t)``.
-
-### Internal proposal distribution family
-A family of distributions ``q(t, r; x, u)`` that factors according to:
-```math
-q(t, r; x, u) = q(t; x, u) q(r; x, t)
-```
-where ``q(t; x, u)`` satisfies the conditions stated above.
-Note that the distribution on internal randomness does not depend on ``u`` in this factorization.
-
-
-### Generative Function Interface
-
 ```@docs
 has_argument_grads
 accepts_output_grad
-initialize
+backprop_params
+backprop_trace
+get_params
+```
+
+### Additional methods
+```@docs
 project
 propose
 assess
-force_update
-fix_update
-free_update
-extend
-backprop_params
-backprop_trace
-get_assmt
-get_args
-get_retval
-get_score
-get_gen_fn
-get_params
 ```
