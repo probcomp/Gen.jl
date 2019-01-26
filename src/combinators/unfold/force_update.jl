@@ -122,7 +122,7 @@ function force_update(args::Tuple, argdiff::UnfoldCustomArgDiff,
     retdiff = vector_compute_retdiff(state.isdiff_retdiffs, new_length, prev_length)
 
     # new trace
-    new_trace = VectorTrace{MapType,T,U}(gen_fn, state.subtraces, state.retval, args,  
+    new_trace = VectorTrace{UnfoldType,T,U}(gen_fn, state.subtraces, state.retval, args,  
         state.score, state.noise, new_length, state.num_nonempty)
 
     (new_trace, state.weight, discard, retdiff)
