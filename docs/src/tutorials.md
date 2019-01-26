@@ -1,7 +1,5 @@
 # Tutorials
 
-## Modeling and Basic Inference
+See the [Gen Jupyter Notebooks](https://github.com/probcomp/gen-examples) repository for tutorials.
 
-## MCMC and MAP Inference
-
-## Using Deep Learning for Inference
+Additional examples are available in the `examples/` directory of the Gen repository.

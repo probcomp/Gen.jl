@@ -54,7 +54,9 @@ export get_gen_fn
 ######################
 
 """
-GenerativeFunction with return value type T and trace type U
+    GenerativeFunction{T,U}
+
+Abstract type for a generative function with return value type T and trace type U.
 """
 abstract type GenerativeFunction{T,U} end
 

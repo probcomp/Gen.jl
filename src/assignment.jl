@@ -53,6 +53,11 @@ top-level key associated with a value.
 """
 function get_values_shallow end
 
+"""
+    abstract type Assignment end
+
+Abstract type for maps from hierarchical addresses to values.
+"""
 abstract type Assignment end
 
 """
@@ -521,13 +526,17 @@ end
 # invariant: all internal nodes are nonempty
 
 """
+    struct DynamicAssignment <: Assignment .. end
+
+A mutable map from arbitrary hierarchical addresses to values.
+
     assmt = DynamicAssignment()
 
-Construct an empty assignment.
+Construct an empty map.
 
     assmt = DynamicAssignment(tuples...)
 
-Construct an assignment containing each of the given (addr, value) pair.
+Construct a map containing each of the given (addr, value) tuples.
 """
 function DynamicAssignment()
     DynamicAssignment(Dict(), Dict())

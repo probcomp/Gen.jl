@@ -1,10 +1,13 @@
 # Assignments
 
-An *assignment* is a map from addresses of random choices to their values.
+Maps from the addresses of random choices to their values are stored in associative tree-structured data structures that have the following abstract type:
+```@docs
+Assignment
+```
+
 Assignments are constructed by users to express observations and/or constraints on the traces of generative functions.
 Assignments are also returned by certain Gen inference methods, and are used internally by various Gen inference methods.
 
-There are various concrete types for assignments, each of which is a subtype of `Assignment`.
 Assignments provide the following methods:
 ```@docs
 has_value

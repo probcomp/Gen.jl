@@ -12,7 +12,11 @@ Here is an example `@gen` function that samples two random choices:
     return z1 || z2
 end
 ```
-After running this code, `foo` is a Julia value of type `DynamicDSLFunction`, which is a subtype of `GenerativeFunction`.
+After running this code, `foo` is a Julia value of type [`DynamicDSLFunction`](@ref):
+```@docs
+DynamicDSLFunction
+```
+
 We can call the resulting generative function like we would a regular Julia function:
 ```julia
 retval::Bool = foo(0.5)

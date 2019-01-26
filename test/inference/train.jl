@@ -108,7 +108,8 @@
 
     # use stochastic gradient descent
     update = ParamUpdate(GradientDescent(0.01, 1000000), student)
-    train!(student, data_generator, update, 2000, 50, 1, 50;
+    train!(student, data_generator, update,
+        num_epoch=2000, epoch_size=50, num_minibatch=1, minibatch_size=50,
         verbose=false)
 
     # p(x | z=0) = p(x | z=1) = 0.5

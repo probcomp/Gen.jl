@@ -11,16 +11,16 @@ The function `data_generator` is a function of no arguments that returns a tuple
 This is equivalent to minimizing the expected KL divergence from the conditional distribution `constraints | inputs` of the data generator to the distribution represented by the generative function, where the expectation is taken under the marginal distribution on `inputs` determined by the data generator.
 """
 function train!(gen_fn::GenerativeFunction, data_generator::Function,
-                update::ParamUpdate,
-                num_epoch, epoch_size, num_minibatch, minibatch_size;
-                verbose::Bool=false)
+                update::ParamUpdate;
+                num_epoch=1, epoch_size=1, num_minibatch=1, minibatch_size=1,
+                evaluation_size=epoch_size, verbose=false)
 
     history = Vector{Float64}(undef, num_epoch)
     for epoch=1:num_epoch
 
         # generate data for epoch
         if verbose
-            println("generating data for epoch $epoch")
+            println("epoch $epoch: generating $epoch_size training examples...")
         end
         epoch_inputs = Vector{Tuple}(undef, epoch_size)
         epoch_assmts = Vector{Assignment}(undef, epoch_size)
@@ -30,7 +30,7 @@ function train!(gen_fn::GenerativeFunction, data_generator::Function,
 
         # train on epoch data
         if verbose
-            println("training for epoch $epoch...")
+            println("epoch $epoch: training using $num_minibatch minibatches of size $minibatch_size...")
         end
         for minibatch=1:num_minibatch
             permuted = Random.randperm(epoch_size)
@@ -46,18 +46,21 @@ function train!(gen_fn::GenerativeFunction, data_generator::Function,
         end
 
         # evaluate score on held out data
+        if verbose
+            println("epoch $epoch: evaluating on $evaluation_size examples...")
+        end
         avg_score = 0.
-        for i=1:epoch_size
+        for i=1:evaluation_size
             (inputs, constraints) = data_generator()
             (_, weight) = initialize(gen_fn, inputs, constraints)
             avg_score += weight
         end
-        avg_score /= epoch_size
+        avg_score /= evaluation_size
         
         history[epoch] = avg_score
 
         if verbose
-            println("epoch $epoch avg score: $avg_score")
+            println("epoch $epoch: est. objective value: $avg_score")
         end
     end
     return history

@@ -16,7 +16,16 @@ include("trace.jl")
 # generative functions types #
 ##############################
 
+"""
+    StaticIRGenerativeFunction{T,U} <: GenerativeFunction{T,U}
+
+Abstact type for a static IR generative function with return type T and trace type U.
+
+Contains an intermediate representation based on a directed acyclic graph.
+Most generative function interface methods are generated from the intermediate representation.
+"""
 abstract type StaticIRGenerativeFunction{T,U} <: GenerativeFunction{T,U} end
+
 function get_ir end
 function get_gen_fn_type end
 
