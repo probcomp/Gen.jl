@@ -12,7 +12,7 @@ makedocs(
             "Generative Functions" => "ref/gfi.md",
             "Probability Distributions" => "ref/distributions.md",
             "Built-in Modeling Language" => "ref/modeling.md",
-            "Generative Functions Combinators" => "ref/combinators.md",
+            "Generative Function Combinators" => "ref/combinators.md",
             "Assignments" => "ref/assignments.md",
             "Selections" => "ref/selections.md",
             "Optimizing Trainable Parameters" => "ref/parameter_optimization.md",
