@@ -1113,19 +1113,51 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "ref/inference/#Gen.particle_filter_default",
+    "location": "ref/inference/#Gen.initialize_particle_filter",
     "page": "Inference Library",
-    "title": "Gen.particle_filter_default",
+    "title": "Gen.initialize_particle_filter",
     "category": "function",
-    "text": "(traces, log_norm_weights, lml_est) = particle_filter_default(\n    model::GenerativeFunction, model_args::Tuple, num_steps::Int,\n    num_particles::Int, ess_threshold::Real,\n    init_observations::Assignment, step_observations::Function;\n    verbose=false)\n\nRun particle filtering using the internal proposal of the model.\n\nThe first argument to the model must be an integer, starting with 1, that defines the step. The remaining arguments are given by model_args. The model traces will be initialized with step=1 using the constraints given by init_observations. Then, the step will be consecutively incremented by 1. The function step_observations takes the step and returns a tuple (observations, argdiff) where observations is an assignment containing the values for newly observed random choices for the step, and argdiff describes the argument change from the previous step to the current step.\n\n\n\n\n\n"
+    "text": "state = initialize_particle_filter(model::GenerativeFunction, model_args::Tuple,\n    observations::Assignment proposal::GenerativeFunction, proposal_args::Tuple,\n    num_particles::Int)\n\nInitialize the state of a particle filter using a custom proposal for the initial latent state.\n\n\n\n\n\nstate = initialize_particle_filter(model::GenerativeFunction, model_args::Tuple,\n    observations::Assignment, num_particles::Int)\n\nInitialize the state of a particle filter, using the default proposal for the initial latent state.\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/inference/#Gen.particle_filter_custom",
+    "location": "ref/inference/#Gen.particle_filter_step!",
     "page": "Inference Library",
-    "title": "Gen.particle_filter_custom",
+    "title": "Gen.particle_filter_step!",
     "category": "function",
-    "text": "(traces, log_norm_weights, lml_est) = particle_filter_custom(\n    model::GenerativeFunction, model_args::Tuple, num_steps::Int,\n    num_steps::Int, num_particles::Int, ess_threshold::Real,\n    init_observations::Assignment, init_proposal_args::Tuple,\n    step_observations::Function, step_proposal_args::Function,\n    init_proposal::GenerativeFunction, step_proposal::GenerativeFunction;\n    verbose::Bool=false)\n\nRun particle filtering using custom proposal(s) at each step.\n\n\n\n\n\n"
+    "text": "particle_filter_step!(state::ParticleFilterStep, new_args::Tuple, argdiff,\n    observations::Assignment, proposal::GenerativeFunction, proposal_args::Tuple)\n\nPerform a particle filter update, where the model arguments are adjusted, new observations are added, and a custom proposal is used for new latent state.\n\n\n\n\n\nparticle_filter_step!(state::ParticleFilterStep, new_args::Tuple, argdiff,\n    observations::Assignment)\n\nPerform a particle filter update, where the model arguments are adjusted, new observations are added, and the default proposal is used for new latent state.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/inference/#Gen.maybe_resample!",
+    "page": "Inference Library",
+    "title": "Gen.maybe_resample!",
+    "category": "function",
+    "text": "did_resample::Bool = maybe_resample!(state::ParticleFilterState;\n    ess_threshold::Float64=length(state.traces)/2, verbose=false)\n\nDo a resampling step if the effective sample size is below the given threshold.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/inference/#Gen.log_ml_estimate",
+    "page": "Inference Library",
+    "title": "Gen.log_ml_estimate",
+    "category": "function",
+    "text": "estimate = log_ml_estimate(state::ParticleFilterState)\n\nReturn the particle filter\'s current estimate of the log marginal likelihood.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/inference/#Gen.traces",
+    "page": "Inference Library",
+    "title": "Gen.traces",
+    "category": "function",
+    "text": "traces = traces(state::ParticleFilterState)\n\nReturn the vector of traces in the current state, one for each particle.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/inference/#Gen.log_weights",
+    "page": "Inference Library",
+    "title": "Gen.log_weights",
+    "category": "function",
+    "text": "log_weights = log_weights(state::ParticleFilterState)\n\nReturn the vector of log weights for the current state, one for each particle.\n\nThe weights are not normalized, and are in log-space.\n\n\n\n\n\n"
 },
 
 {
@@ -1133,7 +1165,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Inference Library",
     "title": "Particle Filtering",
     "category": "section",
-    "text": "particle_filter_default\nparticle_filter_custom"
+    "text": "initialize_particle_filter\nparticle_filter_step!\nmaybe_resample!\nlog_ml_estimate\ntraces\nlog_weights"
 },
 
 {
