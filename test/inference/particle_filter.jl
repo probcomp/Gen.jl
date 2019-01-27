@@ -96,75 +96,76 @@ end
 
 @testset "custom proposal" begin
 
+    Random.seed!(0)
+    num_particles = 10000
+    ess_threshold = 10000 # make sure we exercise resampling
+
+    # initialize particle filter
+
     @gen function init_proposal(x::Int)
         dist = prior .* emission_dists[x,:]
         @addr(categorical(dist ./ sum(dist)), :z_init)
     end
 
-    @gen function step_proposal(t::Int, prev_z::Int, x::Int)
-        dist = transition_dists[:,prev_z] .* emission_dists[x,:]
-        # NOTE: was missing :chain, this should have been an error..
-        @addr(categorical(dist ./ sum(dist)), :chain => t => :z)
-    end
-
-    init_observations = DynamicAssignment()
-    init_observations[:x_init] = obs_x[1]
     init_proposal_args = (obs_x[1],)
+    init_observations = DynamicAssignment((:x_init, obs_x[1]))
 
-    function step_proposal_args(step::Int, prev_trace)
-        @assert step > 1
-        @assert isempty(
-            get_subassmt(get_assmt(prev_trace), :chain => (step - 1)))
-        if step > 2
-            prev_z = get_assmt(prev_trace)[:chain => (step - 2) => :z]
+    state = initialize_particle_filter(model, (1,), init_observations,
+        init_proposal, init_proposal_args, num_particles)
+
+    # do particle filter steps
+    
+    @gen function step_proposal(prev_trace, T::Int, x::Float64)
+        @assert T > 1
+        choices = get_assmt(prev_trace)
+        if T > 2
+            prev_z = choices[:chain => (T-2) => :z]
         else
-            prev_z = get_assmt(prev_trace)[:z_init]
+            prev_z = choices[:z_init]
         end
-        (step - 1, prev_z, obs_x[step])
+        dist = transition_dists[:,prev_z] .* emission_dists[x,:]
+        @addr(categorical(dist ./ sum(dist)), :chain => T-1 => :z)
     end
 
-    function step_observations(step::Int)
-        @assert step > 1
-        observations = DynamicAssignment()
-        observations[:chain => (step - 1) => :x] = obs_x[step]
-        argdiff = UnfoldCustomArgDiff(false, false)
-        (observations, argdiff)
+    argdiff = UnfoldCustomArgDiff(false, false)
+    for T=2:length(obs_x)
+        maybe_resample!(state, ess_threshold=ess_threshold)
+        new_args = (T,)
+        observations = DynamicAssignment((:chain => (T-1) => :x, obs_x[T]))
+        proposal_args = (T, obs_x[T])
+        particle_filter_step!(state, new_args, argdiff, observations,
+            step_proposal, proposal_args)
     end
-
-    Random.seed!(0)
-    num_particles = 10000
-    ess_threshold = 10000 # make sure we exercise resampling
-    (_, _, log_ml_est) = particle_filter_custom(model, (),
-                    num_steps, num_particles, ess_threshold,
-                    init_observations, init_proposal_args,
-                    step_observations, step_proposal_args,
-                    init_proposal, step_proposal; verbose=false)
-
+    
+    # check log marginal likelihood estimate
     expected_log_ml = log(hmm_forward_alg(prior, emission_dists, transition_dists, obs_x))
-    @test isapprox(expected_log_ml, log_ml_est, atol=0.01)
+    actual_log_ml_est = log_ml_estimate(state)
+    @test isapprox(expected_log_ml, actual_log_ml_est, atol=0.01)
 end
 
 @testset "default proposal" begin
 
-    init_observations = DynamicAssignment()
-    init_observations[:x_init] = obs_x[1]
-
-    function step_observations(step::Int)
-        observations = DynamicAssignment()
-        observations[:chain => (step - 1) => :x] = obs_x[step]
-        argdiff = UnfoldCustomArgDiff(false, false)
-        (observations, argdiff)
-    end
-
     Random.seed!(0)
     num_particles = 10000
     ess_threshold = 10000 # make sure we exercise resampling
-    (_, _, log_ml_est) = particle_filter_default(model, (),
-                    num_steps, num_particles, ess_threshold,
-                    init_observations, step_observations; verbose=false)
 
+    # initialize the particle filter
+    init_observations = DynamicAssignment((:x_init, obs_x[1]))
+    state = initialize_particle_filter(model, (1,), init_observations, num_particles)
+    
+    # do steps
+    argdiff = UnfoldCustomArgDiff(false, false)
+    for T=2:length(obs_x)
+        maybe_resample!(state, ess_threshold=ess_threshold)
+        new_args = (T,)
+        observations = DynamicAssignment((:chain => (T-1) => :x, obs_x[T]))
+        particle_filter_step!(state, new_args, argdiff, observations)
+    end
+
+    # check log marginal likelihood estimate
     expected_log_ml = log(hmm_forward_alg(prior, emission_dists, transition_dists, obs_x))
-    @test isapprox(expected_log_ml, log_ml_est, atol=0.02)
+    actual_log_ml_est = log_ml_estimate(state)
+    @test isapprox(expected_log_ml, actual_log_ml_est, atol=0.01)
 end
 
 end
