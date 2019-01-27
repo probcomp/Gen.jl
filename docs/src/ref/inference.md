@@ -22,8 +22,12 @@ map_optimize
 
 ## Particle Filtering
 ```@docs
-particle_filter_default
-particle_filter_custom
+initialize_particle_filter
+particle_filter_step!
+maybe_resample!
+log_ml_estimate
+traces
+log_weights
 ```
 
 ## Supervised Training

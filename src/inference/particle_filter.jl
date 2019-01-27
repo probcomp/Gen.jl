@@ -1,166 +1,176 @@
+import Distributions
+
 function effective_sample_size(log_normalized_weights::Vector{Float64})
     log_ess = -logsumexp(2. * log_normalized_weights)
-    exp(log_ess)
+    return exp(log_ess)
 end
 
-function normalize_weights(log_unnormalized_weights::Vector{Float64})
-    log_total_weight = logsumexp(log_unnormalized_weights)
-    log_normalized_weights = log_unnormalized_weights .- log_total_weight
-    (log_total_weight, log_normalized_weights)
+function normalize_weights(log_weights::Vector{Float64})
+    log_total_weight = logsumexp(log_weights)
+    log_normalized_weights = log_weights .- log_total_weight
+    return (log_total_weight, log_normalized_weights)
 end
 
-function fill_parents_self!(parents::Vector{Int})
-    for i=1:length(parents)
-        parents[i] = i
-    end
+#######################################
+# building blocks for particle filter #
+#######################################
+
+mutable struct ParticleFilterState{U}
+    traces::Vector{U}
+    new_traces::Vector{U}
+    log_weights::Vector{Float64}
+    log_ml_est::Float64
+    parents::Vector{Int}
 end
 
 """
-    (traces, log_norm_weights, lml_est) = particle_filter_default(
-        model::GenerativeFunction, model_args::Tuple, num_steps::Int,
-        num_particles::Int, ess_threshold::Real,
-        init_observations::Assignment, step_observations::Function;
-        verbose=false)
-        
-Run particle filtering using the internal proposal of the model.
+    traces = traces(state::ParticleFilterState)
 
-The first argument to the model must be an integer, starting with 1, that defines the step.
-The remaining arguments are given by `model_args`.
-The model traces will be initialized with `step=1` using the constraints given by `init_observations`.
-Then, the `step` will be consecutively incremented by 1.
-The function `step_observations` takes the step and returns a tuple `(observations, argdiff)` where `observations` is an assignment containing the values for newly observed random choices for the step, and `argdiff` describes the argument change from the previous step to the current step.
+Return the vector of traces in the current state, one for each particle.
 """
-function particle_filter_default(model::GenerativeFunction{T,U},
-                                 model_args_rest::Tuple, num_steps::Int,
-                                 num_particles::Int, ess_threshold::Real,
-                                 init_observations::Assignment,
-                                 step_observations::Function;
-                                 verbose::Bool=false) where {T,U}
+function traces(state::ParticleFilterState)
+    state.traces
 
-    log_unnormalized_weights = Vector{Float64}(undef, num_particles)
-    log_ml_estimate = 0.
-    traces = Vector{U}(undef, num_particles)
-    next_traces = Vector{U}(undef, num_particles)
+end
+
+"""
+    log_weights = log_weights(state::ParticleFilterState)
+
+Return the vector of log weights for the current state, one for each particle.
+
+The weights are not normalized, and are in log-space.
+"""
+function log_weights(state::ParticleFilterState)
+    state.log_weights
+end
+
+"""
+    estimate = log_ml_estimate(state::ParticleFilterState)
+
+Return the particle filter's current estimate of the log marginal likelihood.
+"""
+function log_ml_estimate(state::ParticleFilterState)
+    num_particles = length(state.traces)
+    return state.log_ml_est + logsumexp(state.log_weights) - log(num_particles)
+end
+
+"""
+    state = initialize_particle_filter(model::GenerativeFunction, model_args::Tuple,
+        observations::Assignment proposal::GenerativeFunction, proposal_args::Tuple,
+        num_particles::Int)
+
+Initialize the state of a particle filter using a custom proposal for the initial latent state.
+"""
+function initialize_particle_filter(model::GenerativeFunction{T,U}, model_args::Tuple,
+        observations::Assignment, proposal::GenerativeFunction, proposal_args::Tuple,
+        num_particles::Int) where {T,U}
+    traces = Vector{Any}(undef, num_particles)
+    log_weights = Vector{Float64}(undef, num_particles)
     for i=1:num_particles
-        (traces[i], log_unnormalized_weights[i]) = initialize(
-            model, (1, model_args_rest...), init_observations)
+        (prop_choices, prop_weight, _) = Gen.propose(proposal, proposal_args)
+        (traces[i], model_weight) = Gen.initialize(model, model_args, merge(observations, prop_choices))
+        log_weights[i] = model_weight - prop_weight
     end
-
-    parents = Vector{Int}(undef, num_particles)
-    for step=2:num_steps
-
-        # compute new weights
-        (log_total_weight, log_normalized_weights) = normalize_weights(log_unnormalized_weights)
-        ess = effective_sample_size(log_normalized_weights)
-        verbose && println("step: $step, ess: $ess")
-
-        # resample
-        if ess < ess_threshold
-            verbose && println("resampling..")
-            weights = exp.(log_normalized_weights)
-            Distributions.rand!(Distributions.Categorical(weights / sum(weights)), parents)
-            log_ml_estimate += log_total_weight - log(num_particles)
-            fill!(log_unnormalized_weights, 0.)
-        else
-            fill_parents_self!(parents)
-        end
-
-        # extend by one time step
-        (observations, argdiff) = step_observations(step)
-        for i=1:num_particles
-            parent = parents[i]
-            parent_trace = traces[parent]
-            (next_traces[i], log_weight) = extend((step, model_args_rest...),
-                                                  argdiff, parent_trace, observations)
-            log_unnormalized_weights[i] += log_weight
-        end
-        tmp = traces
-        traces = next_traces
-        next_traces = tmp
-    end
-
-    # finalize estimate of log marginal likelihood
-    (log_total_weight, log_normalized_weights) = normalize_weights(log_unnormalized_weights)
-    ess = effective_sample_size(log_normalized_weights)
-    log_ml_estimate += log_total_weight - log(num_particles)
-    verbose && println("final ess: $ess, final log_ml_est: $log_ml_estimate")
-    return (traces, log_normalized_weights, log_ml_estimate)
+    ParticleFilterState{U}(traces, Vector{U}(undef, num_particles),
+        log_weights, 0., collect(1:num_particles))
 end
 
 """
-    (traces, log_norm_weights, lml_est) = particle_filter_custom(
-        model::GenerativeFunction, model_args::Tuple, num_steps::Int,
-        num_steps::Int, num_particles::Int, ess_threshold::Real,
-        init_observations::Assignment, init_proposal_args::Tuple,
-        step_observations::Function, step_proposal_args::Function,
-        init_proposal::GenerativeFunction, step_proposal::GenerativeFunction;
-        verbose::Bool=false)
-        
-Run particle filtering using custom proposal(s) at each step.
-"""
-function particle_filter_custom(model::GenerativeFunction{T,U}, model_args_rest::Tuple,
-                                num_steps::Int, num_particles::Int, ess_threshold::Real,
-                                init_observations::Assignment, init_proposal_args::Tuple,
-                                step_observations::Function, step_proposal_args::Function,
-                                init_proposal::GenerativeFunction, step_proposal::GenerativeFunction;
-                                verbose::Bool=false) where {T,U}
+    state = initialize_particle_filter(model::GenerativeFunction, model_args::Tuple,
+        observations::Assignment, num_particles::Int)
 
-    log_unnormalized_weights = Vector{Float64}(undef, num_particles)
-    log_ml_estimate = 0.
-    traces = Vector{U}(undef, num_particles)
-    next_traces = Vector{U}(undef, num_particles)
+Initialize the state of a particle filter, using the default proposal for the initial latent state.
+"""
+function initialize_particle_filter(model::GenerativeFunction{T,U}, model_args::Tuple,
+        observations::Assignment, num_particles::Int) where {T,U}
+    traces = Vector{Any}(undef, num_particles)
+    log_weights = Vector{Float64}(undef, num_particles)
     for i=1:num_particles
-        (proposal_assmt, proposal_weight) = propose(init_proposal, init_proposal_args)
-        constraints = merge(init_observations, proposal_assmt)
-        (traces[i], model_weight) = initialize(model, (1, model_args_rest...), constraints)
-        log_unnormalized_weights[i] = model_weight - proposal_weight
+        (traces[i], log_weights[i]) = Gen.initialize(model, model_args, observations)
     end
-
-    parents = Vector{Int}(undef, num_particles)
-    for step=2:num_steps
-
-        # compute new weights
-        (log_total_weight, log_normalized_weights) = normalize_weights(log_unnormalized_weights)
-        ess = effective_sample_size(log_normalized_weights)
-        verbose && println("step: $step, ess: $ess")
-
-        # resample
-        if ess < ess_threshold
-            verbose && println("resampling..")
-            weights = exp.(log_normalized_weights)
-            Distributions.rand!(Distributions.Categorical(weights / sum(weights)), parents)
-            log_ml_estimate += log_total_weight - log(num_particles)
-            fill!(log_unnormalized_weights, 0.)
-        else
-            fill_parents_self!(parents)
-        end
-
-        (observations, argdiff) = step_observations(step)
-
-        # extend by one time step
-        for i=1:num_particles
-            parent = parents[i]
-            parent_trace = traces[parent]
-            proposal_args = step_proposal_args(step, parent_trace)
-            (proposal_assmt, proposal_weight) = propose(step_proposal, proposal_args)
-            constraints = merge(observations, proposal_assmt)
-            (next_traces[i], model_weight) = extend(
-                (step, model_args_rest...), argdiff, parent_trace, constraints)
-            log_weight = model_weight - proposal_weight
-            log_unnormalized_weights[i] += log_weight
-        end
-        tmp = traces
-        traces = next_traces
-        next_traces = tmp
-    end
-
-    # finalize estimate of log marginal likelihood
-    (log_total_weight, log_normalized_weights) = normalize_weights(log_unnormalized_weights)
-    ess = effective_sample_size(log_normalized_weights)
-    log_ml_estimate += log_total_weight - log(num_particles)
-    verbose && println("final ess: $ess, final log_ml_est: $log_ml_estimate")
-    return (traces, log_normalized_weights, log_ml_estimate)
+    ParticleFilterState{U}(traces, Vector{U}(undef, num_particles),
+        log_weights, 0., collect(1:num_particles))
 end
 
-export particle_filter_custom
-export particle_filter_default
+"""
+    particle_filter_step!(state::ParticleFilterStep, new_args::Tuple, argdiff,
+        observations::Assignment, proposal::GenerativeFunction, proposal_args::Tuple)
+
+Perform a particle filter update, where the model arguments are adjusted, new observations are added, and a custom proposal is used for new latent state.
+"""
+function particle_filter_step!(state::ParticleFilterState{U}, new_args::Tuple, argdiff,
+        observations::Assignment, proposal::GenerativeFunction, proposal_args::Tuple) where {U}
+    num_particles = length(state.traces)
+    for i=1:num_particles
+        (prop_choices, prop_weight, _) = Gen.propose(proposal, (state.traces[i], proposal_args...))
+        constraints = merge(observations, prop_choices)
+        (state.new_traces[i], up_weight, disc, _) = Gen.force_update(new_args, argdiff, state.traces[i], constraints)
+        @assert isempty(disc)
+        state.log_weights[i] += up_weight - prop_weight
+    end
+    
+    # swap references
+    tmp = state.traces
+    state.traces = state.new_traces
+    state.new_traces = tmp
+    
+    return nothing
+end
+
+"""
+    particle_filter_step!(state::ParticleFilterStep, new_args::Tuple, argdiff,
+        observations::Assignment)
+
+Perform a particle filter update, where the model arguments are adjusted, new observations are added, and the default proposal is used for new latent state.
+"""
+function particle_filter_step!(state::ParticleFilterState{U}, new_args::Tuple, argdiff,
+        observations::Assignment) where {U}
+    num_particles = length(state.traces)
+    for i=1:num_particles
+        (state.new_traces[i], increment, _) = Gen.extend(
+            new_args, argdiff, state.traces[i], observations)
+        state.log_weights[i] += increment
+    end
+    
+    # swap references
+    tmp = state.traces
+    state.traces = state.new_traces
+    state.new_traces = tmp
+    
+    return nothing
+end
+
+"""
+    did_resample::Bool = maybe_resample!(state::ParticleFilterState;
+        ess_threshold::Float64=length(state.traces)/2, verbose=false)
+
+Do a resampling step if the effective sample size is below the given threshold.
+"""
+function maybe_resample!(state::ParticleFilterState{U};
+                        ess_threshold::Real=length(state.traces)/2, verbose=false) where {U}
+    num_particles = length(state.traces)
+    (log_total_weight, log_normalized_weights) = normalize_weights(state.log_weights)
+    ess = effective_sample_size(log_normalized_weights)
+    do_resample = ess < ess_threshold
+    if verbose
+        println("effective sample size: $ess, doing resample: $do_resample")
+    end
+    if do_resample
+        weights = exp.(log_normalized_weights)
+        Distributions.rand!(Distributions.Categorical(weights / sum(weights)), state.parents)
+        state.log_ml_est += log_total_weight - log(num_particles)
+        for i=1:num_particles
+            state.new_traces[i] = state.traces[state.parents[i]]
+            state.log_weights[i] = 0.
+        end
+        
+        # swap references
+        tmp = state.traces
+        state.traces = state.new_traces
+        state.new_traces = tmp
+    end
+    return do_resample
+end
+
+export initialize_particle_filter, particle_filter_step!, maybe_resample!
+export traces, log_weights, log_ml_estimate
