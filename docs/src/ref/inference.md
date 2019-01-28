@@ -28,6 +28,7 @@ maybe_resample!
 log_ml_estimate
 get_traces
 get_log_weights
+sample_unweighted_traces
 ```
 
 ## Supervised Training

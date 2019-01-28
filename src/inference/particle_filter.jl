@@ -55,6 +55,21 @@ function log_ml_estimate(state::ParticleFilterState)
 end
 
 """
+    traces::Vector = sample_unweighted_traces(state::ParticleFilterState, num_samples::Int)
+
+Sample a vector of `num_samples` traces from the weighted collection of traces in the given particle filter state.
+"""
+function sample_unweighted_traces(state::ParticleFilterState{U}, num_samples::Int) where {U}
+    (_, log_normalized_weights) = normalize_weights(state.log_weights)
+    weights = exp.(log_normalized_weights)
+    traces = Vector{U}(undef, num_samples)
+    for i=1:num_samples
+        traces[i] = state.traces[categorical(weights)]
+    end
+    return traces
+end
+
+"""
     state = initialize_particle_filter(model::GenerativeFunction, model_args::Tuple,
         observations::Assignment proposal::GenerativeFunction, proposal_args::Tuple,
         num_particles::Int)
@@ -173,4 +188,4 @@ function maybe_resample!(state::ParticleFilterState{U};
 end
 
 export initialize_particle_filter, particle_filter_step!, maybe_resample!
-export get_traces, get_log_weights, log_ml_estimate
+export get_traces, get_log_weights, log_ml_estimate, sample_unweighted_traces
