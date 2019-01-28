@@ -1161,11 +1161,19 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "ref/inference/#Gen.sample_unweighted_traces",
+    "page": "Inference Library",
+    "title": "Gen.sample_unweighted_traces",
+    "category": "function",
+    "text": "traces::Vector = sample_unweighted_traces(state::ParticleFilterState, num_samples::Int)\n\nSample a vector of num_samples traces from the weighted collection of traces in the given particle filter state.\n\n\n\n\n\n"
+},
+
+{
     "location": "ref/inference/#Particle-Filtering-1",
     "page": "Inference Library",
     "title": "Particle Filtering",
     "category": "section",
-    "text": "initialize_particle_filter\nparticle_filter_step!\nmaybe_resample!\nlog_ml_estimate\nget_traces\nget_log_weights"
+    "text": "initialize_particle_filter\nparticle_filter_step!\nmaybe_resample!\nlog_ml_estimate\nget_traces\nget_log_weights\nsample_unweighted_traces"
 },
 
 {
