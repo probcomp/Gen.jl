@@ -93,7 +93,7 @@ function initialize_particle_filter(model::GenerativeFunction{T,U}, model_args::
 end
 
 """
-    particle_filter_step!(state::ParticleFilterStep, new_args::Tuple, argdiff,
+    particle_filter_step!(state::ParticleFilterState, new_args::Tuple, argdiff,
         observations::Assignment, proposal::GenerativeFunction, proposal_args::Tuple)
 
 Perform a particle filter update, where the model arguments are adjusted, new observations are added, and a custom proposal is used for new latent state.
@@ -118,7 +118,7 @@ function particle_filter_step!(state::ParticleFilterState{U}, new_args::Tuple, a
 end
 
 """
-    particle_filter_step!(state::ParticleFilterStep, new_args::Tuple, argdiff,
+    particle_filter_step!(state::ParticleFilterState, new_args::Tuple, argdiff,
         observations::Assignment)
 
 Perform a particle filter update, where the model arguments are adjusted, new observations are added, and the default proposal is used for new latent state.
@@ -173,4 +173,4 @@ function maybe_resample!(state::ParticleFilterState{U};
 end
 
 export initialize_particle_filter, particle_filter_step!, maybe_resample!
-export traces, log_weights, log_ml_estimate
+export get_traces, get_log_weights, log_ml_estimate
