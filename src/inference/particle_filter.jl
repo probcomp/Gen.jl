@@ -24,23 +24,23 @@ mutable struct ParticleFilterState{U}
 end
 
 """
-    traces = traces(state::ParticleFilterState)
+    traces = get_traces(state::ParticleFilterState)
 
 Return the vector of traces in the current state, one for each particle.
 """
-function traces(state::ParticleFilterState)
+function get_traces(state::ParticleFilterState)
     state.traces
 
 end
 
 """
-    log_weights = log_weights(state::ParticleFilterState)
+    log_weights = get_log_weights(state::ParticleFilterState)
 
 Return the vector of log weights for the current state, one for each particle.
 
 The weights are not normalized, and are in log-space.
 """
-function log_weights(state::ParticleFilterState)
+function get_log_weights(state::ParticleFilterState)
     state.log_weights
 end
 

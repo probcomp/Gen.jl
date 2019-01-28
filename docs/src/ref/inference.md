@@ -26,8 +26,8 @@ initialize_particle_filter
 particle_filter_step!
 maybe_resample!
 log_ml_estimate
-traces
-log_weights
+get_traces
+get_log_weights
 ```
 
 ## Supervised Training
