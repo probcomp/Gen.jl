@@ -385,6 +385,62 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "ref/gfi/#Custom-generative-function-types-1",
+    "page": "Generative Functions",
+    "title": "Custom generative function types",
+    "category": "section",
+    "text": "Most users can just use generative functions written in the Built-in Modeling Language, and can skip this section. However, to develop new modeling DSLs, or optimized implementations of certain probabilistic modeling components, users can also implement custom types of generative functions. We recommend the following steps for implementing a new type of generative function, and also looking at the implementation for the DynamicDSLFunction type as an example."
+},
+
+{
+    "location": "ref/gfi/#Define-a-trace-data-type-1",
+    "page": "Generative Functions",
+    "title": "Define a trace data type",
+    "category": "section",
+    "text": "struct MyTraceType\n    ..\nend"
+},
+
+{
+    "location": "ref/gfi/#Decide-the-return-type-for-the-generative-function-1",
+    "page": "Generative Functions",
+    "title": "Decide the return type for the generative function",
+    "category": "section",
+    "text": "Suppose our return type is Vector{Float64}."
+},
+
+{
+    "location": "ref/gfi/#Define-a-data-type-for-your-generative-function-1",
+    "page": "Generative Functions",
+    "title": "Define a data type for your generative function",
+    "category": "section",
+    "text": "This should be a subtype of GenerativeFunction, with the appropriate type parameters.struct MyGenerativeFunction <: GenerativeFunction{Vector{Float64},MyTraceType}\n..\nendNote that your generative function may not need to have any fields. You can create a constructor for it, e.g.:function MyGenerativeFunction(...)\n..\nend"
+},
+
+{
+    "location": "ref/gfi/#Decide-what-the-arguments-to-a-generative-function-should-be-1",
+    "page": "Generative Functions",
+    "title": "Decide what the arguments to a generative function should be",
+    "category": "section",
+    "text": "For example, our generative functions might take two arguments, a (of type Int) and b (of type Float64). Then, the argument tuple passed to e.g. initialize will have two elements.NOTE: Be careful to distinguish between arguments to the generative function itself, and arguments to the constructor of the generative function. For example, if you have a generative function type that is parametrized by, for example, modeling DSL code, this DSL code would be a parameter of the generative function constructor."
+},
+
+{
+    "location": "ref/gfi/#Decide-what-the-addressed-random-choices-(if-any)-will-be-1",
+    "page": "Generative Functions",
+    "title": "Decide what the addressed random choices (if any) will be",
+    "category": "section",
+    "text": "Remember that each random choice is assigned a unique address in (possibly) hierarchical address space. You are free to design this address space as you wish, although you should document it for users of your generative function type."
+},
+
+{
+    "location": "ref/gfi/#Implement-the-methods-of-the-interface-1",
+    "page": "Generative Functions",
+    "title": "Implement the methods of the interface",
+    "category": "section",
+    "text": "At minimum, you need to implement all methods under the Traces heading (e.g. initialize, ..)\nTo support metropolis_hastings or local optimization, or local iterative adjustments to traces, be sure to implement the force_update and `free_update methods.\nTo support gradients of the log probability density with respect to the arguments and/or random choices made by the function, implement the backprop_trace method.\nGenerative functions can also have trainable parameters (e.g. neural network weights). To support these, implement the backprop_params method.\nTo support use of your generative function in custom proposals (instead of just generative models), implement assess and propose methods."
+},
+
+{
     "location": "ref/distributions/#",
     "page": "Probability Distributions",
     "title": "Probability Distributions",
@@ -565,7 +621,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Built-in Modeling Language",
     "title": "Built-in Modeling Language",
     "category": "section",
-    "text": "Gen provides a built-in embedded modeling language for defining generative functions. The language uses a syntax that extends Julia\'s syntax for defining regular Julia functions.Generative functions in the modeling language are identified using the @gen keyword in front of a Julia function definition. Here is an example @gen function that samples two random choices:@gen function foo(prob::Float64)\n    z1 = @addr(bernoulli(prob), :a)\n    z2 = @addr(bernoulli(prob), :b)\n    return z1 || z2\nendAfter running this code, foo is a Julia value of type DynamicDSLFunction:DynamicDSLFunctionWe can call the resulting generative function like we would a regular Julia function:retval::Bool = foo(0.5)We can also trace its execution:(trace, _) = initialize(foo, (0.5,))See Generative Function Interface for the full set of operations supported by a generative function. Note that the built-in modeling language described in this section is only one of many ways of defining a generative function – generative functions can also be constructed using other embedded languages, or by directly implementing the methods of the generative function interface. However, the built-in modeling language is intended to being flexible enough cover a wide range of use cases. In the remainder of this section, we refer to generative functions defined using the built-in modeling language as @gen functions."
+    "text": "Gen provides a built-in embedded modeling language for defining generative functions. The language uses a syntax that extends Julia\'s syntax for defining regular Julia functions.Generative functions in the modeling language are identified using the @gen keyword in front of a Julia function definition. Here is an example @gen function that samples two random choices:@gen function foo(prob::Float64)\n    z1 = @addr(bernoulli(prob), :a)\n    z2 = @addr(bernoulli(prob), :b)\n    return z1 || z2\nendAfter running this code, foo is a Julia value of type DynamicDSLFunction:DynamicDSLFunctionWe can call the resulting generative function like we would a regular Julia function:retval::Bool = foo(0.5)We can also trace its execution:(trace, _) = initialize(foo, (0.5,))See Generative Functions for the full set of operations supported by a generative function. Note that the built-in modeling language described in this section is only one of many ways of defining a generative function – generative functions can also be constructed using other embedded languages, or by directly implementing the methods of the generative function interface. However, the built-in modeling language is intended to being flexible enough cover a wide range of use cases. In the remainder of this section, we refer to generative functions defined using the built-in modeling language as @gen functions."
 },
 
 {
@@ -681,11 +737,67 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "ref/modeling/#Update-code-blocks-1",
+    "location": "ref/modeling/#Gen.NewChoiceDiff",
     "page": "Built-in Modeling Language",
-    "title": "Update code blocks",
+    "title": "Gen.NewChoiceDiff",
+    "category": "type",
+    "text": "NewChoiceDiff()\n\nSingleton indicating that there was previously no random choice at this address.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/modeling/#Gen.NoChoiceDiff",
+    "page": "Built-in Modeling Language",
+    "title": "Gen.NoChoiceDiff",
+    "category": "type",
+    "text": "NoChoiceDiff()\n\nSingleton indicating that the value of the random choice did not change.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/modeling/#Gen.PrevChoiceDiff",
+    "page": "Built-in Modeling Language",
+    "title": "Gen.PrevChoiceDiff",
+    "category": "type",
+    "text": "PrevChoiceDiff(prev)\n\nWrapper around the previous value of the random choice indicating that it may have changed.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/modeling/#Gen.NewCallDiff",
+    "page": "Built-in Modeling Language",
+    "title": "Gen.NewCallDiff",
+    "category": "type",
+    "text": "NewCallDiff()\n\nSingleton indicating that there was previously no call at this address.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/modeling/#Gen.NoCallDiff",
+    "page": "Built-in Modeling Language",
+    "title": "Gen.NoCallDiff",
+    "category": "type",
+    "text": "NoCallDiff()\n\nSingleton indicating that the return value of the call has not changed.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/modeling/#Gen.UnknownCallDiff",
+    "page": "Built-in Modeling Language",
+    "title": "Gen.UnknownCallDiff",
+    "category": "type",
+    "text": "UnknownCallDiff()\n\nSingleton indicating that there was a previous call at this address, but that no information is known about the change to the return value.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/modeling/#Gen.CustomCallDiff",
+    "page": "Built-in Modeling Language",
+    "title": "Gen.CustomCallDiff",
+    "category": "type",
+    "text": "CustomCallDiff(retdiff)\n\nWrapper around a retdiff value, indicating that there was a previous call at this address, and that isnodiff(retdiff) = false (otherwise NoCallDiff() would have been returned).\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/modeling/#Differencing-code-1",
+    "page": "Built-in Modeling Language",
+    "title": "Differencing code",
     "category": "section",
-    "text": ""
+    "text": "@gen functions may include blocks of differencing code annotated with the @diff keyword. Code that is annotated with @diff is only executed during one of the Trace update methods. During a trace update operation, @diff code is simply inserted inline into the body of the generative function. Therefore, @diff code can read from the state of the non-diff code. However, the flow of information is one-directional: diff` code is not permitted to affect the state of the regular code.@diff code is used to compute the retdiff value for the update (see Retdiff) and the argdiff values for calls to generative function calls (see Argdiff). To compute these values, the @diff code has access to special keywords:@argdiff, which returns the argdiff that was passed to the update method for the generative function.@choicediff, which returns a value of one of the following types that indicates whether the random choice changed or not:NewChoiceDiff\nNoChoiceDiff\nPrevChoiceDiff@calldiff, which returns a value of one of the following types that provides information about the change in return value from the function:NewCallDiff\nNoCallDiff\nUnknownCallDiff\nCustomCallDiffTo set a retdiff value, the @diff code uses the @retdiff keyword.Example. In the function below, if the argument is false and the argument did not change, then there is no change to the return value. If the argument did not change, and :a and :b did not change, then there is no change to the return value. Otherwise, return an DefaultRetDiff value.@gen function foo(val::Bool)\n    val = val && @addr(bernoulli(0.3), :a)\n    val = val && @addr(bernoulli(0.4), :b)\n    @diff begin\n        argdiff = @argdiff()\n        if argdiff == noargdiff\n            if !val || (isnodiff(@choicediff(:a)) && isnodiff(@choicediff(:b)))\n                @retdiff(noretdiff)\n            else\n                @retdiff(defaultretdiff)\n            end\n        else\n            @retdiff(defaultretdiff)\n        end\n    end\n    return val\nend"
 },
 
 {
