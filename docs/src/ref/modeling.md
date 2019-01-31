@@ -25,7 +25,7 @@ We can also trace its execution:
 ```julia
 (trace, _) = initialize(foo, (0.5,))
 ```
-See [Generative Function Interface](@ref) for the full set of operations supported by a generative function.
+See [Generative Functions](@ref) for the full set of operations supported by a generative function.
 Note that the built-in modeling language described in this section is only one of many ways of defining a generative function -- generative functions can also be constructed using other embedded languages, or by directly implementing the methods of the generative function interface.
 However, the built-in modeling language is intended to being flexible enough cover a wide range of use cases.
 In the remainder of this section, we refer to generative functions defined using the built-in modeling language as `@gen` functions.
@@ -302,7 +302,59 @@ Like distributions, generative functions indicate which of their arguments suppo
 It is an error if a tracked value is passed as an argument of a generative function, when differentiation is not supported by the generative function for that argument.
 If a generative function `gen_fn` has `accepts_output_grad(gen_fn) = true`, then the return value of the generative function call will be tracked and will propagate further through the caller `@gen` function's computation.
 
-## Update code blocks
+## Differencing code
+
+`@gen` functions may include blocks of *differencing code* annotated with the `@diff` keyword.
+Code that is annotated with `@diff` is only executed during one of the [Trace update methods](@ref).
+During a trace update operation, `@diff` code is simply inserted inline into the body of the generative function.
+Therefore, `@diff` code can read from the state of the non-diff code.
+However, the flow of information is one-directional: diff` code is not permitted to affect the state of the regular code.
+
+`@diff` code is used to compute the retdiff value for the update (see [Retdiff](@ref)) and the argdiff values for calls to generative function calls (see [Argdiff](@ref)).
+To compute these values, the `@diff` code has access to special keywords:
+
+`@argdiff`, which returns the argdiff that was passed to the update method for the generative function.
+
+`@choicediff`, which returns a value of one of the following types that indicates whether the random choice changed or not:
+```@docs
+NewChoiceDiff
+NoChoiceDiff
+PrevChoiceDiff
+```
+
+`@calldiff`, which returns a value of one of the following types that provides information about the change in return value from the function:
+```@docs
+NewCallDiff
+NoCallDiff
+UnknownCallDiff
+CustomCallDiff
+```
+
+To set a retdiff value, the `@diff` code uses the `@retdiff` keyword.
+
+**Example.**
+In the function below, if the argument is false and the argument did not change, then there is no change to the return value.
+If the argument did not change, and :a and :b did not change, then there is no change to the return value.
+Otherwise, return an [`DefaultRetDiff`](@ref) value.
+```julia
+@gen function foo(val::Bool)
+    val = val && @addr(bernoulli(0.3), :a)
+    val = val && @addr(bernoulli(0.4), :b)
+    @diff begin
+        argdiff = @argdiff()
+        if argdiff == noargdiff
+            if !val || (isnodiff(@choicediff(:a)) && isnodiff(@choicediff(:b)))
+                @retdiff(noretdiff)
+            else
+                @retdiff(defaultretdiff)
+            end
+        else
+            @retdiff(defaultretdiff)
+        end
+    end
+    return val
+end
+```
 
 ## Static DSL
 
