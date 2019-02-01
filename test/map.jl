@@ -86,9 +86,9 @@
         @test retval[2] == z2_new
         @test retval[3] == z3_new
         @test isa(retdiff, VectorCustomRetDiff)
-        @test !haskey(retdiff.retained_retdiffs, 1) # no diff
-        @test retdiff.retained_retdiffs[2] == DefaultRetDiff() # retval changed
-        @test !haskey(retdiff.retained_retdiffs, 3) # new, not retained
+        @test !haskey(retdiff, 1) # no diff
+        @test retdiff[2] == DefaultRetDiff() # retval changed
+        @test !haskey(retdiff, 3) # new, not retained
         @test !isnodiff(retdiff)
 
         # unknownargdiff, decreasing length from 2 to 1 and change 1
@@ -114,8 +114,8 @@
         @test length(retval) == 1
         @test retval[1] == z1_new
         @test isa(retdiff, VectorCustomRetDiff)
-        @test retdiff.retained_retdiffs[1] == DefaultRetDiff() # retval changed
-        @test !haskey(retdiff.retained_retdiffs, 2) # removed, not retained
+        @test retdiff[1] == DefaultRetDiff() # retval changed
+        @test !haskey(retdiff, 2) # removed, not retained
         @test !isnodiff(retdiff)
 
         # noargdiff, change nothing
@@ -162,8 +162,8 @@
         @test retval[1] == z1
         @test retval[2] == z2_new
         @test isa(retdiff, VectorCustomRetDiff)
-        @test !haskey(retdiff.retained_retdiffs, 1) # no diff
-        @test retdiff.retained_retdiffs[2] == DefaultRetDiff() # retval changed
+        @test !haskey(retdiff, 1) # no diff
+        @test retdiff[2] == DefaultRetDiff() # retval changed
         @test !isnodiff(retdiff)
 
         # custom argdiff, no constraints
@@ -228,9 +228,9 @@
         @test retval[2] == z2_new
         @test retval[3] == z3_new
         @test isa(retdiff, VectorCustomRetDiff)
-        @test !haskey(retdiff.retained_retdiffs, 1) # no diff
-        @test retdiff.retained_retdiffs[2] == DefaultRetDiff() # retval changed
-        @test !haskey(retdiff.retained_retdiffs, 3) # new, not retained
+        @test !haskey(retdiff, 1) # no diff
+        @test retdiff[2] == DefaultRetDiff() # retval changed
+        @test !haskey(retdiff, 3) # new, not retained
         @test !isnodiff(retdiff)
 
         # unknownargdiff, decreasing length from 2 to 1 and change 1
@@ -253,8 +253,8 @@
         @test length(retval) == 1
         @test retval[1] == z1_new
         @test isa(retdiff, VectorCustomRetDiff)
-        @test retdiff.retained_retdiffs[1] == DefaultRetDiff() # retval changed
-        @test !haskey(retdiff.retained_retdiffs, 2) # removed, not retained
+        @test retdiff[1] == DefaultRetDiff() # retval changed
+        @test !haskey(retdiff, 2) # removed, not retained
         @test !isnodiff(retdiff)
 
         # noargdiff, change nothing
@@ -301,8 +301,8 @@
         @test retval[1] == z1
         @test retval[2] == z2_new
         @test isa(retdiff, VectorCustomRetDiff)
-        @test !haskey(retdiff.retained_retdiffs, 1) # no diff
-        @test retdiff.retained_retdiffs[2] == DefaultRetDiff() # retval changed
+        @test !haskey(retdiff, 1) # no diff
+        @test retdiff[2] == DefaultRetDiff() # retval changed
         @test !isnodiff(retdiff)
 
         # custom argdiff, no constraints
@@ -410,8 +410,8 @@
         @test retval[1] == z1
         @test retval[2] == z2_new
         @test isa(retdiff, VectorCustomRetDiff)
-        @test !haskey(retdiff.retained_retdiffs, 1) # no diff
-        @test retdiff.retained_retdiffs[2] == DefaultRetDiff() # retval changed
+        @test !haskey(retdiff, 1) # no diff
+        @test retdiff[2] == DefaultRetDiff() # retval changed
         @test !isnodiff(retdiff)
 
         # custom argdiff, no selection

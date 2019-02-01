@@ -125,17 +125,37 @@ end
 
 Construct a retdiff that provides retdiff information about some elements of the returned vector.
 
-If the length of the vector has changed, then `retained_retdiffs` may only contain retdiffs for positions in the vector that exist in both the previous and new vector.
-For each `i` in `keys(retained_retdiffs)`, `retained_retdiffs[i]` contains the retdiff information for the `i`th position.
-A missing entry for some `i` that exists in both the previous and new vectors indicates that its value has not changed.
+    retdiff[i]
+
+Return the retdiff value for the `i`th element of the vector.
+
+    haskey(retdiff, i::Int)
+
+Return true if there is a retdiff value for the `i`th element of the vector, or false if there was no difference in this element.
+
+    keys(retdiff)
+
+Return an iterator over the elements with retdiff values.
 """
 struct VectorCustomRetDiff
     retained_retdiffs::Dict{Int,Any}
 end
+
+VectorCustomRetDiff() = VectorCustomRetDiff(Dict{Int,Any}())
+
 isnodiff(::VectorCustomRetDiff) = false
 
-export VectorCustomRetDiff
+function Base.getindex(retdiff::VectorCustomRetDiff, i::Int)
+    retdiff.retained_retdiffs[i]
+end
 
+function Base.haskey(retdiff::VectorCustomRetDiff, i::Int)
+    haskey(retdiff.retained_retdiffs, i)
+end
+
+Base.keys(retdiff::VectorCustomRetDiff) = keys(retdiff.retained_retdiffs)
+
+export VectorCustomRetDiff
 
 function vector_compute_retdiff(isdiff_retdiffs::Dict{Int,Any}, new_length::Int, prev_length::Int)
     if new_length == prev_length && length(isdiff_retdiffs) == 0

@@ -136,9 +136,9 @@
         @test retval[2] == x2_new
         @test retval[3] == x3_new
         @test isa(retdiff, VectorCustomRetDiff)
-        @test !haskey(retdiff.retained_retdiffs, 1) # no diff
-        @test retdiff.retained_retdiffs[2] == DefaultRetDiff() # retval changed
-        @test !haskey(retdiff.retained_retdiffs, 3) # new, not retained
+        @test !haskey(retdiff, 1) # no diff
+        @test retdiff[2] == DefaultRetDiff() # retval changed
+        @test !haskey(retdiff, 3) # new, not retained
         @test !isnodiff(retdiff)
 
         # unknownargdiff, decreasing length from 2 to 1 and change 1 and change params
@@ -165,8 +165,8 @@
         @test length(retval) == 1
         @test retval[1] == x1_new
         @test isa(retdiff, VectorCustomRetDiff)
-        @test retdiff.retained_retdiffs[1] == DefaultRetDiff() # retval changed
-        @test !haskey(retdiff.retained_retdiffs, 2) # removed, not retained
+        @test retdiff[1] == DefaultRetDiff() # retval changed
+        @test !haskey(retdiff, 2) # removed, not retained
         @test !isnodiff(retdiff)
 
         # noargdiff, change nothing
@@ -212,8 +212,8 @@
         @test retval[1] == x1
         @test retval[2] == x2_new
         @test isa(retdiff, VectorCustomRetDiff)
-        @test !haskey(retdiff.retained_retdiffs, 1) # no diff
-        @test retdiff.retained_retdiffs[2] == DefaultRetDiff() # retval changed
+        @test !haskey(retdiff, 1) # no diff
+        @test retdiff[2] == DefaultRetDiff() # retval changed
         @test !isnodiff(retdiff)
 
         # init_changed=true, params_changed=false, change nothing
@@ -309,9 +309,9 @@
         @test retval[2] == x2_new
         @test retval[3] == x3_new
         @test isa(retdiff, VectorCustomRetDiff)
-        @test !haskey(retdiff.retained_retdiffs, 1) # no diff
-        @test retdiff.retained_retdiffs[2] == DefaultRetDiff() # retval changed
-        @test !haskey(retdiff.retained_retdiffs, 3) # new, not retained
+        @test !haskey(retdiff, 1) # no diff
+        @test retdiff[2] == DefaultRetDiff() # retval changed
+        @test !haskey(retdiff, 3) # new, not retained
         @test !isnodiff(retdiff)
 
         # unknownargdiff, decreasing length from 2 to 1 and change 1 and change params
@@ -337,8 +337,8 @@
         @test length(retval) == 1
         @test retval[1] == x1_new
         @test isa(retdiff, VectorCustomRetDiff)
-        @test retdiff.retained_retdiffs[1] == DefaultRetDiff() # retval changed
-        @test !haskey(retdiff.retained_retdiffs, 2) # removed, not retained
+        @test retdiff[1] == DefaultRetDiff() # retval changed
+        @test !haskey(retdiff, 2) # removed, not retained
         @test !isnodiff(retdiff)
 
         # noargdiff, change nothing
@@ -384,8 +384,8 @@
         @test retval[1] == x1
         @test retval[2] == x2_new
         @test isa(retdiff, VectorCustomRetDiff)
-        @test !haskey(retdiff.retained_retdiffs, 1) # no diff
-        @test retdiff.retained_retdiffs[2] == DefaultRetDiff() # retval changed
+        @test !haskey(retdiff, 1) # no diff
+        @test retdiff[2] == DefaultRetDiff() # retval changed
         @test !isnodiff(retdiff)
 
         # init_changed=true, params_changed=false, change nothing
@@ -476,9 +476,9 @@
         @test retval[2] == x2_new
         @test retval[3] == x3_new
         @test isa(retdiff, VectorCustomRetDiff)
-        @test !haskey(retdiff.retained_retdiffs, 1) # no diff
-        @test retdiff.retained_retdiffs[2] == DefaultRetDiff() # retval changed
-        @test !haskey(retdiff.retained_retdiffs, 3) # new, not retained
+        @test !haskey(retdiff, 1) # no diff
+        @test retdiff[2] == DefaultRetDiff() # retval changed
+        @test !haskey(retdiff, 3) # new, not retained
         @test !isnodiff(retdiff)
 
         # unknownargdiff, decreasing length from 2 to 1 and change 1 and change params
@@ -498,8 +498,8 @@
         @test length(retval) == 1
         @test retval[1] == x1_new
         @test isa(retdiff, VectorCustomRetDiff)
-        @test retdiff.retained_retdiffs[1] == DefaultRetDiff() # retval changed
-        @test !haskey(retdiff.retained_retdiffs, 2) # removed, not retained
+        @test retdiff[1] == DefaultRetDiff() # retval changed
+        @test !haskey(retdiff, 2) # removed, not retained
         @test !isnodiff(retdiff)
 
         # noargdiff, change nothing
@@ -540,8 +540,8 @@
         @test retval[1] == x1
         @test retval[2] == x2_new
         @test isa(retdiff, VectorCustomRetDiff)
-        @test !haskey(retdiff.retained_retdiffs, 1) # no diff
-        @test retdiff.retained_retdiffs[2] == DefaultRetDiff() # retval changed
+        @test !haskey(retdiff, 1) # no diff
+        @test retdiff[2] == DefaultRetDiff() # retval changed
         @test !isnodiff(retdiff)
 
         # init_changed=true, params_changed=false, change nothing
@@ -640,10 +640,10 @@
         @test retval[3] == x3_new
         @test retval[4] == x4_new
         @test isa(retdiff, VectorCustomRetDiff)
-        @test !haskey(retdiff.retained_retdiffs, 1) # no diff
-        @test !haskey(retdiff.retained_retdiffs, 2) # no diff
-        @test !haskey(retdiff.retained_retdiffs, 3) # new, not retained
-        @test !haskey(retdiff.retained_retdiffs, 4) # new, not retained
+        @test !haskey(retdiff, 1) # no diff
+        @test !haskey(retdiff, 2) # no diff
+        @test !haskey(retdiff, 3) # new, not retained
+        @test !haskey(retdiff, 4) # new, not retained
         @test !isnodiff(retdiff)
     end
 
