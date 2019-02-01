@@ -861,7 +861,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Generative Function Combinators",
     "title": "Gen.VectorCustomRetDiff",
     "category": "type",
-    "text": "retdiff = VectorCustomRetDiff(retained_retdiffs:Dict{Int,Any})\n\nConstruct a retdiff that provides retdiff information about some elements of the returned vector.\n\nIf the length of the vector has changed, then retained_retdiffs may only contain retdiffs for positions in the vector that exist in both the previous and new vector. For each i in keys(retained_retdiffs), retained_retdiffs[i] contains the retdiff information for the ith position. A missing entry for some i that exists in both the previous and new vectors indicates that its value has not changed.\n\n\n\n\n\n"
+    "text": "retdiff = VectorCustomRetDiff(retained_retdiffs:Dict{Int,Any})\n\nConstruct a retdiff that provides retdiff information about some elements of the returned vector.\n\nretdiff[i]\n\nReturn the retdiff value for the ith element of the vector.\n\nhaskey(retdiff, i::Int)\n\nReturn true if there is a retdiff value for the ith element of the vector, or false if there was no difference in this element.\n\nkeys(retdiff)\n\nReturn an iterator over the elements with retdiff values.\n\n\n\n\n\n"
 },
 
 {
