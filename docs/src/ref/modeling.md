@@ -87,10 +87,31 @@ val::Bool = @addr(bernoulli(0.5), :z)
 Not all random choices need to be given addresses.
 An address is required if the random choice will be observed, or will be referenced by a custom inference algorithm (e.g. if it will be proposed to by a custom proposal distribution).
 
-It is recommended to ensure that the support of a random choice at a given address (the set of values with nonzero probability or probability density) is constant across all possible executions of the `@gen` function.
-This discipline will simplify reasoning about the probabilistic behavior of the function, and will help avoid difficult-to-debug NaNs or Infs from appearing.
-If the support of a random choice needs to change, consider using a different address for each distinct support.
-
+### Choices should have constant support
+The support of a random choice at a given address (the set of values with nonzero probability or probability density) must be constant across all possible executions of the `@gen` function.
+Violating this discipline will cause errors in certain cases.
+If the support of a random choice needs to change, use a different address for each distinct value of the support.
+For example, consider the following generative function:
+```julia
+@gen function foo()
+    n = @addr(categorical([0.5, 0.5]), :n) + 1
+    @addr(categorical(ones(n) / n), :x)
+end
+```
+The support of the random choice with address `:x` is either the set ``\{1, 2\}`` or ``\{1, 2, 3\}``.
+Therefore, this random choice does satisfy our condition above.
+This would cause an error with the following, in which the `:n` address is modified, which could result in a change to the domain of the `:x` variable:
+```julia
+tr, _ = initialize(foo, (), DynamicAssignment((:n, 2), (:x, 3)))
+tr, _ = mh(tr, select(:n))
+```
+We can modify the address to satisfy the condition by including the domain in the address:
+```julia
+@gen function foo()
+    n = @addr(categorical([0.5, 0.5]), :n) + 1
+    @addr(categorical(ones(n) / n), (:x, n))
+end
+```
 
 ## Calling generative functions
 
