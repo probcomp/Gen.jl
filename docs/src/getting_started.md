@@ -49,7 +49,7 @@ function my_inference_program(xs::Vector{Float64}, ys::Vector{Float64}, num_iter
     
     # Run the model, constrained by `constraints`,
     # to get an initial execution trace
-    (trace, _) = initialize(my_model, (xs,), constraints)
+    (trace, _) = generate(my_model, (xs,), constraints)
     
     # Iteratively update the slope then the intercept,
     # using Gen's metropolis_hastings operator.

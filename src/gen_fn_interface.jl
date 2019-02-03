@@ -94,7 +94,7 @@ The gradient source elements are:
 
 - Any static parameter
 
-- Random choices made at a set of addresses that are selectable by `backprop_trace`.
+- Random choices made at a set of addresses that are selectable by `choice_gradients`.
 """
 function accepts_output_grad end
 
@@ -106,11 +106,11 @@ Return an iterable over the trainable parameters of the generative function.
 get_params(::GenerativeFunction) = ()
 
 """
-    (trace::U, weight) = initialize(gen_fn::GenerativeFunction{T,U}, args::Tuple)
+    (trace::U, weight) = generate(gen_fn::GenerativeFunction{T,U}, args::Tuple)
 
 Return a trace of a generative function.
 
-    (trace::U, weight) = initialize(gen_fn::GenerativeFunction{T,U}, args::Tuple,
+    (trace::U, weight) = generate(gen_fn::GenerativeFunction{T,U}, args::Tuple,
                                     constraints::Assignment)
 
 Return a trace of a generative function that is consistent with the given
@@ -125,20 +125,20 @@ Also return the weight (`weight`):
 
 Example without constraints:
 ```julia
-(trace, weight) = initialize(foo, (2, 4))
+(trace, weight) = generate(foo, (2, 4))
 ```
 
 Example with constraint that address `:z` takes value `true`.
 ```julia
-(trace, weight) = initialize(foo, (2, 4), DynamicAssignment((:z, true))
+(trace, weight) = generate(foo, (2, 4), DynamicAssignment((:z, true))
 ```
 """
-function initialize(::GenerativeFunction, ::Tuple, ::Assignment)
+function generate(::GenerativeFunction, ::Tuple, ::Assignment)
     error("Not implemented")
 end
 
-function initialize(gen_fn::GenerativeFunction, args::Tuple)
-    initialize(gen_fn, args, EmptyAssignment())
+function generate(gen_fn::GenerativeFunction, args::Tuple)
+    generate(gen_fn, args, EmptyAssignment())
 end
 
 """
@@ -188,13 +188,13 @@ return the weight (`weight`):
 It is an error if \$p(t; x) = 0\$.
 """
 function assess(gen_fn::GenerativeFunction, args::Tuple, assmt::Assignment)
-    (trace, weight) = initialize(gen_fn, args, assmt)
+    (trace, weight) = generate(gen_fn, args, assmt)
     (weight, get_retval(trace))
 end
 
 """
-    (new_trace, weight, discard, retdiff) = force_update(args::Tuple, argdiff, trace,
-                                                         constraints::Assignment)
+    (new_trace, weight, retdiff, discard) = update(trace, args::Tuple, argdiff,
+                                                   constraints::Assignment)
 
 Update a trace by changing the arguments and/or providing new values for some
 existing random choice(s) and values for any newly introduced random choice(s).
@@ -212,48 +212,13 @@ Also return a weight (`weight`):
 \\log \\frac{p(r', t'; x') q(r; x, t)}{p(r, t; x) q(r'; x', t')}
 ```
 """
-function force_update(::Tuple, argdiff, trace, ::Assignment)
+function update(trace, ::Tuple, argdiff, ::Assignment)
     error("Not implemented")
 end
 
 """
-    (new_trace, weight, discard, retdiff) = fix_update(args::Tuple, argdiff, trace,
-                                                       constraints::Assignment)
-
-Update a trace, by changing the arguments and/or providing new values for some
-existing random choice(s).
-
-**Without non-addressed randomness**
-
-Given a previous trace \$(x, t)\$ (`trace`), new arguments \$x'\$ (`args`), and
-a map \$u\$ (`constraints`), return a new trace \$(x', t')\$ (`new_trace`)
-that is consistent with \$u\$.  Let \$u + t\$ denote the merge of \$u\$ and
-\$t\$ (with \$u\$ taking precedence).  Sample \$t' \\sim Q(\\cdot; u + t, x)\$.
-All addresses in \$u\$ must appear in \$t\$ and in \$t'\$.  Also return an
-assignment \$v\$ (`discard`) containing the values from \$t\$ for addresses in
-\$u\$.  Also return the weight (`weight`):
-```math
-\\frac{P(t'; x')}{P(t; x)} \\cdot \\frac{Q(t; v + t', x)}{Q(t'; u + t, x')}
-```
-
-**With non-addressed randomness**
-
-Identical to the basic case except that the previous trace is \$(x, t, r)\$,
-the new trace is \$(x', t', r')\$ where \$r' \\sim Q(\\cdot; x', t')\$, and the
-weight is:
-```math
-\\log \\frac{P(t'; x')}{P(t; x)}
-\\cdot \\frac{Q(t; v + t', x)}{Q(t'; u + t, x')}
-\\cdot \\frac{P(r'; x', t') Q(r; x, t)}{P(r; x, t) Q(r'; x', t')}
-```
-"""
-function fix_update(args::Tuple, argdiff, trace, constraints::Assignment)
-    error("Not implemented")
-end
-
-"""
-    (new_trace, weight, retdiff) = free_update(args::Tuple, argdiff, trace,
-                                               selection::AddressSet)
+    (new_trace, weight, retdiff) = regenerate(trace, args::Tuple, argdiff,
+                                              selection::AddressSet)
 
 Update a trace by changing the arguments and/or randomly sampling new values
 for selected random choices using the internal proposal distribution family.
@@ -271,12 +236,12 @@ Return the new trace \$(x', t', r')\$ (`new_trace`) and the weight
 ```
 where \$u'\$ is the restriction of \$t'\$ to the complement of \$A\$.
 """
-function free_update(args::Tuple, argdiff, trace, selection::AddressSet)
+function regenerate(trace, args::Tuple, argdiff, selection::AddressSet)
     error("Not implemented")
 end
 
 """
-    (new_trace, weight, retdiff) = extend(args::Tuple, argdiff, trace,
+    (new_trace, weight, retdiff) = extend(trace, args::Tuple, argdiff,
                                           constraints::Assignment)
 
 Extend a trace with new random choices by changing the arguments.
@@ -291,12 +256,12 @@ Also return the weight (`weight`):
 \\log \\frac{p(r', t'; x') q(r; x, t)}{p(r, t; x) q(t'; t + u, x') q(r'; x', t')}
 ```
 """
-function extend(args::Tuple, argdiff, trace, constraints::Assignment)
+function extend(trace, args::Tuple, argdiff, constraints::Assignment)
     error("Not implemented")
 end
 
 """
-    arg_grads = backprop_params(trace, retgrad, scaler=1.)
+    arg_grads = accumulate_param_gradients!(trace, retgrad, scaler=1.)
 
 Increment gradient accumulators for parameters by the gradient of the
 log-probability of the trace, optionally scaled, and return the gradient with
@@ -314,15 +279,15 @@ the function by:
 ∇_Θ \\left( \\log P(t; x) + J \\right)
 ```
 """
-function backprop_params(trace, retgrad, scaler)
+function accumulate_param_gradients!(trace, retgrad, scaler)
     error("Not implemented")
 end
 
-backprop_params(trace, retgrad) = backprop_params(trace, retgrad, 1.)
+accumulate_param_gradients!(trace, retgrad) = accumulate_param_gradients!(trace, retgrad, 1.)
 
 """
-    (arg_grads, choice_values, choice_grads) = backprop_trace(trace, selection::AddressSet,
-                                                              retgrad)
+    (arg_grads, choice_values, choice_grads) = choice_gradients(trace, selection::AddressSet,
+                                                                retgrad)
 
 Given a previous trace \$(x, t)\$ (`trace`) and a gradient with respect to the
 return value \$∇_y J\$ (`retgrad`), return the following gradient (`arg_grads`)
@@ -338,7 +303,7 @@ the values of these choices:
 ```
 Also return the assignment (`choice_values`) that is the restriction of \$t\$ to \$A\$.
 """
-function backprop_trace(trace, selection::AddressSet, retgrad)
+function choice_gradients(trace, selection::AddressSet, retgrad)
     error("Not implemented")
 end
 
@@ -346,13 +311,12 @@ export GenerativeFunction
 export has_argument_grads
 export accepts_output_grad
 export get_params
-export initialize
+export generate
 export project
 export propose
 export assess
-export force_update
-export fix_update
-export free_update
+export update
+export regenerate
 export extend
-export backprop_params
-export backprop_trace
+export accumulate_param_gradients!
+export choice_gradients

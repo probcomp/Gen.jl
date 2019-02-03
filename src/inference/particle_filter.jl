@@ -82,8 +82,8 @@ function initialize_particle_filter(model::GenerativeFunction{T,U}, model_args::
     traces = Vector{Any}(undef, num_particles)
     log_weights = Vector{Float64}(undef, num_particles)
     for i=1:num_particles
-        (prop_choices, prop_weight, _) = Gen.propose(proposal, proposal_args)
-        (traces[i], model_weight) = Gen.initialize(model, model_args, merge(observations, prop_choices))
+        (prop_choices, prop_weight, _) = propose(proposal, proposal_args)
+        (traces[i], model_weight) = generate(model, model_args, merge(observations, prop_choices))
         log_weights[i] = model_weight - prop_weight
     end
     ParticleFilterState{U}(traces, Vector{U}(undef, num_particles),
@@ -101,7 +101,7 @@ function initialize_particle_filter(model::GenerativeFunction{T,U}, model_args::
     traces = Vector{Any}(undef, num_particles)
     log_weights = Vector{Float64}(undef, num_particles)
     for i=1:num_particles
-        (traces[i], log_weights[i]) = Gen.initialize(model, model_args, observations)
+        (traces[i], log_weights[i]) = generate(model, model_args, observations)
     end
     ParticleFilterState{U}(traces, Vector{U}(undef, num_particles),
         log_weights, 0., collect(1:num_particles))
@@ -117,9 +117,9 @@ function particle_filter_step!(state::ParticleFilterState{U}, new_args::Tuple, a
         observations::Assignment, proposal::GenerativeFunction, proposal_args::Tuple) where {U}
     num_particles = length(state.traces)
     for i=1:num_particles
-        (prop_choices, prop_weight, _) = Gen.propose(proposal, (state.traces[i], proposal_args...))
+        (prop_choices, prop_weight, _) = propose(proposal, (state.traces[i], proposal_args...))
         constraints = merge(observations, prop_choices)
-        (state.new_traces[i], up_weight, disc, _) = Gen.force_update(new_args, argdiff, state.traces[i], constraints)
+        (state.new_traces[i], up_weight, _, disc) = update(state.traces[i], new_args, argdiff, constraints)
         @assert isempty(disc)
         state.log_weights[i] += up_weight - prop_weight
     end
@@ -142,8 +142,8 @@ function particle_filter_step!(state::ParticleFilterState{U}, new_args::Tuple, a
         observations::Assignment) where {U}
     num_particles = length(state.traces)
     for i=1:num_particles
-        (state.new_traces[i], increment, _) = Gen.extend(
-            new_args, argdiff, state.traces[i], observations)
+        (state.new_traces[i], increment, _) = extend(
+            state.traces[i], new_args, argdiff, observations)
         state.log_weights[i] += increment
     end
     

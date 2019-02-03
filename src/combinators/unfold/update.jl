@@ -1,4 +1,4 @@
-mutable struct UnfoldFixUpdateState{T,U}
+mutable struct UnfoldUpdateState{T,U}
     init_state::T
     weight::Float64
     score::Float64
@@ -12,7 +12,7 @@ end
 
 function process_retained!(gen_fn::Unfold{T,U}, params::Tuple,
                            assmt::Assignment, key::Int, kernel_argdiff,
-                           state::UnfoldFixUpdateState{T,U}) where {T,U}
+                           state::UnfoldUpdateState{T,U}) where {T,U}
     local subtrace::U
     local prev_subtrace::U
     local prev_state::T
@@ -22,10 +22,10 @@ function process_retained!(gen_fn::Unfold{T,U}, params::Tuple,
     prev_state = (key == 1) ? state.init_state : state.retval[key-1]
     kernel_args = (key, prev_state, params...)
 
-    # get new subtrace with recursive call to fix_update()
+    # get new subtrace with recursive call to update()
     prev_subtrace = state.subtraces[key]
-    (subtrace, weight, discard, subretdiff) = fix_update(
-        kernel_args, kernel_argdiff, prev_subtrace, subassmt)
+    (subtrace, weight, subretdiff, discard) = update(
+        prev_subtrace, kernel_args, kernel_argdiff, subassmt)
 
     # retrieve retdiff
     is_state_diff = !isnodiff(subretdiff)
@@ -53,19 +53,17 @@ function process_retained!(gen_fn::Unfold{T,U}, params::Tuple,
 end
 
 function process_new!(gen_fn::Unfold{T,U}, params::Tuple, assmt, key::Int,
-                      state::UnfoldFixUpdateState{T,U}) where {T,U}
+                      state::UnfoldUpdateState{T,U}) where {T,U}
     local subtrace::U
     local prev_state::T
     local new_state::T
 
-    if !isempty(get_subassmt(assmt, key))
-        error("Cannot constrain new addresses in fix_update")
-    end
+    subassmt = get_subassmt(assmt, key)
     prev_state = (key == 1) ? state.init_state : state.retval[key-1]
     kernel_args = (key, prev_state, params...)
 
     # get subtrace and weight
-    (subtrace, weight) = initialize(gen_fn.kernel, kernel_args, EmptyAssignment())
+    (subtrace, weight) = generate(gen_fn.kernel, kernel_args, subassmt)
 
     # update state
     state.weight += weight
@@ -80,23 +78,24 @@ function process_new!(gen_fn::Unfold{T,U}, params::Tuple, assmt, key::Int,
     end
 end
 
-function fix_update(args::Tuple, ::NoArgDiff,
-                      trace::VectorTrace{UnfoldType,T,U},
-                      assmt::Assignment) where {T,U}
+
+function update(trace::VectorTrace{UnfoldType,T,U},
+                args::Tuple, ::NoArgDiff,
+                assmt::Assignment) where {T,U}
     argdiff = UnfoldCustomArgDiff(false, false)
-    fix_update(args, argdiff, trace, assmt)
+    update(trace, args, argdiff, assmt)
 end
 
-function fix_update(args::Tuple, ::UnknownArgDiff,
-                      trace::VectorTrace{UnfoldType,T,U},
-                      assmt::Assignment) where {T,U}
+function update(trace::VectorTrace{UnfoldType,T,U},
+                args::Tuple, ::UnknownArgDiff,
+                assmt::Assignment) where {T,U}
     argdiff = UnfoldCustomArgDiff(true, true)
-    fix_update(args, argdiff, trace, assmt)
+    update(trace, args, argdiff, assmt)
 end
 
-function fix_update(args::Tuple, argdiff::UnfoldCustomArgDiff,
-                      trace::VectorTrace{UnfoldType,T,U},
-                      assmt::Assignment) where {T,U}
+function update(trace::VectorTrace{UnfoldType,T,U},
+                args::Tuple, argdiff::UnfoldCustomArgDiff,
+                assmt::Assignment) where {T,U}
     gen_fn = trace.gen_fn
     (new_length, init_state, params) = unpack_args(args)
     check_length(new_length)
@@ -105,7 +104,7 @@ function fix_update(args::Tuple, argdiff::UnfoldCustomArgDiff,
     retained_and_constrained = get_retained_and_constrained(assmt, prev_length, new_length)
 
     # handle removed applications
-    (num_nonempty, score_decrement, noise_decrement) = vector_fix_free_update_delete(
+    (discard, num_nonempty, score_decrement, noise_decrement) = vector_update_delete(
         new_length, prev_length, trace)
     (subtraces, retval) = vector_remove_deleted_applications(
         trace.subtraces, trace.retval, prev_length, new_length)
@@ -113,8 +112,7 @@ function fix_update(args::Tuple, argdiff::UnfoldCustomArgDiff,
     noise = trace.noise - noise_decrement
 
     # handle retained and new applications
-    discard = DynamicAssignment()
-    state = UnfoldFixUpdateState{T,U}(init_state, -noise_decrement, score, noise,
+    state = UnfoldUpdateState{T,U}(init_state, -score_decrement, score, noise,
         subtraces, retval, discard, num_nonempty, Dict{Int,Any}())
     process_all_retained!(gen_fn, params, argdiff, assmt, prev_length, new_length,    
                           retained_and_constrained, state)
@@ -127,5 +125,5 @@ function fix_update(args::Tuple, argdiff::UnfoldCustomArgDiff,
     new_trace = VectorTrace{UnfoldType,T,U}(gen_fn, state.subtraces, state.retval, args,  
         state.score, state.noise, new_length, state.num_nonempty)
 
-    (new_trace, state.weight, discard, retdiff)
+    (new_trace, state.weight, retdiff, discard)
 end

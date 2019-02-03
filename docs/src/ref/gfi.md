@@ -151,11 +151,11 @@ Suppose we have a trace (`trace`) with initial choices:
 ```
 Note that address `:d` is not present because the branch in which `:d` is sampled was not taken because random choice `:b` had value `true`.
 
-### Force Update
+### Update
 ```@docs
-force_update
+update
 ```
-Suppose we run [`force_update`](@ref) on the example `trace`, with the following constraints:
+Suppose we run [`update`](@ref) on the example `trace`, with the following constraints:
 ```
 │
 ├── :b : false
@@ -164,7 +164,7 @@ Suppose we run [`force_update`](@ref) on the example `trace`, with the following
 ```
 ```julia
 constraints = DynamicAssignment((:b, false), (:d, true))
-(new_trace, w, discard, _) = force_update((), noargdiff, trace, constraints)
+(new_trace, w, _, discard) = update(trace, (), noargdiff, constraints)
 ```
 Then `get_assmt(new_trace)` will be:
 ```
@@ -192,13 +192,13 @@ p(t; x') = 0.7 × 0.6 × 0.1 × 0.7 = 0.0294\\
 w = \log p(t'; x')/p(t; x) = \log 0.0294/0.0784 = \log 0.375
 ```
 
-### Free Update
+### Regenerate
 ```@docs
-free_update
+regenerate
 ```
-Suppose we run [`free_update`](@ref) on the example `trace`, with selection `:a` and `:b`:
+Suppose we run [`regenerate`](@ref) on the example `trace`, with selection `:a` and `:b`:
 ```julia
-(new_trace, w, _) = free_update((), noargdiff, trace, select(:a, :b))
+(new_trace, w, _) = regenerate(trace, (), noargdiff, select(:a, :b))
 ```
 Then, a new value for `:a` will be sampled from `bernoulli(0.3)`, and a new value for `:b` will be sampled from `bernoulli(0.4)`.
 If the new value for `:b` is `true`, then the previous value for `:c` (`false`) will be retained.
@@ -219,9 +219,9 @@ Then `get_assmt(new_trace)` will be:
 The weight (`w`) is ``\log 1 = 0``.
 
 
-### Extend
+### Extend update
 ```@docs
-extend
+extend_update
 ```
 
 ### Argdiffs
@@ -270,8 +270,8 @@ This static property of the generative function is reported by `accepts_output_g
 ```@docs
 has_argument_grads
 accepts_output_grad
-backprop_params
-backprop_trace
+accumulate_param_gradients!
+choice_gradients
 get_params
 ```
 
@@ -328,11 +328,11 @@ You are free to design this address space as you wish, although you should docum
 
 - At minimum, you need to implement all methods under the [`Traces`](@ref) heading (e.g. [`initialize`](@ref), ..)
 
-- To support [`metropolis_hastings`](@ref) or local optimization, or local iterative adjustments to traces, be sure to implement the [`force_update`](@ref) and [`free_update](@ref) methods.
+- To support [`metropolis_hastings`](@ref) or local optimization, or local iterative adjustments to traces, be sure to implement the [`update`](@ref) and [`regenerate`](@ref) methods.
 
-- To support gradients of the log probability density with respect to the arguments and/or random choices made by the function, implement the [`backprop_trace`](@ref) method.
+- To support gradients of the log probability density with respect to the arguments and/or random choices made by the function, implement the [`choice_gradients`](@ref) method.
 
-- Generative functions can also have trainable parameters (e.g. neural network weights). To support these, implement the [`backprop_params`](@ref) method.
+- Generative functions can also have trainable parameters (e.g. neural network weights). To support these, implement the [`accumulate_param_gradients!`](@ref) method.
 
 - To support use of your generative function in custom proposals (instead of just generative models), implement [`assess`](@ref) and [`propose`](@ref) methods.
 

@@ -32,7 +32,7 @@ function hmc(trace::U, selection::AddressSet;
     for step=1:L
 
         # half step on momenta
-        (_, values_trie, gradient_trie) = backprop_trace(new_trace, selection, retval_grad)
+        (_, values_trie, gradient_trie) = choice_gradients(new_trace, selection, retval_grad)
         values = to_array(values_trie, Float64)
         gradient = to_array(gradient_trie, Float64)
         if step == 1
@@ -46,8 +46,8 @@ function hmc(trace::U, selection::AddressSet;
         values_trie = from_array(values_trie, values + eps * momenta)
 
         # half step on momenta
-        (new_trace, _, _) = force_update(model_args, noargdiff, new_trace, values_trie)
-        (_, _, gradient_trie) = backprop_trace(new_trace, selection, retval_grad)
+        (new_trace, _, _) = update(new_trace, model_args, noargdiff, values_trie)
+        (_, _, gradient_trie) = choice_gradients(new_trace, selection, retval_grad)
         gradient = to_array(gradient_trie, Float64)
         momenta += (eps / 2) * gradient
     end

@@ -33,11 +33,11 @@ using Gen: AddressVisitor, all_visited, visit!, get_visited
 end
 
 
-################
-# force update #
-################
+##########
+# update #
+##########
 
-@testset "force update" begin
+@testset "update" begin
 
     @gen function bar()
         @addr(normal(0, 1), :a)
@@ -60,7 +60,7 @@ end
     # get a trace which follows the first branch
     constraints = DynamicAssignment()
     constraints[:branch] = true
-    (trace,) = initialize(foo, (), constraints)
+    (trace,) = generate(foo, (), constraints)
     x = get_assmt(trace)[:x]
     a = get_assmt(trace)[:u => :a]
 
@@ -71,8 +71,8 @@ end
     constraints[:branch] = false
     constraints[:y] = y
     constraints[:v => :b] = b
-    (new_trace, weight, discard, retdiff) = force_update(
-        (), unknownargdiff, trace, constraints)
+    (new_trace, weight, retdiff, discard) = update(trace,
+        (), unknownargdiff, constraints)
 
     # test discard
     @test get_value(discard, :branch) == true
@@ -120,13 +120,13 @@ end
     for i=1:5
         constraints[:data => i] = 0
     end
-    (trace,) = initialize(loopy, (), constraints)
+    (trace,) = generate(loopy, (), constraints)
 
     # Update a
     constraints = DynamicAssignment()
     constraints[:a] = 1
-    (new_trace, weight, discard, retdiff) = force_update(
-        (), noargdiff, trace, constraints)
+    (new_trace, weight, retdiff, discard) = update(trace,
+        (), noargdiff, constraints)
 
     # Test discard, score, weight, retdiff
     @test get_value(discard, :a) == 0
@@ -139,89 +139,11 @@ end
 
 end
 
-
-##############
-# fix_update #
-##############
-
-@testset "fix update" begin
-
-    @gen function bar()
-        @addr(normal(0, 1), :a)
-    end
-
-    @gen function baz()
-        @addr(normal(0, 1), :b)
-    end
-
-    @gen function foo()
-        if @addr(bernoulli(0.4), :branch)
-            @addr(normal(0, 1), :x)
-            @addr(bar(), :u)
-        else
-            @addr(normal(0, 1), :y)
-            @addr(baz(), :v)
-        end
-        @addr(normal(0, 1), :z)
-    end
-
-    # get a trace which follows the first branch
-    constraints = DynamicAssignment()
-    constraints[:branch] = true
-    (trace,) = initialize(foo, (), constraints)
-    x = get_assmt(trace)[:x]
-    a = get_assmt(trace)[:u => :a]
-    z = get_assmt(trace)[:z]
-
-    # force to follow the second branch, and change z
-    y = 1.123
-    b = -2.1
-    z_new = 0.4
-    constraints = DynamicAssignment()
-    constraints[:branch] = false
-    constraints[:z] = z_new
-    (new_trace, weight, discard, retdiff) = fix_update(
-        (), unknownargdiff, trace, constraints)
-
-    # test discard
-    @test get_value(discard, :branch) == true
-    @test get_value(discard, :z) == z
-    @test length(collect(get_values_shallow(discard))) == 2
-    @test length(collect(get_subassmts_shallow(discard))) == 0
-
-    # test new trace
-    new_assignment = get_assmt(new_trace)
-    @test get_value(new_assignment, :branch) == false
-    @test get_value(new_assignment, :z) == z_new
-    y = get_value(new_assignment, :y)
-    b = get_value(new_assignment, :v => :b)
-    @test length(collect(get_values_shallow(new_assignment))) == 3
-    @test length(collect(get_subassmts_shallow(new_assignment))) == 1
-
-    # test score and weight
-    expected_new_score = (
-        logpdf(bernoulli, false, 0.4) +
-        logpdf(normal, y, 0, 1) +
-        logpdf(normal, b, 0, 1) +
-        logpdf(normal, z_new, 0, 1))
-    expected_weight = (
-        logpdf(bernoulli, false, 0.4)
-        - logpdf(bernoulli, true, 0.4)
-        + logpdf(normal, z_new, 0, 1)
-        - logpdf(normal, z, 0, 1))
-    @test isapprox(expected_new_score, get_score(new_trace))
-    @test isapprox(expected_weight, weight)
-
-    # test retdiff
-    @test retdiff === DefaultRetDiff()
-end
-
-
 ###############
-# free_update #
+# regenerate #
 ###############
 
-@testset "free_update" begin
+@testset "regenerate" begin
 
     @gen function bar(mu)
         @addr(normal(mu, 1), :a)
@@ -245,7 +167,7 @@ end
     mu = 0.123
     constraints = DynamicAssignment()
     constraints[:branch] = true
-    (trace,) = initialize(foo, (mu,), constraints)
+    (trace,) = generate(foo, (mu,), constraints)
     x = get_assmt(trace)[:x]
     a = get_assmt(trace)[:u => :a]
 
@@ -259,8 +181,8 @@ end
         # change the argument so that the weights can be nonzer
         prev_mu = mu
         mu = rand()
-        (trace, weight, retdiff) = free_update(
-            (mu,), unknownargdiff, trace, selection)
+        (trace, weight, retdiff) = regenerate(trace,
+            (mu,), unknownargdiff, selection)
         assignment = get_assmt(trace)
 
         # test score
@@ -317,10 +239,10 @@ end
 end
 
 ##################
-# backprop_trace #
+# choice_gradients #
 ##################
 
-@testset "backprop_trace and backprop_params" begin
+@testset "choice_gradients and accumulate_param_gradients!" begin
 
     @gen (grad) function bar((grad)(mu_z::Float64))
         @param theta1::Float64
@@ -364,12 +286,12 @@ end
     constraints[:b] = b
     constraints[:out] = out
     constraints[:bar => :z] = z
-    (trace, _) = initialize(foo, (mu_a,), constraints)
+    (trace, _) = generate(foo, (mu_a,), constraints)
 
-    # compute gradients using backprop_trace
+    # compute gradients using choice_gradients
     selection = select(:bar => :z, :a, :out)
     retval_grad = 2.
-    ((mu_a_grad,), value_assmt, gradient_assmt) = backprop_trace(
+    ((mu_a_grad,), value_assmt, gradient_assmt) = choice_gradients(
         trace, selection, retval_grad)
 
     # check input gradient
@@ -392,10 +314,10 @@ end
     @test isapprox(get_value(gradient_assmt, :out),
         finite_diff(f, (mu_a, a, b, z, out), 5, dx))
 
-    # compute gradients using backprop_params
+    # compute gradients using accumulate_param_gradients!
     selection = select(:bar => :z, :a, :out)
     retval_grad = 2.
-    (mu_a_grad,) = backprop_params(trace, retval_grad)
+    (mu_a_grad,) = accumulate_param_gradients!(trace, retval_grad)
 
     # check input gradient
     @test isapprox(mu_a_grad, finite_diff(f, (mu_a, a, b, z, out), 1, dx))
@@ -421,9 +343,9 @@ end
         return @splice(baz())
     end
 
-    (trace, _) = initialize(foo, ())
+    (trace, _) = generate(foo, ())
     retval_grad = 2.
-    backprop_params(trace, retval_grad)
+    accumulate_param_gradients!(trace, retval_grad)
     @test isapprox(get_param_grad(baz, :theta), retval_grad)
 end
 
@@ -433,8 +355,8 @@ end
         return theta
     end
     init_param!(foo, :theta, 0.)
-    (trace, ) = initialize(foo, ())
-    backprop_params(trace, 1.)
+    (trace, ) = generate(foo, ())
+    accumulate_param_gradients!(trace, 1.)
     conf = FixedStepGradientDescent(0.001)
     state = Gen.init_update_state(conf, foo, [:theta])
     Gen.apply_update!(state)
@@ -448,8 +370,8 @@ end
         return theta
     end
     init_param!(foo, :theta, 0.)
-    (trace, ) = initialize(foo, ())
-    backprop_params(trace, 1.)
+    (trace, ) = generate(foo, ())
+    accumulate_param_gradients!(trace, 1.)
     conf = GradientDescent(0.001, 1000)
     state = Gen.init_update_state(conf, foo, [:theta])
     Gen.apply_update!(state)

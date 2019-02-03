@@ -22,7 +22,7 @@ function importance_sampling(model::GenerativeFunction{T,U}, model_args::Tuple,
     traces = Vector{U}(undef, num_samples)
     log_weights = Vector{Float64}(undef, num_samples)
     for i=1:num_samples
-        (traces[i], log_weights[i]) = initialize(model, model_args, observations)
+        (traces[i], log_weights[i]) = generate(model, model_args, observations)
     end
     log_total_weight = logsumexp(log_weights)
     log_ml_estimate = log_total_weight - log(num_samples)
@@ -39,7 +39,7 @@ function importance_sampling(model::GenerativeFunction{T,U}, model_args::Tuple,
     for i=1:num_samples
         (proposed_assmt, proposal_weight, _) = propose(proposal, proposal_args)
         constraints = merge(observations, proposed_assmt)
-        (traces[i], model_weight) = initialize(model, model_args, constraints)
+        (traces[i], model_weight) = generate(model, model_args, constraints)
         log_weights[i] = model_weight - proposal_weight
     end
     log_total_weight = logsumexp(log_weights)
@@ -64,11 +64,11 @@ Unlike `importance_sampling`, the memory used constant in the number of samples.
 function importance_resampling(model::GenerativeFunction{T,U}, model_args::Tuple,
                                observations::Assignment,
                                num_samples::Int; verbose=false)  where {T,U,V,W}
-    (model_trace::U, log_weight) = initialize(model, model_args, observations)
+    (model_trace::U, log_weight) = generate(model, model_args, observations)
     log_total_weight = log_weight
     for i=2:num_samples
         verbose && println("sample: $i of $num_samples")
-        (cand_model_trace, log_weight) = initialize(model, model_args, observations)
+        (cand_model_trace, log_weight) = generate(model, model_args, observations)
         log_total_weight = logsumexp(log_total_weight, log_weight)
         if bernoulli(exp(log_weight - log_total_weight))
             model_trace = cand_model_trace
@@ -84,13 +84,13 @@ function importance_resampling(model::GenerativeFunction{T,U}, model_args::Tuple
                                num_samples::Int; verbose=false)  where {T,U,V,W}
     (proposal_assmt, proposal_weight, _) = propose(proposal, proposal_args)
     constraints = merge(observations, proposal_assmt)
-    (model_trace::U, model_weight) = initialize(model, model_args, constraints)
+    (model_trace::U, model_weight) = generate(model, model_args, constraints)
     log_total_weight = model_weight - proposal_weight
     for i=2:num_samples
         verbose && println("sample: $i of $num_samples")
         (proposal_assmt, proposal_weight, _) = propose(proposal, proposal_args)
         constraints = merge(observations, proposal_assmt)
-        (cand_model_trace, model_weight) = initialize(model, model_args, constraints)
+        (cand_model_trace, model_weight) = generate(model, model_args, constraints)
         log_weight = model_weight - proposal_weight
         log_total_weight = logsumexp(log_total_weight, log_weight)
         if bernoulli(exp(log_weight - log_total_weight))

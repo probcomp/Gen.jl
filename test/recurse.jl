@@ -125,7 +125,7 @@ Gen.isnodiff(::StringDiff) = false
     Random.seed!(1)
     strings = Set{String}()
     for i=1:1000
-        (trace, _) = initialize(pcfg, (nothing, 1), EmptyAssignment())
+        (trace, _) = generate(pcfg, (nothing, 1), EmptyAssignment())
         push!(strings, get_retval(trace))
     end
     @test "(.aa)" in strings
@@ -161,7 +161,7 @@ Gen.isnodiff(::StringDiff) = false
     constraints[(3, Val(:aggregation)) => :prefix] = true
     constraints[(4, Val(:production)) => :rule] = 4
     constraints[(4, Val(:aggregation)) => :prefix] = false
-    (trace, actual_weight) = initialize(pcfg, (nothing, 1), constraints)
+    (trace, actual_weight) = generate(pcfg, (nothing, 1), constraints)
     @test isapprox(actual_weight, expected_weight)
     @test isapprox(get_score(trace), actual_weight)
     @test get_args(trace) == (nothing, 1)
@@ -179,7 +179,7 @@ Gen.isnodiff(::StringDiff) = false
     # update non-structure choice
     new_constraints = DynamicAssignment()
     new_constraints[(3, Val(:aggregation)) => :prefix] = false
-    (new_trace, weight, discard, retdiff) = force_update((nothing, 1), noargdiff, trace, new_constraints)
+    (new_trace, weight, retdiff, discard) = update(trace, (nothing, 1), noargdiff, new_constraints)
     @test isapprox(weight, log(0.6) - log(0.4))
     expected_score = log(0.26) + log(0.24) + log(0.26) + log(0.27) + log(0.4) + log(0.4) + log(0.6) + log(0.6)
     @test isapprox(get_score(new_trace), expected_score)
@@ -205,7 +205,7 @@ Gen.isnodiff(::StringDiff) = false
     # note: we reuse the prefix choice from node 3 (true)
     new_constraints = DynamicAssignment()
     new_constraints[(3, Val(:production)) => :rule] = 3 # change from rule 2 to rule 3
-    (new_trace, weight, discard, retdiff) = force_update((nothing, 1), noargdiff, trace, new_constraints)
+    (new_trace, weight, retdiff, discard) = update(trace, (nothing, 1), noargdiff, new_constraints)
     @test isapprox(weight, log(0.23) - log(0.26) - log(0.27) - log(0.6))
     @test isapprox(get_score(new_trace), log(0.26) + log(0.24) + log(0.23) + log(0.4) + log(0.4) + log(0.4))
     @test get_args(new_trace) == (nothing, 1)

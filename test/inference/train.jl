@@ -76,8 +76,8 @@
     constraints = Vector{Any}(undef, minibatch_size)
     for i=1:minibatch_size
         (inputs[i], constraints[i]) = data_generator()
-        (student_trace, _) = initialize(student, inputs[i], constraints[i])
-        backprop_params(student_trace, nothing)
+        (student_trace, _) = generate(student, inputs[i], constraints[i])
+        accumulate_param_gradients!(student_trace, nothing)
     end
     for name in [:theta1, :theta2, :theta3, :theta4, :theta5]
         actual = get_param_grad(student, name)

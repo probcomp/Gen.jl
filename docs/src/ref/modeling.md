@@ -23,7 +23,7 @@ retval::Bool = foo(0.5)
 ```
 We can also trace its execution:
 ```julia
-(trace, _) = initialize(foo, (0.5,))
+(trace, _) = generate(foo, (0.5,))
 ```
 See [Generative Functions](@ref) for the full set of operations supported by a generative function.
 Note that the built-in modeling language described in this section is only one of many ways of defining a generative function -- generative functions can also be constructed using other embedded languages, or by directly implementing the methods of the generative function interface.
@@ -102,7 +102,7 @@ The support of the random choice with address `:x` is either the set ``\{1, 2\}`
 Therefore, this random choice does satisfy our condition above.
 This would cause an error with the following, in which the `:n` address is modified, which could result in a change to the domain of the `:x` variable:
 ```julia
-tr, _ = initialize(foo, (), DynamicAssignment((:n, 2), (:x, 3)))
+tr, _ = generate(foo, (), DynamicAssignment((:n, 2), (:x, 3)))
 tr, _ = mh(tr, select(:n))
 ```
 We can modify the address to satisfy the condition by including the domain in the address:
@@ -210,7 +210,7 @@ Trainable parameters obey the same scoping rules as Julia local variables define
 The value of a trainable parameter is undefined until it is initialized using [`init_param!`](@ref).
 In addition to the current value, each trainable parameter has a current **gradient accumulator** value.
 The gradent accumulator value has the same shape (e.g. array dimension) as the parameter value.
-It is initialized to all zeros, and is incremented by [`backprop_params`](@ref).
+It is initialized to all zeros, and is incremented by [`accumulate_param_gradients!`](@ref).
 
 The following methods are exported for the trainable parameters of `@gen` functions:
 ```@docs
@@ -299,7 +299,7 @@ Code in the body of a `@gen` function consists of:
 - Calling generative functions
 
 We now discuss how to ensure that code of each of these forms is differentiable.
-Note that the procedures for differentiation of code described below are only performed during certain operations on `@gen` functions ([`backprop_trace`](@ref) and [`backprop_params`](@ref)).
+Note that the procedures for differentiation of code described below are only performed during certain operations on `@gen` functions ([`choice_gradients`](@ref) and [`accumulate_param_gradients!`](@ref)).
 
 **Julia code.**
 Julia code used within a body of a `@gen` function is made differentiable using the [ReverseDiff](https://github.com/JuliaDiff/ReverseDiff.jl) package, which implements  reverse-mode automatic differentiation.

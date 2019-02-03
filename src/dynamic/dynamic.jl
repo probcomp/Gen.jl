@@ -33,7 +33,7 @@ end
 accepts_output_grad(gen_fn::DynamicDSLFunction) = gen_fn.accepts_output_grad
 
 function (g::DynamicDSLFunction)(args...)
-    (trace, _) = initialize(g, args, EmptyAssignment())
+    (trace, _) = generate(g, args, EmptyAssignment())
     get_retval(trace)
 end
 
@@ -130,7 +130,7 @@ end
 
 Initialize the the value of a named trainable parameter of a generative function.
 
-Also initializes the gradient accumulator for that parameter to `zero(value)`.
+Also generates the gradient accumulator for that parameter to `zero(value)`.
 
 Example:
 ```julia
@@ -245,13 +245,12 @@ function gen_fn_changed_error(addr)
 end
 
 include("diff.jl")
-include("initialize.jl")
+include("generate.jl")
 include("propose.jl")
 include("assess.jl")
 include("project.jl")
-include("force_update.jl")
-include("fix_update.jl")
-include("free_update.jl")
+include("update.jl")
+include("regenerate.jl")
 include("extend.jl")
 include("backprop.jl")
 include("optimization.jl")

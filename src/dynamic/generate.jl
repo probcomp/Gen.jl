@@ -1,4 +1,4 @@
-mutable struct GFInitializeState
+mutable struct GFGenerateState
     trace::DynamicDSLTrace
     constraints::Assignment
     weight::Float64
@@ -6,12 +6,12 @@ mutable struct GFInitializeState
     params::Dict{Symbol,Any}
 end
 
-function GFInitializeState(gen_fn, args, constraints, params)
+function GFGenerateState(gen_fn, args, constraints, params)
     trace = DynamicDSLTrace(gen_fn, args)
-    GFInitializeState(trace, constraints, 0., AddressVisitor(), params)
+    GFGenerateState(trace, constraints, 0., AddressVisitor(), params)
 end
 
-function addr(state::GFInitializeState, dist::Distribution{T},
+function addr(state::GFGenerateState, dist::Distribution{T},
               args, key) where {T}
     local retval::T
 
@@ -43,7 +43,7 @@ function addr(state::GFInitializeState, dist::Distribution{T},
     retval
 end
 
-function addr(state::GFInitializeState, gen_fn::GenerativeFunction{T,U},
+function addr(state::GFGenerateState, gen_fn::GenerativeFunction{T,U},
               args, key) where {T,U}
     local subtrace::U
     local retval::T
@@ -55,7 +55,7 @@ function addr(state::GFInitializeState, gen_fn::GenerativeFunction{T,U},
     constraints = get_subassmt(state.constraints, key)
 
     # get subtrace
-    (subtrace, weight) = initialize(gen_fn, args, constraints)
+    (subtrace, weight) = generate(gen_fn, args, constraints)
 
     # add to the trace
     add_call!(state.trace, key, subtrace)
@@ -69,7 +69,7 @@ function addr(state::GFInitializeState, gen_fn::GenerativeFunction{T,U},
     retval
 end
 
-function splice(state::GFInitializeState, gen_fn::DynamicDSLFunction,
+function splice(state::GFGenerateState, gen_fn::DynamicDSLFunction,
                 args::Tuple)
     prev_params = state.params
     state.params = gen_fn.params
@@ -78,9 +78,9 @@ function splice(state::GFInitializeState, gen_fn::DynamicDSLFunction,
     retval
 end
 
-function initialize(gen_fn::DynamicDSLFunction, args::Tuple,
+function generate(gen_fn::DynamicDSLFunction, args::Tuple,
                     constraints::Assignment)
-    state = GFInitializeState(gen_fn, args, constraints, gen_fn.params)
+    state = GFGenerateState(gen_fn, args, constraints, gen_fn.params)
     retval = exec(gen_fn, state, args) 
     set_retval!(state.trace, retval)
     (state.trace, state.weight)

@@ -6,7 +6,7 @@
         return x
     end
 
-    (trace, _) = initialize(foo, ())
+    (trace, _) = generate(foo, ())
     (new_trace, accepted) = mala(trace, select(:x), 0.1)
 
     # smoke test a function with retval gradient
@@ -15,6 +15,6 @@
         return x
     end
 
-    (trace, _) = initialize(foo, ())
+    (trace, _) = generate(foo, ())
     (new_trace, accepted) = mala(trace, select(:x), 0.1)
 end

@@ -1,4 +1,4 @@
-mutable struct UnfoldExtendUpdateState{T,U}
+mutable struct UnfoldExtendState{T,U}
     init_state::T
     weight::Float64
     score::Float64
@@ -11,7 +11,7 @@ end
 
 function process_retained!(gen_fn::Unfold{T,U}, params::Tuple,
                            assmt::Assignment, key::Int, kernel_argdiff,
-                           state::UnfoldExtendUpdateState{T,U}) where {T,U}
+                           state::UnfoldExtendState{T,U}) where {T,U}
     local subtrace::U
     local prev_subtrace::U
     local prev_state::T
@@ -24,7 +24,7 @@ function process_retained!(gen_fn::Unfold{T,U}, params::Tuple,
     # get new subtrace with recursive call to extend()
     prev_subtrace = state.subtraces[key]
     (subtrace, weight, subretdiff) = extend(
-        kernel_args, kernel_argdiff, prev_subtrace, subassmt)
+        prev_subtrace, kernel_args, kernel_argdiff, subassmt)
 
     # retrieve retdiff
     is_state_diff = !isnodiff(subretdiff)
@@ -50,7 +50,7 @@ function process_retained!(gen_fn::Unfold{T,U}, params::Tuple,
 end
 
 function process_new!(gen_fn::Unfold{T,U}, params::Tuple, assmt, key::Int,
-                      state::UnfoldExtendUpdateState{T,U}) where {T,U}
+                      state::UnfoldExtendState{T,U}) where {T,U}
     local subtrace::U
     local prev_state::T
     local new_state::T
@@ -60,7 +60,7 @@ function process_new!(gen_fn::Unfold{T,U}, params::Tuple, assmt, key::Int,
     kernel_args = (key, prev_state, params...)
 
     # get subtrace and weight
-    (subtrace, weight) = initialize(gen_fn.kernel, kernel_args, subassmt)
+    (subtrace, weight) = generate(gen_fn.kernel, kernel_args, subassmt)
 
     # update state
     state.weight += weight
@@ -75,23 +75,23 @@ function process_new!(gen_fn::Unfold{T,U}, params::Tuple, assmt, key::Int,
     end
 end
 
-function extend(args::Tuple, ::NoArgDiff,
-                trace::VectorTrace{UnfoldType,T,U},
+function extend(trace::VectorTrace{UnfoldType,T,U},
+                args::Tuple, ::NoArgDiff,
                 assmt::Assignment) where {T,U}
     argdiff = UnfoldCustomArgDiff(false, false)
-    extend(args, argdiff, trace, assmt)
+    extend(trace, args, argdiff, assmt)
 end
 
-function extend(args::Tuple, ::UnknownArgDiff,
-                trace::VectorTrace{UnfoldType,T,U},
-               assmt::Assignment) where {T,U}
+function extend(trace::VectorTrace{UnfoldType,T,U},
+                args::Tuple, ::UnknownArgDiff,
+                assmt::Assignment) where {T,U}
     argdiff = UnfoldCustomArgDiff(true, true)
-    extend(args, argdiff, trace, assmt)
+    extend(trace, args, argdiff, assmt)
 end
 
-function extend(args::Tuple, argdiff::UnfoldCustomArgDiff,
-                      trace::VectorTrace{UnfoldType,T,U},
-                      assmt::Assignment) where {T,U}
+function extend(trace::VectorTrace{UnfoldType,T,U},
+                args::Tuple, argdiff::UnfoldCustomArgDiff,
+                assmt::Assignment) where {T,U}
     gen_fn = trace.gen_fn
     (new_length, init_state, params) = unpack_args(args)
     check_length(new_length)
@@ -105,7 +105,7 @@ function extend(args::Tuple, argdiff::UnfoldCustomArgDiff,
     end
 
     # handle retained and new applications
-    state = UnfoldExtendUpdateState{T,U}(init_state, 0., trace.score, trace.noise,
+    state = UnfoldExtendState{T,U}(init_state, 0., trace.score, trace.noise,
         trace.subtraces, trace.retval, trace.num_nonempty, Dict{Int,Any}())
     process_all_retained!(gen_fn, params, argdiff, assmt, prev_length, new_length,    
                           retained_and_constrained, state)

@@ -1,4 +1,4 @@
-mutable struct GFForceUpdateState
+mutable struct GFUpdateState
     prev_trace::DynamicDSLTrace
     trace::DynamicDSLTrace
     constraints::Any
@@ -12,16 +12,16 @@ mutable struct GFForceUpdateState
     calldiffs::Trie{Any,Any}
 end
 
-function GFForceUpdateState(gen_fn, args, argdiff, prev_trace,
+function GFUpdateState(gen_fn, args, argdiff, prev_trace,
                             constraints, params)
     visitor = AddressVisitor()
     discard = DynamicAssignment()
-    GFForceUpdateState(prev_trace, DynamicDSLTrace(gen_fn, args), constraints,
+    GFUpdateState(prev_trace, DynamicDSLTrace(gen_fn, args), constraints,
         0., visitor, params, discard, argdiff, DefaultRetDiff(),
         Trie{Any,Any}(), Trie{Any,Any}())
 end
 
-function addr(state::GFForceUpdateState, dist::Distribution{T}, 
+function addr(state::GFUpdateState, dist::Distribution{T}, 
               args, key) where {T}
     local prev_retval::T
     local retval::T
@@ -77,11 +77,11 @@ function addr(state::GFForceUpdateState, dist::Distribution{T},
     retval 
 end
 
-function addr(state::GFForceUpdateState, gen_fn::GenerativeFunction, args, key)
+function addr(state::GFUpdateState, gen_fn::GenerativeFunction, args, key)
     addr(state, gen_fn, args, key, UnknownArgDiff())
 end
 
-function addr(state::GFForceUpdateState, gen_fn::GenerativeFunction{T,U},
+function addr(state::GFUpdateState, gen_fn::GenerativeFunction{T,U},
               args, key, argdiff) where {T,U}
     local prev_subtrace::U
     local subtrace::U
@@ -100,10 +100,10 @@ function addr(state::GFForceUpdateState, gen_fn::GenerativeFunction{T,U},
         prev_call = get_call(state.prev_trace, key)
         prev_subtrace = prev_call.subtrace
         get_gen_fn(prev_subtrace) === gen_fn || gen_fn_changed_error(key)
-        (subtrace, weight, discard, retdiff) = force_update(args, argdiff,
-            prev_subtrace, constraints)
+        (subtrace, weight, retdiff, discard) = update(prev_subtrace,
+            args, argdiff, constraints)
     else
-        (subtrace, weight) = initialize(gen_fn, args, constraints)
+        (subtrace, weight) = generate(gen_fn, args, constraints)
     end
     
     # update the weight
@@ -134,7 +134,7 @@ function addr(state::GFForceUpdateState, gen_fn::GenerativeFunction{T,U},
     retval 
 end
 
-function splice(state::GFForceUpdateState, gen_fn::DynamicDSLFunction,
+function splice(state::GFUpdateState, gen_fn::DynamicDSLFunction,
                 args::Tuple)
     prev_params = state.params
     state.params = gen_fn.params
@@ -143,20 +143,20 @@ function splice(state::GFForceUpdateState, gen_fn::DynamicDSLFunction,
     retval
 end
 
-function force_delete_recurse(prev_choices::Trie{Any,ChoiceRecord},
-                                     visited::EmptyAddressSet)
+function delete_recurse(prev_choices::Trie{Any,ChoiceRecord},
+                              visited::EmptyAddressSet)
     score = 0.
     for (key, choice) in get_leaf_nodes(prev_choices)
         score += choice.score
     end
     for (key, subchoices) in get_internal_nodes(prev_choices)
-        score += force_delete_recurse(subchoices, EmptyAddressSet())
+        score += update_delete_recurse(subchoices, EmptyAddressSet())
     end
     score
 end
 
-function force_delete_recurse(prev_choices::Trie{Any,ChoiceRecord},
-                                     visited::DynamicAddressSet)
+function update_delete_recurse(prev_choices::Trie{Any,ChoiceRecord},
+                               visited::DynamicAddressSet)
     score = 0.
     for (key, choice) in get_leaf_nodes(prev_choices)
         if !has_leaf_node(visited, key)
@@ -169,25 +169,25 @@ function force_delete_recurse(prev_choices::Trie{Any,ChoiceRecord},
         else
             subvisited = EmptyAddressSet()
         end
-        score += force_delete_recurse(subchoices, subvisited)
+        score += update_delete_recurse(subchoices, subvisited)
     end
     score
 end
 
-function force_delete_recurse(prev_calls::Trie{Any,CallRecord},
-                        visited::EmptyAddressSet)
+function update_delete_recurse(prev_calls::Trie{Any,CallRecord},
+                               visited::EmptyAddressSet)
     score = 0.
     for (key, call) in get_leaf_nodes(prev_calls)
         score += call.score
     end
     for (key, subcalls) in get_internal_nodes(prev_calls)
-        score += force_delete_recurse(subcalls, EmptyAddressSet())
+        score += update_delete_recurse(subcalls, EmptyAddressSet())
     end
     score
 end
 
-function force_delete_recurse(prev_calls::Trie{Any,CallRecord},
-                        visited::DynamicAddressSet)
+function update_delete_recurse(prev_calls::Trie{Any,CallRecord},
+                               visited::DynamicAddressSet)
     score = 0.
     for (key, call) in get_leaf_nodes(prev_calls)
         if !has_leaf_node(visited, key)
@@ -200,7 +200,7 @@ function force_delete_recurse(prev_calls::Trie{Any,CallRecord},
         else
             subvisited = EmptyAddressSet()
         end
-        score += force_delete_recurse(subcalls, subvisited)
+        score += update_delete_recurse(subcalls, subvisited)
     end
     score
 end
@@ -218,7 +218,7 @@ function add_unvisited_to_discard!(discard::DynamicAssignment,
     for (key, subassmt) in get_subassmts_shallow(prev_assmt)
         @assert !has_value(discard, key)
         if has_leaf_node(visited, key)
-            # the recursive call to force_update already handled the discard
+            # the recursive call to update already handled the discard
             # for this entire subassmt
             continue
         elseif has_internal_node(visited, key)
@@ -234,19 +234,19 @@ function add_unvisited_to_discard!(discard::DynamicAssignment,
     end
 end
 
-function force_update(args::Tuple, argdiff, trace::DynamicDSLTrace,
-                      constraints::Assignment)
+function update(trace::DynamicDSLTrace, args::Tuple, argdiff,
+                constraints::Assignment)
     gen_fn = trace.gen_fn
-    state = GFForceUpdateState(gen_fn, args, argdiff, trace,
+    state = GFUpdateState(gen_fn, args, argdiff, trace,
         constraints, gen_fn.params)
     retval = exec_for_update(gen_fn, state, args)
     set_retval!(state.trace, retval)
     visited = get_visited(state.visitor)
-    state.weight -= force_delete_recurse(trace.choices, visited)
-    state.weight -= force_delete_recurse(trace.calls, visited)
+    state.weight -= update_delete_recurse(trace.choices, visited)
+    state.weight -= update_delete_recurse(trace.calls, visited)
     add_unvisited_to_discard!(state.discard, visited, get_assmt(trace))
     if !all_visited(visited, constraints)
         error("Did not visit all constraints")
     end
-    (state.trace, state.weight, state.discard, state.retdiff)
+    (state.trace, state.weight, state.retdiff, state.discard)
 end

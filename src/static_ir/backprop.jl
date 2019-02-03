@@ -142,7 +142,7 @@ function fwd_codegen!(stmts, fwd_marked, back_marked, node::GenerativeFunctionCa
     subtrace_fieldname = get_subtrace_fieldname(node)
     push!(stmts, :($(node.name) = get_retval(trace.$subtrace_fieldname)))
 
-    # NOTE: we will still potentially run backprop_trace recursively on the generative function,
+    # NOTE: we will still potentially run choice_gradients recursively on the generative function,
     # we just might not use its return value gradient.
     if node in fwd_marked && node in back_marked
         # we are fwd_marked if an input was fwd_marked, or if we were selected internally
@@ -253,7 +253,7 @@ function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
             push!(stmts, :($call_selection = EmptyAddressSet()))
         end
         retval_grad = node in back_marked ? gradient_var(node) : :(nothing)
-        push!(stmts, :(($input_grads, $value_trie, $gradient_trie) = backprop_trace(
+        push!(stmts, :(($input_grads, $value_trie, $gradient_trie) = choice_gradients(
             trace.$subtrace_fieldname, $call_selection, $retval_grad)))
     end
 
@@ -281,7 +281,7 @@ function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
         input_grads = gensym("call_input_grads")
         subtrace_fieldname = get_subtrace_fieldname(node)
         retval_grad = node in back_marked ? gradient_var(node) : :(nothing)
-        push!(stmts, :($input_grads = backprop_params(trace.$subtrace_fieldname, $retval_grad)))
+        push!(stmts, :($input_grads = accumulate_param_gradients!(trace.$subtrace_fieldname, $retval_grad)))
     end
 
     # increment gradients of input nodes that are in fwd_marked
@@ -349,14 +349,14 @@ function get_selected_calls(schema::StaticAddressSchema, ir::StaticIR)
     selected_calls
 end
 
-function codegen_backprop_trace(trace_type::Type{T}, selection_type::Type,
+function codegen_choice_gradients(trace_type::Type{T}, selection_type::Type,
                                 retval_grad_type::Type) where {T<:StaticIRTrace}
     gen_fn_type = get_gen_fn_type(trace_type)
     schema = get_address_schema(selection_type)
 
     # convert the selection to a static address set if it is not already one
     if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
-        return quote backprop_trace(trace, StaticAddressSet(selection), retval_grad) end
+        return quote choice_gradients(trace, StaticAddressSet(selection), retval_grad) end
     end
 
     ir = get_ir(gen_fn_type)
@@ -408,12 +408,12 @@ function codegen_backprop_trace(trace_type::Type{T}, selection_type::Type,
     Expr(:block, stmts...)
 end
 
-function codegen_backprop_params(trace_type::Type{T},
+function codegen_accumulate_param_gradients!(trace_type::Type{T},
                                  retval_grad_type::Type) where {T<:StaticIRTrace}
     gen_fn_type = get_gen_fn_type(trace_type)
     ir = get_ir(gen_fn_type)
 
-    # unlike backprop_trace we don't take gradients w.r.t. the value of random choices
+    # unlike choice_gradients we don't take gradients w.r.t. the value of random choices
     selected_choices = Set{RandomChoiceNode}()
 
     # we need to guarantee that we visit every generative function call,
@@ -462,14 +462,14 @@ end
 
 
 push!(Gen.generated_functions, quote
-@generated function Gen.backprop_trace(trace::T, selection::AddressSet,
+@generated function Gen.choice_gradients(trace::T, selection::AddressSet,
                                        retval_grad) where {T<:StaticIRTrace}
-    Gen.codegen_backprop_trace(trace, selection, retval_grad)
+    Gen.codegen_choice_gradients(trace, selection, retval_grad)
 end
 end)
 
 push!(Gen.generated_functions, quote
-@generated function Gen.backprop_params(trace::T, retval_grad) where {T<:StaticIRTrace}
-    Gen.codegen_backprop_params(trace, retval_grad)
+@generated function Gen.accumulate_param_gradients!(trace::T, retval_grad) where {T<:StaticIRTrace}
+    Gen.codegen_accumulate_param_gradients!(trace, retval_grad)
 end
 end)

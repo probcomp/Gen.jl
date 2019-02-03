@@ -32,7 +32,7 @@ end
 
 
 ###################
-# backprop_params #
+# accumulate_param_gradients! #
 ###################
 
 mutable struct GFBackpropParamsState
@@ -149,13 +149,13 @@ end
         @assert !istracked(retval_maybe_tracked)
         retval_grad = nothing
     end
-    arg_grads = backprop_params(record.subtrace, retval_grad, record.scaler)
+    arg_grads = accumulate_param_gradients!(record.subtrace, retval_grad, record.scaler)
 
     # if has_argument_grads(gen_fn) is true for a given argument, then that
     # argument may or may not be tracked. if has_argument_grads(gen_fn) is
     # false for a given argument, then that argument must not be tracked.
     # otherwise it is an error.
-    # note: code duplication with backprop_params
+    # note: code duplication with accumulate_param_gradients!
     for (i, (arg, grad, has_grad)) in enumerate(
             zip(args_maybe_tracked, arg_grads, has_argument_grads(gen_fn)))
         if has_grad && istracked(arg)
@@ -167,7 +167,7 @@ end
     nothing
 end
 
-function backprop_params(trace::DynamicDSLTrace, retval_grad, scaler=1.)
+function accumulate_param_gradients!(trace::DynamicDSLTrace, retval_grad, scaler=1.)
     gen_fn = trace.gen_fn
     tape = new_tape()
     state = GFBackpropParamsState(trace, tape, gen_fn.params, scaler)
@@ -176,7 +176,7 @@ function backprop_params(trace::DynamicDSLTrace, retval_grad, scaler=1.)
         args, gen_fn.has_argument_grads, fill(tape, length(args)))...,)
     retval_maybe_tracked = exec(gen_fn, state, args_maybe_tracked)
 
-    # note: code duplication with backprop_trace
+    # note: code duplication with choice_gradients
     if accepts_output_grad(gen_fn)
         if retval_grad == nothing
             error("Return value gradient required but not provided")
@@ -213,7 +213,7 @@ end
 
 
 ##################
-# backprop_trace #
+# choice_gradients #
 ##################
 
 mutable struct GFBackpropTraceState
@@ -353,7 +353,7 @@ end
         @assert !istracked(retval_maybe_tracked)
         retval_grad = nothing
     end
-    (arg_grads, value_assmt, gradient_assmt) = backprop_trace(
+    (arg_grads, value_assmt, gradient_assmt) = choice_gradients(
         record.subtrace, record.selection, retval_grad)
     @assert isempty(get_subassmt(record.gradient_assmt, record.key))
     @assert !has_value(record.gradient_assmt, record.key)
@@ -364,7 +364,7 @@ end
     # argument may or may not be tracked. if has_argument_grads(gen_fn) is
     # false for a given argument, then that argument must not be tracked.
     # otherwise it is an error.
-    # note: code duplication with backprop_params
+    # note: code duplication with accumulate_param_gradients!
     for (i, (arg, grad, has_grad)) in enumerate(
             zip(args_maybe_tracked, arg_grads, has_argument_grads(gen_fn)))
         if has_grad && istracked(arg)
@@ -376,7 +376,7 @@ end
     nothing
 end
 
-function backprop_trace(trace::DynamicDSLTrace, selection::AddressSet, retval_grad)
+function choice_gradients(trace::DynamicDSLTrace, selection::AddressSet, retval_grad)
     gen_fn = trace.gen_fn
     tape = new_tape()
     state = GFBackpropTraceState(trace, selection, gen_fn.params, tape)
@@ -385,7 +385,7 @@ function backprop_trace(trace::DynamicDSLTrace, selection::AddressSet, retval_gr
         args, gen_fn.has_argument_grads, fill(tape, length(args)))...,)
     retval_maybe_tracked = exec(gen_fn, state, args_maybe_tracked)
 
-    # note: code duplication with backprop_params
+    # note: code duplication with accumulate_param_gradients!
     if accepts_output_grad(gen_fn)
         if retval_grad == nothing
             error("Return value gradient required but not provided")

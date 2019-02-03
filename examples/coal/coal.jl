@@ -168,7 +168,7 @@ function show_prior_samples()
     for i=1:16
         println("simulating $i")
         subplot(4, 4, i)
-        (trace, ) = initialize(model, (T,), EmptyAssignment())
+        (trace, ) = generate(model, (T,), EmptyAssignment())
         render(trace; ymax=0.015)
     end
     tight_layout(pad=0)
@@ -204,7 +204,7 @@ function rate_involution(trace, fwd_assmt::Assignment, fwd_ret, proposal_args::T
     bwd_assmt[:i] = i
     constraints[(RATE, i)] = fwd_assmt[:new_rate]
     bwd_assmt[:new_rate] = assmt[(RATE, i)]
-    (new_trace, weight, _, _) = force_update(model_args, noargdiff, trace, constraints)
+    (new_trace, weight, _, _) = update(trace, model_args, noargdiff, constraints)
     (new_trace, bwd_assmt, weight)
 end
 
@@ -241,7 +241,7 @@ function position_involution(trace, fwd_assmt::Assignment, fwd_ret, proposal_arg
     bwd_assmt[:i] = i
     constraints[(CHANGEPT, i)] = fwd_assmt[:new_changept]
     bwd_assmt[:new_changept] = assmt[(CHANGEPT, i)]
-    (new_trace, weight, _, _) = force_update(model_args, noargdiff, trace, constraints)
+    (new_trace, weight, _, _) = update(trace, model_args, noargdiff, constraints)
     (new_trace, bwd_assmt, weight)
 end
 
@@ -404,7 +404,7 @@ function birth_death_involution(trace, fwd_assmt::Assignment, fwd_ret, proposal_
         end
     end
 
-    (new_trace, weight, _, _) = force_update(model_args, noargdiff, trace, constraints)
+    (new_trace, weight, _, _) = update(trace, model_args, noargdiff, constraints)
     (new_trace, bwd_assmt, weight + log(abs(det(J))))
 end
 
@@ -431,7 +431,7 @@ function simple_mcmc_step(trace)
 end
 
 function do_mcmc(T, num_steps::Int)
-    (trace, _) = initialize(model, (T,), observations)
+    (trace, _) = generate(model, (T,), observations)
     for iter=1:num_steps
         k = get_assmt(trace)[K]
         if iter % 1000 == 0
@@ -445,7 +445,7 @@ end
 const k_selection = select(K)
 
 function do_simple_mcmc(T, num_steps::Int)
-    (trace, _) = initialize(model, (T,), observations)
+    (trace, _) = generate(model, (T,), observations)
     for iter=1:num_steps
         k = get_assmt(trace)[K]
         if iter % 1000 == 0
@@ -530,7 +530,7 @@ function plot_posterior_mean_rate()
     num_samples = 0
     num_steps = 8000
     for reps=1:20
-        (trace, _) = initialize(model, (T,), observations)
+        (trace, _) = generate(model, (T,), observations)
         for iter=1:num_steps
             if iter % 1000 == 0
                 println("iter $iter of $num_steps, k: $(get_assmt(trace)[K])")
@@ -564,7 +564,7 @@ function plot_trace_plot()
     figure(figsize=(8, 4))
 
     # reversible jump
-    (trace, _) = initialize(model, (T,), observations)
+    (trace, _) = generate(model, (T,), observations)
     rate1 = Float64[]
     num_clusters_vec = Int[]
     burn_in = 0
@@ -578,7 +578,7 @@ function plot_trace_plot()
     plot(num_clusters_vec, "b")
 
     # simple MCMC
-    (trace, _) = initialize(model, (T,), observations)
+    (trace, _) = generate(model, (T,), observations)
     rate1 = Float64[]
     num_clusters_vec = Int[]
     burn_in = 0

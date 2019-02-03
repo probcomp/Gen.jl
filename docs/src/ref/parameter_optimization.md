@@ -5,7 +5,7 @@ Trainable parameters of the built-in modeling language are initialized with [`in
 
 Gradient-based optimization of the trainable parameters of generative functions is based on interleaving two steps:
 
-- Incrementing gradient accumulators for trainable parameters by calling [`backprop_params`](@ref) on one or more traces.
+- Incrementing gradient accumulators for trainable parameters by calling [`accumulate_param_gradients!`](@ref) on one or more traces.
 
 - Updating the value of trainable parameters and resetting the gradient accumulators to zero, by calling [`apply!`](@ref) on a *parameter update*, as described below.
 

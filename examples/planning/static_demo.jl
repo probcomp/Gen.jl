@@ -53,7 +53,7 @@ function inference(measurements::Vector{Point}, start::Point, iters::Int)
     constraints[:start_x] = start.x
     constraints[:start_y] = start.y
 
-    (trace, _) = initialize(model, (scene, times[1:t]), constraints)
+    (trace, _) = generate(model, (scene, times[1:t]), constraints)
 
     for iter=1:iters
         (trace, _) = metropolis_hastings(trace, stop_proposal, ())
@@ -74,7 +74,7 @@ function experiment()
     constraints[:stop_x] = 0.5
     constraints[:stop_y] = 0.5
     constraints[:noise] = 0.01
-    (trace, _) = initialize(model, (scene, times), constraints)
+    (trace, _) = generate(model, (scene, times), constraints)
 
     figure(figsize=(4, 4))
     ax = gca()

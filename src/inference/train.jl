@@ -38,9 +38,9 @@ function train!(gen_fn::GenerativeFunction, data_generator::Function,
             minibatch_inputs = epoch_inputs[minibatch_idx]
             minibatch_assmts = epoch_assmts[minibatch_idx]
             for (inputs, constraints) in zip(minibatch_inputs, minibatch_assmts)
-                (trace, _) = initialize(gen_fn, inputs, constraints)
+                (trace, _) = generate(gen_fn, inputs, constraints)
                 retval_grad = accepts_output_grad(gen_fn) ? zero(get_retval(trace)) : nothing
-                backprop_params(trace, retval_grad)
+                accumulate_param_gradients!(trace, retval_grad)
             end
             apply!(update)
         end
@@ -52,7 +52,7 @@ function train!(gen_fn::GenerativeFunction, data_generator::Function,
         avg_score = 0.
         for i=1:evaluation_size
             (inputs, constraints) = data_generator()
-            (_, weight) = initialize(gen_fn, inputs, constraints)
+            (_, weight) = generate(gen_fn, inputs, constraints)
             avg_score += weight
         end
         avg_score /= evaluation_size

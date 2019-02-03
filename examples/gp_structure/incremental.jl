@@ -213,7 +213,7 @@ function subtree_involution(trace, fwd_assmt::Assignment, fwd_ret::Tuple, propos
     set_subassmt!(constraints, :tree, get_subassmt(fwd_assmt, :subtree))
 
     # obtain new trace and discard, which contains the previous subtree
-    (new_trace, weight, discard, _) = force_update(model_args, noargdiff, trace, constraints)
+    (new_trace, weight, _, discard) = update(trace, model_args, noargdiff, constraints)
 
     # populate backward assignment
     bwd_assmt = DynamicAssignment()

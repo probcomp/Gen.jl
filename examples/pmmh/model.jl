@@ -120,7 +120,7 @@ function smc(var_x, var_y, T::Int, N, ess_threshold, ys::AbstractArray{Float64,1
         args = (t, State(NaN, NaN), Params(var_x, var_y))
         for i=1:N
             parent = parents[i]
-            (next_traces[i], weight) = extend(hmm2, args, args_change, traces[i], obs)
+            (next_traces[i], weight) = extend(trace[i], hmm2, args, args_change, obs)
             log_unnormalized_weights[i] += weight
         end
         tmp = traces

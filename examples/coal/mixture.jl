@@ -239,7 +239,7 @@ function plot_trace_plot()
     end
 
     # RJMCMC
-    (trace, _) = initialize(model, (n,), observations)
+    (trace, _) = generate(model, (n,), observations)
     model_choice_vec = Bool[]
     burn_in = 10000
     scores = Float64[]
@@ -259,7 +259,7 @@ function plot_trace_plot()
     plt.title("Custom Reversible Jump Trans-Dimensional Moves")
 
     # generic
-    (trace, _) = initialize(model, (n,), observations)
+    (trace, _) = generate(model, (n,), observations)
     model_choice_vec = Bool[]
     burn_in = 10000
     scores = Float64[]

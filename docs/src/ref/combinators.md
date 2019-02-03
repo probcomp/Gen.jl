@@ -31,7 +31,7 @@ bar = Map(foo)
 ```
 We can then obtain a trace of `bar`:
 ```julia
-(trace, _) = initialize(bar, ([0.0, 0.5], [0.5, 1.0]))
+(trace, _) = generate(bar, ([0.0, 0.5], [0.5, 1.0]))
 ```
 This causes `foo` to be invoked twice, once with arguments `(0.0, 0.5)` in address namespace `1` and once with arguments `(0.5, 1.0)` in address namespace `2`.
 If the resulting trace has random choices:
@@ -105,7 +105,7 @@ bar = Map(foo)
 ```
 We can then obtain a trace of `bar`:
 ```julia
-(trace, _) = initialize(bar, (5, false, 0.05, 0.95))
+(trace, _) = generate(bar, (5, false, 0.05, 0.95))
 ```
 This causes `foo` to be invoked five times.
 The resulting trace may contain the following random choices:

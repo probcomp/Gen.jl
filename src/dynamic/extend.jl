@@ -97,10 +97,10 @@ function addr(state::GFExtendState, gen_fn::GenerativeFunction{T,U},
         prev_call = get_call(state.prev_trace, key)
         prev_subtrace = prev_call.subtrace
         get_gen_fn(prev_subtrace) === gen_fn || gen_fn_changed_error(key)
-        (subtrace, weight, retdiff) = extend(args, argdiff,
-            prev_subtrace, constraints)
+        (subtrace, weight, retdiff) = extend(prev_subtrace,
+            args, argdiff, constraints)
     else
-        (subtrace, weight) = initialize(gen_fn, args, constraints)
+        (subtrace, weight) = generate(gen_fn, args, constraints)
     end
 
     # update weight
@@ -135,7 +135,8 @@ function splice(state::GFExtendState, gen_fn::DynamicDSLFunction,
     retval
 end
 
-function extend(args::Tuple, argdiff, trace::DynamicDSLTrace,
+function extend(trace::DynamicDSLTrace,
+                args::Tuple, argdiff,
                 constraints::Assignment)
     gen_fn = trace.gen_fn
     state = GFExtendState(gen_fn, args, argdiff, trace,

@@ -76,7 +76,7 @@ function swap_involution(trace, fwd_assmt::Assignment, fwd_ret, proposal_args::T
         constraints[replica => :text => l] = new_char
     end
 
-    (new_trace, weight, _, _) = force_update(model_args, noargdiff, trace, constraints)
+    (new_trace, weight, _, _) = update(trace, model_args, noargdiff, constraints)
     (new_trace, bwd_assmt, weight)
 end
 
@@ -94,7 +94,7 @@ function exchange_involution(trace, fwd_assmt::Assignment, fwd_ret, proposal_arg
     replica_plus_one = (((replica-1)+1)%num_replicas)+1
     set_subassmt!(constraints, replica_plus_one, get_subassmt(assmt, replica))
     set_subassmt!(constraints, replica, get_subassmt(assmt, replica_plus_one))
-    (new_trace, weight, _, _) = force_update(model_args, noargdiff, trace, constraints)
+    (new_trace, weight, _, _) = update(trace, model_args, noargdiff, constraints)
     (new_trace, EmptyAssignment(), weight)
 end
 
@@ -128,7 +128,7 @@ function do_inference(encoded_text::AbstractString, num_iter::Int)
     end
         
     # initial trace
-    (trace, _) = initialize(par_model, (alphas, fill(len, num_replicas)), assmt)
+    (trace, _) = generate(par_model, (alphas, fill(len, num_replicas)), assmt)
 
     # do MCMC
     for iter=1:num_iter

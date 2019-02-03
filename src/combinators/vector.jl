@@ -165,7 +165,7 @@ function vector_compute_retdiff(isdiff_retdiffs::Dict{Int,Any}, new_length::Int,
     end
 end
 
-function vector_force_update_delete(new_length::Int, prev_length::Int,
+function vector_update_delete(new_length::Int, prev_length::Int,
                                  prev_trace::VectorTrace)
     num_nonempty = prev_trace.num_nonempty
     discard = DynamicAssignment()
@@ -184,8 +184,8 @@ function vector_force_update_delete(new_length::Int, prev_length::Int,
     return (discard, num_nonempty, score_decrement, noise_decrement)
 end
 
-function vector_fix_free_update_delete(new_length::Int, prev_length::Int,
-                                    prev_trace::VectorTrace)
+function vector_regenerate_delete(new_length::Int, prev_length::Int,
+                                  prev_trace::VectorTrace)
     num_nonempty = prev_trace.num_nonempty
     score_decrement = 0.
     noise_decrement = 0.

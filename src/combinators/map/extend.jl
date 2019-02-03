@@ -21,7 +21,7 @@ function process_retained!(gen_fn::Map{T,U}, args::Tuple,
     # get new subtrace with recursive call to extend()
     prev_subtrace = state.subtraces[key]
     (subtrace, weight, subretdiff) = extend(
-        kernel_args, kernel_argdiff, prev_subtrace, subassmt)
+        prev_subtrace, kernel_args, kernel_argdiff, subassmt)
 
     # retrieve retdiff
     if !isnodiff(subretdiff)
@@ -52,7 +52,7 @@ function process_new!(gen_fn::Map{T,U}, args::Tuple, assmt, key::Int,
     kernel_args = get_args_for_key(args, key)
 
     # get subtrace and weight
-    (subtrace, weight) = initialize(gen_fn.kernel, kernel_args, subassmt)
+    (subtrace, weight) = generate(gen_fn.kernel, kernel_args, subassmt)
 
     # update state
     state.weight += weight
@@ -68,7 +68,7 @@ function process_new!(gen_fn::Map{T,U}, args::Tuple, assmt, key::Int,
 end
 
 
-function extend(args::Tuple, argdiff, trace::VectorTrace{MapType,T,U},
+function extend(trace::VectorTrace{MapType,T,U}, args::Tuple, argdiff,
                 assmt::Assignment) where {T,U}
     gen_fn = trace.gen_fn
     (new_length, prev_length) = get_prev_and_new_lengths(args, trace)

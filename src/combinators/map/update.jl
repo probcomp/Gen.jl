@@ -19,10 +19,10 @@ function process_retained!(gen_fn::Map{T,U}, args::Tuple,
     subassmt = get_subassmt(assmt, key)
     kernel_args = get_args_for_key(args, key)
 
-    # get new subtrace with recursive call to force_update()
+    # get new subtrace with recursive call to update()
     prev_subtrace = state.subtraces[key]
-    (subtrace, weight, discard, subretdiff) = force_update(
-        kernel_args, kernel_argdiff, prev_subtrace, subassmt)
+    (subtrace, weight, subretdiff, discard) = update(
+        prev_subtrace, kernel_args, kernel_argdiff, subassmt)
 
     # retrieve retdiff
     if !isnodiff(subretdiff)
@@ -55,7 +55,7 @@ function process_new!(gen_fn::Map{T,U}, args::Tuple, assmt, key::Int,
     kernel_args = get_args_for_key(args, key)
 
     # get subtrace and weight
-    (subtrace, weight) = initialize(gen_fn.kernel, kernel_args, subassmt)
+    (subtrace, weight) = generate(gen_fn.kernel, kernel_args, subassmt)
 
     # update state
     state.weight += weight
@@ -71,14 +71,14 @@ function process_new!(gen_fn::Map{T,U}, args::Tuple, assmt, key::Int,
 end
 
 
-function force_update(args::Tuple, argdiff, trace::VectorTrace{MapType,T,U},
-                      assmt::Assignment) where {T,U}
+function update(trace::VectorTrace{MapType,T,U}, args::Tuple, argdiff,
+                assmt::Assignment) where {T,U}
     gen_fn = trace.gen_fn
     (new_length, prev_length) = get_prev_and_new_lengths(args, trace)
     retained_and_constrained = get_retained_and_constrained(assmt, prev_length, new_length)
 
     # handle removed applications
-    (discard, num_nonempty, score_decrement, noise_decrement) = vector_force_update_delete(
+    (discard, num_nonempty, score_decrement, noise_decrement) = vector_update_delete(
         new_length, prev_length, trace)
     (subtraces, retval) = vector_remove_deleted_applications(
         trace.subtraces, trace.retval, prev_length, new_length)
@@ -100,5 +100,5 @@ function force_update(args::Tuple, argdiff, trace::VectorTrace{MapType,T,U},
     new_trace = VectorTrace{MapType,T,U}(gen_fn, state.subtraces, state.retval, args,  
         state.score, state.noise, new_length, state.num_nonempty)
 
-    return (new_trace, state.weight, discard, retdiff)
+    return (new_trace, state.weight, retdiff, discard)
 end

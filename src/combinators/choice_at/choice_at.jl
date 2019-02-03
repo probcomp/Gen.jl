@@ -69,7 +69,7 @@ function propose(gen_fn::ChoiceAtCombinator{T,K}, args::Tuple) where {T,K}
     (assmt, score, value)
 end
 
-function initialize(gen_fn::ChoiceAtCombinator{T,K}, args::Tuple, assmt::Assignment) where {T,K}
+function generate(gen_fn::ChoiceAtCombinator{T,K}, args::Tuple, assmt::Assignment) where {T,K}
     local key::K
     local value::T
     key = args[end]
@@ -86,8 +86,8 @@ function project(trace::ChoiceAtTrace, selection::AddressSet)
     has_leaf_node(selection, trace.key) ? trace.score : 0.
 end
 
-function force_update(args::Tuple, argdiff, trace::ChoiceAtTrace,
-                      assmt::Assignment)
+function update(trace::ChoiceAtTrace, args::Tuple, argdiff,
+                assmt::Assignment)
     key = args[end]
     kernel_args = args[1:end-1]
     key_changed = (key != trace.key)
@@ -102,46 +102,16 @@ function force_update(args::Tuple, argdiff, trace::ChoiceAtTrace,
         new_value = trace.value
         discard = EmptyAssignment()
     else
-        error("New address $key not constrained in force_update")
+        error("New address $key not constrained in update")
     end
     new_score = logpdf(trace.gen_fn.dist, new_value, kernel_args...)
     new_trace = ChoiceAtTrace(trace.gen_fn, new_value, key, kernel_args, new_score)
     weight = new_score - trace.score
-    (new_trace, weight, discard, DefaultRetDiff())
+    (new_trace, weight, DefaultRetDiff(), discard)
 end
 
-function fix_update(args::Tuple, argdiff, trace::ChoiceAtTrace,
-                    assmt::Assignment)
-    key = args[end]
-    kernel_args = args[1:end-1]
-    key_changed = (key != trace.key)
-    constrained = has_value(assmt, key)
-    if !key_changed && constrained 
-        new_value = get_value(assmt, key)
-    elseif !key_changed && !constrained
-        new_value = trace.value
-    elseif key_changed && !constrained
-        new_value = random(trace.gen_fn.dist, kernel_args...)
-    else
-        error("Cannot constrain new address $key in fix_update")
-    end
-    new_score = logpdf(trace.gen_fn.dist, new_value, kernel_args...)
-    if !key_changed && constrained 
-        weight = new_score - trace.score
-        discard = ChoiceAtAssignment(key, trace.value)
-    elseif !key_changed && !constrained
-        weight = new_score - trace.score
-        discard = EmptyAssignment()
-    elseif key_changed && !constrained
-        weight = 0.
-        discard = EmptyAssignment()
-    end
-    new_trace = ChoiceAtTrace(trace.gen_fn, new_value, key, kernel_args, new_score)
-    (new_trace, weight, discard, DefaultRetDiff())
-end
-
-function free_update(args::Tuple, argdiff, trace::ChoiceAtTrace,
-                     selection::AddressSet)
+function regenerate(trace::ChoiceAtTrace, args::Tuple, argdiff,
+                    selection::AddressSet)
     key = args[end]
     kernel_args = args[1:end-1]
     key_changed = (key != trace.key)
@@ -153,7 +123,7 @@ function free_update(args::Tuple, argdiff, trace::ChoiceAtTrace,
     elseif key_changed && !selected
         new_value = random(trace.gen_fn.dist, kernel_args...)
     else
-        error("Cannot select new address $key in free_update")
+        error("Cannot select new address $key in regenerate")
     end
     new_score = logpdf(trace.gen_fn.dist, new_value, kernel_args...)
     if !key_changed && selected 
@@ -167,7 +137,7 @@ function free_update(args::Tuple, argdiff, trace::ChoiceAtTrace,
     (new_trace, weight, DefaultRetDiff())
 end
 
-function extend(args::Tuple, argdiff, trace::ChoiceAtTrace,
+function extend(trace::ChoiceAtTrace, args::Tuple, argdiff,
                 assmt::Assignment)
     key = args[end]
     kernel_args = args[1:end-1]
@@ -189,7 +159,7 @@ function extend(args::Tuple, argdiff, trace::ChoiceAtTrace,
     (new_trace, weight, DefaultRetDiff())
 end
 
-function backprop_trace(trace::ChoiceAtTrace, selection::AddressSet, retval_grad)
+function choice_gradients(trace::ChoiceAtTrace, selection::AddressSet, retval_grad)
     if retval_grad == nothing && accepts_output_grad(trace.gen_fn)
         error("return value gradient required but not provided")
     elseif retval_grad != nothing && !accepts_output_grad(trace.gen_fn)
@@ -214,7 +184,7 @@ function backprop_trace(trace::ChoiceAtTrace, selection::AddressSet, retval_grad
     (input_grads, value_assmt, gradient_assmt)
 end
 
-function backprop_params(trace::ChoiceAtTrace, retval_grad)
+function accumulate_param_gradients!(trace::ChoiceAtTrace, retval_grad)
     if retval_grad == nothing && accepts_output_grad(trace.gen_fn)
         error("return value gradient required but not provided")
     elseif retval_grad != nothing && !accepts_output_grad(trace.gen_fn)

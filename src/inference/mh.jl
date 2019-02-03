@@ -5,7 +5,7 @@ Perform a Metropolis-Hastings update that proposes new values for the selected a
 """
 function metropolis_hastings(trace, selection::AddressSet)
     args = get_args(trace)
-    (new_trace, weight) = free_update(args, noargdiff, trace, selection)
+    (new_trace, weight) = regenerate(trace, args, noargdiff, selection)
     if log(rand()) < weight
         # accept
         return (new_trace, true)
@@ -28,8 +28,8 @@ function metropolis_hastings(trace, proposal::GenerativeFunction, proposal_args:
     model_args = get_args(trace)
     proposal_args_forward = (trace, proposal_args...,)
     (fwd_assmt, fwd_weight, _) = propose(proposal, proposal_args_forward)
-    (new_trace, weight, discard) = force_update(
-        model_args, noargdiff, trace, fwd_assmt)
+    (new_trace, weight, _, discard) = update(trace,
+        model_args, noargdiff, fwd_assmt)
     proposal_args_backward = (new_trace, proposal_args...,)
     (bwd_weight, _) = assess(proposal, proposal_args_backward, discard)
     alpha = weight - fwd_weight + bwd_weight
