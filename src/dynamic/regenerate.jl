@@ -19,7 +19,7 @@ function GFRegenerateState(gen_fn, args, argdiff, prev_trace,
         Trie{Any,Any}(), Trie{Any,Any}())
 end
 
-function addr(state::GFRegenerateState, dist::Distribution{T},
+function traceat(state::GFRegenerateState, dist::Distribution{T},
               args, key) where {T}
     local prev_retval::T
     local retval::T
@@ -71,11 +71,11 @@ function addr(state::GFRegenerateState, dist::Distribution{T},
     retval
 end
 
-function addr(state::GFRegenerateState, gen_fn::GenerativeFunction, args, key)
-    addr(state, gen_fn, args, key, UnknownArgDiff())
+function traceat(state::GFRegenerateState, gen_fn::GenerativeFunction, args, key)
+    traceat(state, gen_fn, args, key, UnknownArgDiff())
 end
 
-function addr(state::GFRegenerateState, gen_fn::GenerativeFunction{T,U},
+function traceat(state::GFRegenerateState, gen_fn::GenerativeFunction{T,U},
               args, key, argdiff) where {T,U}
     local prev_retval::T
     local trace::U

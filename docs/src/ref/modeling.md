@@ -7,8 +7,8 @@ Generative functions in the modeling language are identified using the `@gen` ke
 Here is an example `@gen` function that samples two random choices:
 ```julia
 @gen function foo(prob::Float64)
-    z1 = @addr(bernoulli(prob), :a)
-    z2 = @addr(bernoulli(prob), :b)
+    z1 = @trace(bernoulli(prob), :a)
+    z2 = @trace(bernoulli(prob), :b)
     return z1 || z2
 end
 ```
@@ -74,15 +74,15 @@ val::Bool = bernoulli(0.5)
 ```
 See [Probability Distributions](@ref) for the set of built-in probability distributions, and for information on implementing new probability distributions.
 
-In the body of a `@gen` function, wrapping a call to a random choice with an `@addr` expression associates the random choice with an *address*, and evaluates to the value of the random choice.
+In the body of a `@gen` function, wrapping a call to a random choice with an `@trace` expression associates the random choice with an *address*, and evaluates to the value of the random choice.
 The syntax is:
 ```julia
-@addr(<distribution>(<args>), <addr>)
+@trace(<distribution>(<args>), <addr>)
 ```
 Addresses can be any Julia value.
 Here, we give the Julia symbol address `:z` to a Bernoulli random choice.
 ```julia
-val::Bool = @addr(bernoulli(0.5), :z)
+val::Bool = @trace(bernoulli(0.5), :z)
 ```
 Not all random choices need to be given addresses.
 An address is required if the random choice will be observed, or will be referenced by a custom inference algorithm (e.g. if it will be proposed to by a custom proposal distribution).
@@ -94,8 +94,8 @@ If the support of a random choice needs to change, use a different address for e
 For example, consider the following generative function:
 ```julia
 @gen function foo()
-    n = @addr(categorical([0.5, 0.5]), :n) + 1
-    @addr(categorical(ones(n) / n), :x)
+    n = @trace(categorical([0.5, 0.5]), :n) + 1
+    @trace(categorical(ones(n) / n), :x)
 end
 ```
 The support of the random choice with address `:x` is either the set ``\{1, 2\}`` or ``\{1, 2, 3\}``.
@@ -108,8 +108,8 @@ tr, _ = mh(tr, select(:n))
 We can modify the address to satisfy the condition by including the domain in the address:
 ```julia
 @gen function foo()
-    n = @addr(categorical([0.5, 0.5]), :n) + 1
-    @addr(categorical(ones(n) / n), (:x, n))
+    n = @trace(categorical([0.5, 0.5]), :n) + 1
+    @trace(categorical(ones(n) / n), (:x, n))
 end
 ```
 
@@ -125,9 +125,9 @@ val = foo(0.5)
 ```
 
 **Traced call with a nested address namespace**:
-We can include the addressable random choices made by `foo` in the caller's trace, under a namespace, using `@addr`:
+We can include the addressable random choices made by `foo` in the caller's trace, under a namespace, using `@trace`:
 ```julia
-val = @addr(foo(0.5), :x)
+val = @trace(foo(0.5), :x)
 ```
 Now, all random choices made by `foo` are included in our trace, under the namespace `:x`.
 For example, if `foo` makes random choices at addresses `:a` and `:b`, these choices will have addresses `:x => :a` and `:x => :b` in the caller's trace.
@@ -146,44 +146,44 @@ NOTE: This type of call can only be used when calling other `@gen` functions. Ot
 
 In Julia, `Pair` values can be constructed using the `=>` operator.
 For example, `:a => :b` is equivalent to `Pair(:a, :b)` and `:a => :b => :c` is equivalent to `Pair(:a, Pair(:b, :c))`.
-A `Pair` value (e.g. `:a => :b => :c`) can be passed as the address field in an `@addr` expression, provided that there is not also a random choice or generative function called with `@addr` at any prefix of the address.
+A `Pair` value (e.g. `:a => :b => :c`) can be passed as the address field in an `@trace` expression, provided that there is not also a random choice or generative function called with `@trace` at any prefix of the address.
 
 Consider the following examples.
 
 This example is **invalid** because `:a => :b` is a prefix of `:a => :b => :c`:
 ```julia
-@addr(normal(0, 1), :a => :b => :c)
-@addr(normal(0, 1), :a => :b)
+@trace(normal(0, 1), :a => :b => :c)
+@trace(normal(0, 1), :a => :b)
 ```
 
 This example is **invalid** because `:a` is a prefix of `:a => :b => :c`:
 ```julia
-@addr(normal(0, 1), :a => :b => :c)
-@addr(normal(0, 1), :a)
+@trace(normal(0, 1), :a => :b => :c)
+@trace(normal(0, 1), :a)
 ```
 
 This example is **invalid** because `:a => :b` is a prefix of `:a => :b => :c`:
 ```julia
-@addr(normal(0, 1), :a => :b => :c)
-@addr(foo(0.5), :a => :b)
+@trace(normal(0, 1), :a => :b => :c)
+@trace(foo(0.5), :a => :b)
 ```
 
 This example is **invalid** because `:a` is a prefix of `:a => :b`:
 ```julia
-@addr(normal(0, 1), :a)
-@addr(foo(0.5), :a => :b)
+@trace(normal(0, 1), :a)
+@trace(foo(0.5), :a => :b)
 ```
 
 This example is **valid** because `:a => :b` and `:a => :c` are not prefixes of one another:
 ```julia
-@addr(normal(0, 1), :a => :b)
-@addr(normal(0, 1), :a => :c)
+@trace(normal(0, 1), :a => :b)
+@trace(normal(0, 1), :a => :c)
 ```
 
 This example is **valid** because `:a => :b` and `:a => :c` are not prefixes of one another:
 ```julia
-@addr(normal(0, 1), :a => :b)
-@addr(foo(0.5), :a => :c)
+@trace(normal(0, 1), :a => :b)
+@trace(foo(0.5), :a => :c)
 ```
 
 ## Return value
@@ -201,8 +201,8 @@ The function below has a single trainable parameter `theta` with type `Float64`:
 ```julia
 @gen function foo(prob::Float64)
     @param theta::Float64
-    z1 = @addr(bernoulli(prob), :a)
-    z2 = @addr(bernoulli(theta), :b)
+    z1 = @trace(bernoulli(prob), :a)
+    z2 = @trace(bernoulli(theta), :b)
     return z1 || z2
 end
 ```
@@ -244,9 +244,9 @@ For example, in the function below, we indicate that we want to support differen
 ```julia
 @gen function foo(x, (grad)(y))
     if x > 5
-        @addr(normal(y, 1), :z)
+        @trace(normal(y, 1), :z)
     else
-        @addr(normal(y, 10), :z)
+        @trace(normal(y, 10), :z)
     end
 end
 ```
@@ -270,9 +270,9 @@ For example, in the function below, the return value is conditionally dependent 
 ```julia
 @gen function foo(x, (grad)(y))
     if x > 5
-        return @addr(normal(y, 1), :z)
+        return @trace(normal(y, 1), :z)
     else
-        return @addr(normal(y, 10), :z)
+        return @trace(normal(y, 10), :z)
     end
 end
 ```
@@ -280,9 +280,9 @@ If the author of `foo` wished to support the computation of gradients with respe
 ```julia
 @gen (grad) function foo(x, (grad)(y))
     if x > 5
-        return @addr(normal(y, 1), :z)
+        return @trace(normal(y, 1), :z)
     else
-        return @addr(normal(y, 10), :z)
+        return @trace(normal(y, 10), :z)
     end
 end
 ```
@@ -359,8 +359,8 @@ If the argument did not change, and :a and :b did not change, then there is no c
 Otherwise, return an [`DefaultRetDiff`](@ref) value.
 ```julia
 @gen function foo(val::Bool)
-    val = val && @addr(bernoulli(0.3), :a)
-    val = val && @addr(bernoulli(0.4), :b)
+    val = val && @trace(bernoulli(0.3), :a)
+    val = val && @trace(bernoulli(0.4), :b)
     @diff begin
         argdiff = @argdiff()
         if argdiff == noargdiff
@@ -384,8 +384,8 @@ A static DSL function is identified by adding the `static` annotation to the fun
 For example:
 ```julia
 @gen (static) function foo(prob::Float64)
-    z1 = @addr(bernoulli(prob), :a)
-    z2 = @addr(bernoulli(prob), :b)
+    z1 = @trace(bernoulli(prob), :a)
+    z2 = @trace(bernoulli(prob), :b)
     z3 = z1 || z2
     return z3
 end
@@ -398,16 +398,16 @@ In particular, each statement must be one of the following forms:
 
 - `<symbol> = <julia-expr>`
 
-- `<symbol> = @addr(<dist|gen-fn>(..),<symbol> [ => ..])`
+- `<symbol> = @trace(<dist|gen-fn>(..),<symbol> [ => ..])`
 
-- `@addr(<dist|gen-fn>(..),<symbol> [ => ..])`
+- `@trace(<dist|gen-fn>(..),<symbol> [ => ..])`
 
 - `return <symbol>`
 
 Currently, trainable parameters are not supported in static DSL functions.
 
-Note that the `@addr` keyword may only appear in at the top-level of the right-hand-side expresssion.
-Also, addresses used with the `@addr` keyword must be a literal Julia symbol (e.g. `:a`). If multi-part addresses are used, the first component in the multi-part address must be a literal Julia symbol (e.g. `:a => i` is valid).
+Note that the `@trace` keyword may only appear in at the top-level of the right-hand-side expresssion.
+Also, addresses used with the `@trace` keyword must be a literal Julia symbol (e.g. `:a`). If multi-part addresses are used, the first component in the multi-part address must be a literal Julia symbol (e.g. `:a => i` is valid).
 
 Also, symbols used on the left-hand-side of assignment statements must be unique (this is called 'static single assignment' (SSA) form) (this is called 'static single-assignment' (SSA) form).
 
@@ -421,8 +421,8 @@ This permits a more optimized trace data structure to be generated for the gener
 For example:
 ```julia
 @gen (static) function foo(prob::Float64)
-    z1::Bool = @addr(bernoulli(prob), :a)
-    z2::Bool = @addr(bernoulli(prob), :b)
+    z1::Bool = @trace(bernoulli(prob), :a)
+    z2::Bool = @trace(bernoulli(prob), :b)
     z3 = z1 || z2
     return z3
 end

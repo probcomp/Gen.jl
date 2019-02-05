@@ -11,7 +11,7 @@ function GFGenerateState(gen_fn, args, constraints, params)
     GFGenerateState(trace, constraints, 0., AddressVisitor(), params)
 end
 
-function addr(state::GFGenerateState, dist::Distribution{T},
+function traceat(state::GFGenerateState, dist::Distribution{T},
               args, key) where {T}
     local retval::T
 
@@ -43,7 +43,7 @@ function addr(state::GFGenerateState, dist::Distribution{T},
     retval
 end
 
-function addr(state::GFGenerateState, gen_fn::GenerativeFunction{T,U},
+function traceat(state::GFGenerateState, gen_fn::GenerativeFunction{T,U},
               args, key) where {T,U}
     local subtrace::U
     local retval::T

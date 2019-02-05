@@ -74,7 +74,7 @@ Gen.isnodiff(::StringDiff) = false
 @testset "simple pcfg" begin
 
     @gen function pcfg_production(_::Nothing)
-        production_rule = @addr(categorical([0.24, 0.26, 0.23, 0.27]), :rule)
+        production_rule = @trace(categorical([0.24, 0.26, 0.23, 0.27]), :rule)
         if production_rule == 1
             # aSa; one child
             num_children = 1
@@ -98,7 +98,7 @@ Gen.isnodiff(::StringDiff) = false
     end
     
     @gen function pcfg_aggregation(production_rule::Int, child_outputs::Vector{String})
-        prefix = @addr(bernoulli(0.4), :prefix) ? "." : "-"
+        prefix = @trace(bernoulli(0.4), :prefix) ? "." : "-"
         local str::String
         if production_rule == 1
             @assert length(child_outputs) == 1

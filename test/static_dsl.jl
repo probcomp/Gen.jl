@@ -13,9 +13,9 @@ struct Params
 end
 
 @gen (static) function datum(x, (grad)(params::Params))
-    is_outlier::Bool = @addr(bernoulli(params.prob_outlier), :z)
+    is_outlier::Bool = @trace(bernoulli(params.prob_outlier), :z)
     std::Float64 = is_outlier ? params.inlier_std : params.outlier_std
-    y::Float64 = @addr(normal(x * params.slope + params.intercept, std), :y)
+    y::Float64 = @trace(normal(x * params.slope + params.intercept, std), :y)
     return y
 end
 
@@ -32,10 +32,10 @@ end
 
 @gen (static) function model(xs::Vector{Float64})
     n = length(xs)
-    inlier_std::Float64 = @addr(gamma(1, 1), :inlier_std)
-    outlier_std::Float64 = @addr(gamma(1, 1), :outlier_std)
-    slope::Float64 = @addr(normal(0, 2), :slope)
-    intercept::Float64 = @addr(normal(0, 2), :intercept)
+    inlier_std::Float64 = @trace(gamma(1, 1), :inlier_std)
+    outlier_std::Float64 = @trace(gamma(1, 1), :outlier_std)
+    slope::Float64 = @trace(normal(0, 2), :slope)
+    intercept::Float64 = @trace(normal(0, 2), :intercept)
     params = Params(0.5, inlier_std, outlier_std, slope, intercept)
     @diff received_argdiff = @argdiff()
     @diff inlier_std_diff = @choicediff(:inlier_std)
@@ -43,36 +43,36 @@ end
     @diff slope_diff = @choicediff(:slope)
     @diff intercept_diff = @choicediff(:intercept)
     @diff data_argdiff = compute_argdiff(inlier_std_diff, outlier_std_diff, slope_diff, intercept_diff)
-    ys::PersistentVector{Float64} = @addr(data_fn(xs, fill(params, n)), :data, data_argdiff)
+    ys::PersistentVector{Float64} = @trace(data_fn(xs, fill(params, n)), :data, data_argdiff)
     @diff data_calldiff = @calldiff(:data)
     return ys
     @diff @retdiff(data_calldiff)
 end
 
 @gen (static) function at_choice_example_1(i::Int)
-    ret = @addr(bernoulli(0.5), :x => i)
+    ret = @trace(bernoulli(0.5), :x => i)
 end
 
-# @addr(choice_at(bernoulli)(0.5, i), :x)
+# @trace(choice_at(bernoulli)(0.5, i), :x)
 
 @gen (static) function at_choice_example_2(i::Int)
-    ret = @addr(bernoulli(0.5), :x => i => :y)
+    ret = @trace(bernoulli(0.5), :x => i => :y)
 end
 
-# @addr(call_at(choice_at(bernoulli))(0.5, i, :y), :x)
+# @trace(call_at(choice_at(bernoulli))(0.5, i, :y), :x)
 
 @gen function foo(mu)
-    @addr(normal(mu, 1), :y)
+    @trace(normal(mu, 1), :y)
 end
 
 @gen (static) function at_call_example_1(i::Int)
     mu = 1.123
-    ret = @addr(foo(mu), :x => i)
+    ret = @trace(foo(mu), :x => i)
 end
 
 @gen (static) function at_call_example_2(i::Int)
     mu = 1.123
-    ret = @addr(foo(mu), :x => i => :y)
+    ret = @trace(foo(mu), :x => i => :y)
 end
 
 @testset "static DSL" begin

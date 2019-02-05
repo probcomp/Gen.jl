@@ -43,16 +43,16 @@ end
 show_prior_samples()
 
 @gen function stop_proposal(prev_trace)
-    @addr(uniform(0, 1), :stop_x)
-    @addr(uniform(0, 1), :stop_y)
+    @trace(uniform(0, 1), :stop_x)
+    @trace(uniform(0, 1), :stop_y)
 end
 
 @gen function speed_proposal(prev_trace)
-    @addr(uniform(0, 1), :speed)
+    @trace(uniform(0, 1), :speed)
 end
 
 @gen function noise_proposal(prev_trace)
-    @addr(uniform(0, 1), :noise)
+    @trace(uniform(0, 1), :noise)
 end
 
 function inference(measurements::Vector{Point}, start::Point, iters::Int)

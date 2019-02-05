@@ -1,12 +1,12 @@
 @testset "importance sampling" begin
 
     @gen function model()
-        x = @addr(normal(0, 1), :x)
-        @addr(normal(x, 1), :y)
+        x = @trace(normal(0, 1), :x)
+        @trace(normal(x, 1), :y)
     end
 
     @gen function proposal()
-        @addr(normal(0, 2), :x)
+        @trace(normal(0, 2), :x)
     end
 
     y = 2.

@@ -1,26 +1,26 @@
 include("shared.jl")
 
 @gen function covariance_prior(cur::Int)
-    node_type = @addr(categorical(node_dist), (cur, :type))
+    node_type = @trace(categorical(node_dist), (cur, :type))
 
     if node_type == CONSTANT
-        param = @addr(uniform_continuous(0, 1), (cur, :param))
+        param = @trace(uniform_continuous(0, 1), (cur, :param))
         node = Constant(param)
 
     # linear kernel
     elseif node_type == LINEAR
-        param = @addr(uniform_continuous(0, 1), (cur, :param))
+        param = @trace(uniform_continuous(0, 1), (cur, :param))
         node = Linear(param)
 
     # squared exponential kernel
     elseif node_type == SQUARED_EXP
-        length_scale= @addr(uniform_continuous(0, 1), (cur, :length_scale))
+        length_scale= @trace(uniform_continuous(0, 1), (cur, :length_scale))
         node = SquaredExponential(length_scale)
 
     # periodic kernel
     elseif node_type == PERIODIC
-        scale = @addr(uniform_continuous(0, 1), (cur, :scale))
-        period = @addr(uniform_continuous(0, 1), (cur, :period))
+        scale = @trace(uniform_continuous(0, 1), (cur, :scale))
+        period = @trace(uniform_continuous(0, 1), (cur, :period))
         node = Periodic(scale, period)
 
     # plus combinator
@@ -51,28 +51,28 @@ end
     n = length(xs)
 
     # sample covariance function
-    covariance_fn::Node = @addr(covariance_prior(1), :tree)
+    covariance_fn::Node = @trace(covariance_prior(1), :tree)
 
     # sample diagonal noise
-    noise = @addr(gamma(1, 1), :noise) + 0.01
+    noise = @trace(gamma(1, 1), :noise) + 0.01
 
     # compute covariance matrix
     cov_matrix = compute_cov_matrix_vectorized(covariance_fn, noise, xs)
 
     # sample from multivariate normal   
-    @addr(mvnormal(zeros(n), cov_matrix), :ys)
+    @trace(mvnormal(zeros(n), cov_matrix), :ys)
 
     return covariance_fn
 end
 
 @gen function noise_proposal(prev_trace)
-    @addr(gamma(1, 1), :noise)
+    @trace(gamma(1, 1), :noise)
 end
 
 @gen function subtree_proposal(prev_trace)
     prev_subtree_node::Node = get_retval(prev_trace)
-    (subtree_idx::Int, depth::Int) = @addr(pick_random_node(prev_subtree_node, 1, 0), :choose_subtree_root)
-    new_subtree_node::Node = @addr(covariance_prior(subtree_idx), :subtree)
+    (subtree_idx::Int, depth::Int) = @trace(pick_random_node(prev_subtree_node, 1, 0), :choose_subtree_root)
+    new_subtree_node::Node = @trace(covariance_prior(subtree_idx), :subtree)
     (subtree_idx, depth, new_subtree_node)
 end
 

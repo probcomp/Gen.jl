@@ -49,13 +49,31 @@ end
 # it returns 'nothing' for those arguemnts that don't have a derivatice
 has_argument_grads(gen::DynamicDSLFunction) = gen.has_argument_grads
 
-macro addr(expr::Expr, addr, addrdiff)
+macro trace(expr::Expr, addr)
     if expr.head != :call
-        error("syntax error in $DYNAMIC_DSL_ADDR at $(expr)")
+        error("syntax error in @trace at $(expr)")
     end
     fn = esc(expr.args[1])
     args = map(esc, expr.args[2:end])
-    Expr(:call, :addr, esc(state), fn, Expr(:tuple, args...), esc(addr), esc(addrdiff))
+    Expr(:call, :traceat, esc(state), fn, Expr(:tuple, args...), esc(addr))
+end
+
+macro trace(expr::Expr, addr, addrdiff)
+    if expr.head != :call
+        error("syntax error in @trace at $(expr)")
+    end
+    fn = esc(expr.args[1])
+    args = map(esc, expr.args[2:end])
+    Expr(:call, :traceat, esc(state), fn, Expr(:tuple, args...), esc(addr), esc(addrdiff))
+end
+
+macro trace(expr::Expr)
+    if expr.head != :call
+        error("syntax error in @trace at $(expr)")
+    end
+    invocation = expr.args[1]
+    args = esc(Expr(:tuple, expr.args[2:end]...))
+    Expr(:call, :splice, esc(state), esc(invocation), args)
 end
 
 function address_not_found_error_msg(addr)
@@ -258,7 +276,7 @@ include("optimization.jl")
 export DynamicDSLFunction
 export set_param!, get_param, get_param_grad, zero_param_grad!, init_param!
 export @param
-export @addr
+export @trace
 export @gen
 export @choicediff
 export @calldiff

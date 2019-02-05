@@ -73,11 +73,11 @@ end
 @gen function model()
 
     # object prior
-    x = @addr(uniform_continuous(0, 1), "x")
-    y = @addr(uniform_continuous(0, 1), "y")
-    size = @addr(uniform_continuous(0, 1), "size")
-    letter = letters[@addr(uniform_discrete(1, length(letters)), "letter")]
-    angle = @addr(uniform_continuous(-1, 1), "angle")
+    x = @trace(uniform_continuous(0, 1), "x")
+    y = @trace(uniform_continuous(0, 1), "y")
+    size = @trace(uniform_continuous(0, 1), "size")
+    letter = letters[@trace(uniform_discrete(1, length(letters)), "letter")]
+    angle = @trace(uniform_continuous(-1, 1), "angle")
     fontsize = min_size + Int(floor((max_size - min_size + 1) * size))
     object = Object(height * x, width * y, angle * 45, fontsize, letter)
 
@@ -91,7 +91,7 @@ end
     # add speckle
     mat = convert(Matrix{Float64}, blurred)
     noise = 0.1
-    @addr(noisy_matrix(mat, noise), "image")
+    @trace(noisy_matrix(mat, noise), "image")
 end
 
 const num_input = width * height
@@ -140,9 +140,9 @@ end
     letter_dist = exp.(log_letter_dist)
     letter_dist = letter_dist / sum(letter_dist)
 
-    @addr(normal(x_mu, x_std), "x")
-    @addr(normal(y_mu, y_std), "y")
-    @addr(normal(r_mu, r_std), "angle")
-    @addr(beta(size_alpha, size_beta), "size")
-    @addr(categorical(letter_dist), "letter")
+    @trace(normal(x_mu, x_std), "x")
+    @trace(normal(y_mu, y_std), "y")
+    @trace(normal(r_mu, r_std), "angle")
+    @trace(beta(size_alpha, size_beta), "size")
+    @trace(categorical(letter_dist), "letter")
 end

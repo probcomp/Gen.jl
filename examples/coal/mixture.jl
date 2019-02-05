@@ -53,25 +53,25 @@ has_argument_grads(::TwoNormals) = (false, true, true, true, true)
 
     # model selection
 
-    if @addr(bernoulli(0.5), :branch)
+    if @trace(bernoulli(0.5), :branch)
 
         # one cluster
-        mu = @addr(normal(0, 100), :mu)
-        std = @addr(gamma(1, 1), :std)
+        mu = @trace(normal(0, 100), :mu)
+        std = @trace(gamma(1, 1), :std)
         for i=1:n
-            @addr(normal(mu, std), "y-$i")
+            @trace(normal(mu, std), "y-$i")
         end
 
     else
 
         # two clusters
-        w1 = @addr(beta(1, 1), :w1)
-        mu1 = @addr(normal(0, 100), :mu1)
-        mu2 = @addr(normal(0, 100), :mu2)
-        std1 = @addr(gamma(1, 1), :std1)
-        std2 = @addr(gamma(1, 1), :std2)
+        w1 = @trace(beta(1, 1), :w1)
+        mu1 = @trace(normal(0, 100), :mu1)
+        mu2 = @trace(normal(0, 100), :mu2)
+        std1 = @trace(gamma(1, 1), :std1)
+        std2 = @trace(gamma(1, 1), :std2)
         for i=1:n
-            @addr(two_normals(w1, mu1, mu2, std1, std2), "y-$i")
+            @trace(two_normals(w1, mu1, mu2, std1, std2), "y-$i")
         end
 
     end
@@ -111,9 +111,9 @@ end
 ###############
 
 @gen function split_proposal(prev)
-    u1 = @addr(beta(2, 2), :u1)
-    u2 = @addr(beta(2, 2), :u2)
-    u3 = @addr(beta(1, 1), :u3)
+    u1 = @trace(beta(2, 2), :u1)
+    u2 = @trace(beta(2, 2), :u2)
+    u3 = @trace(beta(1, 1), :u3)
 end
 
 @gen function merge_proposal(prev) end

@@ -3,7 +3,7 @@ using Gen: generate_generative_function
 @testset "static IR" begin
 
     #@gen function bar()
-        #@addr(normal(0, 1), :a)
+        #@trace(normal(0, 1), :a)
     #end
     
     builder = StaticIRBuilder()
@@ -14,7 +14,7 @@ using Gen: generate_generative_function
     bar = eval(generate_generative_function(ir, :bar))
 
     #@gen function baz()
-        #@addr(normal(0, 1), :b)
+        #@trace(normal(0, 1), :b)
     #end
 
     builder = StaticIRBuilder()
@@ -25,10 +25,10 @@ using Gen: generate_generative_function
     baz = eval(generate_generative_function(ir, :baz))
 
     #@gen function foo()
-        #@addr(normal(0, 1), :x)
-        #@addr(bar(), :u)
-        #@addr(normal(0, 1), :y)
-        #@addr(baz(), :v)
+        #@trace(normal(0, 1), :x)
+        #@trace(bar(), :u)
+        #@trace(normal(0, 1), :y)
+        #@trace(baz(), :v)
     #end
 
     builder = StaticIRBuilder()

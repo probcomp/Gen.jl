@@ -21,7 +21,7 @@ In the schematic below, the kernel is denoted ``\mathcal{G}_{\mathrm{k}}``.
 For example, consider the following generative function, which makes one random choice at address `:z`:
 ```julia
 @gen function foo(x1::Float64, x2::Float64)
-    y = @addr(normal(x1 + x2, 1.0), :z)
+    y = @trace(normal(x1 + x2, 1.0), :z)
     return y
 end
 ```
@@ -95,7 +95,7 @@ The initial state is denoted ``y_0``, the number of applications is ``n``, and t
 For example, consider the following kernel, with state type `Bool`, which makes one random choice at address `:z`:
 ```julia
 @gen function foo(t::Int, y_prev::Bool, z1::Float64, z2::Float64)
-    y = @addr(bernoulli(y_prev ? z1 : z2), :y)
+    y = @trace(bernoulli(y_prev ? z1 : z2), :y)
     return y
 end
 ```

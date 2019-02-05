@@ -40,20 +40,20 @@ end
 @testset "update" begin
 
     @gen function bar()
-        @addr(normal(0, 1), :a)
+        @trace(normal(0, 1), :a)
     end
 
     @gen function baz()
-        @addr(normal(0, 1), :b)
+        @trace(normal(0, 1), :b)
     end
 
     @gen function foo()
-        if @addr(bernoulli(0.4), :branch)
-            @addr(normal(0, 1), :x)
-            @addr(bar(), :u)
+        if @trace(bernoulli(0.4), :branch)
+            @trace(normal(0, 1), :x)
+            @trace(bar(), :u)
         else
-            @addr(normal(0, 1), :y)
-            @addr(baz(), :v)
+            @trace(normal(0, 1), :y)
+            @trace(baz(), :v)
         end
     end
 
@@ -108,9 +108,9 @@ end
     # Addresses under the :data namespace will be visited,
     # but nothing there will be discarded.
     @gen function loopy()
-        a = @addr(normal(0, 1), :a)
+        a = @trace(normal(0, 1), :a)
         for i=1:5
-            @addr(normal(a, 1), :data => i)
+            @trace(normal(a, 1), :data => i)
         end
     end
 
@@ -146,20 +146,20 @@ end
 @testset "regenerate" begin
 
     @gen function bar(mu)
-        @addr(normal(mu, 1), :a)
+        @trace(normal(mu, 1), :a)
     end
 
     @gen function baz(mu)
-        @addr(normal(mu, 1), :b)
+        @trace(normal(mu, 1), :b)
     end
 
     @gen function foo(mu)
-        if @addr(bernoulli(0.4), :branch)
-            @addr(normal(mu, 1), :x)
-            @addr(bar(mu), :u)
+        if @trace(bernoulli(0.4), :branch)
+            @trace(normal(mu, 1), :x)
+            @trace(bar(mu), :u)
         else
-            @addr(normal(mu, 1), :y)
-            @addr(baz(mu), :v)
+            @trace(normal(mu, 1), :y)
+            @trace(baz(mu), :v)
         end
     end
 
@@ -247,17 +247,17 @@ end
     @gen (grad) function bar((grad)(mu_z::Float64))
         @param theta1::Float64
         local z
-        z = @addr(normal(mu_z + theta1, 1), :z)
+        z = @trace(normal(mu_z + theta1, 1), :z)
         return z + mu_z
     end
 
     @gen (grad) function foo((grad)(mu_a::Float64))
         @param theta2::Float64
         local a, b, c
-        a = @addr(normal(mu_a, 1), :a)
-        b = @addr(normal(a, 1), :b)
-        c = a * b * @addr(bar(a), :bar)
-        return @addr(normal(c, 1), :out) + (theta2 * 3)
+        a = @trace(normal(mu_a, 1), :a)
+        b = @trace(normal(a, 1), :b)
+        c = a * b * @trace(bar(a), :bar)
+        return @trace(normal(c, 1), :out) + (theta2 * 3)
     end
 
     init_param!(bar, :theta1, 0.)

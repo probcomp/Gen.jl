@@ -6,7 +6,7 @@ include("dataset.jl")
 
 @gen function is_outlier_proposal(prev, i::Int)
     prev = get_choices(prev)[:data => i => :z]
-    @addr(bernoulli(prev ? 0.0 : 1.0), :data => i => :z)
+    @trace(bernoulli(prev ? 0.0 : 1.0), :data => i => :z)
 end
 
 function do_inference(xs, ys, num_iters)

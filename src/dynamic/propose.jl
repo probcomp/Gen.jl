@@ -9,7 +9,7 @@ function GFProposeState(params::Dict{Symbol,Any})
     GFProposeState(choicemap(), 0., AddressVisitor(), params)
 end
 
-function addr(state::GFProposeState, dist::Distribution{T},
+function traceat(state::GFProposeState, dist::Distribution{T},
               args, key) where {T}
     local retval::T
 
@@ -28,7 +28,7 @@ function addr(state::GFProposeState, dist::Distribution{T},
     retval
 end
 
-function addr(state::GFProposeState, gen_fn::GenerativeFunction{T,U},
+function traceat(state::GFProposeState, gen_fn::GenerativeFunction{T,U},
               args, key) where {T,U}
     local retval::T
 

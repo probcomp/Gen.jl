@@ -64,18 +64,18 @@ end
     ]'
 
     @gen function kernel(t::Int, prev_z::Int, params::Nothing)
-        z = @addr(categorical(transition_dists[:,prev_z]), :z)
-        @addr(categorical(emission_dists[:,z]), :x)
+        z = @trace(categorical(transition_dists[:,prev_z]), :z)
+        @trace(categorical(emission_dists[:,z]), :x)
         return z
     end
 
     chain = Unfold(kernel)
 
     @gen function model(num_steps::Int)
-        z_init = @addr(categorical(prior), :z_init)
-        @addr(categorical(emission_dists[:,z_init]), :x_init)
+        z_init = @trace(categorical(prior), :z_init)
+        @trace(categorical(emission_dists[:,z_init]), :x_init)
         @diff argdiff = @argdiff()
-        @addr(chain(num_steps-1, z_init, nothing), :chain, argdiff)
+        @trace(chain(num_steps-1, z_init, nothing), :chain, argdiff)
     end
 
     num_steps = 4
@@ -104,7 +104,7 @@ end
 
     @gen function init_proposal(x::Int)
         dist = prior .* emission_dists[x,:]
-        @addr(categorical(dist ./ sum(dist)), :z_init)
+        @trace(categorical(dist ./ sum(dist)), :z_init)
     end
 
     init_proposal_args = (obs_x[1],)
@@ -124,7 +124,7 @@ end
             prev_z = choices[:z_init]
         end
         dist = transition_dists[:,prev_z] .* emission_dists[x,:]
-        @addr(categorical(dist ./ sum(dist)), :chain => T-1 => :z)
+        @trace(categorical(dist ./ sum(dist)), :chain => T-1 => :z)
     end
 
     argdiff = UnfoldCustomArgDiff(false, false)

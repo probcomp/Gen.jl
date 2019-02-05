@@ -70,7 +70,7 @@ function read_param(state::GFBackpropParamsState, name::Symbol)
     value
 end
 
-function addr(state::GFBackpropParamsState, dist::Distribution{T},
+function traceat(state::GFBackpropParamsState, dist::Distribution{T},
               args_maybe_tracked, key) where {T}
     local retval::T
     visit!(state.visitor, key)
@@ -89,7 +89,7 @@ struct BackpropParamsRecord
     scaler::Float64
 end
 
-function addr(state::GFBackpropParamsState, gen_fn::GenerativeFunction{T},
+function traceat(state::GFBackpropParamsState, gen_fn::GenerativeFunction{T},
               args_maybe_tracked, key) where {T}
     local retval::T
     visit!(state.visitor, key)
@@ -268,7 +268,7 @@ function fill_value_map!(value_choices::DynamicChoiceMap,
     end
 end
 
-function addr(state::GFBackpropTraceState, dist::Distribution{T},
+function traceat(state::GFBackpropTraceState, dist::Distribution{T},
               args_maybe_tracked, key) where {T}
     local retval::T
     visit!(state.visitor, key)
@@ -302,7 +302,7 @@ struct BackpropTraceRecord
     key::Any
 end
 
-function addr(state::GFBackpropTraceState, gen_fn::GenerativeFunction{T,U},
+function traceat(state::GFBackpropTraceState, gen_fn::GenerativeFunction{T,U},
               args_maybe_tracked, key) where {T,U}
     local retval::T
     local subtrace::U

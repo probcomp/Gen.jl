@@ -1,7 +1,7 @@
 @testset "call_at combinator" begin
 
     @gen (grad) function foo((grad)(x::Float64))
-        return x + @addr(normal(x, 1), :y)
+        return x + @trace(normal(x, 1), :y)
     end
 
     at = call_at(foo, Int)

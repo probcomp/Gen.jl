@@ -238,9 +238,9 @@ const max_branch = 2
 @gen function pick_random_node(node::Node, cur::Int, depth::Int)
     if isa(node, LeafNode)
         (cur, depth)
-    elseif @addr(bernoulli(0.5), :done => depth)
+    elseif @trace(bernoulli(0.5), :done => depth)
         (cur, depth)
-    elseif @addr(bernoulli(0.5), :recurse_left => cur)
+    elseif @trace(bernoulli(0.5), :recurse_left => cur)
         @splice(pick_random_node(node.left, get_child(cur, 1, max_branch), depth+1))
     else
         @splice(pick_random_node(node.right, get_child(cur, 2, max_branch), depth+1))

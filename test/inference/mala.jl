@@ -2,7 +2,7 @@
 
     # smoke test a function without retval gradient
     @gen function foo()
-        x = @addr(normal(0, 1), :x)
+        x = @trace(normal(0, 1), :x)
         return x
     end
 
@@ -11,7 +11,7 @@
 
     # smoke test a function with retval gradient
     @gen (grad) function foo()
-        x = @addr(normal(0, 1), :x)
+        x = @trace(normal(0, 1), :x)
         return x
     end
 

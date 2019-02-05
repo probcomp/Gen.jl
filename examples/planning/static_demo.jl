@@ -30,16 +30,16 @@ const scene = make_scene()
 const times = collect(range(0, stop=1, length=20))
 
 @gen (static) function stop_proposal(prev_trace::Any)
-    @addr(uniform(0, 1), :stop_x)
-    @addr(uniform(0, 1), :stop_y)
+    @trace(uniform(0, 1), :stop_x)
+    @trace(uniform(0, 1), :stop_y)
 end
 
 @gen (static) function speed_proposal(prev_trace::Any)
-    @addr(uniform(0, 1), :speed)
+    @trace(uniform(0, 1), :speed)
 end
 
 @gen (static) function noise_proposal(prev_trace::Any)
-    @addr(uniform(0, 0.1), :noise)
+    @trace(uniform(0, 0.1), :noise)
 end
 
 function inference(measurements::Vector{Point}, start::Point, iters::Int)

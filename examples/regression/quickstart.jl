@@ -1,10 +1,10 @@
 using Gen
 
 @gen function my_model(xs)
-    slope = @addr(normal(0, 2), :slope)
-    intercept = @addr(normal(0, 10), :intercept)
+    slope = @trace(normal(0, 2), :slope)
+    intercept = @trace(normal(0, 10), :intercept)
     for (i, x) in enumerate(xs)
-        @addr(normal(slope * x + intercept, 1), "y-$i")
+        @trace(normal(slope * x + intercept, 1), "y-$i")
     end
 end
 

@@ -19,20 +19,20 @@ function random(::TwoNormals, mu, sigma1, sigma2)
 end
 
 @gen (static) function generate_datum(mean::Float64, inlier_std::Float64, outlier_std::Float64)
-    @addr(two_normals(mean, inlier_std, outlier_std), :z)
+    @trace(two_normals(mean, inlier_std, outlier_std), :z)
 end
 
 generate_data = Map(generate_datum)
 
 @gen (static) function model(xs::Vector{Float64})
     n = length(xs)
-    slope::Float64 = @addr(normal(0, 2), :slope)
-    intercept::Float64 = @addr(normal(0, 2), :intercept)
-    log_inlier_std::Float64 = @addr(normal(0, 2), :log_inlier_std)
-    log_outlier_std::Float64 = @addr(normal(0, 2), :log_outlier_std)
+    slope::Float64 = @trace(normal(0, 2), :slope)
+    intercept::Float64 = @trace(normal(0, 2), :intercept)
+    log_inlier_std::Float64 = @trace(normal(0, 2), :log_inlier_std)
+    log_outlier_std::Float64 = @trace(normal(0, 2), :log_outlier_std)
     inlier_std = exp(log_inlier_std)
     outlier_std = exp(log_outlier_std)
     means = slope * xs .+ intercept
-    ys = @addr(generate_data(means, fill(inlier_std, n), fill(outlier_std, n)), :data)
+    ys = @trace(generate_data(means, fill(inlier_std, n), fill(outlier_std, n)), :data)
     return ys
 end

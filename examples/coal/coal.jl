@@ -119,13 +119,13 @@ const RATE = :rate
 @gen function model(T::Float64)
 
     # prior on number of change points
-    k = @addr(poisson(3.), K)
+    k = @trace(poisson(3.), K)
 
     # prior on the location of (sorted) change points
     change_pts = Vector{Float64}(undef, k)
     lower = 0.
     for i=1:k
-        cp = @addr(min_uniform_continuous(lower, T, k-i+1), (CHANGEPT, i))
+        cp = @trace(min_uniform_continuous(lower, T, k-i+1), (CHANGEPT, i))
         change_pts[i] = cp
         lower = cp
     end
@@ -134,11 +134,11 @@ const RATE = :rate
     # h$i is the rate for cp$(i-1) to cp$i where cp0 := 0 and where cp$(k+1) := T
     alpha = 1.
     beta = 200.
-    rates = Float64[@addr(Gen.gamma(alpha, 1. / beta), (RATE, i)) for i=1:k+1]
+    rates = Float64[@trace(Gen.gamma(alpha, 1. / beta), (RATE, i)) for i=1:k+1]
 
     # poisson process
     bounds = vcat([0.], change_pts, [T])
-    @addr(piecewise_poisson_process(bounds, rates), EVENTS)
+    @trace(piecewise_poisson_process(bounds, rates), EVENTS)
 end
 
 function render(trace; ymax=0.02)
@@ -184,11 +184,11 @@ end
     choices = get_choices(trace)
 
     # pick a random segment whose rate to change
-    i = @addr(uniform_discrete(1, choices[K]+1), :i)
+    i = @trace(uniform_discrete(1, choices[K]+1), :i)
 
     # propose new value for the rate
     cur_rate = choices[(RATE, i)]
-    @addr(uniform_continuous(cur_rate/2., cur_rate*2.), :new_rate)
+    @trace(uniform_continuous(cur_rate/2., cur_rate*2.), :new_rate)
 end
 
 # it is an involution because it:
@@ -221,11 +221,11 @@ rate_move(trace) = metropolis_hastings(trace, rate_proposal, (), rate_involution
     @assert k > 0
 
     # pick a random changepoint to change
-    i = @addr(uniform_discrete(1, k), :i)
+    i = @trace(uniform_discrete(1, k), :i)
 
     lower = (i == 1) ? 0. : choices[(CHANGEPT, i-1)]
     upper = (i == k) ? T : choices[(CHANGEPT, i+1)]
-    @addr(uniform_continuous(lower, upper), :new_changept)
+    @trace(uniform_continuous(lower, upper), :new_changept)
 end
 
 # it is an involution because it:
@@ -264,24 +264,24 @@ const U = :u
 
     # if k = 0, then always do a birth move
     # if k > 0, then randomly choose a birth or death move
-    isbirth = (k == 0) ? true : @addr(bernoulli(0.5), IS_BIRTH)
+    isbirth = (k == 0) ? true : @trace(bernoulli(0.5), IS_BIRTH)
 
     if isbirth
         # pick the segment in which to insert the new changepoint
         # changepoints before move:  | 1     2    3 |
         # new changepoint (i = 2):   |    *         |
         # changepoints after move:   | 1  2  3    4 |
-        i = @addr(uniform_discrete(1, k+1), CHOSEN)
+        i = @trace(uniform_discrete(1, k+1), CHOSEN)
         lower = (i == 1) ? 0. : choices[(CHANGEPT, i-1)]
         upper = (i == k+1) ? T : choices[(CHANGEPT, i)]
-        @addr(uniform_continuous(lower, upper), NEW_CHANGEPT)
-        @addr(uniform_continuous(0., 1.), U)
+        @trace(uniform_continuous(lower, upper), NEW_CHANGEPT)
+        @trace(uniform_continuous(0., 1.), U)
     else
         # pick the changepoint to be deleted
         # changepoints before move:     | 1  2  3    4 |
         # deleted changepoint (i = 2):  |    *         |
         # changepoints after move:      | 1     2    3 |
-        @addr(uniform_discrete(1, k), CHOSEN)
+        @trace(uniform_discrete(1, k), CHOSEN)
     end
 end
 

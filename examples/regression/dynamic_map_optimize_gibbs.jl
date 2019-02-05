@@ -12,7 +12,7 @@ include("dataset.jl")
     constraints[:data => i => :z] = true
     (_, weight2) = update(prev, prev_args, noargdiff, constraints)
     prob_true = exp(weight2- logsumexp([weight1, weight2]))
-    @addr(bernoulli(prob_true), :data => i => :z)
+    @trace(bernoulli(prob_true), :data => i => :z)
 end
 
 slope_intercept_selection = select(:slope, :intercept)

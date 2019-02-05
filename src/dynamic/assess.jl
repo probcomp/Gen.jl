@@ -9,7 +9,7 @@ function GFAssessState(choices, params::Dict{Symbol,Any})
     GFAssessState(choices, 0., AddressVisitor(), params)
 end
 
-function addr(state::GFAssessState, dist::Distribution{T},
+function traceat(state::GFAssessState, dist::Distribution{T},
               args, key) where {T}
     local retval::T
 
@@ -25,7 +25,7 @@ function addr(state::GFAssessState, dist::Distribution{T},
     retval
 end
 
-function addr(state::GFAssessState, gen_fn::GenerativeFunction{T,U},
+function traceat(state::GFAssessState, gen_fn::GenerativeFunction{T,U},
               args, key) where {T,U}
     local retval::T
 

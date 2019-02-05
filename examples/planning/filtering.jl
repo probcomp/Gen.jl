@@ -21,18 +21,18 @@ include("piecewise_normal.jl")
 
     # walk path
     locations = Vector{Point}(undef, step)
-    dist = @addr(normal(speed * times[1], dist_slack), (:dist, 1))
+    dist = @trace(normal(speed * times[1], dist_slack), (:dist, 1))
     locations[1] = walk_path(path, distances_from_start, dist)
     for t=2:step
-        dist = @addr(normal(dist + speed * (times[t] - times[t-1]), dist_slack), (:dist, t))
+        dist = @trace(normal(dist + speed * (times[t] - times[t-1]), dist_slack), (:dist, t))
         locations[t] = walk_path(path, distances_from_start, dist)
     end
 
     # generate noisy observations
     for t=1:step
         point = locations[t]
-        @addr(normal(point.x, noise), (:x, t))
-        @addr(normal(point.y, noise), (:y, t))
+        @trace(normal(point.x, noise), (:x, t))
+        @trace(normal(point.y, noise), (:y, t))
     end
 
     return locations
@@ -67,10 +67,10 @@ end
 
 @gen function lightweight_hmm_kernel(t::Int, prev_state::Any, params::KernelParams)
     # NOTE: if t = 1 then prev_state will have all NaNs
-    dist = @addr(normal(dist_mean(prev_state, params, t), params.dist_slack), :dist)
+    dist = @trace(normal(dist_mean(prev_state, params, t), params.dist_slack), :dist)
     loc = walk_path(params.path, params.distances_from_start, dist)
-    @addr(normal(loc.x, params.noise), :x)
-    @addr(normal(loc.y, params.noise), :y)
+    @trace(normal(loc.x, params.noise), :x)
+    @trace(normal(loc.y, params.noise), :y)
     return KernelState(dist, loc)
 end
 
@@ -78,10 +78,10 @@ lightweight_hmm_with_markov = Unfold(lightweight_hmm_kernel)
 
 @gen (static) function static_hmm_kernel(t::Int, prev_state::KernelState, params::KernelParams)
     # NOTE: if t = 1 then prev_state will have all NaNs
-    dist::Float64 = @addr(normal(dist_mean(prev_state, params, t), params.dist_slack), :dist)
+    dist::Float64 = @trace(normal(dist_mean(prev_state, params, t), params.dist_slack), :dist)
     loc::Point = walk_path(params.path, params.distances_from_start, dist)
-    @addr(normal(loc.x, params.noise), :x)
-    @addr(normal(loc.y, params.noise), :y)
+    @trace(normal(loc.x, params.noise), :x)
+    @trace(normal(loc.y, params.noise), :y)
     ret::KernelState = KernelState(dist, loc)
     return ret
 end
@@ -155,7 +155,7 @@ end
                                                             posterior_var_d, posterior_covars, path, distances_from_start,
                                                             speed, dist_slack)
 
-    @addr(piecewise_normal(probabilities, mus, stds, distances_from_start), (:dist, step))
+    @trace(piecewise_normal(probabilities, mus, stds, distances_from_start), (:dist, step))
 end
 
 @gen function markov_fancy_proposal_inner(dt::Float64, prev_dist::Float64, noise :: Float64, obs :: Point,
@@ -167,7 +167,7 @@ end
                                                             posterior_var_d, posterior_covars, path, distances_from_start,
                                                             speed, dist_slack)
 
-    @addr(piecewise_normal(probabilities, mus, stds, distances_from_start), :dist)
+    @trace(piecewise_normal(probabilities, mus, stds, distances_from_start), :dist)
 end
 
 lightweight_markov_fancy_proposal = at_dynamic(markov_fancy_proposal_inner, Int)
@@ -181,7 +181,7 @@ lightweight_markov_fancy_proposal = at_dynamic(markov_fancy_proposal_inner, Int)
                                                  posterior_var_d, posterior_covars, path, distances_from_start,
                                                  speed, dist_slack)
 
-    @addr(piecewise_normal(dist_params[1], dist_params[2], dist_params[3], dist_params[4]), :dist)
+    @trace(piecewise_normal(dist_params[1], dist_params[2], dist_params[3], dist_params[4]), :dist)
 end
 
 static_fancy_proposal = at_dynamic(static_markov_fancy_proposal_inner, Int)

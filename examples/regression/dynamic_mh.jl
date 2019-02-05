@@ -6,27 +6,27 @@ include("dataset.jl")
 
 @gen function slope_proposal(prev)
     slope = get_choices(prev)[:slope]
-    @addr(normal(slope, 0.5), :slope)
+    @trace(normal(slope, 0.5), :slope)
 end
 
 @gen function intercept_proposal(prev)
     intercept = get_choices(prev)[:intercept]
-    @addr(normal(intercept, 0.5), :intercept)
+    @trace(normal(intercept, 0.5), :intercept)
 end
 
 @gen function inlier_std_proposal(prev)
     log_inlier_std = get_choices(prev)[:log_inlier_std]
-    @addr(normal(log_inlier_std, 0.5), :log_inlier_std)
+    @trace(normal(log_inlier_std, 0.5), :log_inlier_std)
 end
 
 @gen function outlier_std_proposal(prev)
     log_outlier_std = get_choices(prev)[:log_outlier_std]
-    @addr(normal(log_outlier_std, 0.5), :log_outlier_std)
+    @trace(normal(log_outlier_std, 0.5), :log_outlier_std)
 end
 
 @gen function is_outlier_proposal(prev, i::Int)
     prev = get_choices(prev)[:data => i => :z]
-    @addr(bernoulli(prev ? 0.0 : 1.0), :data => i => :z)
+    @trace(bernoulli(prev ? 0.0 : 1.0), :data => i => :z)
 end
 
 function do_inference(xs, ys, num_iters)

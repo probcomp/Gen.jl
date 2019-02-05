@@ -22,10 +22,10 @@
     # 1 1   0
 
     @gen function teacher()
-        x = @addr(bernoulli(0.5), :x)
-        y = @addr(bernoulli(0.5), :y)
+        x = @trace(bernoulli(0.5), :x)
+        y = @trace(bernoulli(0.5), :y)
         z::Bool = xor(x, y)
-        @addr(bernoulli(z ? 1.0 : 0.0), :z)
+        @trace(bernoulli(z ? 1.0 : 0.0), :z)
     end
 
     sigmoid(val) = 1.0 / (1.0 + exp(-val))
@@ -36,7 +36,7 @@
         @param theta3::Float64
         @param theta4::Float64
         @param theta5::Float64
-        x = @addr(bernoulli(sigmoid(theta1)), :x)
+        x = @trace(bernoulli(sigmoid(theta1)), :x)
         if z && x
             prob_y = sigmoid(theta2) # should be near 0
         elseif z && !x
@@ -46,7 +46,7 @@
         elseif !z && !x
             prob_y = sigmoid(theta5) # should be near 0
         end
-        @addr(bernoulli(prob_y), :y)
+        @trace(bernoulli(prob_y), :y)
     end
 
     function data_generator()

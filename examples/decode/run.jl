@@ -27,23 +27,23 @@ const transition = counts ./ sum(counts, dims=1)
     my_probs = probs .* (1 - alpha) .+ fill(1 / 27., 27) .* alpha
     my_transition = transition * (1 - alpha) .+ fill(1 / 27., 27, 27) .* alpha
     local cur::Int
-    cur = @addr(categorical(my_probs), 1)
+    cur = @trace(categorical(my_probs), 1)
     for l=2:len
-        cur = @addr(categorical(my_transition[:,cur]), l)
+        cur = @trace(categorical(my_transition[:,cur]), l)
     end
 end
 
 @gen function model(alpha::Float64, len::Int)
-    @addr(generate_original_text(alpha, len), :text)
-    code = Int[@addr(uniform_discrete(1, 27), (:code, l)) for l=1:27]
+    @trace(generate_original_text(alpha, len), :text)
+    code = Int[@trace(uniform_discrete(1, 27), (:code, l)) for l=1:27]
     code
 end
 
 par_model = Map(model)
 
 @gen function swap_proposal(prev_trace, m::Int)
-    @addr(uniform_discrete(1, 27), :i)
-    @addr(uniform_discrete(1, 27), :j)
+    @trace(uniform_discrete(1, 27), :i)
+    @trace(uniform_discrete(1, 27), :j)
 end
 
 function swap_involution(trace, fwd_choices::ChoiceMap, fwd_ret, proposal_args::Tuple)

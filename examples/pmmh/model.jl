@@ -15,11 +15,11 @@ y_mean(x::Real) = (x * x / 20.)
 @gen function hmm(var_x, var_y, T::Int)
     xs = Vector{Float64}(undef, T)
     ys = Vector{Float64}(undef, T)
-    xs[1] = @addr(normal(0, 5), :x => 1)
-    ys[1] = @addr(normal(y_mean(xs[1]), sqrt(var_y)), :y => 1)
+    xs[1] = @trace(normal(0, 5), :x => 1)
+    ys[1] = @trace(normal(y_mean(xs[1]), sqrt(var_y)), :y => 1)
     for t=2:T
-        xs[t] = @addr(normal(x_mean(xs[t-1], t), sqrt(var_x)), :x => t)
-        ys[t] = @addr(normal(y_mean(xs[t]), sqrt(var_y)), :y => t)
+        xs[t] = @trace(normal(x_mean(xs[t-1], t), sqrt(var_x)), :x => t)
+        ys[t] = @trace(normal(y_mean(xs[t]), sqrt(var_y)), :y => t)
     end
     return (xs, ys)
  end
@@ -38,9 +38,9 @@ end
 # value of the previous tieration, followed by the rest of the arguments,
 # specified as an argument to unfold)
 @gen (static) function kernel(t::Int, state::State, params::Params)
-    x::Float64 = @addr(normal(t > 1 ? x_mean(state.x, t) : 0.,
+    x::Float64 = @trace(normal(t > 1 ? x_mean(state.x, t) : 0.,
                               t > 1 ? sqrt(params.var_x) : 5.), :x)
-    y::Float64 = @addr(normal(y_mean(x), sqrt(params.var_y)), :y)
+    y::Float64 = @trace(normal(y_mean(x), sqrt(params.var_y)), :y)
     ret::State = State(x, y)
     return ret
 end
@@ -60,18 +60,18 @@ hmm2 = Unfold(kernel)
 # it's okay to be specialized to the model 'hmm'
 
 @gen function single_step_observer(t::Int, y::Float64)
-    @addr(dirac(y), :y => t)
+    @trace(dirac(y), :y => t)
 end
 
 @gen (static) function obs_sub(y::Float64)
-    @addr(dirac(y), :y)
+    @trace(dirac(y), :y)
 end
 
 single_step_observer2 = at_dynamic(obs_sub, Int)
 
 #@gen (static) function single_step_observer2(t::Int, y::Float64)
-    #@addr(at_dynamic(obs_sub,Int)(t, (y,)))
-    #@addr(dirac(y), t => :y)
+    #@trace(at_dynamic(obs_sub,Int)(t, (y,)))
+    #@trace(dirac(y), t => :y)
 #end
 
 function logsumexp(arr)
@@ -214,7 +214,7 @@ function Gen.update(generator::CollapsedHMM, new_args, args_change, trace, const
 end
 
 @gen (static) function model_collapsed(T::Int)
-    var_x::Float64 = @addr(gamma(1, 1), :var_x)
-    var_y::Float64 = @addr(gamma(1, 1), :var_y)
-    @addr(collapsed_hmm(var_x, var_y, T, 4096, 2048), :hmm)
+    var_x::Float64 = @trace(gamma(1, 1), :var_x)
+    var_y::Float64 = @trace(gamma(1, 1), :var_y)
+    @trace(collapsed_hmm(var_x, var_y, T, 4096, 2048), :hmm)
 end

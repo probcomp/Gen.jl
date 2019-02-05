@@ -12,7 +12,7 @@ There are various kinds of generative functions, which are represented by concre
 For example, the [Built-in Modeling Language](@ref) allows generative functions to be constructed using Julia function definition syntax:
 ```julia
 @gen function foo(a, b)
-    if @addr(bernoulli(0.5), :z)
+    if @trace(bernoulli(0.5), :z)
         return a + b + 1
     else
         return a + b
@@ -128,13 +128,13 @@ There are several methods that take a trace of a generative function as input an
 We will illustrate these methods using the following generative function:
 ```julia
 @gen function foo()
-    val = @addr(bernoulli(0.3), :a)
-    if @addr(bernoulli(0.4), :b)
-        val = @addr(bernoulli(0.6), :c) && val
+    val = @trace(bernoulli(0.3), :a)
+    if @trace(bernoulli(0.4), :b)
+        val = @trace(bernoulli(0.6), :c) && val
     else
-        val = @addr(bernoulli(0.1), :d) && val
+        val = @trace(bernoulli(0.1), :d) && val
     end
-    val = @addr(bernoulli(0.7), :e) && val
+    val = @trace(bernoulli(0.7), :e) && val
     return val
 end
 ```

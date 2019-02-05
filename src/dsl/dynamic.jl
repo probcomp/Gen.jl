@@ -1,4 +1,4 @@
-const DYNAMIC_DSL_ADDR = Symbol("@addr")
+const DYNAMIC_DSL_TRACE = Symbol("@trace")
 const DYNAMIC_DSL_DIFF = Symbol("@diff")
 
 transform_body_for_non_update(ast) = ast
@@ -6,8 +6,8 @@ transform_body_for_non_update(ast) = ast
 function transform_body_for_non_update(ast::Expr)
     @assert !(ast.head == :macrocall && ast.args[1] == DYNAMIC_DSL_DIFF)
 
-    # remove the argdiff argument from @addr expressions
-    if ast.head == :macrocall && ast.args[1] == DYNAMIC_DSL_ADDR
+    # remove the argdiff argument from @trace expressions
+    if ast.head == :macrocall && ast.args[1] == DYNAMIC_DSL_TRACE
         if length(ast.args) == 5
             @assert isa(ast.args[2], LineNumberNode)
             # remove the last argument

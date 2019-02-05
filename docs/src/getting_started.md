@@ -19,16 +19,16 @@ Let's write a short Gen program that does Bayesian linear regression: given a se
 
 There are three main components to a typical Gen program.
 
-First, we define a _generative model_: a Julia function, extended with some extra syntax, that, conceptually, simulates a fake dataset. The model below samples `slope` and `intercept` parameters, and then for each of the x-coordinates that it accepts as input, samples a corresponding y-coordinate. We name the random choices we make with `@addr`, so we can refer to them in our inference program.
+First, we define a _generative model_: a Julia function, extended with some extra syntax, that, conceptually, simulates a fake dataset. The model below samples `slope` and `intercept` parameters, and then for each of the x-coordinates that it accepts as input, samples a corresponding y-coordinate. We name the random choices we make with `@trace`, so we can refer to them in our inference program.
 
 ```julia
 using Gen
 
 @gen function my_model(xs::Vector{Float64})
-    slope = @addr(normal(0, 2), :slope)
-    intercept = @addr(normal(0, 10), :intercept)
+    slope = @trace(normal(0, 2), :slope)
+    intercept = @trace(normal(0, 10), :intercept)
     for (i, x) in enumerate(xs)
-        @addr(normal(slope * x + intercept, 1), "y-$i")
+        @trace(normal(slope * x + intercept, 1), "y-$i")
     end
 end
 ```

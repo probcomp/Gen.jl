@@ -6,15 +6,15 @@ include("model.jl")
 @gen (static) function var_proposal(prev)
     var_x::Float64 = get_choices(prev)[:var_x]
     var_y::Float64 = get_choices(prev)[:var_y]
-    #@addr(normal(var_x, sqrt(0.15)), :var_x)
-    #@addr(normal(var_y, sqrt(0.08)), :var_y)
-    @addr(normal(var_x, sqrt(0.5)), :var_x)
-    @addr(normal(var_y, sqrt(0.5)), :var_y)
+    #@trace(normal(var_x, sqrt(0.15)), :var_x)
+    #@trace(normal(var_y, sqrt(0.08)), :var_y)
+    @trace(normal(var_x, sqrt(0.5)), :var_x)
+    @trace(normal(var_y, sqrt(0.5)), :var_y)
 end
 
 @gen function observer(ys)
     for (i, y) in enumerate(ys)
-        @addr(dirac(y), :hmm => :y => i)
+        @trace(dirac(y), :hmm => :y => i)
     end
 end
 
