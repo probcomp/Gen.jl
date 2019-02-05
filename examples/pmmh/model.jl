@@ -93,12 +93,12 @@ end
 function smc(var_x, var_y, T::Int, N, ess_threshold, ys::AbstractArray{Float64,1})
     log_unnormalized_weights = Vector{Float64}(undef, N)
     log_ml_estimate = 0.
-    obs = get_assmt(simulate(single_step_observer2, (1, (ys[1],))))
+    obs = get_choices(simulate(single_step_observer2, (1, (ys[1],))))
     traces = Vector{Gen.get_trace_type(hmm2)}(undef, N)
     next_traces = Vector{Gen.get_trace_type(hmm2)}(undef, N)
     args = (1, State(NaN, NaN), Params(var_x, var_y))
     for i=1:N
-        (traces[i], log_unnormalized_weights[i]) = initialize(hmm2, args, obs)
+        (traces[i], log_unnormalized_weights[i]) = generate(hmm2, args, obs)
     end
     num_resamples = 0
     args_change = UnfoldCustomArgDiff(true, false, false)
@@ -116,7 +116,7 @@ function smc(var_x, var_y, T::Int, N, ess_threshold, ys::AbstractArray{Float64,1
         else
             parents = 1:N
         end
-        obs = get_assmt(simulate(single_step_observer2, (t, (ys[t],))))
+        obs = get_choices(simulate(single_step_observer2, (t, (ys[t],))))
         args = (t, State(NaN, NaN), Params(var_x, var_y))
         for i=1:N
             parent = parents[i]
@@ -138,8 +138,8 @@ end
 # collapsed generative model (handcoded) #
 ##########################################
 
-using Gen: VectorDistTrace, VectorDistTraceAssignment
-import Gen: get_call_record, has_choices, get_assmt, simulate, assess
+using Gen: VectorDistTrace, VectorDistTraceChoiceMap
+import Gen: get_call_record, has_choices, get_choices, simulate, assess
 
 struct CollapsedHMMTrace
     vector::VectorDistTrace{Float64}
@@ -148,21 +148,21 @@ end
 
 get_call_record(trace::CollapsedHMMTrace) = trace.vector.call
 has_choices(trace::CollapsedHMMTrace) = length(trace.vector.call.retval) > 0
-get_assmt(trace::CollapsedHMMTrace) = CollapsedHMMAssignment(get_assmt(trace.vector))
+get_choices(trace::CollapsedHMMTrace) = CollapsedHMMChoiceMap(get_choices(trace.vector))
 
-struct CollapsedHMMAssignment <: Assignment
-    y_assignment::VectorDistTraceAssignment
+struct CollapsedHMMChoiceMap <: ChoiceMap
+    y_assignment::VectorDistTraceChoiceMap
 end
 
 # addrs are: :y => i
 
-Base.isempty(assignment::CollapsedHMMAssignment) = (length(assignment.trace.call.retval) > 0)
-Gen.get_address_schema(::Type{CollapsedHMMAssignment}) = DynamicAddressSchema()
-Gen.has_internal_node(assignment::CollapsedHMMAssignment, addr) = (addr == :y)
-function Gen.get_internal_node(assignment::CollapsedHMMAssignment, addr)
+Base.isempty(assignment::CollapsedHMMChoiceMap) = (length(assignment.trace.call.retval) > 0)
+Gen.get_address_schema(::Type{CollapsedHMMChoiceMap}) = DynamicAddressSchema()
+Gen.has_internal_node(assignment::CollapsedHMMChoiceMap, addr) = (addr == :y)
+function Gen.get_internal_node(assignment::CollapsedHMMChoiceMap, addr)
     addr == :y ? assignment.y_assignment : throw(KeyError(addr))
 end
-Gen.get_internal_nodes(assignment::CollapsedHMMAssignment) = ((:y, assignment.y_assignment),)
+Gen.get_internal_nodes(assignment::CollapsedHMMChoiceMap) = ((:y, assignment.y_assignment),)
 
 struct CollapsedHMM <: GenerativeFunction{PersistentVector{Float64},CollapsedHMMTrace} end
 collapsed_hmm = CollapsedHMM()
@@ -210,7 +210,7 @@ function Gen.update(generator::CollapsedHMM, new_args, args_change, trace, const
         new_trace = unbiased_logpdf_est(new_args, ys)
         weight = get_call_record(new_trace).score - get_call_record(trace).score
     end
-    (new_trace, weight, EmptyAssignment(), nothing)
+    (new_trace, weight, EmptyChoiceMap(), nothing)
 end
 
 @gen (static) function model_collapsed(T::Int)

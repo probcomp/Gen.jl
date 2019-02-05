@@ -10,21 +10,21 @@ mutable struct UnfoldExtendState{T,U}
 end
 
 function process_retained!(gen_fn::Unfold{T,U}, params::Tuple,
-                           assmt::Assignment, key::Int, kernel_argdiff,
+                           choices::ChoiceMap, key::Int, kernel_argdiff,
                            state::UnfoldExtendState{T,U}) where {T,U}
     local subtrace::U
     local prev_subtrace::U
     local prev_state::T
     local new_state::T
 
-    subassmt = get_subassmt(assmt, key)
+    submap = get_submap(choices, key)
     prev_state = (key == 1) ? state.init_state : state.retval[key-1]
     kernel_args = (key, prev_state, params...)
 
     # get new subtrace with recursive call to extend()
     prev_subtrace = state.subtraces[key]
     (subtrace, weight, subretdiff) = extend(
-        prev_subtrace, kernel_args, kernel_argdiff, subassmt)
+        prev_subtrace, kernel_args, kernel_argdiff, submap)
 
     # retrieve retdiff
     is_state_diff = !isnodiff(subretdiff)
@@ -39,8 +39,8 @@ function process_retained!(gen_fn::Unfold{T,U}, params::Tuple,
     state.subtraces = assoc(state.subtraces, key, subtrace)
     new_state = get_retval(subtrace)
     state.retval = assoc(state.retval, key, new_state)
-    subtrace_empty = isempty(get_assmt(subtrace))
-    prev_subtrace_empty = isempty(get_assmt(prev_subtrace))
+    subtrace_empty = isempty(get_choices(subtrace))
+    prev_subtrace_empty = isempty(get_choices(prev_subtrace))
     @assert !(subtrace_empty && !prev_subtrace_empty)
     if !subtrace_empty && prev_subtrace_empty
         state.num_nonempty += 1
@@ -49,18 +49,18 @@ function process_retained!(gen_fn::Unfold{T,U}, params::Tuple,
     is_state_diff
 end
 
-function process_new!(gen_fn::Unfold{T,U}, params::Tuple, assmt, key::Int,
+function process_new!(gen_fn::Unfold{T,U}, params::Tuple, choices, key::Int,
                       state::UnfoldExtendState{T,U}) where {T,U}
     local subtrace::U
     local prev_state::T
     local new_state::T
 
-    subassmt = get_subassmt(assmt, key)
+    submap = get_submap(choices, key)
     prev_state = (key == 1) ? state.init_state : state.retval[key-1]
     kernel_args = (key, prev_state, params...)
 
     # get subtrace and weight
-    (subtrace, weight) = generate(gen_fn.kernel, kernel_args, subassmt)
+    (subtrace, weight) = generate(gen_fn.kernel, kernel_args, submap)
 
     # update state
     state.weight += weight
@@ -70,34 +70,34 @@ function process_new!(gen_fn::Unfold{T,U}, params::Tuple, assmt, key::Int,
     state.subtraces = push(state.subtraces, subtrace)
     state.retval = push(state.retval, new_state)
     @assert length(state.subtraces) == key
-    if !isempty(get_assmt(subtrace))
+    if !isempty(get_choices(subtrace))
         state.num_nonempty += 1
     end
 end
 
 function extend(trace::VectorTrace{UnfoldType,T,U},
                 args::Tuple, ::NoArgDiff,
-                assmt::Assignment) where {T,U}
+                choices::ChoiceMap) where {T,U}
     argdiff = UnfoldCustomArgDiff(false, false)
-    extend(trace, args, argdiff, assmt)
+    extend(trace, args, argdiff, choices)
 end
 
 function extend(trace::VectorTrace{UnfoldType,T,U},
                 args::Tuple, ::UnknownArgDiff,
-                assmt::Assignment) where {T,U}
+                choices::ChoiceMap) where {T,U}
     argdiff = UnfoldCustomArgDiff(true, true)
-    extend(trace, args, argdiff, assmt)
+    extend(trace, args, argdiff, choices)
 end
 
 function extend(trace::VectorTrace{UnfoldType,T,U},
                 args::Tuple, argdiff::UnfoldCustomArgDiff,
-                assmt::Assignment) where {T,U}
+                choices::ChoiceMap) where {T,U}
     gen_fn = trace.gen_fn
     (new_length, init_state, params) = unpack_args(args)
     check_length(new_length)
     prev_args = get_args(trace)
     prev_length = prev_args[1]
-    retained_and_constrained = get_retained_and_constrained(assmt, prev_length, new_length)
+    retained_and_constrained = get_retained_and_constrained(choices, prev_length, new_length)
 
     # there can be no removed applications
     if new_length < prev_length
@@ -107,9 +107,9 @@ function extend(trace::VectorTrace{UnfoldType,T,U},
     # handle retained and new applications
     state = UnfoldExtendState{T,U}(init_state, 0., trace.score, trace.noise,
         trace.subtraces, trace.retval, trace.num_nonempty, Dict{Int,Any}())
-    process_all_retained!(gen_fn, params, argdiff, assmt, prev_length, new_length,    
+    process_all_retained!(gen_fn, params, argdiff, choices, prev_length, new_length,    
                           retained_and_constrained, state)
-    process_all_new!(gen_fn, params, assmt, prev_length, new_length, state)
+    process_all_new!(gen_fn, params, choices, prev_length, new_length, state)
 
     # retdiff
     retdiff = vector_compute_retdiff(state.isdiff_retdiffs, new_length, prev_length)

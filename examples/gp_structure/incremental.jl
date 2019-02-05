@@ -204,30 +204,30 @@ end
     (subtree_idx, depth, new_subtree_node_type)
 end
 
-function subtree_involution(trace, fwd_assmt::Assignment, fwd_ret::Tuple, proposal_args::Tuple)
+function subtree_involution(trace, fwd_choices::ChoiceMap, fwd_ret::Tuple, proposal_args::Tuple)
     (subtree_idx, subtree_depth, new_subtree_type) = fwd_ret
     model_args = get_args(trace)
 
     # populate constraints
-    constraints = DynamicAssignment()
-    set_subassmt!(constraints, :tree, get_subassmt(fwd_assmt, :subtree))
+    constraints = choicemap()
+    set_submap!(constraints, :tree, get_submap(fwd_choices, :subtree))
 
     # obtain new trace and discard, which contains the previous subtree
     (new_trace, weight, _, discard) = update(trace, model_args, noargdiff, constraints)
 
     # populate backward assignment
-    bwd_assmt = DynamicAssignment()
-    set_subassmt!(bwd_assmt, :choose_subtree_root => :recurse_left,
-        get_subassmt(fwd_assmt, :choose_subtree_root => :recurse_left))
+    bwd_choices = choicemap()
+    set_submap!(bwd_choices, :choose_subtree_root => :recurse_left,
+        get_submap(fwd_choices, :choose_subtree_root => :recurse_left))
     for depth=0:subtree_depth-1
-        bwd_assmt[:choose_subtree_root => :done => depth] = false
+        bwd_choices[:choose_subtree_root => :done => depth] = false
     end
     if new_subtree_type in BINARY_OPS
-        bwd_assmt[:choose_subtree_root => :done => subtree_depth] = true
+        bwd_choices[:choose_subtree_root => :done => subtree_depth] = true
     end
-    set_subassmt!(bwd_assmt, :subtree, get_subassmt(discard, :tree))
+    set_submap!(bwd_choices, :subtree, get_submap(discard, :tree))
 
-    (new_trace, bwd_assmt, weight)
+    (new_trace, bwd_choices, weight)
 end
 
 
@@ -238,11 +238,11 @@ end
 function inference(xs::Vector{Float64}, ys::Vector{Float64}, num_iters::Int, callback)
 
     # observed data
-    constraints = DynamicAssignment()
+    constraints = choicemap()
     constraints[:ys] = ys
 
     # generate initial trace consistent with observed data
-    (trace, _) = initialize(model, (xs,), constraints)
+    (trace, _) = generate(model, (xs,), constraints)
 
     # do MCMC
     local covariance_fn::Node
@@ -250,7 +250,7 @@ function inference(xs::Vector{Float64}, ys::Vector{Float64}, num_iters::Int, cal
     for iter=1:num_iters
 
         covariance_fn = get_retval(trace)
-        noise = get_assmt(trace)[:noise]
+        noise = get_choices(trace)[:noise]
         callback(covariance_fn, noise)
 
         # randomly pick a node to expand

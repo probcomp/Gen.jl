@@ -5,12 +5,12 @@ include("dynamic_model.jl")
 include("dataset.jl")
 
 @gen function is_outlier_proposal(prev, i::Int)
-    prev = get_assmt(prev)[:data => i => :z]
+    prev = get_choices(prev)[:data => i => :z]
     @addr(bernoulli(prev ? 0.0 : 1.0), :data => i => :z)
 end
 
 function do_inference(xs, ys, num_iters)
-    observations = DynamicAssignment()
+    observations = choicemap()
     for (i, y) in enumerate(ys)
         observations[:data => i => :y] = y
     end
@@ -43,7 +43,7 @@ function do_inference(xs, ys, num_iters)
         scores[i] = score
 
         # print
-        assignment = get_assmt(trace)
+        assignment = get_choices(trace)
         slope = assignment[:slope]
         intercept = assignment[:intercept]
         inlier_std = exp(assignment[:log_inlier_std])

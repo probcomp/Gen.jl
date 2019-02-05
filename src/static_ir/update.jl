@@ -264,18 +264,18 @@ function process_codegen!(stmts, fwd::ForwardPassState, back::BackwardPassState,
     call_constraints = gensym("call_constraints")
     if node in fwd.constrained_or_selected_calls || node in fwd.input_changed
         if node in fwd.constrained_or_selected_calls
-            push!(stmts, :($call_constraints = static_get_subassmt(constraints, Val($addr))))
+            push!(stmts, :($call_constraints = static_get_submap(constraints, Val($addr))))
         else
-            push!(stmts, :($call_constraints = EmptyAssignment()))
+            push!(stmts, :($call_constraints = EmptyChoiceMap()))
         end
         push!(stmts, :(($subtrace, $call_weight, $(calldiff_var(node)), $(call_discard_var(node))) = 
             update($prev_subtrace, $args_tuple, $(node.argdiff.name), $call_constraints)))
         push!(stmts, :($weight += $call_weight))
         push!(stmts, :($total_score_fieldname += get_score($subtrace) - get_score($prev_subtrace)))
         push!(stmts, :($total_noise_fieldname += project($subtrace, EmptyAddressSet()) - project($prev_subtrace, EmptyAddressSet())))
-        push!(stmts, :(if !isempty(get_assmt($subtrace)) && isempty(get_assmt($prev_subtrace))
+        push!(stmts, :(if !isempty(get_choices($subtrace)) && isempty(get_choices($prev_subtrace))
                             $num_nonempty_fieldname += 1 end))
-        push!(stmts, :(if isempty(get_assmt($subtrace)) && !isempty(get_assmt($prev_subtrace))
+        push!(stmts, :(if isempty(get_choices($subtrace)) && !isempty(get_choices($prev_subtrace))
                             $num_nonempty_fieldname -= 1 end))
     else
         push!(stmts, :($subtrace = $prev_subtrace))
@@ -304,9 +304,9 @@ function process_codegen!(stmts, fwd::ForwardPassState, back::BackwardPassState,
         push!(stmts, :($weight += $call_weight))
         push!(stmts, :($total_score_fieldname += get_score($subtrace) - get_score($prev_subtrace)))
         push!(stmts, :($total_noise_fieldname += project($subtrace, EmptyAddressSet()) - project($prev_subtrace, EmptyAddressSet())))
-        push!(stmts, :(if !isempty(get_assmt($subtrace)) && !isempty(get_assmt($prev_subtrace))
+        push!(stmts, :(if !isempty(get_choices($subtrace)) && !isempty(get_choices($prev_subtrace))
                             $num_nonempty_fieldname += 1 end))
-        push!(stmts, :(if isempty(get_assmt($subtrace)) && !isempty(get_assmt($prev_subtrace))
+        push!(stmts, :(if isempty(get_choices($subtrace)) && !isempty(get_choices($prev_subtrace))
                             $num_nonempty_fieldname -= 1 end))
     else
         push!(stmts, :($subtrace = $prev_subtrace))
@@ -326,9 +326,9 @@ function process_codegen!(stmts, fwd::ForwardPassState, back::BackwardPassState,
     call_constraints = gensym("call_constraints")
     if node in fwd.constrained_or_selected_calls || node in fwd.input_changed
         if node in fwd.constrained_or_selected_calls
-            push!(stmts, :($call_constraints = static_get_subassmt(constraints, Val($addr))))
+            push!(stmts, :($call_constraints = static_get_submap(constraints, Val($addr))))
         else
-            push!(stmts, :($call_constraints = EmptyAssignment()))
+            push!(stmts, :($call_constraints = EmptyChoiceMap()))
         end
         push!(stmts, :(($subtrace, $call_weight, $(calldiff_var(node))) = 
             extend($prev_subtrace, $args_tuple, $(node.argdiff.name), $call_constraints)
@@ -336,9 +336,9 @@ function process_codegen!(stmts, fwd::ForwardPassState, back::BackwardPassState,
         push!(stmts, :($weight += $call_weight))
         push!(stmts, :($total_score_fieldname += $call_weight))
         push!(stmts, :($total_noise_fieldname += project($subtrace, EmptyAddressSet()) - project($prev_subtrace, EmptyAddressSet())))
-        push!(stmts, :(if !isempty(get_assmt($subtrace)) && !isempty(get_assmt($prev_subtrace))
+        push!(stmts, :(if !isempty(get_choices($subtrace)) && !isempty(get_choices($prev_subtrace))
                             $num_nonempty_fieldname += 1 end))
-        push!(stmts, :(if isempty(get_assmt($subtrace)) && !isempty(get_assmt($prev_subtrace))
+        push!(stmts, :(if isempty(get_choices($subtrace)) && !isempty(get_choices($prev_subtrace))
                             $num_nonempty_fieldname -= 1 end))
     else
         push!(stmts, :($subtrace = $prev_subtrace))
@@ -393,7 +393,7 @@ function generate_discard!(stmts::Vector{Expr},
     end
     leaf_keys = map((key::Symbol) -> QuoteNode(key), leaf_keys)
     internal_keys = map((key::Symbol) -> QuoteNode(key), internal_keys)
-    expr = :(StaticAssignment(
+    expr = :(StaticChoiceMap(
             NamedTuple{($(leaf_keys...),)}(($(leaf_nodes...),)),
             NamedTuple{($(internal_keys...),)}(($(internal_nodes...),))))
     push!(stmts, :($discard = $expr))
@@ -406,7 +406,7 @@ function codegen_update(trace_type::Type{T}, args_type::Type, argdiff_type::Type
 
     # convert the constraints to a static assignment if it is not already one
     if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
-        return quote update(trace, args, argdiff, StaticAssignment(constraints)) end
+        return quote update(trace, args, argdiff, StaticChoiceMap(constraints)) end
     end
 
     ir = get_ir(gen_fn_type)
@@ -495,7 +495,7 @@ function codegen_extend(trace_type::Type{T}, args_type::Type, argdiff_type::Type
 
     # convert the constraints to a static assignment if it is not already one
     if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
-        return quote extend(trace, args, argdiff, StaticAssignment(constraints)) end
+        return quote extend(trace, args, argdiff, StaticChoiceMap(constraints)) end
     end
 
     ir = get_ir(gen_fn_type)
@@ -535,7 +535,7 @@ end
 push!(Gen.generated_functions, quote
 @generated function Gen.update(trace::T, args::Tuple,
                                argdiff::Union{NoArgDiff,UnknownArgDiff,MaskedArgDiff},
-                               constraints::Assignment) where {T<:StaticIRTrace}
+                               constraints::ChoiceMap) where {T<:StaticIRTrace}
     Gen.codegen_update(trace, args, argdiff, constraints)
 end
 end)
@@ -551,7 +551,7 @@ end)
 push!(Gen.generated_functions, quote
 @generated function Gen.extend(trace::T, args::Tuple,
                                argdiff::Union{NoArgDiff,UnknownArgDiff,MaskedArgDiff},
-                               constraints::Assignment) where {T<:StaticIRTrace}
+                               constraints::ChoiceMap) where {T<:StaticIRTrace}
     Gen.codegen_extend(trace, args, argdiff, constraints)
 end
 end)

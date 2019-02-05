@@ -37,7 +37,7 @@ function addr(state::GFExtendState, dist::Distribution{T},
 
     # check for constraints at this key
     constrained = has_value(state.constraints, key)
-    !constrained && check_no_subassmt(state.constraints, key)
+    !constrained && check_no_submap(state.constraints, key)
     if has_previous && constrained
         error("Extend attempted to change value of random choice at $key")
     end
@@ -89,7 +89,7 @@ function addr(state::GFExtendState, gen_fn::GenerativeFunction{T,U},
 
     # check for constraints at this key
     check_no_value(state.constraints, key)
-    constraints = get_subassmt(state.constraints, key)
+    constraints = get_submap(state.constraints, key)
 
     # get subtrace
     has_previous = has_call(state.prev_trace, key)
@@ -137,7 +137,7 @@ end
 
 function extend(trace::DynamicDSLTrace,
                 args::Tuple, argdiff,
-                constraints::Assignment)
+                constraints::ChoiceMap)
     gen_fn = trace.gen_fn
     state = GFExtendState(gen_fn, args, argdiff, trace,
         constraints, gen_fn.params)

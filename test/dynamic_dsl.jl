@@ -9,27 +9,27 @@ using Gen: AddressVisitor, all_visited, visit!, get_visited
 # TODO also test get_unvisited
 
 @testset "address visitor" begin
-    assmt = DynamicAssignment()
-    assmt[:x] = 1
-    assmt[:y => :z] = 2
+    choices = choicemap()
+    choices[:x] = 1
+    choices[:y => :z] = 2
 
     visitor = AddressVisitor()
     visit!(visitor, :x)
     visit!(visitor, :y => :z)
-    @test all_visited(get_visited(visitor), assmt)
+    @test all_visited(get_visited(visitor), choices)
 
     visitor = AddressVisitor()
     visit!(visitor, :x)
-    @test !all_visited(get_visited(visitor), assmt)
+    @test !all_visited(get_visited(visitor), choices)
 
     visitor = AddressVisitor()
     visit!(visitor, :y => :z)
-    @test !all_visited(get_visited(visitor), assmt)
+    @test !all_visited(get_visited(visitor), choices)
 
     visitor = AddressVisitor()
     visit!(visitor, :x)
     visit!(visitor, :y)
-    @test all_visited(get_visited(visitor), assmt)
+    @test all_visited(get_visited(visitor), choices)
 end
 
 
@@ -58,16 +58,16 @@ end
     end
 
     # get a trace which follows the first branch
-    constraints = DynamicAssignment()
+    constraints = choicemap()
     constraints[:branch] = true
     (trace,) = generate(foo, (), constraints)
-    x = get_assmt(trace)[:x]
-    a = get_assmt(trace)[:u => :a]
+    x = get_choices(trace)[:x]
+    a = get_choices(trace)[:u => :a]
 
     # force to follow the second branch
     y = 1.123
     b = -2.1
-    constraints = DynamicAssignment()
+    constraints = choicemap()
     constraints[:branch] = false
     constraints[:y] = y
     constraints[:v => :b] = b
@@ -79,15 +79,15 @@ end
     @test get_value(discard, :x) == x
     @test get_value(discard, :u => :a) == a
     @test length(collect(get_values_shallow(discard))) == 2
-    @test length(collect(get_subassmts_shallow(discard))) == 1
+    @test length(collect(get_submaps_shallow(discard))) == 1
 
     # test new trace
-    new_assignment = get_assmt(new_trace)
+    new_assignment = get_choices(new_trace)
     @test get_value(new_assignment, :branch) == false
     @test get_value(new_assignment, :y) == y
     @test get_value(new_assignment, :v => :b) == b
     @test length(collect(get_values_shallow(new_assignment))) == 2
-    @test length(collect(get_subassmts_shallow(new_assignment))) == 1
+    @test length(collect(get_submaps_shallow(new_assignment))) == 1
 
     # test score and weight
     prev_score = (
@@ -115,7 +115,7 @@ end
     end
 
     # Get an initial trace
-    constraints = DynamicAssignment()
+    constraints = choicemap()
     constraints[:a] = 0
     for i=1:5
         constraints[:data => i] = 0
@@ -123,7 +123,7 @@ end
     (trace,) = generate(loopy, (), constraints)
 
     # Update a
-    constraints = DynamicAssignment()
+    constraints = choicemap()
     constraints[:a] = 1
     (new_trace, weight, retdiff, discard) = update(trace,
         (), noargdiff, constraints)
@@ -165,25 +165,25 @@ end
 
     # get a trace which follows the first branch
     mu = 0.123
-    constraints = DynamicAssignment()
+    constraints = choicemap()
     constraints[:branch] = true
     (trace,) = generate(foo, (mu,), constraints)
-    x = get_assmt(trace)[:x]
-    a = get_assmt(trace)[:u => :a]
+    x = get_choices(trace)[:x]
+    a = get_choices(trace)[:u => :a]
 
     # resimulate branch
     selection = select(:branch)
 
     # try 10 times, so we are likely to get both a stay and a switch
     for i=1:10
-        prev_assignment = get_assmt(trace)
+        prev_assignment = get_choices(trace)
 
         # change the argument so that the weights can be nonzer
         prev_mu = mu
         mu = rand()
         (trace, weight, retdiff) = regenerate(trace,
             (mu,), unknownargdiff, selection)
-        assignment = get_assmt(trace)
+        assignment = get_choices(trace)
 
         # test score
         if assignment[:branch]
@@ -202,13 +202,13 @@ end
         # test values
         if assignment[:branch]
             @test has_value(assignment, :x)
-            @test !isempty(get_subassmt(assignment, :u))
+            @test !isempty(get_submap(assignment, :u))
         else
             @test has_value(assignment, :y)
-            @test !isempty(get_subassmt(assignment, :v))
+            @test !isempty(get_submap(assignment, :v))
         end
         @test length(collect(get_values_shallow(assignment))) == 2
-        @test length(collect(get_subassmts_shallow(assignment))) == 1
+        @test length(collect(get_submaps_shallow(assignment))) == 1
 
         # test weight
         if assignment[:branch] == prev_assignment[:branch]
@@ -281,7 +281,7 @@ end
     out = 5.
 
     # get the initial trace
-    constraints = DynamicAssignment()
+    constraints = choicemap()
     constraints[:a] = a
     constraints[:b] = b
     constraints[:out] = out
@@ -291,27 +291,27 @@ end
     # compute gradients using choice_gradients
     selection = select(:bar => :z, :a, :out)
     retval_grad = 2.
-    ((mu_a_grad,), value_assmt, gradient_assmt) = choice_gradients(
+    ((mu_a_grad,), choices, gradients) = choice_gradients(
         trace, selection, retval_grad)
 
     # check input gradient
     @test isapprox(mu_a_grad, finite_diff(f, (mu_a, a, b, z, out), 1, dx))
 
     # check value trie
-    @test get_value(value_assmt, :a) == a
-    @test get_value(value_assmt, :out) == out
-    @test get_value(value_assmt, :bar => :z) == z
-    @test !has_value(value_assmt, :b) # was not selected
-    @test length(collect(get_subassmts_shallow(value_assmt))) == 1
-    @test length(collect(get_values_shallow(value_assmt))) == 2
+    @test get_value(choices, :a) == a
+    @test get_value(choices, :out) == out
+    @test get_value(choices, :bar => :z) == z
+    @test !has_value(choices, :b) # was not selected
+    @test length(collect(get_submaps_shallow(choices))) == 1
+    @test length(collect(get_values_shallow(choices))) == 2
 
     # check gradient trie
-    @test length(collect(get_subassmts_shallow(gradient_assmt))) == 1
-    @test length(collect(get_values_shallow(gradient_assmt))) == 2
-    @test !has_value(gradient_assmt, :b) # was not selected
-    @test isapprox(get_value(gradient_assmt, :bar => :z),
+    @test length(collect(get_submaps_shallow(gradients))) == 1
+    @test length(collect(get_values_shallow(gradients))) == 2
+    @test !has_value(gradients, :b) # was not selected
+    @test isapprox(get_value(gradients, :bar => :z),
         finite_diff(f, (mu_a, a, b, z, out), 4, dx))
-    @test isapprox(get_value(gradient_assmt, :out),
+    @test isapprox(get_value(gradients, :out),
         finite_diff(f, (mu_a, a, b, z, out), 5, dx))
 
     # compute gradients using accumulate_param_gradients!

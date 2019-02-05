@@ -48,14 +48,14 @@ using Gen: generate_generative_function
 
     y_constraint = 1.123
     b_constraint = -2.1
-    constraints = DynamicAssignment()
+    constraints = choicemap()
     constraints[:y] = y_constraint
     constraints[:v => :b] = b_constraint
     (trace, weight) = generate(foo, (), constraints)
-    x = get_assmt(trace)[:x]
-    a = get_assmt(trace)[:u => :a]
-    y = get_assmt(trace)[:y]
-    b = get_assmt(trace)[:v => :b]
+    x = get_choices(trace)[:x]
+    a = get_choices(trace)[:u => :a]
+    y = get_choices(trace)[:y]
+    b = get_choices(trace)[:v => :b]
 
     @test isapprox(y, y_constraint)
     @test isapprox(b, b_constraint)
@@ -81,12 +81,12 @@ end
 
     y = 1.123
     b = -2.1
-    assmt = DynamicAssignment()
-    assmt[:y] = y
-    assmt[:v => :b] = b
-    (trace, weight) = generate(foo, (), assmt)
-    x = get_assmt(trace)[:x]
-    a = get_assmt(trace)[:u => :a]
+    choices = choicemap()
+    choices[:y] = y
+    choices[:v => :b] = b
+    (trace, weight) = generate(foo, (), choices)
+    x = get_choices(trace)[:x]
+    a = get_choices(trace)[:u => :a]
     selection = select(:y, :u => :a)
     weight = project(trace, selection)
 
@@ -97,17 +97,17 @@ end
 @testset "update" begin
 
     # get a trace
-    constraints = DynamicAssignment()
+    constraints = choicemap()
     (trace,) = generate(foo, (), constraints)
-    x_prev = get_assmt(trace)[:x]
-    a_prev = get_assmt(trace)[:u => :a]
-    y_prev = get_assmt(trace)[:y]
-    b_prev = get_assmt(trace)[:v => :b]
+    x_prev = get_choices(trace)[:x]
+    a_prev = get_choices(trace)[:u => :a]
+    y_prev = get_choices(trace)[:y]
+    b_prev = get_choices(trace)[:v => :b]
 
     # force change to two of the variables
     y_new = 1.123
     b_new = -2.1
-    constraints = DynamicAssignment()
+    constraints = choicemap()
     constraints[:y] = y_new
     constraints[:v => :b] = b_new
     (new_trace, weight, retdiff, discard) = update(trace,
@@ -117,14 +117,14 @@ end
     @test get_value(discard, :y) == y_prev
     @test get_value(discard, :v => :b) == b_prev
     @test length(collect(get_values_shallow(discard))) == 1
-    @test length(collect(get_subassmts_shallow(discard))) == 1
+    @test length(collect(get_submaps_shallow(discard))) == 1
 
     # test new trace
-    new_assmt = get_assmt(new_trace)
-    @test get_value(new_assmt, :y) == y_new
-    @test get_value(new_assmt, :v => :b) == b_new
-    @test length(collect(get_values_shallow(new_assmt))) == 2
-    @test length(collect(get_subassmts_shallow(new_assmt))) == 2
+    new_choices = get_choices(new_trace)
+    @test get_value(new_choices, :y) == y_new
+    @test get_value(new_choices, :v => :b) == b_new
+    @test length(collect(get_values_shallow(new_choices))) == 2
+    @test length(collect(get_submaps_shallow(new_choices))) == 2
 
     # test score and weight
     prev_score = (
@@ -151,12 +151,12 @@ end
     Random.seed!(1)
 
     # get a trace
-    constraints = DynamicAssignment()
+    constraints = choicemap()
     (trace,) = generate(foo, (), constraints)
-    x_prev = get_assmt(trace)[:x]
-    a_prev = get_assmt(trace)[:u => :a]
-    y_prev = get_assmt(trace)[:y]
-    b_prev = get_assmt(trace)[:v => :b]
+    x_prev = get_choices(trace)[:x]
+    a_prev = get_choices(trace)[:u => :a]
+    y_prev = get_choices(trace)[:y]
+    b_prev = get_choices(trace)[:v => :b]
 
     # resample :y and :v => :b
     selection = select(:y, :v => :b)
@@ -164,15 +164,15 @@ end
         (), unknownargdiff, selection)
 
     # test new trace
-    new_assmt = get_assmt(new_trace)
-    @test get_value(new_assmt, :x) == x_prev
-    @test get_value(new_assmt, :u => :a) == a_prev
-    y_new = get_value(new_assmt, :y)
-    b_new = get_value(new_assmt, :v => :b)
+    new_choices = get_choices(new_trace)
+    @test get_value(new_choices, :x) == x_prev
+    @test get_value(new_choices, :u => :a) == a_prev
+    y_new = get_value(new_choices, :y)
+    b_new = get_value(new_choices, :v => :b)
     @test y_new != y_prev
     @test b_new != b_prev
-    @test length(collect(get_values_shallow(new_assmt))) == 2
-    @test length(collect(get_subassmts_shallow(new_assmt))) == 2
+    @test length(collect(get_values_shallow(new_choices))) == 2
+    @test length(collect(get_submaps_shallow(new_choices))) == 2
 
     # test score and weight
     prev_score = (
@@ -196,26 +196,26 @@ end
 @testset "extend" begin
 
     # get a trace
-    constraints = DynamicAssignment()
+    constraints = choicemap()
     (trace,) = generate(foo, (), constraints)
-    x_prev = get_assmt(trace)[:x]
-    a_prev = get_assmt(trace)[:u => :a]
-    y_prev = get_assmt(trace)[:y]
-    b_prev = get_assmt(trace)[:v => :b]
+    x_prev = get_choices(trace)[:x]
+    a_prev = get_choices(trace)[:u => :a]
+    y_prev = get_choices(trace)[:y]
+    b_prev = get_choices(trace)[:v => :b]
 
     # don't do anything.. TODO write a better test
-    constraints = DynamicAssignment()
+    constraints = choicemap()
     (new_trace, weight, retdiff) = extend(trace,
         (), unknownargdiff, constraints)
 
     # test new trace
-    new_assmt = get_assmt(new_trace)
-    @test get_value(new_assmt, :x) == x_prev
-    @test get_value(new_assmt, :u => :a) == a_prev
-    @test get_value(new_assmt, :y) == y_prev
-    @test get_value(new_assmt, :v => :b) == b_prev
-    @test length(collect(get_values_shallow(new_assmt))) == 2
-    @test length(collect(get_subassmts_shallow(new_assmt))) == 2
+    new_choices = get_choices(new_trace)
+    @test get_value(new_choices, :x) == x_prev
+    @test get_value(new_choices, :u => :a) == a_prev
+    @test get_value(new_choices, :y) == y_prev
+    @test get_value(new_choices, :v => :b) == b_prev
+    @test length(collect(get_values_shallow(new_choices))) == 2
+    @test length(collect(get_submaps_shallow(new_choices))) == 2
 
     # test score and weight
     score = (
@@ -275,7 +275,7 @@ end
     out = 5.
 
     # get the initial trace
-    constraints = DynamicAssignment()
+    constraints = choicemap()
     constraints[:a] = a
     constraints[:b] = b
     constraints[:out] = out
@@ -296,11 +296,11 @@ end
     @test get_value(value_trie, :out) == out
     @test get_value(value_trie, :bar => :z) == z
     @test !has_value(value_trie, :b) # was not selected
-    @test length(get_subassmts_shallow(value_trie)) == 1
+    @test length(get_submaps_shallow(value_trie)) == 1
     @test length(get_values_shallow(value_trie)) == 2
 
     # check gradient trie
-    @test length(get_subassmts_shallow(gradient_trie)) == 1
+    @test length(get_submaps_shallow(gradient_trie)) == 1
     @test length(get_values_shallow(gradient_trie)) == 2
     @test !has_value(gradient_trie, :b) # was not selected
     @test isapprox(get_value(gradient_trie, :a), finite_diff(f, (mu_a, a, b, z, out), 2, dx))

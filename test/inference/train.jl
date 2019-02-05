@@ -50,13 +50,13 @@
     end
 
     function data_generator()
-        (assmt, _, retval) = propose(teacher, ())
+        (choices, _, retval) = propose(teacher, ())
         local inputs
         local constraints
-        inputs = (assmt[:z],)
-        constraints = DynamicAssignment()
-        constraints[:x] = assmt[:x]
-        constraints[:y] = assmt[:y]
+        inputs = (choices[:z],)
+        constraints = choicemap()
+        constraints[:x] = choices[:x]
+        constraints[:y] = choices[:y]
         (inputs, constraints)
     end
 

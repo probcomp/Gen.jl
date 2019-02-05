@@ -27,7 +27,7 @@ retval::T = get_retval(trace)
 function get_retval end
 
 """
-    get_assmt(trace)
+    get_choices(trace)
 
 Return a value implementing the assignment interface
 
@@ -36,11 +36,11 @@ Note that the value of any non-addressed randomness is not externally accessible
 Example:
 
 ```julia
-assmt::Assignment = get_assmt(trace)
-z_val = assmt[:z]
+choices::ChoiceMap = get_choices(trace)
+z_val = choices[:z]
 ```
 """
-function get_assmt end
+function get_choices end
 
 """
     get_score(trace)
@@ -58,7 +58,7 @@ function get_gen_fn end
 
 export get_args
 export get_retval
-export get_assmt
+export get_choices
 export get_score
 export get_gen_fn
 
@@ -111,7 +111,7 @@ get_params(::GenerativeFunction) = ()
 Return a trace of a generative function.
 
     (trace::U, weight) = generate(gen_fn::GenerativeFunction{T,U}, args::Tuple,
-                                    constraints::Assignment)
+                                    constraints::ChoiceMap)
 
 Return a trace of a generative function that is consistent with the given
 constraints on the random choices.
@@ -130,15 +130,15 @@ Example without constraints:
 
 Example with constraint that address `:z` takes value `true`.
 ```julia
-(trace, weight) = generate(foo, (2, 4), DynamicAssignment((:z, true))
+(trace, weight) = generate(foo, (2, 4), choicemap((:z, true))
 ```
 """
-function generate(::GenerativeFunction, ::Tuple, ::Assignment)
+function generate(::GenerativeFunction, ::Tuple, ::ChoiceMap)
     error("Not implemented")
 end
 
 function generate(gen_fn::GenerativeFunction, args::Tuple)
-    generate(gen_fn, args, EmptyAssignment())
+    generate(gen_fn, args, EmptyChoiceMap())
 end
 
 """
@@ -159,13 +159,13 @@ function project(trace, selection::AddressSet)
 end
 
 """
-    (assmt, weight, retval) = propose(gen_fn::GenerativeFunction, args::Tuple)
+    (choices, weight, retval) = propose(gen_fn::GenerativeFunction, args::Tuple)
 
 Sample an assignment and compute the probability of proposing that assignment.
 
 Given arguments (`args`), sample \$t \\sim p(\\cdot; x)\$ and \$r \\sim p(\\cdot; x,
 t)\$, and return \$t\$
-(`assmt`) and the weight (`weight`):
+(`choices`) and the weight (`weight`):
 ```math
 \\log \\frac{p(r, t; x)}{q(r; x, t)}
 ```
@@ -175,11 +175,11 @@ function propose(gen_fn::GenerativeFunction, args::Tuple)
 end
 
 """
-    (weight, retval) = assess(gen_fn::GenerativeFunction, args::Tuple, assmt::Assignment)
+    (weight, retval) = assess(gen_fn::GenerativeFunction, args::Tuple, choices::ChoiceMap)
 
 Return the probability of proposing an assignment
 
-Given arguments \$x\$ (`args`) and an assignment \$t\$ (`assmt`) such that
+Given arguments \$x\$ (`args`) and an assignment \$t\$ (`choices`) such that
 \$p(t; x) > 0\$, sample \$r \\sim q(\\cdot; x, t)\$ and 
 return the weight (`weight`):
 ```math
@@ -187,14 +187,14 @@ return the weight (`weight`):
 ```
 It is an error if \$p(t; x) = 0\$.
 """
-function assess(gen_fn::GenerativeFunction, args::Tuple, assmt::Assignment)
-    (trace, weight) = generate(gen_fn, args, assmt)
+function assess(gen_fn::GenerativeFunction, args::Tuple, choices::ChoiceMap)
+    (trace, weight) = generate(gen_fn, args, choices)
     (weight, get_retval(trace))
 end
 
 """
     (new_trace, weight, retdiff, discard) = update(trace, args::Tuple, argdiff,
-                                                   constraints::Assignment)
+                                                   constraints::ChoiceMap)
 
 Update a trace by changing the arguments and/or providing new values for some
 existing random choice(s) and values for any newly introduced random choice(s).
@@ -212,7 +212,7 @@ Also return a weight (`weight`):
 \\log \\frac{p(r', t'; x') q(r; x, t)}{p(r, t; x) q(r'; x', t')}
 ```
 """
-function update(trace, ::Tuple, argdiff, ::Assignment)
+function update(trace, ::Tuple, argdiff, ::ChoiceMap)
     error("Not implemented")
 end
 
@@ -242,12 +242,12 @@ end
 
 """
     (new_trace, weight, retdiff) = extend(trace, args::Tuple, argdiff,
-                                          constraints::Assignment)
+                                          constraints::ChoiceMap)
 
 Extend a trace with new random choices by changing the arguments.
 
 Given a previous trace \$(x, t, r)\$ (`trace`), new arguments \$x'\$ (`args`), and
-an assignment \$u\$ (`assmt`) that shares no addresses with \$t\$, return a new
+an assignment \$u\$ (`choices`) that shares no addresses with \$t\$, return a new
 trace \$(x', t', r')\$ (`new_trace`) such that \$t'\$ agrees with \$t\$ on all
 addresses in \$t\$ and \$t'\$ agrees with \$u\$ on all addresses in \$u\$.
 Sample \$t' \\sim Q(\\cdot; t + u, x')\$ and \$r' \\sim Q(\\cdot; t', x)\$.
@@ -256,7 +256,7 @@ Also return the weight (`weight`):
 \\log \\frac{p(r', t'; x') q(r; x, t)}{p(r, t; x) q(t'; t + u, x') q(r'; x', t')}
 ```
 """
-function extend(trace, args::Tuple, argdiff, constraints::Assignment)
+function extend(trace, args::Tuple, argdiff, constraints::ChoiceMap)
     error("Not implemented")
 end
 

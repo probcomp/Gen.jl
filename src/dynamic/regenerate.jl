@@ -103,7 +103,7 @@ function addr(state::GFRegenerateState, gen_fn::GenerativeFunction{T,U},
         (subtrace, weight, retdiff) = regenerate(
             prev_subtrace, args, argdiff, selection)
     else
-        (subtrace, weight) = generate(gen_fn, args, EmptyAssignment())
+        (subtrace, weight) = generate(gen_fn, args, EmptyChoiceMap())
     end
 
     # update weight

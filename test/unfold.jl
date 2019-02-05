@@ -22,16 +22,16 @@
         x1 = 1.1
         x2 = 1.2
         x3 = 1.3
-        constraints = DynamicAssignment()
+        constraints = choicemap()
         constraints[1 => :x] = x1
         constraints[3 => :x] = x3
         (trace, weight) = generate(foo, (3, x_init, alpha, beta), constraints)
-        assmt = get_assmt(trace)
-        @test assmt[1 => :x] == x1
-        @test assmt[3 => :x] == x3
-        @test length(collect(get_values_shallow(assmt))) == 0
-        @test length(collect(get_subassmts_shallow(assmt))) == 3
-        x2 = assmt[2 => :x]
+        choices = get_choices(trace)
+        @test choices[1 => :x] == x1
+        @test choices[3 => :x] == x3
+        @test length(collect(get_values_shallow(choices))) == 0
+        @test length(collect(get_submaps_shallow(choices))) == 3
+        x2 = choices[2 => :x]
         expected_weight = (logpdf(normal, x1, x_init * alpha + beta, std)
              + logpdf(normal, x3, x2 * alpha + beta, std))
         expected_score = (logpdf(normal, x1, x_init * alpha + beta, std)
@@ -50,12 +50,12 @@
         x_init = 0.1
         alpha = 0.2
         beta = 0.3
-        (assmt, weight, retval) = propose(foo, (3, x_init, alpha, beta))
-        @test length(collect(get_values_shallow(assmt))) == 0
-        @test length(collect(get_subassmts_shallow(assmt))) == 3
-        x1 = assmt[1 => :x]
-        x2 = assmt[2 => :x]
-        x3 = assmt[3 => :x]
+        (choices, weight, retval) = propose(foo, (3, x_init, alpha, beta))
+        @test length(collect(get_values_shallow(choices))) == 0
+        @test length(collect(get_submaps_shallow(choices))) == 3
+        x1 = choices[1 => :x]
+        x2 = choices[2 => :x]
+        x3 = choices[3 => :x]
         expected_weight = (logpdf(normal, x1, x_init * alpha + beta, std)
              + logpdf(normal, x2, x1 * alpha + beta, std)
              + logpdf(normal, x3, x2 * alpha + beta, std))
@@ -73,11 +73,11 @@
         x1 = 1.1
         x2 = 1.2
         x3 = 1.3
-        assmt = DynamicAssignment()
-        assmt[1 => :x] = x1
-        assmt[2 => :x] = x2
-        assmt[3 => :x] = x3
-        (weight, retval) = assess(foo, (3, x_init, alpha, beta), assmt)
+        choices = choicemap()
+        choices[1 => :x] = x1
+        choices[2 => :x] = x2
+        choices[3 => :x] = x3
+        (weight, retval) = assess(foo, (3, x_init, alpha, beta), choices)
         expected_weight = (logpdf(normal, x1, x_init * alpha + beta, std)
              + logpdf(normal, x2, x1 * alpha + beta, std)
              + logpdf(normal, x3, x2 * alpha + beta, std))
@@ -96,7 +96,7 @@
         x2 = 1.2
 
         function get_initial_trace()
-            constraints = DynamicAssignment()
+            constraints = choicemap()
             constraints[1 => :x] = x1
             constraints[2 => :x] = x2
             (trace, _) = generate(foo, (2, x_init, alpha, beta), constraints)
@@ -108,17 +108,17 @@
         x2_new = 1.3
         x3_new = 1.4
         alpha_new = 0.5
-        constraints = DynamicAssignment()
+        constraints = choicemap()
         constraints[2 => :x] = x2_new
         constraints[3 => :x] = x3_new
         (trace, weight, retdiff, discard) = update(trace,
             (3, x_init, alpha_new, beta),
             unknownargdiff, constraints)
-        assmt = get_assmt(trace)
+        choices = get_choices(trace)
         @test get_args(trace) == (3, x_init, alpha_new, beta)
-        @test assmt[1 => :x] == x1
-        @test assmt[2 => :x] == x2_new
-        @test assmt[3 => :x] == x3_new
+        @test choices[1 => :x] == x1
+        @test choices[2 => :x] == x2_new
+        @test choices[3 => :x] == x3_new
         @test discard[2 => :x] == x2
         expected_score = (logpdf(normal, x1, x_init * alpha_new + beta, std)
             + logpdf(normal, x2_new, x1 * alpha_new + beta, std)
@@ -146,16 +146,16 @@
         trace = get_initial_trace()
         x1_new = 1.3
         alpha_new = 0.5
-        constraints = DynamicAssignment()
+        constraints = choicemap()
         constraints[1 => :x] = x1_new
         (trace, weight, retdiff, discard) = update(trace,
             (1, x_init, alpha_new, beta),
             unknownargdiff, constraints)
-        assmt = get_assmt(trace)
+        choices = get_choices(trace)
         @test get_args(trace) == (1, x_init, alpha_new, beta)
-        @test !has_value(assmt, 2 => :x)
-        @test !has_value(assmt, 3 => :x)
-        @test assmt[1 => :x] == x1_new
+        @test !has_value(choices, 2 => :x)
+        @test !has_value(choices, 3 => :x)
+        @test choices[1 => :x] == x1_new
         @test discard[1 => :x] == x1
         @test discard[2 => :x] == x2
         @test isapprox(get_score(trace), logpdf(normal, x1_new, x_init * alpha_new + beta, std))
@@ -175,11 +175,11 @@
         trace = get_initial_trace()
         (trace, weight, retdiff, discard) = update(trace,
             (2, x_init, alpha, beta),
-            noargdiff, EmptyAssignment())
-        assmt = get_assmt(trace)
+            noargdiff, EmptyChoiceMap())
+        choices = get_choices(trace)
         @test get_args(trace) == (2, x_init, alpha, beta)
-        @test assmt[1 => :x] == x1
-        @test assmt[2 => :x] == x2
+        @test choices[1 => :x] == x1
+        @test choices[2 => :x] == x2
         @test isempty(discard)
         expected_score = (logpdf(normal, x1, x_init * alpha + beta, std)
             + logpdf(normal, x2, x1 * alpha + beta, std))
@@ -195,15 +195,15 @@
         # noargdiff, change x2
         trace = get_initial_trace()
         x2_new = 3.3
-        constraints = DynamicAssignment()
+        constraints = choicemap()
         constraints[2 => :x] = x2_new
         (trace, weight, retdiff, discard) = update(trace,
             (2, x_init, alpha, beta),
             noargdiff, constraints)
-        assmt = get_assmt(trace)
+        choices = get_choices(trace)
         @test get_args(trace) == (2, x_init, alpha, beta)
-        @test assmt[1 => :x] == x1
-        @test assmt[2 => :x] == x2_new
+        @test choices[1 => :x] == x1
+        @test choices[2 => :x] == x2_new
         @test discard[2 => :x] == x2
         expected_score = (logpdf(normal, x1, x_init * alpha + beta, std)
             + logpdf(normal, x2_new, x1 * alpha + beta, std))
@@ -225,11 +225,11 @@
         x_init_new = 0.1
         (trace, weight, retdiff, discard) = update(trace,
             (2, x_init_new, alpha, beta),
-            UnfoldCustomArgDiff(true, false), EmptyAssignment())
-        assmt = get_assmt(trace)
+            UnfoldCustomArgDiff(true, false), EmptyChoiceMap())
+        choices = get_choices(trace)
         @test get_args(trace) == (2, x_init_new, alpha, beta)
-        @test assmt[1 => :x] == x1
-        @test assmt[2 => :x] == x2
+        @test choices[1 => :x] == x1
+        @test choices[2 => :x] == x2
         @test isempty(discard)
         expected_score = (logpdf(normal, x1, x_init_new * alpha + beta, std)
             + logpdf(normal, x2, x1 * alpha + beta, std))
@@ -249,11 +249,11 @@
         alpha_new = 0.5
         (trace, weight, retdiff, discard) = update(trace,
             (2, x_init, alpha_new, beta),
-            UnfoldCustomArgDiff(false, true), EmptyAssignment())
-        assmt = get_assmt(trace)
+            UnfoldCustomArgDiff(false, true), EmptyChoiceMap())
+        choices = get_choices(trace)
         @test get_args(trace) == (2, x_init, alpha_new, beta)
-        @test assmt[1 => :x] == x1
-        @test assmt[2 => :x] == x2
+        @test choices[1 => :x] == x1
+        @test choices[2 => :x] == x2
         @test isempty(discard)
         expected_score = (logpdf(normal, x1, x_init * alpha_new + beta, std)
             + logpdf(normal, x2, x1 * alpha_new + beta, std))
@@ -279,7 +279,7 @@
         x2 = 1.2
 
         function get_initial_trace()
-            constraints = DynamicAssignment()
+            constraints = choicemap()
             constraints[1 => :x] = x1
             constraints[2 => :x] = x2
             (trace, _) = generate(foo, (2, x_init, alpha, beta), constraints)
@@ -293,11 +293,11 @@
         (trace, weight, retdiff) = regenerate(trace,
             (3, x_init, alpha_new, beta),
             unknownargdiff, selection)
-        assmt = get_assmt(trace)
+        choices = get_choices(trace)
         @test get_args(trace) == (3, x_init, alpha_new, beta)
-        @test assmt[1 => :x] == x1
-        x2_new = assmt[2 => :x]
-        x3_new = assmt[3 => :x]
+        @test choices[1 => :x] == x1
+        x2_new = choices[2 => :x]
+        x3_new = choices[3 => :x]
         expected_score = (logpdf(normal, x1, x_init * alpha_new + beta, std)
             + logpdf(normal, x2_new, x1 * alpha_new + beta, std)
             + logpdf(normal, x3_new, x2_new * alpha_new + beta, std))
@@ -323,11 +323,11 @@
         (trace, weight, retdiff) = regenerate(trace,
             (1, x_init, alpha_new, beta),
             unknownargdiff, selection)
-        assmt = get_assmt(trace)
+        choices = get_choices(trace)
         @test get_args(trace) == (1, x_init, alpha_new, beta)
-        @test !has_value(assmt, 2 => :x)
-        @test !has_value(assmt, 3 => :x)
-        x1_new = assmt[1 => :x]
+        @test !has_value(choices, 2 => :x)
+        @test !has_value(choices, 3 => :x)
+        x1_new = choices[1 => :x]
         @test isapprox(get_score(trace), logpdf(normal, x1_new, x_init * alpha_new + beta, std))
         @test isapprox(weight, 0.)
         retval = get_retval(trace)
@@ -343,10 +343,10 @@
         (trace, weight, retdiff) = regenerate(trace,
             (2, x_init, alpha, beta),
             noargdiff, EmptyAddressSet())
-        assmt = get_assmt(trace)
+        choices = get_choices(trace)
         @test get_args(trace) == (2, x_init, alpha, beta)
-        @test assmt[1 => :x] == x1
-        @test assmt[2 => :x] == x2
+        @test choices[1 => :x] == x1
+        @test choices[2 => :x] == x2
         expected_score = (logpdf(normal, x1, x_init * alpha + beta, std)
             + logpdf(normal, x2, x1 * alpha + beta, std))
         @test isapprox(get_score(trace), expected_score)
@@ -365,10 +365,10 @@
         (trace, weight, retdiff) = regenerate(trace,
             (2, x_init, alpha, beta),
             noargdiff, selection)
-        assmt = get_assmt(trace)
+        choices = get_choices(trace)
         @test get_args(trace) == (2, x_init, alpha, beta)
-        @test assmt[1 => :x] == x1
-        x2_new = assmt[2 => :x]
+        @test choices[1 => :x] == x1
+        x2_new = choices[2 => :x]
         expected_score = (logpdf(normal, x1, x_init * alpha + beta, std)
             + logpdf(normal, x2_new, x1 * alpha + beta, std))
         @test isapprox(get_score(trace), expected_score)
@@ -388,10 +388,10 @@
         (trace, weight, retdiff) = regenerate(trace,
             (2, x_init_new, alpha, beta),
             UnfoldCustomArgDiff(true, false), EmptyAddressSet())
-        assmt = get_assmt(trace)
+        choices = get_choices(trace)
         @test get_args(trace) == (2, x_init_new, alpha, beta)
-        @test assmt[1 => :x] == x1
-        @test assmt[2 => :x] == x2
+        @test choices[1 => :x] == x1
+        @test choices[2 => :x] == x2
         expected_score = (logpdf(normal, x1, x_init_new * alpha + beta, std)
             + logpdf(normal, x2, x1 * alpha + beta, std))
         @test isapprox(get_score(trace), expected_score)
@@ -411,10 +411,10 @@
         (trace, weight, retdiff) = regenerate(trace,
             (2, x_init, alpha_new, beta),
             UnfoldCustomArgDiff(false, true), EmptyAddressSet())
-        assmt = get_assmt(trace)
+        choices = get_choices(trace)
         @test get_args(trace) == (2, x_init, alpha_new, beta)
-        @test assmt[1 => :x] == x1
-        @test assmt[2 => :x] == x2
+        @test choices[1 => :x] == x1
+        @test choices[2 => :x] == x2
         expected_score = (logpdf(normal, x1, x_init * alpha_new + beta, std)
             + logpdf(normal, x2, x1 * alpha_new + beta, std))
         @test isapprox(get_score(trace), expected_score)
@@ -440,7 +440,7 @@
         x2 = 1.2
 
         function get_initial_trace()
-            constraints = DynamicAssignment()
+            constraints = choicemap()
             constraints[1 => :x] = x1
             constraints[2 => :x] = x2
             (trace, _) = generate(foo, (2, x_init, alpha, beta), constraints)
@@ -452,17 +452,17 @@
         trace = get_initial_trace()
         x4_new = 1.3
         alpha_new = 0.5
-        constraints = DynamicAssignment()
+        constraints = choicemap()
         constraints[4 => :x] = x4_new
         (trace, weight, retdiff) = extend(trace,
             (4, x_init, alpha_new, beta),
             unknownargdiff, constraints)
-        assmt = get_assmt(trace)
+        choices = get_choices(trace)
         @test get_args(trace) == (4, x_init, alpha_new, beta)
-        @test assmt[1 => :x] == x1
-        @test assmt[2 => :x] == x2
-        x3_new = assmt[3 => :x]
-        @test assmt[4 => :x] == x4_new
+        @test choices[1 => :x] == x1
+        @test choices[2 => :x] == x2
+        x3_new = choices[3 => :x]
+        @test choices[4 => :x] == x4_new
         expected_score = (logpdf(normal, x1, x_init * alpha_new + beta, std)
             + logpdf(normal, x2, x1 * alpha_new + beta, std)
             + logpdf(normal, x3_new, x2 * alpha_new + beta, std)
@@ -495,7 +495,7 @@
         x1 = 1.1
         x2 = 1.2
 
-        constraints = DynamicAssignment()
+        constraints = choicemap()
         constraints[1 => :x] = x1
         constraints[2 => :x] = x2
         (trace, _) = generate(foo, (2, x_init, alpha, beta), constraints)

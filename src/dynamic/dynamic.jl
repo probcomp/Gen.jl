@@ -33,7 +33,7 @@ end
 accepts_output_grad(gen_fn::DynamicDSLFunction) = gen_fn.accepts_output_grad
 
 function (g::DynamicDSLFunction)(args...)
-    (trace, _) = generate(g, args, EmptyAssignment())
+    (trace, _) = generate(g, args, EmptyChoiceMap())
     get_retval(trace)
 end
 
@@ -183,40 +183,40 @@ function visit!(visitor::AddressVisitor, addr)
     push!(visitor.visited, addr)
 end
 
-function all_visited(visited::AddressSet, assmt::Assignment)
+function all_visited(visited::AddressSet, choices::ChoiceMap)
     allvisited = true
-    for (key, _) in get_values_shallow(assmt)
+    for (key, _) in get_values_shallow(choices)
         allvisited = allvisited && has_leaf_node(visited, key)
     end
-    for (key, subassmt) in get_subassmts_shallow(assmt)
+    for (key, submap) in get_submaps_shallow(choices)
         if !has_leaf_node(visited, key)
             if has_internal_node(visited, key)
                 subvisited = get_internal_node(visited, key)
             else
                 subvisited = EmptyAddressSet()
             end
-            allvisited = allvisited && all_visited(subvisited, subassmt)
+            allvisited = allvisited && all_visited(subvisited, submap)
         end
     end
     allvisited
 end
 
-function get_unvisited(visited::AddressSet, assmt::Assignment)
-    unvisited = DynamicAssignment()
-    for (key, _) in get_values_shallow(assmt)
+function get_unvisited(visited::AddressSet, choices::ChoiceMap)
+    unvisited = choicemap()
+    for (key, _) in get_values_shallow(choices)
         if !has_leaf_node(visited, key)
-            set_value!(unvisited, key, get_value(assmt, key))
+            set_value!(unvisited, key, get_value(choices, key))
         end
     end
-    for (key, subassmt) in get_subassmts_shallow(assmt)
+    for (key, submap) in get_submaps_shallow(choices)
         if !has_leaf_node(visited, key)
             if has_internal_node(visited, key)
                 subvisited = get_internal_node(visited, key)
             else
                 subvisited = EmptyAddressSet()
             end
-            sub_unvisited = get_unvisited(subvisited, subassmt)
-            set_subassmt!(unvisited, key, sub_unvisited)
+            sub_unvisited = get_unvisited(subvisited, submap)
+            set_submap!(unvisited, key, sub_unvisited)
         end
     end
     unvisited
@@ -224,13 +224,13 @@ end
 
 get_visited(visitor) = visitor.visited
 
-function check_no_subassmt(constraints::Assignment, addr)
-    if !isempty(get_subassmt(constraints, addr))
+function check_no_submap(constraints::ChoiceMap, addr)
+    if !isempty(get_submap(constraints, addr))
         error("Expected a value at address $addr but found a sub-assignment")
     end
 end
 
-function check_no_value(constraints::Assignment, addr)
+function check_no_value(constraints::ChoiceMap, addr)
     if has_value(constraints, addr)
         error("Expected a sub-assignment at address $addr but found a value")
     end

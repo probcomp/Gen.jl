@@ -35,57 +35,57 @@ project(trace::RecurseTrace, ::EmptyAddressSet) = 0.
 # recurse assignment wrapper #
 ##############################
 
-struct RecurseTraceAssignment <: Assignment
+struct RecurseTraceChoiceMap <: ChoiceMap
     trace::RecurseTrace
 end
 
-get_assmt(trace::RecurseTrace) = RecurseTraceAssignment(trace)
+get_choices(trace::RecurseTrace) = RecurseTraceChoiceMap(trace)
 
-function Base.isempty(assmt::RecurseTraceAssignment)
-    assmt.trace.num_has_choices == 0
+function Base.isempty(choices::RecurseTraceChoiceMap)
+    choices.trace.num_has_choices == 0
 end
 
-get_address_schema(::Type{RecurseTraceAssignment}) = DynamicAddressSchema()
+get_address_schema(::Type{RecurseTraceChoiceMap}) = DynamicAddressSchema()
 
-function get_subassmt(assmt::RecurseTraceAssignment,
+function get_submap(choices::RecurseTraceChoiceMap,
                       addr::Tuple{Int,Val{:production}})
     idx = addr[1]
-    if !haskey(assmt.trace.aggregation_traces, idx)
-        EmptyAssignment()
+    if !haskey(choices.trace.aggregation_traces, idx)
+        EmptyChoiceMap()
     else
-        get_assmt(assmt.trace.production_traces[idx])
+        get_choices(choices.trace.production_traces[idx])
     end
 end
 
-function get_subassmt(assmt::RecurseTraceAssignment,
+function get_submap(choices::RecurseTraceChoiceMap,
                       addr::Tuple{Int,Val{:aggregation}})
     idx = addr[1]
-    if !haskey(assmt.trace.aggregation_traces, idx)
-        EmptyAssignment()
+    if !haskey(choices.trace.aggregation_traces, idx)
+        EmptyChoiceMap()
     else
-        get_assmt(assmt.trace.aggregation_traces[idx])
+        get_choices(choices.trace.aggregation_traces[idx])
     end
 end
 
-function get_subassmt(assmt::RecurseTraceAssignment, addr::Pair)
-    _get_subassmt(assmt, addr)
+function get_submap(choices::RecurseTraceChoiceMap, addr::Pair)
+    _get_submap(choices, addr)
 end
 
-function has_value(assmt::RecurseTraceAssignment, addr::Pair)
-    _has_value(assmt, addr)
+function has_value(choices::RecurseTraceChoiceMap, addr::Pair)
+    _has_value(choices, addr)
 end
 
-function get_value(assmt::RecurseTraceAssignment, addr::Pair)
-    _get_value(assmt, addr)
+function get_value(choices::RecurseTraceChoiceMap, addr::Pair)
+    _get_value(choices, addr)
 end
 
-get_values_shallow(assmt::RecurseTraceAssignment) = ()
+get_values_shallow(choices::RecurseTraceChoiceMap) = ()
 
-function get_subassmts_shallow(assmt::RecurseTraceAssignment)
-    production_iter = (((idx, Val(:production)), get_assmt(subtrace))
-        for (idx, subtrace) in assmt.trace.production_traces)
-    aggregation_iter = (((idx, Val(:aggregation)), get_assmt(subtrace))
-        for (idx, subtrace) in assmt.trace.aggregation_traces)
+function get_submaps_shallow(choices::RecurseTraceChoiceMap)
+    production_iter = (((idx, Val(:production)), get_choices(subtrace))
+        for (idx, subtrace) in choices.trace.production_traces)
+    aggregation_iter = (((idx, Val(:aggregation)), get_choices(subtrace))
+        for (idx, subtrace) in choices.trace.aggregation_traces)
     Iterators.flatten((production_iter, aggregation_iter))
 end
 
@@ -231,12 +231,12 @@ function get_aggregation_input(gen_fn::Recurse{S,T,U,V,W}, cur::Int,
 end
 
 
-function get_production_constraints(constraints::Assignment, cur::Int)
-    get_subassmt(constraints, (cur, Val(:production)))
+function get_production_constraints(constraints::ChoiceMap, cur::Int)
+    get_submap(constraints, (cur, Val(:production)))
 end
 
-function get_aggregation_constraints(constraints::Assignment, cur::Int)
-    get_subassmt(constraints, (cur, Val(:aggregation)))
+function get_aggregation_constraints(constraints::ChoiceMap, cur::Int)
+    get_submap(constraints, (cur, Val(:aggregation)))
 end
 
 ##############
@@ -244,7 +244,7 @@ end
 ##############
 
 function generate(gen_fn::Recurse{S,T,U,V,W,X,Y,DV,DU,DW}, args::Tuple{U,Int},
-                    constraints::Assignment) where {S,T,U,V,W,X,Y,DV,DU,DW}
+                    constraints::ChoiceMap) where {S,T,U,V,W,X,Y,DV,DU,DW}
     (root_production_input::U, root_idx::Int) = args
     production_traces = PersistentHashMap{Int,S}()
     aggregation_traces = PersistentHashMap{Int,T}()
@@ -270,7 +270,7 @@ function generate(gen_fn::Recurse{S,T,U,V,W,X,Y,DV,DU,DW}, args::Tuple{U,Int},
         for child_num in 1:length(children_inputs)
             push!(prod_to_visit, get_child(cur, child_num, gen_fn.max_branch))
         end
-        if !isempty(get_assmt(subtrace))
+        if !isempty(get_choices(subtrace))
             num_has_choices += 1
         end
     end
@@ -287,7 +287,7 @@ function generate(gen_fn::Recurse{S,T,U,V,W,X,Y,DV,DU,DW}, args::Tuple{U,Int},
         score += get_score(subtrace)
         aggregation_traces = assoc(aggregation_traces, cur, subtrace)
         weight += subweight
-        if !isempty(get_assmt(subtrace))
+        if !isempty(get_choices(subtrace))
             num_has_choices += 1
         end
     end
@@ -323,10 +323,10 @@ Base.in(node::Int, queue::NodeQueue) = haskey(queue.pq, node)
 Base.isempty(queue::NodeQueue) = isempty(queue.pq)
 
 
-function recurse_unpack_constraints(constraints::Assignment)
+function recurse_unpack_constraints(constraints::ChoiceMap)
     production_constraints = Dict{Int, Any}()
     aggregation_constraints = Dict{Int, Any}()
-    for (addr, node) in get_subassmts_shallow(constraints)
+    for (addr, node) in get_submaps_shallow(constraints)
         idx::Int = addr[1]
         if addr[2] == Val(:production)
             production_constraints[idx] = node
@@ -342,19 +342,19 @@ function recurse_unpack_constraints(constraints::Assignment)
     return (production_constraints, aggregation_constraints)
 end
 
-function dissoc_subtree!(discard::DynamicAssignment,
+function dissoc_subtree!(discard::DynamicChoiceMap,
 						 production_traces::PersistentHashMap{Int,S},
                          aggregation_traces::PersistentHashMap{Int,T},
                          root::Int, max_branch::Int) where {S,T}
     num_has_choices = 0
     production_subtrace = production_traces[root]
     aggregation_subtrace = aggregation_traces[root]
-	set_subassmt!(discard, (root, Val(:production)), get_assmt(production_subtrace))
-	set_subassmt!(discard, (root, Val(:aggregation)), get_assmt(aggregation_subtrace))
-    if !isempty(get_assmt(production_subtrace))
+	set_submap!(discard, (root, Val(:production)), get_choices(production_subtrace))
+	set_submap!(discard, (root, Val(:aggregation)), get_choices(aggregation_subtrace))
+    if !isempty(get_choices(production_subtrace))
         num_has_choices += 1
     end
-    if !isempty(get_assmt(aggregation_subtrace))
+    if !isempty(get_choices(aggregation_subtrace))
         num_has_choices += 1
     end
     num_children = get_num_children(production_subtrace)
@@ -425,7 +425,7 @@ end
 function update(trace::RecurseTrace{S,T,U,V,W,X,Y,DV,DU,DW},
                 new_args::Tuple{U,Int},
                 root_argdiff::Union{NoArgDiff,DU}, 
-                constraints::Assignment) where {S,T,U,V,W,X,Y,DV,DU,DW}
+                constraints::ChoiceMap) where {S,T,U,V,W,X,Y,DV,DU,DW}
     gen_fn = get_gen_fn(trace)
     (root_production_input::U, root_idx::Int) = new_args
     if root_idx != get_args(trace)[2]
@@ -435,7 +435,7 @@ function update(trace::RecurseTrace{S,T,U,V,W,X,Y,DV,DU,DW},
     production_traces = trace.production_traces
     aggregation_traces = trace.aggregation_traces
     (production_constraints, aggregation_constraints) = recurse_unpack_constraints(constraints)
-    discard = DynamicAssignment()
+    discard = choicemap()
 
     # initial score from previous trace
     score = trace.score
@@ -490,7 +490,7 @@ function update(trace::RecurseTrace{S,T,U,V,W,X,Y,DV,DU,DW},
             prev_num_children = get_num_children(production_traces[cur])
             new_num_children = length(get_retval(subtrace)[2])
             idx_to_prev_num_children[cur] = prev_num_children
-            set_subassmt!(discard, (cur, Val(:production)), subdiscard)
+            set_submap!(discard, (cur, Val(:production)), subdiscard)
             production_retdiffs[cur] = subretdiff
 
             # update trace, weight, and score
@@ -499,17 +499,17 @@ function update(trace::RecurseTrace{S,T,U,V,W,X,Y,DV,DU,DW},
             score += subweight
 
             # update num_has_choices
-            if !isempty(get_assmt(prev_subtrace)) && isempty(get_assmt(subtrace))
+            if !isempty(get_choices(prev_subtrace)) && isempty(get_choices(subtrace))
                 num_has_choices -= 1
-            elseif isempty(get_assmt(prev_subtrace)) && !isempty(get_assmt(subtrace))
+            elseif isempty(get_choices(prev_subtrace)) && !isempty(get_choices(subtrace))
                 num_has_choices += 1
             end
 
             # delete children (and their descendants), both production and aggregation nodes
             for child_num=new_num_children+1:prev_num_children
                 child = get_child(cur, child_num, gen_fn.max_branch)
-                set_subassmt!(discard, (child, Val(:production)), get_assmt(production_traces[child]))
-                set_subassmt!(discard, (child, Val(:aggregation)), get_assmt(aggregation_traces[child]))
+                set_submap!(discard, (child, Val(:production)), get_choices(production_traces[child]))
+                set_submap!(discard, (child, Val(:aggregation)), get_choices(aggregation_traces[child]))
                 (production_traces, aggregation_traces, removed_score, removed_num_has_choices) = dissoc_subtree!(
                     discard, production_traces, aggregation_traces, child, gen_fn.max_branch)
                 score -= removed_score
@@ -547,7 +547,7 @@ function update(trace::RecurseTrace{S,T,U,V,W,X,Y,DV,DU,DW},
             score += get_score(subtrace)
 
             # update num_has_choices
-            if !isempty(get_assmt(subtrace))
+            if !isempty(get_choices(subtrace))
                 num_has_choices += 1
             end
 
@@ -600,12 +600,12 @@ function update(trace::RecurseTrace{S,T,U,V,W,X,Y,DV,DU,DW},
             aggregation_traces = assoc(aggregation_traces, cur, subtrace)
             weight += subweight
             score += subweight
-            set_subassmt!(discard, (cur, Val(:aggregation)), subdiscard)
+            set_submap!(discard, (cur, Val(:aggregation)), subdiscard)
 
             # update num_has_choices
-            if !isempty(get_assmt(prev_subtrace)) && isempty(get_assmt(subtrace))
+            if !isempty(get_choices(prev_subtrace)) && isempty(get_choices(subtrace))
                 num_has_choices -= 1
-            elseif isempty(get_assmt(prev_subtrace)) && !isempty(get_assmt(subtrace))
+            elseif isempty(get_choices(prev_subtrace)) && !isempty(get_choices(subtrace))
                 num_has_choices += 1
             end
  
@@ -629,7 +629,7 @@ function update(trace::RecurseTrace{S,T,U,V,W,X,Y,DV,DU,DW},
             score += get_score(subtrace)
 
             # update num_has_choices
-            if !isempty(get_assmt(subtrace))
+            if !isempty(get_choices(subtrace))
                 num_has_choices += 1
             end
 

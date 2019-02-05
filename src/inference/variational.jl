@@ -1,6 +1,6 @@
 """
     black_box_vi!(model::GenerativeFunction, args::Tuple,
-                  observations::Assignment,
+                  observations::ChoiceMap,
                   proposal::GenerativeFunction, proposal_args::Tuple,
                   update::ParamUpdate;
                   iters=1000, samples_per_iter=100, verbose=false)
@@ -8,7 +8,7 @@
 Fit the parameters of a generative function (`proposal`) to the posterior distribution implied by the given model and observations using stochastic gradient methods.
 """
 function black_box_vi!(model::GenerativeFunction, args::Tuple,
-                       observations::Assignment,
+                       observations::ChoiceMap,
                        proposal::GenerativeFunction, proposal_args::Tuple,
                        update::ParamUpdate;
                        iters=1000, samples_per_iter=100, verbose=false)
@@ -18,7 +18,7 @@ function black_box_vi!(model::GenerativeFunction, args::Tuple,
             (trace, _) = generate(proposal, proposal_args)
     
             # compute constraints on model (we assume all proposal addrs are also in the model)
-            constraints = merge(observations, get_assmt(trace))
+            constraints = merge(observations, get_choices(trace))
     
             # compute log importance weight
             (model_log_weight, _) = assess(model, args, constraints)
@@ -36,7 +36,7 @@ function black_box_vi!(model::GenerativeFunction, args::Tuple,
         avg_log_weight = 0.
         for i=1:samples_per_iter
             (trace, _) = generate(proposal, proposal_args)
-            constraints = merge(observations, get_assmt(trace))
+            constraints = merge(observations, get_choices(trace))
             (model_log_weight, _) = assess(model, args, constraints)
             log_weight = model_log_weight - get_score(trace)
             avg_log_weight += log_weight

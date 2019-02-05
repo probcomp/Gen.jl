@@ -107,7 +107,7 @@ get_retval
 
 The map ``t`` from addresses of random choices to their values:
 ```@docs
-get_assmt
+get_choices
 ```
 
 The log probability that the random choices took the values they did:
@@ -163,10 +163,10 @@ Suppose we run [`update`](@ref) on the example `trace`, with the following const
 └── :d : true
 ```
 ```julia
-constraints = DynamicAssignment((:b, false), (:d, true))
+constraints = choicemap((:b, false), (:d, true))
 (new_trace, w, _, discard) = update(trace, (), noargdiff, constraints)
 ```
-Then `get_assmt(new_trace)` will be:
+Then `get_choices(new_trace)` will be:
 ```
 │
 ├── :a : false
@@ -205,7 +205,7 @@ If the new value for `:b` is `true`, then the previous value for `:c` (`false`) 
 If the new value for `:b` is `false`, then a new value for `:d` will be sampled from `bernoulli(0.7)`.
 The previous value for `:c` will always be retained.
 Suppose the new value for `:a` is `true`, and the new value for `:b` is `true`.
-Then `get_assmt(new_trace)` will be:
+Then `get_choices(new_trace)` will be:
 ```
 │
 ├── :a : true

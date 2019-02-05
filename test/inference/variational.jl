@@ -20,7 +20,7 @@
     init_param!(approx, :intercept_mu, 0.)
     init_param!(approx, :intercept_log_std, 0.)
 
-    observations = DynamicAssignment()
+    observations = choicemap()
     update = ParamUpdate(GradientDescent(0.001, 100000), approx)
     black_box_vi!(model, (), observations, approx, (), update;
         iters=500, samples_per_iter=1000, verbose=false)

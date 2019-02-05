@@ -42,7 +42,7 @@ The inference program below takes in a data set, and runs an iterative MCMC algo
 function my_inference_program(xs::Vector{Float64}, ys::Vector{Float64}, num_iters::Int)
     # Create a set of constraints fixing the 
     # y coordinates to the observed y values
-    constraints = DynamicAssignment()
+    constraints = choicemap()
     for (i, y) in enumerate(ys)
         constraints["y-$i"] = y
     end
@@ -60,8 +60,8 @@ function my_inference_program(xs::Vector{Float64}, ys::Vector{Float64}, num_iter
     
     # From the final trace, read out the slope and
     # the intercept.
-    assmt = get_assmt(trace)
-    return (assmt[:slope], assmt[:intercept])
+    choices = get_choices(trace)
+    return (choices[:slope], choices[:intercept])
 end
 ```
 

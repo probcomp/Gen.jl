@@ -278,7 +278,7 @@ function render_lightweight_hmm_trace(scene::Scene, start::Point, stop::Point,
     end
     
     # plot measured locations
-    assignment = get_assmt(trace)
+    assignment = get_choices(trace)
     if show_measurements
         measured_xs = [assignment[(:x, i)] for i=1:length(locations)]
         measured_ys = [assignment[(:y, i)] for i=1:length(locations)]
@@ -332,7 +332,7 @@ function render_static_hmm_trace(scene::Scene, start::Point, stop::Point,
     end
     
     # plot measured locations
-    assignment = get_assmt(trace)
+    assignment = get_choices(trace)
     if show_measurements
         measured_xs = [assignment[i => :x] for i=1:length(locations)]
         measured_ys = [assignment[i => :y] for i=1:length(locations)]
@@ -438,7 +438,7 @@ function particle_filtering_static_hmm_default_proposal(params::Params,
     path = params.path
 
     function obs(step::Int)
-        assignment = DynamicAssignment()
+        assignment = choicemap()
         assignment[step => :x] = measured_xs[step]
         assignment[step => :y] = measured_ys[step]
         return (assignment, UnfoldCustomArgDiff(true, false, false))
@@ -484,7 +484,7 @@ function particle_filtering_static_hmm_custom_proposal(params::Params,
     path = params.path
 
     function init()
-        observations = DynamicAssignment()
+        observations = choicemap()
         observations[1 => :x] = measured_xs[1]
         observations[1 => :y] = measured_ys[1]
         proposal_args = (1, (times[1], Float64(0.0), noise,
@@ -496,10 +496,10 @@ function particle_filtering_static_hmm_custom_proposal(params::Params,
 
     function step(step::Int, trace)
         @assert step > 1
-        observations = DynamicAssignment()
+        observations = choicemap()
         observations[step => :x] = measured_xs[step]
         observations[step => :y] = measured_ys[step]
-        prev_dist = get_assmt(trace)[step-1 => :dist]
+        prev_dist = get_choices(trace)[step-1 => :dist]
         dt = step==1 ? times[step] : times[step] - times[step-1]
         proposal_args = (step, (dt, prev_dist, noise,
                          Point(measured_xs[step], measured_ys[step]),
@@ -551,7 +551,7 @@ function particle_filtering_lightweight_hmm_default_proposal(params::Params,
     path = params.path
 
     function obs(step::Int)
-        observations = DynamicAssignment()
+        observations = choicemap()
         observations[(:x, step)] = measured_xs[step]
         observations[(:y, step)] = measured_ys[step]
         return (observations, unknownargdiff)
@@ -594,7 +594,7 @@ function particle_filtering_lightweight_hmm_custom_proposal(params::Params,
     path = params.path
 
     function init()
-        observations = DynamicAssignment()
+        observations = choicemap()
         observations[(:x, 1)] = measured_xs[1]
         observations[(:y, 1)] = measured_ys[1]
         proposal_args = (1, Float64(0.0), noise,
@@ -606,10 +606,10 @@ function particle_filtering_lightweight_hmm_custom_proposal(params::Params,
 
     function step(step::Int, trace)
         @assert step > 1
-        observations = DynamicAssignment()
+        observations = choicemap()
         observations[(:x, step)] = measured_xs[step]
         observations[(:y, step)] = measured_ys[step]
-        prev_dist = get_assmt(trace)[(:dist, step-1)]
+        prev_dist = get_choices(trace)[(:dist, step-1)]
         proposal_args = (step, prev_dist, noise,
                          Point(measured_xs[step], measured_ys[step]),
                          precomputed.posterior_var_d, precomputed.posterior_covars,  path,
@@ -661,7 +661,7 @@ function particle_filtering_lightweight_markov_hmm_default_proposal(params::Para
     path = params.path
 
     function obs(step::Int)
-        assignment = DynamicAssignment()
+        assignment = choicemap()
         assignment[step => :x] = measured_xs[step]
         assignment[step => :y] = measured_ys[step]
         return (assignment, UnfoldCustomArgDiff(true, false, false))
@@ -707,7 +707,7 @@ function particle_filtering_lightweight_markov_hmm_custom_proposal(params::Param
     path = params.path
 
     function init()
-        observations = DynamicAssignment()
+        observations = choicemap()
         observations[1 => :x] = measured_xs[1]
         observations[1 => :y] = measured_ys[1]
         proposal_args = (1, (times[1], Float64(0.0), noise,
@@ -719,10 +719,10 @@ function particle_filtering_lightweight_markov_hmm_custom_proposal(params::Param
 
     function step(step::Int, trace)
         @assert step > 1
-        observations = DynamicAssignment()
+        observations = choicemap()
         observations[step => :x] = measured_xs[step]
         observations[step => :y] = measured_ys[step]
-        prev_dist = get_assmt(trace)[step-1 => :dist]
+        prev_dist = get_choices(trace)[step-1 => :dist]
         dt = step==1 ? times[step] : times[step] - times[step-1]
         proposal_args = (step, (dt, prev_dist, noise,
                          Point(measured_xs[step], measured_ys[step]),
@@ -784,7 +784,7 @@ function experiment()
     # generate ground truth locations and observations
     model_args = (length(times), path, precomputed.distances_from_start, times, speed, noise, dist_slack)
     trace = simulate(lightweight_hmm, model_args)
-    assignment = get_assmt(trace)
+    assignment = get_choices(trace)
     measured_xs = [assignment[(:x, i)] for i=1:length(times)]
     measured_ys = [assignment[(:y, i)] for i=1:length(times)]
     actual_dists = [assignment[(:dist, i)] for i=1:length(times)]

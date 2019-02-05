@@ -102,7 +102,7 @@ The support of the random choice with address `:x` is either the set ``\{1, 2\}`
 Therefore, this random choice does satisfy our condition above.
 This would cause an error with the following, in which the `:n` address is modified, which could result in a change to the domain of the `:x` variable:
 ```julia
-tr, _ = generate(foo, (), DynamicAssignment((:n, 2), (:x, 3)))
+tr, _ = generate(foo, (), choicemap((:n, 2), (:x, 3)))
 tr, _ = mh(tr, select(:n))
 ```
 We can modify the address to satisfy the condition by including the domain in the address:

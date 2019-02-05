@@ -55,7 +55,7 @@ function addr(state::SelectionState, fn::SelectionFunction, args, addr)
     if has_internal_node(state.assignment, addr)
         node = get_internal_node(state.assignment, addr)
     else
-        node = EmptyAssignment()
+        node = EmptyChoiceMap()
     end
     if has_internal_node(state.selection, addr) || has_leaf_node(state.selection, addr)
         error("Address $addr, or an address under $addr, was already selected")

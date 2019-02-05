@@ -1,12 +1,12 @@
 mutable struct GFProposeState
-    assmt::DynamicAssignment
+    choices::DynamicChoiceMap
     weight::Float64
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
 end
 
 function GFProposeState(params::Dict{Symbol,Any})
-    GFProposeState(DynamicAssignment(), 0., AddressVisitor(), params)
+    GFProposeState(choicemap(), 0., AddressVisitor(), params)
 end
 
 function addr(state::GFProposeState, dist::Distribution{T},
@@ -20,7 +20,7 @@ function addr(state::GFProposeState, dist::Distribution{T},
     retval = random(dist, args...)
 
     # update assignment
-    set_value!(state.assmt, key, retval)
+    set_value!(state.choices, key, retval)
 
     # update weight 
     state.weight += logpdf(dist, retval, args...)
@@ -36,10 +36,10 @@ function addr(state::GFProposeState, gen_fn::GenerativeFunction{T,U},
     visit!(state.visitor, key)
 
     # get subtrace
-    (subassmt, weight, retval) = propose(gen_fn, args)
+    (submap, weight, retval) = propose(gen_fn, args)
 
     # update assignment
-    set_subassmt!(state.assmt, key, subassmt)
+    set_submap!(state.choices, key, submap)
 
     # update weight
     state.weight += weight
@@ -58,5 +58,5 @@ end
 function propose(gen_fn::DynamicDSLFunction, args::Tuple)
     state = GFProposeState(gen_fn.params)
     retval = exec(gen_fn, state, args)
-    (state.assmt, state.weight, retval)
+    (state.choices, state.weight, retval)
 end

@@ -224,47 +224,47 @@ mutable struct GFBackpropTraceState
     params::Dict{Symbol,Any}
     selection::AddressSet
     tracked_choices::Trie{Any,TrackedReal}
-    value_assmt::DynamicAssignment
-    gradient_assmt::DynamicAssignment
+    value_choices::DynamicChoiceMap
+    gradient_choices::DynamicChoiceMap
 end
 
 function GFBackpropTraceState(trace, selection, params, tape)
     score = track(0., tape)
     visitor = AddressVisitor()
     tracked_choices = Trie{Any,TrackedReal}()
-    value_assmt = DynamicAssignment()
-    gradient_assmt = DynamicAssignment()
+    value_choices = choicemap()
+    gradient_choices = choicemap()
     GFBackpropTraceState(trace, score, tape, visitor, params,
-        selection, tracked_choices, value_assmt, gradient_assmt)
+        selection, tracked_choices, value_choices, gradient_choices)
 end
 
-function fill_gradient_assmt!(gradient_assmt::DynamicAssignment,
+function fill_gradient_map!(gradient_choices::DynamicChoiceMap,
                              tracked_trie::Trie{Any,TrackedReal})
     for (key, tracked) in get_leaf_nodes(tracked_trie)
-        set_value!(gradient_assmt, key, deriv(tracked))
+        set_value!(gradient_choices, key, deriv(tracked))
     end
     # NOTE: there should be no address collision between these primitive
     # choices and the gen_fn invocations, as enforced by the visitor
     for (key, subtrie) in get_internal_nodes(tracked_trie)
-        @assert !has_value(gradient_assmt, key) && isempty(get_subassmt(gradient_assmt, key))
-        gradient_subssmt = DynamicAssignment()
-        fill_gradient_assmt!(gradient_subassmt, subtrie)
-        set_subassmt!(gradient_assmt, key, gradient_subassmt)
+        @assert !has_value(gradient_choices, key) && isempty(get_submap(gradient_choices, key))
+        gradient_subssmt = choicemap()
+        fill_gradient_map!(gradient_submap, subtrie)
+        set_submap!(gradient_choices, key, gradient_submap)
     end
 end
 
-function fill_value_assmt!(value_assmt::DynamicAssignment,
+function fill_value_map!(value_choices::DynamicChoiceMap,
                           tracked_trie::Trie{Any,TrackedReal})
     for (key, tracked) in get_leaf_nodes(tracked_trie)
-        set_value!(value_assmt, key, value(tracked))
+        set_value!(value_choices, key, value(tracked))
     end
     # NOTE: there should be no address collision between these primitive
     # choices and the gen_fn invocations, as enforced by the visitor
     for (key, subtrie) in get_internal_nodes(tracked_trie)
-        @assert !has_value(value_assmt, key) && !isempty(get_subassmt(value_assmt, key))
-        value_assmt_subassmt = DynamicAssignment()
-        fill_value_assmt!(value_assmt_subassmt, subtrie)
-        set_subassmt!(value_assmt, key, value_assmt_subassmt)
+        @assert !has_value(value_choices, key) && !isempty(get_submap(value_choices, key))
+        value_choices_submap = choicemap()
+        fill_value_map!(value_choices_submap, subtrie)
+        set_submap!(value_choices, key, value_choices_submap)
     end
 end
 
@@ -297,8 +297,8 @@ struct BackpropTraceRecord
     gen_fn::GenerativeFunction
     subtrace::Any
     selection::AddressSet
-    value_assmt::DynamicAssignment
-    gradient_assmt::DynamicAssignment
+    value_choices::DynamicChoiceMap
+    gradient_choices::DynamicChoiceMap
     key::Any
 end
 
@@ -325,8 +325,8 @@ function addr(state::GFBackpropTraceState, gen_fn::GenerativeFunction{T,U},
     else
         selection = EmptyAddressSet()
     end
-    record = BackpropTraceRecord(gen_fn, subtrace, selection, state.value_assmt,
-        state.gradient_assmt, key)
+    record = BackpropTraceRecord(gen_fn, subtrace, selection, state.value_choices,
+        state.gradient_choices, key)
     record!(state.tape, ReverseDiff.SpecialInstruction, record, (args_maybe_tracked...,), retval_maybe_tracked)
     retval_maybe_tracked 
 end
@@ -353,12 +353,12 @@ end
         @assert !istracked(retval_maybe_tracked)
         retval_grad = nothing
     end
-    (arg_grads, value_assmt, gradient_assmt) = choice_gradients(
+    (arg_grads, value_choices, gradient_choices) = choice_gradients(
         record.subtrace, record.selection, retval_grad)
-    @assert isempty(get_subassmt(record.gradient_assmt, record.key))
-    @assert !has_value(record.gradient_assmt, record.key)
-    set_subassmt!(record.gradient_assmt, record.key, gradient_assmt)
-    set_subassmt!(record.value_assmt, record.key, value_assmt)
+    @assert isempty(get_submap(record.gradient_choices, record.key))
+    @assert !has_value(record.gradient_choices, record.key)
+    set_submap!(record.gradient_choices, record.key, gradient_choices)
+    set_submap!(record.value_choices, record.key, value_choices)
 
     # if has_argument_grads(gen_fn) is true for a given argument, then that
     # argument may or may not be tracked. if has_argument_grads(gen_fn) is
@@ -406,13 +406,13 @@ function choice_gradients(trace::DynamicDSLTrace, selection::AddressSet, retval_
     reverse_pass!(tape)
 
     # fill trace gradient with gradients with respect to primitive random choices
-    fill_gradient_assmt!(state.gradient_assmt, state.tracked_choices)
-    fill_value_assmt!(state.value_assmt, state.tracked_choices)
+    fill_gradient_map!(state.gradient_choices, state.tracked_choices)
+    fill_value_map!(state.value_choices, state.tracked_choices)
 
     # return gradients with respect to arguments with gradients, or nothing
     # NOTE: if a value isn't tracked the gradient is nothing
     input_grads::Tuple = (map((arg, has_grad) -> has_grad ? deriv(arg) : nothing,
                              args_maybe_tracked, gen_fn.has_argument_grads)...,)
 
-    (input_grads, state.value_assmt, state.gradient_assmt)
+    (input_grads, state.value_choices, state.gradient_choices)
 end

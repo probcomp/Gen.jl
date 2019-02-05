@@ -52,8 +52,8 @@ macro swapall(input_addr, output_addr)
 end
 
 mutable struct InjectiveApplyState
-    input::Assignment
-    output::DynamicAssignment
+    input::ChoiceMap
+    output::DynamicChoiceMap
     tape::InstructionTape
     tracked_reads::Trie{Any,TrackedReal}
     tracked_writes::Trie{Any,TrackedReal}
@@ -62,7 +62,7 @@ mutable struct InjectiveApplyState
 end
 
 function InjectiveApplyState(input)
-    output = DynamicAssignment()
+    output = choicemap()
     tape = new_tape()
     tracked_reads = Trie{Any,TrackedReal}()
     tracked_writes = Trie{Any,TrackedReal}()
@@ -127,8 +127,8 @@ end
 
 function copyall(state::InjectiveApplyState, input_addr, output_addr)
     visit!(state.visitor, output_addr)
-    subassmt = get_subassmt(state.input, input_addr)
-    set_subassmt!(state.output, output_addr, subassmt)
+    submap = get_submap(state.input, input_addr)
+    set_submap!(state.output, output_addr, submap)
     push!(state.copied, input_addr)
     nothing
 end
@@ -140,13 +140,13 @@ end
 
 function addr(state::InjectiveApplyState, fn::InjectiveFunction, args, output_addr)
     visit!(state.visitor, output_addr)
-    subassmt = DynamicAssignment()
+    submap = choicemap()
     sub_tracked_writes = Trie{Any,TrackedReal}()
     visitor = AddressVisitor()
-    sub_state = InjectiveApplyState(state.input, subassmt,
+    sub_state = InjectiveApplyState(state.input, submap,
         state.tape, state.tracked_reads, sub_tracked_writes, state.copied, visitor)
     value = exec(fn, sub_state, args)
-    set_subassmt!(state.output, output_addr, subassmt)
+    set_submap!(state.output, output_addr, submap)
     set_internal_node!(state.tracked_writes, output_addr, sub_tracked_writes)
     value
 end

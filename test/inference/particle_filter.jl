@@ -108,7 +108,7 @@ end
     end
 
     init_proposal_args = (obs_x[1],)
-    init_observations = DynamicAssignment((:x_init, obs_x[1]))
+    init_observations = choicemap((:x_init, obs_x[1]))
 
     state = initialize_particle_filter(model, (1,), init_observations,
         init_proposal, init_proposal_args, num_particles)
@@ -117,7 +117,7 @@ end
     
     @gen function step_proposal(prev_trace, T::Int, x::Float64)
         @assert T > 1
-        choices = get_assmt(prev_trace)
+        choices = get_choices(prev_trace)
         if T > 2
             prev_z = choices[:chain => (T-2) => :z]
         else
@@ -131,7 +131,7 @@ end
     for T=2:length(obs_x)
         maybe_resample!(state, ess_threshold=ess_threshold)
         new_args = (T,)
-        observations = DynamicAssignment((:chain => (T-1) => :x, obs_x[T]))
+        observations = choicemap((:chain => (T-1) => :x, obs_x[T]))
         proposal_args = (T, obs_x[T])
         particle_filter_step!(state, new_args, argdiff, observations,
             step_proposal, proposal_args)
@@ -150,7 +150,7 @@ end
     ess_threshold = 10000 # make sure we exercise resampling
 
     # initialize the particle filter
-    init_observations = DynamicAssignment((:x_init, obs_x[1]))
+    init_observations = choicemap((:x_init, obs_x[1]))
     state = initialize_particle_filter(model, (1,), init_observations, num_particles)
     
     # do steps
@@ -158,7 +158,7 @@ end
     for T=2:length(obs_x)
         maybe_resample!(state, ess_threshold=ess_threshold)
         new_args = (T,)
-        observations = DynamicAssignment((:chain => (T-1) => :x, obs_x[T]))
+        observations = choicemap((:chain => (T-1) => :x, obs_x[T]))
         particle_filter_step!(state, new_args, argdiff, observations)
     end
 

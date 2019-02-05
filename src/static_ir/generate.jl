@@ -46,13 +46,13 @@ function process!(state::StaticIRInitializeState, node::GenerativeFunctionCallNo
     incr = gensym("weight")
     subconstraints = gensym("subconstraints")
     if isa(schema, StaticAddressSchema) && (node.addr in internal_node_keys(schema))
-        push!(state.stmts, :($subconstraints = static_get_subassmt(constraints, Val($addr))))
+        push!(state.stmts, :($subconstraints = static_get_submap(constraints, Val($addr))))
         push!(state.stmts, :(($subtrace, $incr) = generate($gen_fn, $args_tuple, $subconstraints)))
     else
-        push!(state.stmts, :(($subtrace, $incr) = generate($gen_fn, $args_tuple, EmptyAssignment())))
+        push!(state.stmts, :(($subtrace, $incr) = generate($gen_fn, $args_tuple, EmptyChoiceMap())))
     end
     push!(state.stmts, :($weight += $incr))
-    push!(state.stmts, :($num_nonempty_fieldname += !isempty(get_assmt($subtrace)) ? 1 : 0))
+    push!(state.stmts, :($num_nonempty_fieldname += !isempty(get_choices($subtrace)) ? 1 : 0))
     push!(state.stmts, :($(node.name) = get_retval($subtrace)))
     push!(state.stmts, :($total_score_fieldname += get_score($subtrace)))
     push!(state.stmts, :($total_noise_fieldname += project($subtrace, EmptyAddressSet())))
@@ -65,7 +65,7 @@ function codegen_generate(gen_fn_type::Type{T}, args,
 
     # convert the constraints to a static assignment if it is not already one
     if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
-        return quote generate(gen_fn, args, StaticAssignment(constraints)) end
+        return quote generate(gen_fn, args, StaticChoiceMap(constraints)) end
     end
 
     ir = get_ir(gen_fn_type)
@@ -101,18 +101,18 @@ end
 
 push!(Gen.generated_functions, quote
 @generated function Gen.generate(gen_fn::Gen.StaticIRGenerativeFunction,
-                                   args::Tuple, constraints::Assignment)
+                                   args::Tuple, constraints::ChoiceMap)
     Gen.codegen_generate(gen_fn, args, constraints)
 end
 end)
 
 function propose(gen_fn::StaticIRGenerativeFunction, args::Tuple)
     # TODO implement the actual propose
-    (trace, weight) = generate(gen_fn, args, EmptyAssignment())
-    (get_assmt(trace), weight, get_retval(trace))
+    (trace, weight) = generate(gen_fn, args, EmptyChoiceMap())
+    (get_choices(trace), weight, get_retval(trace))
 end
 
-function assess(gen_fn::StaticIRGenerativeFunction, args::Tuple, constraints::Assignment)
+function assess(gen_fn::StaticIRGenerativeFunction, args::Tuple, constraints::ChoiceMap)
     # TODO implement the actual assess
     (trace, weight) = generate(gen_fn, args, constraints)
     (weight, get_retval(trace))

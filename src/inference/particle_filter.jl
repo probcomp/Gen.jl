@@ -71,13 +71,13 @@ end
 
 """
     state = initialize_particle_filter(model::GenerativeFunction, model_args::Tuple,
-        observations::Assignment proposal::GenerativeFunction, proposal_args::Tuple,
+        observations::ChoiceMap proposal::GenerativeFunction, proposal_args::Tuple,
         num_particles::Int)
 
 Initialize the state of a particle filter using a custom proposal for the initial latent state.
 """
 function initialize_particle_filter(model::GenerativeFunction{T,U}, model_args::Tuple,
-        observations::Assignment, proposal::GenerativeFunction, proposal_args::Tuple,
+        observations::ChoiceMap, proposal::GenerativeFunction, proposal_args::Tuple,
         num_particles::Int) where {T,U}
     traces = Vector{Any}(undef, num_particles)
     log_weights = Vector{Float64}(undef, num_particles)
@@ -92,12 +92,12 @@ end
 
 """
     state = initialize_particle_filter(model::GenerativeFunction, model_args::Tuple,
-        observations::Assignment, num_particles::Int)
+        observations::ChoiceMap, num_particles::Int)
 
 Initialize the state of a particle filter, using the default proposal for the initial latent state.
 """
 function initialize_particle_filter(model::GenerativeFunction{T,U}, model_args::Tuple,
-        observations::Assignment, num_particles::Int) where {T,U}
+        observations::ChoiceMap, num_particles::Int) where {T,U}
     traces = Vector{Any}(undef, num_particles)
     log_weights = Vector{Float64}(undef, num_particles)
     for i=1:num_particles
@@ -109,12 +109,12 @@ end
 
 """
     particle_filter_step!(state::ParticleFilterState, new_args::Tuple, argdiff,
-        observations::Assignment, proposal::GenerativeFunction, proposal_args::Tuple)
+        observations::ChoiceMap, proposal::GenerativeFunction, proposal_args::Tuple)
 
 Perform a particle filter update, where the model arguments are adjusted, new observations are added, and a custom proposal is used for new latent state.
 """
 function particle_filter_step!(state::ParticleFilterState{U}, new_args::Tuple, argdiff,
-        observations::Assignment, proposal::GenerativeFunction, proposal_args::Tuple) where {U}
+        observations::ChoiceMap, proposal::GenerativeFunction, proposal_args::Tuple) where {U}
     num_particles = length(state.traces)
     for i=1:num_particles
         (prop_choices, prop_weight, _) = propose(proposal, (state.traces[i], proposal_args...))
@@ -134,12 +134,12 @@ end
 
 """
     particle_filter_step!(state::ParticleFilterState, new_args::Tuple, argdiff,
-        observations::Assignment)
+        observations::ChoiceMap)
 
 Perform a particle filter update, where the model arguments are adjusted, new observations are added, and the default proposal is used for new latent state.
 """
 function particle_filter_step!(state::ParticleFilterState{U}, new_args::Tuple, argdiff,
-        observations::Assignment) where {U}
+        observations::ChoiceMap) where {U}
     num_particles = length(state.traces)
     for i=1:num_particles
         (state.new_traces[i], increment, _) = extend(

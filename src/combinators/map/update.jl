@@ -4,25 +4,25 @@ mutable struct MapForceUpdateState{T,U}
     noise::Float64
     subtraces::PersistentVector{U}
     retval::PersistentVector{T}
-    discard::DynamicAssignment
+    discard::DynamicChoiceMap
     num_nonempty::Int
     isdiff_retdiffs::Dict{Int,Any}
 end
 
 function process_retained!(gen_fn::Map{T,U}, args::Tuple,
-                           assmt::Assignment, key::Int, kernel_argdiff,
+                           choices::ChoiceMap, key::Int, kernel_argdiff,
                            state::MapForceUpdateState{T,U}) where {T,U}
     local subtrace::U
     local prev_subtrace::U
     local retval::T
 
-    subassmt = get_subassmt(assmt, key)
+    submap = get_submap(choices, key)
     kernel_args = get_args_for_key(args, key)
 
     # get new subtrace with recursive call to update()
     prev_subtrace = state.subtraces[key]
     (subtrace, weight, subretdiff, discard) = update(
-        prev_subtrace, kernel_args, kernel_argdiff, subassmt)
+        prev_subtrace, kernel_args, kernel_argdiff, submap)
 
     # retrieve retdiff
     if !isnodiff(subretdiff)
@@ -31,14 +31,14 @@ function process_retained!(gen_fn::Map{T,U}, args::Tuple,
 
     # update state
     state.weight += weight
-    set_subassmt!(state.discard, key, discard)
+    set_submap!(state.discard, key, discard)
     state.score += (get_score(subtrace) - get_score(prev_subtrace))
     state.noise += (project(subtrace, EmptyAddressSet()) - project(subtrace, EmptyAddressSet()))
     state.subtraces = assoc(state.subtraces, key, subtrace)
     retval = get_retval(subtrace)
     state.retval = assoc(state.retval, key, retval)
-    subtrace_empty = isempty(get_assmt(subtrace))
-    prev_subtrace_empty = isempty(get_assmt(prev_subtrace))
+    subtrace_empty = isempty(get_choices(subtrace))
+    prev_subtrace_empty = isempty(get_choices(prev_subtrace))
     if !subtrace_empty && prev_subtrace_empty
         state.num_nonempty += 1
     elseif subtrace_empty && !prev_subtrace_empty
@@ -46,16 +46,16 @@ function process_retained!(gen_fn::Map{T,U}, args::Tuple,
     end
 end
 
-function process_new!(gen_fn::Map{T,U}, args::Tuple, assmt, key::Int,
+function process_new!(gen_fn::Map{T,U}, args::Tuple, choices, key::Int,
                       state::MapForceUpdateState{T,U}) where {T,U}
     local subtrace::U
     local retval::T
 
-    subassmt = get_subassmt(assmt, key)
+    submap = get_submap(choices, key)
     kernel_args = get_args_for_key(args, key)
 
     # get subtrace and weight
-    (subtrace, weight) = generate(gen_fn.kernel, kernel_args, subassmt)
+    (subtrace, weight) = generate(gen_fn.kernel, kernel_args, submap)
 
     # update state
     state.weight += weight
@@ -65,17 +65,17 @@ function process_new!(gen_fn::Map{T,U}, args::Tuple, assmt, key::Int,
     state.subtraces = push(state.subtraces, subtrace)
     state.retval = push(state.retval, retval)
     @assert length(state.subtraces) == key
-    if !isempty(get_assmt(subtrace))
+    if !isempty(get_choices(subtrace))
         state.num_nonempty += 1
     end
 end
 
 
 function update(trace::VectorTrace{MapType,T,U}, args::Tuple, argdiff,
-                assmt::Assignment) where {T,U}
+                choices::ChoiceMap) where {T,U}
     gen_fn = trace.gen_fn
     (new_length, prev_length) = get_prev_and_new_lengths(args, trace)
-    retained_and_constrained = get_retained_and_constrained(assmt, prev_length, new_length)
+    retained_and_constrained = get_retained_and_constrained(choices, prev_length, new_length)
 
     # handle removed applications
     (discard, num_nonempty, score_decrement, noise_decrement) = vector_update_delete(
@@ -89,9 +89,9 @@ function update(trace::VectorTrace{MapType,T,U}, args::Tuple, argdiff,
     state = MapForceUpdateState{T,U}(-score_decrement, score, noise,
                                      subtraces, retval, discard, num_nonempty,
                                      Dict{Int,Any}())
-    process_all_retained!(gen_fn, args, argdiff, assmt, prev_length, new_length,    
+    process_all_retained!(gen_fn, args, argdiff, choices, prev_length, new_length,    
                           retained_and_constrained, state)
-    process_all_new!(gen_fn, args, assmt, prev_length, new_length, state)
+    process_all_new!(gen_fn, args, choices, prev_length, new_length, state)
 
     # retdiff
     retdiff = vector_compute_retdiff(state.isdiff_retdiffs, new_length, prev_length)

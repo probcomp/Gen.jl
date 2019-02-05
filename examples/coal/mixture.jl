@@ -95,7 +95,7 @@ two_cluster_params = select(:mu1, :mu2, :std1, :std2)
 w1_selection = select(:w1)
 
 function fixed_dim_move(trace)
-    if get_assmt(trace)[:branch]
+    if get_choices(trace)[:branch]
         (trace, _) = default_mh(one_cluster_params, trace)
         (trace, _) = mala(trace, one_cluster_params, 0.01)
     else
@@ -187,7 +187,7 @@ end
 
 correction = (new_trace) -> 0.
 function general_mh_transdim_move(trace)
-    branch = get_assmt(trace)[:branch]
+    branch = get_choices(trace)[:branch]
     n = get_call_record(trace).args[1]
     if branch
         general_mh(model,
@@ -233,7 +233,7 @@ const n = length(ys)
 function plot_trace_plot()
     plt.figure(figsize=(6, 5))
 
-    observations = DynamicAssignment()
+    observations = choicemap()
     for (i, y) in enumerate(ys)
         observations["y-$i"] = y
     end
@@ -248,7 +248,7 @@ function plot_trace_plot()
         trace = fixed_dim_move(trace)
         score = get_call_record(trace).score
         if iter > burn_in
-            push!(model_choice_vec, get_assmt(trace)[:branch])
+            push!(model_choice_vec, get_choices(trace)[:branch])
             push!(scores, score)
         end
         println("iter: $iter, score: $score")
@@ -268,7 +268,7 @@ function plot_trace_plot()
         trace = fixed_dim_move(trace)
         score = get_call_record(trace).score
         if iter > burn_in
-            push!(model_choice_vec, get_assmt(trace)[:branch])
+            push!(model_choice_vec, get_choices(trace)[:branch])
             push!(scores, score)
         end
         println("iter: $iter, score: $score")

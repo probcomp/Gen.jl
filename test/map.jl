@@ -18,26 +18,26 @@
 
     @testset "generate" begin
         z1, z2 = 1.1, 2.2
-        constraints = DynamicAssignment()
+        constraints = choicemap()
         constraints[1 => :z] = z1
         (trace, weight) = generate(bar, (xs[1:2], ys[1:2]), constraints)
-        assignment = get_assmt(trace)
+        assignment = get_choices(trace)
         @test assignment[1 => :z] == z1
         z2 = assignment[2 => :z]
         @test isapprox(weight, logpdf(normal, z1, 4., 1.))
     end
 
     @testset "propose" begin
-        (assmt, weight) = propose(bar, (xs[1:2], ys[1:2]))
-        z1 = assmt[1 => :z]
-        z2 = assmt[2 => :z]
+        (choices, weight) = propose(bar, (xs[1:2], ys[1:2]))
+        z1 = choices[1 => :z]
+        z2 = choices[2 => :z]
         expected_weight = logpdf(normal, z1, 4., 1.) + logpdf(normal, z2, 6., 1.)
         @test isapprox(weight, expected_weight)
     end
 
     @testset "assess" begin
         z1, z2 = 1.1, 2.2
-        constraints = DynamicAssignment()
+        constraints = choicemap()
         constraints[1 => :z] = z1
         constraints[2 => :z] = z2
         (weight, retval) = assess(bar, (xs[1:2], ys[1:2]), constraints)
@@ -50,7 +50,7 @@
         z1, z2 = 1.1, 2.2
 
         function get_initial_trace()
-            constraints = DynamicAssignment()
+            constraints = choicemap()
             constraints[1 => :z] = z1
             constraints[2 => :z] = z2
             (trace, _) = generate(bar, (xs[1:2], ys[1:2]), constraints)
@@ -61,16 +61,16 @@
         trace = get_initial_trace()
         z2_new = 3.3
         z3_new = 4.4
-        constraints = DynamicAssignment()
+        constraints = choicemap()
         constraints[2 => :z] = z2_new
         constraints[3 => :z] = z3_new
         (trace, weight, retdiff, discard) = update(trace,
             (xs[1:3], ys[1:3]), unknownargdiff, constraints)
-        assmt = get_assmt(trace)
+        choices = get_choices(trace)
         @test get_args(trace) == (xs[1:3], ys[1:3])
-        @test assmt[1 => :z] == z1
-        @test assmt[2 => :z] == z2_new
-        @test assmt[3 => :z] == z3_new
+        @test choices[1 => :z] == z1
+        @test choices[2 => :z] == z2_new
+        @test choices[3 => :z] == z3_new
         @test discard[2 => :z] == z2
         expected_score = (logpdf(normal, z1, 4., 1.)
             + logpdf(normal, z2_new, 6., 1.)
@@ -94,15 +94,15 @@
         # unknownargdiff, decreasing length from 2 to 1 and change 1
         trace = get_initial_trace()
         z1_new = 3.3
-        constraints = DynamicAssignment()
+        constraints = choicemap()
         constraints[1 => :z] = z1_new
         (trace, weight, retdiff, discard) = update(trace,
             (xs[1:1], ys[1:1]), unknownargdiff, constraints)
-        assmt = get_assmt(trace)
+        choices = get_choices(trace)
         @test get_args(trace) == (xs[1:1], ys[1:1])
-        @test !has_value(assmt, 2 => :z)
-        @test !has_value(assmt, 3 => :z)
-        @test assmt[1 => :z] == z1_new
+        @test !has_value(choices, 2 => :z)
+        @test !has_value(choices, 3 => :z)
+        @test choices[1 => :z] == z1_new
         @test discard[1 => :z] == z1
         @test discard[2 => :z] == z2
         @test isapprox(get_score(trace), logpdf(normal, z1_new, 4., 1.))
@@ -120,13 +120,13 @@
 
         # noargdiff, change nothing
         trace = get_initial_trace()
-        constraints = DynamicAssignment()
+        constraints = choicemap()
         (trace, weight, retdiff, discard) = update(trace,
             (xs[1:2], ys[1:2]), noargdiff, constraints)
-        assmt = get_assmt(trace)
+        choices = get_choices(trace)
         @test get_args(trace) == (xs[1:2], ys[1:2])
-        @test assmt[1 => :z] == z1
-        @test assmt[2 => :z] == z2
+        @test choices[1 => :z] == z1
+        @test choices[2 => :z] == z2
         @test isempty(discard)
         expected_score = (logpdf(normal, z1, 4., 1.)
             + logpdf(normal, z2, 6., 1.))
@@ -142,14 +142,14 @@
         # noargdiff, change 2
         trace = get_initial_trace()
         z2_new = 3.3
-        constraints = DynamicAssignment()
+        constraints = choicemap()
         constraints[2 => :z] = z2_new
         (trace, weight, retdiff, discard) = update(trace,
             (xs[1:2], ys[1:2]), noargdiff, constraints)
-        assmt = get_assmt(trace)
+        choices = get_choices(trace)
         @test get_args(trace) == (xs[1:2], ys[1:2])
-        @test assmt[1 => :z] == z1
-        @test assmt[2 => :z] == z2_new
+        @test choices[1 => :z] == z1
+        @test choices[2 => :z] == z2_new
         @test discard[2 => :z] == z2
         expected_score = (logpdf(normal, z1, 4., 1.)
             + logpdf(normal, z2_new, 6., 1.))
@@ -171,13 +171,13 @@
         xs_new = copy(xs)
         xs_new[1] = -1. # change from 1 to -1
         argdiff = MapCustomArgDiff(Dict(1 => unknownargdiff))
-        constraints = DynamicAssignment()
+        constraints = choicemap()
         (trace, weight, retdiff, discard) = update(trace,
             (xs_new[1:2], ys[1:2]), argdiff, constraints)
-        assmt = get_assmt(trace)
+        choices = get_choices(trace)
         @test get_args(trace) == (xs_new[1:2], ys[1:2])
-        @test assmt[1 => :z] == z1
-        @test assmt[2 => :z] == z2
+        @test choices[1 => :z] == z1
+        @test choices[2 => :z] == z2
         @test isempty(discard)
         expected_score = (logpdf(normal, z1, 2., 1.)
             + logpdf(normal, z2, 6., 1.))
@@ -197,7 +197,7 @@
         z1, z2 = 1.1, 2.2
 
         function get_initial_trace()
-            constraints = DynamicAssignment()
+            constraints = choicemap()
             constraints[1 => :z] = z1
             constraints[2 => :z] = z2
             (trace, _) = generate(bar, (xs[1:2], ys[1:2]), constraints)
@@ -209,11 +209,11 @@
         selection = select(2 => :z)
         (trace, weight, retdiff) = regenerate(trace,
             (xs[1:3], ys[1:3]), unknownargdiff, selection)
-        assmt = get_assmt(trace)
+        choices = get_choices(trace)
         @test get_args(trace) == (xs[1:3], ys[1:3])
-        @test assmt[1 => :z] == z1
-        z2_new = assmt[2 => :z]
-        z3_new = assmt[3 => :z]
+        @test choices[1 => :z] == z1
+        z2_new = choices[2 => :z]
+        z3_new = choices[3 => :z]
         score = get_score(trace)
         @test isapprox(score, (logpdf(normal, z1, 4., 1.)
             + logpdf(normal, z2_new, 6., 1.)
@@ -225,11 +225,11 @@
         selection = select(1 => :z)
         (trace, weight, retdiff) = regenerate(trace,
             (xs[1:1], ys[1:1]), unknownargdiff, selection)
-        assmt = get_assmt(trace)
+        choices = get_choices(trace)
         @test get_args(trace) == (xs[1:1], ys[1:1])
-        @test !has_value(assmt, 2 => :z)
-        @test !has_value(assmt, 3 => :z)
-        z1_new = assmt[1 => :z]
+        @test !has_value(choices, 2 => :z)
+        @test !has_value(choices, 3 => :z)
+        z1_new = choices[1 => :z]
         @test isapprox(get_score(trace), logpdf(normal, z1_new, 4., 1.))
         @test isapprox(weight, 0.)
 
@@ -238,10 +238,10 @@
         selection = EmptyAddressSet()
         (trace, weight, retdiff) = regenerate(trace,
             (xs[1:2], ys[1:2]), noargdiff, selection)
-        assmt = get_assmt(trace)
+        choices = get_choices(trace)
         @test get_args(trace) == (xs[1:2], ys[1:2])
-        @test assmt[1 => :z] == z1
-        @test assmt[2 => :z] == z2
+        @test choices[1 => :z] == z1
+        @test choices[2 => :z] == z2
         expected_score = (logpdf(normal, z1, 4., 1.)
             + logpdf(normal, z2, 6., 1.))
         @test isapprox(get_score(trace), expected_score)
@@ -258,10 +258,10 @@
         selection = select(2 => :z)
         (trace, weight, retdiff) = regenerate(trace,
             (xs[1:2], ys[1:2]), noargdiff, selection)
-        assmt = get_assmt(trace)
+        choices = get_choices(trace)
         @test get_args(trace) == (xs[1:2], ys[1:2])
-        @test assmt[1 => :z] == z1
-        z2_new = assmt[2 => :z]
+        @test choices[1 => :z] == z1
+        z2_new = choices[2 => :z]
         expected_score = (logpdf(normal, z1, 4., 1.)
             + logpdf(normal, z2_new, 6., 1.))
         @test isapprox(get_score(trace), expected_score)
@@ -283,10 +283,10 @@
         selection = EmptyAddressSet()
         (trace, weight, retdiff) = regenerate(trace,
             (xs_new[1:2], ys[1:2]), argdiff, selection)
-        assmt = get_assmt(trace)
+        choices = get_choices(trace)
         @test get_args(trace) == (xs_new[1:2], ys[1:2])
-        @test assmt[1 => :z] == z1
-        @test assmt[2 => :z] == z2
+        @test choices[1 => :z] == z1
+        @test choices[2 => :z] == z2
         expected_score = (logpdf(normal, z1, 2., 1.)
             + logpdf(normal, z2, 6., 1.))
         @test isapprox(get_score(trace), expected_score)
@@ -305,7 +305,7 @@
         z1, z2 = 1.1, 2.2
 
         function get_initial_trace()
-            constraints = DynamicAssignment()
+            constraints = choicemap()
             constraints[1 => :z] = z1
             constraints[2 => :z] = z2
             (trace, _) = generate(bar, (xs[1:2], ys[1:2]), constraints)
@@ -316,16 +316,16 @@
         # be generated from prior
         trace = get_initial_trace()
         z4 = 4.4
-        constraints = DynamicAssignment()
+        constraints = choicemap()
         constraints[4 => :z] = z4
         (trace, weight, retdiff) = extend(trace,
             (xs[1:4], ys[1:4]), unknownargdiff, constraints)
-        assmt = get_assmt(trace)
+        choices = get_choices(trace)
         @test get_args(trace) == (xs[1:4], ys[1:4])
-        @test assmt[1 => :z] == z1
-        @test assmt[2 => :z] == z2
-        @test assmt[4 => :z] == z4
-        z3 = assmt[3 => :z]
+        @test choices[1 => :z] == z1
+        @test choices[2 => :z] == z2
+        @test choices[4 => :z] == z4
+        z3 = choices[3 => :z]
         score = get_score(trace)
         expected_score = (logpdf(normal, z1, 4., 1.)
             + logpdf(normal, z2, 6., 1.)
@@ -337,11 +337,11 @@
         # noargdiff, change nothing
         trace = get_initial_trace()
         (trace, weight, retdiff) = extend(trace,
-            (xs[1:2], ys[1:2]), noargdiff, EmptyAssignment())
-        assmt = get_assmt(trace)
+            (xs[1:2], ys[1:2]), noargdiff, EmptyChoiceMap())
+        choices = get_choices(trace)
         @test get_args(trace) == (xs[1:2], ys[1:2])
-        @test assmt[1 => :z] == z1
-        @test assmt[2 => :z] == z2
+        @test choices[1 => :z] == z1
+        @test choices[2 => :z] == z2
         expected_score = (logpdf(normal, z1, 4., 1.)
             + logpdf(normal, z2, 6., 1.))
         @test isapprox(get_score(trace), expected_score)
@@ -359,11 +359,11 @@
         xs_new[1] = -1. # change from 1 to -1
         argdiff = MapCustomArgDiff(Dict(1 => unknownargdiff))
         (trace, weight, retdiff) = extend(trace,
-            (xs_new[1:2], ys[1:2]), argdiff, EmptyAssignment())
-        assmt = get_assmt(trace)
+            (xs_new[1:2], ys[1:2]), argdiff, EmptyChoiceMap())
+        choices = get_choices(trace)
         @test get_args(trace) == (xs_new[1:2], ys[1:2])
-        @test assmt[1 => :z] == z1
-        @test assmt[2 => :z] == z2
+        @test choices[1 => :z] == z1
+        @test choices[2 => :z] == z2
         expected_score = (logpdf(normal, z1, 2., 1.)
             + logpdf(normal, z2, 6., 1.))
         @test isapprox(get_score(trace), expected_score)
@@ -384,7 +384,7 @@
         ys = [3.0, 4.0]
 
         function get_initial_trace()
-            constraints = DynamicAssignment()
+            constraints = choicemap()
             constraints[1 => :z] = z1
             constraints[2 => :z] = z2
             (trace, _) = generate(bar, (xs, ys), constraints)
@@ -400,13 +400,13 @@
         # get gradients wrt xs and ys, and wrt address '2 => :z'
         trace = get_initial_trace()
         selection = select(2 => :z)
-        (input_grads, value_assmt, gradient_assmt) = choice_gradients(trace, selection, retval_grad)
+        (input_grads, choices, gradients) = choice_gradients(trace, selection, retval_grad)
         @test isapprox(input_grads[1], expected_xs_grad)
         @test isapprox(input_grads[2], expected_ys_grad)
-        @test !has_value(value_assmt, 1 => :z)
-        @test value_assmt[2 => :z] == z2
-        @test !has_value(gradient_assmt, 1 => :z)
-        @test isapprox(gradient_assmt[2 => :z], expected_z2_grad)
+        @test !has_value(choices, 1 => :z)
+        @test choices[2 => :z] == z2
+        @test !has_value(gradients, 1 => :z)
+        @test isapprox(gradients[2 => :z], expected_z2_grad)
     end
 
     @testset "accumulate_param_gradients!" begin
@@ -415,7 +415,7 @@
         ys = [3.0, 4.0]
 
         function get_initial_trace()
-            constraints = DynamicAssignment()
+            constraints = choicemap()
             constraints[1 => :z] = z1
             constraints[2 => :z] = z2
             (trace, _) = generate(bar, (xs, ys), constraints)

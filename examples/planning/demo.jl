@@ -58,7 +58,7 @@ end
 function inference(measurements::Vector{Point}, start::Point, iters::Int)
     t = length(measurements)
 
-    constraints = DynamicAssignment()
+    constraints = choicemap()
     for (i, pt) in enumerate(measurements)
         constraints[i => :x] = pt.x
         constraints[i => :y] = pt.y
@@ -81,7 +81,7 @@ function experiment()
 
     # generate simulated ground truth
     Random.seed!(0)
-    constraints = DynamicAssignment()
+    constraints = choicemap()
     constraints[:start_x] = 0.1
     constraints[:start_y] = 0.1
     constraints[:stop_x] = 0.5
@@ -94,7 +94,7 @@ function experiment()
     render(scene, trace, ax)
     savefig("ground_truth.png")
 
-    assignment = get_assmt(trace)
+    assignment = get_choices(trace)
     measurements = [Point(assignment[i => :x], assignment[i => :y]) for i=1:length(times)]
     start = Point(assignment[:start_x], assignment[:start_y])
 

@@ -43,8 +43,8 @@ function process_retained!(gen_fn::Unfold{T,U}, params::Tuple,
     state.subtraces = assoc(state.subtraces, key, subtrace)
     new_state = get_retval(subtrace)
     state.retval = assoc(state.retval, key, new_state)
-    subtrace_empty = isempty(get_assmt(subtrace))
-    prev_subtrace_empty = isempty(get_assmt(prev_subtrace))
+    subtrace_empty = isempty(get_choices(subtrace))
+    prev_subtrace_empty = isempty(get_choices(prev_subtrace))
     if !subtrace_empty && prev_subtrace_empty
         state.num_nonempty += 1
     elseif subtrace_empty && !prev_subtrace_empty
@@ -67,7 +67,7 @@ function process_new!(gen_fn::Unfold{T,U}, params::Tuple, selection::AddressSet,
     kernel_args = (key, prev_state, params...)
 
     # get subtrace and weight
-    (subtrace, weight) = generate(gen_fn.kernel, kernel_args, EmptyAssignment())
+    (subtrace, weight) = generate(gen_fn.kernel, kernel_args, EmptyChoiceMap())
 
     # update state
     state.weight += weight
@@ -77,7 +77,7 @@ function process_new!(gen_fn::Unfold{T,U}, params::Tuple, selection::AddressSet,
     state.subtraces = push(state.subtraces, subtrace)
     state.retval = push(state.retval, new_state)
     @assert length(state.subtraces) == key
-    if !isempty(get_assmt(subtrace))
+    if !isempty(get_choices(subtrace))
         state.num_nonempty += 1
     end
 end

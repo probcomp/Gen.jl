@@ -52,8 +52,8 @@ function add_call!(trace::DynamicDSLTrace, addr, subtrace)
     score = get_score(subtrace)
     noise = project(subtrace, EmptyAddressSet())
     call = CallRecord(subtrace, score, noise)
-    subassmt = get_assmt(subtrace)
-    trace.isempty = trace.isempty && isempty(subassmt)
+    submap = get_choices(subtrace)
+    trace.isempty = trace.isempty && isempty(submap)
     trace.calls[addr] = call
     trace.score += score
     trace.noise += noise
@@ -65,54 +65,54 @@ get_retval(trace::DynamicDSLTrace) = trace.retval
 get_score(trace::DynamicDSLTrace) = trace.score
 get_gen_fn(trace::DynamicDSLTrace) = trace.gen_fn
 
-struct DynamicDSLTraceAssignment <: Assignment
+struct DynamicDSLTraceChoiceMap <: ChoiceMap
     trace::DynamicDSLTrace
-    function DynamicDSLTraceAssignment(trace::DynamicDSLTrace)
+    function DynamicDSLTraceChoiceMap(trace::DynamicDSLTrace)
         @assert !trace.isempty
         new(trace) 
     end
 end
 
-function get_assmt(trace::DynamicDSLTrace)
+function get_choices(trace::DynamicDSLTrace)
     if !trace.isempty
-        DynamicDSLTraceAssignment(trace)
+        DynamicDSLTraceChoiceMap(trace)
     else
-        EmptyAssignment()
+        EmptyChoiceMap()
     end
 end
 
-get_address_schema(::Type{DynamicDSLTraceAssignment}) = DynamicAddressSchema()
-Base.isempty(::DynamicDSLTraceAssignment) = false
+get_address_schema(::Type{DynamicDSLTraceChoiceMap}) = DynamicAddressSchema()
+Base.isempty(::DynamicDSLTraceChoiceMap) = false
 
-function _get_subassmt(calls::Trie, addr::Pair)
+function _get_submap(calls::Trie, addr::Pair)
     (first, rest) = addr
     if haskey(calls, first)
-        get_subassmt(get_assmt(calls[first].subtrace), rest)
+        get_submap(get_choices(calls[first].subtrace), rest)
     elseif has_internal_node(calls, first)
         subcalls = get_internal_node(calls, first)
-        _get_subassmt(subcalls, rest)
+        _get_submap(subcalls, rest)
     else
         throw(KeyError(addr))
     end
 end
 
-function get_subassmt(assmt::DynamicDSLTraceAssignment, addr::Pair)
-    _get_subassmt(assmt.trace.calls, addr)
+function get_submap(choices::DynamicDSLTraceChoiceMap, addr::Pair)
+    _get_submap(choices.trace.calls, addr)
 end
 
-function get_subassmt(assmt::DynamicDSLTraceAssignment, addr)
-    if haskey(assmt.trace.calls, addr)
-        call = assmt.trace.calls[addr]
-        get_assmt(call.subtrace)
+function get_submap(choices::DynamicDSLTraceChoiceMap, addr)
+    if haskey(choices.trace.calls, addr)
+        call = choices.trace.calls[addr]
+        get_choices(call.subtrace)
     else
-        EmptyAssignment()
+        EmptyChoiceMap()
     end
 end
 
 function _has_value(calls::Trie, addr::Pair)
     (first, rest) = addr
     if haskey(calls, first)
-        has_value(get_assmt(calls[first].subtrace), rest)
+        has_value(get_choices(calls[first].subtrace), rest)
     elseif has_internal_node(calls, first)
         subcalls = get_internal_node(calls, first)
         _has_value(subcalls, rest)
@@ -121,22 +121,22 @@ function _has_value(calls::Trie, addr::Pair)
     end
 end
 
-function has_value(assmt::DynamicDSLTraceAssignment, addr::Pair)
-    if haskey(assmt.trace.choices, addr)
+function has_value(choices::DynamicDSLTraceChoiceMap, addr::Pair)
+    if haskey(choices.trace.choices, addr)
         true
     else
-        _has_value(assmt.trace.calls, addr)
+        _has_value(choices.trace.calls, addr)
     end
 end
 
-function has_value(assmt::DynamicDSLTraceAssignment, addr)
-    haskey(assmt.trace.choices, addr)
+function has_value(choices::DynamicDSLTraceChoiceMap, addr)
+    haskey(choices.trace.choices, addr)
 end
 
 function _get_value(calls::Trie, addr::Pair)
     (first, rest) = addr
     if haskey(calls, first)
-        get_value(get_assmt(calls[first].subtrace), rest)
+        get_value(get_choices(calls[first].subtrace), rest)
     elseif has_internal_node(calls, first)
         subcalls = get_internal_node(calls, first)
         _get_value(subcalls, rest)
@@ -145,61 +145,61 @@ function _get_value(calls::Trie, addr::Pair)
     end
 end
 
-function get_value(assmt::DynamicDSLTraceAssignment, addr::Pair)
-    if haskey(assmt.trace.choices, addr)
-        assmt.trace.choices[addr].retval
+function get_value(choices::DynamicDSLTraceChoiceMap, addr::Pair)
+    if haskey(choices.trace.choices, addr)
+        choices.trace.choices[addr].retval
     else
-        _get_value(assmt.trace.calls, addr)
+        _get_value(choices.trace.calls, addr)
     end
 end
 
-function get_value(assmt::DynamicDSLTraceAssignment, addr)
-    assmt.trace.choices[addr].retval
+function get_value(choices::DynamicDSLTraceChoiceMap, addr)
+    choices.trace.choices[addr].retval
 end
 
-function get_values_shallow(assmt::DynamicDSLTraceAssignment)
+function get_values_shallow(choices::DynamicDSLTraceChoiceMap)
     ((key, choice.retval)
-     for (key, choice) in get_leaf_nodes(assmt.trace.choices))
+     for (key, choice) in get_leaf_nodes(choices.trace.choices))
 end
 
-function get_subassmts_shallow(assmt::DynamicDSLTraceAssignment)
-    calls_iter = ((key, get_assmt(call.subtrace))
-        for (key, call) in get_leaf_nodes(assmt.trace.calls))
+function get_submaps_shallow(choices::DynamicDSLTraceChoiceMap)
+    calls_iter = ((key, get_choices(call.subtrace))
+        for (key, call) in get_leaf_nodes(choices.trace.calls))
     choices_iter = ((key, DynamicDSLChoicesAssmt(trie))
-        for (key, trie) in get_internal_nodes(assmt.trace.choices))
+        for (key, trie) in get_internal_nodes(choices.trace.choices))
     Iterators.flatten((calls_iter, choices_iter))
 end
 
-# Assignment wrapper that exposes sub-tries of the choices trie
+# ChoiceMap wrapper that exposes sub-tries of the choices trie
 
-struct DynamicDSLChoicesAssmt <: Assignment
+struct DynamicDSLChoicesAssmt <: ChoiceMap
     choices::Trie{Any,ChoiceRecord}
 end
 
 get_address_schema(::Type{DynamicDSLChoicesAssmt}) = DynamicAddressSchema()
 Base.isempty(::DynamicDSLChoicesAssmt) = false
-has_value(assmt::DynamicDSLChoicesAssmt, addr::Pair) = _has_value(assmt, addr)
-get_value(assmt::DynamicDSLChoicesAssmt, addr::Pair) = _get_value(assmt, addr)
-get_subassmt(assmt::DynamicDSLChoicesAssmt, addr::Pair) = _get_subassmt(assmt, addr)
+has_value(choices::DynamicDSLChoicesAssmt, addr::Pair) = _has_value(choices, addr)
+get_value(choices::DynamicDSLChoicesAssmt, addr::Pair) = _get_value(choices, addr)
+get_submap(choices::DynamicDSLChoicesAssmt, addr::Pair) = _get_submap(choices, addr)
 
-function get_subassmt(assmt::DynamicDSLChoicesAssmt, addr)
-    DynamicDSLChoicesAssmt(get_internal_node(assmt.choices, addr))
+function get_submap(choices::DynamicDSLChoicesAssmt, addr)
+    DynamicDSLChoicesAssmt(get_internal_node(choices.choices, addr))
 end
 
-function get_value(assmt::DynamicDSLChoicesAssmt, addr)
-    assmt.choices[addr].retval
+function get_value(choices::DynamicDSLChoicesAssmt, addr)
+    choices.choices[addr].retval
 end
 
-function has_value(assmt::DynamicDSLChoicesAssmt, addr)
-    haskey(assmt.choices, addr)
+function has_value(choices::DynamicDSLChoicesAssmt, addr)
+    haskey(choices.choices, addr)
 end
 
-function get_subassmts_shallow(assmt::DynamicDSLChoicesAssmt)
+function get_submaps_shallow(choices::DynamicDSLChoicesAssmt)
     ((key, DynamicDSLChoicesAssmt(trie))
-     for (key, trie) in get_internal_nodes(assmt.choices))
+     for (key, trie) in get_internal_nodes(choices.choices))
 end
 
-function get_values_shallow(assmt::DynamicDSLChoicesAssmt)
+function get_values_shallow(choices::DynamicDSLChoicesAssmt)
     ((key, choice.retval)
-     for (key, choice) in get_leaf_nodes(assmt.choices))
+     for (key, choice) in get_leaf_nodes(choices.choices))
 end

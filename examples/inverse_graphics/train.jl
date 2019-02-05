@@ -20,7 +20,7 @@ const num_train = 100 #10000
 function generate_training_data()
     traces = Vector{Any}(num_train)
     for i=1:num_train
-        traces[i] = get_assmt(simulate(model, ()))
+        traces[i] = get_choices(simulate(model, ()))
         if i % 100 == 0
             println("$i of $num_train")
         end

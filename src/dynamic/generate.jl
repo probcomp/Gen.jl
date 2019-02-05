@@ -1,6 +1,6 @@
 mutable struct GFGenerateState
     trace::DynamicDSLTrace
-    constraints::Assignment
+    constraints::ChoiceMap
     weight::Float64
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
@@ -20,7 +20,7 @@ function addr(state::GFGenerateState, dist::Distribution{T},
 
     # check for constraints at this key
     constrained = has_value(state.constraints, key)
-    !constrained && check_no_subassmt(state.constraints, key)
+    !constrained && check_no_submap(state.constraints, key)
 
     # get return value
     if constrained
@@ -52,7 +52,7 @@ function addr(state::GFGenerateState, gen_fn::GenerativeFunction{T,U},
     visit!(state.visitor, key)
 
     # check for constraints at this key
-    constraints = get_subassmt(state.constraints, key)
+    constraints = get_submap(state.constraints, key)
 
     # get subtrace
     (subtrace, weight) = generate(gen_fn, args, constraints)
@@ -79,7 +79,7 @@ function splice(state::GFGenerateState, gen_fn::DynamicDSLFunction,
 end
 
 function generate(gen_fn::DynamicDSLFunction, args::Tuple,
-                    constraints::Assignment)
+                    constraints::ChoiceMap)
     state = GFGenerateState(gen_fn, args, constraints, gen_fn.params)
     retval = exec(gen_fn, state, args) 
     set_retval!(state.trace, retval)

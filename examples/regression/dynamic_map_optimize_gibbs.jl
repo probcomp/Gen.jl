@@ -6,7 +6,7 @@ include("dataset.jl")
 
 @gen function gibbs_proposal(prev, i::Int)
     prev_args = get_args(prev)
-    constraints = DynamicAssignment()
+    constraints = choicemap()
     constraints[:data => i => :z] = false
     (_, weight1) = update(prev, prev_args, noargdiff, constraints)
     constraints[:data => i => :z] = true
@@ -19,7 +19,7 @@ slope_intercept_selection = select(:slope, :intercept)
 std_selection = select(:log_inlier_std, :log_outlier_std)
 
 function do_inference(xs, ys, num_iters)
-    observations = DynamicAssignment()
+    observations = choicemap()
     for (i, y) in enumerate(ys)
         observations[:data => i => :y] = y
     end
@@ -43,7 +43,7 @@ function do_inference(xs, ys, num_iters)
         scores[i] = score
     
         # print
-        assignment = get_assmt(trace)
+        assignment = get_choices(trace)
         slope = assignment[:slope]
         intercept = assignment[:intercept]
         inlier_std = exp(assignment[:log_inlier_std])

@@ -5,7 +5,7 @@ mutable struct GFUpdateState
     weight::Float64
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
-    discard::DynamicAssignment
+    discard::DynamicChoiceMap
     argdiff::Any
     retdiff::Any
     choicediffs::Trie{Any,Any}
@@ -15,7 +15,7 @@ end
 function GFUpdateState(gen_fn, args, argdiff, prev_trace,
                             constraints, params)
     visitor = AddressVisitor()
-    discard = DynamicAssignment()
+    discard = choicemap()
     GFUpdateState(prev_trace, DynamicDSLTrace(gen_fn, args), constraints,
         0., visitor, params, discard, argdiff, DefaultRetDiff(),
         Trie{Any,Any}(), Trie{Any,Any}())
@@ -39,7 +39,7 @@ function addr(state::GFUpdateState, dist::Distribution{T},
 
     # check for constraints at this key
     constrained = has_value(state.constraints, key)
-    !constrained && check_no_subassmt(state.constraints, key)
+    !constrained && check_no_submap(state.constraints, key)
 
     # record the previous value as discarded if it is replaced
     if constrained && has_previous
@@ -92,7 +92,7 @@ function addr(state::GFUpdateState, gen_fn::GenerativeFunction{T,U},
 
     # check for constraints at this key
     check_no_value(state.constraints, key)
-    constraints = get_subassmt(state.constraints, key)
+    constraints = get_submap(state.constraints, key)
 
     # get subtrace
     has_previous = has_call(state.prev_trace, key)
@@ -111,7 +111,7 @@ function addr(state::GFUpdateState, gen_fn::GenerativeFunction{T,U},
 
     # update discard
     if has_previous
-        set_subassmt!(state.discard, key, discard)
+        set_submap!(state.discard, key, discard)
     end
 
     # update calldiffs
@@ -205,37 +205,37 @@ function update_delete_recurse(prev_calls::Trie{Any,CallRecord},
     score
 end
 
-function add_unvisited_to_discard!(discard::DynamicAssignment,
+function add_unvisited_to_discard!(discard::DynamicChoiceMap,
                                    visited::DynamicAddressSet,
-                                   prev_assmt::Assignment)
-    for (key, value) in get_values_shallow(prev_assmt)
+                                   prev_choices::ChoiceMap)
+    for (key, value) in get_values_shallow(prev_choices)
         if !has_leaf_node(visited, key)
             @assert !has_value(discard, key)
-            @assert isempty(get_subassmt(discard, key))
+            @assert isempty(get_submap(discard, key))
             set_value!(discard, key, value)
         end
     end
-    for (key, subassmt) in get_subassmts_shallow(prev_assmt)
+    for (key, submap) in get_submaps_shallow(prev_choices)
         @assert !has_value(discard, key)
         if has_leaf_node(visited, key)
             # the recursive call to update already handled the discard
-            # for this entire subassmt
+            # for this entire submap
             continue
         elseif has_internal_node(visited, key)
             subvisited = get_internal_node(visited, key)
-            subdiscard = get_subassmt(discard, key)
-            add_unvisited_to_discard!(isempty(subdiscard) ? DynamicAssignment() : subdiscard, subvisited, subassmt)
-            set_subassmt!(discard, key, subdiscard)
+            subdiscard = get_submap(discard, key)
+            add_unvisited_to_discard!(isempty(subdiscard) ? choicemap() : subdiscard, subvisited, submap)
+            set_submap!(discard, key, subdiscard)
         else
-            # none of this subassmt was visited, so we discard the whole thing
-            @assert isempty(get_subassmt(discard, key))
-            set_subassmt!(discard, key, subassmt)
+            # none of this submap was visited, so we discard the whole thing
+            @assert isempty(get_submap(discard, key))
+            set_submap!(discard, key, submap)
         end
     end
 end
 
 function update(trace::DynamicDSLTrace, args::Tuple, argdiff,
-                constraints::Assignment)
+                constraints::ChoiceMap)
     gen_fn = trace.gen_fn
     state = GFUpdateState(gen_fn, args, argdiff, trace,
         constraints, gen_fn.params)
@@ -244,7 +244,7 @@ function update(trace::DynamicDSLTrace, args::Tuple, argdiff,
     visited = get_visited(state.visitor)
     state.weight -= update_delete_recurse(trace.choices, visited)
     state.weight -= update_delete_recurse(trace.calls, visited)
-    add_unvisited_to_discard!(state.discard, visited, get_assmt(trace))
+    add_unvisited_to_discard!(state.discard, visited, get_choices(trace))
     if !all_visited(visited, constraints)
         error("Did not visit all constraints")
     end
