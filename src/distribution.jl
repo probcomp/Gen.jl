@@ -138,7 +138,7 @@ function logpdf(::MultivariateNormal, x::AbstractVector{T}, mu::AbstractVector{U
     Distributions.logpdf(dist, x)
 end
 
-function logpdf_grad(::Normal, x::AbstractVector{T}, mu::AbstractVector{U},
+function logpdf_grad(::MultivariateNormal, x::AbstractVector{T}, mu::AbstractVector{U},
                 cov::AbstractMatrix{V}) where {T,U,V}
     dist = Distributions.MvNormal(mu, cov)
     x_deriv = Distributions.gradlogpdf(dist, x)
