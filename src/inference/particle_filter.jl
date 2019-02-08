@@ -71,19 +71,19 @@ end
 
 """
     state = initialize_particle_filter(model::GenerativeFunction, model_args::Tuple,
-        observations::Assignment proposal::GenerativeFunction, proposal_args::Tuple,
+        observations::ChoiceMap proposal::GenerativeFunction, proposal_args::Tuple,
         num_particles::Int)
 
 Initialize the state of a particle filter using a custom proposal for the initial latent state.
 """
 function initialize_particle_filter(model::GenerativeFunction{T,U}, model_args::Tuple,
-        observations::Assignment, proposal::GenerativeFunction, proposal_args::Tuple,
+        observations::ChoiceMap, proposal::GenerativeFunction, proposal_args::Tuple,
         num_particles::Int) where {T,U}
     traces = Vector{Any}(undef, num_particles)
     log_weights = Vector{Float64}(undef, num_particles)
     for i=1:num_particles
-        (prop_choices, prop_weight, _) = Gen.propose(proposal, proposal_args)
-        (traces[i], model_weight) = Gen.initialize(model, model_args, merge(observations, prop_choices))
+        (prop_choices, prop_weight, _) = propose(proposal, proposal_args)
+        (traces[i], model_weight) = generate(model, model_args, merge(observations, prop_choices))
         log_weights[i] = model_weight - prop_weight
     end
     ParticleFilterState{U}(traces, Vector{U}(undef, num_particles),
@@ -92,16 +92,16 @@ end
 
 """
     state = initialize_particle_filter(model::GenerativeFunction, model_args::Tuple,
-        observations::Assignment, num_particles::Int)
+        observations::ChoiceMap, num_particles::Int)
 
 Initialize the state of a particle filter, using the default proposal for the initial latent state.
 """
 function initialize_particle_filter(model::GenerativeFunction{T,U}, model_args::Tuple,
-        observations::Assignment, num_particles::Int) where {T,U}
+        observations::ChoiceMap, num_particles::Int) where {T,U}
     traces = Vector{Any}(undef, num_particles)
     log_weights = Vector{Float64}(undef, num_particles)
     for i=1:num_particles
-        (traces[i], log_weights[i]) = Gen.initialize(model, model_args, observations)
+        (traces[i], log_weights[i]) = generate(model, model_args, observations)
     end
     ParticleFilterState{U}(traces, Vector{U}(undef, num_particles),
         log_weights, 0., collect(1:num_particles))
@@ -109,17 +109,17 @@ end
 
 """
     particle_filter_step!(state::ParticleFilterState, new_args::Tuple, argdiff,
-        observations::Assignment, proposal::GenerativeFunction, proposal_args::Tuple)
+        observations::ChoiceMap, proposal::GenerativeFunction, proposal_args::Tuple)
 
 Perform a particle filter update, where the model arguments are adjusted, new observations are added, and a custom proposal is used for new latent state.
 """
 function particle_filter_step!(state::ParticleFilterState{U}, new_args::Tuple, argdiff,
-        observations::Assignment, proposal::GenerativeFunction, proposal_args::Tuple) where {U}
+        observations::ChoiceMap, proposal::GenerativeFunction, proposal_args::Tuple) where {U}
     num_particles = length(state.traces)
     for i=1:num_particles
-        (prop_choices, prop_weight, _) = Gen.propose(proposal, (state.traces[i], proposal_args...))
+        (prop_choices, prop_weight, _) = propose(proposal, (state.traces[i], proposal_args...))
         constraints = merge(observations, prop_choices)
-        (state.new_traces[i], up_weight, disc, _) = Gen.force_update(new_args, argdiff, state.traces[i], constraints)
+        (state.new_traces[i], up_weight, _, disc) = update(state.traces[i], new_args, argdiff, constraints)
         @assert isempty(disc)
         state.log_weights[i] += up_weight - prop_weight
     end
@@ -134,16 +134,16 @@ end
 
 """
     particle_filter_step!(state::ParticleFilterState, new_args::Tuple, argdiff,
-        observations::Assignment)
+        observations::ChoiceMap)
 
 Perform a particle filter update, where the model arguments are adjusted, new observations are added, and the default proposal is used for new latent state.
 """
 function particle_filter_step!(state::ParticleFilterState{U}, new_args::Tuple, argdiff,
-        observations::Assignment) where {U}
+        observations::ChoiceMap) where {U}
     num_particles = length(state.traces)
     for i=1:num_particles
-        (state.new_traces[i], increment, _) = Gen.extend(
-            new_args, argdiff, state.traces[i], observations)
+        (state.new_traces[i], increment, _) = extend(
+            state.traces[i], new_args, argdiff, observations)
         state.log_weights[i] += increment
     end
     

@@ -6,8 +6,8 @@ include("static_model.jl")
 include("dataset.jl")
 
 @gen (static) function is_outlier_proposal(prev, i::Int)
-    prev_z::Bool = get_assmt(prev)[:data => i => :z]
-    @addr(bernoulli(prev_z ? 0.0 : 1.0), :data => i => :z)
+    prev_z::Bool = get_choices(prev)[:data => i => :z]
+    @trace(bernoulli(prev_z ? 0.0 : 1.0), :data => i => :z)
 end
 
 Gen.load_generated_functions()
@@ -17,7 +17,7 @@ std_selection = StaticAddressSet(select(:log_inlier_std, :log_outlier_std))
 
 function do_inference(xs, ys, num_iters)
 
-    observations = DynamicAssignment()
+    observations = choicemap()
     for (i, y) in enumerate(ys)
         observations[:data => i => :y] = y
     end
@@ -25,7 +25,7 @@ function do_inference(xs, ys, num_iters)
     observations[:log_outlier_std] = 0.
     
     # initial trace
-    (trace, _) = initialize(model, (xs,), observations)
+    (trace, _) = generate(model, (xs,), observations)
     
     scores = Vector{Float64}(undef, num_iters)
     for i=1:num_iters
@@ -41,7 +41,7 @@ function do_inference(xs, ys, num_iters)
         scores[i] = score
     
         # print
-        assignment = get_assmt(trace)
+        assignment = get_choices(trace)
         slope = assignment[:slope]
         intercept = assignment[:intercept]
         inlier_std = exp(assignment[:log_inlier_std])

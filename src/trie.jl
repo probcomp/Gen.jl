@@ -2,7 +2,7 @@
 # Trie #
 ##################
 
-struct Trie{K,V} <: Assignment
+struct Trie{K,V} <: ChoiceMap
     leaf_nodes::Dict{K,V}
     internal_nodes::Dict{K,Trie{K,V}}
 end

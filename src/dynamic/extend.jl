@@ -19,7 +19,7 @@ function GFExtendState(gen_fn, args, argdiff, prev_trace,
         Trie{Any,Any}(), Trie{Any,Any}())
 end
 
-function addr(state::GFExtendState, dist::Distribution{T},
+function traceat(state::GFExtendState, dist::Distribution{T},
               args, key) where {T}
     local prev_retval::T
     local retval::T
@@ -37,7 +37,7 @@ function addr(state::GFExtendState, dist::Distribution{T},
 
     # check for constraints at this key
     constrained = has_value(state.constraints, key)
-    !constrained && check_no_subassmt(state.constraints, key)
+    !constrained && check_no_submap(state.constraints, key)
     if has_previous && constrained
         error("Extend attempted to change value of random choice at $key")
     end
@@ -74,11 +74,11 @@ function addr(state::GFExtendState, dist::Distribution{T},
     retval 
 end
 
-function addr(state::GFExtendState, gen_fn::GenerativeFunction, args, key)
-    addr(state, gen_fn, args, key, UnknownArgDiff())
+function traceat(state::GFExtendState, gen_fn::GenerativeFunction, args, key)
+    traceat(state, gen_fn, args, key, UnknownArgDiff())
 end
 
-function addr(state::GFExtendState, gen_fn::GenerativeFunction{T,U},
+function traceat(state::GFExtendState, gen_fn::GenerativeFunction{T,U},
               args, key, argdiff) where {T,U}
     local prev_trace::U
     local trace::U
@@ -89,7 +89,7 @@ function addr(state::GFExtendState, gen_fn::GenerativeFunction{T,U},
 
     # check for constraints at this key
     check_no_value(state.constraints, key)
-    constraints = get_subassmt(state.constraints, key)
+    constraints = get_submap(state.constraints, key)
 
     # get subtrace
     has_previous = has_call(state.prev_trace, key)
@@ -97,10 +97,10 @@ function addr(state::GFExtendState, gen_fn::GenerativeFunction{T,U},
         prev_call = get_call(state.prev_trace, key)
         prev_subtrace = prev_call.subtrace
         get_gen_fn(prev_subtrace) === gen_fn || gen_fn_changed_error(key)
-        (subtrace, weight, retdiff) = extend(args, argdiff,
-            prev_subtrace, constraints)
+        (subtrace, weight, retdiff) = extend(prev_subtrace,
+            args, argdiff, constraints)
     else
-        (subtrace, weight) = initialize(gen_fn, args, constraints)
+        (subtrace, weight) = generate(gen_fn, args, constraints)
     end
 
     # update weight
@@ -135,8 +135,9 @@ function splice(state::GFExtendState, gen_fn::DynamicDSLFunction,
     retval
 end
 
-function extend(args::Tuple, argdiff, trace::DynamicDSLTrace,
-                constraints::Assignment)
+function extend(trace::DynamicDSLTrace,
+                args::Tuple, argdiff,
+                constraints::ChoiceMap)
     gen_fn = trace.gen_fn
     state = GFExtendState(gen_fn, args, argdiff, trace,
         constraints, gen_fn.params)

@@ -6,20 +6,20 @@ using PyPlot
 @gen function model(scene::Scene, times::Vector{Float64})
 
     # start point of the agent
-    start_x = @addr(uniform(0, 1), :start_x)
-    start_y = @addr(uniform(0, 1), :start_y)
+    start_x = @trace(uniform(0, 1), :start_x)
+    start_y = @trace(uniform(0, 1), :start_y)
     start = Point(start_x, start_y)
 
     # goal point of the agent
-    stop_x = @addr(uniform(0, 1), :stop_x)
-    stop_y = @addr(uniform(0, 1), :stop_y)
+    stop_x = @trace(uniform(0, 1), :stop_x)
+    stop_y = @trace(uniform(0, 1), :stop_y)
     stop = Point(stop_x, stop_y)
 
     # plan a path that avoids obstacles in the scene
     maybe_path = plan_path(start, stop, scene, PlannerParams(300, 3.0, 2000, 1.))
     
     # speed
-    speed = @addr(uniform(0, 1), :speed)
+    speed = @trace(uniform(0, 1), :speed)
 
     # walk path at constant speed
     if !isnull(maybe_path)
@@ -30,10 +30,10 @@ using PyPlot
     end
 
     # generate noisy observations
-    noise = 0.1 * @addr(uniform(0, 1), :noise)
+    noise = 0.1 * @trace(uniform(0, 1), :noise)
     for (i, point) in enumerate(locations)
-        @addr(normal(point.x, noise), i => :x)
-        @addr(normal(point.y, noise), i => :y)
+        @trace(normal(point.x, noise), i => :x)
+        @trace(normal(point.y, noise), i => :y)
     end
 
     (start, stop, speed, noise, maybe_path, locations)
@@ -45,7 +45,7 @@ function render(scene::Scene, trace, ax;
                 show_path=true, show_noise=true,
                 start_alpha=1., stop_alpha=1., path_alpha=1.)
     (start, stop, speed, noise, maybe_path, locations) = get_call_record(trace).retval
-    assignment = get_assmt(trace)
+    assignment = get_choices(trace)
     render(scene, ax)
     sca(ax)
     if show_start

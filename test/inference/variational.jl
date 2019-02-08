@@ -3,8 +3,8 @@
     Random.seed!(1)
 
     @gen function model()
-        slope = @addr(normal(-1, exp(0.5)), :slope)
-        intercept = @addr(normal(1, exp(2.0)), :intercept)
+        slope = @trace(normal(-1, exp(0.5)), :slope)
+        intercept = @trace(normal(1, exp(2.0)), :intercept)
     end
 
     @gen function approx()
@@ -12,15 +12,15 @@
         @param slope_log_std::Float64
         @param intercept_mu::Float64
         @param intercept_log_std::Float64
-        @addr(normal(slope_mu, exp(slope_log_std)), :slope)
-        @addr(normal(intercept_mu, exp(intercept_log_std)), :intercept)
+        @trace(normal(slope_mu, exp(slope_log_std)), :slope)
+        @trace(normal(intercept_mu, exp(intercept_log_std)), :intercept)
     end
     init_param!(approx, :slope_mu, 0.)
     init_param!(approx, :slope_log_std, 0.)
     init_param!(approx, :intercept_mu, 0.)
     init_param!(approx, :intercept_log_std, 0.)
 
-    observations = DynamicAssignment()
+    observations = choicemap()
     update = ParamUpdate(GradientDescent(0.001, 100000), approx)
     black_box_vi!(model, (), observations, approx, (), update;
         iters=500, samples_per_iter=1000, verbose=false)

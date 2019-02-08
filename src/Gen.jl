@@ -14,10 +14,10 @@ module Gen
     # addresses and address selections
     include("address.jl")
 
-    # abstract and built-in concrete assignment data types
-    include("assignment.jl")
+    # abstract and built-in concrete choice map data types
+    include("choice_map.jl")
 
-    # a homogeneous trie data type (not for use as assignment)
+    # a homogeneous trie data type (not for use as choice map)
     include("trie.jl")
 
     # generative function interface

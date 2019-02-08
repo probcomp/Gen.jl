@@ -13,23 +13,23 @@ get_retval(trace::ChoiceAtTrace) = trace.value
 get_score(trace::ChoiceAtTrace) = trace.score
 get_gen_fn(trace::ChoiceAtTrace) = trace.gen_fn
 
-struct ChoiceAtAssignment{T,K} <: Assignment
+struct ChoiceAtChoiceMap{T,K} <: ChoiceMap
     key::K
     value::T
 end
 
-get_assmt(trace::ChoiceAtTrace) = ChoiceAtAssignment(trace.key, trace.value)
-Base.isempty(::ChoiceAtAssignment) = false
-function get_address_schema(::Type{T}) where {T<:ChoiceAtAssignment}
+get_choices(trace::ChoiceAtTrace) = ChoiceAtChoiceMap(trace.key, trace.value)
+Base.isempty(::ChoiceAtChoiceMap) = false
+function get_address_schema(::Type{T}) where {T<:ChoiceAtChoiceMap}
     SingleDynamicKeyAddressSchema()
 end
-get_value(assmt::ChoiceAtAssignment, addr::Pair) = _get_value(assmt, addr)
-has_value(assmt::ChoiceAtAssignment, addr::Pair) = _has_value(assmt, addr)
-function get_value(assmt::ChoiceAtAssignment{T,K}, addr::K) where {T,K}
-    assmt.key == addr ? assmt.value : throw(KeyError(assmt, addr))
+get_value(choices::ChoiceAtChoiceMap, addr::Pair) = _get_value(choices, addr)
+has_value(choices::ChoiceAtChoiceMap, addr::Pair) = _has_value(choices, addr)
+function get_value(choices::ChoiceAtChoiceMap{T,K}, addr::K) where {T,K}
+    choices.key == addr ? choices.value : throw(KeyError(choices, addr))
 end
-get_subassmts_shallow(assmt::ChoiceAtAssignment) = ()
-get_values_shallow(assmt::ChoiceAtAssignment) = ((assmt.key, assmt.value),)
+get_submaps_shallow(choices::ChoiceAtChoiceMap) = ()
+get_values_shallow(choices::ChoiceAtChoiceMap) = ((choices.key, choices.value),)
 
 struct ChoiceAtCombinator{T,K} <: GenerativeFunction{T, ChoiceAtTrace}
     dist::Distribution{T}
@@ -48,12 +48,12 @@ function choice_at(dist::Distribution{T}, ::Type{K}) where {T,K}
     ChoiceAtCombinator{T,K}(dist)
 end
 
-function assess(gen_fn::ChoiceAtCombinator{T,K}, args::Tuple, assmt::Assignment) where {T,K}
+function assess(gen_fn::ChoiceAtCombinator{T,K}, args::Tuple, choices::ChoiceMap) where {T,K}
     local key::K
     local value::T
     key = args[end]
     kernel_args = args[1:end-1]
-    value = get_value(assmt, key)
+    value = get_value(choices, key)
     weight = logpdf(gen_fn.dist, value, kernel_args...)
     (weight, value)
 end
@@ -65,17 +65,17 @@ function propose(gen_fn::ChoiceAtCombinator{T,K}, args::Tuple) where {T,K}
     kernel_args = args[1:end-1]
     value = random(gen_fn.dist, kernel_args...)
     score = logpdf(gen_fn.dist, value, kernel_args...)
-    assmt = ChoiceAtAssignment(key, value)
-    (assmt, score, value)
+    choices = ChoiceAtChoiceMap(key, value)
+    (choices, score, value)
 end
 
-function initialize(gen_fn::ChoiceAtCombinator{T,K}, args::Tuple, assmt::Assignment) where {T,K}
+function generate(gen_fn::ChoiceAtCombinator{T,K}, args::Tuple, choices::ChoiceMap) where {T,K}
     local key::K
     local value::T
     key = args[end]
     kernel_args = args[1:end-1]
-    constrained = has_value(assmt, key)
-    value = constrained ? get_value(assmt, key) : random(gen_fn.dist, kernel_args...)
+    constrained = has_value(choices, key)
+    value = constrained ? get_value(choices, key) : random(gen_fn.dist, kernel_args...)
     score = logpdf(gen_fn.dist, value, kernel_args...)
     trace = ChoiceAtTrace(gen_fn, value, key, kernel_args, score)
     weight = constrained ? score : 0.
@@ -86,62 +86,32 @@ function project(trace::ChoiceAtTrace, selection::AddressSet)
     has_leaf_node(selection, trace.key) ? trace.score : 0.
 end
 
-function force_update(args::Tuple, argdiff, trace::ChoiceAtTrace,
-                      assmt::Assignment)
+function update(trace::ChoiceAtTrace, args::Tuple, argdiff,
+                choices::ChoiceMap)
     key = args[end]
     kernel_args = args[1:end-1]
     key_changed = (key != trace.key)
-    constrained = has_value(assmt, key)
+    constrained = has_value(choices, key)
     if key_changed && constrained
-        new_value = get_value(assmt, key)
-        discard = ChoiceAtAssignment(trace.key, trace.value)
+        new_value = get_value(choices, key)
+        discard = ChoiceAtChoiceMap(trace.key, trace.value)
     elseif !key_changed && constrained
-        new_value = get_value(assmt, key)
-        discard = ChoiceAtAssignment(key, trace.value)
+        new_value = get_value(choices, key)
+        discard = ChoiceAtChoiceMap(key, trace.value)
     elseif !key_changed && !constrained
         new_value = trace.value
-        discard = EmptyAssignment()
+        discard = EmptyChoiceMap()
     else
-        error("New address $key not constrained in force_update")
+        error("New address $key not constrained in update")
     end
     new_score = logpdf(trace.gen_fn.dist, new_value, kernel_args...)
     new_trace = ChoiceAtTrace(trace.gen_fn, new_value, key, kernel_args, new_score)
     weight = new_score - trace.score
-    (new_trace, weight, discard, DefaultRetDiff())
+    (new_trace, weight, DefaultRetDiff(), discard)
 end
 
-function fix_update(args::Tuple, argdiff, trace::ChoiceAtTrace,
-                    assmt::Assignment)
-    key = args[end]
-    kernel_args = args[1:end-1]
-    key_changed = (key != trace.key)
-    constrained = has_value(assmt, key)
-    if !key_changed && constrained 
-        new_value = get_value(assmt, key)
-    elseif !key_changed && !constrained
-        new_value = trace.value
-    elseif key_changed && !constrained
-        new_value = random(trace.gen_fn.dist, kernel_args...)
-    else
-        error("Cannot constrain new address $key in fix_update")
-    end
-    new_score = logpdf(trace.gen_fn.dist, new_value, kernel_args...)
-    if !key_changed && constrained 
-        weight = new_score - trace.score
-        discard = ChoiceAtAssignment(key, trace.value)
-    elseif !key_changed && !constrained
-        weight = new_score - trace.score
-        discard = EmptyAssignment()
-    elseif key_changed && !constrained
-        weight = 0.
-        discard = EmptyAssignment()
-    end
-    new_trace = ChoiceAtTrace(trace.gen_fn, new_value, key, kernel_args, new_score)
-    (new_trace, weight, discard, DefaultRetDiff())
-end
-
-function free_update(args::Tuple, argdiff, trace::ChoiceAtTrace,
-                     selection::AddressSet)
+function regenerate(trace::ChoiceAtTrace, args::Tuple, argdiff,
+                    selection::AddressSet)
     key = args[end]
     kernel_args = args[1:end-1]
     key_changed = (key != trace.key)
@@ -153,7 +123,7 @@ function free_update(args::Tuple, argdiff, trace::ChoiceAtTrace,
     elseif key_changed && !selected
         new_value = random(trace.gen_fn.dist, kernel_args...)
     else
-        error("Cannot select new address $key in free_update")
+        error("Cannot select new address $key in regenerate")
     end
     new_score = logpdf(trace.gen_fn.dist, new_value, kernel_args...)
     if !key_changed && selected 
@@ -167,20 +137,20 @@ function free_update(args::Tuple, argdiff, trace::ChoiceAtTrace,
     (new_trace, weight, DefaultRetDiff())
 end
 
-function extend(args::Tuple, argdiff, trace::ChoiceAtTrace,
-                assmt::Assignment)
+function extend(trace::ChoiceAtTrace, args::Tuple, argdiff,
+                choices::ChoiceMap)
     key = args[end]
     kernel_args = args[1:end-1]
     key_changed = (key != trace.key)
     if key_changed
         error("Cannot remove address $(trace.key) in extend")
     end
-    constrained = has_value(assmt, key)
+    constrained = has_value(choices, key)
     if constrained
         error("Cannot change value of address $key in extend")
     end
-    if (length(collect(get_values_shallow(assmt))) > 0 ||
-        length(collect(get_subassmts_shallow(assmt))) > 0)
+    if (length(collect(get_values_shallow(choices))) > 0 ||
+        length(collect(get_submaps_shallow(choices))) > 0)
         error("Cannot constrain addresses that do not exist")
     end
     new_score = logpdf(trace.gen_fn.dist, trace.value, kernel_args...)
@@ -189,7 +159,7 @@ function extend(args::Tuple, argdiff, trace::ChoiceAtTrace,
     (new_trace, weight, DefaultRetDiff())
 end
 
-function backprop_trace(trace::ChoiceAtTrace, selection::AddressSet, retval_grad)
+function choice_gradients(trace::ChoiceAtTrace, selection::AddressSet, retval_grad)
     if retval_grad == nothing && accepts_output_grad(trace.gen_fn)
         error("return value gradient required but not provided")
     elseif retval_grad != nothing && !accepts_output_grad(trace.gen_fn)
@@ -197,7 +167,7 @@ function backprop_trace(trace::ChoiceAtTrace, selection::AddressSet, retval_grad
     end
     kernel_arg_grads = logpdf_grad(trace.gen_fn.dist, trace.value, trace.kernel_args...)
     if has_leaf_node(selection, trace.key)
-        value_assmt = ChoiceAtAssignment(trace.key, trace.value)
+        value_choices = ChoiceAtChoiceMap(trace.key, trace.value)
         choice_grad = kernel_arg_grads[1]
         if choice_grad == nothing
             error("gradient not available for selected choice")
@@ -205,16 +175,16 @@ function backprop_trace(trace::ChoiceAtTrace, selection::AddressSet, retval_grad
         if retval_grad != nothing
             choice_grad += retval_grad
         end
-        gradient_assmt = ChoiceAtAssignment(trace.key, choice_grad)
+        gradient_choices = ChoiceAtChoiceMap(trace.key, choice_grad)
     else
-        value_assmt = EmptyAssignment()
-        gradient_assmt = EmptyAssignment()
+        value_choices = EmptyChoiceMap()
+        gradient_choices = EmptyChoiceMap()
     end
     input_grads = (kernel_arg_grads[2:end]..., nothing)
-    (input_grads, value_assmt, gradient_assmt)
+    (input_grads, value_choices, gradient_choices)
 end
 
-function backprop_params(trace::ChoiceAtTrace, retval_grad)
+function accumulate_param_gradients!(trace::ChoiceAtTrace, retval_grad)
     if retval_grad == nothing && accepts_output_grad(trace.gen_fn)
         error("return value gradient required but not provided")
     elseif retval_grad != nothing && !accepts_output_grad(trace.gen_fn)

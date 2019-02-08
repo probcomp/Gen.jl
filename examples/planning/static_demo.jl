@@ -30,22 +30,22 @@ const scene = make_scene()
 const times = collect(range(0, stop=1, length=20))
 
 @gen (static) function stop_proposal(prev_trace::Any)
-    @addr(uniform(0, 1), :stop_x)
-    @addr(uniform(0, 1), :stop_y)
+    @trace(uniform(0, 1), :stop_x)
+    @trace(uniform(0, 1), :stop_y)
 end
 
 @gen (static) function speed_proposal(prev_trace::Any)
-    @addr(uniform(0, 1), :speed)
+    @trace(uniform(0, 1), :speed)
 end
 
 @gen (static) function noise_proposal(prev_trace::Any)
-    @addr(uniform(0, 0.1), :noise)
+    @trace(uniform(0, 0.1), :noise)
 end
 
 function inference(measurements::Vector{Point}, start::Point, iters::Int)
     t = length(measurements)
 
-    constraints = DynamicAssignment()
+    constraints = choicemap()
     for (i, pt) in enumerate(measurements)
         constraints[:measurements => i => :x] = pt.x
         constraints[:measurements => i => :y] = pt.y
@@ -53,7 +53,7 @@ function inference(measurements::Vector{Point}, start::Point, iters::Int)
     constraints[:start_x] = start.x
     constraints[:start_y] = start.y
 
-    (trace, _) = initialize(model, (scene, times[1:t]), constraints)
+    (trace, _) = generate(model, (scene, times[1:t]), constraints)
 
     for iter=1:iters
         (trace, _) = metropolis_hastings(trace, stop_proposal, ())
@@ -68,20 +68,20 @@ function experiment()
 
     # generate simulated ground truth
     Random.seed!(0)
-    constraints = DynamicAssignment()
+    constraints = choicemap()
     constraints[:start_x] = 0.1
     constraints[:start_y] = 0.1
     constraints[:stop_x] = 0.5
     constraints[:stop_y] = 0.5
     constraints[:noise] = 0.01
-    (trace, _) = initialize(model, (scene, times), constraints)
+    (trace, _) = generate(model, (scene, times), constraints)
 
     figure(figsize=(4, 4))
     ax = gca()
     render(scene, trace, ax)
     savefig("ground_truth.png")
 
-    assignment = get_assmt(trace)
+    assignment = get_choices(trace)
     measurements = [Point(
         assignment[:measurements => i => :x],
         assignment[:measurements => i => :y]) for i=1:length(times)]

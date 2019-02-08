@@ -33,7 +33,7 @@ end
 accepts_output_grad(gen_fn::DynamicDSLFunction) = gen_fn.accepts_output_grad
 
 function (g::DynamicDSLFunction)(args...)
-    (trace, _) = initialize(g, args, EmptyAssignment())
+    (trace, _) = generate(g, args, EmptyChoiceMap())
     get_retval(trace)
 end
 
@@ -49,13 +49,31 @@ end
 # it returns 'nothing' for those arguemnts that don't have a derivatice
 has_argument_grads(gen::DynamicDSLFunction) = gen.has_argument_grads
 
-macro addr(expr::Expr, addr, addrdiff)
+macro trace(expr::Expr, addr)
     if expr.head != :call
-        error("syntax error in $DYNAMIC_DSL_ADDR at $(expr)")
+        error("syntax error in @trace at $(expr)")
     end
     fn = esc(expr.args[1])
     args = map(esc, expr.args[2:end])
-    Expr(:call, :addr, esc(state), fn, Expr(:tuple, args...), esc(addr), esc(addrdiff))
+    Expr(:call, :traceat, esc(state), fn, Expr(:tuple, args...), esc(addr))
+end
+
+macro trace(expr::Expr, addr, addrdiff)
+    if expr.head != :call
+        error("syntax error in @trace at $(expr)")
+    end
+    fn = esc(expr.args[1])
+    args = map(esc, expr.args[2:end])
+    Expr(:call, :traceat, esc(state), fn, Expr(:tuple, args...), esc(addr), esc(addrdiff))
+end
+
+macro trace(expr::Expr)
+    if expr.head != :call
+        error("syntax error in @trace at $(expr)")
+    end
+    invocation = expr.args[1]
+    args = esc(Expr(:tuple, expr.args[2:end]...))
+    Expr(:call, :splice, esc(state), esc(invocation), args)
 end
 
 function address_not_found_error_msg(addr)
@@ -130,7 +148,7 @@ end
 
 Initialize the the value of a named trainable parameter of a generative function.
 
-Also initializes the gradient accumulator for that parameter to `zero(value)`.
+Also generates the gradient accumulator for that parameter to `zero(value)`.
 
 Example:
 ```julia
@@ -183,40 +201,40 @@ function visit!(visitor::AddressVisitor, addr)
     push!(visitor.visited, addr)
 end
 
-function all_visited(visited::AddressSet, assmt::Assignment)
+function all_visited(visited::AddressSet, choices::ChoiceMap)
     allvisited = true
-    for (key, _) in get_values_shallow(assmt)
+    for (key, _) in get_values_shallow(choices)
         allvisited = allvisited && has_leaf_node(visited, key)
     end
-    for (key, subassmt) in get_subassmts_shallow(assmt)
+    for (key, submap) in get_submaps_shallow(choices)
         if !has_leaf_node(visited, key)
             if has_internal_node(visited, key)
                 subvisited = get_internal_node(visited, key)
             else
                 subvisited = EmptyAddressSet()
             end
-            allvisited = allvisited && all_visited(subvisited, subassmt)
+            allvisited = allvisited && all_visited(subvisited, submap)
         end
     end
     allvisited
 end
 
-function get_unvisited(visited::AddressSet, assmt::Assignment)
-    unvisited = DynamicAssignment()
-    for (key, _) in get_values_shallow(assmt)
+function get_unvisited(visited::AddressSet, choices::ChoiceMap)
+    unvisited = choicemap()
+    for (key, _) in get_values_shallow(choices)
         if !has_leaf_node(visited, key)
-            set_value!(unvisited, key, get_value(assmt, key))
+            set_value!(unvisited, key, get_value(choices, key))
         end
     end
-    for (key, subassmt) in get_subassmts_shallow(assmt)
+    for (key, submap) in get_submaps_shallow(choices)
         if !has_leaf_node(visited, key)
             if has_internal_node(visited, key)
                 subvisited = get_internal_node(visited, key)
             else
                 subvisited = EmptyAddressSet()
             end
-            sub_unvisited = get_unvisited(subvisited, subassmt)
-            set_subassmt!(unvisited, key, sub_unvisited)
+            sub_unvisited = get_unvisited(subvisited, submap)
+            set_submap!(unvisited, key, sub_unvisited)
         end
     end
     unvisited
@@ -224,13 +242,13 @@ end
 
 get_visited(visitor) = visitor.visited
 
-function check_no_subassmt(constraints::Assignment, addr)
-    if !isempty(get_subassmt(constraints, addr))
+function check_no_submap(constraints::ChoiceMap, addr)
+    if !isempty(get_submap(constraints, addr))
         error("Expected a value at address $addr but found a sub-assignment")
     end
 end
 
-function check_no_value(constraints::Assignment, addr)
+function check_no_value(constraints::ChoiceMap, addr)
     if has_value(constraints, addr)
         error("Expected a sub-assignment at address $addr but found a value")
     end
@@ -245,13 +263,12 @@ function gen_fn_changed_error(addr)
 end
 
 include("diff.jl")
-include("initialize.jl")
+include("generate.jl")
 include("propose.jl")
 include("assess.jl")
 include("project.jl")
-include("force_update.jl")
-include("fix_update.jl")
-include("free_update.jl")
+include("update.jl")
+include("regenerate.jl")
 include("extend.jl")
 include("backprop.jl")
 include("optimization.jl")
@@ -259,7 +276,7 @@ include("optimization.jl")
 export DynamicDSLFunction
 export set_param!, get_param, get_param_grad, zero_param_grad!, init_param!
 export @param
-export @addr
+export @trace
 export @gen
 export @choicediff
 export @calldiff

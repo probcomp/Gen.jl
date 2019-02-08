@@ -12,7 +12,7 @@ function mala(trace, selection::AddressSet, tau::Real)
     retval_grad = accepts_output_grad(get_gen_fn(trace)) ? zero(get_retval(trace)) : nothing
 
     # forward proposal
-    (_, values_trie, gradient_trie) = backprop_trace(trace, selection, retval_grad)
+    (_, values_trie, gradient_trie) = choice_gradients(trace, selection, retval_grad)
     values = to_array(values_trie, Float64)
     gradient = to_array(gradient_trie, Float64)
     forward_mu = values + tau * gradient
@@ -25,11 +25,11 @@ function mala(trace, selection::AddressSet, tau::Real)
 
     # evaluate model weight
     constraints = from_array(values_trie, proposed_values)
-    (new_trace, weight, discard) = force_update(
-        model_args, noargdiff, trace, constraints)
+    (new_trace, weight, _, discard) = update(trace,
+        model_args, noargdiff, constraints)
 
     # backward proposal
-    (_, _, backward_gradient_trie) = backprop_trace(new_trace, selection, retval_grad)
+    (_, _, backward_gradient_trie) = choice_gradients(new_trace, selection, retval_grad)
     backward_gradient = to_array(backward_gradient_trie, Float64)
     @assert length(backward_gradient) == length(values)
     backward_score = 0.

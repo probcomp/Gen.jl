@@ -12,7 +12,7 @@ There are various kinds of generative functions, which are represented by concre
 For example, the [Built-in Modeling Language](@ref) allows generative functions to be constructed using Julia function definition syntax:
 ```julia
 @gen function foo(a, b)
-    if @addr(bernoulli(0.5), :z)
+    if @trace(bernoulli(0.5), :z)
         return a + b + 1
     else
         return a + b
@@ -34,10 +34,10 @@ We represent the randomness used during an execution of a generative function as
 In this section, we assume that random choices are discrete to simplify notation.
 We say that two random choice maps ``t`` and ``s`` **agree** if they assign the same value for any address that is in both of their domains.
 
-Generative functions may also use **non-addressed randomness**, which is not included in the map ``t``.
-However, the state of non-addressed random choices *is* maintained by the trace internally.
-We denote non-addressed randomness by ``r``.
-Non-addressed randomness is useful for example, when calling black box Julia code that implements a randomized algorithm.
+Generative functions may also use **untraced randomness**, which is not included in the map ``t``.
+However, the state of untraced random choices *is* maintained by the trace internally.
+We denote untraced randomness by ``r``.
+Untraced randomness is useful for example, when calling black box Julia code that implements a randomized algorithm.
 
 The observable behavior of every generative function is defined by the following mathematical objects:
 
@@ -45,7 +45,7 @@ The observable behavior of every generative function is defined by the following
 The set of valid argument tuples to the function, denoted ``X``.
 
 ### 2. Probability distribution family
-A family of probability distributions ``p(t, r; x)`` on maps ``t`` from random choice addresses to their values, and non-addressed randomness ``r``, indexed by arguments ``x``, for all ``x \in X``.
+A family of probability distributions ``p(t, r; x)`` on maps ``t`` from random choice addresses to their values, and untraced randomness ``r``, indexed by arguments ``x``, for all ``x \in X``.
 Note that the distribution must be normalized:
 ```math
 \sum_{t, r} p(t, r; x) = 1 \;\; \mbox{for all} \;\; x \in X
@@ -55,14 +55,14 @@ We use ``p(t; x)`` to denote the marginal distribution on the map ``t``:
 ```math
 p(t; x) := \sum_{r} p(t, r; x)
 ```
-And we denote the conditional distribution on non-addressed randomness ``r``, given the map ``t``, as:
+And we denote the conditional distribution on untraced randomness ``r``, given the map ``t``, as:
 ```math
 p(r; x, t) := p(t, r; x) / p(t; x)
 ```
 
 ### 3. Return value function
 A (deterministic) function ``f`` that maps the tuple ``(x, t)`` of the arguments and the random choice map to the return value of the function (which we denote by ``y``).
-Note that the return value cannot depend on the non-addressed randomness.
+Note that the return value cannot depend on the untraced randomness.
 
 ### 4. Internal proposal distribution family
 A family of probability distributions ``q(t; x, u)`` on maps ``t`` from random choice addresses to their values, indexed by tuples ``(x, u)`` where ``u`` is a map from random choice addresses to values, and where ``x`` are the arguments to the function.
@@ -76,7 +76,7 @@ p(t; x) > 0 \mbox{ if and only if } q(t; x, u) > 0 \mbox{ for all } u \mbox{ whe
 ```math
 q(t; x, u) > 0 \mbox{ implies that } u \mbox{ and } t \mbox{ agree }.
 ```
-There is also a family of probability distributions ``q(r; x, t)`` on non-addressed randomness, that satisfies:
+There is also a family of probability distributions ``q(r; x, t)`` on untraced randomness, that satisfies:
 ```math
 q(r; x, t) > 0 \mbox{ if and only if } p(r; x, t) > 0
 ```
@@ -107,7 +107,7 @@ get_retval
 
 The map ``t`` from addresses of random choices to their values:
 ```@docs
-get_assmt
+get_choices
 ```
 
 The log probability that the random choices took the values they did:
@@ -128,13 +128,13 @@ There are several methods that take a trace of a generative function as input an
 We will illustrate these methods using the following generative function:
 ```julia
 @gen function foo()
-    val = @addr(bernoulli(0.3), :a)
-    if @addr(bernoulli(0.4), :b)
-        val = @addr(bernoulli(0.6), :c) && val
+    val = @trace(bernoulli(0.3), :a)
+    if @trace(bernoulli(0.4), :b)
+        val = @trace(bernoulli(0.6), :c) && val
     else
-        val = @addr(bernoulli(0.1), :d) && val
+        val = @trace(bernoulli(0.1), :d) && val
     end
-    val = @addr(bernoulli(0.7), :e) && val
+    val = @trace(bernoulli(0.7), :e) && val
     return val
 end
 ```
@@ -151,11 +151,11 @@ Suppose we have a trace (`trace`) with initial choices:
 ```
 Note that address `:d` is not present because the branch in which `:d` is sampled was not taken because random choice `:b` had value `true`.
 
-### Force Update
+### Update
 ```@docs
-force_update
+update
 ```
-Suppose we run [`force_update`](@ref) on the example `trace`, with the following constraints:
+Suppose we run [`update`](@ref) on the example `trace`, with the following constraints:
 ```
 │
 ├── :b : false
@@ -163,10 +163,10 @@ Suppose we run [`force_update`](@ref) on the example `trace`, with the following
 └── :d : true
 ```
 ```julia
-constraints = DynamicAssignment((:b, false), (:d, true))
-(new_trace, w, discard, _) = force_update((), noargdiff, trace, constraints)
+constraints = choicemap((:b, false), (:d, true))
+(new_trace, w, _, discard) = update(trace, (), noargdiff, constraints)
 ```
-Then `get_assmt(new_trace)` will be:
+Then `get_choices(new_trace)` will be:
 ```
 │
 ├── :a : false
@@ -192,20 +192,20 @@ p(t; x') = 0.7 × 0.6 × 0.1 × 0.7 = 0.0294\\
 w = \log p(t'; x')/p(t; x) = \log 0.0294/0.0784 = \log 0.375
 ```
 
-### Free Update
+### Regenerate
 ```@docs
-free_update
+regenerate
 ```
-Suppose we run [`free_update`](@ref) on the example `trace`, with selection `:a` and `:b`:
+Suppose we run [`regenerate`](@ref) on the example `trace`, with selection `:a` and `:b`:
 ```julia
-(new_trace, w, _) = free_update((), noargdiff, trace, select(:a, :b))
+(new_trace, w, _) = regenerate(trace, (), noargdiff, select(:a, :b))
 ```
 Then, a new value for `:a` will be sampled from `bernoulli(0.3)`, and a new value for `:b` will be sampled from `bernoulli(0.4)`.
 If the new value for `:b` is `true`, then the previous value for `:c` (`false`) will be retained.
 If the new value for `:b` is `false`, then a new value for `:d` will be sampled from `bernoulli(0.7)`.
 The previous value for `:c` will always be retained.
 Suppose the new value for `:a` is `true`, and the new value for `:b` is `true`.
-Then `get_assmt(new_trace)` will be:
+Then `get_choices(new_trace)` will be:
 ```
 │
 ├── :a : true
@@ -219,9 +219,9 @@ Then `get_assmt(new_trace)` will be:
 The weight (`w`) is ``\log 1 = 0``.
 
 
-### Extend
+### Extend update
 ```@docs
-extend
+extend_update
 ```
 
 ### Argdiffs
@@ -270,8 +270,8 @@ This static property of the generative function is reported by `accepts_output_g
 ```@docs
 has_argument_grads
 accepts_output_grad
-backprop_params
-backprop_trace
+accumulate_param_gradients!
+choice_gradients
 get_params
 ```
 
@@ -320,7 +320,7 @@ Then, the argument tuple passed to e.g. [`initialize`](@ref) will have two eleme
 NOTE: Be careful to distinguish between arguments to the generative function itself, and arguments to the constructor of the generative function.
 For example, if you have a generative function type that is parametrized by, for example, modeling DSL code, this DSL code would be a parameter of the generative function constructor.
 
-### Decide what the addressed random choices (if any) will be
+### Decide what the traced random choices (if any) will be
 Remember that each random choice is assigned a unique address in (possibly) hierarchical address space.
 You are free to design this address space as you wish, although you should document it for users of your generative function type.
 
@@ -328,11 +328,11 @@ You are free to design this address space as you wish, although you should docum
 
 - At minimum, you need to implement all methods under the [`Traces`](@ref) heading (e.g. [`initialize`](@ref), ..)
 
-- To support [`metropolis_hastings`](@ref) or local optimization, or local iterative adjustments to traces, be sure to implement the [`force_update`](@ref) and [`free_update](@ref) methods.
+- To support [`metropolis_hastings`](@ref) or local optimization, or local iterative adjustments to traces, be sure to implement the [`update`](@ref) and [`regenerate`](@ref) methods.
 
-- To support gradients of the log probability density with respect to the arguments and/or random choices made by the function, implement the [`backprop_trace`](@ref) method.
+- To support gradients of the log probability density with respect to the arguments and/or random choices made by the function, implement the [`choice_gradients`](@ref) method.
 
-- Generative functions can also have trainable parameters (e.g. neural network weights). To support these, implement the [`backprop_params`](@ref) method.
+- Generative functions can also have trainable parameters (e.g. neural network weights). To support these, implement the [`accumulate_param_gradients!`](@ref) method.
 
 - To support use of your generative function in custom proposals (instead of just generative models), implement [`assess`](@ref) and [`propose`](@ref) methods.
 

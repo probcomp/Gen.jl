@@ -1,56 +1,56 @@
 @testset "static assignment to/from array" begin
-    subassmt = StaticAssignment((a=1., b=2.),NamedTuple())
-    outer = StaticAssignment((c=3.,), (d=subassmt, e=subassmt))
+    submap = StaticChoiceMap((a=1., b=2.),NamedTuple())
+    outer = StaticChoiceMap((c=3.,), (d=submap, e=submap))
     
     arr = to_array(outer, Float64)
     @test to_array(outer, Float64) == Float64[3.0, 1.0, 2.0, 1.0, 2.0]
     
-    assmt = from_array(outer, Float64[1, 2, 3, 4, 5])
-    @test assmt[:c] == 1.0
-    @test assmt[:d => :a] == 2.0
-    @test assmt[:d => :b] == 3.0
-    @test assmt[:e => :a] == 4.0
-    @test assmt[:e => :b] == 5.0
-    @test length(collect(get_subassmts_shallow(assmt))) == 2
-    @test length(collect(get_values_shallow(assmt))) == 1
-    subassmt1 = get_subassmt(assmt, :d)
-    @test length(collect(get_values_shallow(subassmt1))) == 2
-    @test length(collect(get_subassmts_shallow(subassmt1))) == 0
-    subassmt2 = get_subassmt(assmt, :e)
-    @test length(collect(get_values_shallow(subassmt2))) == 2
-    @test length(collect(get_subassmts_shallow(subassmt2))) == 0
+    choices = from_array(outer, Float64[1, 2, 3, 4, 5])
+    @test choices[:c] == 1.0
+    @test choices[:d => :a] == 2.0
+    @test choices[:d => :b] == 3.0
+    @test choices[:e => :a] == 4.0
+    @test choices[:e => :b] == 5.0
+    @test length(collect(get_submaps_shallow(choices))) == 2
+    @test length(collect(get_values_shallow(choices))) == 1
+    submap1 = get_submap(choices, :d)
+    @test length(collect(get_values_shallow(submap1))) == 2
+    @test length(collect(get_submaps_shallow(submap1))) == 0
+    submap2 = get_submap(choices, :e)
+    @test length(collect(get_values_shallow(submap2))) == 2
+    @test length(collect(get_submaps_shallow(submap2))) == 0
 end
 
 @testset "dynamic assignment to/from array" begin
-    outer = DynamicAssignment()
+    outer = choicemap()
     set_value!(outer, :c, 3.)
-    subassmt = DynamicAssignment()
-    set_value!(subassmt, :a, 1.)
-    set_value!(subassmt, :b, 2.)
-    set_subassmt!(outer, :d, subassmt)
-    set_subassmt!(outer, :e, subassmt)
+    submap = choicemap()
+    set_value!(submap, :a, 1.)
+    set_value!(submap, :b, 2.)
+    set_submap!(outer, :d, submap)
+    set_submap!(outer, :e, submap)
     
     arr = to_array(outer, Float64)
     @test to_array(outer, Float64) == Float64[3.0, 1.0, 2.0, 1.0, 2.0]
     
-    assmt = from_array(outer, Float64[1, 2, 3, 4, 5])
-    @test assmt[:c] == 1.0
-    @test assmt[:d => :a] == 2.0
-    @test assmt[:d => :b] == 3.0
-    @test assmt[:e => :a] == 4.0
-    @test assmt[:e => :b] == 5.0
-    @test length(collect(get_subassmts_shallow(assmt))) == 2
-    @test length(collect(get_values_shallow(assmt))) == 1
-    subassmt1 = get_subassmt(assmt, :d)
-    @test length(collect(get_values_shallow(subassmt1))) == 2
-    @test length(collect(get_subassmts_shallow(subassmt1))) == 0
-    subassmt2 = get_subassmt(assmt, :e)
-    @test length(collect(get_values_shallow(subassmt2))) == 2
-    @test length(collect(get_subassmts_shallow(subassmt2))) == 0
+    choices = from_array(outer, Float64[1, 2, 3, 4, 5])
+    @test choices[:c] == 1.0
+    @test choices[:d => :a] == 2.0
+    @test choices[:d => :b] == 3.0
+    @test choices[:e => :a] == 4.0
+    @test choices[:e => :b] == 5.0
+    @test length(collect(get_submaps_shallow(choices))) == 2
+    @test length(collect(get_values_shallow(choices))) == 1
+    submap1 = get_submap(choices, :d)
+    @test length(collect(get_values_shallow(submap1))) == 2
+    @test length(collect(get_submaps_shallow(submap1))) == 0
+    submap2 = get_submap(choices, :e)
+    @test length(collect(get_values_shallow(submap2))) == 2
+    @test length(collect(get_submaps_shallow(submap2))) == 0
 end
 
 @testset "internal vector assignment to/from array" begin
-    inner = DynamicAssignment()
+    inner = choicemap()
     set_value!(inner, :a, 1.)
     set_value!(inner, :b, 2.)
     outer = vectorize_internal([inner, inner, inner])
@@ -58,230 +58,230 @@ end
     arr = to_array(outer, Float64)
     @test to_array(outer, Float64) == Float64[1, 2, 1, 2, 1, 2]
 
-    assmt = from_array(outer, Float64[1, 2, 3, 4, 5, 6])
-    @test assmt[1 => :a] == 1.0
-    @test assmt[1 => :b] == 2.0
-    @test assmt[2 => :a] == 3.0
-    @test assmt[2 => :b] == 4.0
-    @test assmt[3 => :a] == 5.0
-    @test assmt[3 => :b] == 6.0
-    @test length(collect(get_subassmts_shallow(assmt))) == 3
+    choices = from_array(outer, Float64[1, 2, 3, 4, 5, 6])
+    @test choices[1 => :a] == 1.0
+    @test choices[1 => :b] == 2.0
+    @test choices[2 => :a] == 3.0
+    @test choices[2 => :b] == 4.0
+    @test choices[3 => :a] == 5.0
+    @test choices[3 => :b] == 6.0
+    @test length(collect(get_submaps_shallow(choices))) == 3
 end
 
 @testset "dynamic assignment merge" begin
-    subassmt = DynamicAssignment()
-    set_value!(subassmt, :x, 1)
-    assmt1 = DynamicAssignment()
-    set_value!(assmt1, :a, 1.)
-    set_value!(assmt1, :b, 2.)
-    set_subassmt!(assmt1, :c, subassmt)
-    set_subassmt!(assmt1, :shared, subassmt)
-    assmt2 = DynamicAssignment()
-    set_value!(assmt2, :d, 3.)
-    set_subassmt!(assmt2, :e, subassmt)
-    set_subassmt!(assmt2, :f, subassmt)
-    subassmt2 = DynamicAssignment()
-    set_value!(subassmt2, :y, 4.)
-    set_subassmt!(assmt2, :shared, subassmt2)
-    assmt = merge(assmt1, assmt2)
-    @test assmt[:a] == 1.
-    @test assmt[:b] == 2.
-    @test assmt[:d] == 3.
-    @test assmt[:c => :x] == 1
-    @test assmt[:e => :x] == 1
-    @test assmt[:f => :x] == 1
-    @test assmt[:shared => :x] == 1
-    @test assmt[:shared => :y] == 4.
-    @test length(collect(get_subassmts_shallow(assmt))) == 4
-    @test length(collect(get_values_shallow(assmt))) == 3
+    submap = choicemap()
+    set_value!(submap, :x, 1)
+    choices1 = choicemap()
+    set_value!(choices1, :a, 1.)
+    set_value!(choices1, :b, 2.)
+    set_submap!(choices1, :c, submap)
+    set_submap!(choices1, :shared, submap)
+    choices2 = choicemap()
+    set_value!(choices2, :d, 3.)
+    set_submap!(choices2, :e, submap)
+    set_submap!(choices2, :f, submap)
+    submap2 = choicemap()
+    set_value!(submap2, :y, 4.)
+    set_submap!(choices2, :shared, submap2)
+    choices = merge(choices1, choices2)
+    @test choices[:a] == 1.
+    @test choices[:b] == 2.
+    @test choices[:d] == 3.
+    @test choices[:c => :x] == 1
+    @test choices[:e => :x] == 1
+    @test choices[:f => :x] == 1
+    @test choices[:shared => :x] == 1
+    @test choices[:shared => :y] == 4.
+    @test length(collect(get_submaps_shallow(choices))) == 4
+    @test length(collect(get_values_shallow(choices))) == 3
 end
 
 @testset "static assignment merge" begin
-    subassmt = DynamicAssignment()
-    set_value!(subassmt, :x, 1)
-    subassmt2 = DynamicAssignment()
-    set_value!(subassmt2, :y, 4.)
-    assmt1 = StaticAssignment((a=1., b=2.), (c=subassmt, shared=subassmt))
-    assmt2 = StaticAssignment((d=3.,), (e=subassmt, f=subassmt, shared=subassmt2))
-    assmt = merge(assmt1, assmt2)
-    @test assmt[:a] == 1.
-    @test assmt[:b] == 2.
-    @test assmt[:d] == 3.
-    @test assmt[:c => :x] == 1
-    @test assmt[:e => :x] == 1
-    @test assmt[:f => :x] == 1
-    @test assmt[:shared => :x] == 1
-    @test assmt[:shared => :y] == 4.
-    @test length(collect(get_subassmts_shallow(assmt))) == 4
-    @test length(collect(get_values_shallow(assmt))) == 3
+    submap = choicemap()
+    set_value!(submap, :x, 1)
+    submap2 = choicemap()
+    set_value!(submap2, :y, 4.)
+    choices1 = StaticChoiceMap((a=1., b=2.), (c=submap, shared=submap))
+    choices2 = StaticChoiceMap((d=3.,), (e=submap, f=submap, shared=submap2))
+    choices = merge(choices1, choices2)
+    @test choices[:a] == 1.
+    @test choices[:b] == 2.
+    @test choices[:d] == 3.
+    @test choices[:c => :x] == 1
+    @test choices[:e => :x] == 1
+    @test choices[:f => :x] == 1
+    @test choices[:shared => :x] == 1
+    @test choices[:shared => :y] == 4.
+    @test length(collect(get_submaps_shallow(choices))) == 4
+    @test length(collect(get_values_shallow(choices))) == 3
 end
 
 @testset "static assignment errors" begin
 
-    # get_assmt on an address that contains a value throws a KeyError
-    assmt = StaticAssignment((x=1,), NamedTuple())
+    # get_choices on an address that contains a value throws a KeyError
+    choices = StaticChoiceMap((x=1,), NamedTuple())
     threw = false
-    try get_subassmt(assmt, :x) catch KeyError threw = true end
+    try get_submap(choices, :x) catch KeyError threw = true end
     @test threw
 
-    # static_get_subassmt on an address that contains a value throws a KeyError
-    assmt = StaticAssignment((x=1,), NamedTuple())
+    # static_get_submap on an address that contains a value throws a KeyError
+    choices = StaticChoiceMap((x=1,), NamedTuple())
     threw = false
-    try static_get_subassmt(assmt, Val(:x)) catch KeyError threw = true end
+    try static_get_submap(choices, Val(:x)) catch KeyError threw = true end
     @test threw
 
-    # get_assmt on an address whose prefix contains a value throws a KeyError
-    assmt = StaticAssignment((x=1,), NamedTuple())
+    # get_choices on an address whose prefix contains a value throws a KeyError
+    choices = StaticChoiceMap((x=1,), NamedTuple())
     threw = false
-    try get_subassmt(assmt, :x => :y) catch KeyError threw = true end
+    try get_submap(choices, :x => :y) catch KeyError threw = true end
     @test threw
 
-    # static_get_assmt on an address whose prefix contains a value throws a KeyError
-    assmt = StaticAssignment((x=1,), NamedTuple())
+    # static_get_choices on an address whose prefix contains a value throws a KeyError
+    choices = StaticChoiceMap((x=1,), NamedTuple())
     threw = false
-    try static_get_subassmt(assmt, Val(:x)) catch KeyError threw = true end
+    try static_get_submap(choices, Val(:x)) catch KeyError threw = true end
     @test threw
 
-    # get_assmt on an address that contains nothing gives empty assignment
-    assmt = StaticAssignment(NamedTuple(), NamedTuple())
-    @test isempty(get_subassmt(assmt, :x))
-    @test isempty(get_subassmt(assmt, :x => :y))
+    # get_choices on an address that contains nothing gives empty assignment
+    choices = StaticChoiceMap(NamedTuple(), NamedTuple())
+    @test isempty(get_submap(choices, :x))
+    @test isempty(get_submap(choices, :x => :y))
 
-    # static_get_assmt on an address that contains nothing throws a KeyError
-    assmt = StaticAssignment(NamedTuple(), NamedTuple())
+    # static_get_choices on an address that contains nothing throws a KeyError
+    choices = StaticChoiceMap(NamedTuple(), NamedTuple())
     threw = false
-    try static_get_subassmt(assmt, Val(:x)) catch KeyError threw = true end
+    try static_get_submap(choices, Val(:x)) catch KeyError threw = true end
     @test threw
 
-    # get_value on an address that contains a subassmt throws a KeyError
-    subassmt = DynamicAssignment()
-    subassmt[:y] = 1
-    assmt = StaticAssignment(NamedTuple(), (x=subassmt,))
+    # get_value on an address that contains a submap throws a KeyError
+    submap = choicemap()
+    submap[:y] = 1
+    choices = StaticChoiceMap(NamedTuple(), (x=submap,))
     threw = false
-    try get_value(assmt, :x) catch KeyError threw = true end
+    try get_value(choices, :x) catch KeyError threw = true end
     @test threw
 
-    # static_get_value on an address that contains a subassmt throws a KeyError
-    subassmt = DynamicAssignment()
-    subassmt[:y] = 1
-    assmt = StaticAssignment(NamedTuple(), (x=subassmt,))
+    # static_get_value on an address that contains a submap throws a KeyError
+    submap = choicemap()
+    submap[:y] = 1
+    choices = StaticChoiceMap(NamedTuple(), (x=submap,))
     threw = false
-    try static_get_value(assmt, Val(:x)) catch KeyError threw = true end
+    try static_get_value(choices, Val(:x)) catch KeyError threw = true end
     @test threw
 
     # get_value on an address that contains nothing throws a KeyError
-    assmt = StaticAssignment(NamedTuple(), NamedTuple())
+    choices = StaticChoiceMap(NamedTuple(), NamedTuple())
     threw = false
-    try get_value(assmt, :x) catch KeyError threw = true end
+    try get_value(choices, :x) catch KeyError threw = true end
     @test threw
     threw = false
-    try get_value(assmt, :x => :y) catch KeyError threw = true end
+    try get_value(choices, :x => :y) catch KeyError threw = true end
     @test threw
 
     # static_get_value on an address that contains nothing throws a KeyError
-    assmt = StaticAssignment(NamedTuple(), NamedTuple())
+    choices = StaticChoiceMap(NamedTuple(), NamedTuple())
     threw = false
-    try static_get_value(assmt, Val(:x)) catch KeyError threw = true end
+    try static_get_value(choices, Val(:x)) catch KeyError threw = true end
     @test threw
 end
 
 @testset "dynamic assignment errors" begin
 
-    # get_assmt on an address that contains a value throws a KeyError
-    assmt = DynamicAssignment()
-    assmt[:x] = 1
+    # get_choices on an address that contains a value throws a KeyError
+    choices = choicemap()
+    choices[:x] = 1
     threw = false
-    try get_subassmt(assmt, :x) catch KeyError threw = true end
+    try get_submap(choices, :x) catch KeyError threw = true end
     @test threw
 
-    # get_assmt on an address whose prefix contains a value throws a KeyError
-    assmt = DynamicAssignment()
-    assmt[:x] = 1
+    # get_choices on an address whose prefix contains a value throws a KeyError
+    choices = choicemap()
+    choices[:x] = 1
     threw = false
-    try get_subassmt(assmt, :x => :y) catch KeyError threw = true end
+    try get_submap(choices, :x => :y) catch KeyError threw = true end
     @test threw
 
-    # get_assmt on an address that contains nothing gives empty assignment
-    assmt = DynamicAssignment()
-    @test isempty(get_subassmt(assmt, :x))
-    @test isempty(get_subassmt(assmt, :x => :y))
+    # get_choices on an address that contains nothing gives empty assignment
+    choices = choicemap()
+    @test isempty(get_submap(choices, :x))
+    @test isempty(get_submap(choices, :x => :y))
 
-    # get_value on an address that contains a subassmt throws a KeyError
-    assmt = DynamicAssignment()
-    assmt[:x => :y] = 1
+    # get_value on an address that contains a submap throws a KeyError
+    choices = choicemap()
+    choices[:x => :y] = 1
     threw = false
-    try get_value(assmt, :x) catch KeyError threw = true end
+    try get_value(choices, :x) catch KeyError threw = true end
     @test threw
 
     # get_value on an address that contains nothing throws a KeyError
-    assmt = DynamicAssignment()
+    choices = choicemap()
     threw = false
-    try get_value(assmt, :x) catch KeyError threw = true end
+    try get_value(choices, :x) catch KeyError threw = true end
     @test threw
     threw = false
-    try get_value(assmt, :x => :y) catch KeyError threw = true end
+    try get_value(choices, :x => :y) catch KeyError threw = true end
     @test threw
 end
 
 @testset "dynamic assignment overwrite" begin
 
     # overwrite value with a value
-    assmt = DynamicAssignment()
-    assmt[:x] = 1
-    assmt[:x] = 2
-    @test assmt[:x] == 2
+    choices = choicemap()
+    choices[:x] = 1
+    choices[:x] = 2
+    @test choices[:x] == 2
 
-    # overwrite value with a subassmt
-    assmt = DynamicAssignment()
-    assmt[:x] = 1
-    subassmt = DynamicAssignment(); subassmt[:y] = 2
-    set_subassmt!(assmt, :x, subassmt)
-    @test !has_value(assmt, :x)
-    @test !isempty(get_subassmt(assmt, :x))
+    # overwrite value with a submap
+    choices = choicemap()
+    choices[:x] = 1
+    submap = choicemap(); submap[:y] = 2
+    set_submap!(choices, :x, submap)
+    @test !has_value(choices, :x)
+    @test !isempty(get_submap(choices, :x))
 
     # overwrite subassignment with a value
-    assmt = DynamicAssignment()
-    assmt[:x => :y] = 1
-    assmt[:x] = 2
+    choices = choicemap()
+    choices[:x => :y] = 1
+    choices[:x] = 2
     threw = false
-    try get_subassmt(assmt, :x) catch KeyError threw = true end
+    try get_submap(choices, :x) catch KeyError threw = true end
     @test threw
-    @test assmt[:x] == 2
+    @test choices[:x] == 2
 
     # overwrite subassignment with a subassignment
-    assmt = DynamicAssignment()
-    assmt[:x => :y] = 1
-    subassmt = DynamicAssignment(); subassmt[:z] = 2
-    set_subassmt!(assmt, :x,  subassmt)
-    @test !isempty(get_subassmt(assmt, :x))
-    @test !has_value(assmt, :x => :y)
-    @test assmt[:x => :z] == 2
+    choices = choicemap()
+    choices[:x => :y] = 1
+    submap = choicemap(); submap[:z] = 2
+    set_submap!(choices, :x,  submap)
+    @test !isempty(get_submap(choices, :x))
+    @test !has_value(choices, :x => :y)
+    @test choices[:x => :z] == 2
 
     # illegal set value under existing value
-    assmt = DynamicAssignment()
-    assmt[:x] = 1
+    choices = choicemap()
+    choices[:x] = 1
     threw = false
-    try set_value!(assmt, :x => :y, 2) catch KeyError threw = true end
+    try set_value!(choices, :x => :y, 2) catch KeyError threw = true end
     @test threw
 
-    # illegal set subassmt under existing value
-    assmt = DynamicAssignment()
-    assmt[:x] = 1
-    subassmt = DynamicAssignment(); assmt[:z] = 2
+    # illegal set submap under existing value
+    choices = choicemap()
+    choices[:x] = 1
+    submap = choicemap(); choices[:z] = 2
     threw = false
-    try set_subassmt!(assmt, :x => :y, subassmt) catch KeyError threw = true end
+    try set_submap!(choices, :x => :y, submap) catch KeyError threw = true end
     @test threw
 end
 
 @testset "address_set" begin
 
-    assmt = DynamicAssignment()
-    assmt[:x] = 1
-    assmt[:y => :a] = 2
-    assmt[:y => :b] = 3
-    assmt[:y => :c => :z] = 4
+    choices = choicemap()
+    choices[:x] = 1
+    choices[:y => :a] = 2
+    choices[:y => :b] = 3
+    choices[:y => :c => :z] = 4
 
-    set = address_set(assmt)
+    set = address_set(choices)
     @test has_leaf_node(set, :x)
     @test has_leaf_node(set, :y => :a)
     @test has_leaf_node(set, :y => :b)
@@ -290,7 +290,7 @@ end
 
 @testset "dynamic assignment constructor" begin
 
-    assmt = DynamicAssignment((:x, 1), (:y => :a, 2))
-    @test assmt[:x] == 1
-    @test assmt[:y => :a] == 2
+    choices = choicemap((:x, 1), (:y => :a, 2))
+    @test choices[:x] == 1
+    @test choices[:y => :a] == 2
 end

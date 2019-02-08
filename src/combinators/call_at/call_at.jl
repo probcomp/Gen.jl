@@ -1,23 +1,23 @@
-struct CallAtAssignment{K,T} <: Assignment
+struct CallAtChoiceMap{K,T} <: ChoiceMap
     key::K
-    subassmt::T
+    submap::T
 end
 
-Base.isempty(assmt::CallAtAssignment) = isempty(assmt.subassmt)
+Base.isempty(choices::CallAtChoiceMap) = isempty(choices.submap)
 
-function get_address_schema(::Type{T}) where {T<:CallAtAssignment}
+function get_address_schema(::Type{T}) where {T<:CallAtChoiceMap}
     SingleDynamicKeyAddressSchema()
 end
 
-function get_subassmt(assmt::CallAtAssignment{K,T}, addr::K) where {K,T}
-    assmt.key == addr ? assmt.subassmt : EmptyAssignment()
+function get_submap(choices::CallAtChoiceMap{K,T}, addr::K) where {K,T}
+    choices.key == addr ? choices.submap : EmptyChoiceMap()
 end
 
-get_subassmt(assmt::CallAtAssignment, addr::Pair) = _get_subassmt(assmt, addr)
-get_value(assmt::CallAtAssignment, addr::Pair) = _get_value(assmt, addr)
-has_value(assmt::CallAtAssignment, addr::Pair) = _has_value(assmt, addr)
-get_subassmts_shallow(assmt::CallAtAssignment) = ((assmt.key, assmt.subassmt),)
-get_values_shallow(::CallAtAssignment) = ()
+get_submap(choices::CallAtChoiceMap, addr::Pair) = _get_submap(choices, addr)
+get_value(choices::CallAtChoiceMap, addr::Pair) = _get_value(choices, addr)
+has_value(choices::CallAtChoiceMap, addr::Pair) = _has_value(choices, addr)
+get_submaps_shallow(choices::CallAtChoiceMap) = ((choices.key, choices.submap),)
+get_values_shallow(::CallAtChoiceMap) = ()
 
 # TODO optimize CallAtTrace using type parameters
 
@@ -32,8 +32,8 @@ get_retval(trace::CallAtTrace) = get_retval(trace.subtrace)
 get_score(trace::CallAtTrace) = get_score(trace.subtrace)
 get_gen_fn(trace::CallAtTrace) = trace.gen_fn
 
-function get_assmt(trace::CallAtTrace)
-    CallAtAssignment(trace.key, get_assmt(trace.subtrace))
+function get_choices(trace::CallAtTrace)
+    CallAtChoiceMap(trace.key, get_choices(trace.subtrace))
 end
 
 struct CallAtCombinator{T,U,K} <: GenerativeFunction{T, CallAtTrace}
@@ -48,30 +48,30 @@ function accepts_output_grad(gen_fn::CallAtCombinator)
     accepts_output_grad(gen_fn.kernel)
 end
 
-function assess(gen_fn::CallAtCombinator, args::Tuple, assmt::Assignment)
+function assess(gen_fn::CallAtCombinator, args::Tuple, choices::ChoiceMap)
     key = args[end]
     kernel_args = args[1:end-1]
-    if length(get_subassmts_shallow(assmt)) > 1 || length(get_values_shallow(assmt)) > 0
+    if length(get_submaps_shallow(choices)) > 1 || length(get_values_shallow(choices)) > 0
         error("Not all constraints were consumed")
     end
-    subassmt = get_subassmt(assmt, key)
-    assess(gen_fn.kernel, kernel_args, subassmt)
+    submap = get_submap(choices, key)
+    assess(gen_fn.kernel, kernel_args, submap)
 end
 
 function propose(gen_fn::CallAtCombinator, args::Tuple)
     key = args[end]
     kernel_args = args[1:end-1]
-    (subassmt, weight, retval) = propose(gen_fn.kernel, kernel_args)
-    assmt = CallAtAssignment(key, subassmt)
-    (assmt, weight, retval)
+    (submap, weight, retval) = propose(gen_fn.kernel, kernel_args)
+    choices = CallAtChoiceMap(key, submap)
+    (choices, weight, retval)
 end
 
-function initialize(gen_fn::CallAtCombinator{T,U,K}, args::Tuple,
-                    assmt::Assignment) where {T,U,K}
+function generate(gen_fn::CallAtCombinator{T,U,K}, args::Tuple,
+                    choices::ChoiceMap) where {T,U,K}
     key = args[end]
     kernel_args = args[1:end-1]
-    subassmt = get_subassmt(assmt, key) 
-    (subtrace, weight) = initialize(gen_fn.kernel, kernel_args, subassmt)
+    submap = get_submap(choices, key) 
+    (subtrace, weight) = generate(gen_fn.kernel, kernel_args, submap)
     trace = CallAtTrace(gen_fn, subtrace, key)
     (trace, weight)
 end
@@ -85,59 +85,36 @@ function project(trace::CallAtTrace, selection::AddressSet)
     project(trace.subtrace, subselection)
 end
 
-function force_update(args::Tuple, argdiff, trace::CallAtTrace,
-                      assmt::Assignment)
+function update(trace::CallAtTrace, args::Tuple, argdiff,
+                choices::ChoiceMap)
     key = args[end]
     kernel_args = args[1:end-1]
     key_changed = (key != trace.key)
-    subassmt = get_subassmt(assmt, key)
+    submap = get_submap(choices, key)
     if key_changed
-        (subtrace, weight) = initialize(trace.gen_fn.kernel, kernel_args, subassmt)
+        (subtrace, weight) = generate(trace.gen_fn.kernel, kernel_args, submap)
         weight -= get_score(trace.subtrace)
-        discard = get_assmt(trace)
+        discard = get_choices(trace)
         retdiff = DefaultRetDiff()
     else
-        (subtrace, weight, subdiscard, retdiff) = force_update(
-            kernel_args, unknownargdiff, trace.subtrace, subassmt)
-        discard = CallAtAssignment(key, subdiscard)
+        (subtrace, weight, retdiff, subdiscard) = update(
+            trace.subtrace, kernel_args, unknownargdiff, submap)
+        discard = CallAtChoiceMap(key, subdiscard)
     end
     new_trace = CallAtTrace(trace.gen_fn, subtrace, key)
-    (new_trace, weight, discard, retdiff)
+    (new_trace, weight, retdiff, discard)
 end
 
-function fix_update(args::Tuple, argdiff, trace::CallAtTrace,
-                    assmt::Assignment)
-    key = args[end]
-    kernel_args = args[1:end-1]
-    key_changed = (key != trace.key)
-    subassmt = get_subassmt(assmt, key)
-    if key_changed
-        if !isempty(subassmt)
-            error("Cannot constrain addresses under new key $key in fix_update")
-        end
-        (subtrace, weight) = initialize(trace.gen_fn.kernel, kernel_args, EmptyAssignment())
-        weight -= project(trace.subtrace, EmptyAddressSet())
-        retdiff = DefaultRetDiff()
-        discard = EmptyAssignment()
-    else
-        (subtrace, weight, subdiscard, retdiff) = fix_update(
-            kernel_args, unknownargdiff, trace.subtrace, subassmt)
-        discard = CallAtAssignment(key, subdiscard)
-    end
-    new_trace = CallAtTrace(trace.gen_fn, subtrace, key)
-    (new_trace, weight, discard, retdiff)
-end
-
-function free_update(args::Tuple, argdiff, trace::CallAtTrace,
-                     selection::AddressSet)
+function regenerate(trace::CallAtTrace, args::Tuple, argdiff,
+                    selection::AddressSet)
     key = args[end]
     kernel_args = args[1:end-1]
     key_changed = (key != trace.key)
     if key_changed
         if has_internal_node(selection, key)
-            error("Cannot select addresses under new key $key in free_update")
+            error("Cannot select addresses under new key $key in regenerate")
         end
-        (subtrace, weight) = initialize(trace.gen_fn.kernel, kernel_args, EmptyAssignment())
+        (subtrace, weight) = generate(trace.gen_fn.kernel, kernel_args, EmptyChoiceMap())
         weight -= project(trace.subtrace, EmptyAddressSet())
         retdiff = DefaultRetDiff()
     else
@@ -146,44 +123,44 @@ function free_update(args::Tuple, argdiff, trace::CallAtTrace,
         else
             subselection = EmptyAddressSet()
         end
-        (subtrace, weight, retdiff) = free_update(
-            kernel_args, unknownargdiff, trace.subtrace, subselection)
+        (subtrace, weight, retdiff) = regenerate(
+            trace.subtrace, kernel_args, unknownargdiff, subselection)
     end
     new_trace = CallAtTrace(trace.gen_fn, subtrace, key)
     (new_trace, weight, retdiff)
 end
 
-function extend(args::Tuple, argdiff, trace::CallAtTrace,
-                assmt::Assignment)
+function extend(trace::CallAtTrace, args::Tuple, argdiff,
+                choices::ChoiceMap)
     key = args[end]
     kernel_args = args[1:end-1]
     key_changed = (key != trace.key)
-    subassmt = get_subassmt(assmt, key)
+    submap = get_submap(choices, key)
     if key_changed
         error("Cannot remove address $(trace.key) in extend")
     end
     (subtrace, weight, retdiff) = extend(
-        kernel_args, unknownargdiff, trace.subtrace, subassmt)
+        trace.subtrace, kernel_args, unknownargdiff, submap)
     new_trace = CallAtTrace(trace.gen_fn, subtrace, key)
     (new_trace, weight, retdiff)
 end
 
-function backprop_trace(trace::CallAtTrace, selection::AddressSet, retval_grad)
+function choice_gradients(trace::CallAtTrace, selection::AddressSet, retval_grad)
     if has_internal_node(selection, trace.key)
         subselection = get_internal_node(selection, trace.key)
     else
         subselection = EmptyAddressSet()
     end
-    (kernel_input_grads, value_subassmt, gradient_subassmt) = backprop_trace(
+    (kernel_input_grads, value_submap, gradient_submap) = choice_gradients(
         trace.subtrace, subselection, retval_grad)
     input_grads = (kernel_input_grads..., nothing)
-    value_assmt = CallAtAssignment(trace.key, value_subassmt)
-    gradient_assmt = CallAtAssignment(trace.key, gradient_subassmt)
-    (input_grads, value_assmt, gradient_assmt)
+    value_choices = CallAtChoiceMap(trace.key, value_submap)
+    gradient_choices = CallAtChoiceMap(trace.key, gradient_submap)
+    (input_grads, value_choices, gradient_choices)
 end
 
-function backprop_params(trace::CallAtTrace, retval_grad)
-    kernel_input_grads = backprop_params(trace.subtrace, retval_grad)
+function accumulate_param_gradients!(trace::CallAtTrace, retval_grad)
+    kernel_input_grads = accumulate_param_gradients!(trace.subtrace, retval_grad)
     (kernel_input_grads..., nothing)
 end
 

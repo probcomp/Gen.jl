@@ -53,25 +53,25 @@ has_argument_grads(::TwoNormals) = (false, true, true, true, true)
 
     # model selection
 
-    if @addr(bernoulli(0.5), :branch)
+    if @trace(bernoulli(0.5), :branch)
 
         # one cluster
-        mu = @addr(normal(0, 100), :mu)
-        std = @addr(gamma(1, 1), :std)
+        mu = @trace(normal(0, 100), :mu)
+        std = @trace(gamma(1, 1), :std)
         for i=1:n
-            @addr(normal(mu, std), "y-$i")
+            @trace(normal(mu, std), "y-$i")
         end
 
     else
 
         # two clusters
-        w1 = @addr(beta(1, 1), :w1)
-        mu1 = @addr(normal(0, 100), :mu1)
-        mu2 = @addr(normal(0, 100), :mu2)
-        std1 = @addr(gamma(1, 1), :std1)
-        std2 = @addr(gamma(1, 1), :std2)
+        w1 = @trace(beta(1, 1), :w1)
+        mu1 = @trace(normal(0, 100), :mu1)
+        mu2 = @trace(normal(0, 100), :mu2)
+        std1 = @trace(gamma(1, 1), :std1)
+        std2 = @trace(gamma(1, 1), :std2)
         for i=1:n
-            @addr(two_normals(w1, mu1, mu2, std1, std2), "y-$i")
+            @trace(two_normals(w1, mu1, mu2, std1, std2), "y-$i")
         end
 
     end
@@ -95,7 +95,7 @@ two_cluster_params = select(:mu1, :mu2, :std1, :std2)
 w1_selection = select(:w1)
 
 function fixed_dim_move(trace)
-    if get_assmt(trace)[:branch]
+    if get_choices(trace)[:branch]
         (trace, _) = default_mh(one_cluster_params, trace)
         (trace, _) = mala(trace, one_cluster_params, 0.01)
     else
@@ -111,9 +111,9 @@ end
 ###############
 
 @gen function split_proposal(prev)
-    u1 = @addr(beta(2, 2), :u1)
-    u2 = @addr(beta(2, 2), :u2)
-    u3 = @addr(beta(1, 1), :u3)
+    u1 = @trace(beta(2, 2), :u1)
+    u2 = @trace(beta(2, 2), :u2)
+    u3 = @trace(beta(1, 1), :u3)
 end
 
 @gen function merge_proposal(prev) end
@@ -187,7 +187,7 @@ end
 
 correction = (new_trace) -> 0.
 function general_mh_transdim_move(trace)
-    branch = get_assmt(trace)[:branch]
+    branch = get_choices(trace)[:branch]
     n = get_call_record(trace).args[1]
     if branch
         general_mh(model,
@@ -233,13 +233,13 @@ const n = length(ys)
 function plot_trace_plot()
     plt.figure(figsize=(6, 5))
 
-    observations = DynamicAssignment()
+    observations = choicemap()
     for (i, y) in enumerate(ys)
         observations["y-$i"] = y
     end
 
     # RJMCMC
-    (trace, _) = initialize(model, (n,), observations)
+    (trace, _) = generate(model, (n,), observations)
     model_choice_vec = Bool[]
     burn_in = 10000
     scores = Float64[]
@@ -248,7 +248,7 @@ function plot_trace_plot()
         trace = fixed_dim_move(trace)
         score = get_call_record(trace).score
         if iter > burn_in
-            push!(model_choice_vec, get_assmt(trace)[:branch])
+            push!(model_choice_vec, get_choices(trace)[:branch])
             push!(scores, score)
         end
         println("iter: $iter, score: $score")
@@ -259,7 +259,7 @@ function plot_trace_plot()
     plt.title("Custom Reversible Jump Trans-Dimensional Moves")
 
     # generic
-    (trace, _) = initialize(model, (n,), observations)
+    (trace, _) = generate(model, (n,), observations)
     model_choice_vec = Bool[]
     burn_in = 10000
     scores = Float64[]
@@ -268,7 +268,7 @@ function plot_trace_plot()
         trace = fixed_dim_move(trace)
         score = get_call_record(trace).score
         if iter > burn_in
-            push!(model_choice_vec, get_assmt(trace)[:branch])
+            push!(model_choice_vec, get_choices(trace)[:branch])
             push!(scores, score)
         end
         println("iter: $iter, score: $score")

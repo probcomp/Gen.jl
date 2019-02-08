@@ -1,15 +1,15 @@
 mutable struct GFAssessState
-    assmt::Assignment
+    choices::ChoiceMap
     weight::Float64
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
 end
 
-function GFAssessState(assmt, params::Dict{Symbol,Any})
-    GFAssessState(assmt, 0., AddressVisitor(), params)
+function GFAssessState(choices, params::Dict{Symbol,Any})
+    GFAssessState(choices, 0., AddressVisitor(), params)
 end
 
-function addr(state::GFAssessState, dist::Distribution{T},
+function traceat(state::GFAssessState, dist::Distribution{T},
               args, key) where {T}
     local retval::T
 
@@ -17,7 +17,7 @@ function addr(state::GFAssessState, dist::Distribution{T},
     visit!(state.visitor, key)
 
     # get return value
-    retval = get_value(state.assmt, key)
+    retval = get_value(state.choices, key)
 
     # update weight
     state.weight += logpdf(dist, retval, args...)
@@ -25,7 +25,7 @@ function addr(state::GFAssessState, dist::Distribution{T},
     retval
 end
 
-function addr(state::GFAssessState, gen_fn::GenerativeFunction{T,U},
+function traceat(state::GFAssessState, gen_fn::GenerativeFunction{T,U},
               args, key) where {T,U}
     local retval::T
 
@@ -33,10 +33,10 @@ function addr(state::GFAssessState, gen_fn::GenerativeFunction{T,U},
     visit!(state.visitor, key)
 
     # get constraints for this call
-    assmt = get_subassmt(state.assmt, key)
+    choices = get_submap(state.choices, key)
 
     # get return value and weight increment
-    (weight, retval) = assess(gen_fn, args, assmt)
+    (weight, retval) = assess(gen_fn, args, choices)
 
     # update score
     state.weight += weight
@@ -52,11 +52,11 @@ function splice(state::GFAssessState, gen_fn::DynamicDSLFunction, args::Tuple)
     retval
 end
 
-function assess(gen_fn::DynamicDSLFunction, args::Tuple, assmt::Assignment)
-    state = GFAssessState(assmt, gen_fn.params)
+function assess(gen_fn::DynamicDSLFunction, args::Tuple, choices::ChoiceMap)
+    state = GFAssessState(choices, gen_fn.params)
     retval = exec(gen_fn, state, args)
 
-    unvisited = get_unvisited(get_visited(state.visitor), assmt)
+    unvisited = get_unvisited(get_visited(state.visitor), choices)
     if !isempty(unvisited)
         error("Assess did not visit the following constraint addresses:\n$unvisited")
     end

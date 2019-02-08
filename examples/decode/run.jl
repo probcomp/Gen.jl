@@ -27,45 +27,45 @@ const transition = counts ./ sum(counts, dims=1)
     my_probs = probs .* (1 - alpha) .+ fill(1 / 27., 27) .* alpha
     my_transition = transition * (1 - alpha) .+ fill(1 / 27., 27, 27) .* alpha
     local cur::Int
-    cur = @addr(categorical(my_probs), 1)
+    cur = @trace(categorical(my_probs), 1)
     for l=2:len
-        cur = @addr(categorical(my_transition[:,cur]), l)
+        cur = @trace(categorical(my_transition[:,cur]), l)
     end
 end
 
 @gen function model(alpha::Float64, len::Int)
-    @addr(generate_original_text(alpha, len), :text)
-    code = Int[@addr(uniform_discrete(1, 27), (:code, l)) for l=1:27]
+    @trace(generate_original_text(alpha, len), :text)
+    code = Int[@trace(uniform_discrete(1, 27), (:code, l)) for l=1:27]
     code
 end
 
 par_model = Map(model)
 
 @gen function swap_proposal(prev_trace, m::Int)
-    @addr(uniform_discrete(1, 27), :i)
-    @addr(uniform_discrete(1, 27), :j)
+    @trace(uniform_discrete(1, 27), :i)
+    @trace(uniform_discrete(1, 27), :j)
 end
 
-function swap_involution(trace, fwd_assmt::Assignment, fwd_ret, proposal_args::Tuple)
-    assmt = get_assmt(trace)
+function swap_involution(trace, fwd_choices::ChoiceMap, fwd_ret, proposal_args::Tuple)
+    choices = get_choices(trace)
     model_args = get_args(trace)
     (replica,) = proposal_args
     (alphas, len_repeated) = model_args
     len::Int = len_repeated[1]
-    bwd_assmt = DynamicAssignment()
-    i = fwd_assmt[:i]
-    j = fwd_assmt[:j]
-    bwd_assmt[:j] = i
-    bwd_assmt[:i] = j
-    constraints = DynamicAssignment()
-    constraints[replica => (:code, i)] = assmt[replica => (:code, j)]
-    constraints[replica => (:code, j)] = assmt[replica => (:code, i)]
+    bwd_choices = choicemap()
+    i = fwd_choices[:i]
+    j = fwd_choices[:j]
+    bwd_choices[:j] = i
+    bwd_choices[:i] = j
+    constraints = choicemap()
+    constraints[replica => (:code, i)] = choices[replica => (:code, j)]
+    constraints[replica => (:code, j)] = choices[replica => (:code, i)]
 
     # update the latent letters
     for l=1:len
         local cur_char::Int
         local new_char::Int
-        cur_char = assmt[replica => :text => l]
+        cur_char = choices[replica => :text => l]
         if cur_char == i
             new_char = j
         elseif cur_char == j
@@ -76,32 +76,32 @@ function swap_involution(trace, fwd_assmt::Assignment, fwd_ret, proposal_args::T
         constraints[replica => :text => l] = new_char
     end
 
-    (new_trace, weight, _, _) = force_update(model_args, noargdiff, trace, constraints)
-    (new_trace, bwd_assmt, weight)
+    (new_trace, weight, _, _) = update(trace, model_args, noargdiff, constraints)
+    (new_trace, bwd_choices, weight)
 end
 
 @gen function exchange_proposal(prev_trace, m::Int)
     # exchange change m with (((m-1)+1)%n)+1
 end
 
-function exchange_involution(trace, fwd_assmt::Assignment, fwd_ret, proposal_args::Tuple)
-    assmt = get_assmt(trace)
+function exchange_involution(trace, fwd_choices::ChoiceMap, fwd_ret, proposal_args::Tuple)
+    choices = get_choices(trace)
     model_args = get_args(trace)
     (alphas, _) = model_args
     (replica,) = proposal_args
-    constraints = DynamicAssignment()
+    constraints = choicemap()
     num_replicas = length(alphas)
     replica_plus_one = (((replica-1)+1)%num_replicas)+1
-    set_subassmt!(constraints, replica_plus_one, get_subassmt(assmt, replica))
-    set_subassmt!(constraints, replica, get_subassmt(assmt, replica_plus_one))
-    (new_trace, weight, _, _) = force_update(model_args, noargdiff, trace, constraints)
-    (new_trace, EmptyAssignment(), weight)
+    set_submap!(constraints, replica_plus_one, get_submap(choices, replica))
+    set_submap!(constraints, replica, get_submap(choices, replica_plus_one))
+    (new_trace, weight, _, _) = update(trace, model_args, noargdiff, constraints)
+    (new_trace, EmptyChoiceMap(), weight)
 end
 
 to_string(text::Vector{Int}) = join(alphabet[text])
 
-function get_original_text(assmt::Assignment, len::Int)
-    Int[assmt[:text => l] for l=1:len]
+function get_original_text(choices::ChoiceMap, len::Int)
+    Int[choices[:text => l] for l=1:len]
 end
 
 function get_output_text(original_text::Vector{Int}, code::Vector{Int})
@@ -110,7 +110,7 @@ end
 
 function do_inference(encoded_text::AbstractString, num_iter::Int)
     len = length(encoded_text)
-    assmt = DynamicAssignment()
+    choices = choicemap()
 
     alphas = collect(range(0, stop=1, length=10))
     num_replicas = length(alphas)
@@ -118,17 +118,17 @@ function do_inference(encoded_text::AbstractString, num_iter::Int)
     for replica=1:num_replicas
         # set initial code to the identity
         for l=1:27
-            assmt[replica => (:code, l)] = l
+            choices[replica => (:code, l)] = l
         end
 
         # initialize original text 
         for (l, char) in enumerate(encoded_text)
-            assmt[replica => :text => l] = letter_to_int[char]
+            choices[replica => :text => l] = letter_to_int[char]
         end
     end
         
     # initial trace
-    (trace, _) = initialize(par_model, (alphas, fill(len, num_replicas)), assmt)
+    (trace, _) = generate(par_model, (alphas, fill(len, num_replicas)), choices)
 
     # do MCMC
     for iter=1:num_iter
@@ -136,13 +136,13 @@ function do_inference(encoded_text::AbstractString, num_iter::Int)
         # print state
         if (iter - 1) % 1 == 0
             retval = get_retval(trace)
-            assmt = get_assmt(trace)
+            choices = get_choices(trace)
             @assert length(retval) == length(alphas)
             println()
             println()
             for replica=1:num_replicas
                 code = retval[replica]
-                original_text = get_original_text(get_subassmt(assmt, replica), len)
+                original_text = get_original_text(get_submap(choices, replica), len)
                 output_text = get_output_text(original_text, code)
                 println("$(to_string(original_text[1:120]))...")
             end

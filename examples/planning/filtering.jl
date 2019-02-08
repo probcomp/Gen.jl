@@ -21,18 +21,18 @@ include("piecewise_normal.jl")
 
     # walk path
     locations = Vector{Point}(undef, step)
-    dist = @addr(normal(speed * times[1], dist_slack), (:dist, 1))
+    dist = @trace(normal(speed * times[1], dist_slack), (:dist, 1))
     locations[1] = walk_path(path, distances_from_start, dist)
     for t=2:step
-        dist = @addr(normal(dist + speed * (times[t] - times[t-1]), dist_slack), (:dist, t))
+        dist = @trace(normal(dist + speed * (times[t] - times[t-1]), dist_slack), (:dist, t))
         locations[t] = walk_path(path, distances_from_start, dist)
     end
 
     # generate noisy observations
     for t=1:step
         point = locations[t]
-        @addr(normal(point.x, noise), (:x, t))
-        @addr(normal(point.y, noise), (:y, t))
+        @trace(normal(point.x, noise), (:x, t))
+        @trace(normal(point.y, noise), (:y, t))
     end
 
     return locations
@@ -67,10 +67,10 @@ end
 
 @gen function lightweight_hmm_kernel(t::Int, prev_state::Any, params::KernelParams)
     # NOTE: if t = 1 then prev_state will have all NaNs
-    dist = @addr(normal(dist_mean(prev_state, params, t), params.dist_slack), :dist)
+    dist = @trace(normal(dist_mean(prev_state, params, t), params.dist_slack), :dist)
     loc = walk_path(params.path, params.distances_from_start, dist)
-    @addr(normal(loc.x, params.noise), :x)
-    @addr(normal(loc.y, params.noise), :y)
+    @trace(normal(loc.x, params.noise), :x)
+    @trace(normal(loc.y, params.noise), :y)
     return KernelState(dist, loc)
 end
 
@@ -78,10 +78,10 @@ lightweight_hmm_with_markov = Unfold(lightweight_hmm_kernel)
 
 @gen (static) function static_hmm_kernel(t::Int, prev_state::KernelState, params::KernelParams)
     # NOTE: if t = 1 then prev_state will have all NaNs
-    dist::Float64 = @addr(normal(dist_mean(prev_state, params, t), params.dist_slack), :dist)
+    dist::Float64 = @trace(normal(dist_mean(prev_state, params, t), params.dist_slack), :dist)
     loc::Point = walk_path(params.path, params.distances_from_start, dist)
-    @addr(normal(loc.x, params.noise), :x)
-    @addr(normal(loc.y, params.noise), :y)
+    @trace(normal(loc.x, params.noise), :x)
+    @trace(normal(loc.y, params.noise), :y)
     ret::KernelState = KernelState(dist, loc)
     return ret
 end
@@ -155,7 +155,7 @@ end
                                                             posterior_var_d, posterior_covars, path, distances_from_start,
                                                             speed, dist_slack)
 
-    @addr(piecewise_normal(probabilities, mus, stds, distances_from_start), (:dist, step))
+    @trace(piecewise_normal(probabilities, mus, stds, distances_from_start), (:dist, step))
 end
 
 @gen function markov_fancy_proposal_inner(dt::Float64, prev_dist::Float64, noise :: Float64, obs :: Point,
@@ -167,7 +167,7 @@ end
                                                             posterior_var_d, posterior_covars, path, distances_from_start,
                                                             speed, dist_slack)
 
-    @addr(piecewise_normal(probabilities, mus, stds, distances_from_start), :dist)
+    @trace(piecewise_normal(probabilities, mus, stds, distances_from_start), :dist)
 end
 
 lightweight_markov_fancy_proposal = at_dynamic(markov_fancy_proposal_inner, Int)
@@ -181,7 +181,7 @@ lightweight_markov_fancy_proposal = at_dynamic(markov_fancy_proposal_inner, Int)
                                                  posterior_var_d, posterior_covars, path, distances_from_start,
                                                  speed, dist_slack)
 
-    @addr(piecewise_normal(dist_params[1], dist_params[2], dist_params[3], dist_params[4]), :dist)
+    @trace(piecewise_normal(dist_params[1], dist_params[2], dist_params[3], dist_params[4]), :dist)
 end
 
 static_fancy_proposal = at_dynamic(static_markov_fancy_proposal_inner, Int)
@@ -278,7 +278,7 @@ function render_lightweight_hmm_trace(scene::Scene, start::Point, stop::Point,
     end
     
     # plot measured locations
-    assignment = get_assmt(trace)
+    assignment = get_choices(trace)
     if show_measurements
         measured_xs = [assignment[(:x, i)] for i=1:length(locations)]
         measured_ys = [assignment[(:y, i)] for i=1:length(locations)]
@@ -332,7 +332,7 @@ function render_static_hmm_trace(scene::Scene, start::Point, stop::Point,
     end
     
     # plot measured locations
-    assignment = get_assmt(trace)
+    assignment = get_choices(trace)
     if show_measurements
         measured_xs = [assignment[i => :x] for i=1:length(locations)]
         measured_ys = [assignment[i => :y] for i=1:length(locations)]
@@ -438,7 +438,7 @@ function particle_filtering_static_hmm_default_proposal(params::Params,
     path = params.path
 
     function obs(step::Int)
-        assignment = DynamicAssignment()
+        assignment = choicemap()
         assignment[step => :x] = measured_xs[step]
         assignment[step => :y] = measured_ys[step]
         return (assignment, UnfoldCustomArgDiff(true, false, false))
@@ -484,7 +484,7 @@ function particle_filtering_static_hmm_custom_proposal(params::Params,
     path = params.path
 
     function init()
-        observations = DynamicAssignment()
+        observations = choicemap()
         observations[1 => :x] = measured_xs[1]
         observations[1 => :y] = measured_ys[1]
         proposal_args = (1, (times[1], Float64(0.0), noise,
@@ -496,10 +496,10 @@ function particle_filtering_static_hmm_custom_proposal(params::Params,
 
     function step(step::Int, trace)
         @assert step > 1
-        observations = DynamicAssignment()
+        observations = choicemap()
         observations[step => :x] = measured_xs[step]
         observations[step => :y] = measured_ys[step]
-        prev_dist = get_assmt(trace)[step-1 => :dist]
+        prev_dist = get_choices(trace)[step-1 => :dist]
         dt = step==1 ? times[step] : times[step] - times[step-1]
         proposal_args = (step, (dt, prev_dist, noise,
                          Point(measured_xs[step], measured_ys[step]),
@@ -551,7 +551,7 @@ function particle_filtering_lightweight_hmm_default_proposal(params::Params,
     path = params.path
 
     function obs(step::Int)
-        observations = DynamicAssignment()
+        observations = choicemap()
         observations[(:x, step)] = measured_xs[step]
         observations[(:y, step)] = measured_ys[step]
         return (observations, unknownargdiff)
@@ -594,7 +594,7 @@ function particle_filtering_lightweight_hmm_custom_proposal(params::Params,
     path = params.path
 
     function init()
-        observations = DynamicAssignment()
+        observations = choicemap()
         observations[(:x, 1)] = measured_xs[1]
         observations[(:y, 1)] = measured_ys[1]
         proposal_args = (1, Float64(0.0), noise,
@@ -606,10 +606,10 @@ function particle_filtering_lightweight_hmm_custom_proposal(params::Params,
 
     function step(step::Int, trace)
         @assert step > 1
-        observations = DynamicAssignment()
+        observations = choicemap()
         observations[(:x, step)] = measured_xs[step]
         observations[(:y, step)] = measured_ys[step]
-        prev_dist = get_assmt(trace)[(:dist, step-1)]
+        prev_dist = get_choices(trace)[(:dist, step-1)]
         proposal_args = (step, prev_dist, noise,
                          Point(measured_xs[step], measured_ys[step]),
                          precomputed.posterior_var_d, precomputed.posterior_covars,  path,
@@ -661,7 +661,7 @@ function particle_filtering_lightweight_markov_hmm_default_proposal(params::Para
     path = params.path
 
     function obs(step::Int)
-        assignment = DynamicAssignment()
+        assignment = choicemap()
         assignment[step => :x] = measured_xs[step]
         assignment[step => :y] = measured_ys[step]
         return (assignment, UnfoldCustomArgDiff(true, false, false))
@@ -707,7 +707,7 @@ function particle_filtering_lightweight_markov_hmm_custom_proposal(params::Param
     path = params.path
 
     function init()
-        observations = DynamicAssignment()
+        observations = choicemap()
         observations[1 => :x] = measured_xs[1]
         observations[1 => :y] = measured_ys[1]
         proposal_args = (1, (times[1], Float64(0.0), noise,
@@ -719,10 +719,10 @@ function particle_filtering_lightweight_markov_hmm_custom_proposal(params::Param
 
     function step(step::Int, trace)
         @assert step > 1
-        observations = DynamicAssignment()
+        observations = choicemap()
         observations[step => :x] = measured_xs[step]
         observations[step => :y] = measured_ys[step]
-        prev_dist = get_assmt(trace)[step-1 => :dist]
+        prev_dist = get_choices(trace)[step-1 => :dist]
         dt = step==1 ? times[step] : times[step] - times[step-1]
         proposal_args = (step, (dt, prev_dist, noise,
                          Point(measured_xs[step], measured_ys[step]),
@@ -784,7 +784,7 @@ function experiment()
     # generate ground truth locations and observations
     model_args = (length(times), path, precomputed.distances_from_start, times, speed, noise, dist_slack)
     trace = simulate(lightweight_hmm, model_args)
-    assignment = get_assmt(trace)
+    assignment = get_choices(trace)
     measured_xs = [assignment[(:x, i)] for i=1:length(times)]
     measured_ys = [assignment[(:y, i)] for i=1:length(times)]
     actual_dists = [assignment[(:dist, i)] for i=1:length(times)]

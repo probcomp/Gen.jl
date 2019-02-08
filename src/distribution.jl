@@ -179,8 +179,14 @@ function logpdf(::Gamma, x::Real, shape::Real, scale::Real)
 end
 
 function logpdf_grad(::Gamma, x::Real, shape::Real, scale::Real)
-    error("Not Implemented")
-    (nothing, nothing, nothing)
+    if x > 0.
+        deriv_x = (shape - 1.) / x - (1. / scale)
+        deriv_shape = log(x) - log(scale) - digamma(shape)
+        deriv_scale = x / (scale * scale) - (shape / scale)
+        (deriv_x, deriv_shape, deriv_scale)
+    else
+        (0., 0., 0.)
+    end
 end
 
 function random(::Gamma, shape::Real, scale::Real)
@@ -189,8 +195,8 @@ end
 
 (::Gamma)(shape, scale) = random(Gamma(), shape, scale)
 
-has_output_grad(::Gamma) = false
-has_argument_grads(::Gamma) = (false, false)
+has_output_grad(::Gamma) = true
+has_argument_grads(::Gamma) = (true, true)
 
 export gamma
 
@@ -294,7 +300,7 @@ function logpdf(::Categorical, x::Int, probs::AbstractArray{U,1}) where {U <: Re
     log(probs[x])
 end
 
-function logpdf_grad(::Beta, x::Int, probs::AbstractArray{U,1})  where {U <: Real}
+function logpdf_grad(::Categorical, x::Int, probs::AbstractArray{U,1})  where {U <: Real}
     grad = zeros(length(probs))
     grad[x] = 1.0
     (nothing, grad)

@@ -1,11 +1,11 @@
 function process_all_retained!(gen_fn::Unfold{T,U}, params::Tuple, argdiff::UnfoldCustomArgDiff,
-                               assmt_or_selection, prev_length::Int, new_length::Int,
+                               choices_or_selection, prev_length::Int, new_length::Int,
                                retained_and_targeted::Set{Int}, state) where {T,U}
     if argdiff.params_changed
         # visit every retained kernel application
         for key=1:min(prev_length,new_length)
             # TODO allow user to pass more specific argdiff information
-            process_retained!(gen_fn, params, assmt_or_selection,
+            process_retained!(gen_fn, params, choices_or_selection,
                 key, unknownargdiff, state)
         end
     else
@@ -17,7 +17,7 @@ function process_all_retained!(gen_fn::Unfold{T,U}, params::Tuple, argdiff::Unfo
             is_state_diff = true
             key = 1
             while is_state_diff && key <= min(prev_length, new_length)
-                is_state_diff = process_retained!(gen_fn, params, assmt_or_selection,
+                is_state_diff = process_retained!(gen_fn, params, choices_or_selection,
                     key, unknownargdiff, state)
                 key += 1
             end
@@ -30,7 +30,7 @@ function process_all_retained!(gen_fn::Unfold{T,U}, params::Tuple, argdiff::Unfo
             is_state_diff = true
             key = to_visit[i]
             while is_state_diff && key <= min(prev_length, new_length)
-                is_state_diff = process_retained!(gen_fn, params, assmt_or_selection,
+                is_state_diff = process_retained!(gen_fn, params, choices_or_selection,
                     key, unknownargdiff, state)
                 key += 1
             end
@@ -41,9 +41,9 @@ end
 """
 Process all new applications.
 """
-function process_all_new!(gen_fn::Unfold{T,U}, params::Tuple, assmt_or_selection,
+function process_all_new!(gen_fn::Unfold{T,U}, params::Tuple, choices_or_selection,
                           prev_len::Int, new_len::Int, state) where {T,U}
     for key=prev_len+1:new_len
-        process_new!(gen_fn, params, assmt_or_selection, key, state)
+        process_new!(gen_fn, params, choices_or_selection, key, state)
     end
 end

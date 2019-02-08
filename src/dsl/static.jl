@@ -1,5 +1,5 @@
 const STATIC_DSL_GRAD = Symbol("@grad")
-const STATIC_DSL_ADDR = Symbol("@addr")
+const STATIC_DSL_TRACE = Symbol("@trace")
 const STATIC_DSL_DIFF = Symbol("@diff")
 const STATIC_DSL_CHOICEDIFF = Symbol("@choicediff")
 const STATIC_DSL_CALLDIFF = Symbol("@calldiff")
@@ -113,7 +113,7 @@ choice_or_call_at(dist::Distribution, addr) = choice_at(dist, addr)
 
 function parse_addr_expr!(stmts, bindings, name, typ, addr_expr)
     if !(isa(addr_expr, Expr) && addr_expr.head == :macrocall
-        && length(addr_expr.args) >= 4 && addr_expr.args[1] == STATIC_DSL_ADDR)
+        && length(addr_expr.args) >= 4 && addr_expr.args[1] == STATIC_DSL_TRACE)
         return false
     end
     @assert isa(addr_expr.args[2], LineNumberNode)
@@ -306,7 +306,7 @@ function parse_static_dsl_function_body!(stmts::Vector{Expr},
         isa(line, LineNumberNode) && continue
         !isa(line, Expr) && static_dsl_syntax_error(line)
 
-        # lhs = @addr(rhs..) or @addr(rhs)
+        # lhs = @trace(rhs..) or @trace(rhs)
         parse_addr_line!(stmts, bindings, line) && continue
 
         # lhs = rhs

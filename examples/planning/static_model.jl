@@ -14,8 +14,8 @@ function get_locations(maybe_path::Nullable{Path}, start::Point,
 end
 
 @gen (static) function measurement(point::Point, noise::Float64)
-    @addr(normal(point.x, noise), :x)
-    @addr(normal(point.y, noise), :y)
+    @trace(normal(point.x, noise), :x)
+    @trace(normal(point.y, noise), :y)
 end
 
 measurements = Map(measurement)
@@ -23,27 +23,27 @@ measurements = Map(measurement)
 @gen (static) function model(scene::Scene, times::Vector{Float64})
 
     # start point of the agent
-    start_x::Float64 = @addr(uniform(0, 1), :start_x)
-    start_y::Float64 = @addr(uniform(0, 1), :start_y)
+    start_x::Float64 = @trace(uniform(0, 1), :start_x)
+    start_y::Float64 = @trace(uniform(0, 1), :start_y)
     start = Point(start_x, start_y)
 
     # goal point of the agent
-    stop_x::Float64 = @addr(uniform(0, 1), :stop_x)
-    stop_y::Float64 = @addr(uniform(0, 1), :stop_y)
+    stop_x::Float64 = @trace(uniform(0, 1), :stop_x)
+    stop_y::Float64 = @trace(uniform(0, 1), :stop_y)
     stop = Point(stop_x, stop_y)
 
     # plan a path that avoids obstacles in the scene
     maybe_path = plan_path(start, stop, scene, PlannerParams(300, 3.0, 2000, 1.))
     
     # speed
-    speed = @addr(uniform(0, 1), :speed)
+    speed = @trace(uniform(0, 1), :speed)
 
     # walk path at constant speed
     locations = get_locations(maybe_path, start, speed, times)
 
     # generate noisy observations
-    noise = @addr(uniform(0, 0.1), :noise)
-    @addr(measurements(locations, fill(noise, length(times))), :measurements)
+    noise = @trace(uniform(0, 0.1), :noise)
+    @trace(measurements(locations, fill(noise, length(times))), :measurements)
 
     ret = (start, stop, speed, noise, maybe_path, locations)
     return ret
@@ -55,7 +55,7 @@ function render(scene::Scene, trace, ax;
                 show_path=true, show_noise=true,
                 start_alpha=1., stop_alpha=1., path_alpha=1.)
     (start, stop, speed, noise, maybe_path, locations) = get_call_record(trace).retval
-    assignment = get_assmt(trace)
+    assignment = get_choices(trace)
     render(scene, ax)
     sca(ax)
     if show_start

@@ -64,18 +64,18 @@ end
     ]'
 
     @gen function kernel(t::Int, prev_z::Int, params::Nothing)
-        z = @addr(categorical(transition_dists[:,prev_z]), :z)
-        @addr(categorical(emission_dists[:,z]), :x)
+        z = @trace(categorical(transition_dists[:,prev_z]), :z)
+        @trace(categorical(emission_dists[:,z]), :x)
         return z
     end
 
     chain = Unfold(kernel)
 
     @gen function model(num_steps::Int)
-        z_init = @addr(categorical(prior), :z_init)
-        @addr(categorical(emission_dists[:,z_init]), :x_init)
+        z_init = @trace(categorical(prior), :z_init)
+        @trace(categorical(emission_dists[:,z_init]), :x_init)
         @diff argdiff = @argdiff()
-        @addr(chain(num_steps-1, z_init, nothing), :chain, argdiff)
+        @trace(chain(num_steps-1, z_init, nothing), :chain, argdiff)
     end
 
     num_steps = 4
@@ -104,11 +104,11 @@ end
 
     @gen function init_proposal(x::Int)
         dist = prior .* emission_dists[x,:]
-        @addr(categorical(dist ./ sum(dist)), :z_init)
+        @trace(categorical(dist ./ sum(dist)), :z_init)
     end
 
     init_proposal_args = (obs_x[1],)
-    init_observations = DynamicAssignment((:x_init, obs_x[1]))
+    init_observations = choicemap((:x_init, obs_x[1]))
 
     state = initialize_particle_filter(model, (1,), init_observations,
         init_proposal, init_proposal_args, num_particles)
@@ -117,21 +117,21 @@ end
     
     @gen function step_proposal(prev_trace, T::Int, x::Float64)
         @assert T > 1
-        choices = get_assmt(prev_trace)
+        choices = get_choices(prev_trace)
         if T > 2
             prev_z = choices[:chain => (T-2) => :z]
         else
             prev_z = choices[:z_init]
         end
         dist = transition_dists[:,prev_z] .* emission_dists[x,:]
-        @addr(categorical(dist ./ sum(dist)), :chain => T-1 => :z)
+        @trace(categorical(dist ./ sum(dist)), :chain => T-1 => :z)
     end
 
     argdiff = UnfoldCustomArgDiff(false, false)
     for T=2:length(obs_x)
         maybe_resample!(state, ess_threshold=ess_threshold)
         new_args = (T,)
-        observations = DynamicAssignment((:chain => (T-1) => :x, obs_x[T]))
+        observations = choicemap((:chain => (T-1) => :x, obs_x[T]))
         proposal_args = (T, obs_x[T])
         particle_filter_step!(state, new_args, argdiff, observations,
             step_proposal, proposal_args)
@@ -150,7 +150,7 @@ end
     ess_threshold = 10000 # make sure we exercise resampling
 
     # initialize the particle filter
-    init_observations = DynamicAssignment((:x_init, obs_x[1]))
+    init_observations = choicemap((:x_init, obs_x[1]))
     state = initialize_particle_filter(model, (1,), init_observations, num_particles)
     
     # do steps
@@ -158,7 +158,7 @@ end
     for T=2:length(obs_x)
         maybe_resample!(state, ess_threshold=ess_threshold)
         new_args = (T,)
-        observations = DynamicAssignment((:chain => (T-1) => :x, obs_x[T]))
+        observations = choicemap((:chain => (T-1) => :x, obs_x[T]))
         particle_filter_step!(state, new_args, argdiff, observations)
     end
 

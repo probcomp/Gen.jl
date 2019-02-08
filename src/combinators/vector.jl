@@ -44,7 +44,7 @@ end
 
 # trace API
 
-get_assmt(trace::VectorTrace) = VectorTraceAssignment(trace)
+get_choices(trace::VectorTrace) = VectorTraceChoiceMap(trace)
 get_retval(trace::VectorTrace) = trace.retval
 get_args(trace::VectorTrace) = trace.args
 get_score(trace::VectorTrace) = trace.score
@@ -66,38 +66,38 @@ function project(trace::VectorTrace, selection::AddressSet)
     weight
 end
 
-struct VectorTraceAssignment <: Assignment
+struct VectorTraceChoiceMap <: ChoiceMap
     trace::VectorTrace
 end
 
-Base.isempty(assignment::VectorTraceAssignment) = assignment.trace.num_nonempty == 0
-get_address_schema(::Type{VectorTraceAssignment}) = VectorAddressSchema()
+Base.isempty(assignment::VectorTraceChoiceMap) = assignment.trace.num_nonempty == 0
+get_address_schema(::Type{VectorTraceChoiceMap}) = VectorAddressSchema()
 
-function get_subassmt(assmt::VectorTraceAssignment, addr::Int)
-    if addr <= assmt.trace.len
-        get_assmt(assmt.trace.subtraces[addr])
+function get_submap(choices::VectorTraceChoiceMap, addr::Int)
+    if addr <= choices.trace.len
+        get_choices(choices.trace.subtraces[addr])
     else
-        EmptyAssignment()
+        EmptyChoiceMap()
     end
 end
 
-function get_subassmts_shallow(assmt::VectorTraceAssignment)
-    ((i, get_assmt(assmt.trace.subtraces[i])) for i=1:assmt.trace.len)
+function get_submaps_shallow(choices::VectorTraceChoiceMap)
+    ((i, get_choices(choices.trace.subtraces[i])) for i=1:choices.trace.len)
 end
 
-get_subassmt(assmt::VectorTraceAssignment, addr::Pair) = _get_subassmt(assmt, addr)
-get_value(assmt::VectorTraceAssignment, addr::Pair) = _get_value(assmt, addr)
-has_value(assmt::VectorTraceAssignment, addr::Pair) = _has_value(assmt, addr)
-get_values_shallow(::VectorTraceAssignment) = ()
+get_submap(choices::VectorTraceChoiceMap, addr::Pair) = _get_submap(choices, addr)
+get_value(choices::VectorTraceChoiceMap, addr::Pair) = _get_value(choices, addr)
+has_value(choices::VectorTraceChoiceMap, addr::Pair) = _has_value(choices, addr)
+get_values_shallow(::VectorTraceChoiceMap) = ()
 
 
 ############################################
 # code shared by vector-shaped combinators #
 ############################################
 
-function get_retained_and_constrained(constraints::Assignment, prev_length::Int, new_length::Int)
+function get_retained_and_constrained(constraints::ChoiceMap, prev_length::Int, new_length::Int)
     keys = Set{Int}()
-    for (key::Int, _) in get_subassmts_shallow(constraints)
+    for (key::Int, _) in get_submaps_shallow(constraints)
         if key > 0 && key <= new_length
             push!(keys, key)
         else
@@ -165,27 +165,27 @@ function vector_compute_retdiff(isdiff_retdiffs::Dict{Int,Any}, new_length::Int,
     end
 end
 
-function vector_force_update_delete(new_length::Int, prev_length::Int,
+function vector_update_delete(new_length::Int, prev_length::Int,
                                  prev_trace::VectorTrace)
     num_nonempty = prev_trace.num_nonempty
-    discard = DynamicAssignment()
+    discard = choicemap()
     score_decrement = 0.
     noise_decrement = 0.
     for key=new_length+1:prev_length
         subtrace = prev_trace.subtraces[key]
         score_decrement += get_score(subtrace)
         noise_decrement += project(subtrace, EmptyAddressSet())
-        if !isempty(get_assmt(subtrace))
+        if !isempty(get_choices(subtrace))
             num_nonempty -= 1
         end
         @assert num_nonempty >= 0
-        set_subassmt!(discard, key, get_assmt(subtrace))
+        set_submap!(discard, key, get_choices(subtrace))
     end
     return (discard, num_nonempty, score_decrement, noise_decrement)
 end
 
-function vector_fix_free_update_delete(new_length::Int, prev_length::Int,
-                                    prev_trace::VectorTrace)
+function vector_regenerate_delete(new_length::Int, prev_length::Int,
+                                  prev_trace::VectorTrace)
     num_nonempty = prev_trace.num_nonempty
     score_decrement = 0.
     noise_decrement = 0.
@@ -193,7 +193,7 @@ function vector_fix_free_update_delete(new_length::Int, prev_length::Int,
         subtrace = prev_trace.subtraces[key]
         score_decrement += get_score(subtrace)
         noise_decrement += project(subtrace, EmptyAddressSet())
-        if !isempty(get_assmt(subtrace))
+        if !isempty(get_choices(subtrace))
             num_nonempty -= 1
         end
         @assert num_nonempty >= 0

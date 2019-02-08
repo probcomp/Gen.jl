@@ -17,6 +17,15 @@ end
     @test isapprox(actual[3], finite_diff(f, args, 3, dx))
 end
 
+@testset "gamma" begin
+    f = (x, shape, scale) -> logpdf(gamma, x, shape, scale)
+    args = (0.4, 0.2, 0.3)
+    actual = logpdf_grad(gamma, args...)
+    @test isapprox(actual[1], finite_diff(f, args, 1, dx))
+    @test isapprox(actual[2], finite_diff(f, args, 2, dx))
+    @test isapprox(actual[3], finite_diff(f, args, 3, dx))
+end
+
 @testset "normal" begin
     f = (x, mu, std) -> logpdf(normal, x, mu, std)
     args = (0.4, 0.2, 0.3)

@@ -5,35 +5,35 @@ include("static_collapsed_model.jl")
 include("dataset.jl")
 
 @gen (static) function slope_proposal(prev)
-    slope = get_assmt(prev)[:slope]
-    @addr(normal(slope, 0.5), :slope)
+    slope = get_choices(prev)[:slope]
+    @trace(normal(slope, 0.5), :slope)
 end
 
 @gen (static) function intercept_proposal(prev)
-    intercept = get_assmt(prev)[:intercept]
-    @addr(normal(intercept, 0.5), :intercept)
+    intercept = get_choices(prev)[:intercept]
+    @trace(normal(intercept, 0.5), :intercept)
 end
 
 @gen (static) function inlier_std_proposal(prev)
-    log_inlier_std = get_assmt(prev)[:log_inlier_std]
-    @addr(normal(log_inlier_std, 0.5), :log_inlier_std)
+    log_inlier_std = get_choices(prev)[:log_inlier_std]
+    @trace(normal(log_inlier_std, 0.5), :log_inlier_std)
 end
 
 @gen (static) function outlier_std_proposal(prev)
-    log_outlier_std = get_assmt(prev)[:log_outlier_std]
-    @addr(normal(log_outlier_std, 0.5), :log_outlier_std)
+    log_outlier_std = get_choices(prev)[:log_outlier_std]
+    @trace(normal(log_outlier_std, 0.5), :log_outlier_std)
 end
 
 Gen.load_generated_functions()
 
 function do_inference(xs, ys, num_iters)
-    observations = DynamicAssignment()
+    observations = choicemap()
     for (i, y) in enumerate(ys)
         observations[:data => i => :z] = y
     end
 
     # initial trace
-    (trace, _) = initialize(model, (xs,), observations)
+    (trace, _) = generate(model, (xs,), observations)
 
     scores = Vector{Float64}(undef, num_iters)
     for i=1:num_iters
@@ -48,7 +48,7 @@ function do_inference(xs, ys, num_iters)
         scores[i] = score
 
         # print
-        assignment = get_assmt(trace)
+        assignment = get_choices(trace)
         slope = assignment[:slope]
         intercept = assignment[:intercept]
         inlier_std = exp(assignment[:log_inlier_std])

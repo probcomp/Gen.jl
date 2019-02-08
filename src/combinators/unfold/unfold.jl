@@ -65,12 +65,11 @@ function check_length(len::Int)
     end
 end
 
-include("initialize.jl")
+include("generate.jl")
 include("propose.jl")
 include("assess.jl")
 include("generic_update.jl")
-include("force_update.jl")
-include("fix_update.jl")
-include("free_update.jl")
+include("update.jl")
+include("regenerate.jl")
 include("extend.jl")
 include("backprop.jl")

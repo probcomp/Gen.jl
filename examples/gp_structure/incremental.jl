@@ -38,7 +38,7 @@ const production_retdiff = RecurseProductionRetDiff{NodeTypeAndXsDiff,Nothing}(
     Dict{Int,Nothing}()) # empty dictionary indicates that no inputs to children ('u') changed
 
 @gen function production_kernel(xs::Vector{Float64})
-    node_type = @addr(categorical(node_dist), :type)
+    node_type = @trace(categorical(node_dist), :type)
 
     # verify that xs did not change
     @diff @assert @argdiff() == noargdiff
@@ -68,29 +68,29 @@ end
     # constant kernel
     if node_type == CONSTANT
         @assert length(child_outputs) == 0
-        param = @addr(uniform_continuous(0, 1), :param)
+        param = @trace(uniform_continuous(0, 1), :param)
         node = Constant(param)
         cov_matrix = eval_cov_mat(node, xs)
 
     # linear kernel
     elseif node_type == LINEAR
         @assert length(child_outputs) == 0
-        param = @addr(uniform_continuous(0, 1), :param)
+        param = @trace(uniform_continuous(0, 1), :param)
         node = Linear(param)
         cov_matrix = eval_cov_mat(node, xs)
 
     # squared exponential kernel
     elseif node_type == SQUARED_EXP
         @assert length(child_outputs) == 0
-        length_scale = 0.01 + @addr(uniform_continuous(0, 1), :length_scale)
+        length_scale = 0.01 + @trace(uniform_continuous(0, 1), :length_scale)
         node = SquaredExponential(length_scale)
         cov_matrix = eval_cov_mat(node, xs)
 
     # periodic kernel
     elseif node_type == PERIODIC
         @assert length(child_outputs) == 0
-        scale = 0.01 + @addr(uniform_continuous(0, 1), :scale)
-        period = 0.01 + @addr(uniform_continuous(0, 1), :period)
+        scale = 0.01 + @trace(uniform_continuous(0, 1), :scale)
+        period = 0.01 + @trace(uniform_continuous(0, 1), :period)
         node = Periodic(scale, period)
         cov_matrix = eval_cov_mat(node, xs)
 
@@ -132,17 +132,17 @@ const covariance_prior_incremental = Recurse(
 @gen function model(xs::Vector{Float64})
 
     # sample covariance matrix
-    cov_fn_and_matrix = @addr(covariance_prior_incremental(xs, 1), :tree, noargdiff)
+    cov_fn_and_matrix = @trace(covariance_prior_incremental(xs, 1), :tree, noargdiff)
 
     # sample diagonal noise
-    noise = @addr(gamma(1, 1), :noise) + 0.01
+    noise = @trace(gamma(1, 1), :noise) + 0.01
 
     # compute covariance matrix
     n = length(xs)
     cov_matrix = cov_fn_and_matrix.cov_matrix + Matrix(noise * LinearAlgebra.I, n, n)
 
     # sample from multivariate normal   
-    @addr(mvnormal(zeros(n), cov_matrix), :ys)
+    @trace(mvnormal(zeros(n), cov_matrix), :ys)
 
     return cov_fn_and_matrix.node
 end
@@ -156,24 +156,24 @@ end
     agg_addr = (cur, Val(:aggregation))
     
     # sample node type
-    node_type = @addr(categorical(node_dist), (cur, Val(:production)) => :type)
+    node_type = @trace(categorical(node_dist), (cur, Val(:production)) => :type)
 
     # constant kernel
     if node_type == CONSTANT
-        @addr(uniform_continuous(0, 1), agg_addr => :param)
+        @trace(uniform_continuous(0, 1), agg_addr => :param)
 
     # linear kernel
     elseif node_type == LINEAR
-        @addr(uniform_continuous(0, 1), agg_addr => :param)
+        @trace(uniform_continuous(0, 1), agg_addr => :param)
 
     # squared exponential kernel
     elseif node_type == SQUARED_EXP
-        @addr(uniform_continuous(0, 1), agg_addr => :length_scale)
+        @trace(uniform_continuous(0, 1), agg_addr => :length_scale)
 
     # periodic kernel
     elseif node_type == PERIODIC
-        @addr(uniform_continuous(0, 1), agg_addr => :scale)
-        @addr(uniform_continuous(0, 1), agg_addr => :period)
+        @trace(uniform_continuous(0, 1), agg_addr => :scale)
+        @trace(uniform_continuous(0, 1), agg_addr => :period)
 
     # plus combinator
     elseif node_type == PLUS
@@ -199,50 +199,50 @@ end
 
 @gen function subtree_proposal(prev_trace)
     prev_subtree_node::Node = get_retval(prev_trace)
-    (subtree_idx::Int, depth::Int) = @addr(pick_random_node(prev_subtree_node, 1, 0), :choose_subtree_root)
-    new_subtree_node_type::Int = @addr(subtree_proposal_recursive(subtree_idx), :subtree)
+    (subtree_idx::Int, depth::Int) = @trace(pick_random_node(prev_subtree_node, 1, 0), :choose_subtree_root)
+    new_subtree_node_type::Int = @trace(subtree_proposal_recursive(subtree_idx), :subtree)
     (subtree_idx, depth, new_subtree_node_type)
 end
 
-function subtree_involution(trace, fwd_assmt::Assignment, fwd_ret::Tuple, proposal_args::Tuple)
+function subtree_involution(trace, fwd_choices::ChoiceMap, fwd_ret::Tuple, proposal_args::Tuple)
     (subtree_idx, subtree_depth, new_subtree_type) = fwd_ret
     model_args = get_args(trace)
 
     # populate constraints
-    constraints = DynamicAssignment()
-    set_subassmt!(constraints, :tree, get_subassmt(fwd_assmt, :subtree))
+    constraints = choicemap()
+    set_submap!(constraints, :tree, get_submap(fwd_choices, :subtree))
 
     # obtain new trace and discard, which contains the previous subtree
-    (new_trace, weight, discard, _) = force_update(model_args, noargdiff, trace, constraints)
+    (new_trace, weight, _, discard) = update(trace, model_args, noargdiff, constraints)
 
     # populate backward assignment
-    bwd_assmt = DynamicAssignment()
-    set_subassmt!(bwd_assmt, :choose_subtree_root => :recurse_left,
-        get_subassmt(fwd_assmt, :choose_subtree_root => :recurse_left))
+    bwd_choices = choicemap()
+    set_submap!(bwd_choices, :choose_subtree_root => :recurse_left,
+        get_submap(fwd_choices, :choose_subtree_root => :recurse_left))
     for depth=0:subtree_depth-1
-        bwd_assmt[:choose_subtree_root => :done => depth] = false
+        bwd_choices[:choose_subtree_root => :done => depth] = false
     end
     if new_subtree_type in BINARY_OPS
-        bwd_assmt[:choose_subtree_root => :done => subtree_depth] = true
+        bwd_choices[:choose_subtree_root => :done => subtree_depth] = true
     end
-    set_subassmt!(bwd_assmt, :subtree, get_subassmt(discard, :tree))
+    set_submap!(bwd_choices, :subtree, get_submap(discard, :tree))
 
-    (new_trace, bwd_assmt, weight)
+    (new_trace, bwd_choices, weight)
 end
 
 
 @gen function noise_proposal(prev_trace)
-    @addr(gamma(1, 1), :noise)
+    @trace(gamma(1, 1), :noise)
 end
 
 function inference(xs::Vector{Float64}, ys::Vector{Float64}, num_iters::Int, callback)
 
     # observed data
-    constraints = DynamicAssignment()
+    constraints = choicemap()
     constraints[:ys] = ys
 
     # generate initial trace consistent with observed data
-    (trace, _) = initialize(model, (xs,), constraints)
+    (trace, _) = generate(model, (xs,), constraints)
 
     # do MCMC
     local covariance_fn::Node
@@ -250,7 +250,7 @@ function inference(xs::Vector{Float64}, ys::Vector{Float64}, num_iters::Int, cal
     for iter=1:num_iters
 
         covariance_fn = get_retval(trace)
-        noise = get_assmt(trace)[:noise]
+        noise = get_choices(trace)[:noise]
         callback(covariance_fn, noise)
 
         # randomly pick a node to expand

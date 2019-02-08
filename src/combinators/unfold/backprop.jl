@@ -1,9 +1,9 @@
-function backprop_trace(trace::VectorTrace{UnfoldType,T,U}, selection::AddressSet,
+function choice_gradients(trace::VectorTrace{UnfoldType,T,U}, selection::AddressSet,
                         retval_grad) where {T,U}
     error("Not implemented")
 end
 
-function backprop_params(trace::VectorTrace{UnfoldType,T,U}, retval_grad) where {T,U}
+function accumulate_param_gradients!(trace::VectorTrace{UnfoldType,T,U}, retval_grad) where {T,U}
     args = get_args(trace)
     (len, init_state, params) = unpack_args(args)
     
@@ -29,7 +29,7 @@ function backprop_params(trace::VectorTrace{UnfoldType,T,U}, retval_grad) where 
     for key=1:len
         subtrace = trace.subtraces[key]
         kernel_retval_grad = (retval_grad == nothing) ? nothing : retval_grad[key]
-        kernel_arg_grad::Tuple = backprop_params(subtrace, kernel_retval_grad)
+        kernel_arg_grad::Tuple = accumulate_param_gradients!(subtrace, kernel_retval_grad)
         @assert kernel_arg_grad[1] == nothing
         @assert kernel_arg_grad[2] == nothing
         for (i, (grad, has_grad)) in enumerate(zip(kernel_arg_grad[3:end], params_has_grad))

@@ -1,4 +1,4 @@
-function backprop_trace(trace::VectorTrace{MapType,T,U}, selection::AddressSet,
+function choice_gradients(trace::VectorTrace{MapType,T,U}, selection::AddressSet,
                         retval_grad) where {T,U}
 
     args = get_args(trace)
@@ -15,8 +15,8 @@ function backprop_trace(trace::VectorTrace{MapType,T,U}, selection::AddressSet,
         end
     end
     
-    value_assmt = DynamicAssignment()
-    gradient_assmt = DynamicAssignment()
+    value_choices = choicemap()
+    gradient_choices = choicemap()
     
     for key=1:len
         subtrace = trace.subtraces[key]
@@ -26,20 +26,20 @@ function backprop_trace(trace::VectorTrace{MapType,T,U}, selection::AddressSet,
             sub_selection = EmptyAddressSet()
         end
         kernel_retval_grad = (retval_grad == nothing) ? nothing : retval_grad[key]
-        (kernel_arg_grad::Tuple, kernel_value_assmt, kernel_gradient_assmt) = backprop_trace(
+        (kernel_arg_grad::Tuple, kernel_value_choices, kernel_gradient_choices) = choice_gradients(
             subtrace, sub_selection, kernel_retval_grad)
-        set_subassmt!(value_assmt, key, kernel_value_assmt)
-        set_subassmt!(gradient_assmt, key, kernel_gradient_assmt)
+        set_submap!(value_choices, key, kernel_value_choices)
+        set_submap!(gradient_choices, key, kernel_gradient_choices)
         for (i, grad, has_grad) in zip(1:n_args, kernel_arg_grad, has_grads)
             if has_grad
                 arg_grad[i][key] = grad
             end
         end
     end
-    ((arg_grad...,), value_assmt, gradient_assmt)
+    ((arg_grad...,), value_choices, gradient_choices)
 end
 
-function backprop_params(trace::VectorTrace{MapType,T,U}, retval_grad) where {T,U}
+function accumulate_param_gradients!(trace::VectorTrace{MapType,T,U}, retval_grad) where {T,U}
 
     args = get_args(trace)
     n_args = length(args)
@@ -58,7 +58,7 @@ function backprop_params(trace::VectorTrace{MapType,T,U}, retval_grad) where {T,
     for key=1:len
         subtrace = trace.subtraces[key]
         kernel_retval_grad = (retval_grad == nothing) ? nothing : retval_grad[key]
-        kernel_arg_grad::Tuple = backprop_params(subtrace, kernel_retval_grad)
+        kernel_arg_grad::Tuple = accumulate_param_gradients!(subtrace, kernel_retval_grad)
         for (i, grad, has_grad) in zip(1:n_args, kernel_arg_grad, has_grads)
             if has_grad
                 arg_grad[i][key] = grad

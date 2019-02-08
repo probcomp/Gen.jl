@@ -1,17 +1,17 @@
-mutable struct GFInitializeState
+mutable struct GFGenerateState
     trace::DynamicDSLTrace
-    constraints::Assignment
+    constraints::ChoiceMap
     weight::Float64
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
 end
 
-function GFInitializeState(gen_fn, args, constraints, params)
+function GFGenerateState(gen_fn, args, constraints, params)
     trace = DynamicDSLTrace(gen_fn, args)
-    GFInitializeState(trace, constraints, 0., AddressVisitor(), params)
+    GFGenerateState(trace, constraints, 0., AddressVisitor(), params)
 end
 
-function addr(state::GFInitializeState, dist::Distribution{T},
+function traceat(state::GFGenerateState, dist::Distribution{T},
               args, key) where {T}
     local retval::T
 
@@ -20,7 +20,7 @@ function addr(state::GFInitializeState, dist::Distribution{T},
 
     # check for constraints at this key
     constrained = has_value(state.constraints, key)
-    !constrained && check_no_subassmt(state.constraints, key)
+    !constrained && check_no_submap(state.constraints, key)
 
     # get return value
     if constrained
@@ -43,7 +43,7 @@ function addr(state::GFInitializeState, dist::Distribution{T},
     retval
 end
 
-function addr(state::GFInitializeState, gen_fn::GenerativeFunction{T,U},
+function traceat(state::GFGenerateState, gen_fn::GenerativeFunction{T,U},
               args, key) where {T,U}
     local subtrace::U
     local retval::T
@@ -52,10 +52,10 @@ function addr(state::GFInitializeState, gen_fn::GenerativeFunction{T,U},
     visit!(state.visitor, key)
 
     # check for constraints at this key
-    constraints = get_subassmt(state.constraints, key)
+    constraints = get_submap(state.constraints, key)
 
     # get subtrace
-    (subtrace, weight) = initialize(gen_fn, args, constraints)
+    (subtrace, weight) = generate(gen_fn, args, constraints)
 
     # add to the trace
     add_call!(state.trace, key, subtrace)
@@ -69,7 +69,7 @@ function addr(state::GFInitializeState, gen_fn::GenerativeFunction{T,U},
     retval
 end
 
-function splice(state::GFInitializeState, gen_fn::DynamicDSLFunction,
+function splice(state::GFGenerateState, gen_fn::DynamicDSLFunction,
                 args::Tuple)
     prev_params = state.params
     state.params = gen_fn.params
@@ -78,9 +78,9 @@ function splice(state::GFInitializeState, gen_fn::DynamicDSLFunction,
     retval
 end
 
-function initialize(gen_fn::DynamicDSLFunction, args::Tuple,
-                    constraints::Assignment)
-    state = GFInitializeState(gen_fn, args, constraints, gen_fn.params)
+function generate(gen_fn::DynamicDSLFunction, args::Tuple,
+                    constraints::ChoiceMap)
+    state = GFGenerateState(gen_fn, args, constraints, gen_fn.params)
     retval = exec(gen_fn, state, args) 
     set_retval!(state.trace, retval)
     (state.trace, state.weight)

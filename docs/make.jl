@@ -13,7 +13,7 @@ makedocs(
             "Probability Distributions" => "ref/distributions.md",
             "Built-in Modeling Language" => "ref/modeling.md",
             "Generative Function Combinators" => "ref/combinators.md",
-            "Assignments" => "ref/assignments.md",
+            "Choice Maps" => "ref/choice_maps.md",
             "Selections" => "ref/selections.md",
             "Optimizing Trainable Parameters" => "ref/parameter_optimization.md",
             "Inference Library" => "ref/inference.md",
