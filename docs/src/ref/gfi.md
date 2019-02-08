@@ -90,7 +90,7 @@ The trace type that a generative function uses is the second type parameter of t
 
 A trace of a generative function can be produced using:
 ```@docs
-initialize
+generate
 ```
 
 The trace contains various information about the execution, including:
@@ -219,9 +219,9 @@ Then `get_choices(new_trace)` will be:
 The weight (`w`) is ``\log 1 = 0``.
 
 
-### Extend update
+### Extend
 ```@docs
-extend_update
+extend
 ```
 
 ### Argdiffs
@@ -315,7 +315,7 @@ end
 
 ### Decide what the arguments to a generative function should be
 For example, our generative functions might take two arguments, `a` (of type `Int`) and `b` (of type `Float64`).
-Then, the argument tuple passed to e.g. [`initialize`](@ref) will have two elements.
+Then, the argument tuple passed to e.g. [`generate`](@ref) will have two elements.
 
 NOTE: Be careful to distinguish between arguments to the generative function itself, and arguments to the constructor of the generative function.
 For example, if you have a generative function type that is parametrized by, for example, modeling DSL code, this DSL code would be a parameter of the generative function constructor.
@@ -326,7 +326,7 @@ You are free to design this address space as you wish, although you should docum
 
 ### Implement the methods of the interface
 
-- At minimum, you need to implement all methods under the [`Traces`](@ref) heading (e.g. [`initialize`](@ref), ..)
+- At minimum, you need to implement all methods under the [`Traces`](@ref) heading (e.g. [`generate`](@ref), ..)
 
 - To support [`metropolis_hastings`](@ref) or local optimization, or local iterative adjustments to traces, be sure to implement the [`update`](@ref) and [`regenerate`](@ref) methods.
 
