@@ -34,10 +34,10 @@ We represent the randomness used during an execution of a generative function as
 In this section, we assume that random choices are discrete to simplify notation.
 We say that two random choice maps ``t`` and ``s`` **agree** if they assign the same value for any address that is in both of their domains.
 
-Generative functions may also use **non-addressed randomness**, which is not included in the map ``t``.
-However, the state of non-addressed random choices *is* maintained by the trace internally.
-We denote non-addressed randomness by ``r``.
-Non-addressed randomness is useful for example, when calling black box Julia code that implements a randomized algorithm.
+Generative functions may also use **untraced randomness**, which is not included in the map ``t``.
+However, the state of untraced random choices *is* maintained by the trace internally.
+We denote untraced randomness by ``r``.
+Untraced randomness is useful for example, when calling black box Julia code that implements a randomized algorithm.
 
 The observable behavior of every generative function is defined by the following mathematical objects:
 
@@ -45,7 +45,7 @@ The observable behavior of every generative function is defined by the following
 The set of valid argument tuples to the function, denoted ``X``.
 
 ### 2. Probability distribution family
-A family of probability distributions ``p(t, r; x)`` on maps ``t`` from random choice addresses to their values, and non-addressed randomness ``r``, indexed by arguments ``x``, for all ``x \in X``.
+A family of probability distributions ``p(t, r; x)`` on maps ``t`` from random choice addresses to their values, and untraced randomness ``r``, indexed by arguments ``x``, for all ``x \in X``.
 Note that the distribution must be normalized:
 ```math
 \sum_{t, r} p(t, r; x) = 1 \;\; \mbox{for all} \;\; x \in X
@@ -55,14 +55,14 @@ We use ``p(t; x)`` to denote the marginal distribution on the map ``t``:
 ```math
 p(t; x) := \sum_{r} p(t, r; x)
 ```
-And we denote the conditional distribution on non-addressed randomness ``r``, given the map ``t``, as:
+And we denote the conditional distribution on untraced randomness ``r``, given the map ``t``, as:
 ```math
 p(r; x, t) := p(t, r; x) / p(t; x)
 ```
 
 ### 3. Return value function
 A (deterministic) function ``f`` that maps the tuple ``(x, t)`` of the arguments and the random choice map to the return value of the function (which we denote by ``y``).
-Note that the return value cannot depend on the non-addressed randomness.
+Note that the return value cannot depend on the untraced randomness.
 
 ### 4. Internal proposal distribution family
 A family of probability distributions ``q(t; x, u)`` on maps ``t`` from random choice addresses to their values, indexed by tuples ``(x, u)`` where ``u`` is a map from random choice addresses to values, and where ``x`` are the arguments to the function.
@@ -76,7 +76,7 @@ p(t; x) > 0 \mbox{ if and only if } q(t; x, u) > 0 \mbox{ for all } u \mbox{ whe
 ```math
 q(t; x, u) > 0 \mbox{ implies that } u \mbox{ and } t \mbox{ agree }.
 ```
-There is also a family of probability distributions ``q(r; x, t)`` on non-addressed randomness, that satisfies:
+There is also a family of probability distributions ``q(r; x, t)`` on untraced randomness, that satisfies:
 ```math
 q(r; x, t) > 0 \mbox{ if and only if } p(r; x, t) > 0
 ```
@@ -320,7 +320,7 @@ Then, the argument tuple passed to e.g. [`initialize`](@ref) will have two eleme
 NOTE: Be careful to distinguish between arguments to the generative function itself, and arguments to the constructor of the generative function.
 For example, if you have a generative function type that is parametrized by, for example, modeling DSL code, this DSL code would be a parameter of the generative function constructor.
 
-### Decide what the addressed random choices (if any) will be
+### Decide what the traced random choices (if any) will be
 Remember that each random choice is assigned a unique address in (possibly) hierarchical address space.
 You are free to design this address space as you wish, although you should document it for users of your generative function type.
 

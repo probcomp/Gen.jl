@@ -119,13 +119,13 @@ end
 
 **Untraced call**:
 If `foo` is a generative function, we can invoke `foo` from within the body of a `@gen` function using regular call syntax.
-The random choices made within the call are not given addresses in our trace, and are therefore *non-addressable* random choices (see [Generative Function Interface](@ref) for details on non-addressable random choices).
+The random choices made within the call are not given addresses in our trace, and are therefore *untraced* random choices (see [Generative Function Interface](@ref) for details on untraced random choices).
 ```julia
 val = foo(0.5)
 ```
 
 **Traced call with a nested address namespace**:
-We can include the addressable random choices made by `foo` in the caller's trace, under a namespace, using `@trace`:
+We can include the traced random choices made by `foo` in the caller's trace, under a namespace, using `@trace`:
 ```julia
 val = @trace(foo(0.5), :x)
 ```
@@ -133,9 +133,9 @@ Now, all random choices made by `foo` are included in our trace, under the names
 For example, if `foo` makes random choices at addresses `:a` and `:b`, these choices will have addresses `:x => :a` and `:x => :b` in the caller's trace.
 
 **Traced call with shared address namespace**:
-We can include the addressable random choices made by `foo` in the caller's trace using `@splice`:
+We can include the traced random choices made by `foo` in the caller's trace using `@trace`:
 ```julia
-val = @splice(foo(0.5))
+val = @trace(foo(0.5))
 ```
 Now, all random choices made by `foo` are included in our trace.
 The caller must guarantee that there are no address collisions.
