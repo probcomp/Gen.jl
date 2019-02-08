@@ -137,6 +137,14 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "ref/gfi/#Gen.generate",
+    "page": "Generative Functions",
+    "title": "Gen.generate",
+    "category": "function",
+    "text": "(trace::U, weight) = generate(gen_fn::GenerativeFunction{T,U}, args::Tuple)\n\nReturn a trace of a generative function.\n\n(trace::U, weight) = generate(gen_fn::GenerativeFunction{T,U}, args::Tuple,\n                                constraints::ChoiceMap)\n\nReturn a trace of a generative function that is consistent with the given constraints on the random choices.\n\nGiven arguments x (args) and assignment u (constraints) (which is empty for the first form), sample t sim q(cdot u x) and r sim q(cdot x t), and return the trace (x t r) (trace).  Also return the weight (weight):\n\nlog fracp(t r x)q(t u x) q(r x t)\n\nExample without constraints:\n\n(trace, weight) = generate(foo, (2, 4))\n\nExample with constraint that address :z takes value true.\n\n(trace, weight) = generate(foo, (2, 4), choicemap((:z, true))\n\n\n\n\n\n"
+},
+
+{
     "location": "ref/gfi/#Gen.get_args",
     "page": "Generative Functions",
     "title": "Gen.get_args",
@@ -181,7 +189,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Generative Functions",
     "title": "Traces",
     "category": "section",
-    "text": "An execution trace (or just trace) is a record of an execution of a generative function. There is no abstract type representing all traces. Different concrete types of generative functions use different data structures and different Jula types for their traces. The trace type that a generative function uses is the second type parameter of the GenerativeFunction abstract type.A trace of a generative function can be produced using:initializeThe trace contains various information about the execution, including:The arguments to the generative function:get_argsThe return value of the generative function:get_retvalThe map t from addresses of random choices to their values:get_choicesThe log probability that the random choices took the values they did:get_scoreA reference to the generative function that was executed:get_gen_fn"
+    "text": "An execution trace (or just trace) is a record of an execution of a generative function. There is no abstract type representing all traces. Different concrete types of generative functions use different data structures and different Jula types for their traces. The trace type that a generative function uses is the second type parameter of the GenerativeFunction abstract type.A trace of a generative function can be produced using:generateThe trace contains various information about the execution, including:The arguments to the generative function:get_argsThe return value of the generative function:get_retvalThe map t from addresses of random choices to their values:get_choicesThe log probability that the random choices took the values they did:get_scoreA reference to the generative function that was executed:get_gen_fn"
 },
 
 {
@@ -225,11 +233,19 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "ref/gfi/#Extend-update-1",
+    "location": "ref/gfi/#Gen.extend",
     "page": "Generative Functions",
-    "title": "Extend update",
+    "title": "Gen.extend",
+    "category": "function",
+    "text": "(new_trace, weight, retdiff) = extend(trace, args::Tuple, argdiff,\n                                      constraints::ChoiceMap)\n\nExtend a trace with new random choices by changing the arguments.\n\nGiven a previous trace (x t r) (trace), new arguments x (args), and an assignment u (choices) that shares no addresses with t, return a new trace (x t r) (new_trace) such that t agrees with t on all addresses in t and t agrees with u on all addresses in u. Sample t sim Q(cdot t + u x) and r sim Q(cdot t x). Also return the weight (weight):\n\nlog fracp(r t x) q(r x t)p(r t x) q(t t + u x) q(r x t)\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/gfi/#Extend-1",
+    "page": "Generative Functions",
+    "title": "Extend",
     "category": "section",
-    "text": "extend_update"
+    "text": "extend"
 },
 
 {
@@ -405,7 +421,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Generative Functions",
     "title": "Decide what the arguments to a generative function should be",
     "category": "section",
-    "text": "For example, our generative functions might take two arguments, a (of type Int) and b (of type Float64). Then, the argument tuple passed to e.g. initialize will have two elements.NOTE: Be careful to distinguish between arguments to the generative function itself, and arguments to the constructor of the generative function. For example, if you have a generative function type that is parametrized by, for example, modeling DSL code, this DSL code would be a parameter of the generative function constructor."
+    "text": "For example, our generative functions might take two arguments, a (of type Int) and b (of type Float64). Then, the argument tuple passed to e.g. generate will have two elements.NOTE: Be careful to distinguish between arguments to the generative function itself, and arguments to the constructor of the generative function. For example, if you have a generative function type that is parametrized by, for example, modeling DSL code, this DSL code would be a parameter of the generative function constructor."
 },
 
 {
@@ -421,7 +437,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Generative Functions",
     "title": "Implement the methods of the interface",
     "category": "section",
-    "text": "At minimum, you need to implement all methods under the Traces heading (e.g. initialize, ..)\nTo support metropolis_hastings or local optimization, or local iterative adjustments to traces, be sure to implement the update and regenerate methods.\nTo support gradients of the log probability density with respect to the arguments and/or random choices made by the function, implement the choice_gradients method.\nGenerative functions can also have trainable parameters (e.g. neural network weights). To support these, implement the accumulate_param_gradients! method.\nTo support use of your generative function in custom proposals (instead of just generative models), implement assess and propose methods."
+    "text": "At minimum, you need to implement all methods under the Traces heading (e.g. generate, ..)\nTo support metropolis_hastings or local optimization, or local iterative adjustments to traces, be sure to implement the update and regenerate methods.\nTo support gradients of the log probability density with respect to the arguments and/or random choices made by the function, implement the choice_gradients method.\nGenerative functions can also have trainable parameters (e.g. neural network weights). To support these, implement the accumulate_param_gradients! method.\nTo support use of your generative function in custom proposals (instead of just generative models), implement assess and propose methods."
 },
 
 {
