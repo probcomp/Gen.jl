@@ -137,6 +137,14 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "ref/gfi/#Gen.simulate",
+    "page": "Generative Functions",
+    "title": "Gen.simulate",
+    "category": "function",
+    "text": "trace = simulate(gen_fn, args)\n\nExecute the generative function and return the trace.\n\nGiven arguments (args), sample t sim p(cdot x) and r sim p(cdot x t), and return a trace with choice map t.\n\n\n\n\n\n"
+},
+
+{
     "location": "ref/gfi/#Gen.generate",
     "page": "Generative Functions",
     "title": "Gen.generate",
@@ -189,7 +197,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Generative Functions",
     "title": "Traces",
     "category": "section",
-    "text": "An execution trace (or just trace) is a record of an execution of a generative function. There is no abstract type representing all traces. Different concrete types of generative functions use different data structures and different Jula types for their traces. The trace type that a generative function uses is the second type parameter of the GenerativeFunction abstract type.A trace of a generative function can be produced using:generateThe trace contains various information about the execution, including:The arguments to the generative function:get_argsThe return value of the generative function:get_retvalThe map t from addresses of random choices to their values:get_choicesThe log probability that the random choices took the values they did:get_scoreA reference to the generative function that was executed:get_gen_fn"
+    "text": "An execution trace (or just trace) is a record of an execution of a generative function. There is no abstract type representing all traces. Different concrete types of generative functions use different data structures and different Jula types for their traces. The trace type that a generative function uses is the second type parameter of the GenerativeFunction abstract type.A generative function can be executed and traced using:simulateAn traced execution that satisfies constraints on the choice map can be generated using:generateThe trace contains various information about the execution, including:The arguments to the generative function:get_argsThe return value of the generative function:get_retvalThe map t from addresses of random choices to their values:get_choicesThe log probability that the random choices took the values they did:get_scoreA reference to the generative function that was executed:get_gen_fn"
 },
 
 {
