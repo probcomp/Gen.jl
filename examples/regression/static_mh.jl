@@ -4,23 +4,23 @@ import Random
 include("static_model.jl")
 include("dataset.jl")
 
-@gen (static) function slope_proposal(prev)
-    slope = get_choices(prev)[:slope]
+@gen (static) function slope_proposal(trace)
+    slope = trace[:slope]
     @trace(normal(slope, 0.5), :slope)
 end
 
-@gen (static) function intercept_proposal(prev)
-    intercept = get_choices(prev)[:intercept]
+@gen (static) function intercept_proposal(trace)
+    intercept = trace[:intercept]
     @trace(normal(intercept, 0.5), :intercept)
 end
 
-@gen (static) function inlier_std_proposal(prev)
-    log_inlier_std = get_choices(prev)[:log_inlier_std]
+@gen (static) function inlier_std_proposal(trace)
+    log_inlier_std = trace[:log_inlier_std]
     @trace(normal(log_inlier_std, 0.5), :log_inlier_std)
 end
 
-@gen (static) function outlier_std_proposal(prev)
-    log_outlier_std = get_choices(prev)[:log_outlier_std]
+@gen (static) function outlier_std_proposal(trace)
+    log_outlier_std = trace[:log_outlier_std]
     @trace(normal(log_outlier_std, 0.5), :log_outlier_std)
 end
 
@@ -28,8 +28,8 @@ end
     @trace(bernoulli(z ? 0.0 : 1.0), :z)
 end
 
-@gen (static) function is_outlier_proposal(prev, i::Int)
-    prev_z::Bool = get_choices(prev)[:data => i => :z]
+@gen (static) function is_outlier_proposal(trace, i::Int)
+    prev_z = trace[:data => i => :z]
     @trace(bernoulli(prev_z ? 0.0 : 1.0), :data => i => :z)
 end
 
@@ -64,11 +64,10 @@ function do_inference(xs, ys, num_iters)
         scores[i] = score
 
         # print
-        assignment = get_choices(trace)
-        slope = assignment[:slope]
-        intercept = assignment[:intercept]
-        inlier_std = exp(assignment[:log_inlier_std])
-        outlier_std = exp(assignment[:log_outlier_std])
+        slope = trace[:slope]
+        intercept = trace[:intercept]
+        inlier_std = exp(trace[:log_inlier_std])
+        outlier_std = exp(trace[:log_outlier_std])
         println("score: $score, slope: $slope, intercept: $intercept, inlier_std: $inlier_std, outlier_std: $outlier_std")
     end
     return scores

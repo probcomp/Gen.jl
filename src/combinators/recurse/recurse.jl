@@ -5,7 +5,7 @@ using DataStructures: PriorityQueue, dequeue!, enqueue!
 # recurse trace #
 #################
 
-struct RecurseTrace{S,T,U,V,W,X,Y,DV,DU,DW}
+struct RecurseTrace{S,T,U,V,W,X,Y,DV,DU,DW} <: Trace
     gen_fn::GenerativeFunction
     production_traces::PersistentHashMap{Int,S}
     aggregation_traces::PersistentHashMap{Int,T}

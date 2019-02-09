@@ -4,8 +4,8 @@ import Random
 include("dynamic_model.jl")
 include("dataset.jl")
 
-@gen function is_outlier_proposal(prev, i::Int)
-    prev = get_choices(prev)[:data => i => :z]
+@gen function is_outlier_proposal(trace, i::Int)
+    prev = trace[:data => i => :z]
     @trace(bernoulli(prev ? 0.0 : 1.0), :data => i => :z)
 end
 
@@ -43,11 +43,10 @@ function do_inference(xs, ys, num_iters)
         scores[i] = score
 
         # print
-        assignment = get_choices(trace)
-        slope = assignment[:slope]
-        intercept = assignment[:intercept]
-        inlier_std = exp(assignment[:log_inlier_std])
-        outlier_std = exp(assignment[:log_outlier_std])
+        slope = trace[:slope]
+        intercept = trace[:intercept]
+        inlier_std = exp(trace[:log_inlier_std])
+        outlier_std = exp(trace[:log_outlier_std])
         println("score: $score, slope: $slope, intercept: $intercept, inlier_std: $inlier_std, outlier_std: $outlier_std")
     end
     return scores

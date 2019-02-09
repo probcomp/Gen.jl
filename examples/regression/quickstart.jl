@@ -20,8 +20,7 @@ function my_inference_program(xs, ys, num_iters)
         (trace, _) = metropolis_hastings(trace, slope_selection)
         (trace, _) = metropolis_hastings(trace, intercept_selection)
     end
-    choices = get_choices(trace)
-    return (choices[:slope], choices[:intercept])
+    return (trace[:slope], trace[:intercept])
 end
 
 xs = [1., 2., 3., 4., 5., 6., 7., 8., 9., 10.]

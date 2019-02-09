@@ -8,7 +8,7 @@ using FunctionalCollections: PersistentVector, assoc, push, pop
 
 U is the type of the subtrace, R is the return value type for the kernel
 """
-struct VectorTrace{GenFnType,T,U}
+struct VectorTrace{GenFnType,T,U} <: Trace
     gen_fn::GenerativeFunction
     subtraces::PersistentVector{U}
     retval::PersistentVector{T}

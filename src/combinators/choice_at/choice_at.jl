@@ -1,6 +1,6 @@
 # TODO optimize ChoiceAtTrace using type parameters
 
-struct ChoiceAtTrace
+struct ChoiceAtTrace <: Trace
     gen_fn::GenerativeFunction # the ChoiceAtCombinator (not the kernel)
     value::Any
     key::Any

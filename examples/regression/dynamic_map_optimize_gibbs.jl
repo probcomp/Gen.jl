@@ -4,14 +4,14 @@ import Random
 include("dynamic_model.jl")
 include("dataset.jl")
 
-@gen function gibbs_proposal(prev, i::Int)
-    prev_args = get_args(prev)
+@gen function gibbs_proposal(trace, i::Int)
+    args = get_args(trace)
     constraints = choicemap()
     constraints[:data => i => :z] = false
-    (_, weight1) = update(prev, prev_args, noargdiff, constraints)
+    (_, weight1) = update(trace, args, noargdiff, constraints)
     constraints[:data => i => :z] = true
-    (_, weight2) = update(prev, prev_args, noargdiff, constraints)
-    prob_true = exp(weight2- logsumexp([weight1, weight2]))
+    (_, weight2) = update(trace, args, noargdiff, constraints)
+    prob_true = exp(weight2 - logsumexp([weight1, weight2]))
     @trace(bernoulli(prob_true), :data => i => :z)
 end
 

@@ -143,17 +143,16 @@ end
 
 function render(trace; ymax=0.02)
     T = get_args(trace)[1]
-    choices = get_choices(trace)
-    k = choices[:k]
-    bounds = vcat([0.], sort([choices[(CHANGEPT, i)] for i=1:k]), [T])
-    rates = [choices[(RATE, i)] for i=1:k+1]
+    k = trace[:k]
+    bounds = vcat([0.], sort([trace[(CHANGEPT, i)] for i=1:k]), [T])
+    rates = [trace[(RATE, i)] for i=1:k+1]
     for i=1:length(rates)
         lower = bounds[i]
         upper = bounds[i+1]
         rate = rates[i]
         plot([lower, upper], [rate, rate], color="black", linewidth=2)
     end
-    points = choices[EVENTS]
+    points = trace[EVENTS]
     scatter(points, -rand(length(points)) * (ymax/5.), color="black", s=5)
     ax = gca()
     xlim = [0., T]
@@ -181,13 +180,12 @@ end
 #############
 
 @gen function rate_proposal(trace)
-    choices = get_choices(trace)
 
     # pick a random segment whose rate to change
-    i = @trace(uniform_discrete(1, choices[K]+1), :i)
+    i = @trace(uniform_discrete(1, trace[K]+1), :i)
 
     # propose new value for the rate
-    cur_rate = choices[(RATE, i)]
+    cur_rate = trace[(RATE, i)]
     @trace(uniform_continuous(cur_rate/2., cur_rate*2.), :new_rate)
 end
 
@@ -196,14 +194,13 @@ end
 # - swaps choices[(RATE, i)] with fwd_choices[:new_rate]
 
 function rate_involution(trace, fwd_choices::ChoiceMap, fwd_ret, proposal_args::Tuple)
-    choices = get_choices(trace)
     model_args = get_args(trace)
     bwd_choices = choicemap()
     constraints = choicemap()
     i = fwd_choices[:i]
     bwd_choices[:i] = i
     constraints[(RATE, i)] = fwd_choices[:new_rate]
-    bwd_choices[:new_rate] = choices[(RATE, i)]
+    bwd_choices[:new_rate] = trace[(RATE, i)]
     (new_trace, weight, _, _) = update(trace, model_args, noargdiff, constraints)
     (new_trace, bwd_choices, weight)
 end
@@ -216,15 +213,14 @@ rate_move(trace) = metropolis_hastings(trace, rate_proposal, (), rate_involution
 #################
 
 @gen function position_proposal(trace)
-    choices = get_choices(trace)
-    k = choices[K]
+    k = trace[K]
     @assert k > 0
 
     # pick a random changepoint to change
     i = @trace(uniform_discrete(1, k), :i)
 
-    lower = (i == 1) ? 0. : choices[(CHANGEPT, i-1)]
-    upper = (i == k) ? T : choices[(CHANGEPT, i+1)]
+    lower = (i == 1) ? 0. : trace[(CHANGEPT, i-1)]
+    upper = (i == k) ? T : trace[(CHANGEPT, i+1)]
     @trace(uniform_continuous(lower, upper), :new_changept)
 end
 
@@ -233,14 +229,13 @@ end
 # - swaps choices[(CHANGEPT, i)] with fwd_choices[:new_changept]
 
 function position_involution(trace, fwd_choices::ChoiceMap, fwd_ret, proposal_args::Tuple)
-    choices = get_choices(trace)
     model_args = get_args(trace)
     bwd_choices = choicemap()
     constraints = choicemap()
     i = fwd_choices[:i]
     bwd_choices[:i] = i
     constraints[(CHANGEPT, i)] = fwd_choices[:new_changept]
-    bwd_choices[:new_changept] = choices[(CHANGEPT, i)]
+    bwd_choices[:new_changept] = trace[(CHANGEPT, i)]
     (new_trace, weight, _, _) = update(trace, model_args, noargdiff, constraints)
     (new_trace, bwd_choices, weight)
 end
@@ -259,8 +254,7 @@ const U = :u
 
 @gen function birth_death_proposal(trace)
     T = get_args(trace)[1]
-    choices = get_choices(trace)
-    k = choices[K]
+    k = trace[K]
 
     # if k = 0, then always do a birth move
     # if k > 0, then randomly choose a birth or death move
@@ -272,8 +266,8 @@ const U = :u
         # new changepoint (i = 2):   |    *         |
         # changepoints after move:   | 1  2  3    4 |
         i = @trace(uniform_discrete(1, k+1), CHOSEN)
-        lower = (i == 1) ? 0. : choices[(CHANGEPT, i-1)]
-        upper = (i == k+1) ? T : choices[(CHANGEPT, i)]
+        lower = (i == 1) ? 0. : trace[(CHANGEPT, i-1)]
+        upper = (i == k+1) ? T : trace[(CHANGEPT, i)]
         @trace(uniform_continuous(lower, upper), NEW_CHANGEPT)
         @trace(uniform_continuous(0., 1.), U)
     else
@@ -323,14 +317,13 @@ end
 # - new_rates, curried on cp_new, cp_prev, and cp_next, is the inverse of new_rates_inverse.
 
 function birth_death_involution(trace, fwd_choices::ChoiceMap, fwd_ret, proposal_args::Tuple)
-    choices = get_choices(trace)
     model_args = get_args(trace)
     T = model_args[1]
 
     bwd_choices = choicemap()
 
     # current number of changepoints
-    k = choices[K]
+    k = trace[K]
     
     # if k == 0, then we can only do a birth move
     isbirth = (k == 0) || fwd_choices[IS_BIRTH]
@@ -350,19 +343,19 @@ function birth_death_involution(trace, fwd_choices::ChoiceMap, fwd_ret, proposal
         constraints[K] = k + 1
 
         cp_new = fwd_choices[NEW_CHANGEPT]
-        cp_prev = (i == 1) ? 0. : choices[(CHANGEPT, i-1)]
-        cp_next = (i == k+1) ? T : choices[(CHANGEPT, i)]
+        cp_prev = (i == 1) ? 0. : trace[(CHANGEPT, i-1)]
+        cp_next = (i == k+1) ? T : trace[(CHANGEPT, i)]
 
         # set new changepoint
         constraints[(CHANGEPT, i)] = cp_new
 
         # shift up changepoints
         for j=i+1:k+1
-            constraints[(CHANGEPT, j)] = choices[(CHANGEPT, j-1)]
+            constraints[(CHANGEPT, j)] = trace[(CHANGEPT, j-1)]
         end
 
         # compute new rates
-        h_cur = choices[(RATE, i)]
+        h_cur = trace[(RATE, i)]
         u = fwd_choices[U]
         (h_prev, h_next) = new_rates([h_cur, u, cp_new, cp_prev, cp_next])
         J = jacobian(new_rates, [h_cur, u, cp_new, cp_prev, cp_next])[:,1:2]
@@ -373,24 +366,24 @@ function birth_death_involution(trace, fwd_choices::ChoiceMap, fwd_ret, proposal
 
         # shift up rates
         for j=i+2:k+2
-            constraints[(RATE, j)] = choices[(RATE, j-1)]
+            constraints[(RATE, j)] = trace[(RATE, j-1)]
         end
     else
         constraints[K] = k - 1
 
-        cp_deleted = choices[(CHANGEPT, i)]
-        cp_prev = (i == 1) ? 0. : choices[(CHANGEPT, i-1)]
-        cp_next = (i == k) ? T : choices[(CHANGEPT, i+1)]
+        cp_deleted = trace[(CHANGEPT, i)]
+        cp_prev = (i == 1) ? 0. : trace[(CHANGEPT, i-1)]
+        cp_next = (i == k) ? T : trace[(CHANGEPT, i+1)]
         bwd_choices[NEW_CHANGEPT] = cp_deleted 
 
         # shift down changepoints
         for j=i:k-1
-            constraints[(CHANGEPT, j)] = choices[(CHANGEPT, j+1)]
+            constraints[(CHANGEPT, j)] = trace[(CHANGEPT, j+1)]
         end
 
         # compute cur rate and u
-        h_prev = choices[(RATE, i)]
-        h_next = choices[(RATE, i+1)]
+        h_prev = trace[(RATE, i)]
+        h_next = trace[(RATE, i+1)]
         (h_cur, u) = new_rates_inverse([h_prev, h_next, cp_deleted, cp_prev, cp_next])
         J = jacobian(new_rates_inverse, [h_prev, h_next, cp_deleted, cp_prev, cp_next])[:,1:2]
         bwd_choices[U] = u
@@ -400,7 +393,7 @@ function birth_death_involution(trace, fwd_choices::ChoiceMap, fwd_ret, proposal
 
         # shift down rates
         for j=i+1:k
-            constraints[(RATE, j)] = choices[(RATE, j+1)]
+            constraints[(RATE, j)] = trace[(RATE, j+1)]
         end
     end
 
@@ -411,9 +404,8 @@ end
 birth_death_move(trace) = metropolis_hastings(trace, birth_death_proposal, (), birth_death_involution)
 
 function mcmc_step(trace)
-    k = get_choices(trace)[K]
     (trace, _) = rate_move(trace)
-    if k > 0
+    if trace[K] > 0
         (trace, _) = position_move(trace)
     end
     (trace, _) = birth_death_move(trace)
@@ -421,9 +413,8 @@ function mcmc_step(trace)
 end
 
 function simple_mcmc_step(trace)
-    k = get_choices(trace)[K]
     (trace, _) = rate_move(trace)
-    if k > 0
+    if trace[K] > 0
         (trace, _) = position_move(trace)
     end
     (trace, _) = metropolis_hastings(trace, k_selection)
@@ -433,7 +424,7 @@ end
 function do_mcmc(T, num_steps::Int)
     (trace, _) = generate(model, (T,), observations)
     for iter=1:num_steps
-        k = get_choices(trace)[K]
+        k = trace[K]
         if iter % 1000 == 0
             println("iter $iter of $num_steps, k: $k")
         end
@@ -447,7 +438,7 @@ const k_selection = select(K)
 function do_simple_mcmc(T, num_steps::Int)
     (trace, _) = generate(model, (T,), observations)
     for iter=1:num_steps
-        k = get_choices(trace)[K]
+        k = trace[K]
         if iter % 1000 == 0
             println("iter $iter of $num_steps, k: $k")
         end
@@ -501,10 +492,9 @@ function show_posterior_samples()
 end
 
 function get_rate_vector(trace, test_points)
-    choices = get_choices(trace)
-    k = choices[K]
-    cps = [choices[(CHANGEPT, i)] for i=1:k]
-    hs = [choices[(RATE, i)] for i=1:k+1]
+    k = trace[K]
+    cps = [trace[(CHANGEPT, i)] for i=1:k]
+    hs = [trace[(RATE, i)] for i=1:k+1]
     rate = Vector{Float64}()
     cur_h_idx = 1
     cur_h = hs[cur_h_idx]
@@ -533,7 +523,7 @@ function plot_posterior_mean_rate()
         (trace, _) = generate(model, (T,), observations)
         for iter=1:num_steps
             if iter % 1000 == 0
-                println("iter $iter of $num_steps, k: $(get_choices(trace)[K])")
+                println("iter $iter of $num_steps, k: $(trace[K])")
             end
             trace = mcmc_step(trace)
             if iter > 4000
@@ -571,7 +561,7 @@ function plot_trace_plot()
     for iter=1:burn_in + 1000 
         trace = mcmc_step(trace)
         if iter > burn_in
-            push!(num_clusters_vec, get_choices(trace)[K])
+            push!(num_clusters_vec, trace[K])
         end
     end
     subplot(2, 1, 1)
@@ -585,7 +575,7 @@ function plot_trace_plot()
     for iter=1:burn_in + 1000 
         trace = simple_mcmc_step(trace)
         if iter > burn_in
-            push!(num_clusters_vec, get_choices(trace)[K])
+            push!(num_clusters_vec, trace[K])
         end
     end
     subplot(2, 1, 2)

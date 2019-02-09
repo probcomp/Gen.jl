@@ -21,7 +21,7 @@ get_values_shallow(::CallAtChoiceMap) = ()
 
 # TODO optimize CallAtTrace using type parameters
 
-struct CallAtTrace
+struct CallAtTrace <: Trace
     gen_fn::GenerativeFunction # the ChoiceAtCombinator (not the kernel)
     subtrace::Any
     key::Any

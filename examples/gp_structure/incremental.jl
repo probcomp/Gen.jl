@@ -250,7 +250,7 @@ function inference(xs::Vector{Float64}, ys::Vector{Float64}, num_iters::Int, cal
     for iter=1:num_iters
 
         covariance_fn = get_retval(trace)
-        noise = get_choices(trace)[:noise]
+        noise = trace[:noise]
         callback(covariance_fn, noise)
 
         # randomly pick a node to expand

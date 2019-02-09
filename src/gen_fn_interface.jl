@@ -1,6 +1,13 @@
-###################
-# Trace interface #
-###################
+##########
+# Traces #
+##########
+
+"""
+    Trace{T}
+
+Abstract type for a trace of a generative function.
+"""
+abstract type Trace end
 
 """
     get_args(trace)
@@ -56,6 +63,15 @@ Return the generative function that produced the given trace.
 """
 function get_gen_fn end
 
+"""
+    value = trace[addr]
+
+Get the value of the random choice at address `addr`.
+"""
+function Base.getindex(trace::Trace, addr)
+    get_choices(trace)[addr]
+end
+
 export get_args
 export get_retval
 export get_choices
@@ -67,11 +83,11 @@ export get_gen_fn
 ######################
 
 """
-    GenerativeFunction{T,U}
+    GenerativeFunction{T,U <: Trace}
 
 Abstract type for a generative function with return value type T and trace type U.
 """
-abstract type GenerativeFunction{T,U} end
+abstract type GenerativeFunction{T,U <: Trace} end
 
 get_return_type(::GenerativeFunction{T,U}) where {T,U} = T
 get_trace_type(::GenerativeFunction{T,U}) where {T,U} = U

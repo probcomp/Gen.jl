@@ -34,7 +34,7 @@ get_submap(choices::StaticIRTraceAssmt, addr::Pair) = _get_submap(choices, addr)
 # trace type generation #
 #########################
 
-abstract type StaticIRTrace end
+abstract type StaticIRTrace <: Trace end
 
 const arg_prefix = gensym("arg")
 const choice_value_prefix = gensym("choice_value")

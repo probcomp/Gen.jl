@@ -27,16 +27,16 @@ include("shared.jl")
     elseif node_type == PLUS
         child1 = get_child(cur, 1, max_branch)
         child2 = get_child(cur, 2, max_branch)
-        left = @splice(covariance_prior(child1))
-        right = @splice(covariance_prior(child2))
+        left = @trace(covariance_prior(child1))
+        right = @trace(covariance_prior(child2))
         node = Plus(left, right)
 
     # times combinator
     elseif node_type == TIMES
         child1 = get_child(cur, 1, max_branch)
         child2 = get_child(cur, 2, max_branch)
-        left = @splice(covariance_prior(child1))
-        right = @splice(covariance_prior(child2))
+        left = @trace(covariance_prior(child1))
+        right = @trace(covariance_prior(child2))
         node = Times(left, right)
 
     # unknown node type
@@ -119,7 +119,7 @@ function inference(xs::Vector{Float64}, ys::Vector{Float64}, num_iters::Int, cal
     for iter=1:num_iters
 
         covariance_fn = get_retval(trace)
-        noise = get_choices(trace)[:noise]
+        noise = trace[:noise]
         callback(covariance_fn, noise)
 
         # do MH move on the subtree

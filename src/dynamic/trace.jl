@@ -9,7 +9,7 @@ struct CallRecord{T}
     noise::Float64
 end
 
-mutable struct DynamicDSLTrace{T}
+mutable struct DynamicDSLTrace{T} <: Trace
     gen_fn::T
     choices::Trie{Any,ChoiceRecord}
     calls::Trie{Any,CallRecord}
