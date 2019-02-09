@@ -48,11 +48,12 @@ function choice_at(dist::Distribution{T}, ::Type{K}) where {T,K}
     ChoiceAtCombinator{T,K}(dist)
 end
 
+unpack_choice_at_args(args) = (args[end], args[1:end-1])
+
 function assess(gen_fn::ChoiceAtCombinator{T,K}, args::Tuple, choices::ChoiceMap) where {T,K}
     local key::K
     local value::T
-    key = args[end]
-    kernel_args = args[1:end-1]
+    (key, kernel_args) = unpack_choice_at_args(args)
     value = get_value(choices, key)
     weight = logpdf(gen_fn.dist, value, kernel_args...)
     (weight, value)
@@ -61,19 +62,24 @@ end
 function propose(gen_fn::ChoiceAtCombinator{T,K}, args::Tuple) where {T,K}
     local key::K
     local value::T
-    key = args[end]
-    kernel_args = args[1:end-1]
+    (key, kernel_args) = unpack_choice_at_args(args)
     value = random(gen_fn.dist, kernel_args...)
     score = logpdf(gen_fn.dist, value, kernel_args...)
     choices = ChoiceAtChoiceMap(key, value)
     (choices, score, value)
 end
 
+function simulate(gen_fn::ChoiceAtCombinator, args::Tuple)
+    (key, kernel_args) = unpack_choice_at_args(args)
+    value = random(gen_fn.dist, kernel_args...)
+    score = logpdf(gen_fn.dist, value, kernel_args...)
+    ChoiceAtTrace(gen_fn, value, key, kernel_args, score)
+end
+
 function generate(gen_fn::ChoiceAtCombinator{T,K}, args::Tuple, choices::ChoiceMap) where {T,K}
     local key::K
     local value::T
-    key = args[end]
-    kernel_args = args[1:end-1]
+    (key, kernel_args) = unpack_choice_at_args(args)
     constrained = has_value(choices, key)
     value = constrained ? get_value(choices, key) : random(gen_fn.dist, kernel_args...)
     score = logpdf(gen_fn.dist, value, kernel_args...)
@@ -88,8 +94,7 @@ end
 
 function update(trace::ChoiceAtTrace, args::Tuple, argdiff,
                 choices::ChoiceMap)
-    key = args[end]
-    kernel_args = args[1:end-1]
+    (key, kernel_args) = unpack_choice_at_args(args)
     key_changed = (key != trace.key)
     constrained = has_value(choices, key)
     if key_changed && constrained
@@ -112,8 +117,7 @@ end
 
 function regenerate(trace::ChoiceAtTrace, args::Tuple, argdiff,
                     selection::AddressSet)
-    key = args[end]
-    kernel_args = args[1:end-1]
+    (key, kernel_args) = unpack_choice_at_args(args)
     key_changed = (key != trace.key)
     selected = has_leaf_node(selection, key)
     if !key_changed && selected 
@@ -139,8 +143,7 @@ end
 
 function extend(trace::ChoiceAtTrace, args::Tuple, argdiff,
                 choices::ChoiceMap)
-    key = args[end]
-    kernel_args = args[1:end-1]
+    (key, kernel_args) = unpack_choice_at_args(args)
     key_changed = (key != trace.key)
     if key_changed
         error("Cannot remove address $(trace.key) in extend")

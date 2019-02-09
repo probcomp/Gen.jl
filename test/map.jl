@@ -16,6 +16,16 @@
     xs = [1.0, 2.0, 3.0, 4.0]
     ys = [3.0, 4.0, 5.0, 6.0]
 
+    @testset "simulate" begin
+        trace = simulate(bar, (xs[1:2], ys[1:2]))
+        expected_score = 0.
+        for i=1:2
+            expected_score += logpdf(normal, trace[i => :z], xs[i] + ys[i], 1.)
+            @test get_retval(trace)[i] == trace[i => :z]
+        end
+        @test isapprox(get_score(trace), expected_score)
+    end
+
     @testset "generate" begin
         z1, z2 = 1.1, 2.2
         constraints = choicemap()

@@ -263,6 +263,7 @@ function gen_fn_changed_error(addr)
 end
 
 include("diff.jl")
+include("simulate.jl")
 include("generate.jl")
 include("propose.jl")
 include("assess.jl")

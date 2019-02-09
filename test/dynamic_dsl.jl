@@ -37,6 +37,19 @@ end
     @test all_visited(get_visited(visitor), choices)
 end
 
+@testset "simulate" begin
+
+    @gen function foo(p)
+        return @trace(bernoulli(p), :x)
+    end
+
+    p = 0.4
+    trace = simulate(foo, (p,))
+    @test trace[:x] == get_retval(trace)
+    @test get_args(trace) == (p,)
+    @test get_score(trace) == (trace[:x] ? log(p) : log(1 - p))
+end
+
 @testset "update" begin
 
     @gen function bar()

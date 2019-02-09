@@ -62,6 +62,7 @@ export MapCustomArgDiff
 
 include("assess.jl")
 include("propose.jl")
+include("simulate.jl")
 include("generate.jl")
 include("generic_update.jl")
 include("update.jl")

@@ -122,32 +122,46 @@ Gen.isnodiff(::StringDiff) = false
     pcfg = Recurse(pcfg_production, pcfg_aggregation, 1, Nothing, Int, String, RuleDiff, Nothing, StringDiff)
 
     # test that each of the most probable strings are all produced
+    function test_strings(strings)
+        @test "(.aa)" in strings
+        @test "(-aa)" in strings
+        @test "(.bb)" in strings
+        @test "(-bb)" in strings
+        @test "(.a(.aa)a)" in strings
+        @test "(-a(.aa)a)" in strings
+        @test "(.a(-aa)a)" in strings
+        @test "(-a(-aa)a)" in strings
+        @test "(.b(.bb)b)" in strings
+        @test "(-b(.bb)b)" in strings
+        @test "(.b(-bb)b)" in strings
+        @test "(-b(-bb)b)" in strings
+        @test "(.a(.bb)a)" in strings
+        @test "(-a(.bb)a)" in strings
+        @test "(.a(-bb)a)" in strings
+        @test "(-a(-bb)a)" in strings
+        @test "(.b(.aa)b)" in strings
+        @test "(-b(.aa)b)" in strings
+        @test "(.b(-aa)b)" in strings
+        @test "(-b(-aa)b)" in strings
+    end
+
+    # test generate
     Random.seed!(1)
     strings = Set{String}()
     for i=1:1000
         (trace, _) = generate(pcfg, (nothing, 1), EmptyChoiceMap())
         push!(strings, get_retval(trace))
     end
-    @test "(.aa)" in strings
-    @test "(-aa)" in strings
-    @test "(.bb)" in strings
-    @test "(-bb)" in strings
-    @test "(.a(.aa)a)" in strings
-    @test "(-a(.aa)a)" in strings
-    @test "(.a(-aa)a)" in strings
-    @test "(-a(-aa)a)" in strings
-    @test "(.b(.bb)b)" in strings
-    @test "(-b(.bb)b)" in strings
-    @test "(.b(-bb)b)" in strings
-    @test "(-b(-bb)b)" in strings
-    @test "(.a(.bb)a)" in strings
-    @test "(-a(.bb)a)" in strings
-    @test "(.a(-bb)a)" in strings
-    @test "(-a(-bb)a)" in strings
-    @test "(.b(.aa)b)" in strings
-    @test "(-b(.aa)b)" in strings
-    @test "(.b(-aa)b)" in strings
-    @test "(-b(-aa)b)" in strings
+    test_strings(strings)
+
+    # test simulate
+    Random.seed!(1)
+    strings = Set{String}()
+    for i=1:1000
+        trace = simulate(pcfg, (nothing, 1))
+        push!(strings, get_retval(trace))
+    end
+    test_strings(strings)
     
     # apply generate to a complete choice map that produces "(.b(.a(.b(-bb)b)a)b)"
     # sequence of production rules: 2 -> 1 -> 2 -> 4

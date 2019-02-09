@@ -122,6 +122,18 @@ Return an iterable over the trainable parameters of the generative function.
 get_params(::GenerativeFunction) = ()
 
 """
+    trace = simulate(gen_fn, args)
+
+Execute the generative function and return the trace.
+
+Given arguments (`args`), sample \$t \\sim p(\\cdot; x)\$ and \$r \\sim p(\\cdot; x,
+t)\$, and return a trace with choice map \$t\$.
+"""
+function simulate(::GenerativeFunction, ::Tuple)
+    error("Not implemented")
+end
+
+"""
     (trace::U, weight) = generate(gen_fn::GenerativeFunction{T,U}, args::Tuple)
 
 Return a trace of a generative function.
@@ -187,7 +199,9 @@ t)\$, and return \$t\$
 ```
 """
 function propose(gen_fn::GenerativeFunction, args::Tuple)
-    error("Not implemented")
+    trace = simulate(gen_fn, args)
+    weight = get_score(trace)
+    (get_choices(trace), weight, get_retval(trace))
 end
 
 """
@@ -327,6 +341,7 @@ export GenerativeFunction
 export has_argument_grads
 export accepts_output_grad
 export get_params
+export simulate
 export generate
 export project
 export propose

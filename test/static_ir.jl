@@ -59,6 +59,23 @@ using Gen: generate_generative_function
 
 end
 
+@testset "simulate" begin
+
+    trace = simulate(foo, ())
+    x = trace[:x]
+    a = trace[:u => :a]
+    y = trace[:y]
+    b = trace[:v => :b]
+
+    score = (
+        logpdf(normal, x, 0, 1) +
+        logpdf(normal, a, 0, 1) +
+        logpdf(normal, y, 0, 1) +
+        logpdf(normal, b, 0, 1))
+
+    @test isapprox(score, get_score(trace))
+end
+
 @testset "generate" begin
 
     y_constraint = 1.123
@@ -67,10 +84,10 @@ end
     constraints[:y] = y_constraint
     constraints[:v => :b] = b_constraint
     (trace, weight) = generate(foo, (), constraints)
-    x = get_choices(trace)[:x]
-    a = get_choices(trace)[:u => :a]
-    y = get_choices(trace)[:y]
-    b = get_choices(trace)[:v => :b]
+    x = trace[:x]
+    a = trace[:u => :a]
+    y = trace[:y]
+    b = trace[:v => :b]
 
     @test isapprox(y, y_constraint)
     @test isapprox(b, b_constraint)

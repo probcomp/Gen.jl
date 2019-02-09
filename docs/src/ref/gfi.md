@@ -88,7 +88,12 @@ There is no abstract type representing all traces.
 Different concrete types of generative functions use different data structures and different Jula types for their traces.
 The trace type that a generative function uses is the second type parameter of the [`GenerativeFunction`](@ref) abstract type.
 
-A trace of a generative function can be produced using:
+A generative function can be executed and traced using:
+```@docs
+simulate
+```
+
+An traced execution that satisfies constraints on the choice map can be generated using:
 ```@docs
 generate
 ```

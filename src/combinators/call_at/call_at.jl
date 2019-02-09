@@ -48,9 +48,11 @@ function accepts_output_grad(gen_fn::CallAtCombinator)
     accepts_output_grad(gen_fn.kernel)
 end
 
+unpack_call_at_args(args) = (args[end], args[1:end-1])
+
+
 function assess(gen_fn::CallAtCombinator, args::Tuple, choices::ChoiceMap)
-    key = args[end]
-    kernel_args = args[1:end-1]
+    (key, kernel_args) = unpack_call_at_args(args)
     if length(get_submaps_shallow(choices)) > 1 || length(get_values_shallow(choices)) > 0
         error("Not all constraints were consumed")
     end
@@ -59,17 +61,21 @@ function assess(gen_fn::CallAtCombinator, args::Tuple, choices::ChoiceMap)
 end
 
 function propose(gen_fn::CallAtCombinator, args::Tuple)
-    key = args[end]
-    kernel_args = args[1:end-1]
+    (key, kernel_args) = unpack_call_at_args(args)
     (submap, weight, retval) = propose(gen_fn.kernel, kernel_args)
     choices = CallAtChoiceMap(key, submap)
     (choices, weight, retval)
 end
 
+function simulate(gen_fn::CallAtCombinator, args::Tuple)
+    (key, kernel_args) = unpack_call_at_args(args)
+    subtrace = simulate(gen_fn.kernel, kernel_args)
+    CallAtTrace(gen_fn, subtrace, key)
+end
+
 function generate(gen_fn::CallAtCombinator{T,U,K}, args::Tuple,
                     choices::ChoiceMap) where {T,U,K}
-    key = args[end]
-    kernel_args = args[1:end-1]
+    (key, kernel_args) = unpack_call_at_args(args)
     submap = get_submap(choices, key) 
     (subtrace, weight) = generate(gen_fn.kernel, kernel_args, submap)
     trace = CallAtTrace(gen_fn, subtrace, key)
@@ -87,8 +93,7 @@ end
 
 function update(trace::CallAtTrace, args::Tuple, argdiff,
                 choices::ChoiceMap)
-    key = args[end]
-    kernel_args = args[1:end-1]
+    (key, kernel_args) = unpack_call_at_args(args)
     key_changed = (key != trace.key)
     submap = get_submap(choices, key)
     if key_changed
@@ -107,8 +112,7 @@ end
 
 function regenerate(trace::CallAtTrace, args::Tuple, argdiff,
                     selection::AddressSet)
-    key = args[end]
-    kernel_args = args[1:end-1]
+    (key, kernel_args) = unpack_call_at_args(args)
     key_changed = (key != trace.key)
     if key_changed
         if has_internal_node(selection, key)
@@ -132,8 +136,7 @@ end
 
 function extend(trace::CallAtTrace, args::Tuple, argdiff,
                 choices::ChoiceMap)
-    key = args[end]
-    kernel_args = args[1:end-1]
+    (key, kernel_args) = unpack_call_at_args(args)
     key_changed = (key != trace.key)
     submap = get_submap(choices, key)
     if key_changed

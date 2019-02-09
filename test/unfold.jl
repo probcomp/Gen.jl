@@ -15,6 +15,31 @@
 
     foo = Unfold(kernel)
 
+    @testset "simulate" begin
+        x_init = 0.1
+        alpha = 0.2
+        beta = 0.3
+        x1 = 1.1
+        x2 = 1.2
+        x3 = 1.3
+        trace = simulate(foo, (3, x_init, alpha, beta))
+        x1 = trace[1 => :x]
+        x2 = trace[2 => :x]
+        x3 = trace[3 => :x]
+        choices = get_choices(trace)
+        @test length(collect(get_values_shallow(choices))) == 0
+        @test length(collect(get_submaps_shallow(choices))) == 3
+        expected_score = (logpdf(normal, x1, x_init * alpha + beta, std)
+             + logpdf(normal, x2, x1 * alpha + beta, std)
+             + logpdf(normal, x3, x2 * alpha + beta, std))
+        @test isapprox(get_score(trace), expected_score)
+        retval = get_retval(trace)
+        @test length(retval) == 3
+        @test retval[1] == x1
+        @test retval[2] == x2
+        @test retval[3] == x3
+    end
+
     @testset "generate" begin
         x_init = 0.1
         alpha = 0.2

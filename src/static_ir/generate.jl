@@ -1,20 +1,20 @@
-struct StaticIRInitializeState
+struct StaticIRGenerateState
     schema::Union{StaticAddressSchema, EmptyAddressSchema}
     stmts::Vector{Any}
 end
 
-function process!(::StaticIRInitializeState, node) end
+function process!(::StaticIRGenerateState, node) end
 
-function process!(state::StaticIRInitializeState, node::ArgumentNode)
+function process!(state::StaticIRGenerateState, node::ArgumentNode)
     push!(state.stmts, :($(get_value_fieldname(node)) = $(node.name)))
 end
 
-function process!(state::StaticIRInitializeState, node::JuliaNode)
+function process!(state::StaticIRGenerateState, node::JuliaNode)
     args = map((input_node) -> input_node.name, node.inputs)
     push!(state.stmts, :($(node.name) = $(QuoteNode(node.fn))($(args...))))
 end
 
-function process!(state::StaticIRInitializeState, node::RandomChoiceNode)
+function process!(state::StaticIRGenerateState, node::RandomChoiceNode)
     schema = state.schema
     args = map((input_node) -> input_node.name, node.inputs)
     incr = gensym("logpdf")
@@ -35,7 +35,7 @@ function process!(state::StaticIRInitializeState, node::RandomChoiceNode)
     push!(state.stmts, :($total_score_fieldname += $incr))
 end
 
-function process!(state::StaticIRInitializeState, node::GenerativeFunctionCallNode)
+function process!(state::StaticIRGenerateState, node::GenerativeFunctionCallNode)
     schema = state.schema
     args = map((input_node) -> input_node.name, node.inputs)
     args_tuple = Expr(:tuple, args...)
@@ -82,7 +82,7 @@ function codegen_generate(gen_fn_type::Type{T}, args,
     push!(stmts, :($(Expr(:tuple, arg_names...)) = args))
 
     # process expression nodes in topological order
-    state = StaticIRInitializeState(schema, stmts)
+    state = StaticIRGenerateState(schema, stmts)
     for node in ir.nodes
         process!(state, node)
     end
@@ -105,15 +105,3 @@ push!(Gen.generated_functions, quote
     Gen.codegen_generate(gen_fn, args, constraints)
 end
 end)
-
-function propose(gen_fn::StaticIRGenerativeFunction, args::Tuple)
-    # TODO implement the actual propose
-    (trace, weight) = generate(gen_fn, args, EmptyChoiceMap())
-    (get_choices(trace), weight, get_retval(trace))
-end
-
-function assess(gen_fn::StaticIRGenerativeFunction, args::Tuple, constraints::ChoiceMap)
-    # TODO implement the actual assess
-    (trace, weight) = generate(gen_fn, args, constraints)
-    (weight, get_retval(trace))
-end

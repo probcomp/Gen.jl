@@ -239,9 +239,62 @@ function get_aggregation_constraints(constraints::ChoiceMap, cur::Int)
     get_submap(constraints, (cur, Val(:aggregation)))
 end
 
-##############
+############
+# simulate #
+############
+
+function simulate(gen_fn::Recurse{S,T,U,V,W,X,Y,DV,DU,DW},
+            args::Tuple{U,Int}) where {S,T,U,V,W,X,Y,DV,DU,DW}
+    (root_production_input::U, root_idx::Int) = args
+    production_traces = PersistentHashMap{Int,S}()
+    aggregation_traces = PersistentHashMap{Int,T}()
+    score = 0.
+    num_has_choices = 0
+    
+    # production phase
+    # does not matter in which order we visit (since children are inserted after parents)
+    prod_to_visit = Set{Int}([root_idx]) 
+    while !isempty(prod_to_visit)
+        local subtrace::S
+        local input::U
+        cur = first(prod_to_visit)
+        delete!(prod_to_visit, cur)
+        input = get_production_input(gen_fn, cur, production_traces, root_idx, root_production_input)
+        subtrace = simulate(gen_fn.production_kern, (input,))
+        score += get_score(subtrace)
+        production_traces = assoc(production_traces, cur, subtrace)
+        children_inputs::Vector{U} = get_retval(subtrace)[2]
+        for child_num in 1:length(children_inputs)
+            push!(prod_to_visit, get_child(cur, child_num, gen_fn.max_branch))
+        end
+        if !isempty(get_choices(subtrace))
+            num_has_choices += 1
+        end
+    end
+
+    # aggregation phase
+    # visit children first
+    agg_to_visit = sort(collect(keys(production_traces)), rev=true)
+    for cur in agg_to_visit
+        local subtrace::T
+        local input::Tuple{V,Vector{W}}
+        input = get_aggregation_input(gen_fn, cur, production_traces, aggregation_traces)
+        subtrace = simulate(gen_fn.aggregation_kern, input)
+        score += get_score(subtrace)
+        aggregation_traces = assoc(aggregation_traces, cur, subtrace)
+        if !isempty(get_choices(subtrace))
+            num_has_choices += 1
+        end
+    end
+
+    RecurseTrace{S,T,U,V,W,X,Y,DV,DU,DW}(gen_fn,
+                production_traces, aggregation_traces, gen_fn.max_branch,
+                score, root_idx, num_has_choices)
+end
+
+############
 # generate #
-##############
+############
 
 function generate(gen_fn::Recurse{S,T,U,V,W,X,Y,DV,DU,DW}, args::Tuple{U,Int},
                     constraints::ChoiceMap) where {S,T,U,V,W,X,Y,DV,DU,DW}
@@ -299,9 +352,9 @@ function generate(gen_fn::Recurse{S,T,U,V,W,X,Y,DV,DU,DW}, args::Tuple{U,Int},
 end
 
 
-################
+##########
 # update #
-################
+##########
 
 struct NodeQueue{T}
     ordering::T

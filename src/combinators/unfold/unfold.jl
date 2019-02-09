@@ -65,6 +65,7 @@ function check_length(len::Int)
     end
 end
 
+include("simulate.jl")
 include("generate.jl")
 include("propose.jl")
 include("assess.jl")

@@ -67,6 +67,7 @@ const subtrace = gensym("subtrace")
 const discard = gensym("discard")
 const retdiff = gensym("retdiff")
 
+include("simulate.jl")
 include("generate.jl")
 include("project.jl")
 include("update.jl")
