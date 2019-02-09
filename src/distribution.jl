@@ -6,31 +6,49 @@ using SpecialFunctions: lgamma, lbeta, digamma
 # abstract distribution #
 #########################
 
-abstract type Distribution{T} end
+"""
+    abstract type SimpleGenerativeFunction{T} end
+
+Abstract type for a probability distributions on a single random choice, for which it is possible to sample and evaluate the log probability (density).
+
+Unlike GenerativeFunctions, Distributions do not have a trace that is distinct from their return value --- the return value contains all the information about the execution that is available.
+"""
+abstract type SimpleGenerativeFunction{T} end
 
 """
-    val::T = random(dist::Distribution{T}, args...)
+    val::T = random(dist::SimpleGenerativeFunction{T}, args...)
 
 Sample a random choice from the given distribution with the given arguments.
+
+Examples:
+
+    x::Bool = random(bernoulli, 0.5)
+    x::Bool = random(Bernoulli(), 0.5)
 """
 function random end
 
 """
-    lpdf = logpdf(dist::Distribution{T}, value::T, args...)
+    lpdf = logpdf(dist::SimpleGenerativeFunction{T}, value::T, args...)
 
 Evaluate the log probability (density) of the value.
+
+Examples:
+
+    logpdf(bernoulli, false, 0.5)
+    logpdf(Bernoulli(), false, 0.5)
+ 
 """
 function logpdf end
 
 """
-    has::Bool = has_output_grad(dist::Distribution)
+    has::Bool = has_output_grad(dist::SimpleGenerativeFunction)
 
 Return true of the gradient if the distribution computes the gradient of the logpdf with respect to the value of the random choice.
 """
 function has_output_grad end
 
 """
-    grads::Tuple = logpdf_grad(dist::Distribution{T}, value::T, args...)
+    grads::Tuple = logpdf_grad(dist::SimpleGenerativeFunction{T}, value::T, args...)
 
 Compute the gradient of the logpdf with respect to the value, and each of the arguments.
 
@@ -43,9 +61,9 @@ function logpdf_grad end
 
 # NOTE: has_argument_grad is documented and exported in gen_fn_interface.jl
 
-get_return_type(::Distribution{T}) where {T} = T
+get_return_type(::SimpleGenerativeFunction{T}) where {T} = T
 
-export Distribution
+export SimpleGenerativeFunction
 export random
 export logpdf
 export logpdf_grad
@@ -55,7 +73,7 @@ export has_output_grad
 # bernoulli #
 #############
 
-struct Bernoulli <: Distribution{Bool} end
+struct Bernoulli <: SimpleGenerativeFunction{Bool} end
 
 """
     bernoulli(prob_true::Real)
@@ -86,7 +104,7 @@ export bernoulli
 # univariate normal #
 #####################
 
-struct Normal <: Distribution{Float64} end
+struct Normal <: SimpleGenerativeFunction{Float64} end
 
 """
     normal(mu::Real, std::Real)
@@ -123,7 +141,7 @@ export normal
 # multivariate normal #
 #######################
 
-struct MultivariateNormal <: Distribution{Vector{Float64}} end
+struct MultivariateNormal <: SimpleGenerativeFunction{Vector{Float64}} end
 
 """
     mvnormal(mu::AbstractVector{T}, cov::AbstractMatrix{U}} where {T<:Real,U<:Real}
@@ -161,7 +179,7 @@ export mvnormal
 # gamma #
 #########
 
-struct Gamma <: Distribution{Float64} end
+struct Gamma <: SimpleGenerativeFunction{Float64} end
 
 """
     gamma(shape::Real, scale::Real)
@@ -205,7 +223,7 @@ export gamma
 # inverse gamma #
 #################
 
-struct InverseGamma <: Distribution{Float64} end
+struct InverseGamma <: SimpleGenerativeFunction{Float64} end
 
 """
     inv_gamma(shape::Real, scale::Real)
@@ -247,7 +265,7 @@ export inv_gamma
 # TODO allow the lower and upper bounds to be parameterized.
 # use default values for the lower and upper bounds ? (0 and 1)
 
-struct Beta <: Distribution{Float64} end
+struct Beta <: SimpleGenerativeFunction{Float64} end
 
 """
     beta(alpha::Real, beta::Real)
@@ -287,7 +305,7 @@ export beta
 # categorical #
 ###############
 
-struct Categorical <: Distribution{Int} end
+struct Categorical <: SimpleGenerativeFunction{Int} end
 
 """
     categorical(probs::AbstractArray{U, 1}) where {U <: Real}
@@ -322,7 +340,7 @@ export categorical
 # uniform_discrete #
 ####################
 
-struct UniformDiscrete <: Distribution{Int} end
+struct UniformDiscrete <: SimpleGenerativeFunction{Int} end
 
 """
     uniform_discrete(low::Integer, high::Integer)
@@ -356,7 +374,7 @@ export uniform_discrete
 # uniform_continuous #
 ######################
 
-struct UniformContinuous <: Distribution{Float64} end
+struct UniformContinuous <: SimpleGenerativeFunction{Float64} end
 
 const uniform_continuous = UniformContinuous()
 
@@ -392,7 +410,7 @@ export uniform_continuous, uniform
 # poisson #
 ###########
 
-struct Poisson <: Distribution{Int} end
+struct Poisson <: SimpleGenerativeFunction{Int} end
 
 """
     poisson(lambda::Real)
@@ -427,7 +445,7 @@ export poisson
 # Piecewise Uniform #
 #####################
 
-struct PiecewiseUniform <: Distribution{Float64} end
+struct PiecewiseUniform <: SimpleGenerativeFunction{Float64} end
 
 """
     piecewise_uniform(bounds, probs)
@@ -502,7 +520,7 @@ export piecewise_uniform
 
 # TODO allow the lower and upper bounds to be changed, like uniform.
 
-struct BetaUniformMixture <: Distribution{Float64} end
+struct BetaUniformMixture <: SimpleGenerativeFunction{Float64} end
 
 """
     beta_uniform(theta::Real, alpha::Real, beta::Real)

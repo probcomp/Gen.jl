@@ -18,7 +18,7 @@ struct JuliaNode <: RegularNode
 end
 
 struct RandomChoiceNode <: RegularNode
-    dist::Distribution
+    dist::SimpleGenerativeFunction
     inputs::Vector{RegularNode}
     addr::Symbol
     name::Symbol
@@ -191,7 +191,7 @@ function add_constant_diff_node!(builder::StaticIRBuilder, val::T, name::Symbol=
     node
 end
 
-function add_addr_node!(builder::StaticIRBuilder, dist::Distribution;
+function add_addr_node!(builder::StaticIRBuilder, dist::SimpleGenerativeFunction;
                         inputs::Vector=[], addr::Symbol=gensym(),
                         name::Symbol=gensym(), typ::Type=Any)
     check_unique_var(builder, name)

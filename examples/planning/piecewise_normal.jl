@@ -1,4 +1,4 @@
-struct PieceWiseNormal <: Gen.Distribution{Float64} end
+struct PieceWiseNormal <: Gen.SimpleGenerativeFunction{Float64} end
 const piecewise_normal = PieceWiseNormal()
 
 # piece 1 has interval (-Inf, boundaries[1])

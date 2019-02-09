@@ -3,7 +3,7 @@ function maybe_track(arg, has_argument_grad::Bool, tape)
 end
 
 @noinline function ReverseDiff.special_reverse_exec!(
-        instruction::ReverseDiff.SpecialInstruction{D}) where {D <: Distribution}
+        instruction::ReverseDiff.SpecialInstruction{D}) where {D <: SimpleGenerativeFunction}
     dist::D = instruction.func
     args_maybe_tracked = instruction.input
     score_tracked = instruction.output
@@ -70,7 +70,7 @@ function read_param(state::GFBackpropParamsState, name::Symbol)
     value
 end
 
-function traceat(state::GFBackpropParamsState, dist::Distribution{T},
+function traceat(state::GFBackpropParamsState, dist::SimpleGenerativeFunction{T},
               args_maybe_tracked, key) where {T}
     local retval::T
     visit!(state.visitor, key)
@@ -268,7 +268,7 @@ function fill_value_map!(value_choices::DynamicChoiceMap,
     end
 end
 
-function traceat(state::GFBackpropTraceState, dist::Distribution{T},
+function traceat(state::GFBackpropTraceState, dist::SimpleGenerativeFunction{T},
               args_maybe_tracked, key) where {T}
     local retval::T
     visit!(state.visitor, key)

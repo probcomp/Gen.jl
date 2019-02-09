@@ -109,7 +109,7 @@ function split_addr!(keys, addr_expr::Expr)
 end
 
 choice_or_call_at(gen_fn::GenerativeFunction, addr) = call_at(gen_fn, addr)
-choice_or_call_at(dist::Distribution, addr) = choice_at(dist, addr)
+choice_or_call_at(dist::SimpleGenerativeFunction, addr) = choice_at(dist, addr)
 
 function parse_addr_expr!(stmts, bindings, name, typ, addr_expr)
     if !(isa(addr_expr, Expr) && addr_expr.head == :macrocall

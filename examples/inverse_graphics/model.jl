@@ -14,7 +14,7 @@ const letters = String["A", "B", "C"]
 # primitive distributions #
 ###########################
 
-struct NoisyMatrix <: Distribution{Matrix{Float64}} end
+struct NoisyMatrix <: SimpleGenerativeFunction{Matrix{Float64}} end
 const noisy_matrix = NoisyMatrix()
 
 function Gen.logpdf(::NoisyMatrix, x::Matrix{Float64}, mu::Matrix{Float64}, noise::Float64)

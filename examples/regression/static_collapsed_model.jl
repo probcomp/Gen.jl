@@ -1,7 +1,7 @@
 import Distributions
 import Gen: random, logpdf
 
-struct TwoNormals <: Distribution{Float64} end
+struct TwoNormals <: SimpleGenerativeFunction{Float64} end
 const two_normals = TwoNormals()
 
 function logpdf(::TwoNormals, x, mu, sigma1, sigma2)

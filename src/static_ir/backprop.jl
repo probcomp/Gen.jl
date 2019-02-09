@@ -197,7 +197,7 @@ function back_codegen_random_choice_to_inputs!(stmts, ir, fwd_marked, back_marke
         if input_node in fwd_marked
             @assert input_node in back_marked # this ensured its gradient will have been initialized
             if !has_argument_grads(node.dist)[i]
-                error("Distribution $dist does not have logpdf gradient for argument $i")
+                error("SimpleGenerativeFunction $dist does not have logpdf gradient for argument $i")
             end
             push!(stmts, :($(gradient_var(input_node)) += $logpdf_grad[$(QuoteNode(i+1))]))
         end
@@ -220,7 +220,7 @@ function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
     # backpropagate to the value (if it was selected)
     if node in fwd_marked
         if !has_output_grad(node.dist)
-            error("Distribution $dist does not logpdf gradient for its output value")
+            error("SimpleGenerativeFunction $dist does not logpdf gradient for its output value")
         end
         push!(stmts, :($(gradient_var(node)) += $logpdf_grad[1]))
     end

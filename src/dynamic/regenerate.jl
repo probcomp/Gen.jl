@@ -19,7 +19,7 @@ function GFRegenerateState(gen_fn, args, argdiff, prev_trace,
         Trie{Any,Any}(), Trie{Any,Any}())
 end
 
-function traceat(state::GFRegenerateState, dist::Distribution{T},
+function traceat(state::GFRegenerateState, dist::SimpleGenerativeFunction{T},
               args, key) where {T}
     local prev_retval::T
     local retval::T

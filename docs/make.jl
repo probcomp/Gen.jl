@@ -10,7 +10,7 @@ makedocs(
         "Tutorials" => "tutorials.md",
         "Language and API Reference" => [
             "Generative Functions" => "ref/gfi.md",
-            "Probability Distributions" => "ref/distributions.md",
+            "Simple Generative Functions" => "ref/distributions.md",
             "Built-in Modeling Language" => "ref/modeling.md",
             "Generative Function Combinators" => "ref/combinators.md",
             "Choice Maps" => "ref/choice_maps.md",

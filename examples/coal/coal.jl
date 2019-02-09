@@ -20,7 +20,7 @@ using Gen
 # ..
 # xK | x1 .. x_{K-1} ~ min_uniform_continuous(x_{K-1}, b, 1)
 
-struct MinUniformContinuous <: Distribution{Float64} end
+struct MinUniformContinuous <: SimpleGenerativeFunction{Float64} end
 const min_uniform_continuous = MinUniformContinuous()
 
 function Gen.logpdf(::MinUniformContinuous, x::Float64, lower::T, upper::U, k::Int) where {T<:Real,U<:Real}
@@ -66,7 +66,7 @@ function compute_total(bounds, rates)
     (total, bounds_ascending)
 end
 
-struct PiecewiseHomogenousPoissonProcess <: Distribution{Vector{Float64}} end
+struct PiecewiseHomogenousPoissonProcess <: SimpleGenerativeFunction{Vector{Float64}} end
 const piecewise_poisson_process = PiecewiseHomogenousPoissonProcess()
 
 function Gen.logpdf(::PiecewiseHomogenousPoissonProcess, x::Vector{Float64}, bounds::Vector{Float64}, rates::Vector{Float64})

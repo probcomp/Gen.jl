@@ -32,7 +32,7 @@ get_submaps_shallow(choices::ChoiceAtChoiceMap) = ()
 get_values_shallow(choices::ChoiceAtChoiceMap) = ((choices.key, choices.value),)
 
 struct ChoiceAtCombinator{T,K} <: GenerativeFunction{T, ChoiceAtTrace}
-    dist::Distribution{T}
+    dist::SimpleGenerativeFunction{T}
 end
 
 accepts_output_grad(gen_fn::ChoiceAtCombinator) = has_output_grad(gen_fn.dist)
@@ -44,7 +44,7 @@ accepts_output_grad(gen_fn::ChoiceAtCombinator) = has_output_grad(gen_fn.dist)
 # we will consider the random choice as a gradient source element if the
 # distribution has has_output_grad = true)
 
-function choice_at(dist::Distribution{T}, ::Type{K}) where {T,K}
+function choice_at(dist::SimpleGenerativeFunction{T}, ::Type{K}) where {T,K}
     ChoiceAtCombinator{T,K}(dist)
 end
 
