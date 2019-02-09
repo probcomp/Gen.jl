@@ -85,7 +85,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Generative Functions",
     "title": "Gen.GenerativeFunction",
     "category": "type",
-    "text": "GenerativeFunction{T,U}\n\nAbstract type for a generative function with return value type T and trace type U.\n\n\n\n\n\n"
+    "text": "GenerativeFunction{T,U <: Trace}\n\nAbstract type for a generative function with return value type T and trace type U.\n\n\n\n\n\n"
 },
 
 {
