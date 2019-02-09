@@ -41,8 +41,23 @@ using Gen: generate_generative_function
     ir = build_ir(builder)
     foo = eval(generate_generative_function(ir, :foo))
 
+    #@gen function const_fn()
+        #return 1
+    #end
+
+    builder = StaticIRBuilder()
+    one = add_constant_node!(builder, 2)
+    set_return_node!(builder, one)
+    ir = build_ir(builder)
+    const_fn = eval(generate_generative_function(ir, :const_fn))
+
     Gen.load_generated_functions()
 
+@testset "Julia call" begin
+
+    @test const_fn() == 2
+
+end
 
 @testset "generate" begin
 

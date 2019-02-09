@@ -32,9 +32,9 @@ end
 
 accepts_output_grad(gen_fn::DynamicDSLFunction) = gen_fn.accepts_output_grad
 
-function (g::DynamicDSLFunction)(args...)
-    (trace, _) = generate(g, args, EmptyChoiceMap())
-    get_retval(trace)
+function (gen_fn::DynamicDSLFunction)(args...)
+    (_, _, retval) = propose(gen_fn, args)
+    retval
 end
 
 function exec(gf::DynamicDSLFunction, state, args::Tuple)

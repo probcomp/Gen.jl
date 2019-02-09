@@ -2,9 +2,14 @@ using Gen: AddressVisitor, all_visited, visit!, get_visited
 
 @testset "Dynamic DSL" begin
 
-###################
-# address visitor #
-###################
+@testset "Julia call syntax" begin
+
+    @gen function foo()
+        return 1
+    end
+
+    @test foo() == 1
+end
 
 # TODO also test get_unvisited
 
@@ -31,11 +36,6 @@ using Gen: AddressVisitor, all_visited, visit!, get_visited
     visit!(visitor, :y)
     @test all_visited(get_visited(visitor), choices)
 end
-
-
-##########
-# update #
-##########
 
 @testset "update" begin
 
@@ -139,10 +139,6 @@ end
 
 end
 
-###############
-# regenerate #
-###############
-
 @testset "regenerate" begin
 
     @gen function bar(mu)
@@ -237,10 +233,6 @@ end
     end
 
 end
-
-##################
-# choice_gradients #
-##################
 
 @testset "choice_gradients and accumulate_param_gradients!" begin
 
