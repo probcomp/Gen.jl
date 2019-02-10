@@ -68,10 +68,28 @@ end
 end
 
 @testset "geometric" begin
+
+    # random
+    @test geometric(0.5) >= 0
+
+    # logpdf_grad
     f = (x, p) -> logpdf(geometric, x, p)
     args = (4, 0.3)
     actual = logpdf_grad(geometric, args...)
     @test actual[1] == nothing
+    @test isapprox(actual[2], finite_diff(f, args, 2, dx))
+end
+
+@testset "exponential" begin
+
+    # random
+    @test exponential(0.5) > 0
+
+    # logpdf_grad
+    f = (x, rate) -> logpdf(exponential, x, rate)
+    args = (1.2, 0.5)
+    actual = logpdf_grad(exponential, args...)
+    @test isapprox(actual[1], finite_diff(f, args, 1, dx))
     @test isapprox(actual[2], finite_diff(f, args, 2, dx))
 end
 
