@@ -27,7 +27,7 @@ module Gen
     include("diff.jl")
 
     # built-in probability disributions
-    include("distribution.jl")
+    include("modeling_library/distribution.jl")
 
     # utilities for parsing
     include("dsl_common.jl")
