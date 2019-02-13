@@ -550,9 +550,23 @@ function DynamicChoiceMap(tuples...)
     choices
 end
 
-choicemap() = DynamicChoiceMap()
+"""
+    choices = choicemap()
 
-choicemap(tuples...) = DynamicChoiceMap(tuples...)
+Construct an empty mutable choice map.
+"""
+function choicemap()
+    DynamicChoiceMap()
+end
+
+"""
+    choices = choicemap(tuples...)
+
+Construct a mutable choice map initialized with given address, value tuples.
+"""
+function choicemap(tuples...)
+    DynamicChoiceMap(tuples...)
+end
 
 get_address_schema(::Type{DynamicChoiceMap}) = DynamicAddressSchema()
 

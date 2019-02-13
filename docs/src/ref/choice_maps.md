@@ -19,20 +19,19 @@ to_array
 from_array
 address_set
 ```
-Note that none of these methods mutate the assignment.
+Note that none of these methods mutate the choice map.
 
 Choice maps also provide `Base.isempty`, which tests of there are no random
-choices in the assignment, and `Base.merge`, which takes two assignments, and
-returns a new assignment containing all random choices in either assignment.
-It is an error if the assignments both have values at the same address, or if
-one assignment has a value at an address that is the prefix of the address of a
-value in the other assignment.
+choices in the choice map, and `Base.merge`, which takes two choice maps, and
+returns a new choice map containing all random choices in either choice map.
+It is an error if the choice maps both have values at the same address, or if
+one choice map has a value at an address that is the prefix of the address of a
+value in the other choice map.
 
 
-## Dynamic Choice Map 
+## Mutable Choice Maps
 
-One concrete assignment type is `DynamicChoiceMap`, which is mutable.
-Users construct `DynamicChoiceMaps` and populate them for use as observations or constraints, e.g.:
+A mutable choice map can be constructed with [`choicemap`](@ref), and then populated:
 ```julia
 choices = choicemap()
 choices[:x] = true
@@ -40,7 +39,7 @@ choices["foo"] = 1.25
 choices[:y => 1 => :z] = -6.3
 ```
 
-There is also a constructor for `DynamicChoiceMap` that takes initial (address, value) pairs:
+There is also a constructor that takes initial (address, value) pairs:
 ```julia
 choices = choicemap((:x, true), ("foo", 1.25), (:y => 1 => :z, -6.3))
 ```
