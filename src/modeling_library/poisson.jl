@@ -1,0 +1,29 @@
+struct Poisson <: Distribution{Int} end
+
+"""
+    poisson(lambda::Real)
+
+Sample an `Int` from the Poisson distribution with rate `lambda`.
+"""
+const poisson = Poisson()
+
+function logpdf(::Poisson, x::Integer, lambda::Real)
+    x * log(lambda) - lambda - lgamma(x+1)
+end
+
+function logpdf_grad(::Poisson, x::Integer, lambda::Real)
+    error("Not implemented")
+    (nothing, nothing)
+end
+
+
+function random(::Poisson, lambda::Real)
+    rand(Distributions.Poisson(lambda))
+end
+
+(::Poisson)(lambda) = random(Poisson(), lambda)
+
+has_output_grad(::Poisson) = false
+has_argument_grads(::Poisson) = (false,)
+
+export poisson

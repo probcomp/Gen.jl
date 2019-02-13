@@ -27,7 +27,7 @@ module Gen
     include("diff.jl")
 
     # built-in probability disributions
-    include("modeling_library/distribution.jl")
+    include("modeling_library/modeling_library.jl")
 
     # utilities for parsing
     include("dsl_common.jl")
@@ -44,9 +44,6 @@ module Gen
     # DSLs for defining dynamic embedded and static IR generative functions
     # 'Dynamic DSL' and 'Static DSL'
     include("dsl/dsl.jl")
-
-    # generative function combinators
-    include("combinators/combinators.jl")
 
     # injective function DSL (not currently documented)
     include("injective.jl")
