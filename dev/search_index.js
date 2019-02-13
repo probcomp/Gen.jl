@@ -1021,15 +1021,39 @@ var documenterSearchIndex = {"docs": [
     "page": "Choice Maps",
     "title": "Choice Maps",
     "category": "section",
-    "text": "Maps from the addresses of random choices to their values are stored in associative tree-structured data structures that have the following abstract type:ChoiceMapChoice maps are constructed by users to express observations and/or constraints on the traces of generative functions. Choice maps are also returned by certain Gen inference methods, and are used internally by various Gen inference methods.Choice maps provide the following methods:has_value\nget_value\nget_submap\nget_values_shallow\nget_submaps_shallow\nto_array\nfrom_array\naddress_setNote that none of these methods mutate the assignment.Choice maps also provide Base.isempty, which tests of there are no random choices in the assignment, and Base.merge, which takes two assignments, and returns a new assignment containing all random choices in either assignment. It is an error if the assignments both have values at the same address, or if one assignment has a value at an address that is the prefix of the address of a value in the other assignment."
+    "text": "Maps from the addresses of random choices to their values are stored in associative tree-structured data structures that have the following abstract type:ChoiceMapChoice maps are constructed by users to express observations and/or constraints on the traces of generative functions. Choice maps are also returned by certain Gen inference methods, and are used internally by various Gen inference methods.Choice maps provide the following methods:has_value\nget_value\nget_submap\nget_values_shallow\nget_submaps_shallow\nto_array\nfrom_array\naddress_setNote that none of these methods mutate the choice map.Choice maps also provide Base.isempty, which tests of there are no random choices in the choice map, and Base.merge, which takes two choice maps, and returns a new choice map containing all random choices in either choice map. It is an error if the choice maps both have values at the same address, or if one choice map has a value at an address that is the prefix of the address of a value in the other choice map."
 },
 
 {
-    "location": "ref/choice_maps/#Dynamic-Choice-Map-1",
+    "location": "ref/choice_maps/#Gen.choicemap",
     "page": "Choice Maps",
-    "title": "Dynamic Choice Map",
+    "title": "Gen.choicemap",
+    "category": "function",
+    "text": "choices = choicemap()\n\nConstruct an empty mutable choice map.\n\n\n\n\n\nchoices = choicemap(tuples...)\n\nConstruct a mutable choice map initialized with given address, value tuples.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/choice_maps/#Gen.set_value!",
+    "page": "Choice Maps",
+    "title": "Gen.set_value!",
+    "category": "function",
+    "text": "set_value!(choices::DynamicChoiceMap, addr, value)\n\nSet the given value for the given address.\n\nWill cause any previous value or sub-assignment at this address to be deleted. It is an error if there is already a value present at some prefix of the given address.\n\nThe following syntactic sugar is provided:\n\nchoices[addr] = value\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/choice_maps/#Gen.set_submap!",
+    "page": "Choice Maps",
+    "title": "Gen.set_submap!",
+    "category": "function",
+    "text": "set_submap!(choices::DynamicChoiceMap, addr, submap::ChoiceMap)\n\nReplace the sub-assignment rooted at the given address with the given sub-assignment. Set the given value for the given address.\n\nWill cause any previous value or sub-assignment at the given address to be deleted. It is an error if there is already a value present at some prefix of address.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/choice_maps/#Mutable-Choice-Maps-1",
+    "page": "Choice Maps",
+    "title": "Mutable Choice Maps",
     "category": "section",
-    "text": "One concrete assignment type is DynamicChoiceMap, which is mutable. Users construct DynamicChoiceMaps and populate them for use as observations or constraints, e.g.:choices = choicemap()\nchoices[:x] = true\nchoices[\"foo\"] = 1.25\nchoices[:y => 1 => :z] = -6.3There is also a constructor for DynamicChoiceMap that takes initial (address, value) pairs:choices = choicemap((:x, true), (\"foo\", 1.25), (:y => 1 => :z, -6.3))choicemap\nset_value!\nset_submap!"
+    "text": "A mutable choice map can be constructed with choicemap, and then populated:choices = choicemap()\nchoices[:x] = true\nchoices[\"foo\"] = 1.25\nchoices[:y => 1 => :z] = -6.3There is also a constructor that takes initial (address, value) pairs:choices = choicemap((:x, true), (\"foo\", 1.25), (:y => 1 => :z, -6.3))choicemap\nset_value!\nset_submap!"
 },
 
 {
