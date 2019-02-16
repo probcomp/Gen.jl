@@ -36,7 +36,7 @@ function generate_generative_function(ir::StaticIR, name::Symbol)
     (trace_defns, trace_struct_name) = generate_trace_type_and_methods(ir, name)
 
     gen_fn_type_name = gensym("StaticGenFunction_$name")
-    return_type = QuoteNode(ir.return_node.typ)
+    return_type = ir.return_node.typ
     trace_type = trace_struct_name
     has_argument_grads = tuple(map((node) -> node.compute_grad, ir.arg_nodes)...)
     accepts_output_grad = ir.accepts_output_grad
@@ -64,8 +64,6 @@ end
 const trace = gensym("trace")
 const weight = gensym("weight")
 const subtrace = gensym("subtrace")
-const discard = gensym("discard")
-const retdiff = gensym("retdiff")
 
 include("simulate.jl")
 include("generate.jl")

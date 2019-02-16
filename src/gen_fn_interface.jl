@@ -223,7 +223,7 @@ function assess(gen_fn::GenerativeFunction, args::Tuple, choices::ChoiceMap)
 end
 
 """
-    (new_trace, weight, retdiff, discard) = update(trace, args::Tuple, argdiff,
+    (new_trace, weight, retdiff, discard) = update(trace, args::Tuple, argdiffs::Tuple,
                                                    constraints::ChoiceMap)
 
 Update a trace by changing the arguments and/or providing new values for some
@@ -242,12 +242,12 @@ Also return a weight (`weight`):
 \\log \\frac{p(r', t'; x') q(r; x, t)}{p(r, t; x) q(r'; x', t')}
 ```
 """
-function update(trace, ::Tuple, argdiff, ::ChoiceMap)
+function update(trace, ::Tuple, argdiffs::Tuple, ::ChoiceMap)
     error("Not implemented")
 end
 
 """
-    (new_trace, weight, retdiff) = regenerate(trace, args::Tuple, argdiff,
+    (new_trace, weight, retdiff) = regenerate(trace, args::Tuple, argdiffs::Tuple,
                                               selection::AddressSet)
 
 Update a trace by changing the arguments and/or randomly sampling new values
@@ -266,12 +266,12 @@ Return the new trace \$(x', t', r')\$ (`new_trace`) and the weight
 ```
 where \$u'\$ is the restriction of \$t'\$ to the complement of \$A\$.
 """
-function regenerate(trace, args::Tuple, argdiff, selection::AddressSet)
+function regenerate(trace, args::Tuple, argdiffs::Tuple, selection::AddressSet)
     error("Not implemented")
 end
 
 """
-    (new_trace, weight, retdiff) = extend(trace, args::Tuple, argdiff,
+    (new_trace, weight, retdiff) = extend(trace, args::Tuple, argdiffs::Tuple,
                                           constraints::ChoiceMap)
 
 Extend a trace with new random choices by changing the arguments.
@@ -286,7 +286,7 @@ Also return the weight (`weight`):
 \\log \\frac{p(r', t'; x') q(r; x, t)}{p(r, t; x) q(t'; t + u, x') q(r'; x', t')}
 ```
 """
-function extend(trace, args::Tuple, argdiff, constraints::ChoiceMap)
+function extend(trace, args::Tuple, argdiffs::Tuple, constraints::ChoiceMap)
     error("Not implemented")
 end
 

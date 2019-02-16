@@ -9,7 +9,7 @@ using Gen: generate_generative_function
     builder = StaticIRBuilder()
     zero = add_constant_node!(builder, 0.)
     one = add_constant_node!(builder, 1.)
-    add_addr_node!(builder, normal, inputs=[zero, one], addr=:a, typ=Float64)
+    add_addr_node!(builder, normal, inputs=[zero, one], addr=:a)
     ir = build_ir(builder)
     bar = eval(generate_generative_function(ir, :bar))
 
@@ -20,7 +20,7 @@ using Gen: generate_generative_function
     builder = StaticIRBuilder()
     zero = add_constant_node!(builder, 0.)
     one = add_constant_node!(builder, 1.)
-    add_addr_node!(builder, normal, inputs=[zero, one], addr=:b, typ=Float64)
+    add_addr_node!(builder, normal, inputs=[zero, one], addr=:b)
     ir = build_ir(builder)
     baz = eval(generate_generative_function(ir, :baz))
 
@@ -34,10 +34,10 @@ using Gen: generate_generative_function
     builder = StaticIRBuilder()
     zero = add_constant_node!(builder, 0.)
     one = add_constant_node!(builder, 1.)
-    add_addr_node!(builder, normal, inputs=[zero, one], addr=:x, typ=Float64)
-    add_addr_node!(builder, bar, inputs=[], addr=:u, typ=Nothing)
-    add_addr_node!(builder, normal, inputs=[zero, one], addr=:y, typ=Float64)
-    add_addr_node!(builder, baz, inputs=[], addr=:v, typ=Nothing)
+    add_addr_node!(builder, normal, inputs=[zero, one], addr=:x)
+    add_addr_node!(builder, bar, inputs=[], addr=:u)
+    add_addr_node!(builder, normal, inputs=[zero, one], addr=:y)
+    add_addr_node!(builder, baz, inputs=[], addr=:v)
     ir = build_ir(builder)
     foo = eval(generate_generative_function(ir, :foo))
 
@@ -143,7 +143,7 @@ end
     constraints[:y] = y_new
     constraints[:v => :b] = b_new
     (new_trace, weight, retdiff, discard) = update(trace,
-        (), unknownargdiff, constraints)
+        (), (), constraints)
 
     # test discard
     @test get_value(discard, :y) == y_prev
@@ -175,7 +175,7 @@ end
     @test isapprox(expected_weight, weight)
 
     # test retdiff
-    @test retdiff === DefaultRetDiff()
+    @test retdiff === NoChange()
 end
 
 @testset "regenerate" begin
@@ -193,7 +193,7 @@ end
     # resample :y and :v => :b
     selection = select(:y, :v => :b)
     (new_trace, weight, retdiff) = regenerate(trace,
-        (), unknownargdiff, selection)
+        (), (), selection)
 
     # test new trace
     new_choices = get_choices(new_trace)
@@ -222,7 +222,7 @@ end
     @test isapprox(0., weight)
 
     # test retdiff
-    @test retdiff === DefaultRetDiff()
+    @test retdiff === NoChange()
 end
 
 @testset "extend" begin
@@ -238,7 +238,7 @@ end
     # don't do anything.. TODO write a better test
     constraints = choicemap()
     (new_trace, weight, retdiff) = extend(trace,
-        (), unknownargdiff, constraints)
+        (), (), constraints)
 
     # test new trace
     new_choices = get_choices(new_trace)
@@ -259,16 +259,16 @@ end
     @test isapprox(0., weight)
 
     # test retdiff
-    @test retdiff === DefaultRetDiff()
+    @test retdiff === NoChange()
 end
 
 @testset "backprop" begin
 
     # bar
     builder = StaticIRBuilder()
-    mu_z = add_argument_node!(builder, name=:mu_z, typ=Float64, compute_grad=true)
+    mu_z = add_argument_node!(builder, name=:mu_z, typ=:Float64, compute_grad=true)
     one = add_constant_node!(builder, 1.)
-    z = add_addr_node!(builder, normal, inputs=[mu_z, one], addr=:z, typ=Float64, name=:z)
+    z = add_addr_node!(builder, normal, inputs=[mu_z, one], addr=:z, name=:z)
     retval = add_julia_node!(builder, (z, mu_z) -> z + mu_z, inputs=[z, mu_z], name=:retval)
     set_return_node!(builder, retval)
     ir = build_ir(builder)
@@ -276,13 +276,13 @@ end
     
     # foo
     builder = StaticIRBuilder()
-    mu_a = add_argument_node!(builder, name=:mu_a, typ=Float64, compute_grad=true)
+    mu_a = add_argument_node!(builder, name=:mu_a, typ=:Float64, compute_grad=true)
     one = add_constant_node!(builder, 1.)
-    a = add_addr_node!(builder, normal, inputs=[mu_a, one], addr=:a, typ=Float64, name=:a)
-    b = add_addr_node!(builder, normal, inputs=[a, one], addr=:b, typ=Float64, name=:b)
+    a = add_addr_node!(builder, normal, inputs=[mu_a, one], addr=:a, name=:a)
+    b = add_addr_node!(builder, normal, inputs=[a, one], addr=:b, name=:b)
     bar_val = add_addr_node!(builder, bar, inputs=[a], addr=:bar, name=:bar_val)
     c = add_julia_node!(builder, (a, b, bar) -> (a * b * bar), inputs=[a, b, bar_val], name=:c)
-    retval = add_addr_node!(builder, normal, inputs=[c, one], addr=:out, typ=Float64, name=:out)
+    retval = add_addr_node!(builder, normal, inputs=[c, one], addr=:out, name=:out)
     set_return_node!(builder, retval)
     ir = build_ir(builder)
     foo = eval(generate_generative_function(ir, :foo))

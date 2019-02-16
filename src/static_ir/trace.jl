@@ -64,7 +64,7 @@ const return_value_fieldname = gensym("retval")
 
 struct TraceField
     fieldname::Symbol
-    typ::Type
+    typ::Union{Symbol,Expr,QuoteNode}
 end
 
 function get_trace_fields(ir::StaticIR)
@@ -77,16 +77,16 @@ function get_trace_fields(ir::StaticIR)
         value_fieldname = get_value_fieldname(node)
         push!(fields, TraceField(value_fieldname, node.typ))
         score_fieldname = get_score_fieldname(node)
-        push!(fields, TraceField(score_fieldname, Float64))
+        push!(fields, TraceField(score_fieldname, :Float64))
     end
     for node in ir.call_nodes
         subtrace_fieldname = get_subtrace_fieldname(node)
-        subtrace_type = get_trace_type(node.generative_function)
+        subtrace_type = QuoteNode(get_trace_type(node.generative_function))
         push!(fields, TraceField(subtrace_fieldname, subtrace_type))
     end
-    push!(fields, TraceField(total_score_fieldname, Float64))
-    push!(fields, TraceField(total_noise_fieldname, Float64))
-    push!(fields, TraceField(num_nonempty_fieldname, Int))
+    push!(fields, TraceField(total_score_fieldname, :Float64))
+    push!(fields, TraceField(total_noise_fieldname, :Float64))
+    push!(fields, TraceField(num_nonempty_fieldname, :Int))
     push!(fields, TraceField(return_value_fieldname, ir.return_node.typ))
     return fields
 end
@@ -94,7 +94,7 @@ end
 function generate_trace_struct(ir::StaticIR, trace_struct_name::Symbol)
     mutable = false
     fields = get_trace_fields(ir)
-    field_exprs = map((f) -> Expr(:(::), f.fieldname, QuoteNode(f.typ)), fields)
+    field_exprs = map((f) -> Expr(:(::), f.fieldname, f.typ), fields)
     Expr(:struct, mutable, Expr(:(<:), trace_struct_name, QuoteNode(StaticIRTrace)),
          Expr(:block, field_exprs...))
 end

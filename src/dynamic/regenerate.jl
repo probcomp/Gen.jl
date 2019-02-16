@@ -5,22 +5,17 @@ mutable struct GFRegenerateState
     weight::Float64
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
-    argdiff::Any
-    retdiff::Any
-    choicediffs::Trie{Any,Any}
-    calldiffs::Trie{Any,Any}
 end
 
-function GFRegenerateState(gen_fn, args, argdiff, prev_trace,
+function GFRegenerateState(gen_fn, args, prev_trace,
                            selection, params)
     visitor = AddressVisitor()
     GFRegenerateState(prev_trace, DynamicDSLTrace(gen_fn, args), selection,
-        0., visitor, params, argdiff, DefaultRetDiff(),
-        Trie{Any,Any}(), Trie{Any,Any}())
+        0., visitor, params)
 end
 
 function traceat(state::GFRegenerateState, dist::Distribution{T},
-              args, key) where {T}
+                 args, key) where {T}
     local prev_retval::T
     local retval::T
 
@@ -53,13 +48,6 @@ function traceat(state::GFRegenerateState, dist::Distribution{T},
     # compute logpdf
     score = logpdf(dist, retval, args...)
 
-    # update choicediffs
-    if has_previous
-        set_choice_diff!(state, key, in_selection, prev_retval) 
-    else
-        set_choice_diff_no_prev!(state, key)
-    end
-
     # update weight
     if has_previous && !in_selection
         state.weight += score - prev_score
@@ -71,12 +59,8 @@ function traceat(state::GFRegenerateState, dist::Distribution{T},
     retval
 end
 
-function traceat(state::GFRegenerateState, gen_fn::GenerativeFunction, args, key)
-    traceat(state, gen_fn, args, key, UnknownArgDiff())
-end
-
 function traceat(state::GFRegenerateState, gen_fn::GenerativeFunction{T,U},
-              args, key, argdiff) where {T,U}
+                 args, key) where {T,U}
     local prev_retval::T
     local trace::U
     local retval::T
@@ -100,25 +84,14 @@ function traceat(state::GFRegenerateState, gen_fn::GenerativeFunction{T,U},
         prev_call = get_call(state.prev_trace, key)
         prev_subtrace = prev_call.subtrace
         get_gen_fn(prev_subtrace) === gen_fn || gen_fn_changed_error(key)
-        (subtrace, weight, retdiff) = regenerate(
-            prev_subtrace, args, argdiff, selection)
+        (subtrace, weight, _) = regenerate(
+            prev_subtrace, args, map((_) -> UnknownChange(), args), selection)
     else
         (subtrace, weight) = generate(gen_fn, args, EmptyChoiceMap())
     end
 
     # update weight
     state.weight += weight
-
-    # update calldiffs
-    if has_previous
-        if isnodiff(retdiff)
-            set_leaf_node!(state.calldiffs, key, NoCallDiff())
-        else
-            set_leaf_node!(state.calldiffs, key, CustomCallDiff(retdiff))
-        end
-    else
-        set_leaf_node!(state.calldiffs, key, NewCallDiff())
-    end
 
     # add to the trace
     add_call!(state.trace, key, subtrace)
@@ -169,16 +142,13 @@ function regenerate_delete_recurse(prev_calls::Trie{Any,CallRecord},
     noise
 end
 
-function regenerate(trace::DynamicDSLTrace, args::Tuple, argdiff,
+function regenerate(trace::DynamicDSLTrace, args::Tuple, argdiffs::Tuple,
                     selection::AddressSet)
     gen_fn = trace.gen_fn
-    state = GFRegenerateState(gen_fn, args, argdiff, trace,
-        selection, gen_fn.params)
-    retval = exec_for_update(gen_fn, state, args)
+    state = GFRegenerateState(gen_fn, args, trace, selection, gen_fn.params)
+    retval = exec(gen_fn, state, args)
     set_retval!(state.trace, retval)
-
     visited = state.visitor.visited
     state.weight -= regenerate_delete_recurse(trace.calls, visited)
-
-    (state.trace, state.weight, state.retdiff)
+    (state.trace, state.weight, UnknownChange())
 end

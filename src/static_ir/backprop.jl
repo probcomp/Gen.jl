@@ -2,7 +2,7 @@ struct BackpropTraceMode end
 struct BackpropParamsMode end
 
 const gradient_prefix = gensym("gradient")
-gradient_var(node::RegularNode) = Symbol("$(gradient_prefix)_$(node.name)")
+gradient_var(node::StaticIRNode) = Symbol("$(gradient_prefix)_$(node.name)")
 
 const value_trie_prefix = gensym("value_trie")
 value_trie_var(node::GenerativeFunctionCallNode) = Symbol("$(value_trie_prefix)_$(node.addr)")
@@ -43,8 +43,6 @@ function fwd_pass!(selected_choices, selected_calls, fwd_marked, node::Generativ
     end
 end
 
-function fwd_pass!(selected_choices, selected_calls, fwd_marked, ::DiffNode) end
-
 function back_pass!(back_marked, node::ArgumentNode) end
 
 function back_pass!(back_marked, node::JuliaNode)
@@ -70,8 +68,6 @@ function back_pass!(back_marked, node::GenerativeFunctionCallNode)
         push!(back_marked, input_node)
     end
 end
-
-function back_pass!(back_marked, ::DiffNode) end
 
 function fwd_codegen!(stmts, fwd_marked, back_marked, node::ArgumentNode)
     if node in fwd_marked && node in back_marked
@@ -149,8 +145,6 @@ function fwd_codegen!(stmts, fwd_marked, back_marked, node::GenerativeFunctionCa
         push!(stmts, :($(gradient_var(node)) = zero($(node.name))))
     end
 end
-
-function fwd_codegen!(stmts, fwd_marked, back_marked, ::DiffNode) end
 
 function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked, node::ArgumentNode, mode)
 
@@ -293,8 +287,6 @@ function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
     end
 end
 
-function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked, ::DiffNode, mode) end
-
 function generate_value_gradient_trie(selected_choices::Set{RandomChoiceNode},
                                       selected_calls::Set{GenerativeFunctionCallNode},
                                       value_trie::Symbol, gradient_trie::Symbol)
@@ -364,13 +356,13 @@ function codegen_choice_gradients(trace_type::Type{T}, selection_type::Type,
     selected_calls = get_selected_calls(schema, ir)
 
     # forward marking pass
-    fwd_marked = Set{RegularNode}()
+    fwd_marked = Set{StaticIRNode}()
     for node in ir.nodes
         fwd_pass!(selected_choices, selected_calls, fwd_marked, node)
     end
 
     # backward marking pass
-    back_marked = Set{RegularNode}()
+    back_marked = Set{StaticIRNode}()
     push!(back_marked, ir.return_node)
     for node in reverse(ir.nodes)
         back_pass!(back_marked, node)
@@ -422,13 +414,13 @@ function codegen_accumulate_param_gradients!(trace_type::Type{T},
         node for node in ir.nodes if isa(node, GenerativeFunctionCallNode))
 
     # forward marking pass
-    fwd_marked = Set{RegularNode}()
+    fwd_marked = Set{StaticIRNode}()
     for node in ir.nodes
         fwd_pass!(selected_choices, selected_calls, fwd_marked, node)
     end
 
     # backward marking pass
-    back_marked = Set{RegularNode}()
+    back_marked = Set{StaticIRNode}()
     push!(back_marked, ir.return_node)
     for node in reverse(ir.nodes)
         back_pass!(back_marked, node)

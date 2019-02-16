@@ -85,7 +85,7 @@ end
     constraints[:y] = y
     constraints[:v => :b] = b
     (new_trace, weight, retdiff, discard) = update(trace,
-        (), unknownargdiff, constraints)
+        (), (), constraints)
 
     # test discard
     @test get_value(discard, :branch) == true
@@ -116,7 +116,7 @@ end
     @test isapprox(expected_weight, weight)
 
     # test retdiff
-    @test retdiff === DefaultRetDiff()
+    @test retdiff === UnknownChange()
 
     # Addresses under the :data namespace will be visited,
     # but nothing there will be discarded.
@@ -139,7 +139,7 @@ end
     constraints = choicemap()
     constraints[:a] = 1
     (new_trace, weight, retdiff, discard) = update(trace,
-        (), noargdiff, constraints)
+        (), (), constraints)
 
     # Test discard, score, weight, retdiff
     @test get_value(discard, :a) == 0
@@ -148,7 +148,7 @@ end
     expected_weight = expected_new_score - prev_score
     @test isapprox(expected_new_score, get_score(new_trace))
     @test isapprox(expected_weight, weight)
-    @test retdiff === DefaultRetDiff()
+    @test retdiff === UnknownChange()
 
 end
 
@@ -191,7 +191,7 @@ end
         prev_mu = mu
         mu = rand()
         (trace, weight, retdiff) = regenerate(trace,
-            (mu,), unknownargdiff, selection)
+            (mu,), (UnknownChange(),), selection)
         assignment = get_choices(trace)
 
         # test score
@@ -241,8 +241,8 @@ end
         end
         @test isapprox(expected_weight, weight)
 
-        # test retchange (should be nothing by default)
-        @test retdiff === DefaultRetDiff()
+        # test retdiff
+        @test retdiff === UnknownChange()
     end
 
 end
