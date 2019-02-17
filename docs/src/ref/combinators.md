@@ -101,7 +101,7 @@ end
 ```
 We apply the map combinator to produce a new generative function `bar`:
 ```julia
-bar = Map(foo)
+bar = Unfold(foo)
 ```
 We can then obtain a trace of `bar`:
 ```julia
