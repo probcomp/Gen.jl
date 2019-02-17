@@ -1,16 +1,16 @@
-mutable struct MapExtendUpdateState{T,U}
+mutable struct MapExtendState{T,U}
     weight::Float64
     score::Float64
     noise::Float64
     subtraces::PersistentVector{U}
     retval::PersistentVector{T}
     num_nonempty::Int
-    isdiff_retdiffs::Dict{Int,Any}
+    updated_retdiffs::Dict{Int,Diff}
 end
 
 function process_retained!(gen_fn::Map{T,U}, args::Tuple,
-                           choices::ChoiceMap, key::Int, kernel_argdiff,
-                           state::MapExtendUpdateState{T,U}) where {T,U}
+                           choices::ChoiceMap, key::Int, kernel_argdiffs::Tuple,
+                           state::MapExtendState{T,U}) where {T,U}
     local subtrace::U
     local prev_subtrace::U
     local retval::T
@@ -20,12 +20,12 @@ function process_retained!(gen_fn::Map{T,U}, args::Tuple,
 
     # get new subtrace with recursive call to extend()
     prev_subtrace = state.subtraces[key]
-    (subtrace, weight, subretdiff) = extend(
-        prev_subtrace, kernel_args, kernel_argdiff, submap)
+    (subtrace, weight, retdiff) = extend(
+        prev_subtrace, kernel_args, kernel_argdiffs, submap)
 
     # retrieve retdiff
-    if !isnodiff(subretdiff)
-        state.isdiff_retdiffs[key] = subretdiff
+    if retdiff != NoChange()
+        state.updated_retdiffs[key] = retdiff
     end
 
     # update state
@@ -44,7 +44,7 @@ function process_retained!(gen_fn::Map{T,U}, args::Tuple,
 end
 
 function process_new!(gen_fn::Map{T,U}, args::Tuple, choices, key::Int,
-                      state::MapExtendUpdateState{T,U}) where {T,U}
+                      state::MapExtendState{T,U}) where {T,U}
     local subtrace::U
     local retval::T
 
@@ -68,7 +68,7 @@ function process_new!(gen_fn::Map{T,U}, args::Tuple, choices, key::Int,
 end
 
 
-function extend(trace::VectorTrace{MapType,T,U}, args::Tuple, argdiff,
+function extend(trace::VectorTrace{MapType,T,U}, args::Tuple, argdiffs::Tuple,
                 choices::ChoiceMap) where {T,U}
     gen_fn = trace.gen_fn
     (new_length, prev_length) = get_prev_and_new_lengths(args, trace)
@@ -80,14 +80,14 @@ function extend(trace::VectorTrace{MapType,T,U}, args::Tuple, argdiff,
     end
     
     # handle retained and new applications
-    state = MapExtendUpdateState{T,U}(0., trace.score, trace.noise,
+    state = MapExtendState{T,U}(0., trace.score, trace.noise,
         trace.subtraces, trace.retval, trace.num_nonempty, Dict{Int,Any}())
-    process_all_retained!(gen_fn, args, argdiff, choices, prev_length,
+    process_all_retained!(gen_fn, args, argdiffs, choices, prev_length,
                           new_length, retained_and_constrained, state)
     process_all_new!(gen_fn, args, choices, prev_length, new_length, state)
 
     # retdiff
-    retdiff = vector_compute_retdiff(state.isdiff_retdiffs, new_length, prev_length)
+    retdiff = vector_compute_retdiff(state.updated_retdiffs, new_length, prev_length)
 
     # new trace
     new_trace = VectorTrace{MapType,T,U}(gen_fn, state.subtraces, state.retval, args,  
