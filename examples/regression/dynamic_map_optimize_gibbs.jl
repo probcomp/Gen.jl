@@ -8,9 +8,9 @@ include("dataset.jl")
     args = get_args(trace)
     constraints = choicemap()
     constraints[:data => i => :z] = false
-    (_, weight1) = update(trace, args, noargdiff, constraints)
+    (_, weight1) = update(trace, args, map((_) -> NoChange(), args), constraints)
     constraints[:data => i => :z] = true
-    (_, weight2) = update(trace, args, noargdiff, constraints)
+    (_, weight2) = update(trace, args, map((_) -> NoChange(), args), constraints)
     prob_true = exp(weight2 - logsumexp([weight1, weight2]))
     @trace(bernoulli(prob_true), :data => i => :z)
 end
@@ -55,4 +55,4 @@ end
 
 (xs, ys) = make_data_set(200)
 do_inference(xs, ys, 10)
-@time scores = do_inference(xs, ys, 100)
+@time scores = do_inference(xs, ys, 50)

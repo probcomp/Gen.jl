@@ -6,11 +6,11 @@ mutable struct UnfoldRegenerateState{T,U}
     subtraces::PersistentVector{U}
     retval::PersistentVector{T}
     num_nonempty::Int
-    isdiff_retdiffs::Dict{Int,Any}
+    updated_retdiffs::Dict{Int,Diff}
 end
 
 function process_retained!(gen_fn::Unfold{T,U}, params::Tuple,
-                           selection::AddressSet, key::Int, kernel_argdiff,
+                           selection::AddressSet, key::Int, kernel_argdiffs::Tuple,
                            state::UnfoldRegenerateState{T,U}) where {T,U}
     local subtrace::U
     local prev_subtrace::U
@@ -27,13 +27,12 @@ function process_retained!(gen_fn::Unfold{T,U}, params::Tuple,
 
     # get new subtrace with recursive call to regenerate()
     prev_subtrace = state.subtraces[key]
-    (subtrace, weight, subretdiff) = regenerate(
-        prev_subtrace, kernel_args, kernel_argdiff, subselection)
+    (subtrace, weight, retdiff) = regenerate(
+        prev_subtrace, kernel_args, kernel_argdiffs, subselection)
 
     # retrieve retdiff
-    is_state_diff = !isnodiff(subretdiff)
-    if is_state_diff
-        state.isdiff_retdiffs[key] = subretdiff
+    if retdiff != NoChange()
+        state.updated_retdiffs[key] = retdiff
     end
 
     # update state
@@ -51,7 +50,7 @@ function process_retained!(gen_fn::Unfold{T,U}, params::Tuple,
         state.num_nonempty -= 1
     end
 
-    is_state_diff
+    retdiff
 end
 
 function process_new!(gen_fn::Unfold{T,U}, params::Tuple, selection::AddressSet, key::Int,
@@ -83,21 +82,7 @@ function process_new!(gen_fn::Unfold{T,U}, params::Tuple, selection::AddressSet,
 end
 
 function regenerate(trace::VectorTrace{UnfoldType,T,U},
-                    args::Tuple, ::NoArgDiff,
-                    selection::AddressSet) where {T,U}
-    argdiff = UnfoldCustomArgDiff(false, false)
-    regenerate(trace, args, argdiff, selection)
-end
-
-function regenerate(trace::VectorTrace{UnfoldType,T,U},
-                    args::Tuple, ::UnknownArgDiff,
-                    selection::AddressSet) where {T,U}
-    argdiff = UnfoldCustomArgDiff(true, true)
-    regenerate(trace, args, argdiff, selection)
-end
-
-function regenerate(trace::VectorTrace{UnfoldType,T,U},
-                    args::Tuple, argdiff::UnfoldCustomArgDiff,
+                    args::Tuple, argdiffs::Tuple,
                     selection::AddressSet) where {T,U}
     gen_fn = trace.gen_fn
     (new_length, init_state, params) = unpack_args(args)
@@ -117,12 +102,12 @@ function regenerate(trace::VectorTrace{UnfoldType,T,U},
     # handle retained and new applications
     state = UnfoldRegenerateState{T,U}(init_state, -noise_decrement, score, noise,
         subtraces, retval, num_nonempty, Dict{Int,Any}())
-    process_all_retained!(gen_fn, params, argdiff, selection, prev_length, new_length,    
+    process_all_retained!(gen_fn, params, argdiffs, selection, prev_length, new_length,    
                           retained_and_selected, state)
     process_all_new!(gen_fn, params, selection, prev_length, new_length, state)
 
     # retdiff
-    retdiff = vector_compute_retdiff(state.isdiff_retdiffs, new_length, prev_length)
+    retdiff = vector_compute_retdiff(state.updated_retdiffs, new_length, prev_length)
 
     # new trace
     new_trace = VectorTrace{UnfoldType,T,U}(gen_fn, state.subtraces, state.retval, args,  

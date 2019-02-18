@@ -74,8 +74,7 @@ end
     @gen function model(num_steps::Int)
         z_init = @trace(categorical(prior), :z_init)
         @trace(categorical(emission_dists[:,z_init]), :x_init)
-        @diff argdiff = @argdiff()
-        @trace(chain(num_steps-1, z_init, nothing), :chain, argdiff)
+        @trace(chain(num_steps-1, z_init, nothing), :chain)
     end
 
     num_steps = 4
@@ -127,13 +126,13 @@ end
         @trace(categorical(dist ./ sum(dist)), :chain => T-1 => :z)
     end
 
-    argdiff = UnfoldCustomArgDiff(false, false)
+    argdiffs = (UnknownChange(),) # the length may change
     for T=2:length(obs_x)
         maybe_resample!(state, ess_threshold=ess_threshold)
         new_args = (T,)
         observations = choicemap((:chain => (T-1) => :x, obs_x[T]))
         proposal_args = (T, obs_x[T])
-        particle_filter_step!(state, new_args, argdiff, observations,
+        particle_filter_step!(state, new_args, argdiffs, observations,
             step_proposal, proposal_args)
     end
     
@@ -154,12 +153,12 @@ end
     state = initialize_particle_filter(model, (1,), init_observations, num_particles)
     
     # do steps
-    argdiff = UnfoldCustomArgDiff(false, false)
+    argdiffs = (UnknownChange(),) # the length may change
     for T=2:length(obs_x)
         maybe_resample!(state, ess_threshold=ess_threshold)
         new_args = (T,)
         observations = choicemap((:chain => (T-1) => :x, obs_x[T]))
-        particle_filter_step!(state, new_args, argdiff, observations)
+        particle_filter_step!(state, new_args, argdiffs, observations)
     end
 
     # check log marginal likelihood estimate

@@ -249,56 +249,70 @@ end
 
 # TODO handle case where the vector or tuple is itself a constant, but the index is a Diffed
 
-# binary operators 
+# built-in mathematical operators and functions
 
-macro diffed_binary_operator(op)
+macro diffed_unary_function(fn)
     quote
-        function $(op)(a::Diffed{T,NoChange}, b::Diffed{U,NoChange}) where {T,U}
-            result = $(op)(strip_diff(a), strip_diff(b))
+        function $(fn)(value::Diffed{T,NoChange}) where {T}
+            Diffed($(fn)(strip_diff(value)), NoChange())
+        end
+        
+        function $(fn)(value::Diffed{T,UnknownChange}) where {T}
+            Diffed($(fn)(strip_diff(value)), UnknownChange())
+        end
+    end
+end
+
+
+macro diffed_binary_function(fn)
+    quote
+        function $(fn)(a::Diffed{T,NoChange}, b::Diffed{U,NoChange}) where {T,U}
+            result = $(fn)(strip_diff(a), strip_diff(b))
             Diffed(result, NoChange())
         end
 
-        function $(op)(a, b::Diffed{U,NoChange}) where {U}
-            result = $(op)(a, strip_diff(b))
+        function $(fn)(a, b::Diffed{U,NoChange}) where {U}
+            result = $(fn)(a, strip_diff(b))
             Diffed(result, NoChange())
         end
 
-        function $(op)(a::Diffed{T,NoChange}, b) where {T}
-            result = $(op)(strip_diff(a), b)
+        function $(fn)(a::Diffed{T,NoChange}, b) where {T}
+            result = $(fn)(strip_diff(a), b)
             Diffed(result, NoChange())
         end
 
-        function $(op)(a::Diffed{T,DT}, b::Diffed{U,DU}) where {T,U,DT,DU}
-            result = $(op)(strip_diff(a), strip_diff(b))
+        function $(fn)(a::Diffed{T,DT}, b::Diffed{U,DU}) where {T,U,DT,DU}
+            result = $(fn)(strip_diff(a), strip_diff(b))
             Diffed(result, UnknownChange())
         end
 
-        function $(op)(a, b::Diffed{U,UnknownChange}) where {U}
-            result = $(op)(a, strip_diff(b))
+        function $(fn)(a::Diffed{T,NoChange}, b::Diffed{U,DU}) where {T,U,DU}
+            result = $(fn)(strip_diff(a), strip_diff(b))
             Diffed(result, UnknownChange())
         end
 
-        function $(op)(a::Diffed{T,UnknownChange}, b) where {T}
-            result = $(op)(strip_diff(a), b)
-            Diffed(result, UnknownChange())
-        end
-
-        function $(op)(a::Diffed{T,UnknownChange}, b::Diffed{U,UnknownChange}) where {T,U}
-            result = $(op)(strip_diff(a), strip_diff(b))
+        function $(fn)(a::Diffed{T,DT}, b::Diffed{U,NoChange}) where {T,U,DT}
+            result = $(fn)(strip_diff(a), strip_diff(b))
             Diffed(result, UnknownChange())
         end
     end
 end
 
-@diffed_binary_operator Base.:+
-@diffed_binary_operator Base.:-
-@diffed_binary_operator Base.:/
+@diffed_binary_function Base.:+
+@diffed_binary_function Base.:*
+@diffed_binary_function Base.:-
+@diffed_binary_function Base.:/
 
-# TODO use a macro to generate this code for +, *, /, -, ==, 
+@diffed_unary_function Base.exp
+@diffed_unary_function Base.log
+@diffed_unary_function Base.sin
+@diffed_unary_function Base.cos
+@diffed_unary_function Base.tan
+
 
 # fill
 
-function Base.fill(value::Diffed{V,NoChange}, n::Union{Diffed{U,NoChange},Integer}) where {V,U <: Integer}
+function Base.fill(value::Diffed{V,NoChange}, n::Integer) where {V}
     result = fill(strip_diff(value), strip_diff(n))
     Diffed(result, NoChange())
 end
@@ -306,6 +320,16 @@ end
 function Base.fill(value::V, n::Diffed{U,NoChange}) where {V,U <: Integer}
     result = fill(value, strip_diff(n))
     Diffed(result, NoChange())
+end
+
+function Base.fill(value::Diffed{V,NoChange}, n::Diffed{U,NoChange}) where {V,U <: Integer}
+    result = fill(strip_diff(value), strip_diff(n))
+    Diffed(result, NoChange())
+end
+
+function Base.fill(value::Diffed{V,DV}, n::Diffed{U,NoChange}) where {V,U <: Integer,DV}
+    result = fill(strip_diff(value), strip_diff(n))
+    Diffed(result, UnknownChange())
 end
 
 function Base.fill(value::Diffed{V,DV}, n::Diffed{U,DU}) where {V,U <: Integer,DU,DV}
@@ -318,3 +342,52 @@ end
 # NOTE: just handle the case where the function argument is a constant (a Function not a Diffed{Function,Diff})
 
 # broadcasting (?)
+
+function Base.broadcast(f, a::Diffed{T,NoChange}, b::Diffed{U,NoChange}) where {T,U}
+    result = broadcast(f, strip_diff(a), strip_diff(b))
+    Diffed(result, NoChange())
+end
+
+function Base.broadcast(f, a::Diffed{T,NoChange}, b) where {T}
+    result = broadcast(f, strip_diff(a), b)
+    Diffed(result, NoChange())
+end
+
+function Base.broadcast(f, a, b::Diffed{U,NoChange}) where {U}
+    result = broadcast(f, a, strip_diff(b))
+    Diffed(result, NoChange())
+end
+
+function Base.broadcast(f, a::Diffed{T,DT}, b::Diffed{U,NoChange}) where {T,U,DT}
+    result = broadcast(f, strip_diff(a), strip_diff(b))
+    Diffed(result, UnknownChange())
+end
+
+function Base.broadcast(f, a::Diffed{T,NoChange}, b::Diffed{U,DU}) where {T,U,DU}
+    result = broadcast(f, strip_diff(a), strip_diff(b))
+    Diffed(result, UnknownChange())
+end
+
+function Base.broadcast(f, a::Diffed{T,DT}, b::Diffed{U,DU}) where {T,U,DT,DU}
+    result = broadcast(f, strip_diff(a), strip_diff(b))
+    Diffed(result, UnknownChange())
+end
+
+
+# control flow
+
+function ifelse(c::Union{Bool,Diffed{Bool,NoChange}}, x::Diffed{T,NoChange}, y::Diffed{U,NoChange}) where {T,U}
+    result = strip_diff(c) ? strip_diff(x) : strip_diff(y)
+    Diffed(result, NoChange())
+end
+
+function ifelse(c::Diffed{Bool,DC}, x, y) where {DC}
+    result = strip_diff(c) ? strip_diff(x) : strip_diff(y)
+    Diffed(result, UnknownChange())
+end
+
+function ifelse(c::Bool, x, y)
+    c ? x : y
+end
+
+export ifelse

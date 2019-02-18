@@ -59,4 +59,5 @@ end
 
 (xs, ys) = make_data_set(200)
 do_inference(xs, ys, 10)
-@time scores = do_inference(xs, ys, 100)
+@time scores = do_inference(xs, ys, 1000)
+@time scores = do_inference(xs, ys, 1000)

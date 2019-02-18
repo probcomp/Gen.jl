@@ -92,7 +92,7 @@ function project(trace::ChoiceAtTrace, selection::AddressSet)
     has_leaf_node(selection, trace.key) ? trace.score : 0.
 end
 
-function update(trace::ChoiceAtTrace, args::Tuple, argdiff,
+function update(trace::ChoiceAtTrace, args::Tuple, argdiffs::Tuple,
                 choices::ChoiceMap)
     (key, kernel_args) = unpack_choice_at_args(args)
     key_changed = (key != trace.key)
@@ -112,10 +112,10 @@ function update(trace::ChoiceAtTrace, args::Tuple, argdiff,
     new_score = logpdf(trace.gen_fn.dist, new_value, kernel_args...)
     new_trace = ChoiceAtTrace(trace.gen_fn, new_value, key, kernel_args, new_score)
     weight = new_score - trace.score
-    (new_trace, weight, DefaultRetDiff(), discard)
+    (new_trace, weight, UnknownChange(), discard)
 end
 
-function regenerate(trace::ChoiceAtTrace, args::Tuple, argdiff,
+function regenerate(trace::ChoiceAtTrace, args::Tuple, argdiffs::Tuple,
                     selection::AddressSet)
     (key, kernel_args) = unpack_choice_at_args(args)
     key_changed = (key != trace.key)
@@ -138,10 +138,10 @@ function regenerate(trace::ChoiceAtTrace, args::Tuple, argdiff,
         weight = 0.
     end
     new_trace = ChoiceAtTrace(trace.gen_fn, new_value, key, kernel_args, new_score)
-    (new_trace, weight, DefaultRetDiff())
+    (new_trace, weight, UnknownChange())
 end
 
-function extend(trace::ChoiceAtTrace, args::Tuple, argdiff,
+function extend(trace::ChoiceAtTrace, args::Tuple, argdiffs::Tuple,
                 choices::ChoiceMap)
     (key, kernel_args) = unpack_choice_at_args(args)
     key_changed = (key != trace.key)
@@ -159,7 +159,7 @@ function extend(trace::ChoiceAtTrace, args::Tuple, argdiff,
     new_score = logpdf(trace.gen_fn.dist, trace.value, kernel_args...)
     new_trace = ChoiceAtTrace(trace.gen_fn, trace.value, key, kernel_args, new_score)
     weight = new_score - trace.score
-    (new_trace, weight, DefaultRetDiff())
+    (new_trace, weight, UnknownChange())
 end
 
 function choice_gradients(trace::ChoiceAtTrace, selection::AddressSet, retval_grad)

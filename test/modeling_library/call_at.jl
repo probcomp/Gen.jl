@@ -67,7 +67,7 @@
 
         # change kernel_args, same key, no constraint
         (new_trace, weight, retdiff, discard) = update(trace,
-            (0.2, 3), unknownargdiff, EmptyChoiceMap())
+            (0.2, 3), (UnknownChange(), UnknownChange()), EmptyChoiceMap())
         choices = get_choices(new_trace)
         @test choices[3 => :y] == y
         @test length(collect(get_values_shallow(choices))) == 0
@@ -82,7 +82,7 @@
         y_new = 2.345
         constraints[3 => :y] = y_new
         (new_trace, weight, retdiff, discard) = update(trace,
-            (0.2, 3), unknownargdiff, constraints)
+            (0.2, 3), (UnknownChange(), UnknownChange()), constraints)
         choices = get_choices(new_trace)
         @test choices[3 => :y] == y_new
         @test length(collect(get_values_shallow(choices))) == 0
@@ -99,7 +99,7 @@
         constraints = choicemap()
         constraints[4 => :y] = y_new
         (new_trace, weight, retdiff, discard) = update(trace,
-            (0.2, 4), unknownargdiff, constraints)
+            (0.2, 4), (UnknownChange(), UnknownChange()), constraints)
         choices = get_choices(new_trace)
         @test choices[4 => :y] == y_new
         @test length(collect(get_values_shallow(choices))) == 0
@@ -117,7 +117,7 @@
 
         # change kernel_args, same key, not selected
         (new_trace, weight, retdiff) = regenerate(trace,
-            (0.2, 3), unknownargdiff, EmptyAddressSet())
+            (0.2, 3), (UnknownChange(), UnknownChange()), EmptyAddressSet())
         choices = get_choices(new_trace)
         @test choices[3 => :y] == y
         @test length(collect(get_values_shallow(choices))) == 0
@@ -129,7 +129,7 @@
         # change kernel_args, same key, selected
         selection = select(3 => :y)
         (new_trace, weight, retdiff) = regenerate(trace,
-            (0.2, 3), unknownargdiff, selection)
+            (0.2, 3), (UnknownChange(), UnknownChange()), selection)
         choices = get_choices(new_trace)
         y_new = choices[3 => :y]
         @test length(collect(get_values_shallow(choices))) == 0
@@ -140,7 +140,7 @@
 
         # change kernel_args, different key, not selected
         (new_trace, weight, retdiff) = regenerate(trace,
-            (0.2, 4), unknownargdiff, EmptyAddressSet())
+            (0.2, 4), (UnknownChange(), UnknownChange()), EmptyAddressSet())
         choices = get_choices(new_trace)
         y_new = choices[4 => :y]
         @test length(collect(get_values_shallow(choices))) == 0
@@ -155,7 +155,7 @@
 
         # change kernel_args, same key, no constraint (the only valid input)
         (new_trace, weight, retdiff) = extend(trace,
-            (0.2, 3), unknownargdiff, EmptyChoiceMap())
+            (0.2, 3), (UnknownChange(), UnknownChange()), EmptyChoiceMap())
         choices = get_choices(new_trace)
         @test choices[3 => :y] == y
         @test length(collect(get_values_shallow(choices))) == 0

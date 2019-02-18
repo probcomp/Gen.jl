@@ -1,26 +1,18 @@
 const STATIC_DSL_GRAD = Symbol("@grad")
 const STATIC_DSL_TRACE = Symbol("@trace")
-const STATIC_DSL_DIFF = Symbol("@diff")
-const STATIC_DSL_CHOICEDIFF = Symbol("@choicediff")
-const STATIC_DSL_CALLDIFF = Symbol("@calldiff")
-const STATIC_DSL_ARGDIFF = Symbol("@argdiff")
-const STATIC_DSL_RETDIFF = Symbol("@retdiff")
 
-function static_dsl_syntax_error(expr)
-    error("Syntax error when parsing static DSL function at $expr")
+function static_dsl_syntax_error(expr, msg="")
+    error("Syntax error when parsing static DSL function at $expr. $msg")
 end
 
 function parse_lhs(lhs)
     if isa(lhs, Symbol)
-        name = lhs
-        typ = QuoteNode(Any)
-    elseif isa(lhs, Expr) && lhs.head == :(::) && isa(lhs.args[1], Symbol)
-        name = lhs.args[1]
-        typ = lhs.args[2]
+        return (lhs, QuoteNode(Any))
+    elseif isa(lhs, Expr) && lhs.head == :(::)
+        return (lhs.args[1], lhs.args[2])
     else
         static_dsl_syntax_error(lhs)
     end
-    (name, typ)
 end
 
 function resolve_symbols(bindings::Dict{Symbol,Symbol}, symbol::Symbol)
@@ -53,36 +45,47 @@ end
 # the macro expansion also needs a bindings set of symbols to resolve from, so that
 # we can then insert the loo
 
-function parse_julia_expr!(stmts, bindings, name::Symbol, typ,
-                           expr::Union{Expr,QuoteNode}, diff::Bool)
+function parse_julia_expr!(stmts, bindings, name::Symbol, expr::Expr,
+                           typ::Union{Symbol,Expr,QuoteNode})
     resolved = resolve_symbols(bindings, expr)
     inputs = collect(resolved)
     input_vars = map((x) -> esc(x[1]), inputs)
     input_nodes = map((x) -> esc(x[2]), inputs)
     fn = Expr(:function, Expr(:tuple, input_vars...), esc(expr))
     node = gensym()
-    method = diff ? :add_diff_julia_node! : :add_julia_node!
-    push!(stmts, :($(esc(node)) = $(esc(method))(
-        builder, $fn, inputs=[$(input_nodes...)], name=$(QuoteNode(name)), typ=$(esc(typ)))))
+    push!(stmts, :($(esc(node)) = add_julia_node!(
+        builder, $fn, inputs=[$(input_nodes...)], name=$(QuoteNode(name)),
+        typ=$(QuoteNode(typ)))))
     node
 end
 
-function parse_julia_expr!(stmts, bindings, name::Symbol, typ, value, diff::Bool)
-    fn = Expr(:function, Expr(:tuple), QuoteNode(value))
-    node = gensym()
-    method = diff ? :add_diff_julia_node! : :add_julia_node!
-    push!(stmts, :($(esc(node)) = $(esc(method))(
-        builder, $fn, inputs=[], name=$(QuoteNode(name)), typ=$(esc(typ)))))
-    node
-end
-
-function parse_julia_expr!(stmts, bindings, name::Symbol, typ, var::Symbol, diff::Bool)
+function parse_julia_expr!(stmts, bindings, name::Symbol, var::Symbol,
+                           typ::Union{Symbol,Expr,QuoteNode})
     if haskey(bindings, var)
         # don't create a new Julia node, just use the existing node
-        # NOTE: we aren't using 'typ'
         return bindings[var]
     end
-    parse_julia_expr!(stmts, bindings, name, typ, Expr(:block, esc(var)), diff)
+    parse_julia_expr!(stmts, bindings, name, Expr(:block, var), typ)
+end
+
+function parse_julia_expr!(stmts, bindings, name::Symbol, var::QuoteNode,
+                           typ::Union{Symbol,Expr,QuoteNode})
+    fn = Expr(:function, Expr(:tuple), var)
+    node = gensym()
+    push!(stmts, :($(esc(node)) = add_julia_node!(
+        builder, $fn, inputs=[], name=$(QuoteNode(name)),
+        typ=$(QuoteNode(typ)))))
+    node
+end
+
+function parse_julia_expr!(stmts, bindings, name::Symbol, value,
+                           typ::Union{Symbol,Expr,QuoteNode})
+    fn = Expr(:function, Expr(:tuple), QuoteNode(value))
+    node = gensym()
+    push!(stmts, :($(esc(node)) = add_julia_node!(
+        builder, $fn, inputs=[], name=$(QuoteNode(name)),
+        typ=$(QuoteNode(typ)))))
+    node
 end
 
 function parse_julia_assignment!(stmts, bindings, line::Expr)
@@ -92,7 +95,7 @@ function parse_julia_assignment!(stmts, bindings, line::Expr)
     @assert length(line.args) == 2
     (lhs, expr) = line.args
     (name::Symbol, typ) = parse_lhs(lhs)
-    node = parse_julia_expr!(stmts, bindings, name, typ, expr, false)
+    node = parse_julia_expr!(stmts, bindings, name, expr, typ)
     bindings[name] = node
     true
 end
@@ -108,10 +111,11 @@ function split_addr!(keys, addr_expr::Expr)
     split_addr!(keys, addr_expr.args[3])
 end
 
-choice_or_call_at(gen_fn::GenerativeFunction, addr) = call_at(gen_fn, addr)
-choice_or_call_at(dist::Distribution, addr) = choice_at(dist, addr)
+choice_or_call_at(gen_fn::GenerativeFunction, addr_typ) = call_at(gen_fn, addr_typ)
+choice_or_call_at(dist::Distribution, addr_typ) = choice_at(dist, addr_typ)
 
-function parse_addr_expr!(stmts, bindings, name, typ, addr_expr)
+function parse_trace_expr!(stmts, bindings, name, addr_expr, typ)
+    # NOTE: typ is unused
     if !(isa(addr_expr, Expr) && addr_expr.head == :macrocall
         && length(addr_expr.args) >= 4 && addr_expr.args[1] == STATIC_DSL_TRACE)
         return false
@@ -137,41 +141,35 @@ function parse_addr_expr!(stmts, bindings, name, typ, addr_expr)
         @assert length(keys) > 1
         addr = keys[1].value
         for key in keys[2:end]
-            push!(stmts, :($(esc(gen_fn_or_dist)) = choice_or_call_at($(esc(gen_fn_or_dist)), $(QuoteNode(Any)))))
+            push!(stmts, :($(esc(gen_fn_or_dist)) = choice_or_call_at($(esc(gen_fn_or_dist)), Any)))
         end
         args = (call.args[2:end]..., reverse(keys[2:end])...)
     end
     node = gensym()
+    if haskey(bindings, name)   
+        static_dsl_syntax_error(addr_expr, "Symbol $name already bound")
+    end
     bindings[name] = node
     inputs = []
     for arg_expr in args
-        push!(inputs, parse_julia_expr!(stmts, bindings, gensym(), QuoteNode(Any), arg_expr, false))
+        push!(inputs, parse_julia_expr!(stmts, bindings, gensym(), arg_expr, QuoteNode(Any)))
     end
-    if length(addr_expr.args) == 5
-        # argdiff
-        argdiff_expr = addr_expr.args[5]
-        argdiff = parse_julia_expr!(stmts, bindings, gensym(), QuoteNode(Any), argdiff_expr, true)
-        push!(stmts, :($(esc(node)) = add_addr_node!(
-            builder, $(esc(gen_fn_or_dist)), inputs=[$(map(esc, inputs)...)], addr=$(QuoteNode(addr)),
-            argdiff=$(esc(argdiff)), name=$(QuoteNode(name)), typ=$(esc(typ)))))
-    else
-        push!(stmts, :($(esc(node)) = add_addr_node!(
-            builder, $(esc(gen_fn_or_dist)), inputs=[$(map(esc, inputs)...)], addr=$(QuoteNode(addr)),
-            name=$(QuoteNode(name)), typ=$(esc(typ)))))
-    end
+    push!(stmts, :($(esc(node)) = add_addr_node!(
+        builder, $(esc(gen_fn_or_dist)), inputs=[$(map(esc, inputs)...)], addr=$(QuoteNode(addr)),
+        name=$(QuoteNode(name)))))
     true
 end
 
-function parse_addr_line!(stmts::Vector{Expr}, bindings, line::Expr)
+function parse_trace_line!(stmts::Vector{Expr}, bindings, line::Expr)
     if line.head == :(=)
         @assert length(line.args) == 2
         (lhs, rhs) = line.args
         (name::Symbol, typ) = parse_lhs(lhs)
-        parse_addr_expr!(stmts, bindings, name, typ, rhs)
+        parse_trace_expr!(stmts, bindings, name, rhs, typ)
     else
         name = gensym()
         typ = QuoteNode(Any)
-        parse_addr_expr!(stmts, bindings, name, typ, line)
+        parse_trace_expr!(stmts, bindings, name, line, typ)
     end
 end
 
@@ -190,111 +188,6 @@ function parse_return!(stmts::Vector{Expr}, bindings, line::Expr)
     end
 end
 
-# @diff something::typ = @argdiff()
-function parse_received_argdiff!(stmts::Vector{Expr}, bindings, line::Expr)
-    if line.head != :macrocall || length(line.args) != 3 && line.args[1] != STATIC_DSL_DIFF
-        return false
-    end
-    expr = line.args[3]
-    if !isa(expr, Expr) || expr.head != :(=) || length(expr.args) != 2
-        return false
-    end
-    lhs = expr.args[1]
-    rhs = expr.args[2]
-    (name::Symbol, typ) = parse_lhs(lhs)
-    if !isa(rhs, Expr) || rhs.head != :macrocall || rhs.args[1] != STATIC_DSL_ARGDIFF
-        return false
-    end
-    node = gensym()
-    push!(stmts, :($(esc(node)) = add_received_argdiff_node!(
-        builder, name=$(QuoteNode(name)), typ=$(esc(typ)))))
-    bindings[name] = node
-    true
-end
-
-# @diff @retdiff(something)
-function parse_retdiff!(stmts::Vector{Expr}, bindings, line::Expr)
-    if line.head != :macrocall || length(line.args) != 3 && line.args[1] != STATIC_DSL_DIFF
-        return false
-    end
-    expr = line.args[3]
-    if (!isa(expr, Expr) || expr.head != :macrocall || length(expr.args) != 3 ||
-        expr.args[1] != STATIC_DSL_RETDIFF)
-        return false
-    end
-    inner_expr = expr.args[3]
-    node = parse_julia_expr!(stmts, bindings, gensym(), QuoteNode(Any), inner_expr, true)
-    push!(stmts, :(set_retdiff_node!(builder, $(esc(node)))))
-    true
-end
-
-# @diff something::typ = <rhs>
-function parse_diff_julia!(stmts::Vector{Expr}, bindings, line::Expr)
-    if line.head != :macrocall || length(line.args) != 3 && line.args[1] != STATIC_DSL_DIFF
-        return false
-    end
-    expr = line.args[3]
-    if !isa(expr, Expr) || expr.head != :(=) || length(expr.args) != 2
-        return false
-    end
-    lhs = expr.args[1]
-    rhs = expr.args[2]
-    (name::Symbol, typ) = parse_lhs(lhs)
-    node = parse_julia_expr!(stmts, bindings, name, typ, rhs, true)
-    bindings[name] = node
-    true 
-end
-
-## @diff something[::typ] = @choicediff(:foo)
-function parse_choicediff!(stmts::Vector{Expr}, bindings, line::Expr)
-    if line.head != :macrocall || length(line.args) != 3 && line.args[1] != STATIC_DSL_DIFF
-        return false
-    end
-    expr = line.args[3]
-    if !isa(expr, Expr) || expr.head != :(=) || length(expr.args) != 2
-        return false
-    end
-    lhs = expr.args[1]
-    rhs = expr.args[2]
-    (name::Symbol, typ) = parse_lhs(lhs)
-    if (!isa(rhs, Expr) || rhs.head != :macrocall || length(rhs.args) != 3 ||
-        rhs.args[1] != STATIC_DSL_CHOICEDIFF ||
-        !isa(rhs.args[3], QuoteNode) || !isa(rhs.args[3].value, Symbol))
-        return false
-    end
-    addr::Symbol = rhs.args[3].value
-    node = gensym()
-    push!(stmts, :($(esc(node)) = add_choicediff_node!(
-        builder, $(QuoteNode(addr)), name=$(QuoteNode(name)), typ=$(esc(typ)))))
-    bindings[name] = node
-    true
-end
-
-# @diff something::typ = @calldiff(:foo)
-function parse_calldiff!(stmts::Vector{Expr}, bindings, line::Expr)
-    if line.head != :macrocall || length(line.args) != 3 && line.args[1] != STATIC_DSL_DIFF
-        return false
-    end
-    expr = line.args[3]
-    if !isa(expr, Expr) || expr.head != :(=) || length(expr.args) != 2
-        return false
-    end
-    lhs = expr.args[1]
-    rhs = expr.args[2]
-    (name::Symbol, typ) = parse_lhs(lhs)
-    if (!isa(rhs, Expr) || rhs.head != :macrocall || length(rhs.args) != 3 ||
-        rhs.args[1] != STATIC_DSL_CALLDIFF ||
-        !isa(rhs.args[3], QuoteNode) || !isa(rhs.args[3].value, Symbol))
-        return false
-    end
-    addr::Symbol = rhs.args[3].value
-    node = gensym()
-    push!(stmts, :($(esc(node)) = add_calldiff_node!(
-        builder, $(QuoteNode(addr)), name=$(QuoteNode(name)), typ=$(esc(typ)))))
-    bindings[name] = node
-    true
-end
-
 function parse_static_dsl_function_body!(stmts::Vector{Expr},
                                          bindings::Dict{Symbol,Symbol},
                                          expr)
@@ -307,7 +200,7 @@ function parse_static_dsl_function_body!(stmts::Vector{Expr},
         !isa(line, Expr) && static_dsl_syntax_error(line)
 
         # lhs = @trace(rhs..) or @trace(rhs)
-        parse_addr_line!(stmts, bindings, line) && continue
+        parse_trace_line!(stmts, bindings, line) && continue
 
         # lhs = rhs
         # (only run if parsing as choice and call both fail)
@@ -315,13 +208,6 @@ function parse_static_dsl_function_body!(stmts::Vector{Expr},
 
         # return ..
         parse_return!(stmts, bindings, line) && continue
-
-        # @diff ..
-        parse_received_argdiff!(stmts, bindings, line) && continue
-        parse_choicediff!(stmts, bindings, line) && continue
-        parse_calldiff!(stmts, bindings, line) && continue
-        parse_diff_julia!(stmts, bindings, line) && continue
-        parse_retdiff!(stmts, bindings, line) && continue
 
         static_dsl_syntax_error(line)
     end
@@ -338,12 +224,15 @@ function make_static_gen_function(name, args, body, return_type, annotations)
     for arg in args
         node = gensym()
         push!(stmts, :($(esc(node)) = add_argument_node!(
-            builder, name=$(QuoteNode(arg.name)), typ=$(esc(arg.typ)),
+            builder, name=$(QuoteNode(arg.name)), typ=$(QuoteNode(arg.typ)),
             compute_grad=$(QuoteNode(DSL_ARG_GRAD_ANNOTATION in arg.annotations)))))
         bindings[arg.name] = node 
     end
     parse_static_dsl_function_body!(stmts, bindings, body)
     push!(stmts, :(ir = build_ir(builder)))
-    push!(stmts, :($(esc(name)) = eval(generate_generative_function(ir, $(QuoteNode(name))))))
+    expr = gensym("gen_fn_defn")
+    # note: use the eval() for the user's module, not Gen
+    push!(stmts, :($(esc(name)) = $(esc(:eval))(
+        generate_generative_function(ir, $(QuoteNode(name))))))
     Expr(:block, stmts...)
 end

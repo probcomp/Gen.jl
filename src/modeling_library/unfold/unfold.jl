@@ -40,18 +40,6 @@ end
 # TODO
 accepts_output_grad(gen_fn::Unfold) = false
 
-"""
-    argdiff = UnfoldCustomArgDiff(init_changed::Bool, params_changed::Bool)
-
-Construct an argdiff that indicates whether the initial state may have changed (`init_changed`) , and whether or not the remaining arguments to the kernel may have changed (`params_changed`).
-"""
-struct UnfoldCustomArgDiff
-    init_changed::Bool
-    params_changed::Bool
-end
-
-export UnfoldCustomArgDiff
-
 function unpack_args(args::Tuple)
     len = args[1]
     init_state = args[2]

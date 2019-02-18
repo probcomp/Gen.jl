@@ -2,7 +2,7 @@ abstract type StaticIRNode end
 
 struct ArgumentNode <: StaticIRNode
     name::Symbol
-    typ::Union{Symbol,Expr}
+    typ::Union{Symbol,Expr,QuoteNode}
     compute_grad::Bool
 end
 
@@ -10,7 +10,7 @@ struct JuliaNode <: StaticIRNode
     fn::Function
     inputs::Vector{StaticIRNode}
     name::Symbol
-    typ::Union{Symbol,Expr}
+    typ::Union{Symbol,Expr,QuoteNode}
 end
 
 struct RandomChoiceNode <: StaticIRNode
@@ -18,7 +18,7 @@ struct RandomChoiceNode <: StaticIRNode
     inputs::Vector{StaticIRNode}
     addr::Symbol
     name::Symbol
-    typ::QuoteNode
+    typ::Union{Symbol,Expr,QuoteNode}
 end
 
 struct GenerativeFunctionCallNode <: StaticIRNode
@@ -26,7 +26,7 @@ struct GenerativeFunctionCallNode <: StaticIRNode
     inputs::Vector{StaticIRNode}
     addr::Symbol
     name::Symbol
-    typ::QuoteNode
+    typ::Union{Symbol,Expr,QuoteNode}
 end
 
 struct StaticIR
@@ -106,7 +106,8 @@ function _add_node!(builder::StaticIRBuilder, node::StaticIRNode)
 end
 
 function add_argument_node!(builder::StaticIRBuilder;
-                            name::Symbol=gensym(), typ::Union{Symbol,Expr}=:Any,
+                            name::Symbol=gensym(),
+                            typ::Union{Symbol,Expr,QuoteNode}=QuoteNode(Any),
                             compute_grad=false)
     check_unique_var(builder, name)
     node = ArgumentNode(name, typ, compute_grad)
@@ -117,7 +118,8 @@ end
 
 function add_julia_node!(builder::StaticIRBuilder, fn::Function;
                          inputs::Vector=[],
-                         name::Symbol=gensym(), typ::Union{Symbol,Expr}=:Any)
+                         name::Symbol=gensym(),
+                         typ::Union{Symbol,Expr,QuoteNode}=QuoteNode(Any))
     check_unique_var(builder, name)
     check_inputs_exist(builder, inputs)
     node = JuliaNode(fn, inputs, name, typ)
@@ -126,7 +128,8 @@ function add_julia_node!(builder::StaticIRBuilder, fn::Function;
 end
 
 function add_constant_node!(builder::StaticIRBuilder, val,
-        name::Symbol=gensym(), typ::Union{Symbol,Expr}=:Any)
+        name::Symbol=gensym(),
+        typ::Union{Symbol,Expr,QuoteNode}=QuoteNode(Any))
     check_unique_var(builder, name)
     # NOTE: not wrapping it in a Diffed means it is interpreted as a constant
     node = JuliaNode(() -> val, [], name, typ)

@@ -77,16 +77,16 @@ function get_trace_fields(ir::StaticIR)
         value_fieldname = get_value_fieldname(node)
         push!(fields, TraceField(value_fieldname, node.typ))
         score_fieldname = get_score_fieldname(node)
-        push!(fields, TraceField(score_fieldname, :Float64))
+        push!(fields, TraceField(score_fieldname, QuoteNode(Float64)))
     end
     for node in ir.call_nodes
         subtrace_fieldname = get_subtrace_fieldname(node)
         subtrace_type = QuoteNode(get_trace_type(node.generative_function))
         push!(fields, TraceField(subtrace_fieldname, subtrace_type))
     end
-    push!(fields, TraceField(total_score_fieldname, :Float64))
-    push!(fields, TraceField(total_noise_fieldname, :Float64))
-    push!(fields, TraceField(num_nonempty_fieldname, :Int))
+    push!(fields, TraceField(total_score_fieldname, QuoteNode(Float64)))
+    push!(fields, TraceField(total_noise_fieldname, QuoteNode(Float64)))
+    push!(fields, TraceField(num_nonempty_fieldname, QuoteNode(Int)))
     push!(fields, TraceField(return_value_fieldname, ir.return_node.typ))
     return fields
 end

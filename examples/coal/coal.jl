@@ -201,7 +201,7 @@ function rate_involution(trace, fwd_choices::ChoiceMap, fwd_ret, proposal_args::
     bwd_choices[:i] = i
     constraints[(RATE, i)] = fwd_choices[:new_rate]
     bwd_choices[:new_rate] = trace[(RATE, i)]
-    (new_trace, weight, _, _) = update(trace, model_args, noargdiff, constraints)
+    (new_trace, weight, _, _) = update(trace, model_args, (NoChange(),), constraints)
     (new_trace, bwd_choices, weight)
 end
 
@@ -236,7 +236,7 @@ function position_involution(trace, fwd_choices::ChoiceMap, fwd_ret, proposal_ar
     bwd_choices[:i] = i
     constraints[(CHANGEPT, i)] = fwd_choices[:new_changept]
     bwd_choices[:new_changept] = trace[(CHANGEPT, i)]
-    (new_trace, weight, _, _) = update(trace, model_args, noargdiff, constraints)
+    (new_trace, weight, _, _) = update(trace, model_args, (NoChange(),), constraints)
     (new_trace, bwd_choices, weight)
 end
 
@@ -397,7 +397,7 @@ function birth_death_involution(trace, fwd_choices::ChoiceMap, fwd_ret, proposal
         end
     end
 
-    (new_trace, weight, _, _) = update(trace, model_args, noargdiff, constraints)
+    (new_trace, weight, _, _) = update(trace, model_args, (NoChange(),), constraints)
     (new_trace, bwd_choices, weight + log(abs(det(J))))
 end
 

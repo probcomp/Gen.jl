@@ -15,27 +15,13 @@ end
 
 data = Map(datum)
 
-function compute_argdiff(inlier_std_diff, outlier_std_diff, slope_diff, intercept_diff)
-    if all([c == NoChoiceDiff() for c in [
-            inlier_std_diff, outlier_std_diff, slope_diff, intercept_diff]])
-        noargdiff
-    else
-        unknownargdiff
-    end
-end
-
 @gen function model(xs::Vector{Float64})
     n = length(xs)
     inlier_std = exp(@trace(normal(0, 2), :log_inlier_std))
     outlier_std = exp(@trace(normal(0, 2), :log_outlier_std))
     slope = @trace(normal(0, 2), :slope)
     intercept = @trace(normal(0, 2), :intercept)
-    @diff argdiff = compute_argdiff(
-        @choicediff(:slope),
-        @choicediff(:intercept),
-        @choicediff(:log_inlier_std),
-        @choicediff(:log_outlier_std))
     ys = @trace(data(xs, fill(inlier_std, n), fill(outlier_std, n),
-               fill(slope, n), fill(intercept, n)), :data, argdiff)
+               fill(slope, n), fill(intercept, n)), :data)
     return ys
 end

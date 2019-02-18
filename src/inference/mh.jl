@@ -27,7 +27,7 @@ If the proposal modifies addresses that determine the control flow in the model,
 """
 function metropolis_hastings(trace, proposal::GenerativeFunction, proposal_args::Tuple)
     model_args = get_args(trace)
-    argdiffs = map((_) -> NoChange(), args)
+    argdiffs = map((_) -> NoChange(), model_args)
     proposal_args_forward = (trace, proposal_args...,)
     (fwd_choices, fwd_weight, _) = propose(proposal, proposal_args_forward)
     (new_trace, weight, _, discard) = update(trace,

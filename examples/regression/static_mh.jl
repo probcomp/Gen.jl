@@ -33,6 +33,11 @@ end
     @trace(bernoulli(prev_z ? 0.0 : 1.0), :data => i => :z)
 end
 
+@gen (static) function is_outlier_proposal(trace, i::Int)
+    prev_z = trace[:data => i => :z]
+    @trace(bernoulli(prev_z ? 0.0 : 1.0), :data => i => :z)
+end
+
 Gen.load_generated_functions()
 
 function do_inference(xs, ys, num_iters)

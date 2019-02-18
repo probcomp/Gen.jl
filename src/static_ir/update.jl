@@ -41,7 +41,7 @@ function forward_pass_argdiff!(state::ForwardPassState,
                                arg_nodes::Vector{ArgumentNode},
                                argdiffs_type::Type)
     for (node, diff_typ) in zip(arg_nodes, argdiffs_type.parameters)
-        push!(state.valued_changed, node)
+        push!(state.value_changed, node)
     end
 end
 

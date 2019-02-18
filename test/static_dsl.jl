@@ -12,68 +12,51 @@ struct Params
     outlier_std::Float64
 end
 
-@gen (static) function datum(x, (grad)(params::Params))
-    is_outlier::Bool = @trace(bernoulli(params.prob_outlier), :z)
-    std::Float64 = is_outlier ? params.inlier_std : params.outlier_std
-    y::Float64 = @trace(normal(x * params.slope + params.intercept, std), :y)
+@gen (static) function datum(x::Float64, (grad)(params::Params))
+    is_outlier = @trace(bernoulli(params.prob_outlier), :z)
+    std = is_outlier ? params.inlier_std : params.outlier_std
+    y = @trace(normal(x * params.slope + params.intercept, std), :y)
     return y
 end
 
 data_fn = Map(datum)
 
-function compute_argdiff(inlier_std_diff, outlier_std_diff, slope_diff, intercept_diff)
-    if all([c == NoChoiceDiff() for c in [
-            inlier_std_diff, outlier_std_diff, slope_diff, intercept_diff]])
-        noargdiff
-    else
-        unknownargdiff
-    end
-end
-
 @gen (static) function model(xs::Vector{Float64})
     n = length(xs)
-    inlier_std::Float64 = @trace(gamma(1, 1), :inlier_std)
-    outlier_std::Float64 = @trace(gamma(1, 1), :outlier_std)
-    slope::Float64 = @trace(normal(0, 2), :slope)
-    intercept::Float64 = @trace(normal(0, 2), :intercept)
-    params = Params(0.5, inlier_std, outlier_std, slope, intercept)
-    @diff received_argdiff = @argdiff()
-    @diff inlier_std_diff = @choicediff(:inlier_std)
-    @diff outlier_std_diff::Union{NoChoiceDiff,PrevChoiceDiff} = @choicediff(:outlier_std)
-    @diff slope_diff = @choicediff(:slope)
-    @diff intercept_diff = @choicediff(:intercept)
-    @diff data_argdiff = compute_argdiff(inlier_std_diff, outlier_std_diff, slope_diff, intercept_diff)
-    ys::PersistentVector{Float64} = @trace(data_fn(xs, fill(params, n)), :data, data_argdiff)
-    @diff data_calldiff = @calldiff(:data)
+    inlier_std = @trace(gamma(1, 1), :inlier_std)
+    outlier_std = @trace(gamma(1, 1), :outlier_std)
+    slope = @trace(normal(0, 2), :slope)
+    intercept = @trace(normal(0, 2), :intercept)
+    params::Params = Params(0.5, inlier_std, outlier_std, slope, intercept)
+    ys = @trace(data_fn(xs, fill(params, n)), :data)
     return ys
-    @diff @retdiff(data_calldiff)
 end
 
-@gen (static) function at_choice_example_1(i::Int)
-    ret = @trace(bernoulli(0.5), :x => i)
-end
-
-# @trace(choice_at(bernoulli)(0.5, i), :x)
-
-@gen (static) function at_choice_example_2(i::Int)
-    ret = @trace(bernoulli(0.5), :x => i => :y)
-end
-
-# @trace(call_at(choice_at(bernoulli))(0.5, i, :y), :x)
-
-@gen function foo(mu)
-    @trace(normal(mu, 1), :y)
-end
-
-@gen (static) function at_call_example_1(i::Int)
-    mu = 1.123
-    ret = @trace(foo(mu), :x => i)
-end
-
-@gen (static) function at_call_example_2(i::Int)
-    mu = 1.123
-    ret = @trace(foo(mu), :x => i => :y)
-end
+#@gen (static) function at_choice_example_1(i::Int)
+    #ret = @trace(bernoulli(0.5), :x => i)
+#end
+#
+## @trace(choice_at(bernoulli)(0.5, i), :x)
+#
+#@gen (static) function at_choice_example_2(i::Int)
+    #ret = @trace(bernoulli(0.5), :x => i => :y)
+#end
+#
+## @trace(call_at(choice_at(bernoulli))(0.5, i, :y), :x)
+#
+#@gen function foo(mu)
+    #@trace(normal(mu, 1), :y)
+#end
+#
+#@gen (static) function at_call_example_1(i::Int)
+    #mu = 1.123
+    #ret = @trace(foo(mu), :x => i)
+#end
+#
+#@gen (static) function at_call_example_2(i::Int)
+    #mu = 1.123
+    #ret = @trace(foo(mu), :x => i => :y)
+#end
 
 @testset "static DSL" begin
 
@@ -94,10 +77,10 @@ ir = Gen.get_ir(typeof(datum))
 x = ir.arg_nodes[1]
 params = ir.arg_nodes[2]
 @test x.name == :x
-@test x.typ == Any
+@test x.typ == :Float64
 @test !x.compute_grad
 @test params.name == :params
-@test params.typ == Params
+@test params.typ == :Params
 @test params.compute_grad
 
 # choice nodes and call nodes
@@ -108,7 +91,7 @@ params = ir.arg_nodes[2]
 is_outlier = ir.choice_nodes[1]
 @test is_outlier.name == :is_outlier
 @test is_outlier.addr == :z
-@test is_outlier.typ == Bool
+@test is_outlier.typ == QuoteNode(Bool)
 @test is_outlier.dist == bernoulli
 @test length(is_outlier.inputs) == 1
 
@@ -116,7 +99,7 @@ is_outlier = ir.choice_nodes[1]
 std = get_node_by_name(ir, :std)
 @test isa(std, Gen.JuliaNode)
 @test std.name == :std
-@test std.typ == Float64
+@test std.typ == QuoteNode(Any)
 @test length(std.inputs) == 2
 in1 = std.inputs[1]
 in2 = std.inputs[2]
@@ -126,7 +109,7 @@ in2 = std.inputs[2]
 y = ir.choice_nodes[2]
 @test y.name == :y
 @test y.addr == :y
-@test y.typ == Float64
+@test y.typ == QuoteNode(Float64)
 @test y.dist == normal
 @test length(y.inputs) == 2
 @test y.inputs[2] === std
@@ -134,7 +117,7 @@ y = ir.choice_nodes[2]
 # y_mean
 y_mean = y.inputs[1]
 @test isa(y_mean, Gen.JuliaNode)
-@test y_mean.typ == Any
+@test y_mean.typ == QuoteNode(Any)
 @test length(y_mean.inputs) == 2
 in1 = y_mean.inputs[1]
 in2 = y_mean.inputs[2]
@@ -145,7 +128,7 @@ prob_outlier = is_outlier.inputs[1]
 @test isa(prob_outlier, Gen.JuliaNode)
 @test length(prob_outlier.inputs) == 1
 @test prob_outlier.inputs[1] === params
-@test prob_outlier.typ == Any
+@test prob_outlier.typ == QuoteNode(Any)
 
 @test ir.return_node === y
 
@@ -157,7 +140,7 @@ ir = Gen.get_ir(typeof(model))
 @test length(ir.arg_nodes) == 1
 xs = ir.arg_nodes[1]
 @test xs.name == :xs
-@test xs.typ == Vector{Float64}
+@test xs.typ == :(Vector{Float64})
 @test !xs.compute_grad
 
 # choice nodes and call nodes
@@ -168,7 +151,7 @@ xs = ir.arg_nodes[1]
 inlier_std = ir.choice_nodes[1]
 @test inlier_std.name == :inlier_std
 @test inlier_std.addr == :inlier_std
-@test inlier_std.typ == Float64
+@test inlier_std.typ == QuoteNode(Float64)
 @test inlier_std.dist == gamma
 @test length(inlier_std.inputs) == 2
 
@@ -176,7 +159,7 @@ inlier_std = ir.choice_nodes[1]
 outlier_std = ir.choice_nodes[2]
 @test outlier_std.name == :outlier_std
 @test outlier_std.addr == :outlier_std
-@test outlier_std.typ == Float64
+@test outlier_std.typ == QuoteNode(Float64)
 @test outlier_std.dist == gamma
 @test length(outlier_std.inputs) == 2
 
@@ -184,7 +167,7 @@ outlier_std = ir.choice_nodes[2]
 slope = ir.choice_nodes[3]
 @test slope.name == :slope
 @test slope.addr == :slope
-@test slope.typ == Float64
+@test slope.typ == QuoteNode(Float64)
 @test slope.dist == normal
 @test length(slope.inputs) == 2
 
@@ -192,7 +175,7 @@ slope = ir.choice_nodes[3]
 intercept = ir.choice_nodes[4]
 @test intercept.name == :intercept
 @test intercept.addr == :intercept
-@test intercept.typ == Float64
+@test intercept.typ == QuoteNode(Float64)
 @test intercept.dist == normal
 @test length(intercept.inputs) == 2
 
@@ -200,7 +183,7 @@ intercept = ir.choice_nodes[4]
 ys = ir.call_nodes[1]
 @test ys.name == :ys
 @test ys.addr == :data
-@test ys.typ == PersistentVector{Float64}
+@test ys.typ == QuoteNode(PersistentVector{Float64})
 @test ys.generative_function == data_fn
 @test length(ys.inputs) == 2
 @test ys.inputs[1] == xs
@@ -209,7 +192,7 @@ ys = ir.call_nodes[1]
 params = get_node_by_name(ir, :params)
 @test isa(params, Gen.JuliaNode)
 @test params.name == :params
-@test params.typ == Any
+@test params.typ == :Params
 @test length(params.inputs) == 4
 @test slope in params.inputs
 @test intercept in params.inputs
@@ -220,14 +203,14 @@ params = get_node_by_name(ir, :params)
 n = get_node_by_name(ir, :n)
 @test isa(n, Gen.JuliaNode)
 @test n.name == :n
-@test n.typ == Any
+@test n.typ == QuoteNode(Any) 
 @test length(n.inputs) == 1
 @test n.inputs[1] === xs
 
 # params_vec
 params_vec = ys.inputs[2]
 @test isa(params_vec, Gen.JuliaNode)
-@test params_vec.typ == Any
+@test params_vec.typ == QuoteNode(Any)
 @test length(params_vec.inputs) == 2
 in1 = params_vec.inputs[1]
 in2 = params_vec.inputs[2]
@@ -235,124 +218,72 @@ in2 = params_vec.inputs[2]
 
 @test ir.return_node === ys
 
-# inlier_std_diff
-inlier_std_diff = get_node_by_name(ir, :inlier_std_diff)
-@test isa(inlier_std_diff, Gen.ChoiceDiffNode)
-@test inlier_std_diff.choice_node === inlier_std
-@test inlier_std_diff.typ == Any
-
-# outlier_std_diff
-outlier_std_diff = get_node_by_name(ir, :outlier_std_diff)
-@test isa(outlier_std_diff, Gen.ChoiceDiffNode)
-@test outlier_std_diff.choice_node === outlier_std
-@test outlier_std_diff.typ == Union{NoChoiceDiff,PrevChoiceDiff}
-
-# slope_diff
-slope_diff = get_node_by_name(ir, :slope_diff)
-@test isa(slope_diff, Gen.ChoiceDiffNode)
-@test slope_diff.choice_node === slope
-@test slope_diff.typ == Any
-
-# intercept_diff
-intercept_diff = get_node_by_name(ir, :intercept_diff)
-@test isa(intercept_diff, Gen.ChoiceDiffNode)
-@test intercept_diff.choice_node === intercept
-@test intercept_diff.typ == Any
-
-# data_argdiff
-data_argdiff = get_node_by_name(ir, :data_argdiff)
-@test isa(data_argdiff, Gen.DiffJuliaNode)
-@test data_argdiff.name == :data_argdiff
-@test data_argdiff.typ == Any
-@test length(data_argdiff.inputs) == 4
-@test inlier_std_diff in data_argdiff.inputs
-@test outlier_std_diff in data_argdiff.inputs
-@test slope_diff in data_argdiff.inputs
-@test intercept_diff in data_argdiff.inputs
-@test ys.argdiff === data_argdiff
-
-# received_argdiff
-received_argdiff = get_node_by_name(ir, :received_argdiff)
-@test isa(received_argdiff, Gen.ReceivedArgDiffNode)
-@test received_argdiff.typ == Any
-@test ir.received_argdiff_node === received_argdiff
-
-# data_calldiff
-data_calldiff = get_node_by_name(ir, :data_calldiff)
-@test isa(data_calldiff, Gen.CallDiffNode)
-@test data_calldiff.call_node == ys
-@test data_calldiff.typ == Any
-
-# retdiff
-@test ir.retdiff_node === data_calldiff
-
-
-####################
-# at_choice syntax #
-####################
-
-# at_choice_example_1
-ir = Gen.get_ir(typeof(at_choice_example_1))
-i = get_node_by_name(ir, :i)
-ret = get_node_by_name(ir, :ret)
-@test isa(ret, Gen.GenerativeFunctionCallNode)
-@test ret.addr == :x
-@test length(ret.inputs) == 2
-@test isa(ret.inputs[1], Gen.JuliaNode) # () -> 0.5
-@test ret.inputs[2] === i
-at = ret.generative_function
-@test isa(at, Gen.ChoiceAtCombinator)
-@test at.dist == bernoulli
-
-# at_choice_example_2
-ir = Gen.get_ir(typeof(at_choice_example_2))
-i = get_node_by_name(ir, :i)
-ret = get_node_by_name(ir, :ret)
-@test isa(ret, Gen.GenerativeFunctionCallNode)
-@test ret.addr == :x
-@test length(ret.inputs) == 3
-@test isa(ret.inputs[1], Gen.JuliaNode) # () -> 0.5
-@test isa(ret.inputs[2], Gen.JuliaNode) # () -> :y
-@test ret.inputs[3] === i
-at = ret.generative_function
-@test isa(at, Gen.CallAtCombinator)
-at2 = at.kernel
-@test isa(at2, Gen.ChoiceAtCombinator)
-@test at2.dist == bernoulli
-
-
-##################
-# at_call syntax #
-##################
-
-# at_call_example_1
-ir = Gen.get_ir(typeof(at_call_example_1))
-i = get_node_by_name(ir, :i)
-ret = get_node_by_name(ir, :ret)
-@test isa(ret, Gen.GenerativeFunctionCallNode)
-@test ret.addr == :x
-@test length(ret.inputs) == 2
-@test isa(ret.inputs[1], Gen.JuliaNode) # () -> 0.5
-@test ret.inputs[2] === i
-at = ret.generative_function
-@test isa(at, Gen.CallAtCombinator)
-@test at.kernel == foo
-
-#at_call_example_2
-ir = Gen.get_ir(typeof(at_call_example_2))
-i = get_node_by_name(ir, :i)
-ret = get_node_by_name(ir, :ret)
-@test isa(ret, Gen.GenerativeFunctionCallNode)
-@test ret.addr == :x
-@test length(ret.inputs) == 3
-@test isa(ret.inputs[1], Gen.JuliaNode) # () -> 0.5
-@test isa(ret.inputs[1], Gen.JuliaNode) # () -> 0.5
-@test isa(ret.inputs[2], Gen.JuliaNode) # () -> :y
-@test ret.inputs[3] === i
-at = ret.generative_function
-@test isa(at, Gen.CallAtCombinator)
-at2 = at.kernel
-@test isa(at2, Gen.CallAtCombinator)
-@test at2.kernel == foo
+#####################
+## at_choice syntax #
+#####################
+#
+## at_choice_example_1
+#ir = Gen.get_ir(typeof(at_choice_example_1))
+#i = get_node_by_name(ir, :i)
+#ret = get_node_by_name(ir, :ret)
+#@test isa(ret, Gen.GenerativeFunctionCallNode)
+#@test ret.addr == :x
+#@test length(ret.inputs) == 2
+#@test isa(ret.inputs[1], Gen.JuliaNode) # () -> 0.5
+#@test ret.inputs[2] === i
+#at = ret.generative_function
+#@test isa(at, Gen.ChoiceAtCombinator)
+#@test at.dist == bernoulli
+#
+## at_choice_example_2
+#ir = Gen.get_ir(typeof(at_choice_example_2))
+#i = get_node_by_name(ir, :i)
+#ret = get_node_by_name(ir, :ret)
+#@test isa(ret, Gen.GenerativeFunctionCallNode)
+#@test ret.addr == :x
+#@test length(ret.inputs) == 3
+#@test isa(ret.inputs[1], Gen.JuliaNode) # () -> 0.5
+#@test isa(ret.inputs[2], Gen.JuliaNode) # () -> :y
+#@test ret.inputs[3] === i
+#at = ret.generative_function
+#@test isa(at, Gen.CallAtCombinator)
+#at2 = at.kernel
+#@test isa(at2, Gen.ChoiceAtCombinator)
+#@test at2.dist == bernoulli
+#
+#
+###################
+## at_call syntax #
+###################
+#
+## at_call_example_1
+#ir = Gen.get_ir(typeof(at_call_example_1))
+#i = get_node_by_name(ir, :i)
+#ret = get_node_by_name(ir, :ret)
+#@test isa(ret, Gen.GenerativeFunctionCallNode)
+#@test ret.addr == :x
+#@test length(ret.inputs) == 2
+#@test isa(ret.inputs[1], Gen.JuliaNode) # () -> 0.5
+#@test ret.inputs[2] === i
+#at = ret.generative_function
+#@test isa(at, Gen.CallAtCombinator)
+#@test at.kernel == foo
+#
+##at_call_example_2
+#ir = Gen.get_ir(typeof(at_call_example_2))
+#i = get_node_by_name(ir, :i)
+#ret = get_node_by_name(ir, :ret)
+#@test isa(ret, Gen.GenerativeFunctionCallNode)
+#@test ret.addr == :x
+#@test length(ret.inputs) == 3
+#@test isa(ret.inputs[1], Gen.JuliaNode) # () -> 0.5
+#@test isa(ret.inputs[1], Gen.JuliaNode) # () -> 0.5
+#@test isa(ret.inputs[2], Gen.JuliaNode) # () -> :y
+#@test ret.inputs[3] === i
+#at = ret.generative_function
+#@test isa(at, Gen.CallAtCombinator)
+#at2 = at.kernel
+#@test isa(at2, Gen.CallAtCombinator)
+#@test at2.kernel == foo
 
 end # @testset "static DSL"
