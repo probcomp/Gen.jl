@@ -11,7 +11,7 @@ using Gen: generate_generative_function
     one = add_constant_node!(builder, 1.)
     add_addr_node!(builder, normal, inputs=[zero, one], addr=:a)
     ir = build_ir(builder)
-    bar = eval(generate_generative_function(ir, :bar))
+    bar = eval(generate_generative_function(ir, :bar, false))
 
     #@gen function baz()
         #@trace(normal(0, 1), :b)
@@ -22,7 +22,7 @@ using Gen: generate_generative_function
     one = add_constant_node!(builder, 1.)
     add_addr_node!(builder, normal, inputs=[zero, one], addr=:b)
     ir = build_ir(builder)
-    baz = eval(generate_generative_function(ir, :baz))
+    baz = eval(generate_generative_function(ir, :baz, false))
 
     #@gen function foo()
         #@trace(normal(0, 1), :x)
@@ -39,7 +39,7 @@ using Gen: generate_generative_function
     add_addr_node!(builder, normal, inputs=[zero, one], addr=:y)
     add_addr_node!(builder, baz, inputs=[], addr=:v)
     ir = build_ir(builder)
-    foo = eval(generate_generative_function(ir, :foo))
+    foo = eval(generate_generative_function(ir, :foo, false))
 
     #@gen function const_fn()
         #return 1
@@ -49,7 +49,7 @@ using Gen: generate_generative_function
     one = add_constant_node!(builder, 2)
     set_return_node!(builder, one)
     ir = build_ir(builder)
-    const_fn = eval(generate_generative_function(ir, :const_fn))
+    const_fn = eval(generate_generative_function(ir, :const_fn, false))
 
     Gen.load_generated_functions()
 
@@ -272,7 +272,7 @@ end
     retval = add_julia_node!(builder, (z, mu_z) -> z + mu_z, inputs=[z, mu_z], name=:retval)
     set_return_node!(builder, retval)
     ir = build_ir(builder)
-    bar = eval(generate_generative_function(ir, :bar))
+    bar = eval(generate_generative_function(ir, :bar, false))
     
     # foo
     builder = StaticIRBuilder()
@@ -285,7 +285,7 @@ end
     retval = add_addr_node!(builder, normal, inputs=[c, one], addr=:out, name=:out)
     set_return_node!(builder, retval)
     ir = build_ir(builder)
-    foo = eval(generate_generative_function(ir, :foo))
+    foo = eval(generate_generative_function(ir, :foo, false))
 
     Gen.load_generated_functions()
 

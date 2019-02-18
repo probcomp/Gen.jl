@@ -191,7 +191,7 @@ end
 
 # vectors and tuples
 
-function Base.length(vec::Diffed{T,UnknownChange}) where {T <: Union{AbstractVector,Tuple}}
+function Base.length(vec::Union{Diffed{T,UnknownChange}, Diffed{T,UnknownChange}}) where {T <: Union{AbstractVector,Tuple}}
     result = length(strip_diff(vec))
     Diffed(result, UnknownChange())
 end
@@ -281,6 +281,16 @@ macro diffed_binary_function(fn)
             Diffed(result, NoChange())
         end
 
+        function $(fn)(a, b::Diffed{U,DU}) where {U,DU}
+            result = $(fn)(a, strip_diff(b))
+            Diffed(result, UnknownChange())
+        end
+
+        function $(fn)(a::Diffed{T,DT}, b) where {T,DT}
+            result = $(fn)(strip_diff(a), b)
+            Diffed(result, UnknownChange())
+        end
+
         function $(fn)(a::Diffed{T,DT}, b::Diffed{U,DU}) where {T,U,DT,DU}
             result = $(fn)(strip_diff(a), strip_diff(b))
             Diffed(result, UnknownChange())
@@ -302,9 +312,12 @@ end
 @diffed_binary_function Base.:*
 @diffed_binary_function Base.:-
 @diffed_binary_function Base.:/
+@diffed_binary_function Base.atan
+
 
 @diffed_unary_function Base.exp
 @diffed_unary_function Base.log
+@diffed_unary_function Base.sqrt
 @diffed_unary_function Base.sin
 @diffed_unary_function Base.cos
 @diffed_unary_function Base.tan

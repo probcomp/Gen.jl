@@ -28,10 +28,11 @@ abstract type StaticIRGenerativeFunction{T,U} <: GenerativeFunction{T,U} end
 
 function get_ir end
 function get_gen_fn_type end
+function get_track_diffs end
 
 # TODO add trainable parameters
 
-function generate_generative_function(ir::StaticIR, name::Symbol)
+function generate_generative_function(ir::StaticIR, name::Symbol, track_diffs::Bool)
 
     (trace_defns, trace_struct_name) = generate_trace_type_and_methods(ir, name)
 
@@ -51,6 +52,7 @@ function generate_generative_function(ir::StaticIR, name::Symbol)
         Gen.accepts_output_grad(::$gen_fn_type_name) = $(QuoteNode(accepts_output_grad))
         Gen.get_gen_fn(::$trace_struct_name) = $gen_fn_type_name()
         Gen.get_gen_fn_type(::Type{$trace_struct_name}) = $gen_fn_type_name
+        Gen.get_track_diffs(::Type{$gen_fn_type_name}) = $(QuoteNode(track_diffs))
     end
     Expr(:block, trace_defns, gen_fn_defn, Expr(:call, gen_fn_type_name))
 end
