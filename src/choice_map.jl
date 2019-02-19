@@ -273,9 +273,21 @@ export address_set
 struct StaticChoiceMap{R,S,T,U} <: ChoiceMap
     leaf_nodes::NamedTuple{R,S}
     internal_nodes::NamedTuple{T,U}
+    isempty::Bool
 end
 
-# TODO invariant: all internal_nodes are nonempty, but this is not verified at construction time
+function StaticChoiceMap{R,S,T,U}(leaf_nodes::NamedTuple{R,S}, internal_nodes::NamedTuple{T,U}) where {R,S,T,U}
+    is_empty = length(leaf_nodes) == 0 && all(isempty(n) for n in internal_nodes)
+    StaticChoiceMap(leaf_nodes, internal_nodes, is_empty)
+end
+
+function StaticChoiceMap(leaf_nodes::NamedTuple{R,S}, internal_nodes::NamedTuple{T,U}) where {R,S,T,U}
+    is_empty = length(leaf_nodes) == 0 && all(isempty(n) for n in internal_nodes)
+    StaticChoiceMap(leaf_nodes, internal_nodes, is_empty)
+end
+
+
+# invariant: all internal_nodes are nonempty
 
 function get_address_schema(::Type{StaticChoiceMap{R,S,T,U}}) where {R,S,T,U}
     leaf_keys = Set{Symbol}()
@@ -289,9 +301,8 @@ function get_address_schema(::Type{StaticChoiceMap{R,S,T,U}}) where {R,S,T,U}
     StaticAddressSchema(leaf_keys, internal_keys)
 end
 
-# invariant: intenral nodes are nonempty?
 function Base.isempty(choices::StaticChoiceMap)
-    length(choices.leaf_nodes) == 0 && length(choices.internal_nodes) == 0
+    choices.isempty
 end
 
 get_values_shallow(choices::StaticChoiceMap) = pairs(choices.leaf_nodes)
@@ -351,7 +362,8 @@ function StaticChoiceMap(other::ChoiceMap)
     end
     StaticChoiceMap(
         NamedTuple{leaf_keys}(leaf_nodes),
-        NamedTuple{internal_keys}(internal_nodes))
+        NamedTuple{internal_keys}(internal_nodes),
+        isempty(other))
 end
 
 """
@@ -361,7 +373,8 @@ Return an assignment that contains `choices1` as a sub-assignment under `key1`
 and `choices2` as a sub-assignment under `key2`.
 """
 function pair(choices1::ChoiceMap, choices2::ChoiceMap, key1::Symbol, key2::Symbol)
-    StaticChoiceMap(NamedTuple(), NamedTuple{(key1,key2)}((choices1, choices2)))
+    StaticChoiceMap(NamedTuple(), NamedTuple{(key1,key2)}((choices1, choices2)),
+        isempty(choices1) && isempty(choices2))
 end
 
 """

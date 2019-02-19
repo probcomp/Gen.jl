@@ -138,7 +138,7 @@ end
 
 function process_codegen!(stmts, ::ForwardPassState, ::BackwardPassState,
                           node::ArgumentNode, ::AbstractUpdateMode, track_diffs::Val{true})
-    push!(stmts, :($(get_value_fieldname(node)) = $(QuoteNode(strip_diff))(node.name)))
+    push!(stmts, :($(get_value_fieldname(node)) = $(QuoteNode(strip_diff))($(node.name))))
 end
 
 function process_codegen!(stmts, ::ForwardPassState, ::BackwardPassState,
@@ -416,7 +416,7 @@ end
 
 function unpack_arguments!(stmts::Vector{Expr}, arg_nodes::Vector{ArgumentNode}, track_diffs::Val{true})
     arg_names = Symbol[arg_node.name for arg_node in arg_nodes]
-    push!(stmts, :($(Expr(:tuple, arg_names...)) = map((v, d) -> $(QuoteNode(Diffed))(v, d), args, argdiffs)))
+    push!(stmts, :($(Expr(:tuple, arg_names...)) = map($(QuoteNode(Diffed)), args, argdiffs)))
 end
 
 function unpack_arguments!(stmts::Vector{Expr}, arg_nodes::Vector{ArgumentNode}, track_diffs::Val{false})
