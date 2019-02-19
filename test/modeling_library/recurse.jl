@@ -63,14 +63,6 @@ using Gen: get_child, get_child_num, get_parent
     @test get_parent(11, 3) == 4
 end
 
-# singleton type for change to the production rule (contains no information); (DV)
-struct RuleDiff end
-Gen.isnodiff(::RuleDiff) = false
-
-# singleton type for change to the string (contains no information); (DW)
-struct StringDiff end
-Gen.isnodiff(::StringDiff) = false
-
 @testset "simple pcfg" begin
 
     @gen function pcfg_production(_::Nothing)
@@ -89,12 +81,7 @@ Gen.isnodiff(::StringDiff) = false
             num_children = 0
         end
 
-        # the argument to each child is nothing (U=Nothing), and its argdiff is
-        # also nothing (DU=Nothing) or noargdiff
-        @diff @assert isa(@argdiff(), Union{Nothing,NoArgDiff})
-        @diff @retdiff(RecurseProductionRetDiff{RuleDiff,Nothing}(RuleDiff(), Dict{Int,Nothing}()))
-
-        return (production_rule, [nothing for _=1:num_children])
+        return Production(production_rule, [nothing for _=1:num_children])
     end
     
     @gen function pcfg_aggregation(production_rule::Int, child_outputs::Vector{String})
@@ -113,13 +100,10 @@ Gen.isnodiff(::StringDiff) = false
             @assert length(child_outputs) == 0
             str = "($(prefix)bb)"
         end
-
-        @diff @assert isa(@argdiff(), RecurseAggregationArgDiff{RuleDiff,StringDiff})
-        @diff @retdiff(StringDiff())
         return str
     end
 
-    pcfg = Recurse(pcfg_production, pcfg_aggregation, 1, Nothing, Int, String, RuleDiff, Nothing, StringDiff)
+    pcfg = Recurse(pcfg_production, pcfg_aggregation, 1, Nothing, Int, String)
 
     # test that each of the most probable strings are all produced
     function test_strings(strings)
@@ -193,7 +177,8 @@ Gen.isnodiff(::StringDiff) = false
     # update non-structure choice
     new_constraints = choicemap()
     new_constraints[(3, Val(:aggregation)) => :prefix] = false
-    (new_trace, weight, retdiff, discard) = update(trace, (nothing, 1), noargdiff, new_constraints)
+    (new_trace, weight, retdiff, discard) = update(
+        trace, (nothing, 1), (UnknownChange(), UnknownChange()), new_constraints)
     @test isapprox(weight, log(0.6) - log(0.4))
     expected_score = log(0.26) + log(0.24) + log(0.26) + log(0.27) + log(0.4) + log(0.4) + log(0.6) + log(0.6)
     @test isapprox(get_score(new_trace), expected_score)
@@ -213,13 +198,14 @@ Gen.isnodiff(::StringDiff) = false
     @test length(collect(get_values_shallow(discard))) == 0
     @test length(collect(get_submaps_shallow(get_submap(discard,(3, Val(:aggregation)))))) == 0
     @test length(collect(get_values_shallow(get_submap(discard,(3, Val(:aggregation)))))) == 1
-    @test retdiff == StringDiff()
+    @test retdiff == UnknownChange()
 
     # update structure choice, so that string becomes: (.b(.a(.aa)a)b)
     # note: we reuse the prefix choice from node 3 (true)
     new_constraints = choicemap()
     new_constraints[(3, Val(:production)) => :rule] = 3 # change from rule 2 to rule 3
-    (new_trace, weight, retdiff, discard) = update(trace, (nothing, 1), noargdiff, new_constraints)
+    (new_trace, weight, retdiff, discard) = update(
+        trace, (nothing, 1), (UnknownChange(), UnknownChange()), new_constraints)
     @test isapprox(weight, log(0.23) - log(0.26) - log(0.27) - log(0.6))
     @test isapprox(get_score(new_trace), log(0.26) + log(0.24) + log(0.23) + log(0.4) + log(0.4) + log(0.4))
     @test get_args(new_trace) == (nothing, 1)
@@ -237,6 +223,6 @@ Gen.isnodiff(::StringDiff) = false
     @test !has_value(discard, (3, Val(:aggregation)) => :prefix)
     @test discard[(4, Val(:production)) => :rule] == 4
     @test discard[(4, Val(:aggregation)) => :prefix] == false
-    @test retdiff == StringDiff()
+    @test retdiff == UnknownChange()
 
 end

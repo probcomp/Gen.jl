@@ -96,7 +96,7 @@ function subtree_involution(trace, fwd_choices::ChoiceMap, fwd_ret::Tuple, propo
     end
 
     # obtain new trace and discard, which contains the previous subtree
-    (new_trace, weight, _, discard) = update(trace, model_args, noargdiff, constraints)
+    (new_trace, weight, _, discard) = update(trace, model_args, (NoChange(),), constraints)
 
     # populate backward assignment with the previous subtree
     set_submap!(bwd_choices, :subtree, get_submap(discard, :tree))
