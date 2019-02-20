@@ -83,13 +83,13 @@ function fwd_codegen!(stmts, fwd_marked, back_marked, node::JuliaNode)
 
         # tracked forward execution
         tape = tape_var(node)
-        push!(stmts, :($tape = Gen.new_tape()))
+        push!(stmts, :($tape = $(QuoteNode(new_tape))()))
         args_maybe_tracked = Symbol[]
         for (i, input_node) in enumerate(node.inputs)
             arg = input_node.name
             arg_maybe_tracked = maybe_tracked_arg_var(node, i)
             if input_node in fwd_marked
-                push!(stmts, :($arg_maybe_tracked = Gen.track($arg, $tape)))
+                push!(stmts, :($arg_maybe_tracked = $(QuoteNode(track))($arg, $tape)))
             else
                 push!(stmts, :($arg_maybe_tracked = $arg))
             end
@@ -97,7 +97,7 @@ function fwd_codegen!(stmts, fwd_marked, back_marked, node::JuliaNode)
         end
         maybe_tracked_value = maybe_tracked_value_var(node)
         push!(stmts, :($maybe_tracked_value = $(QuoteNode(node.fn))($(args_maybe_tracked...))))
-        push!(stmts, :($(node.name) = Gen.value($maybe_tracked_value)))
+        push!(stmts, :($(node.name) = $(QuoteNode(value))($maybe_tracked_value)))
 
         # initialize gradient to zero
         push!(stmts, :($(gradient_var(node)) = zero($(node.name))))
@@ -164,14 +164,14 @@ function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked, node:
     if node in back_marked && any(input_node in fwd_marked for input_node in node.inputs)
 
         # do backward pass through the Julia code
-        push!(stmts, :(Gen.deriv!($(maybe_tracked_value_var(node)), $(gradient_var(node)))))
-        push!(stmts, :(Gen.reverse_pass!($(tape_var(node)))))
+        push!(stmts, :($(QuoteNode(deriv!))($(maybe_tracked_value_var(node)), $(gradient_var(node)))))
+        push!(stmts, :($(QuoteNode(reverse_pass!))($(tape_var(node)))))
 
         # increment gradients of input nodes that are in fwd_marked
         for (i, input_node) in enumerate(node.inputs)
             if input_node in fwd_marked
                 arg_maybe_tracked = maybe_tracked_arg_var(node, i)
-                push!(stmts, :($(gradient_var(input_node)) += Gen.deriv($arg_maybe_tracked)))
+                push!(stmts, :($(gradient_var(input_node)) += $(QuoteNode(deriv))($arg_maybe_tracked)))
             end
         end
     end
@@ -242,7 +242,7 @@ function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
         subtrace_fieldname = get_subtrace_fieldname(node)
         call_selection = gensym("call_selection")
         if node in selected_calls
-            push!(stmts, :($call_selection = Gen.static_get_internal_node(selection, $(QuoteNode(Val(node.addr))))))
+            push!(stmts, :($call_selection = $(QuoteNode(static_get_internal_node))(selection, $(QuoteNode(Val(node.addr))))))
         else
             push!(stmts, :($call_selection = EmptyAddressSet()))
         end
@@ -452,15 +452,15 @@ function codegen_accumulate_param_gradients!(trace_type::Type{T},
 end
 
 
-push!(Gen.generated_functions, quote
-@generated function Gen.choice_gradients(trace::T, selection::AddressSet,
-                                       retval_grad) where {T<:StaticIRTrace}
-    Gen.codegen_choice_gradients(trace, selection, retval_grad)
+push!(generated_functions, quote
+@generated function $(Expr(:(.), Gen, QuoteNode(:choice_gradients)))(trace::T, selection::$(QuoteNode(AddressSet)),
+                                       retval_grad) where {T<:$(QuoteNode(StaticIRTrace))}
+    $(QuoteNode(codegen_choice_gradients))(trace, selection, retval_grad)
 end
 end)
 
-push!(Gen.generated_functions, quote
-@generated function Gen.accumulate_param_gradients!(trace::T, retval_grad) where {T<:StaticIRTrace}
-    Gen.codegen_accumulate_param_gradients!(trace, retval_grad)
+push!(generated_functions, quote
+@generated function $(Expr(:(.), Gen, QuoteNode(:accumulate_param_gradients!)))(trace::T, retval_grad) where {T<:$(QuoteNode(StaticIRTrace))}
+    $(QuoteNode(codegen_accumulate_param_gradients!))(trace, retval_grad)
 end
 end)

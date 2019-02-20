@@ -20,10 +20,10 @@ function process!(state::StaticIRProjectState, node::GenerativeFunctionCallNode)
     subtrace = get_subtrace_fieldname(node)
     subselection = gensym("subselection")
     if isa(schema, StaticAddressSchema) && (node.addr in internal_node_keys(schema))
-        push!(state.stmts, :($subselection = Gen.static_get_internal_node(selection, Val($addr))))
-        push!(state.stmts, :($weight += project(trace.$subtrace, $subselection)))
+        push!(state.stmts, :($subselection = $(QuoteNode(static_get_internal_node))(selection, Val($addr))))
+        push!(state.stmts, :($weight += $qn_project(trace.$subtrace, $subselection)))
     else
-        push!(state.stmts, :($weight += project(trace.$subtrace, EmptyAddressSet())))
+        push!(state.stmts, :($weight += $qn_project(trace.$subtrace, $qn_empty_address_set)))
     end
 end
 
@@ -33,7 +33,7 @@ function codegen_project(trace_type::Type, selection_type::Type)
 
     # convert the selection to a static selection if it is not already one
     if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
-        return quote project(trace, StaticAddressSet(selection)) end
+        return quote $qn_project(trace, $(QuoteNode(StaticAddressSet))(selection)) end
     end
 
     ir = get_ir(gen_fn_type)
@@ -54,8 +54,8 @@ function codegen_project(trace_type::Type, selection_type::Type)
     Expr(:block, stmts...)
 end
 
-push!(Gen.generated_functions, quote
-@generated function Gen.project(trace::StaticIRTrace, selection::AddressSet)
-    Gen.codegen_project(trace, selection)
+push!(generated_functions, quote
+@generated function $(Expr(:(.), Gen, QuoteNode(:project)))(trace::T, selection::$(QuoteNode(AddressSet))) where {T <: $(QuoteNode(StaticIRTrace))}
+    $(QuoteNode(codegen_project))(trace, selection)
 end
 end)
