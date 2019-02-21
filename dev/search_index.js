@@ -257,11 +257,27 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "ref/gfi/#Gen.NoChange",
+    "page": "Generative Functions",
+    "title": "Gen.NoChange",
+    "category": "type",
+    "text": "NoChange\n\nThe value did not change.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/gfi/#Gen.UnknownChange",
+    "page": "Generative Functions",
+    "title": "Gen.UnknownChange",
+    "category": "type",
+    "text": "UnknownChange\n\nNo information is provided about the change to the value.\n\n\n\n\n\n"
+},
+
+{
     "location": "ref/gfi/#Argdiffs-1",
     "page": "Generative Functions",
     "title": "Argdiffs",
     "category": "section",
-    "text": "In addition to the input trace, and other arguments that indicate how to adjust the trace, each of these methods also accepts an args argument and an argdiff argument. The args argument contains the new arguments to the generative function, which may differ from the previous arguments to the generative function (which can be retrieved by applying get_args to the previous trace). In many cases, the adjustment to the execution specified by the other arguments to these methods is \'small\' and only effects certain parts of the computation. Therefore, it is often possible to generate the new trace and the appropriate log probability ratios required for these methods without revisiting every state of the computation of the generative function. To enable this, the argdiff argument provides additional information about the difference between the previous arguments to the generative function, and the new arguments. This argdiff information permits the implementation of the update method to avoid inspecting the entire argument data structure to identify which parts were updated. Note that the correctness of the argdiff is in general not verified by Gen–-passing incorrect argdiff information may result in incorrect behavior.The trace update methods for all generative functions above should accept at least the following types of argdiffs:NoArgDiff\nUnknownArgDiffGenerative functions may also accept custom types for their argdiffs that allow more precise information about the different to be supplied. It is the responsibility of the author of a generative function to specify the valid argdiff types in the documentation of their function, and it is the responsibility of the user of a generative function to construct and pass in the appropriate argdiff value."
+    "text": "In addition to the input trace, and other arguments that indicate how to adjust the trace, each of these methods also accepts an args argument and an argdiffs argument, both of which are tuples. The args argument contains the new arguments to the generative function, which may differ from the previous arguments to the generative function (which can be retrieved by applying get_args to the previous trace). In many cases, the adjustment to the execution specified by the other arguments to these methods is \'small\' and only effects certain parts of the computation. Therefore, it is often possible to generate the new trace and the appropriate log probability ratios required for these methods without revisiting every state of the computation of the generative function. To enable this, the argdiffs argument provides additional information about the difference between each of the previous arguments to the generative function, and its new argument value. This argdiff information permits the implementation of the update method to avoid inspecting the entire argument data structure to identify which parts were updated. Note that the correctness of the argdiff is in general not verified by Gen–-passing incorrect argdiff information may result in incorrect behavior.The trace update methods for all generative functions above should accept at least the following types of argdiffs:NoChange\nUnknownChangeGenerative functions may also be able to process more specialized diff data types for each of their arguments, that allow more precise information about the different to be supplied."
 },
 
 {
@@ -269,7 +285,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Generative Functions",
     "title": "Retdiffs",
     "category": "section",
-    "text": "To enable generative functions that invoke other functions to efficiently make use of incremental computation, the trace update methods of generative functions also return a retdiff value, which provides information about the difference in the return value of the previous trace an the return value of the new trace.Generative functions may return arbitrary retdiff values, provided that the type has the following method:isnodiffIt is the responsibility of the author of the generative function to document the possible retdiff values that may be returned, and how the should be interpreted. There are two generic constant retdiff provided for authors of generative functions to use in simple cases:DefaultRetDiff\nNoRetDiff"
+    "text": "To enable generative functions that invoke other functions to efficiently make use of incremental computation, the trace update methods of generative functions also return a retdiff value, which provides information about the difference in the return value of the previous trace an the return value of the new trace."
 },
 
 {
@@ -793,22 +809,6 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "ref/combinators/#Argdiffs-1",
-    "page": "Generative Function Combinators",
-    "title": "Argdiffs",
-    "category": "section",
-    "text": "Generative functions produced by this combinator accept the following argdiff types:NoArgDiff\nUnknownArgDiff\nMapCustomArgDiffMapCustomArgDiff"
-},
-
-{
-    "location": "ref/combinators/#Retdiffs-1",
-    "page": "Generative Function Combinators",
-    "title": "Retdiffs",
-    "category": "section",
-    "text": "Generative functions produced by this combinator may return retdiffs that are one of the following types:NoRetDiff\nVectorCustomRetDiffVectorCustomRetDiff"
-},
-
-{
     "location": "ref/combinators/#Gen.Unfold",
     "page": "Generative Function Combinators",
     "title": "Gen.Unfold",
@@ -822,22 +822,6 @@ var documenterSearchIndex = {"docs": [
     "title": "Unfold combinator",
     "category": "section",
     "text": "UnfoldIn the schematic below, the kernel is denoted mathcalG_mathrmk. The initial state is denoted y_0, the number of applications is n, and the remaining arguments to the kernel not including the state, are z.<div style=\"text-align:center\">\n    <img src=\"../../images/unfold_combinator.png\" alt=\"schematic of unfold combinator\" width=\"70%\"/>\n</div>For example, consider the following kernel, with state type Bool, which makes one random choice at address :z:@gen function foo(t::Int, y_prev::Bool, z1::Float64, z2::Float64)\n    y = @trace(bernoulli(y_prev ? z1 : z2), :y)\n    return y\nendWe apply the map combinator to produce a new generative function bar:bar = Unfold(foo)We can then obtain a trace of bar:(trace, _) = generate(bar, (5, false, 0.05, 0.95))This causes foo to be invoked five times. The resulting trace may contain the following random choices:│\n├── 1\n│   │\n│   └── :y : true\n│\n├── 2\n│   │\n│   └── :y : false\n│\n├── 3\n│   │\n│   └── :y : true\n│\n├── 4\n│   │\n│   └── :y : false\n│\n└── 5\n    │\n    └── :y : true\nthen the return value is:FunctionalCollections.PersistentVector{Any}[true, false, true, false, true]"
-},
-
-{
-    "location": "ref/combinators/#Argdiffs-2",
-    "page": "Generative Function Combinators",
-    "title": "Argdiffs",
-    "category": "section",
-    "text": "Generative functions produced by this combinator accept the following argdiff types:NoArgDiff\nUnknownArgDiff\nUnfoldCustomArgDiffUnfoldCustomArgDiff"
-},
-
-{
-    "location": "ref/combinators/#Retdiffs-2",
-    "page": "Generative Function Combinators",
-    "title": "Retdiffs",
-    "category": "section",
-    "text": "Generative functions produced by this combinator may return retdiffs that are one of the following types:NoRetDiff\nVectorCustomRetDiff"
 },
 
 {
