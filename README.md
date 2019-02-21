@@ -8,6 +8,10 @@ Gen: A General-Purpose Probabilistic Programming System with Programmable Infere
 
 Documentation of the development version: [https://probcomp.github.io/Gen/dev/](https://probcomp.github.io/Gen/dev/)
 
+## Tutorials
+
+A collection of tutorial notebooks is available at [gen-quickstart](https://github.com/probcomp/gen-quickstart). 
+
 ## Citing Gen
 
 Please cite Gen using the following:
