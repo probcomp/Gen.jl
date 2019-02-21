@@ -231,36 +231,24 @@ extend
 
 ### Argdiffs
 
-In addition to the input trace, and other arguments that indicate how to adjust the trace, each of these methods also accepts an **args** argument and an **argdiff** argument.
+In addition to the input trace, and other arguments that indicate how to adjust the trace, each of these methods also accepts an **args** argument and an **argdiffs** argument, both of which are tuples.
 The args argument contains the new arguments to the generative function, which may differ from the previous arguments to the generative function (which can be retrieved by applying [`get_args`](@ref) to the previous trace).
 In many cases, the adjustment to the execution specified by the other arguments to these methods is 'small' and only effects certain parts of the computation.
 Therefore, it is often possible to generate the new trace and the appropriate log probability ratios required for these methods without revisiting every state of the computation of the generative function.
-To enable this, the argdiff argument provides additional information about the *difference* between the previous arguments to the generative function, and the new arguments.
+To enable this, the argdiffs argument provides additional information about the *difference* between each of the previous arguments to the generative function, and its new argument value.
 This argdiff information permits the implementation of the update method to avoid inspecting the entire argument data structure to identify which parts were updated.
 Note that the correctness of the argdiff is in general not verified by Gen---passing incorrect argdiff information may result in incorrect behavior.
 
 The trace update methods for all generative functions above should accept at least the following types of argdiffs:
 ```@docs
-NoArgDiff
-UnknownArgDiff
+NoChange
+UnknownChange
 ```
-Generative functions may also accept custom types for their argdiffs that allow more precise information about the different to be supplied.
-It is the responsibility of the author of a generative function to specify the valid argdiff types in the documentation of their function, and it is the responsibility of the user of a generative function to construct and pass in the appropriate argdiff value.
+Generative functions may also be able to process more specialized diff data types for each of their arguments, that allow more precise information about the different to be supplied.
 
 ### Retdiffs
 
 To enable generative functions that invoke other functions to efficiently make use of incremental computation, the trace update methods of generative functions also return a **retdiff** value, which provides information about the difference in the return value of the previous trace an the return value of the new trace.
-
-Generative functions may return arbitrary retdiff values, provided that the type has the following method:
-```@docs
-isnodiff
-```
-It is the responsibility of the author of the generative function to document the possible retdiff values that may be returned, and how the should be interpreted.
-There are two generic constant retdiff provided for authors of generative functions to use in simple cases:
-```@docs
-DefaultRetDiff
-NoRetDiff
-```
 
 ## Differentiable programming
 

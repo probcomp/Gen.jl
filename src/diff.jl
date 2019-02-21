@@ -31,8 +31,18 @@ Abstract type for information about a change to a value.
 """
 abstract type Diff end
 
+"""
+    UnknownChange
+
+No information is provided about the change to the value.
+"""
 struct UnknownChange <: Diff end 
 
+"""
+    NoChange
+
+The value did not change.
+"""
 struct NoChange <: Diff end
 
 struct SetDiff{V} <: Diff

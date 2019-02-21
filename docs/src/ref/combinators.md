@@ -50,33 +50,6 @@ then the return value is:
 FunctionalCollections.PersistentVector{Any}[-0.575791, 0.735718]
 ```
 
-### Argdiffs
-
-Generative functions produced by this combinator accept the following argdiff types:
-
-- [`NoArgDiff`](@ref)
-
-- [`UnknownArgDiff`](@ref)
-
-- [`MapCustomArgDiff`](@ref)
-
-```@docs
-MapCustomArgDiff
-```
-
-### Retdiffs
-
-Generative functions produced by this combinator may return retdiffs that are one of the following types:
-
-- [`NoRetDiff`](@ref)
-
-- [`VectorCustomRetDiff`](@ref)
-
-```@docs
-VectorCustomRetDiff
-```
-
-
 
 ## Unfold combinator
 
@@ -136,29 +109,6 @@ then the return value is:
 ```
 FunctionalCollections.PersistentVector{Any}[true, false, true, false, true]
 ```
-
-### Argdiffs
-
-Generative functions produced by this combinator accept the following argdiff types:
-
-- [`NoArgDiff`](@ref)
-
-- [`UnknownArgDiff`](@ref)
-
-- [`UnfoldCustomArgDiff`](@ref)
-
-```@docs
-UnfoldCustomArgDiff
-```
-
-### Retdiffs
-
-Generative functions produced by this combinator may return retdiffs that are one of the following types:
-
-- [`NoRetDiff`](@ref)
-
-- [`VectorCustomRetDiff`](@ref)
-
 
 ## Recurse combinator
 
