@@ -108,18 +108,18 @@ function initialize_particle_filter(model::GenerativeFunction{T,U}, model_args::
 end
 
 """
-    particle_filter_step!(state::ParticleFilterState, new_args::Tuple, argdiff,
+    particle_filter_step!(state::ParticleFilterState, new_args::Tuple, argdiffs,
         observations::ChoiceMap, proposal::GenerativeFunction, proposal_args::Tuple)
 
 Perform a particle filter update, where the model arguments are adjusted, new observations are added, and a custom proposal is used for new latent state.
 """
-function particle_filter_step!(state::ParticleFilterState{U}, new_args::Tuple, argdiff,
+function particle_filter_step!(state::ParticleFilterState{U}, new_args::Tuple, argdiffs::Tuple,
         observations::ChoiceMap, proposal::GenerativeFunction, proposal_args::Tuple) where {U}
     num_particles = length(state.traces)
     for i=1:num_particles
         (prop_choices, prop_weight, _) = propose(proposal, (state.traces[i], proposal_args...))
         constraints = merge(observations, prop_choices)
-        (state.new_traces[i], up_weight, _, disc) = update(state.traces[i], new_args, argdiff, constraints)
+        (state.new_traces[i], up_weight, _, disc) = update(state.traces[i], new_args, argdiffs, constraints)
         @assert isempty(disc)
         state.log_weights[i] += up_weight - prop_weight
     end
@@ -133,17 +133,17 @@ function particle_filter_step!(state::ParticleFilterState{U}, new_args::Tuple, a
 end
 
 """
-    particle_filter_step!(state::ParticleFilterState, new_args::Tuple, argdiff,
+    particle_filter_step!(state::ParticleFilterState, new_args::Tuple, argdiffs,
         observations::ChoiceMap)
 
 Perform a particle filter update, where the model arguments are adjusted, new observations are added, and the default proposal is used for new latent state.
 """
-function particle_filter_step!(state::ParticleFilterState{U}, new_args::Tuple, argdiff,
+function particle_filter_step!(state::ParticleFilterState{U}, new_args::Tuple, argdiffs::Tuple,
         observations::ChoiceMap) where {U}
     num_particles = length(state.traces)
     for i=1:num_particles
         (state.new_traces[i], increment, _) = extend(
-            state.traces[i], new_args, argdiff, observations)
+            state.traces[i], new_args, argdiffs, observations)
         state.log_weights[i] += increment
     end
     

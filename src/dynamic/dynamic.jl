@@ -13,20 +13,18 @@ struct DynamicDSLFunction{T} <: GenerativeFunction{T,DynamicDSLTrace}
     params::Dict{Symbol,Any}
     arg_types::Vector{Type}
     julia_function::Function
-    update_julia_function::Function
     has_argument_grads::Vector{Bool}
     accepts_output_grad::Bool
 end
 
 function DynamicDSLFunction(arg_types::Vector{Type},
                      julia_function::Function,
-                     update_julia_function::Function,
                      has_argument_grads, ::Type{T},
                      accepts_output_grad::Bool) where {T}
     params_grad = Dict{Symbol,Any}()
     params = Dict{Symbol,Any}()
     DynamicDSLFunction{T}(params_grad, params, arg_types,
-                julia_function, update_julia_function,
+                julia_function,
                 has_argument_grads, accepts_output_grad)
 end
 
@@ -41,10 +39,6 @@ function exec(gf::DynamicDSLFunction, state, args::Tuple)
     gf.julia_function(state, args...)
 end
 
-function exec_for_update(gf::DynamicDSLFunction, state, args::Tuple)
-    gf.update_julia_function(state, args...)
-end
-
 # whether there is a gradient of score with respect to each argument
 # it returns 'nothing' for those arguemnts that don't have a derivatice
 has_argument_grads(gen::DynamicDSLFunction) = gen.has_argument_grads
@@ -56,15 +50,6 @@ macro trace(expr::Expr, addr)
     fn = esc(expr.args[1])
     args = map(esc, expr.args[2:end])
     Expr(:call, :traceat, esc(state), fn, Expr(:tuple, args...), esc(addr))
-end
-
-macro trace(expr::Expr, addr, addrdiff)
-    if expr.head != :call
-        error("syntax error in @trace at $(expr)")
-    end
-    fn = esc(expr.args[1])
-    args = map(esc, expr.args[2:end])
-    Expr(:call, :traceat, esc(state), fn, Expr(:tuple, args...), esc(addr), esc(addrdiff))
 end
 
 macro trace(expr::Expr)
@@ -162,30 +147,6 @@ end
 
 get_params(gf::DynamicDSLFunction) = keys(gf.params)
 
-#########
-# diffs #
-#########
-
-macro argdiff()
-    Expr(:call, :get_arg_diff, esc(state))
-end
-
-macro choicediff(addr)
-    Expr(:call, :get_choice_diff, esc(state), esc(addr))
-end
-
-macro calldiff(addr)
-    Expr(:call, :get_call_diff, esc(state), esc(addr))
-end
-
-macro retdiff(value)
-    Expr(:call, :set_ret_diff!, esc(state), esc(value))
-end
-
-set_ret_diff!(state, value) = state.retdiff = value
-
-get_arg_diff(state) = state.argdiff
-
 
 ##################
 # AddressVisitor #
@@ -254,15 +215,10 @@ function check_no_value(constraints::ChoiceMap, addr)
     end
 end
 
-function lightweight_retchange_already_set_err()
-    error("@retdiff! was already used")
-end
-
 function gen_fn_changed_error(addr)
     error("Generative function changed at address: $addr")
 end
 
-include("diff.jl")
 include("simulate.jl")
 include("generate.jl")
 include("propose.jl")
@@ -279,7 +235,3 @@ export set_param!, get_param, get_param_grad, zero_param_grad!, init_param!
 export @param
 export @trace
 export @gen
-export @choicediff
-export @calldiff
-export @argdiff
-export @retdiff

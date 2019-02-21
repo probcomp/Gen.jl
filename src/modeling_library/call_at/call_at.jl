@@ -74,7 +74,7 @@ function simulate(gen_fn::CallAtCombinator, args::Tuple)
 end
 
 function generate(gen_fn::CallAtCombinator{T,U,K}, args::Tuple,
-                    choices::ChoiceMap) where {T,U,K}
+                  choices::ChoiceMap) where {T,U,K}
     (key, kernel_args) = unpack_call_at_args(args)
     submap = get_submap(choices, key) 
     (subtrace, weight) = generate(gen_fn.kernel, kernel_args, submap)
@@ -91,7 +91,7 @@ function project(trace::CallAtTrace, selection::AddressSet)
     project(trace.subtrace, subselection)
 end
 
-function update(trace::CallAtTrace, args::Tuple, argdiff,
+function update(trace::CallAtTrace, args::Tuple, argdiffs::Tuple,
                 choices::ChoiceMap)
     (key, kernel_args) = unpack_call_at_args(args)
     key_changed = (key != trace.key)
@@ -100,17 +100,17 @@ function update(trace::CallAtTrace, args::Tuple, argdiff,
         (subtrace, weight) = generate(trace.gen_fn.kernel, kernel_args, submap)
         weight -= get_score(trace.subtrace)
         discard = get_choices(trace)
-        retdiff = DefaultRetDiff()
+        retdiff = UnknownChange()
     else
         (subtrace, weight, retdiff, subdiscard) = update(
-            trace.subtrace, kernel_args, unknownargdiff, submap)
+            trace.subtrace, kernel_args, argdiffs[1:end-1], submap)
         discard = CallAtChoiceMap(key, subdiscard)
     end
     new_trace = CallAtTrace(trace.gen_fn, subtrace, key)
     (new_trace, weight, retdiff, discard)
 end
 
-function regenerate(trace::CallAtTrace, args::Tuple, argdiff,
+function regenerate(trace::CallAtTrace, args::Tuple, argdiffs::Tuple,
                     selection::AddressSet)
     (key, kernel_args) = unpack_call_at_args(args)
     key_changed = (key != trace.key)
@@ -120,7 +120,7 @@ function regenerate(trace::CallAtTrace, args::Tuple, argdiff,
         end
         (subtrace, weight) = generate(trace.gen_fn.kernel, kernel_args, EmptyChoiceMap())
         weight -= project(trace.subtrace, EmptyAddressSet())
-        retdiff = DefaultRetDiff()
+        retdiff = UnknownChange()
     else
         if has_internal_node(selection, key)
             subselection = get_internal_node(selection, key)
@@ -128,13 +128,13 @@ function regenerate(trace::CallAtTrace, args::Tuple, argdiff,
             subselection = EmptyAddressSet()
         end
         (subtrace, weight, retdiff) = regenerate(
-            trace.subtrace, kernel_args, unknownargdiff, subselection)
+            trace.subtrace, kernel_args, argdiffs[1:end-1], subselection)
     end
     new_trace = CallAtTrace(trace.gen_fn, subtrace, key)
     (new_trace, weight, retdiff)
 end
 
-function extend(trace::CallAtTrace, args::Tuple, argdiff,
+function extend(trace::CallAtTrace, args::Tuple, argdiffs::Tuple,
                 choices::ChoiceMap)
     (key, kernel_args) = unpack_call_at_args(args)
     key_changed = (key != trace.key)
@@ -143,7 +143,7 @@ function extend(trace::CallAtTrace, args::Tuple, argdiff,
         error("Cannot remove address $(trace.key) in extend")
     end
     (subtrace, weight, retdiff) = extend(
-        trace.subtrace, kernel_args, unknownargdiff, submap)
+        trace.subtrace, kernel_args, argdiffs[1:end-1], submap)
     new_trace = CallAtTrace(trace.gen_fn, subtrace, key)
     (new_trace, weight, retdiff)
 end

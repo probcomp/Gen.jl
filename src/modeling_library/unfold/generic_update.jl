@@ -1,25 +1,35 @@
-function process_all_retained!(gen_fn::Unfold{T,U}, params::Tuple, argdiff::UnfoldCustomArgDiff,
+function process_all_retained!(gen_fn::Unfold{T,U}, params::Tuple, argdiffs::Tuple,
                                choices_or_selection, prev_length::Int, new_length::Int,
                                retained_and_targeted::Set{Int}, state) where {T,U}
-    if argdiff.params_changed
+
+    len_diff = argdiffs[1]
+    init_state_diff = argdiffs[2]
+    param_diffs = argdiffs[3:end] # a tuple of diffs
+
+    if any(diff != NoChange() for diff in param_diffs)
+
         # visit every retained kernel application
+        state_diff = init_state_diff
         for key=1:min(prev_length,new_length)
-            # TODO allow user to pass more specific argdiff information
-            process_retained!(gen_fn, params, choices_or_selection,
-                key, unknownargdiff, state)
+            state_diff = process_retained!(gen_fn, params, choices_or_selection,
+                key, (NoChange(), state_diff, param_diffs...), state)
         end
+
     else
+        # every parameter diff is NoChange()
+
         # visit only certain retained kernel applications
         to_visit::Vector{Int} = sort(collect(retained_and_targeted))
-        local is_state_diff::Bool
         key = 0
-        if argdiff.init_changed
-            is_state_diff = true
+        state_diff = init_state_diff
+        if state_diff != NoChange()
             key = 1
-            while is_state_diff && key <= min(prev_length, new_length)
-                is_state_diff = process_retained!(gen_fn, params, choices_or_selection,
-                    key, unknownargdiff, state)
+            visit = true
+            while visit && key <= min(prev_length, new_length)
+                state_diff = process_retained!(gen_fn, params, choices_or_selection,
+                    key, (NoChange(), state_diff, param_diffs...), state)
                 key += 1
+                visit = (state_diff != NoChange())
             end
         end
         for i=1:length(to_visit)
@@ -27,12 +37,13 @@ function process_all_retained!(gen_fn::Unfold{T,U}, params::Tuple, argdiff::Unfo
                 # we have already visited it
                 continue
             end
-            is_state_diff = true
             key = to_visit[i]
-            while is_state_diff && key <= min(prev_length, new_length)
-                is_state_diff = process_retained!(gen_fn, params, choices_or_selection,
-                    key, unknownargdiff, state)
+            visit = true
+            while visit && key <= min(prev_length, new_length)
+                state_diff = process_retained!(gen_fn, params, choices_or_selection,
+                    key, (NoChange(), state_diff, param_diffs...), state)
                 key += 1
+                visit = (state_diff != NoChange())
             end
         end
     end

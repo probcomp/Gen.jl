@@ -119,49 +119,11 @@ function get_retained_and_selected(selection::AddressSet, prev_length::Int, new_
     keys 
 end
 
-
-"""
-    retdiff = VectorCustomRetDiff(retained_retdiffs:Dict{Int,Any})
-
-Construct a retdiff that provides retdiff information about some elements of the returned vector.
-
-    retdiff[i]
-
-Return the retdiff value for the `i`th element of the vector.
-
-    haskey(retdiff, i::Int)
-
-Return true if there is a retdiff value for the `i`th element of the vector, or false if there was no difference in this element.
-
-    keys(retdiff)
-
-Return an iterator over the elements with retdiff values.
-"""
-struct VectorCustomRetDiff
-    retained_retdiffs::Dict{Int,Any}
-end
-
-VectorCustomRetDiff() = VectorCustomRetDiff(Dict{Int,Any}())
-
-isnodiff(::VectorCustomRetDiff) = false
-
-function Base.getindex(retdiff::VectorCustomRetDiff, i::Int)
-    retdiff.retained_retdiffs[i]
-end
-
-function Base.haskey(retdiff::VectorCustomRetDiff, i::Int)
-    haskey(retdiff.retained_retdiffs, i)
-end
-
-Base.keys(retdiff::VectorCustomRetDiff) = keys(retdiff.retained_retdiffs)
-
-export VectorCustomRetDiff
-
-function vector_compute_retdiff(isdiff_retdiffs::Dict{Int,Any}, new_length::Int, prev_length::Int)
-    if new_length == prev_length && length(isdiff_retdiffs) == 0
-        NoRetDiff()
+function vector_compute_retdiff(updated_retdiffs::Dict{Int,Diff}, new_length::Int, prev_length::Int)
+    if new_length == prev_length && length(updated_retdiffs) == 0
+        NoChange()
     else
-        VectorCustomRetDiff(isdiff_retdiffs)
+        VectorDiff(new_length, prev_length, updated_retdiffs)
     end
 end
 

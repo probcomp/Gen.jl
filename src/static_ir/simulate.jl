@@ -18,8 +18,8 @@ function process!(state::StaticIRSimulateState, node::RandomChoiceNode)
     incr = gensym("logpdf")
     addr = QuoteNode(node.addr)
     dist = QuoteNode(node.dist)
-    push!(state.stmts, :($(node.name) = random($dist, $(args...))))
-    push!(state.stmts, :($incr = logpdf($dist, $(node.name), $(args...))))
+    push!(state.stmts, :($(node.name) = $qn_random($dist, $(args...))))
+    push!(state.stmts, :($incr = $qn_logpdf($dist, $(node.name), $(args...))))
     push!(state.stmts, :($(get_value_fieldname(node)) = $(node.name)))
     push!(state.stmts, :($(get_score_fieldname(node)) = $incr))
     push!(state.stmts, :($num_nonempty_fieldname += 1))
@@ -33,11 +33,11 @@ function process!(state::StaticIRSimulateState, node::GenerativeFunctionCallNode
     gen_fn = QuoteNode(node.generative_function)
     subtrace = get_subtrace_fieldname(node)
     incr = gensym("weight")
-    push!(state.stmts, :($subtrace = simulate($gen_fn, $args_tuple)))
-    push!(state.stmts, :($num_nonempty_fieldname += !isempty(get_choices($subtrace)) ? 1 : 0))
-    push!(state.stmts, :($(node.name) = get_retval($subtrace)))
-    push!(state.stmts, :($total_score_fieldname += get_score($subtrace)))
-    push!(state.stmts, :($total_noise_fieldname += project($subtrace, EmptyAddressSet())))
+    push!(state.stmts, :($subtrace = $(QuoteNode(simulate))($gen_fn, $args_tuple)))
+    push!(state.stmts, :($num_nonempty_fieldname += !$qn_isempty($qn_get_choices($subtrace)) ? 1 : 0))
+    push!(state.stmts, :($(node.name) = $qn_get_retval($subtrace)))
+    push!(state.stmts, :($total_score_fieldname += $qn_get_score($subtrace)))
+    push!(state.stmts, :($total_noise_fieldname += $qn_project($subtrace, $qn_empty_address_set)))
 end
 
 function codegen_simulate(gen_fn_type::Type{T}, args) where {T <: StaticIRGenerativeFunction}
@@ -73,8 +73,8 @@ function codegen_simulate(gen_fn_type::Type{T}, args) where {T <: StaticIRGenera
     Expr(:block, stmts...)
 end
 
-push!(Gen.generated_functions, quote
-@generated function Gen.simulate(gen_fn::Gen.StaticIRGenerativeFunction, args::Tuple)
-    Gen.codegen_simulate(gen_fn, args)
+push!(generated_functions, quote
+@generated function $(Expr(:(.), Gen, QuoteNode(:simulate)))(gen_fn::$(QuoteNode(StaticIRGenerativeFunction)), args::Tuple)
+    $(QuoteNode(codegen_simulate))(gen_fn, args)
 end
 end)

@@ -1,16 +1,16 @@
-mutable struct MapFreeUpdateState{T,U}
+mutable struct MapRegenerateState{T,U}
     weight::Float64
     score::Float64
     noise::Float64
     subtraces::PersistentVector{U}
     retval::PersistentVector{T}
     num_nonempty::Int
-    isdiff_retdiffs::Dict{Int,Any}
+    updated_retdiffs::Dict{Int,Diff}
 end
 
 function process_retained!(gen_fn::Map{T,U}, args::Tuple,
-                           selection::AddressSet, key::Int, kernel_argdiff,
-                           state::MapFreeUpdateState{T,U}) where {T,U}
+                           selection::AddressSet, key::Int, kernel_argdiffs::Tuple,
+                           state::MapRegenerateState{T,U}) where {T,U}
     local subtrace::U
     local prev_subtrace::U
     local retval::T
@@ -24,12 +24,12 @@ function process_retained!(gen_fn::Map{T,U}, args::Tuple,
 
     # get new subtrace with recursive call to regenerate()
     prev_subtrace = state.subtraces[key]
-    (subtrace, weight, subretdiff) = regenerate(
-        prev_subtrace, kernel_args, kernel_argdiff, subselection)
+    (subtrace, weight, retdiff) = regenerate(
+        prev_subtrace, kernel_args, kernel_argdiffs, subselection)
 
     # retrieve retdiff
-    if !isnodiff(subretdiff)
-        state.isdiff_retdiffs[key] = subretdiff
+    if retdiff != NoChange()
+        state.updated_retdiffs[key] = retdiff
     end
 
     # update state
@@ -49,7 +49,7 @@ function process_retained!(gen_fn::Map{T,U}, args::Tuple,
 end
 
 function process_new!(gen_fn::Map{T,U}, args::Tuple, selection::AddressSet, key::Int,
-                      state::MapFreeUpdateState{T,U}) where {T,U}
+                      state::MapRegenerateState{T,U}) where {T,U}
     local subtrace::U
     local retval::T
 
@@ -75,7 +75,7 @@ function process_new!(gen_fn::Map{T,U}, args::Tuple, selection::AddressSet, key:
 end
 
 
-function regenerate(trace::VectorTrace{MapType,T,U}, args::Tuple, argdiff,
+function regenerate(trace::VectorTrace{MapType,T,U}, args::Tuple, argdiffs::Tuple,
                     selection::AddressSet) where {T,U}
     gen_fn = trace.gen_fn
     (new_length, prev_length) = get_prev_and_new_lengths(args, trace)
@@ -90,15 +90,15 @@ function regenerate(trace::VectorTrace{MapType,T,U}, args::Tuple, argdiff,
     noise = trace.noise - noise_decrement
 
     # handle retained and new applications
-    state = MapFreeUpdateState{T,U}(-noise_decrement, score, noise,
+    state = MapRegenerateState{T,U}(-noise_decrement, score, noise,
                                    subtraces, retval,
                                    num_nonempty, Dict{Int,Any}())
-    process_all_retained!(gen_fn, args, argdiff, selection,
+    process_all_retained!(gen_fn, args, argdiffs, selection,
                           prev_length, new_length, retained_and_selected, state)
     process_all_new!(gen_fn, args, selection, prev_length, new_length, state)
     
     # retdiff
-    retdiff = vector_compute_retdiff(state.isdiff_retdiffs, new_length, prev_length)
+    retdiff = vector_compute_retdiff(state.updated_retdiffs, new_length, prev_length)
 
     # new trace
     new_trace = VectorTrace{MapType,T,U}(gen_fn, state.subtraces, state.retval, args,  

@@ -15,11 +15,6 @@ function do_inference(xs, ys, num_iters)
         observations[:data => i => :y] = y
     end
 
-    slope_sel = select(:slope)
-    intercept_sel = select(:intercept)
-    inlier_std_sel = select(:log_inlier_std)
-    outlier_std_sel = select(:log_outlier_std)
-    
     # initial trace
     (trace, _) = generate(model, (xs,), observations)
     
@@ -28,10 +23,10 @@ function do_inference(xs, ys, num_iters)
     
         # steps on the parameters
         for j=1:5
-            (trace, _) = metropolis_hastings(trace, slope_sel)
-            (trace, _) = metropolis_hastings(trace, intercept_sel)
-            (trace, _) = metropolis_hastings(trace, inlier_std_sel)
-            (trace, _) = metropolis_hastings(trace, outlier_std_sel)
+            (trace, _) = metropolis_hastings(trace, select(:slope))
+            (trace, _) = metropolis_hastings(trace, select(:intercept))
+            (trace, _) = metropolis_hastings(trace, select(:log_inlier_std))
+            (trace, _) = metropolis_hastings(trace, select(:log_outlier_std))
         end
     
         # step on the outliers

@@ -6,23 +6,19 @@ mutable struct GFUpdateState
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
     discard::DynamicChoiceMap
-    argdiff::Any
-    retdiff::Any
-    choicediffs::Trie{Any,Any}
-    calldiffs::Trie{Any,Any}
 end
 
-function GFUpdateState(gen_fn, args, argdiff, prev_trace,
-                            constraints, params)
+function GFUpdateState(gen_fn, args, prev_trace, constraints, params)
     visitor = AddressVisitor()
     discard = choicemap()
-    GFUpdateState(prev_trace, DynamicDSLTrace(gen_fn, args), constraints,
-        0., visitor, params, discard, argdiff, DefaultRetDiff(),
-        Trie{Any,Any}(), Trie{Any,Any}())
+    trace = DynamicDSLTrace(gen_fn, args)
+    GFUpdateState(prev_trace, trace, constraints,
+        0., visitor, params, discard)
 end
 
 function traceat(state::GFUpdateState, dist::Distribution{T}, 
-              args, key) where {T}
+                 args::Tuple, key) where {T}
+
     local prev_retval::T
     local retval::T
 
@@ -64,25 +60,15 @@ function traceat(state::GFUpdateState, dist::Distribution{T},
         state.weight -= prev_score
     end
 
-    # update choicediffs
-    if has_previous
-        set_choice_diff!(state, key, constrained, prev_retval) 
-    else
-        set_choice_diff_no_prev!(state, key)
-    end
-
     # add to the trace
     add_choice!(state.trace, key, ChoiceRecord(retval, score))
 
-    retval 
-end
-
-function traceat(state::GFUpdateState, gen_fn::GenerativeFunction, args, key)
-    traceat(state, gen_fn, args, key, UnknownArgDiff())
+    retval
 end
 
 function traceat(state::GFUpdateState, gen_fn::GenerativeFunction{T,U},
-              args, key, argdiff) where {T,U}
+                 args::Tuple, key) where {T,U}
+
     local prev_subtrace::U
     local subtrace::U
     local retval::T
@@ -100,8 +86,8 @@ function traceat(state::GFUpdateState, gen_fn::GenerativeFunction{T,U},
         prev_call = get_call(state.prev_trace, key)
         prev_subtrace = prev_call.subtrace
         get_gen_fn(prev_subtrace) === gen_fn || gen_fn_changed_error(key)
-        (subtrace, weight, retdiff, discard) = update(prev_subtrace,
-            args, argdiff, constraints)
+        (subtrace, weight, _, discard) = update(prev_subtrace,
+            args, map((_) -> UnknownChange(), args), constraints)
     else
         (subtrace, weight) = generate(gen_fn, args, constraints)
     end
@@ -114,24 +100,13 @@ function traceat(state::GFUpdateState, gen_fn::GenerativeFunction{T,U},
         set_submap!(state.discard, key, discard)
     end
 
-    # update calldiffs
-    if has_previous
-        if isnodiff(retdiff)
-            set_leaf_node!(state.calldiffs, key, NoCallDiff())
-        else
-            set_leaf_node!(state.calldiffs, key, CustomCallDiff(retdiff))
-        end
-    else
-        set_leaf_node!(state.calldiffs, key, NewCallDiff())
-    end
-
     # add to the trace
     add_call!(state.trace, key, subtrace)
 
     # get return value
     retval = get_retval(subtrace)
 
-    retval 
+    retval
 end
 
 function splice(state::GFUpdateState, gen_fn::DynamicDSLFunction,
@@ -144,7 +119,7 @@ function splice(state::GFUpdateState, gen_fn::DynamicDSLFunction,
 end
 
 function delete_recurse(prev_choices::Trie{Any,ChoiceRecord},
-                              visited::EmptyAddressSet)
+                        visited::EmptyAddressSet)
     score = 0.
     for (key, choice) in get_leaf_nodes(prev_choices)
         score += choice.score
@@ -234,12 +209,11 @@ function add_unvisited_to_discard!(discard::DynamicChoiceMap,
     end
 end
 
-function update(trace::DynamicDSLTrace, args::Tuple, argdiff,
+function update(trace::DynamicDSLTrace, arg_values::Tuple, arg_diffs::Tuple,
                 constraints::ChoiceMap)
     gen_fn = trace.gen_fn
-    state = GFUpdateState(gen_fn, args, argdiff, trace,
-        constraints, gen_fn.params)
-    retval = exec_for_update(gen_fn, state, args)
+    state = GFUpdateState(gen_fn, arg_values, trace, constraints, gen_fn.params)
+    retval = exec(gen_fn, state, arg_values) 
     set_retval!(state.trace, retval)
     visited = get_visited(state.visitor)
     state.weight -= update_delete_recurse(trace.choices, visited)
@@ -248,5 +222,5 @@ function update(trace::DynamicDSLTrace, args::Tuple, argdiff,
     if !all_visited(visited, constraints)
         error("Did not visit all constraints")
     end
-    (state.trace, state.weight, state.retdiff, state.discard)
+    (state.trace, state.weight, UnknownChange(), state.discard)
 end

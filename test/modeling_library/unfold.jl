@@ -1,17 +1,13 @@
 @testset "unfold combinator" begin
 
-    @gen function kernel(t::Int, x::Float64, (grad)(alpha::Float64), (grad)(beta::Float64))
-        @param std::Float64
-        x = @trace(normal(x * alpha + beta, std), :x)
-        @diff begin
-            xdiff = @choicediff(:x)
-            @retdiff(isnodiff(xdiff) ? NoRetDiff() : DefaultRetDiff())
-        end
+    std = 1.0
+
+    @gen (static) function kernel(t::Int, x_prev::Float64, (grad)(alpha::Float64), (grad)(beta::Float64))
+        x = @trace(normal(x_prev * alpha + beta, std), :x)
         return x
     end
-    
-    std = 1.
-    set_param!(kernel, :std, std)
+
+    Gen.load_generated_functions()
 
     foo = Unfold(kernel)
 
@@ -128,7 +124,7 @@
             trace
         end
 
-        # unknownargdiff, increasing length from 2 to 3 and change 2 and change params
+        # unknown change to args, increasing length from 2 to 3 and change 2 and change params
         trace = get_initial_trace()
         x2_new = 1.3
         x3_new = 1.4
@@ -138,7 +134,7 @@
         constraints[3 => :x] = x3_new
         (trace, weight, retdiff, discard) = update(trace,
             (3, x_init, alpha_new, beta),
-            unknownargdiff, constraints)
+            (UnknownChange(), UnknownChange(), UnknownChange(), UnknownChange()), constraints)
         choices = get_choices(trace)
         @test get_args(trace) == (3, x_init, alpha_new, beta)
         @test choices[1 => :x] == x1
@@ -149,7 +145,6 @@
             + logpdf(normal, x2_new, x1 * alpha_new + beta, std)
             + logpdf(normal, x3_new, x2_new * alpha_new + beta, std))
         @test isapprox(get_score(trace), expected_score)
-        # TODO changed, the effect of alpha_new on x1 was not considered
         expected_weight = (logpdf(normal, x3_new, x2_new * alpha_new + beta, std)
             + logpdf(normal, x2_new, x1 * alpha_new + beta, std)
             - logpdf(normal, x2, x1 * alpha + beta, std)
@@ -161,13 +156,12 @@
         @test retval[1] == x1
         @test retval[2] == x2_new
         @test retval[3] == x3_new
-        @test isa(retdiff, VectorCustomRetDiff)
-        @test !haskey(retdiff, 1) # no diff
-        @test retdiff[2] == DefaultRetDiff() # retval changed
-        @test !haskey(retdiff, 3) # new, not retained
-        @test !isnodiff(retdiff)
+        @test isa(retdiff, VectorDiff)
+        @test !haskey(retdiff.updated, 1) # no diff
+        @test retdiff.updated[2] == UnknownChange() # x changed
+        @test !haskey(retdiff.updated, 3) # new, not retained
 
-        # unknownargdiff, decreasing length from 2 to 1 and change 1 and change params
+        # unknown change to args, decreasing length from 2 to 1 and change 1 and change params
         trace = get_initial_trace()
         x1_new = 1.3
         alpha_new = 0.5
@@ -175,7 +169,7 @@
         constraints[1 => :x] = x1_new
         (trace, weight, retdiff, discard) = update(trace,
             (1, x_init, alpha_new, beta),
-            unknownargdiff, constraints)
+            (UnknownChange(), UnknownChange(), UnknownChange(), UnknownChange()), constraints)
         choices = get_choices(trace)
         @test get_args(trace) == (1, x_init, alpha_new, beta)
         @test !has_value(choices, 2 => :x)
@@ -191,16 +185,15 @@
         retval = get_retval(trace)
         @test length(retval) == 1
         @test retval[1] == x1_new
-        @test isa(retdiff, VectorCustomRetDiff)
-        @test retdiff[1] == DefaultRetDiff() # retval changed
-        @test !haskey(retdiff, 2) # removed, not retained
-        @test !isnodiff(retdiff)
+        @test isa(retdiff, VectorDiff)
+        @test retdiff.updated[1] == UnknownChange()
+        @test !haskey(retdiff.updated, 2) # removed
 
-        # noargdiff, change nothing
+        # no change to arguments, change nothing
         trace = get_initial_trace()
         (trace, weight, retdiff, discard) = update(trace,
             (2, x_init, alpha, beta),
-            noargdiff, EmptyChoiceMap())
+            (NoChange(), NoChange(), NoChange(), NoChange()), EmptyChoiceMap())
         choices = get_choices(trace)
         @test get_args(trace) == (2, x_init, alpha, beta)
         @test choices[1 => :x] == x1
@@ -211,20 +204,16 @@
         @test isapprox(get_score(trace), expected_score)
         @test isapprox(weight, 0.)
         retval = get_retval(trace)
-        @test length(retval) == 2
-        @test retval[1] == x1
-        @test retval[2] == x2
-        @test isa(retdiff, NoRetDiff)
-        @test isnodiff(retdiff)
+        @test retdiff == NoChange()
 
-        # noargdiff, change x2
+        # no change to arguments, change x2
         trace = get_initial_trace()
         x2_new = 3.3
         constraints = choicemap()
         constraints[2 => :x] = x2_new
         (trace, weight, retdiff, discard) = update(trace,
             (2, x_init, alpha, beta),
-            noargdiff, constraints)
+            (NoChange(), NoChange(), NoChange(), NoChange()), constraints)
         choices = get_choices(trace)
         @test get_args(trace) == (2, x_init, alpha, beta)
         @test choices[1 => :x] == x1
@@ -240,17 +229,16 @@
         @test length(retval) == 2
         @test retval[1] == x1
         @test retval[2] == x2_new
-        @test isa(retdiff, VectorCustomRetDiff)
-        @test !haskey(retdiff, 1) # no diff
-        @test retdiff[2] == DefaultRetDiff() # retval changed
-        @test !isnodiff(retdiff)
+        @test isa(retdiff, VectorDiff)
+        @test !haskey(retdiff.updated, 1) # no change
+        @test retdiff.updated[2] == UnknownChange()
 
         # init_changed=true, params_changed=false, change nothing
         trace = get_initial_trace()
         x_init_new = 0.1
         (trace, weight, retdiff, discard) = update(trace,
             (2, x_init_new, alpha, beta),
-            UnfoldCustomArgDiff(true, false), EmptyChoiceMap())
+            (NoChange(), UnknownChange(), NoChange(), NoChange()), EmptyChoiceMap())
         choices = get_choices(trace)
         @test get_args(trace) == (2, x_init_new, alpha, beta)
         @test choices[1 => :x] == x1
@@ -266,15 +254,14 @@
         @test length(retval) == 2
         @test retval[1] == x1
         @test retval[2] == x2
-        @test isa(retdiff, NoRetDiff)
-        @test isnodiff(retdiff)
+        @test retdiff == NoChange()
 
         # init_changed=false, params_changed=true, change nothing
         trace = get_initial_trace()
         alpha_new = 0.5
         (trace, weight, retdiff, discard) = update(trace,
             (2, x_init, alpha_new, beta),
-            UnfoldCustomArgDiff(false, true), EmptyChoiceMap())
+            (NoChange(), NoChange(), UnknownChange(), UnknownChange()), EmptyChoiceMap())
         choices = get_choices(trace)
         @test get_args(trace) == (2, x_init, alpha_new, beta)
         @test choices[1 => :x] == x1
@@ -292,8 +279,7 @@
         @test length(retval) == 2
         @test retval[1] == x1
         @test retval[2] == x2
-        @test isa(retdiff, NoRetDiff)
-        @test isnodiff(retdiff)
+        @test retdiff == NoChange()
     end
 
     @testset "regenerate" begin
@@ -311,13 +297,13 @@
             trace
         end
 
-        # unknownargdiff, increasing length from 2 to 3 and change 2 and change params
+        # unknown change to args, increasing length from 2 to 3 and change 2 and change params
         trace = get_initial_trace()
         alpha_new = 0.5
         selection = select(2 => :x)
         (trace, weight, retdiff) = regenerate(trace,
             (3, x_init, alpha_new, beta),
-            unknownargdiff, selection)
+            (UnknownChange(), UnknownChange(), UnknownChange(), UnknownChange()), selection)
         choices = get_choices(trace)
         @test get_args(trace) == (3, x_init, alpha_new, beta)
         @test choices[1 => :x] == x1
@@ -335,19 +321,18 @@
         @test retval[1] == x1
         @test retval[2] == x2_new
         @test retval[3] == x3_new
-        @test isa(retdiff, VectorCustomRetDiff)
-        @test !haskey(retdiff, 1) # no diff
-        @test retdiff[2] == DefaultRetDiff() # retval changed
-        @test !haskey(retdiff, 3) # new, not retained
-        @test !isnodiff(retdiff)
+        @test isa(retdiff, VectorDiff)
+        @test !haskey(retdiff.updated, 1) # no diff
+        @test retdiff.updated[2] == UnknownChange() # retval changed
+        @test !haskey(retdiff.updated, 3) # new, not retained
 
-        # unknownargdiff, decreasing length from 2 to 1 and change 1 and change params
+        # unknown change to args, decreasing length from 2 to 1 and change 1 and change params
         trace = get_initial_trace()
         alpha_new = 0.5
         selection = select(1 => :x)
         (trace, weight, retdiff) = regenerate(trace,
             (1, x_init, alpha_new, beta),
-            unknownargdiff, selection)
+            (UnknownChange(), UnknownChange(), UnknownChange(), UnknownChange()), selection)
         choices = get_choices(trace)
         @test get_args(trace) == (1, x_init, alpha_new, beta)
         @test !has_value(choices, 2 => :x)
@@ -358,16 +343,15 @@
         retval = get_retval(trace)
         @test length(retval) == 1
         @test retval[1] == x1_new
-        @test isa(retdiff, VectorCustomRetDiff)
-        @test retdiff[1] == DefaultRetDiff() # retval changed
-        @test !haskey(retdiff, 2) # removed, not retained
-        @test !isnodiff(retdiff)
+        @test isa(retdiff, VectorDiff)
+        @test retdiff.updated[1] == UnknownChange() # retval changed
+        @test !haskey(retdiff.updated, 2) # removed
 
-        # noargdiff, change nothing
+        # no change to args, change nothing
         trace = get_initial_trace()
         (trace, weight, retdiff) = regenerate(trace,
             (2, x_init, alpha, beta),
-            noargdiff, EmptyAddressSet())
+            (NoChange(), NoChange(), NoChange(), NoChange()), EmptyAddressSet())
         choices = get_choices(trace)
         @test get_args(trace) == (2, x_init, alpha, beta)
         @test choices[1 => :x] == x1
@@ -380,16 +364,15 @@
         @test length(retval) == 2
         @test retval[1] == x1
         @test retval[2] == x2
-        @test isa(retdiff, NoRetDiff)
-        @test isnodiff(retdiff)
+        @test retdiff == NoChange()
 
-        # noargdiff, change x2
+        # no change to args, change x2
         trace = get_initial_trace()
         x2_new = 3.3
         selection = select(2 => :x)
         (trace, weight, retdiff) = regenerate(trace,
             (2, x_init, alpha, beta),
-            noargdiff, selection)
+            (NoChange(), NoChange(), NoChange(), NoChange()), selection)
         choices = get_choices(trace)
         @test get_args(trace) == (2, x_init, alpha, beta)
         @test choices[1 => :x] == x1
@@ -402,17 +385,16 @@
         @test length(retval) == 2
         @test retval[1] == x1
         @test retval[2] == x2_new
-        @test isa(retdiff, VectorCustomRetDiff)
-        @test !haskey(retdiff, 1) # no diff
-        @test retdiff[2] == DefaultRetDiff() # retval changed
-        @test !isnodiff(retdiff)
+        @test isa(retdiff, VectorDiff)
+        @test !haskey(retdiff.updated, 1) # no diff
+        @test retdiff.updated[2] == UnknownChange() # retval changed
 
         # init_changed=true, params_changed=false, change nothing
         trace = get_initial_trace()
         x_init_new = -0.1
         (trace, weight, retdiff) = regenerate(trace,
             (2, x_init_new, alpha, beta),
-            UnfoldCustomArgDiff(true, false), EmptyAddressSet())
+            (NoChange(), UnknownChange(), NoChange(), NoChange()), EmptyAddressSet())
         choices = get_choices(trace)
         @test get_args(trace) == (2, x_init_new, alpha, beta)
         @test choices[1 => :x] == x1
@@ -427,15 +409,14 @@
         @test length(retval) == 2
         @test retval[1] == x1
         @test retval[2] == x2
-        @test isa(retdiff, NoRetDiff)
-        @test isnodiff(retdiff)
+        @test retdiff == NoChange()
 
         # init_changed=false, params_changed=true, change nothing
         trace = get_initial_trace()
         alpha_new = 0.5
         (trace, weight, retdiff) = regenerate(trace,
             (2, x_init, alpha_new, beta),
-            UnfoldCustomArgDiff(false, true), EmptyAddressSet())
+            (NoChange(), NoChange(), UnknownChange(), UnknownChange()), EmptyAddressSet())
         choices = get_choices(trace)
         @test get_args(trace) == (2, x_init, alpha_new, beta)
         @test choices[1 => :x] == x1
@@ -452,10 +433,8 @@
         @test length(retval) == 2
         @test retval[1] == x1
         @test retval[2] == x2
-        @test isa(retdiff, NoRetDiff)
-        @test isnodiff(retdiff)
+        @test retdiff == NoChange()
     end
-
 
     @testset "extend" begin
         x_init = 0.1
@@ -481,7 +460,7 @@
         constraints[4 => :x] = x4_new
         (trace, weight, retdiff) = extend(trace,
             (4, x_init, alpha_new, beta),
-            unknownargdiff, constraints)
+            (UnknownChange(), UnknownChange(), UnknownChange(), UnknownChange()), constraints)
         choices = get_choices(trace)
         @test get_args(trace) == (4, x_init, alpha_new, beta)
         @test choices[1 => :x] == x1
@@ -505,15 +484,26 @@
         @test retval[2] == x2
         @test retval[3] == x3_new
         @test retval[4] == x4_new
-        @test isa(retdiff, VectorCustomRetDiff)
-        @test !haskey(retdiff, 1) # no diff
-        @test !haskey(retdiff, 2) # no diff
-        @test !haskey(retdiff, 3) # new, not retained
-        @test !haskey(retdiff, 4) # new, not retained
-        @test !isnodiff(retdiff)
+        @test isa(retdiff, VectorDiff)
+        @test !haskey(retdiff.updated, 1) # no diff
+        @test !haskey(retdiff.updated, 2) # no diff
+        @test !haskey(retdiff.updated, 3) # new
+        @test !haskey(retdiff.updated, 4) # new
     end
 
     @testset "accumulate_param_gradients!" begin
+
+        @gen function kernel(t::Int, x_prev::Float64, (grad)(alpha::Float64), (grad)(beta::Float64))
+            @param std::Float64
+            x = @trace(normal(x_prev * alpha + beta, std), :x)
+            return x
+        end
+
+        foo = Unfold(kernel)
+   
+        std = 1.
+        set_param!(kernel, :std, std)
+
         x_init = 0.1
         alpha = 0.2
         beta = 0.3

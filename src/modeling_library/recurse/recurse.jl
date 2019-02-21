@@ -1,3 +1,19 @@
+struct Production{V,U}
+    value::V
+    children::Vector{U}
+end
+
+struct ProductionDiff <: Diff
+    value_diff::Diff
+    children_diff::VectorDiff
+end
+
+# the production kernel takes a value (of type U)
+# and returns a value of type Tuple{V,Vector{U}}
+
+# the reduction kernel takes an input value of tyoe Tuple{V,Vector{W}} and
+# returns a value of type W. The Diff type for the Vector{W} is a VectorDiff.
+
 using FunctionalCollections: assoc, dissoc, PersistentHashMap
 using DataStructures: PriorityQueue, dequeue!, enqueue!
 
@@ -5,7 +21,7 @@ using DataStructures: PriorityQueue, dequeue!, enqueue!
 # recurse trace #
 #################
 
-struct RecurseTrace{S,T,U,V,W,X,Y,DV,DU,DW} <: Trace
+struct RecurseTrace{S,T,U,V,W,X,Y} <: Trace
     gen_fn::GenerativeFunction
     production_traces::PersistentHashMap{Int,S}
     aggregation_traces::PersistentHashMap{Int,T}
@@ -95,34 +111,11 @@ end
 
 """"
     Recurse(production_kernel, aggregation_kernel, max_branch,
-         ::Type{U}, ::Type{V}, ::Type{W}, ::Type{DV}, ::Type{DU}, ::Type{DW})
+         ::Type{U}, ::Type{V}, ::Type{W})
 
 Constructor for recurse production and aggregation function.
-
-Type parameters of `Recurse`: `S, T, U, V, W, DU, DV, DW, X, Y`
-- DV must implement `isnodiff`
-- DW must implement `isnodiff`
-- Tuple{V, Vector{U}} <: X
-- W <: Y
-
-production kernel is a `GenerativeFunction{X,S}`
-- input type: `U`
-- argdiff type: `Union{NoArgDiff,DU}`
-- trace type: `S`
-- return type: `Tuple{V,Vector{U}}`
-- retdiff type: `RecurseProductionRetDiff{DV,DU}`
-
-aggregation kernel is a `GenerativeFunction{Y,T}`
-- input type: `Tuple{V,Vector{W}}`
-- argdiff: `RecurseAggregationRetDiff{Union{NoArgDiff,DV},DW}`
-- trace type: `T`
-- return type: `W`
-- retdiff type: `DW`
-
-recurse argdiff type: `Union{NoArgDiff,DU}`
-recurse retdiff type: `Union{RecurseRetNoDiff,DW}`
 """
-struct Recurse{S,T,U,V,W,X,Y,DV,DU,DW} <: GenerativeFunction{W,RecurseTrace{S,T,U,V,W,X,Y,DV,DU,DW}}
+struct Recurse{S,T,U,V,W,X,Y} <: GenerativeFunction{W,RecurseTrace{S,T,U,V,W,X,Y}}
     production_kern::GenerativeFunction{X,S}
     aggregation_kern::GenerativeFunction{Y,T}
     max_branch::Int
@@ -130,9 +123,8 @@ end
 
 function Recurse(production_kernel::GenerativeFunction{X,S},
                  aggregation_kernel::GenerativeFunction{Y,T},
-                 max_branch::Int, ::Type{U}, ::Type{V}, ::Type{W},
-                 ::Type{DV}, ::Type{DU}, ::Type{DW}) where {S,T,U,V,W,X,Y,DV,DU,DW}
-    Recurse{S,T,U,V,W,X,Y,DV,DU,DW}(production_kernel, aggregation_kernel, max_branch)
+                 max_branch::Int, ::Type{U}, ::Type{V}, ::Type{W}) where {S,T,U,V,W,X,Y}
+    Recurse{S,T,U,V,W,X,Y}(production_kernel, aggregation_kernel, max_branch)
 end
 
 # TODO
@@ -154,52 +146,8 @@ function get_parent(child::Int, max_branch::Int)
     div(child - 1 - child_num, max_branch) + 1
 end
 
-
-"""
-    RecurseProductionRetDiff{DV,DU}(dv::DV, dus::Dict{Int,DU})
-
-Return value difference for production kernels used with `Recurse`.
-If the number of children changed, there are only fields for retained children.
-If a field does not appear for a given child in dus, then the u value being passed to that child has not changed.
-`DV` must have method `isnodiff()`.
-"""
-struct RecurseProductionRetDiff{DV,DU}
-    dv::DV
-    dus::Dict{Int,DU} # map from child_num to retdiff
-end
-
-"""
-    RecurseAggregationArgDiff{DV,DW}(dv::DV, dws::Dict{Int,DW})
-
-Argument difference for aggregation kernels used with `Recurse`.
-If the number of children changed, there are only fields for retained children.
-If a field does not appear for a given child in dws, then the w value returned from that child has not changed.
-`DV` must have method `isnodiff()`.
-`DW` must have method `isnodiff()`.
-"""
-struct RecurseAggregationArgDiff{DV,DW}
-    dv::Union{NoArgDiff,DV}
-    dws::Dict{Int,DW} # map from child_num to argdiff
-
-    function RecurseAggregationArgDiff{DV,DW}(dv::DV, dws::Dict{Int,DW}) where {DV,DW}
-        @assert !isnodiff(dv) # otherwise, pass NoArgDiff
-        new{DV,DW}(dv, dws)
-    end
-
-    function RecurseAggregationArgDiff{DV,DW}(dv::NoArgDiff, dws::Dict{Int,DW}) where {DV,DW}
-        new{DV,DW}(dv, dws)
-    end
-end
-
-
-"""
-Indicates that the return value of the Recurse has not changed.
-"""
-struct RecurseRetNoDiff end
-isnodiff(::RecurseRetNoDiff) = true
-
 function get_num_children(production_trace)
-    length(get_retval(production_trace)[2])
+    length(get_retval(production_trace).children)
 end
 
 function get_production_input(gen_fn::Recurse{S,T,U,V,W}, cur::Int,
@@ -212,7 +160,7 @@ function get_production_input(gen_fn::Recurse{S,T,U,V,W}, cur::Int,
         child_num = get_child_num(cur, gen_fn.max_branch)
         # return type of parent is Tuple{V,Vector{U}}
         @assert haskey(production_traces, parent)
-        return get_retval(production_traces[parent])[2][child_num]::U
+        return get_retval(production_traces[parent]).children[child_num]::U
     end
 end
 
@@ -222,7 +170,7 @@ function get_aggregation_input(gen_fn::Recurse{S,T,U,V,W}, cur::Int,
     # requires that the corresponding production trace exists (for the v)
     # also requires that the child aggregation traces exist (for the w's)
     # does not require that this aggregation trace already exists
-    vinput::V = get_retval(production_traces[cur])[1]
+    vinput::V = get_retval(production_traces[cur]).value
     num_children = get_num_children(production_traces[cur])
     winputs::Vector{W} = [
         get_retval(aggregation_traces[get_child(cur, i, gen_fn.max_branch)])
@@ -243,8 +191,7 @@ end
 # simulate #
 ############
 
-function simulate(gen_fn::Recurse{S,T,U,V,W,X,Y,DV,DU,DW},
-            args::Tuple{U,Int}) where {S,T,U,V,W,X,Y,DV,DU,DW}
+function simulate(gen_fn::Recurse{S,T,U,V,W,X,Y}, args::Tuple{U,Int}) where {S,T,U,V,W,X,Y}
     (root_production_input::U, root_idx::Int) = args
     production_traces = PersistentHashMap{Int,S}()
     aggregation_traces = PersistentHashMap{Int,T}()
@@ -263,7 +210,7 @@ function simulate(gen_fn::Recurse{S,T,U,V,W,X,Y,DV,DU,DW},
         subtrace = simulate(gen_fn.production_kern, (input,))
         score += get_score(subtrace)
         production_traces = assoc(production_traces, cur, subtrace)
-        children_inputs::Vector{U} = get_retval(subtrace)[2]
+        children_inputs::Vector{U} = get_retval(subtrace).children
         for child_num in 1:length(children_inputs)
             push!(prod_to_visit, get_child(cur, child_num, gen_fn.max_branch))
         end
@@ -287,7 +234,7 @@ function simulate(gen_fn::Recurse{S,T,U,V,W,X,Y,DV,DU,DW},
         end
     end
 
-    RecurseTrace{S,T,U,V,W,X,Y,DV,DU,DW}(gen_fn,
+    RecurseTrace{S,T,U,V,W,X,Y}(gen_fn,
                 production_traces, aggregation_traces, gen_fn.max_branch,
                 score, root_idx, num_has_choices)
 end
@@ -296,8 +243,8 @@ end
 # generate #
 ############
 
-function generate(gen_fn::Recurse{S,T,U,V,W,X,Y,DV,DU,DW}, args::Tuple{U,Int},
-                    constraints::ChoiceMap) where {S,T,U,V,W,X,Y,DV,DU,DW}
+function generate(gen_fn::Recurse{S,T,U,V,W,X,Y}, args::Tuple{U,Int},
+                    constraints::ChoiceMap) where {S,T,U,V,W,X,Y}
     (root_production_input::U, root_idx::Int) = args
     production_traces = PersistentHashMap{Int,S}()
     aggregation_traces = PersistentHashMap{Int,T}()
@@ -319,7 +266,7 @@ function generate(gen_fn::Recurse{S,T,U,V,W,X,Y,DV,DU,DW}, args::Tuple{U,Int},
         score += get_score(subtrace)
         production_traces = assoc(production_traces, cur, subtrace)
         weight += subweight
-        children_inputs::Vector{U} = get_retval(subtrace)[2]
+        children_inputs::Vector{U} = get_retval(subtrace).children
         for child_num in 1:length(children_inputs)
             push!(prod_to_visit, get_child(cur, child_num, gen_fn.max_branch))
         end
@@ -345,7 +292,7 @@ function generate(gen_fn::Recurse{S,T,U,V,W,X,Y,DV,DU,DW}, args::Tuple{U,Int},
         end
     end
 
-    trace = RecurseTrace{S,T,U,V,W,X,Y,DV,DU,DW}(gen_fn,
+    trace = RecurseTrace{S,T,U,V,W,X,Y}(gen_fn,
                 production_traces, aggregation_traces, gen_fn.max_branch,
                 score, root_idx, num_has_choices)
     return (trace, weight)
@@ -424,41 +371,51 @@ function dissoc_subtree!(discard::DynamicChoiceMap,
     return (production_traces, aggregation_traces, removed_score, num_has_choices)
 end
 
-function get_production_argdiff(production_retdiffs::Dict{Int,RecurseProductionRetDiff{DV,DU}},
-                                root_idx::Int, root_argdiff::Union{NoArgDiff,DU}, cur::Int,
-                                max_branch::Int) where {DV,DU}
+function get_production_argdiff(production_retdiffs::Dict{Int,Diff},
+                                root_idx::Int, root_argdiff, cur::Int,
+                                max_branch::Int)
     if cur == root_idx
         return root_argdiff
     else
         parent = get_parent(cur, max_branch)
         if !haskey(production_retdiffs, parent)
-            return noargdiff
+            return NoChange()
         else
-            @assert haskey(production_retdiffs, parent)
+            retdiff = production_retdiffs[parent]
+            @assert retdiff != NoChange()
             child_num = get_child_num(cur, max_branch)
-            dus = production_retdiffs[parent].dus
-            if haskey(dus, child_num)
-                return dus[child_num]::DU
+            if isa(retdiff, ProductionDiff)
+                # TODO: test this code path
+                children_diff = production_retdiffs[parent].children_diff
+                if child_num > children_diff.prev_len
+                    return UnknownChange()
+                else
+                    if haskey(children_diff.updated, child_num)
+                        return children_diff.updated[child_num]
+                    else
+                        return NoChange()
+                    end
+                end
             else
-                return noargdiff
+                return UnknownChange()
             end
         end
     end
 end
 
-function get_aggregation_argdiff(production_retdiffs::Dict{Int,RecurseProductionRetDiff{DV,DU}},
-                                 aggregation_retdiffs::Dict{Int,DW},
-                                 idx_to_prev_num_children::Dict{Int,Int},
-                                 production_traces, cur::Int) where {DU,DV,DW}
+function get_aggregation_argdiffs(production_retdiffs::Dict{Int,Diff},
+                                  aggregation_retdiffs::Dict{Int,Diff},
+                                  idx_to_prev_num_children::Dict{Int,Int},
+                                  production_traces, cur::Int)
     if haskey(production_retdiffs, cur)
         production_retdiff = production_retdiffs[cur]
-        if isnodiff(production_retdiff.dv)
-            dv = noargdiff
+        if isa(production_retdiff, ProductionDiff)
+            dv = production_retdiff.value_diff
         else
-            dv = production_retdiff.dv::DV
+            dv = UnknownChange()
         end
     else
-        dv = noargdiff
+        dv = NoChange()
     end
     new_num_children = get_num_children(production_traces[cur])
     if haskey(idx_to_prev_num_children, cur)
@@ -466,24 +423,26 @@ function get_aggregation_argdiff(production_retdiffs::Dict{Int,RecurseProduction
     else
         prev_num_children = new_num_children
     end
-    dws = Dict{Int,DW}() # values have type DW
+    dws = Dict{Int,Diff}()
     for child_num=1:min(prev_num_children,new_num_children)
         if haskey(aggregation_retdiffs, child_num)
-            dws[child_num] = aggregation_retdiffs[child_num]::DW
+            dws[child_num] = aggregation_retdiffs[child_num]
         end
     end
-    RecurseAggregationArgDiff{DV,DW}(dv, dws)
+    (dv, VectorDiff(new_num_children, prev_num_children, dws))
 end
 
-function update(trace::RecurseTrace{S,T,U,V,W,X,Y,DV,DU,DW},
+function update(trace::RecurseTrace{S,T,U,V,W,X,Y},
                 new_args::Tuple{U,Int},
-                root_argdiff::Union{NoArgDiff,DU}, 
-                constraints::ChoiceMap) where {S,T,U,V,W,X,Y,DV,DU,DW}
+                argdiffs::Tuple,
+                constraints::ChoiceMap) where {S,T,U,V,W,X,Y}
     gen_fn = get_gen_fn(trace)
     (root_production_input::U, root_idx::Int) = new_args
     if root_idx != get_args(trace)[2]
         error("Cannot change root_idx argument") 
     end
+
+    (root_argdiff::Diff,) = argdiffs
 
     production_traces = trace.production_traces
     aggregation_traces = trace.aggregation_traces
@@ -503,7 +462,7 @@ function update(trace::RecurseTrace{S,T,U,V,W,X,Y,DV,DU,DW},
     end
 
     # if the root argdiff is not noargdiff then we visit the root production node
-    if root_argdiff != noargdiff && !(root_idx in prod_to_visit)
+    if root_argdiff != NoChange() && !(root_idx in prod_to_visit)
         push!(prod_to_visit, root_idx)
     end
 
@@ -519,7 +478,7 @@ function update(trace::RecurseTrace{S,T,U,V,W,X,Y,DV,DU,DW},
     idx_to_prev_num_children = Dict{Int,Int}()
     
     # production phase
-    production_retdiffs = Dict{Int,RecurseProductionRetDiff{DV,DU}}() # elements with no difference are ommitted
+    production_retdiffs = Dict{Int,Diff}() # elements with no difference are ommitted
     while !isempty(prod_to_visit)
         local subtrace::S
 
@@ -529,8 +488,8 @@ function update(trace::RecurseTrace{S,T,U,V,W,X,Y,DV,DU,DW},
 
         if haskey(production_traces, cur)
             # the node exists already
-            local subargdiff::Union{NoArgDiff,DU}
-            local subretdiff::RecurseProductionRetDiff{DV,DU}
+            local subargdiff
+            local subretdiff::Diff
 
             # get argdiff for this production node
             subargdiff = get_production_argdiff(production_retdiffs, root_idx,
@@ -539,9 +498,9 @@ function update(trace::RecurseTrace{S,T,U,V,W,X,Y,DV,DU,DW},
             # call update on production kernel
             prev_subtrace = production_traces[cur]
             (subtrace, subweight, subretdiff, subdiscard) = update(
-                prev_subtrace, input, subargdiff, subconstraints)
+                prev_subtrace, input, (subargdiff,), subconstraints)
             prev_num_children = get_num_children(production_traces[cur])
-            new_num_children = length(get_retval(subtrace)[2])
+            new_num_children = length(get_retval(subtrace).children)
             idx_to_prev_num_children[cur] = prev_num_children
             set_submap!(discard, (cur, Val(:production)), subdiscard)
             production_retdiffs[cur] = subretdiff
@@ -576,17 +535,27 @@ function update(trace::RecurseTrace{S,T,U,V,W,X,Y,DV,DU,DW},
                 push!(prod_to_visit, child)
             end
 
-            # maybe mark existing children for processing, if they have a custom retdiff
-            # (otherwise they do not change)
-            for child_num in keys(subretdiff.dus)
-                @assert child_num <= min(prev_num_children,new_num_children)
-                child = get_child(cur, child_num, gen_fn.max_branch)
-                push!(prod_to_visit, child)
-            end
-
-            # mark corresponding aggregation node for processing if v has
-            # changed, or if the number of children has changed
-            if !isnodiff(subretdiff.dv) || prev_num_children != new_num_children
+            if isa(subretdiff, ProductionDiff)
+            
+                # maybe mark existing children for processing, if they have a custom retdiff
+                # (otherwise they do not change)
+                for child_num in keys(subretdiff.children_diff.updated)
+                    @assert child_num <= min(prev_num_children,new_num_children)
+                    child = get_child(cur, child_num, gen_fn.max_branch)
+                    push!(prod_to_visit, child)
+                end
+    
+                # mark corresponding aggregation node for processing if v has
+                # changed, or if the number of children has changed
+                if subretdiff.value_diff != NoChange() || prev_num_children != new_num_children
+                    push!(agg_to_visit, cur)
+                end
+            else
+                # treat it like UnknownDiff
+                for child_num=1:min(prev_num_children,new_num_children)
+                    child = get_child(cur, child_num, gen_fn.max_branch)
+                    push!(prod_to_visit, child)
+                end
                 push!(agg_to_visit, cur)
             end
 
@@ -624,12 +593,12 @@ function update(trace::RecurseTrace{S,T,U,V,W,X,Y,DV,DU,DW},
     # - one or more of of its children has a !isnodiff(dw)
     # note: we already deleted aggregation nodes that are to be deleted above
 
-    aggregation_retdiffs = Dict{Int,DW}() # isnodiff(dw)'s are ommitted
+    aggregation_retdiffs = Dict{Int,Diff}() # NoChange()s are ommitted
     local subtrace::T
-    local subargdiff::RecurseAggregationArgDiff{DV,DW}
-    local subretdiff::DW
-    local retdiff::Union{RecurseRetNoDiff,DW}
-    retdiff = RecurseRetNoDiff()
+    local subargdiffs::Tuple # (diff for V, diff for vector of Ws)
+    local subretdiff # Diff
+    local retdiff
+    retdiff = NoChange()
     while !isempty(agg_to_visit)
 
         cur = pop!(agg_to_visit)
@@ -641,13 +610,13 @@ function update(trace::RecurseTrace{S,T,U,V,W,X,Y,DV,DU,DW},
         if haskey(aggregation_traces, cur)
 
             # get argdiff for this aggregation node
-            subargdiff = get_aggregation_argdiff(production_retdiffs, aggregation_retdiffs,
-                                                 idx_to_prev_num_children, production_traces, cur)
+            subargdiffs = get_aggregation_argdiffs(production_retdiffs, aggregation_retdiffs,
+                                                   idx_to_prev_num_children, production_traces, cur)
 
             # call update on aggregation kernel
             prev_subtrace = aggregation_traces[cur]
             (subtrace, subweight, subretdiff, subdiscard) = update(
-                prev_subtrace, input, subargdiff, subconstraints)
+                prev_subtrace, input, subargdiffs, subconstraints)
 
             # update trace, weight, and score, and discard
             aggregation_traces = assoc(aggregation_traces, cur, subtrace)
@@ -666,7 +635,7 @@ function update(trace::RecurseTrace{S,T,U,V,W,X,Y,DV,DU,DW},
             if cur == root_idx
                 retdiff = subretdiff
             else
-                if !isnodiff(subretdiff)
+                if subretdiff != NoChange()
                     aggregation_retdiffs[cur] = subretdiff
                     push!(agg_to_visit, get_parent(cur, gen_fn.max_branch))
                 end
@@ -693,7 +662,7 @@ function update(trace::RecurseTrace{S,T,U,V,W,X,Y,DV,DU,DW},
         
     end
 
-    new_trace = RecurseTrace{S,T,U,V,W,X,Y,DV,DU,DW}(gen_fn,
+    new_trace = RecurseTrace{S,T,U,V,W,X,Y}(gen_fn,
         production_traces, aggregation_traces, gen_fn.max_branch,
         score, root_idx, num_has_choices)
     
@@ -701,4 +670,5 @@ function update(trace::RecurseTrace{S,T,U,V,W,X,Y,DV,DU,DW},
 end
 
 export Recurse
-export RecurseAggregationArgDiff, RecurseProductionRetDiff
+export Production, ProductionDiff
+export get_child

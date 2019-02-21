@@ -3,10 +3,6 @@
     @gen (grad) function foo((grad)(x::Float64), (grad)(y::Float64))
         @param std::Float64
         z = @trace(normal(x + y, std), :z)
-        @diff begin
-            zdiff = @choicediff(:z)
-            @retdiff(isnodiff(zdiff) ? NoRetDiff() : DefaultRetDiff())
-        end
         return z
     end
 
@@ -67,7 +63,7 @@
             trace
         end
 
-        # unknownargdiff, increasing length from 2 to 3 and change 2
+        # unknown change to args, increasing length from 2 to 3 and change 2
         trace = get_initial_trace()
         z2_new = 3.3
         z3_new = 4.4
@@ -75,7 +71,7 @@
         constraints[2 => :z] = z2_new
         constraints[3 => :z] = z3_new
         (trace, weight, retdiff, discard) = update(trace,
-            (xs[1:3], ys[1:3]), unknownargdiff, constraints)
+            (xs[1:3], ys[1:3]), (UnknownChange(), UnknownChange()), constraints)
         choices = get_choices(trace)
         @test get_args(trace) == (xs[1:3], ys[1:3])
         @test choices[1 => :z] == z1
@@ -95,19 +91,18 @@
         @test retval[1] == z1
         @test retval[2] == z2_new
         @test retval[3] == z3_new
-        @test isa(retdiff, VectorCustomRetDiff)
-        @test !haskey(retdiff, 1) # no diff
-        @test retdiff[2] == DefaultRetDiff() # retval changed
-        @test !haskey(retdiff, 3) # new, not retained
-        @test !isnodiff(retdiff)
+        @test isa(retdiff, VectorDiff)
+        @test retdiff.updated[1] == UnknownChange()
+        @test retdiff.updated[2] == UnknownChange()
+        @test !haskey(retdiff.updated, 3) # new, not retained
 
-        # unknownargdiff, decreasing length from 2 to 1 and change 1
+        # unknown change to args, decreasing length from 2 to 1 and change 1
         trace = get_initial_trace()
         z1_new = 3.3
         constraints = choicemap()
         constraints[1 => :z] = z1_new
         (trace, weight, retdiff, discard) = update(trace,
-            (xs[1:1], ys[1:1]), unknownargdiff, constraints)
+            (xs[1:1], ys[1:1]), (UnknownChange(), UnknownChange()), constraints)
         choices = get_choices(trace)
         @test get_args(trace) == (xs[1:1], ys[1:1])
         @test !has_value(choices, 2 => :z)
@@ -123,16 +118,15 @@
         retval = get_retval(trace)
         @test length(retval) == 1
         @test retval[1] == z1_new
-        @test isa(retdiff, VectorCustomRetDiff)
-        @test retdiff[1] == DefaultRetDiff() # retval changed
-        @test !haskey(retdiff, 2) # removed, not retained
-        @test !isnodiff(retdiff)
+        @test isa(retdiff, VectorDiff)
+        @test retdiff.updated[1] == UnknownChange()
+        @test !haskey(retdiff.updated, 2) # deleted, not retained
 
-        # noargdiff, change nothing
+        # no change to args, change nothing
         trace = get_initial_trace()
         constraints = choicemap()
         (trace, weight, retdiff, discard) = update(trace,
-            (xs[1:2], ys[1:2]), noargdiff, constraints)
+            (xs[1:2], ys[1:2]), (NoChange(), NoChange()), constraints)
         choices = get_choices(trace)
         @test get_args(trace) == (xs[1:2], ys[1:2])
         @test choices[1 => :z] == z1
@@ -146,16 +140,15 @@
         @test length(retval) == 2
         @test retval[1] == z1
         @test retval[2] == z2
-        @test isa(retdiff, NoRetDiff)
-        @test isnodiff(retdiff)
+        @test retdiff == NoChange()
 
-        # noargdiff, change 2
+        # no change to args, change 2
         trace = get_initial_trace()
         z2_new = 3.3
         constraints = choicemap()
         constraints[2 => :z] = z2_new
         (trace, weight, retdiff, discard) = update(trace,
-            (xs[1:2], ys[1:2]), noargdiff, constraints)
+            (xs[1:2], ys[1:2]), (NoChange(), NoChange()), constraints)
         choices = get_choices(trace)
         @test get_args(trace) == (xs[1:2], ys[1:2])
         @test choices[1 => :z] == z1
@@ -171,19 +164,18 @@
         @test length(retval) == 2
         @test retval[1] == z1
         @test retval[2] == z2_new
-        @test isa(retdiff, VectorCustomRetDiff)
-        @test !haskey(retdiff, 1) # no diff
-        @test retdiff[2] == DefaultRetDiff() # retval changed
-        @test !isnodiff(retdiff)
+        @test isa(retdiff, VectorDiff)
+        @test !haskey(retdiff.updated, 1)
+        @test retdiff.updated[2] == UnknownChange()
 
         # custom argdiff, no constraints
         trace = get_initial_trace()
         xs_new = copy(xs)
         xs_new[1] = -1. # change from 1 to -1
-        argdiff = MapCustomArgDiff(Dict(1 => unknownargdiff))
         constraints = choicemap()
+        argdiffs = (VectorDiff(2, 2, Dict{Int,Diff}(1 => UnknownChange())), NoChange())
         (trace, weight, retdiff, discard) = update(trace,
-            (xs_new[1:2], ys[1:2]), argdiff, constraints)
+            (xs_new[1:2], ys[1:2]), argdiffs, constraints)
         choices = get_choices(trace)
         @test get_args(trace) == (xs_new[1:2], ys[1:2])
         @test choices[1 => :z] == z1
@@ -199,8 +191,9 @@
         @test length(retval) == 2
         @test retval[1] == z1
         @test retval[2] == z2
-        @test retdiff == NoRetDiff()
-        @test isnodiff(retdiff)
+        @test isa(retdiff, VectorDiff)
+        @test retdiff.updated[1] == UnknownChange()
+        @test !haskey(retdiff.updated, 2)
     end
 
     @testset "regenerate" begin
@@ -214,11 +207,11 @@
             trace
         end
 
-        # unknownargdiff, increasing length from 2 to 3 and change 2
+        # unknown change to args, increasing length from 2 to 3 and change 2
         trace = get_initial_trace()
         selection = select(2 => :z)
         (trace, weight, retdiff) = regenerate(trace,
-            (xs[1:3], ys[1:3]), unknownargdiff, selection)
+            (xs[1:3], ys[1:3]), (UnknownChange(), UnknownChange()), selection)
         choices = get_choices(trace)
         @test get_args(trace) == (xs[1:3], ys[1:3])
         @test choices[1 => :z] == z1
@@ -229,12 +222,16 @@
             + logpdf(normal, z2_new, 6., 1.)
             + logpdf(normal, z3_new, 8., 1.)))
         @test isapprox(weight, 0.)
+        @test isa(retdiff, VectorDiff)
+        @test retdiff.updated[1] == UnknownChange()
+        @test retdiff.updated[2] == UnknownChange()
+        @test !haskey(retdiff.updated, 3) # new, not retained
 
-        # unknownargdiff, decreasing length from 2 to 1 and change 1
+        # unknown change to args, decreasing length from 2 to 1 and change 1
         trace = get_initial_trace()
         selection = select(1 => :z)
         (trace, weight, retdiff) = regenerate(trace,
-            (xs[1:1], ys[1:1]), unknownargdiff, selection)
+            (xs[1:1], ys[1:1]), (UnknownChange(), UnknownChange()), selection)
         choices = get_choices(trace)
         @test get_args(trace) == (xs[1:1], ys[1:1])
         @test !has_value(choices, 2 => :z)
@@ -242,12 +239,15 @@
         z1_new = choices[1 => :z]
         @test isapprox(get_score(trace), logpdf(normal, z1_new, 4., 1.))
         @test isapprox(weight, 0.)
+        @test isa(retdiff, VectorDiff)
+        @test retdiff.updated[1] == UnknownChange()
+        @test !haskey(retdiff.updated, 2) # deleted, not retained
 
-        # noargdiff, change nothing
+        # no change to arguments, change nothing
         trace = get_initial_trace()
         selection = EmptyAddressSet()
         (trace, weight, retdiff) = regenerate(trace,
-            (xs[1:2], ys[1:2]), noargdiff, selection)
+            (xs[1:2], ys[1:2]), (NoChange(), NoChange()), selection)
         choices = get_choices(trace)
         @test get_args(trace) == (xs[1:2], ys[1:2])
         @test choices[1 => :z] == z1
@@ -259,15 +259,13 @@
         retval = get_retval(trace)
         @test length(retval) == 2
         @test retval[1] == z1
-        @test retval[2] == z2
-        @test isa(retdiff, NoRetDiff)
-        @test isnodiff(retdiff)
+        @test retdiff == NoChange()
 
-        # noargdiff, change 2
+        # no change to args, change 2
         trace = get_initial_trace()
         selection = select(2 => :z)
         (trace, weight, retdiff) = regenerate(trace,
-            (xs[1:2], ys[1:2]), noargdiff, selection)
+            (xs[1:2], ys[1:2]), (NoChange(), NoChange()), selection)
         choices = get_choices(trace)
         @test get_args(trace) == (xs[1:2], ys[1:2])
         @test choices[1 => :z] == z1
@@ -280,19 +278,18 @@
         @test length(retval) == 2
         @test retval[1] == z1
         @test retval[2] == z2_new
-        @test isa(retdiff, VectorCustomRetDiff)
-        @test !haskey(retdiff, 1) # no diff
-        @test retdiff[2] == DefaultRetDiff() # retval changed
-        @test !isnodiff(retdiff)
+        @test isa(retdiff, VectorDiff)
+        @test !haskey(retdiff.updated, 1)
+        @test retdiff.updated[2] == UnknownChange()
 
-        # custom argdiff, no selection
+        # custom change to args, no selection
         trace = get_initial_trace()
         xs_new = copy(xs)
         xs_new[1] = -1. # change from 1 to -1
-        argdiff = MapCustomArgDiff(Dict(1 => unknownargdiff))
+        argdiffs = (VectorDiff(2, 2, Dict{Int,Diff}(1 => UnknownChange())), NoChange())
         selection = EmptyAddressSet()
         (trace, weight, retdiff) = regenerate(trace,
-            (xs_new[1:2], ys[1:2]), argdiff, selection)
+            (xs_new[1:2], ys[1:2]), argdiffs, selection)
         choices = get_choices(trace)
         @test get_args(trace) == (xs_new[1:2], ys[1:2])
         @test choices[1 => :z] == z1
@@ -307,8 +304,9 @@
         @test length(retval) == 2
         @test retval[1] == z1
         @test retval[2] == z2
-        @test retdiff == NoRetDiff()
-        @test isnodiff(retdiff)
+        @test isa(retdiff, VectorDiff)
+        @test retdiff.updated[1] == UnknownChange()
+        @test !haskey(retdiff.updated, 2)
     end
 
     @testset "extend" begin
@@ -322,14 +320,14 @@
             trace
         end
 
-        # unknownargdiff, increasing length from 2 to 4; constrain 4 and let 3
+        # unknown change to args, increasing length from 2 to 4; constrain 4 and let 3
         # be generated from prior
         trace = get_initial_trace()
         z4 = 4.4
         constraints = choicemap()
         constraints[4 => :z] = z4
         (trace, weight, retdiff) = extend(trace,
-            (xs[1:4], ys[1:4]), unknownargdiff, constraints)
+            (xs[1:4], ys[1:4]), (UnknownChange(), UnknownChange()), constraints)
         choices = get_choices(trace)
         @test get_args(trace) == (xs[1:4], ys[1:4])
         @test choices[1 => :z] == z1
@@ -343,11 +341,16 @@
             + logpdf(normal, z4, 10., 1))
         @test isapprox(score, expected_score)
         @test isapprox(weight, logpdf(normal, z4 , 10., 1.))
+        @test isa(retdiff, VectorDiff)
+        @test retdiff.prev_length == 2
+        @test retdiff.new_length == 4
+        @test retdiff.updated[1] == UnknownChange()
+        @test retdiff.updated[2] == UnknownChange()
 
-        # noargdiff, change nothing
+        # no change to args, change nothing
         trace = get_initial_trace()
         (trace, weight, retdiff) = extend(trace,
-            (xs[1:2], ys[1:2]), noargdiff, EmptyChoiceMap())
+            (xs[1:2], ys[1:2]), (NoChange(), NoChange()), EmptyChoiceMap())
         choices = get_choices(trace)
         @test get_args(trace) == (xs[1:2], ys[1:2])
         @test choices[1 => :z] == z1
@@ -360,16 +363,15 @@
         @test length(retval) == 2
         @test retval[1] == z1
         @test retval[2] == z2
-        @test isa(retdiff, NoRetDiff)
-        @test isnodiff(retdiff)
+        @test retdiff == NoChange()
 
-        # custom argdiff, no selection
+        # custom change to args, no selection
         trace = get_initial_trace()
         xs_new = copy(xs)
         xs_new[1] = -1. # change from 1 to -1
-        argdiff = MapCustomArgDiff(Dict(1 => unknownargdiff))
+        argdiffs = (VectorDiff(2, 2, Dict{Int,Diff}(1 => UnknownChange())), NoChange())
         (trace, weight, retdiff) = extend(trace,
-            (xs_new[1:2], ys[1:2]), argdiff, EmptyChoiceMap())
+            (xs_new[1:2], ys[1:2]), argdiffs, EmptyChoiceMap())
         choices = get_choices(trace)
         @test get_args(trace) == (xs_new[1:2], ys[1:2])
         @test choices[1 => :z] == z1
@@ -384,8 +386,9 @@
         @test length(retval) == 2
         @test retval[1] == z1
         @test retval[2] == z2
-        @test retdiff == NoRetDiff()
-        @test isnodiff(retdiff)
+        @test isa(retdiff, VectorDiff)
+        @test retdiff.updated[1] == UnknownChange()
+        @test !haskey(retdiff.updated, 2)
     end
 
     @testset "choice_gradients" begin
@@ -447,4 +450,5 @@
             + logpdf_grad(normal, z2, 6., 1.)[3])
         @test isapprox(get_param_grad(foo, :std), expected_std_grad)
     end
+
 end

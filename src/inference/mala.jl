@@ -7,7 +7,8 @@ Apply a Metropolis-Adjusted Langevin Algorithm (MALA) update.
 [Reference URL](https://en.wikipedia.org/wiki/Metropolis-adjusted_Langevin_algorithm)
 """
 function mala(trace, selection::AddressSet, tau::Real)
-    model_args = get_args(trace)
+    args = get_args(trace)
+    argdiffs = map((_) -> NoChange(), args)
     std = sqrt(2 * tau)
     retval_grad = accepts_output_grad(get_gen_fn(trace)) ? zero(get_retval(trace)) : nothing
 
@@ -26,7 +27,7 @@ function mala(trace, selection::AddressSet, tau::Real)
     # evaluate model weight
     constraints = from_array(values_trie, proposed_values)
     (new_trace, weight, _, discard) = update(trace,
-        model_args, noargdiff, constraints)
+        args, argdiffs, constraints)
 
     # backward proposal
     (_, _, backward_gradient_trie) = choice_gradients(new_trace, selection, retval_grad)

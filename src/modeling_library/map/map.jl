@@ -36,30 +36,6 @@ function get_prev_and_new_lengths(args::Tuple, prev_trace)
     (new_length, prev_length)
 end
 
-###########
-# argdiff #
-###########
-
-"""
-    argdiff = MapCustomArgDiff{T}(retained_argdiffs::Dict{Int,T})
-
-Construct an argdiff value that contains argdiff information for some subset of applications of the kernel.
-
-If the number of applications of the kernel, which is determined from the the length of hte input vector(s), has changed, then `retained_argdiffs` may only contain argdiffs for kernel applications that exist both in the previous trace and and the new trace.
-For each `i` in `keys(retained_argdiffs)`, `retained_argdiffs[i]` contains the argdiff information for the `i`th application.
-If an entry is not provided for some `i` that exists in both the previous and new traces, then its argdiff will be assumed to be [`NoArgDiff`](@ref).
-"""
-struct MapCustomArgDiff{T}
-    retained_argdiffs::Dict{Int,T} 
-end
-
-export MapCustomArgDiff
-
-
-###############################
-# generator interface methods #
-###############################
-
 include("assess.jl")
 include("propose.jl")
 include("simulate.jl")
