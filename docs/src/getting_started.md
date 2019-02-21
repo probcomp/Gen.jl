@@ -8,7 +8,7 @@ The Gen package can be installed with the Julia package manager. From the Julia 
 ```
 pkg> add https://github.com/probcomp/Gen
 ```
-To test the installation, run the quick start example in the next section, or run the tests with:
+To test the installation, run the example in the next section, or run the tests with:
 ```julia
 using Pkg; Pkg.test("Gen")
 ```
