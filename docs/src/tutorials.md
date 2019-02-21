@@ -1,5 +1,5 @@
-# Tutorials
+# Tutorials and Case Studies
 
-See the [Gen Jupyter Notebooks](https://github.com/probcomp/gen-examples) repository for tutorials.
+See [Gen Quickstart](https://github.com/probcomp/gen-quickstart) repository for tutorials and case studies
 
-Additional examples are available in the `examples/` directory of the Gen repository.
+Additional examples are available in the `examples/` directory of the [Gen](https://github.com/probcomp/Gen) repository.

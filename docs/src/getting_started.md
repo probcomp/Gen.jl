@@ -13,7 +13,7 @@ To test the installation, run the quick start example in the next section, or ru
 using Pkg; Pkg.test("Gen")
 ```
 
-## Quick Start
+## Example
 
 Let's write a short Gen program that does Bayesian linear regression: given a set of points in the (x, y) plane, we want to find a line that fits them well.
 
@@ -79,7 +79,7 @@ println("slope: $slope, intercept: $slope")
 Because inference programs are regular Julia code, users can use whatever visualization or plotting libraries from the Julia ecosystem that they want.
 However, we have paired Gen with the [GenViz](https://github.com/probcomp/GenViz) package, which is specialized for visualizing the output and operation of inference algorithms written in Gen.
 
-An example demonstrating the use of GenViz for this Quick Start linear regression problem is available in the [gen-examples](https://github.com/probcomp/gen-examples) repository. The code there is mostly the same as above, with a few small changes to incorporate an animated visualization of the inference process:
+An example demonstrating the use of GenViz for this example linear regression problem is available in the [gen-quickstart](https://github.com/probcomp/gen-quickstart) repository. The code there is mostly the same as above, with a few small changes to incorporate an animated visualization of the inference process:
 
 1. It starts a visualization server and initializes a visualization before performing inference:
 ```julia
@@ -93,7 +93,7 @@ viz = Viz(server, joinpath(@__DIR__, "vue/dist"), Dict("xs" => xs, "ys" => ys, "
 openInBrowser(viz)
 ```
 
-The `"vue/dist"` is a path to a custom _trace renderer_ that draws the (x, y) points and the line represented by a trace; see the GenViz documentation for more details. The code for the renderer is [here](https://github.com/probcomp/gen-examples/blob/master/quickstart/vue/src/components/Trace.vue).
+The `"vue/dist"` is a path to a custom _trace renderer_ that draws the (x, y) points and the line represented by a trace; see the GenViz documentation for more details. The code for the renderer is [here](https://github.com/probcomp/gen-quickstart/blob/master/quickstart/vue/src/components/Trace.vue).
 
 2. It passes the visualization object into the inference program.
 ```julia
