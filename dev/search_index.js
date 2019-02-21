@@ -213,7 +213,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Generative Functions",
     "title": "Gen.update",
     "category": "function",
-    "text": "(new_trace, weight, retdiff, discard) = update(trace, args::Tuple, argdiff,\n                                               constraints::ChoiceMap)\n\nUpdate a trace by changing the arguments and/or providing new values for some existing random choice(s) and values for any newly introduced random choice(s).\n\nGiven a previous trace (x t r) (trace), new arguments x (args), and a map u (constraints), return a new trace (x t r) (new_trace) that is consistent with u.  The values of choices in t are deterministically copied either from t or from u (with u taking precedence).  All choices in u must appear in t.  Also return an assignment v (discard) containing the choices in t that were overwritten by values from u, and any choices in t whose address does not appear in t. The new non-addressed randomness is sampled from r sim q(cdot x t). Also return a weight (weight):\n\nlog fracp(r t x) q(r x t)p(r t x) q(r x t)\n\n\n\n\n\n"
+    "text": "(new_trace, weight, retdiff, discard) = update(trace, args::Tuple, argdiffs::Tuple,\n                                               constraints::ChoiceMap)\n\nUpdate a trace by changing the arguments and/or providing new values for some existing random choice(s) and values for any newly introduced random choice(s).\n\nGiven a previous trace (x t r) (trace), new arguments x (args), and a map u (constraints), return a new trace (x t r) (new_trace) that is consistent with u.  The values of choices in t are deterministically copied either from t or from u (with u taking precedence).  All choices in u must appear in t.  Also return an assignment v (discard) containing the choices in t that were overwritten by values from u, and any choices in t whose address does not appear in t. The new non-addressed randomness is sampled from r sim q(cdot x t). Also return a weight (weight):\n\nlog fracp(r t x) q(r x t)p(r t x) q(r x t)\n\n\n\n\n\n"
 },
 
 {
@@ -229,7 +229,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Generative Functions",
     "title": "Gen.regenerate",
     "category": "function",
-    "text": "(new_trace, weight, retdiff) = regenerate(trace, args::Tuple, argdiff,\n                                          selection::AddressSet)\n\nUpdate a trace by changing the arguments and/or randomly sampling new values for selected random choices using the internal proposal distribution family.\n\nGiven a previous trace (x t r) (trace), new arguments x (args), and a set of addresses A (selection), return a new trace (x t) (new_trace) such that t agrees with t on all addresses not in A (t and t may have different sets of addresses).  Let u denote the restriction of t to the complement of A.  Sample t sim Q(cdot u x) and sample r sim Q(cdot x t). Return the new trace (x t r) (new_trace) and the weight (weight):\n\nlog fracp(r t x) q(t u x) q(r x t)p(r t x) q(t u x) q(r x t)\n\nwhere u is the restriction of t to the complement of A.\n\n\n\n\n\n"
+    "text": "(new_trace, weight, retdiff) = regenerate(trace, args::Tuple, argdiffs::Tuple,\n                                          selection::AddressSet)\n\nUpdate a trace by changing the arguments and/or randomly sampling new values for selected random choices using the internal proposal distribution family.\n\nGiven a previous trace (x t r) (trace), new arguments x (args), and a set of addresses A (selection), return a new trace (x t) (new_trace) such that t agrees with t on all addresses not in A (t and t may have different sets of addresses).  Let u denote the restriction of t to the complement of A.  Sample t sim Q(cdot u x) and sample r sim Q(cdot x t). Return the new trace (x t r) (new_trace) and the weight (weight):\n\nlog fracp(r t x) q(t u x) q(r x t)p(r t x) q(t u x) q(r x t)\n\nwhere u is the restriction of t to the complement of A.\n\n\n\n\n\n"
 },
 
 {
@@ -245,7 +245,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Generative Functions",
     "title": "Gen.extend",
     "category": "function",
-    "text": "(new_trace, weight, retdiff) = extend(trace, args::Tuple, argdiff,\n                                      constraints::ChoiceMap)\n\nExtend a trace with new random choices by changing the arguments.\n\nGiven a previous trace (x t r) (trace), new arguments x (args), and an assignment u (choices) that shares no addresses with t, return a new trace (x t r) (new_trace) such that t agrees with t on all addresses in t and t agrees with u on all addresses in u. Sample t sim Q(cdot t + u x) and r sim Q(cdot t x). Also return the weight (weight):\n\nlog fracp(r t x) q(r x t)p(r t x) q(t t + u x) q(r x t)\n\n\n\n\n\n"
+    "text": "(new_trace, weight, retdiff) = extend(trace, args::Tuple, argdiffs::Tuple,\n                                      constraints::ChoiceMap)\n\nExtend a trace with new random choices by changing the arguments.\n\nGiven a previous trace (x t r) (trace), new arguments x (args), and an assignment u (choices) that shares no addresses with t, return a new trace (x t r) (new_trace) such that t agrees with t on all addresses in t and t agrees with u on all addresses in u. Sample t sim Q(cdot t + u x) and r sim Q(cdot t x). Also return the weight (weight):\n\nlog fracp(r t x) q(r x t)p(r t x) q(t t + u x) q(r x t)\n\n\n\n\n\n"
 },
 
 {
@@ -257,51 +257,11 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "ref/gfi/#Gen.NoArgDiff",
-    "page": "Generative Functions",
-    "title": "Gen.NoArgDiff",
-    "category": "type",
-    "text": "const noargdiff = NoArgDiff()\n\nIndication that there was no change to the arguments of the generative function.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/gfi/#Gen.UnknownArgDiff",
-    "page": "Generative Functions",
-    "title": "Gen.UnknownArgDiff",
-    "category": "type",
-    "text": "const unknownargdiff = UnknownArgDiff()\n\nIndication that no information is provided about the change to the arguments of the generative function.\n\n\n\n\n\n"
-},
-
-{
     "location": "ref/gfi/#Argdiffs-1",
     "page": "Generative Functions",
     "title": "Argdiffs",
     "category": "section",
     "text": "In addition to the input trace, and other arguments that indicate how to adjust the trace, each of these methods also accepts an args argument and an argdiff argument. The args argument contains the new arguments to the generative function, which may differ from the previous arguments to the generative function (which can be retrieved by applying get_args to the previous trace). In many cases, the adjustment to the execution specified by the other arguments to these methods is \'small\' and only effects certain parts of the computation. Therefore, it is often possible to generate the new trace and the appropriate log probability ratios required for these methods without revisiting every state of the computation of the generative function. To enable this, the argdiff argument provides additional information about the difference between the previous arguments to the generative function, and the new arguments. This argdiff information permits the implementation of the update method to avoid inspecting the entire argument data structure to identify which parts were updated. Note that the correctness of the argdiff is in general not verified by Gen–-passing incorrect argdiff information may result in incorrect behavior.The trace update methods for all generative functions above should accept at least the following types of argdiffs:NoArgDiff\nUnknownArgDiffGenerative functions may also accept custom types for their argdiffs that allow more precise information about the different to be supplied. It is the responsibility of the author of a generative function to specify the valid argdiff types in the documentation of their function, and it is the responsibility of the user of a generative function to construct and pass in the appropriate argdiff value."
-},
-
-{
-    "location": "ref/gfi/#Gen.isnodiff",
-    "page": "Generative Functions",
-    "title": "Gen.isnodiff",
-    "category": "function",
-    "text": "isnodiff(retdiff)::Bool\n\nReturn true if the given retdiff value indicates no change to the return value.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/gfi/#Gen.DefaultRetDiff",
-    "page": "Generative Functions",
-    "title": "Gen.DefaultRetDiff",
-    "category": "type",
-    "text": "const defaultretdiff = DefaultRetDiff()\n\nA default retdiff value that provides no information about the return value difference.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/gfi/#Gen.NoRetDiff",
-    "page": "Generative Functions",
-    "title": "Gen.NoRetDiff",
-    "category": "type",
-    "text": "const noretdiff = NoRetDiff()\n\nA retdiff value that indicates that there was no difference to the return value.\n\n\n\n\n\n"
 },
 
 {
@@ -753,75 +713,51 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "ref/modeling/#Gen.NewChoiceDiff",
+    "location": "ref/modeling/#Static-Modeling-Language-1",
     "page": "Built-in Modeling Language",
-    "title": "Gen.NewChoiceDiff",
-    "category": "type",
-    "text": "NewChoiceDiff()\n\nSingleton indicating that there was previously no random choice at this address.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/modeling/#Gen.NoChoiceDiff",
-    "page": "Built-in Modeling Language",
-    "title": "Gen.NoChoiceDiff",
-    "category": "type",
-    "text": "NoChoiceDiff()\n\nSingleton indicating that the value of the random choice did not change.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/modeling/#Gen.PrevChoiceDiff",
-    "page": "Built-in Modeling Language",
-    "title": "Gen.PrevChoiceDiff",
-    "category": "type",
-    "text": "PrevChoiceDiff(prev)\n\nWrapper around the previous value of the random choice indicating that it may have changed.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/modeling/#Gen.NewCallDiff",
-    "page": "Built-in Modeling Language",
-    "title": "Gen.NewCallDiff",
-    "category": "type",
-    "text": "NewCallDiff()\n\nSingleton indicating that there was previously no call at this address.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/modeling/#Gen.NoCallDiff",
-    "page": "Built-in Modeling Language",
-    "title": "Gen.NoCallDiff",
-    "category": "type",
-    "text": "NoCallDiff()\n\nSingleton indicating that the return value of the call has not changed.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/modeling/#Gen.UnknownCallDiff",
-    "page": "Built-in Modeling Language",
-    "title": "Gen.UnknownCallDiff",
-    "category": "type",
-    "text": "UnknownCallDiff()\n\nSingleton indicating that there was a previous call at this address, but that no information is known about the change to the return value.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/modeling/#Gen.CustomCallDiff",
-    "page": "Built-in Modeling Language",
-    "title": "Gen.CustomCallDiff",
-    "category": "type",
-    "text": "CustomCallDiff(retdiff)\n\nWrapper around a retdiff value, indicating that there was a previous call at this address, and that isnodiff(retdiff) = false (otherwise NoCallDiff() would have been returned).\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/modeling/#Differencing-code-1",
-    "page": "Built-in Modeling Language",
-    "title": "Differencing code",
+    "title": "Static Modeling Language",
     "category": "section",
-    "text": "@gen functions may include blocks of differencing code annotated with the @diff keyword. Code that is annotated with @diff is only executed during one of the Trace update methods. During a trace update operation, @diff code is simply inserted inline into the body of the generative function. Therefore, @diff code can read from the state of the non-diff code. However, the flow of information is one-directional: diff` code is not permitted to affect the state of the regular code.@diff code is used to compute the retdiff value for the update (see Retdiff) and the argdiff values for calls to generative function calls (see Argdiff). To compute these values, the @diff code has access to special keywords:@argdiff, which returns the argdiff that was passed to the update method for the generative function.@choicediff, which returns a value of one of the following types that indicates whether the random choice changed or not:NewChoiceDiff\nNoChoiceDiff\nPrevChoiceDiff@calldiff, which returns a value of one of the following types that provides information about the change in return value from the function:NewCallDiff\nNoCallDiff\nUnknownCallDiff\nCustomCallDiffTo set a retdiff value, the @diff code uses the @retdiff keyword.Example. In the function below, if the argument is false and the argument did not change, then there is no change to the return value. If the argument did not change, and :a and :b did not change, then there is no change to the return value. Otherwise, return an DefaultRetDiff value.@gen function foo(val::Bool)\n    val = val && @trace(bernoulli(0.3), :a)\n    val = val && @trace(bernoulli(0.4), :b)\n    @diff begin\n        argdiff = @argdiff()\n        if argdiff == noargdiff\n            if !val || (isnodiff(@choicediff(:a)) && isnodiff(@choicediff(:b)))\n                @retdiff(noretdiff)\n            else\n                @retdiff(defaultretdiff)\n            end\n        else\n            @retdiff(defaultretdiff)\n        end\n    end\n    return val\nend"
+    "text": "The static modeling language is a restricted variant of the built-in modeling language. Models written in the static modeling language can result in better inference performance (more inference operations per second and less memory consumption), than the full built-in modeling language, especially for models used with iterative inference algorithms like Markov chain Monte Carlo.A function is identified as using the static modeling language by adding the static annotation to the function. For example:@gen (static) function foo(prob::Float64)\n    z1 = @trace(bernoulli(prob), :a)\n    z2 = @trace(bernoulli(prob), :b)\n    z3 = z1 || z2\n    z4 = !z3\n    return z4\nendAfter running this code, foo is a Julia value whose type is a subtype of StaticIRGenerativeFunction, which is a subtype of GenerativeFunction."
 },
 
 {
-    "location": "ref/modeling/#Static-DSL-1",
+    "location": "ref/modeling/#Static-computation-graph-1",
     "page": "Built-in Modeling Language",
-    "title": "Static DSL",
+    "title": "Static computation graph",
     "category": "section",
-    "text": "The Static DSL supports a subset of the built-in modeling language. A static DSL function is identified by adding the static annotation to the function. For example:@gen (static) function foo(prob::Float64)\n    z1 = @trace(bernoulli(prob), :a)\n    z2 = @trace(bernoulli(prob), :b)\n    z3 = z1 || z2\n    return z3\nendAfter running this code, foo is a Julia value whose type is a subtype of StaticIRGenerativeFunction, which is a subtype of GenerativeFunction.The static DSL permits a subset of the syntax of the built-in modeling language. In particular, each statement must be one of the following forms:<symbol> = <julia-expr>\n<symbol> = @trace(<dist|gen-fn>(..),<symbol> [ => ..])\n@trace(<dist|gen-fn>(..),<symbol> [ => ..])\nreturn <symbol>Currently, trainable parameters are not supported in static DSL functions.Note that the @trace keyword may only appear in at the top-level of the right-hand-side expresssion. Also, addresses used with the @trace keyword must be a literal Julia symbol (e.g. :a). If multi-part addresses are used, the first component in the multi-part address must be a literal Julia symbol (e.g. :a => i is valid).Also, symbols used on the left-hand-side of assignment statements must be unique (this is called \'static single assignment\' (SSA) form) (this is called \'static single-assignment\' (SSA) form).Loading generated functions. Before a static DSL function can be invoked at runtime, Gen.load_generated_functions() method must be called. Typically, this call immediately preceeds the execution of the inference algorithm.Performance tips. For better performance, annotate the left-hand side of random choices with the type. This permits a more optimized trace data structure to be generated for the generative function. For example:@gen (static) function foo(prob::Float64)\n    z1::Bool = @trace(bernoulli(prob), :a)\n    z2::Bool = @trace(bernoulli(prob), :b)\n    z3 = z1 || z2\n    return z3\nend"
+    "text": "Using the static annotation instructs Gen to statically construct a directed acyclic graph for the computation represented by the body of the function. For the function foo above, the static graph looks like:<div style=\"text-align:center\">\n    <img src=\"../../images/static_graph.png\" alt=\"example static computation graph\" width=\"50%\"/>\n</div>In this graph, oval nodes represent random choices, square nodes represent Julia computations, and diamond nodes represent arguments. The light blue shaded node is the return value of the function. Having access to the static graph allows Gen to generate specialized code for Trace update operations that skips unecessary parts of the computation. Specifically, when applying an update operation, a the graph is analyzed, and each value in the graph identified as having possibly changed, or not. Nodes in the graph do not need to be re-executed if none of their input values could have possibly changed. Also, even if some inputs to a generative function node may have changed, knowledge that some of the inputs have not changed often allows the generative function being called to more efficiently perform its update operation. This is the case for functions produced by Generative Function Combinators.You can plot the graph for a function with the static annotation if you have PyCall installed, and a Python environment that contains the graphviz Python package, using, e.g.:using PyCall\n@pyimport graphviz\nusing Gen: draw_graph\ndraw_graph(foo, graphviz, \"test\")This will produce a file test.pdf in the current working directory containing the rendered graph."
+},
+
+{
+    "location": "ref/modeling/#Restrictions-1",
+    "page": "Built-in Modeling Language",
+    "title": "Restrictions",
+    "category": "section",
+    "text": "In order to be able to construct the static graph, Gen restricts the permitted syntax that can be used in functions annotated with static. In particular, each statement in the body must be one of the following:A pure functional Julia expression on the right-hand side, and a symbol on the left-hand side, e.g.:z4 = !z3A @trace expression on the right-hand side, and a symbol on the left-hand side, e.g.:z2 = @trace(bernoulli(prob), :b)The trace statement must use a literal Julia symbol for the first component in the address. Unlike the full built-in modeling-language, the address is not optional.A return statement, with a literal Julia symbol on the right-hand side, e.g.:return z4The functions must also satisfy the following rules: @trace expressions cannot appear anywhere in the function body except for as the outer-most expression on the right-hand side of a statement.\nEach literal symbol used in the left-hand side of a statement must be unique (e.g. you cannot re-assign to a variable).\nJulia closures and list comprehensions are not allowed.\nFor composite addresses (e.g. :a => 2 => :c) the first component of the address must be a literal symbol, and there may only be one statement in the function body that uses this symbol for the first component of its address.\nJulia control flow constructs (e.g. if, for, while) cannot be used as top-level statements in the function body. Control flow should be implemented inside Julia functions that are called, generative functions that are called such as generative functions produced using Generative Function Combinators.NOTE: Currently, trainable parameters are not supported in static DSL functions."
+},
+
+{
+    "location": "ref/modeling/#Gen.load_generated_functions",
+    "page": "Built-in Modeling Language",
+    "title": "Gen.load_generated_functions",
+    "category": "function",
+    "text": "load_generated_functions()\n\nPermit use of generative functions written in the static modeling language up to this point.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/modeling/#Loading-generated-functions-1",
+    "page": "Built-in Modeling Language",
+    "title": "Loading generated functions",
+    "category": "section",
+    "text": "Before a function with a static annotation can be used, the load_generated_functions method must be called:load_generated_functionsTypically, one call to this function, at the top level of a script, separates the definition of generative functions from the execution of inference code, e.g.:using Gen: load_generated_functions\n\n# define generative functions and inference code\n..\n\n# allow static generative functions defined above to be used\nload_generated_functions()\n\n# run inference code\n.."
+},
+
+{
+    "location": "ref/modeling/#Performance-tips-1",
+    "page": "Built-in Modeling Language",
+    "title": "Performance tips",
+    "category": "section",
+    "text": "For better performance when the arguments are simple data types like Float64, annotate the arguments with the concrete type. This permits a more optimized trace data structure to be generated for the generative function."
 },
 
 {
@@ -857,27 +793,11 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "ref/combinators/#Gen.MapCustomArgDiff",
-    "page": "Generative Function Combinators",
-    "title": "Gen.MapCustomArgDiff",
-    "category": "type",
-    "text": "argdiff = MapCustomArgDiff{T}(retained_argdiffs::Dict{Int,T})\n\nConstruct an argdiff value that contains argdiff information for some subset of applications of the kernel.\n\nIf the number of applications of the kernel, which is determined from the the length of hte input vector(s), has changed, then retained_argdiffs may only contain argdiffs for kernel applications that exist both in the previous trace and and the new trace. For each i in keys(retained_argdiffs), retained_argdiffs[i] contains the argdiff information for the ith application. If an entry is not provided for some i that exists in both the previous and new traces, then its argdiff will be assumed to be NoArgDiff.\n\n\n\n\n\n"
-},
-
-{
     "location": "ref/combinators/#Argdiffs-1",
     "page": "Generative Function Combinators",
     "title": "Argdiffs",
     "category": "section",
     "text": "Generative functions produced by this combinator accept the following argdiff types:NoArgDiff\nUnknownArgDiff\nMapCustomArgDiffMapCustomArgDiff"
-},
-
-{
-    "location": "ref/combinators/#Gen.VectorCustomRetDiff",
-    "page": "Generative Function Combinators",
-    "title": "Gen.VectorCustomRetDiff",
-    "category": "type",
-    "text": "retdiff = VectorCustomRetDiff(retained_retdiffs:Dict{Int,Any})\n\nConstruct a retdiff that provides retdiff information about some elements of the returned vector.\n\nretdiff[i]\n\nReturn the retdiff value for the ith element of the vector.\n\nhaskey(retdiff, i::Int)\n\nReturn true if there is a retdiff value for the ith element of the vector, or false if there was no difference in this element.\n\nkeys(retdiff)\n\nReturn an iterator over the elements with retdiff values.\n\n\n\n\n\n"
 },
 
 {
@@ -902,14 +822,6 @@ var documenterSearchIndex = {"docs": [
     "title": "Unfold combinator",
     "category": "section",
     "text": "UnfoldIn the schematic below, the kernel is denoted mathcalG_mathrmk. The initial state is denoted y_0, the number of applications is n, and the remaining arguments to the kernel not including the state, are z.<div style=\"text-align:center\">\n    <img src=\"../../images/unfold_combinator.png\" alt=\"schematic of unfold combinator\" width=\"70%\"/>\n</div>For example, consider the following kernel, with state type Bool, which makes one random choice at address :z:@gen function foo(t::Int, y_prev::Bool, z1::Float64, z2::Float64)\n    y = @trace(bernoulli(y_prev ? z1 : z2), :y)\n    return y\nendWe apply the map combinator to produce a new generative function bar:bar = Unfold(foo)We can then obtain a trace of bar:(trace, _) = generate(bar, (5, false, 0.05, 0.95))This causes foo to be invoked five times. The resulting trace may contain the following random choices:│\n├── 1\n│   │\n│   └── :y : true\n│\n├── 2\n│   │\n│   └── :y : false\n│\n├── 3\n│   │\n│   └── :y : true\n│\n├── 4\n│   │\n│   └── :y : false\n│\n└── 5\n    │\n    └── :y : true\nthen the return value is:FunctionalCollections.PersistentVector{Any}[true, false, true, false, true]"
-},
-
-{
-    "location": "ref/combinators/#Gen.UnfoldCustomArgDiff",
-    "page": "Generative Function Combinators",
-    "title": "Gen.UnfoldCustomArgDiff",
-    "category": "type",
-    "text": "argdiff = UnfoldCustomArgDiff(init_changed::Bool, params_changed::Bool)\n\nConstruct an argdiff that indicates whether the initial state may have changed (init_changed) , and whether or not the remaining arguments to the kernel may have changed (params_changed).\n\n\n\n\n\n"
 },
 
 {
@@ -1253,7 +1165,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Inference Library",
     "title": "Gen.particle_filter_step!",
     "category": "function",
-    "text": "particle_filter_step!(state::ParticleFilterState, new_args::Tuple, argdiff,\n    observations::ChoiceMap, proposal::GenerativeFunction, proposal_args::Tuple)\n\nPerform a particle filter update, where the model arguments are adjusted, new observations are added, and a custom proposal is used for new latent state.\n\n\n\n\n\nparticle_filter_step!(state::ParticleFilterState, new_args::Tuple, argdiff,\n    observations::ChoiceMap)\n\nPerform a particle filter update, where the model arguments are adjusted, new observations are added, and the default proposal is used for new latent state.\n\n\n\n\n\n"
+    "text": "particle_filter_step!(state::ParticleFilterState, new_args::Tuple, argdiffs,\n    observations::ChoiceMap, proposal::GenerativeFunction, proposal_args::Tuple)\n\nPerform a particle filter update, where the model arguments are adjusted, new observations are added, and a custom proposal is used for new latent state.\n\n\n\n\n\nparticle_filter_step!(state::ParticleFilterState, new_args::Tuple, argdiffs,\n    observations::ChoiceMap)\n\nPerform a particle filter update, where the model arguments are adjusted, new observations are added, and the default proposal is used for new latent state.\n\n\n\n\n\n"
 },
 
 {
