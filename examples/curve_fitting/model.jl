@@ -1,5 +1,7 @@
 @gen function generate_datum(x::Float64, (grad)(coeffs::Vector{Float64}),
-                                    prob_outlier::Float64, noise::Float64)
+                             prob_outlier::Float64, noise::Float64)
+    
+    # use a heuristic to change the noise
     if @trace(bernoulli(prob_outlier), :is_outlier)
         (mu, sigma) = (0., 10.)
     else
@@ -11,6 +13,7 @@ end
 
 # prior over degree of polynomial
 const degree_prior = [0.25, 0.25, 0.25, 0.25]
+#const degree_prior = [1.00]
 
 @gen function model(xs::Vector{Float64})
 
@@ -21,8 +24,8 @@ const degree_prior = [0.25, 0.25, 0.25, 0.25]
     coeffs = [@trace(normal(0, 1), (:c, i)) for i=1:degree+1]
         
     # other parameters
-    prob_outlier = @trace(uniform(0, 0.3), :prob_outlier)
-    noise = @trace(gamma(1, 1), :noise)
+    prob_outlier = 0.1
+    noise = @trace(gamma(2, 2), :noise)
 
     # generate data
     ys = Vector{Float64}(undef, length(xs))

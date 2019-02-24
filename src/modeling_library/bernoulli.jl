@@ -8,6 +8,9 @@ Samples a `Bool` value which is true with given probability
 const bernoulli = Bernoulli()
 
 function logpdf(::Bernoulli, x::Bool, prob::Real)
+    if prob >= 1 || prob <= 0 
+        return -Inf
+    end
     x ? log(prob) : log(1. - prob)
 end
 
