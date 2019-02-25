@@ -18,6 +18,6 @@ function make_dynamic_gen_function(name, args, body, return_type, annotations)
             Expr(:call, :DynamicDSLFunction,
                 quote Type[$(arg_types...)] end,
                 julia_fn_defn,
-                has_argument_grads, return_type,
+                has_argument_grads, esc(return_type),
                 accepts_output_grad)))
 end

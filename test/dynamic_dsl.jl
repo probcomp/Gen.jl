@@ -1,5 +1,8 @@
 using Gen: AddressVisitor, all_visited, visit!, get_visited
 
+struct DummyReturnType
+end
+
 @testset "Dynamic DSL" begin
 
 @testset "Julia call syntax" begin
@@ -9,6 +12,15 @@ using Gen: AddressVisitor, all_visited, visit!, get_visited
     end
 
     @test foo() == 1
+end
+
+@testset "return type" begin
+
+    @gen function foo()::DummyReturnType
+        return DummyReturnType()
+    end
+
+    @test Gen.get_return_type(foo) == DummyReturnType
 end
 
 # TODO also test get_unvisited
