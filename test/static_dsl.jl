@@ -323,4 +323,18 @@ theta = get_node_by_name(ir, :theta)
 
 end
 
+@testset "use of 'end'" begin
+
+@gen (static) function foo()
+    x = [1, 2, 3, 4, 5, 6]
+    y = x[3:end]
+    return y
+end
+
+load_generated_functions()
+
+@test foo() == [3, 4, 5, 6]
+
+end
+
 end # @testset "static DSL"
