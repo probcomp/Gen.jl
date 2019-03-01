@@ -301,7 +301,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Generative Functions",
     "title": "Gen.accepts_output_grad",
     "category": "function",
-    "text": "req::Bool = accepts_output_grad(gen_fn::GenerativeFunction)\n\nReturn a boolean indicating whether the return value is dependent on any of the gradient source elements for any trace.\n\nThe gradient source elements are:\n\nAny argument whose position is true in has_argument_grads\nAny static parameter\nRandom choices made at a set of addresses that are selectable by choice_gradients.\n\n\n\n\n\n"
+    "text": "req::Bool = accepts_output_grad(gen_fn::GenerativeFunction)\n\nReturn a boolean indicating whether the return value is dependent on any of the gradient source elements for any trace.\n\nThe gradient source elements are:\n\nAny argument whose position is true in has_argument_grads\nAny trainable parameter\nRandom choices made at a set of addresses that are selectable by choice_gradients.\n\n\n\n\n\n"
 },
 
 {
@@ -309,7 +309,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Generative Functions",
     "title": "Gen.accumulate_param_gradients!",
     "category": "function",
-    "text": "arg_grads = accumulate_param_gradients!(trace, retgrad, scaler=1.)\n\nIncrement gradient accumulators for parameters by the gradient of the log-probability of the trace, optionally scaled, and return the gradient with respect to the arguments (not scaled).\n\nGiven a previous trace (x t) (trace) and a gradient with respect to the return value _y J (retgrad), return the following gradient (arg_grads) with respect to the arguments x:\n\n_x left( log P(t x) + J right)\n\nAlso increment the gradient accumulators for the static parameters Θ of the function by:\n\n_Θ left( log P(t x) + J right)\n\n\n\n\n\n"
+    "text": "arg_grads = accumulate_param_gradients!(trace, retgrad, scaler=1.)\n\nIncrement gradient accumulators for parameters by the gradient of the log-probability of the trace, optionally scaled, and return the gradient with respect to the arguments (not scaled).\n\nGiven a previous trace (x t) (trace) and a gradient with respect to the return value _y J (retgrad), return the following gradient (arg_grads) with respect to the arguments x:\n\n_x left( log P(t x) + J right)\n\nAlso increment the gradient accumulators for the trainable parameters Θ of the function by:\n\n_Θ left( log P(t x) + J right)\n\n\n\n\n\n"
 },
 
 {
@@ -661,7 +661,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Built-in Modeling Language",
     "title": "Gen.init_param!",
     "category": "function",
-    "text": "init_param!(gen_fn::DynamicDSLFunction, name::Symbol, value)\n\nInitialize the the value of a named trainable parameter of a generative function.\n\nAlso generates the gradient accumulator for that parameter to zero(value).\n\nExample:\n\ninit_param!(foo, :theta, 0.6)\n\n\n\n\n\n"
+    "text": "init_param!(gen_fn::Union{DynamicDSLFunction,StaticIRGenerativeFunction}, name::Symbol, value)\n\nInitialize the the value of a named trainable parameter of a generative function.\n\nAlso generates the gradient accumulator for that parameter to zero(value).\n\nExample:\n\ninit_param!(foo, :theta, 0.6)\n\n\n\n\n\n"
 },
 
 {
@@ -669,7 +669,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Built-in Modeling Language",
     "title": "Gen.get_param",
     "category": "function",
-    "text": "value = get_param(gen_fn::DynamicDSlFunction, name::Symbol)\n\nGet the current value of a trainable parameter of the generative function.\n\n\n\n\n\n"
+    "text": "value = get_param(gen_fn::Union{DynamicDSLFunction,StaticIRGenerativeFunction}, name::Symbol)\n\nGet the current value of a trainable parameter of the generative function.\n\n\n\n\n\n"
 },
 
 {
@@ -677,7 +677,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Built-in Modeling Language",
     "title": "Gen.get_param_grad",
     "category": "function",
-    "text": "value = get_param_grad(gen_fn::DynamicDSlFunction, name::Symbol)\n\nGet the current value of the gradient accumulator for a trainable parameter of the generative function.\n\n\n\n\n\n"
+    "text": "value = get_param_grad(gen_fn::Union{DynamicDSLFunction,StaticIRGenerativeFunction}, name::Symbol)\n\nGet the current value of the gradient accumulator for a trainable parameter of the generative function.\n\n\n\n\n\n"
 },
 
 {
@@ -685,7 +685,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Built-in Modeling Language",
     "title": "Gen.set_param!",
     "category": "function",
-    "text": "set_param!(gen_fn::DynamicDSlFunction, name::Symbol, value)\n\nSet the value of a trainable parameter of the generative function.\n\nNOTE: Does not update the gradient accumulator value.\n\n\n\n\n\n"
+    "text": "set_param!(gen_fn::Union{DynamicDSLFunction,StaticIRGenerativeFunction}, name::Symbol, value)\n\nSet the value of a trainable parameter of the generative function.\n\nNOTE: Does not update the gradient accumulator value.\n\n\n\n\n\n"
 },
 
 {
@@ -693,7 +693,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Built-in Modeling Language",
     "title": "Gen.zero_param_grad!",
     "category": "function",
-    "text": "value = zero_param_grad!(gen_fn::DynamicDSlFunction, name::Symbol)\n\nReset the gradient accumlator for a trainable parameter of the generative function to all zeros.\n\n\n\n\n\n"
+    "text": "zero_param_grad!(gen_fn::Union{DynamicDSLFunction,StaticIRGenerativeFunction}, name::Symbol)\n\nReset the gradient accumlator for a trainable parameter of the generative function to all zeros.\n\n\n\n\n\n"
 },
 
 {
@@ -749,7 +749,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Built-in Modeling Language",
     "title": "Restrictions",
     "category": "section",
-    "text": "In order to be able to construct the static graph, Gen restricts the permitted syntax that can be used in functions annotated with static. In particular, each statement in the body must be one of the following:A pure functional Julia expression on the right-hand side, and a symbol on the left-hand side, e.g.:z4 = !z3A @trace expression on the right-hand side, and a symbol on the left-hand side, e.g.:z2 = @trace(bernoulli(prob), :b)The trace statement must use a literal Julia symbol for the first component in the address. Unlike the full built-in modeling-language, the address is not optional.A return statement, with a literal Julia symbol on the right-hand side, e.g.:return z4The functions must also satisfy the following rules: @trace expressions cannot appear anywhere in the function body except for as the outer-most expression on the right-hand side of a statement.\nEach literal symbol used in the left-hand side of a statement must be unique (e.g. you cannot re-assign to a variable).\nJulia closures and list comprehensions are not allowed.\nFor composite addresses (e.g. :a => 2 => :c) the first component of the address must be a literal symbol, and there may only be one statement in the function body that uses this symbol for the first component of its address.\nJulia control flow constructs (e.g. if, for, while) cannot be used as top-level statements in the function body. Control flow should be implemented inside Julia functions that are called, generative functions that are called such as generative functions produced using Generative Function Combinators.NOTE: Currently, trainable parameters are not supported in static DSL functions."
+    "text": "In order to be able to construct the static graph, Gen restricts the permitted syntax that can be used in functions annotated with static. In particular, each statement in the body must be one of the following:A pure functional Julia expression on the right-hand side, and a symbol on the left-hand side, e.g.:z4 = !z3A @trace expression on the right-hand side, and a symbol on the left-hand side, e.g.:z2 = @trace(bernoulli(prob), :b)The trace statement must use a literal Julia symbol for the first component in the address. Unlike the full built-in modeling-language, the address is not optional.A return statement, with a literal Julia symbol on the right-hand side, e.g.:return z4The functions must also satisfy the following rules: @trace expressions cannot appear anywhere in the function body except for as the outer-most expression on the right-hand side of a statement.\nEach literal symbol used in the left-hand side of a statement must be unique (e.g. you cannot re-assign to a variable).\nJulia closures and list comprehensions are not allowed.\nFor composite addresses (e.g. :a => 2 => :c) the first component of the address must be a literal symbol, and there may only be one statement in the function body that uses this symbol for the first component of its address.\nJulia control flow constructs (e.g. if, for, while) cannot be used as top-level statements in the function body. Control flow should be implemented inside Julia functions that are called, generative functions that are called such as generative functions produced using Generative Function Combinators."
 },
 
 {
@@ -1253,7 +1253,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Optimizing Trainable Parameters",
     "title": "Gen.apply_update!",
     "category": "function",
-    "text": "apply_update!(state)\n\nApply one parameter update, mutating the values of the static parameters, and possibly also the given state.\n\n\n\n\n\n"
+    "text": "apply_update!(state)\n\nApply one parameter update, mutating the values of the trainable parameters, and possibly also the given state.\n\n\n\n\n\n"
 },
 
 {
