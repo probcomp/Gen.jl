@@ -19,6 +19,11 @@ maybe_tracked_value_var(node::JuliaNode) = Symbol("$(maybe_tracked_value_prefix)
 const maybe_tracked_arg_prefix = gensym("maybe_tracked_arg")
 maybe_tracked_arg_var(node::JuliaNode, i::Int) = Symbol("$(maybe_tracked_arg_prefix)_$(node.name)_$i")
 
+function fwd_pass!(selected_choices, selected_calls, fwd_marked, node::TrainableParameterNode)
+    # TODO: only need to mark it if we are doing backprop params
+    push!(fwd_marked, node)
+end
+
 function fwd_pass!(selected_choices, selected_calls, fwd_marked, node::ArgumentNode)
     if node.compute_grad
         push!(fwd_marked, node)
@@ -43,6 +48,8 @@ function fwd_pass!(selected_choices, selected_calls, fwd_marked, node::Generativ
     end
 end
 
+function back_pass!(back_marked, node::TrainableParameterNode) end
+
 function back_pass!(back_marked, node::ArgumentNode) end
 
 function back_pass!(back_marked, node::JuliaNode)
@@ -66,6 +73,19 @@ function back_pass!(back_marked, node::GenerativeFunctionCallNode)
     # the logpdf of every generative function call is a SINK
     for input_node in node.inputs
         push!(back_marked, input_node)
+    end
+end
+
+function fwd_codegen!(stmts, fwd_marked, back_marked, node::TrainableParameterNode)
+    if node in back_marked
+        push!(stmts, :($(node.name) = $(QuoteNode(get_param))($(QuoteNode(get_gen_fn))(trace),
+            $(QuoteNode(node.name)))))
+    end
+
+    if node in fwd_marked && node in back_marked
+
+        # initialize gradient to zero
+        push!(stmts, :($(gradient_var(node)) = zero($(node.name))))
     end
 end
 
@@ -143,6 +163,23 @@ function fwd_codegen!(stmts, fwd_marked, back_marked, node::GenerativeFunctionCa
     if node in fwd_marked && node in back_marked
         # we are fwd_marked if an input was fwd_marked, or if we were selected internally
         push!(stmts, :($(gradient_var(node)) = zero($(node.name))))
+    end
+end
+
+function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked, node::TrainableParameterNode, mode)
+
+    # handle case when it is the return node
+    if node === ir.return_node && node in fwd_marked
+        @assert node in back_marked
+        push!(stmts, :($(gradient_var(node)) += retval_grad))
+    end
+
+    if node in fwd_marked && node in back_marked
+        cur_param_grad = :($(QuoteNode(get_param_grad))(trace.$static_ir_gen_fn_ref,
+            $(QuoteNode(node.name))))
+        push!(stmts, :($(QuoteNode(set_param_grad!))(trace.$static_ir_gen_fn_ref,
+            $(QuoteNode(node.name)),
+            $cur_param_grad + $(gradient_var(node)))))
     end
 end
 

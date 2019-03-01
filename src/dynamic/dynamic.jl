@@ -90,64 +90,6 @@ macro param(expr_or_symbol)
     Expr(:(=), esc(name), Expr(:call, :read_param, esc(state), QuoteNode(name)))
 end
 
-"""
-    set_param!(gen_fn::DynamicDSlFunction, name::Symbol, value)
-
-Set the value of a trainable parameter of the generative function.
-
-NOTE: Does not update the gradient accumulator value.
-"""
-function set_param!(gf::DynamicDSLFunction, name::Symbol, value)
-    gf.params[name] = value
-end
-
-"""
-    value = get_param(gen_fn::DynamicDSlFunction, name::Symbol)
-
-Get the current value of a trainable parameter of the generative function.
-"""
-function get_param(gf::DynamicDSLFunction, name::Symbol)
-    gf.params[name]
-end
-
-"""
-    value = get_param_grad(gen_fn::DynamicDSlFunction, name::Symbol)
-
-Get the current value of the gradient accumulator for a trainable parameter of the generative function.
-"""
-function get_param_grad(gf::DynamicDSLFunction, name::Symbol)
-    gf.params_grad[name]
-end
-
-"""
-    value = zero_param_grad!(gen_fn::DynamicDSlFunction, name::Symbol)
-
-Reset the gradient accumlator for a trainable parameter of the generative function to all zeros.
-"""
-function zero_param_grad!(gf::DynamicDSLFunction, name::Symbol)
-    gf.params_grad[name] = zero(gf.params[name])
-end
-
-"""
-    init_param!(gen_fn::DynamicDSLFunction, name::Symbol, value)
-
-Initialize the the value of a named trainable parameter of a generative function.
-
-Also generates the gradient accumulator for that parameter to `zero(value)`.
-
-Example:
-```julia
-init_param!(foo, :theta, 0.6)
-```
-"""
-function init_param!(gf::DynamicDSLFunction, name::Symbol, value)
-    set_param!(gf, name, value)
-    zero_param_grad!(gf, name)
-end
-
-get_params(gf::DynamicDSLFunction) = keys(gf.params)
-
-
 ##################
 # AddressVisitor #
 ##################
@@ -228,10 +170,8 @@ include("update.jl")
 include("regenerate.jl")
 include("extend.jl")
 include("backprop.jl")
-include("optimization.jl")
 
 export DynamicDSLFunction
-export set_param!, get_param, get_param_grad, zero_param_grad!, init_param!
 export @param
 export @trace
 export @gen

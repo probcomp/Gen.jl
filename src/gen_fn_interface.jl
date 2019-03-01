@@ -108,7 +108,7 @@ The gradient source elements are:
 
 - Any argument whose position is true in `has_argument_grads`
 
-- Any static parameter
+- Any trainable parameter
 
 - Random choices made at a set of addresses that are selectable by `choice_gradients`.
 """
@@ -303,7 +303,7 @@ with respect to the arguments \$x\$:
 ```math
 ∇_x \\left( \\log P(t; x) + J \\right)
 ```
-Also increment the gradient accumulators for the static parameters \$Θ\$ of
+Also increment the gradient accumulators for the trainable parameters \$Θ\$ of
 the function by:
 ```math
 ∇_Θ \\left( \\log P(t; x) + J \\right)

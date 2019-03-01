@@ -11,7 +11,7 @@ function init_update_state end
 """
     apply_update!(state)
 
-Apply one parameter update, mutating the values of the static parameters, and possibly also the given state.
+Apply one parameter update, mutating the values of the trainable parameters, and possibly also the given state.
 """
 function apply_update! end
 

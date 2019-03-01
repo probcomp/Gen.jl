@@ -66,6 +66,8 @@ function get_node_by_name(ir, name::Symbol)
     nodes[1]
 end
 
+@testset "check IR" begin
+
 #####################
 # check IR of datum #
 #####################
@@ -218,9 +220,10 @@ in2 = params_vec.inputs[2]
 
 @test ir.return_node === ys
 
-#####################
-## at_choice syntax #
-#####################
+end
+
+
+@testset "at_choice" begin
 
 # at_choice_example_1
 ir = Gen.get_ir(typeof(at_choice_example_1))
@@ -251,10 +254,10 @@ at2 = at.kernel
 @test isa(at2, Gen.ChoiceAtCombinator)
 @test at2.dist == bernoulli
 
+end
 
-##################
-# at_call syntax #
-##################
+
+@testset "at_call" begin
 
 # at_call_example_1
 ir = Gen.get_ir(typeof(at_call_example_1))
@@ -286,9 +289,10 @@ at2 = at.kernel
 @test isa(at2, Gen.CallAtCombinator)
 @test at2.kernel == foo
 
-##########################
-# traced diff annotation #
-##########################
+end
+
+
+@testset "traced diff annotation" begin
 
 @gen (static, diffs) function bar(x)
     return x
@@ -302,5 +306,21 @@ end
 
 @test !Gen.get_track_diffs(typeof(bar))
 
+end
+
+
+@testset "trainable parameters" begin
+
+@gen (static) function foo()
+    @param theta::Float64
+    return theta
+end
+
+ir = Gen.get_ir(typeof(foo))
+theta = get_node_by_name(ir, :theta)
+@test isa(theta, Gen.TrainableParameterNode)
+@test ir.return_node === theta
+
+end
 
 end # @testset "static DSL"

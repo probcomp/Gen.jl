@@ -1,5 +1,10 @@
 abstract type StaticIRNode end
 
+struct TrainableParameterNode <: StaticIRNode
+    name::Symbol
+    typ::Union{Symbol,Expr,QuoteNode}
+end
+
 struct ArgumentNode <: StaticIRNode
     name::Symbol
     typ::Union{Symbol,Expr,QuoteNode}
@@ -31,6 +36,7 @@ end
 
 struct StaticIR
     nodes::Vector{StaticIRNode}
+    trainable_param_nodes::Vector{TrainableParameterNode}
     arg_nodes::Vector{ArgumentNode}
     choice_nodes::Vector{RandomChoiceNode}
     call_nodes::Vector{GenerativeFunctionCallNode}
@@ -41,6 +47,7 @@ end
 mutable struct StaticIRBuilder
     nodes::Vector{StaticIRNode}
     node_set::Set{StaticIRNode}
+    trainable_param_nodes::Vector{TrainableParameterNode}
     arg_nodes::Vector{ArgumentNode}
     choice_nodes::Vector{RandomChoiceNode}
     call_nodes::Vector{GenerativeFunctionCallNode}
@@ -54,6 +61,7 @@ end
 function StaticIRBuilder()
     nodes = Vector{StaticIRNode}()
     node_set = Set{StaticIRNode}()
+    trainable_param_nodes = Vector{TrainableParameterNode}()
     arg_nodes = Vector{ArgumentNode}()
     choice_nodes = Vector{RandomChoiceNode}()
     call_nodes = Vector{GenerativeFunctionCallNode}()
@@ -62,7 +70,7 @@ function StaticIRBuilder()
     addrs_to_choice_nodes = Dict{Symbol,RandomChoiceNode}()
     addrs_to_call_nodes = Dict{Symbol,GenerativeFunctionCallNode}()
     accepts_output_grad = false
-    StaticIRBuilder(nodes, node_set, arg_nodes, choice_nodes, call_nodes,
+    StaticIRBuilder(nodes, node_set, trainable_param_nodes, arg_nodes, choice_nodes, call_nodes,
         return_node, vars, addrs_to_choice_nodes, addrs_to_call_nodes,
         accepts_output_grad)
 end
@@ -73,6 +81,7 @@ function build_ir(builder::StaticIRBuilder)
     end
     StaticIR(
         builder.nodes,
+        builder.trainable_param_nodes,
         builder.arg_nodes,
         builder.choice_nodes,
         builder.call_nodes,
@@ -104,6 +113,17 @@ function _add_node!(builder::StaticIRBuilder, node::StaticIRNode)
     push!(builder.nodes, node)
     push!(builder.node_set, node)
 end
+
+function add_trainable_param_node!(builder::StaticIRBuilder,
+                                   name::Symbol;
+                                   typ::Union{Symbol,Expr,QuoteNode}=QuoteNode(Any))
+    check_unique_var(builder, name)
+    node = TrainableParameterNode(name, typ)
+    _add_node!(builder, node)
+    push!(builder.trainable_param_nodes, node)
+    node
+end
+
 
 function add_argument_node!(builder::StaticIRBuilder;
                             name::Symbol=gensym(),
@@ -178,6 +198,7 @@ function set_accepts_output_grad!(builder::StaticIRBuilder, value::Bool)
 end
 
 export StaticIR, StaticIRBuilder, build_ir
+export add_trainable_param_node!
 export add_argument_node!
 export add_julia_node!
 export add_constant_node!

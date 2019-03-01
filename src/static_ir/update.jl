@@ -47,6 +47,8 @@ function forward_pass_argdiff!(state::ForwardPassState,
     end
 end
 
+function process_forward!(::AddressSchema, ::ForwardPassState, ::TrainableParameterNode) end
+
 function process_forward!(::AddressSchema, ::ForwardPassState, node::ArgumentNode) end
 
 function process_forward!(::AddressSchema, state::ForwardPassState, node::JuliaNode)
@@ -97,6 +99,8 @@ function BackwardPassState()
     BackwardPassState(Set{StaticIRNode}())
 end
 
+function process_backward!(::ForwardPassState, ::BackwardPassState, ::TrainableParameterNode) end
+
 function process_backward!(::ForwardPassState, ::BackwardPassState, ::ArgumentNode) end
 
 function process_backward!(::ForwardPassState, back::BackwardPassState,
@@ -134,6 +138,13 @@ function arg_values_and_diffs_from_tracked_diffs(input_nodes)
     arg_values = map((node) -> Expr(:call, qn_strip_diff, node.name), input_nodes)
     arg_diffs = map((node) -> Expr(:call, qn_get_diff, node.name), input_nodes)
     (arg_values, arg_diffs)
+end
+
+function process_codegen!(stmts, ::ForwardPassState, back::BackwardPassState,
+                          node::TrainableParameterNode, ::AbstractUpdateMode, track_diffs)
+    if node in back.marked
+        push!(stmts, :($(node.name) = $(QuoteNode(get_param))($(QuoteNode(get_gen_fn))(trace), $(QuoteNode(node.name)))))
+    end
 end
 
 function process_codegen!(stmts, ::ForwardPassState, ::BackwardPassState,
@@ -434,11 +445,15 @@ function generate_return_value!(stmts::Vector{Expr}, fwd::ForwardPassState, retu
 end
 
 function generate_new_trace!(stmts::Vector{Expr}, trace_type::Type, track_diffs::Val{true})
-    constructor_args = map((name) -> Expr(:call, QuoteNode(strip_diff), name), fieldnames(trace_type))
-    push!(stmts, :($trace = $(QuoteNode(trace_type))($(constructor_args...))))
+    # note that the generative function is the last field
+    constructor_args = map((name) -> Expr(:call, QuoteNode(strip_diff), name), 
+                           fieldnames(trace_type)[1:end-1])
+    push!(stmts, :($trace = $(QuoteNode(trace_type))($(constructor_args...),
+                    $(Expr(:(.), :trace, QuoteNode(static_ir_gen_fn_ref))))))
 end
 
 function generate_new_trace!(stmts::Vector{Expr}, trace_type::Type, track_diffs::Val{false})
+    push!(stmts, :($static_ir_gen_fn_ref = $(Expr(:(.), :trace, QuoteNode(static_ir_gen_fn_ref)))))
     push!(stmts, :($trace = $(QuoteNode(trace_type))($(fieldnames(trace_type)...))))
 end
 

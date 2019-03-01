@@ -30,8 +30,6 @@ function get_ir end
 function get_gen_fn_type end
 function get_track_diffs end
 
-# TODO add trainable parameters
-
 function generate_generative_function(ir::StaticIR, name::Symbol, track_diffs::Bool)
 
     (trace_defns, trace_struct_name) = generate_trace_type_and_methods(ir, name)
@@ -44,17 +42,19 @@ function generate_generative_function(ir::StaticIR, name::Symbol, track_diffs::B
 
     gen_fn_defn = quote
         struct $gen_fn_type_name <: $(QuoteNode(StaticIRGenerativeFunction)){$return_type,$trace_type}
+            params_grad::Dict{Symbol,Any}
+            params::Dict{Symbol,Any}
         end
         (gen_fn::$gen_fn_type_name)(args...) = propose(gen_fn, args)[3]
         $(Expr(:(.), Gen, QuoteNode(:get_ir)))(::Type{$gen_fn_type_name}) = $(QuoteNode(ir))
         $(Expr(:(.), Gen, QuoteNode(:get_trace_type)))(::Type{$gen_fn_type_name}) = $trace_struct_name
         $(Expr(:(.), Gen, QuoteNode(:has_argument_grads)))(::$gen_fn_type_name) = $(QuoteNode(has_argument_grads))
         $(Expr(:(.), Gen, QuoteNode(:accepts_output_grad)))(::$gen_fn_type_name) = $(QuoteNode(accepts_output_grad))
-        $(Expr(:(.), Gen, QuoteNode(:get_gen_fn)))(::$trace_struct_name) = $gen_fn_type_name()
+        $(Expr(:(.), Gen, QuoteNode(:get_gen_fn)))(trace::$trace_struct_name) = $(Expr(:(.), :trace, QuoteNode(static_ir_gen_fn_ref)))
         $(Expr(:(.), Gen, QuoteNode(:get_gen_fn_type)))(::Type{$trace_struct_name}) = $gen_fn_type_name
         $(Expr(:(.), Gen, QuoteNode(:get_track_diffs)))(::Type{$gen_fn_type_name}) = $(QuoteNode(track_diffs))
     end
-    Expr(:block, trace_defns, gen_fn_defn, Expr(:call, gen_fn_type_name))
+    Expr(:block, trace_defns, gen_fn_defn, Expr(:call, gen_fn_type_name, :(Dict{Symbol,Any}()), :(Dict{Symbol,Any}())))
 end
 
 include("render_ir.jl")

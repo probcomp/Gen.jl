@@ -5,6 +5,10 @@ end
 
 function process!(::StaticIRGenerateState, node) end
 
+function process!(state::StaticIRGenerateState, node::TrainableParameterNode)
+    push!(state.stmts, :($(node.name) = $(QuoteNode(get_param))(gen_fn, $(QuoteNode(node.name)))))
+end
+
 function process!(state::StaticIRGenerateState, node::ArgumentNode)
     push!(state.stmts, :($(get_value_fieldname(node)) = $(node.name)))
 end
@@ -91,6 +95,7 @@ function codegen_generate(gen_fn_type::Type{T}, args,
     push!(stmts, :($return_value_fieldname = $(ir.return_node.name)))
 
     # construct trace
+    push!(stmts, :($static_ir_gen_fn_ref = gen_fn))
     push!(stmts, :($trace = $(QuoteNode(trace_type))($(fieldnames(trace_type)...))))
 
     # return trace and weight
