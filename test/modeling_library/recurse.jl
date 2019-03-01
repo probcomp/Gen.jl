@@ -129,6 +129,9 @@ end
         @test "(-b(-aa)b)" in strings
     end
 
+    # test Julia call
+    @test isa(pcfg(nothing, 1), String)
+
     # test generate
     Random.seed!(1)
     strings = Set{String}()

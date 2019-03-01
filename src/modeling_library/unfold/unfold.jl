@@ -40,6 +40,11 @@ end
 # TODO
 accepts_output_grad(gen_fn::Unfold) = false
 
+function (gen_fn::Unfold)(args...)
+    (_, _, retval) = propose(gen_fn, args)
+    retval
+end
+
 function unpack_args(args::Tuple)
     len = args[1]
     init_state = args[2]

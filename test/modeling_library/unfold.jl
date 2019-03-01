@@ -11,6 +11,10 @@
 
     foo = Unfold(kernel)
 
+    @testset "Julia call" begin
+        @test length(foo(5, 0., 1.0, 1.0)) == 5
+    end
+
     @testset "simulate" begin
         x_init = 0.1
         alpha = 0.2

@@ -130,6 +130,11 @@ end
 # TODO
 accepts_output_grad(::Recurse) = false
 
+function (gen_fn::Recurse)(args...)
+    (_, _, retval) = propose(gen_fn, args)
+    retval
+end
+
 function get_child(parent::Int, child_num::Int, max_branch::Int)
     @assert child_num >= 1 && child_num <= max_branch
     (parent - 1) * max_branch + child_num + 1

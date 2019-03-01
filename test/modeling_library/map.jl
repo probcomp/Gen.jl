@@ -12,6 +12,10 @@
     xs = [1.0, 2.0, 3.0, 4.0]
     ys = [3.0, 4.0, 5.0, 6.0]
 
+    @testset "Julia call" begin
+        @test length(bar(xs, ys)) == 4
+    end
+
     @testset "simulate" begin
         trace = simulate(bar, (xs[1:2], ys[1:2]))
         expected_score = 0.
