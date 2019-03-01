@@ -2,7 +2,7 @@
 
 Gen: A General-Purpose Probabilistic Programming System with Programmable Inference
 
-*Warning: This is rapidly evolving research software. We are currently stabilizing the DSLs and APIs, and developing documentation and tutorials.*
+*Warning: This is rapidly evolving research software.*
 
 ## Documentation
 
