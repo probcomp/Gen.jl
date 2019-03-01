@@ -195,12 +195,12 @@ function accumulate_param_gradients!(trace::DynamicDSLTrace, retval_grad, scaler
     seed!(state.score)
     reverse_pass!(tape)
 
-    # increment the gradient accumulators for static parameters in scope
+    # increment the gradient accumulators for trainable parameters in scope
     for (name, tracked) in state.tracked_params
         gen_fn.params_grad[name] += deriv(tracked) * state.scaler
     end
 
-    # increment the gradient accumulators for static parameters in splice calls
+    # increment the gradient accumulators for trainable parameters in splice calls
     for ((spliced_gen_fn, name), tracked) in state.splice_tracked_params
         spliced_gen_fn.params_grad[name] += deriv(tracked) * state.scaler
     end

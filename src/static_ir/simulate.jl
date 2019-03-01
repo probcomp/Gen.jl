@@ -4,6 +4,10 @@ end
 
 function process!(::StaticIRSimulateState, node) end
 
+function process!(state::StaticIRSimulateState, node::TrainableParameterNode)
+    push!(state.stmts, :($(node.name) = $(QuoteNode(get_param))(gen_fn, $(QuoteNode(node.name)))))
+end
+
 function process!(state::StaticIRSimulateState, node::ArgumentNode)
     push!(state.stmts, :($(get_value_fieldname(node)) = $(node.name)))
 end
@@ -65,6 +69,7 @@ function codegen_simulate(gen_fn_type::Type{T}, args) where {T <: StaticIRGenera
 
     # construct trace
     trace_type = get_trace_type(gen_fn_type)
+    push!(stmts, :($static_ir_gen_fn_ref = gen_fn))
     push!(stmts, :($trace = $(QuoteNode(trace_type))($(fieldnames(trace_type)...))))
 
     # return trace

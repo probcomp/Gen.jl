@@ -24,25 +24,30 @@ ir = build_ir(builder)
 bar = eval(generate_generative_function(ir, :bar, false))
 
 #@gen (static) function foo(a, b)
+    #@param theta::Float64
     #x = @trace(normal(0, 1), :x)
     #y = @trace(normal(x, a), :y)
     #z = @trace(bar(y, b), :z)
-    #w = z + 1 + a
+    #w = z + 1 + a + theta
     #return w
 #end
 
 builder = StaticIRBuilder()
 a = add_argument_node!(builder, name=:a)
 b = add_argument_node!(builder, name=:b)
+theta = add_trainable_param_node!(builder, :theta, typ=QuoteNode(Float64))
 zero = add_constant_node!(builder, 0.)
 one = add_constant_node!(builder, 1.)
 x = add_addr_node!(builder, normal, inputs=[zero, one], addr=:x, name=:x)
 y = add_addr_node!(builder, normal, inputs=[x, a], addr=:y, name=:y)
 z = add_addr_node!(builder, bar, inputs=[y, b], addr=:z, name=:z)
-w = add_julia_node!(builder, (z, a) -> z + 1 + a, inputs=[z, a], name=:w)
+w = add_julia_node!(builder, (z, a, theta) -> z + 1 + a + theta, inputs=[z, a, theta], name=:w)
 set_return_node!(builder, w)
 ir = build_ir(builder)
 foo = eval(generate_generative_function(ir, :foo, false))
+
+theta_val = rand()
+set_param!(foo, :theta, theta_val)
 
 #@gen function const_fn()
     #return 1
@@ -76,7 +81,7 @@ end
 
     @test isapprox(expected_score(a, b, x, y, v), get_score(trace))
 
-    expected_retval = z + 1 + a
+    expected_retval = z + 1 + a + theta_val
     @test isapprox(expected_retval, get_retval(trace))
 end
 
@@ -320,6 +325,11 @@ end
 
 @testset "backprop" begin
 
+    #@gen (static) function bar(mu_z::Float64)
+        #z = @trace(normal(mu_z, 1), :z)
+        #return z + mu_z
+    #end
+
     # bar
     builder = StaticIRBuilder()
     mu_z = add_argument_node!(builder, name=:mu_z, typ=:Float64, compute_grad=true)
@@ -329,15 +339,27 @@ end
     set_return_node!(builder, retval)
     ir = build_ir(builder)
     bar = eval(generate_generative_function(ir, :bar, false))
+
+    #@gen (static) function foo(mu_a::Float64)
+        #param theta::Float64
+        #a = @trace(normal(mu_a, 1), :a)
+        #b = @trace(normal(a, 1), :b)
+        #bar = @trace(bar(a), :bar)
+        #c = a * b * bar * theta
+        #out = @trace(normal(c, 1), :out)
+        #return out
+    #end
     
     # foo
     builder = StaticIRBuilder()
     mu_a = add_argument_node!(builder, name=:mu_a, typ=:Float64, compute_grad=true)
+    theta = add_trainable_param_node!(builder, :theta, typ=QuoteNode(Float64))
     one = add_constant_node!(builder, 1.)
     a = add_addr_node!(builder, normal, inputs=[mu_a, one], addr=:a, name=:a)
     b = add_addr_node!(builder, normal, inputs=[a, one], addr=:b, name=:b)
     bar_val = add_addr_node!(builder, bar, inputs=[a], addr=:bar, name=:bar_val)
-    c = add_julia_node!(builder, (a, b, bar) -> (a * b * bar), inputs=[a, b, bar_val], name=:c)
+    c = add_julia_node!(builder, (a, b, bar, theta) -> (a * b * bar * theta),
+            inputs=[a, b, bar_val, theta], name=:c)
     retval = add_addr_node!(builder, normal, inputs=[c, one], addr=:out, name=:out)
     set_return_node!(builder, retval)
     ir = build_ir(builder)
@@ -345,22 +367,28 @@ end
 
     Gen.load_generated_functions()
 
-    function f(mu_a, a, b, z, out)
+    function f(mu_a, theta, a, b, z, out)
         lpdf = 0.
         mu_z = a
         lpdf += logpdf(normal, z, mu_z, 1)
         lpdf += logpdf(normal, a, mu_a, 1)
         lpdf += logpdf(normal, b, a, 1)
-        c = a * b * (z + mu_z)
+        c = a * b * (z + mu_z) * theta
         lpdf += logpdf(normal, out, c, 1)
         return lpdf + 2 * out
     end
 
     mu_a = 1.
+    theta = -0.5
     a = 2.
     b = 3.
     z = 4.
     out = 5.
+
+    init_param!(foo, :theta, theta)
+
+    @test get_param(foo, :theta) == theta
+    @test get_param_grad(foo, :theta) == 0.
 
     # get the initial trace
     constraints = choicemap()
@@ -377,7 +405,7 @@ end
     ((mu_a_grad,), value_trie, gradient_trie) = choice_gradients(trace, selection, retval_grad)
 
     # check input gradient
-    @test isapprox(mu_a_grad, finite_diff(f, (mu_a, a, b, z, out), 1, dx))
+    @test isapprox(mu_a_grad, finite_diff(f, (mu_a, theta, a, b, z, out), 1, dx))
 
     # check value trie
     @test get_value(value_trie, :a) == a
@@ -391,16 +419,25 @@ end
     @test length(get_submaps_shallow(gradient_trie)) == 1
     @test length(get_values_shallow(gradient_trie)) == 2
     @test !has_value(gradient_trie, :b) # was not selected
-    @test isapprox(get_value(gradient_trie, :a), finite_diff(f, (mu_a, a, b, z, out), 2, dx))
-    @test isapprox(get_value(gradient_trie, :out), finite_diff(f, (mu_a, a, b, z, out), 5, dx))
-    @test isapprox(get_value(gradient_trie, :bar => :z), finite_diff(f, (mu_a, a, b, z, out), 4, dx))
+    @test isapprox(get_value(gradient_trie, :a), finite_diff(f, (mu_a, theta, a, b, z, out), 3, dx))
+    @test isapprox(get_value(gradient_trie, :out), finite_diff(f, (mu_a, theta, a, b, z, out), 6, dx))
+    @test isapprox(get_value(gradient_trie, :bar => :z), finite_diff(f, (mu_a, theta, a, b, z, out), 5, dx))
+
+    # reset the trainable parameter gradient
+    zero_param_grad!(foo, :theta)
+    @test get_param(foo, :theta) == theta
+    @test get_param_grad(foo, :theta) == 0.
 
     # compute gradients with accumulate_param_gradients!
     retval_grad = 2.
     (mu_a_grad,) = accumulate_param_gradients!(trace, retval_grad)
 
     # check input gradient
-    @test isapprox(mu_a_grad, finite_diff(f, (mu_a, a, b, z, out), 1, dx))
+    @test isapprox(mu_a_grad, finite_diff(f, (mu_a, theta, a, b, z, out), 1, dx))
+
+    # check trainable parameter gradient
+    @test isapprox(get_param_grad(foo, :theta), finite_diff(f, (mu_a, theta, a, b, z, out), 2, dx))
+
 end
 
 # functions to test tracked diffs

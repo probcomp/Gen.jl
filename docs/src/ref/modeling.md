@@ -403,8 +403,6 @@ The functions must also satisfy the following rules:
 
 - Julia control flow constructs (e.g. `if`, `for`, `while`) cannot be used as top-level statements in the function body. Control flow should be implemented inside Julia functions that are called, generative functions that are called such as generative functions produced using [Generative Function Combinators](@ref).
 
-NOTE: Currently, trainable parameters are not supported in static DSL functions.
-
 ### Loading generated functions
 Before a function with a static annotation can be used, the [`load_generated_functions`](@ref) method must be called:
 ```@docs

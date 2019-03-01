@@ -91,12 +91,14 @@ function get_trace_fields(ir::StaticIR)
     return fields
 end
 
+const static_ir_gen_fn_ref = gensym("gen_fn")
+
 function generate_trace_struct(ir::StaticIR, trace_struct_name::Symbol)
     mutable = false
     fields = get_trace_fields(ir)
     field_exprs = map((f) -> Expr(:(::), f.fieldname, f.typ), fields)
     Expr(:struct, mutable, Expr(:(<:), trace_struct_name, QuoteNode(StaticIRTrace)),
-         Expr(:block, field_exprs...))
+         Expr(:block, field_exprs..., Expr(:(::), static_ir_gen_fn_ref, QuoteNode(Any))))
 end
 
 function generate_isempty(trace_struct_name::Symbol)

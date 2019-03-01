@@ -1,5 +1,6 @@
 const STATIC_DSL_GRAD = Symbol("@grad")
 const STATIC_DSL_TRACE = Symbol("@trace")
+const STATIC_DSL_PARAM = Symbol("@param")
 
 function static_dsl_syntax_error(expr, msg="")
     error("Syntax error when parsing static DSL function at $expr. $msg")
@@ -160,6 +161,25 @@ function parse_trace_expr!(stmts, bindings, name, addr_expr, typ)
     true
 end
 
+function parse_trainable_param!(stmts::Vector{Expr}, bindings, line::Expr)
+    if (line.head == :macrocall
+            && line.args[1] == STATIC_DSL_PARAM
+            && length(line.args) == 3
+            && isa(line.args[2], LineNumberNode))
+        (name::Symbol, typ) = parse_lhs(line.args[3])
+        if haskey(bindings, name)
+            static_dsl_syntax_error(addr_expr, "Symbol $name already bound")
+        end
+        node = gensym()
+        bindings[name] = node
+        push!(stmts, :($(esc(node)) = add_trainable_param_node!(
+            builder, $(QuoteNode(name)), typ=$(QuoteNode(typ)))))
+        true
+    else
+        return false
+    end
+end
+
 function parse_trace_line!(stmts::Vector{Expr}, bindings, line::Expr)
     if line.head == :(=)
         @assert length(line.args) == 2
@@ -198,6 +218,9 @@ function parse_static_dsl_function_body!(stmts::Vector{Expr},
     for line in expr.args
         isa(line, LineNumberNode) && continue
         !isa(line, Expr) && static_dsl_syntax_error(line)
+
+        # @param name::type
+        parse_trainable_param!(stmts, bindings, line) && continue
 
         # lhs = @trace(rhs..) or @trace(rhs)
         parse_trace_line!(stmts, bindings, line) && continue
