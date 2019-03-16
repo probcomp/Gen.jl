@@ -101,7 +101,7 @@ function regenerate(trace::VectorTrace{UnfoldType,T,U},
 
     # handle retained and new applications
     state = UnfoldRegenerateState{T,U}(init_state, -noise_decrement, score, noise,
-        subtraces, retval, num_nonempty, Dict{Int,Any}())
+        subtraces, retval, num_nonempty, Dict{Int,Diff}())
     process_all_retained!(gen_fn, params, argdiffs, selection, prev_length, new_length,    
                           retained_and_selected, state)
     process_all_new!(gen_fn, params, selection, prev_length, new_length, state)

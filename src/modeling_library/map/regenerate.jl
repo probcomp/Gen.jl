@@ -92,7 +92,7 @@ function regenerate(trace::VectorTrace{MapType,T,U}, args::Tuple, argdiffs::Tupl
     # handle retained and new applications
     state = MapRegenerateState{T,U}(-noise_decrement, score, noise,
                                    subtraces, retval,
-                                   num_nonempty, Dict{Int,Any}())
+                                   num_nonempty, Dict{Int,Diff}())
     process_all_retained!(gen_fn, args, argdiffs, selection,
                           prev_length, new_length, retained_and_selected, state)
     process_all_new!(gen_fn, args, selection, prev_length, new_length, state)

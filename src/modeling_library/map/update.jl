@@ -88,7 +88,7 @@ function update(trace::VectorTrace{MapType,T,U}, args::Tuple, argdiffs::Tuple,
     # handle retained and new applications
     state = MapUpdateState{T,U}(-score_decrement, score, noise,
                                      subtraces, retval, discard, num_nonempty,
-                                     Dict{Int,Any}())
+                                     Dict{Int,Diff}())
     process_all_retained!(gen_fn, args, argdiffs, choices, prev_length, new_length,    
                           retained_and_constrained, state)
     process_all_new!(gen_fn, args, choices, prev_length, new_length, state)

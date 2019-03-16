@@ -81,7 +81,7 @@ function extend(trace::VectorTrace{MapType,T,U}, args::Tuple, argdiffs::Tuple,
     
     # handle retained and new applications
     state = MapExtendState{T,U}(0., trace.score, trace.noise,
-        trace.subtraces, trace.retval, trace.num_nonempty, Dict{Int,Any}())
+        trace.subtraces, trace.retval, trace.num_nonempty, Dict{Int,Diff}())
     process_all_retained!(gen_fn, args, argdiffs, choices, prev_length,
                           new_length, retained_and_constrained, state)
     process_all_new!(gen_fn, args, choices, prev_length, new_length, state)
