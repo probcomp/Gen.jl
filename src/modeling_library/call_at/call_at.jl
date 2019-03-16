@@ -27,7 +27,7 @@ struct CallAtTrace <: Trace
     key::Any
 end
 
-get_args(trace::CallAtTrace) = (get_args(trace.subtrace), trace.key)
+get_args(trace::CallAtTrace) = (get_args(trace.subtrace)..., trace.key)
 get_retval(trace::CallAtTrace) = get_retval(trace.subtrace)
 get_score(trace::CallAtTrace) = get_score(trace.subtrace)
 get_gen_fn(trace::CallAtTrace) = trace.gen_fn
