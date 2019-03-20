@@ -228,7 +228,7 @@ function back_codegen_random_choice_to_inputs!(stmts, ir, fwd_marked, back_marke
         if input_node in fwd_marked
             @assert input_node in back_marked # this ensured its gradient will have been initialized
             if !has_argument_grads(node.dist)[i]
-                error("Distribution $dist does not have logpdf gradient for argument $i")
+                error("Distribution $(node.dist) does not have logpdf gradient for argument $i")
             end
             push!(stmts, :($(gradient_var(input_node)) += $logpdf_grad[$(QuoteNode(i+1))]))
         end
