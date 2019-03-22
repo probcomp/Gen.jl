@@ -2,6 +2,7 @@ const DSL_STATIC_ANNOTATION = :static
 const DSL_ARG_GRAD_ANNOTATION = :grad
 const DSL_RET_GRAD_ANNOTATION = :grad
 const DSL_TRACK_DIFFS_ANNOTATION = :diffs
+const DSL_NO_JULIA_CACHE_ANNOTATION = :nojuliacache
 
 struct Argument
     name::Symbol

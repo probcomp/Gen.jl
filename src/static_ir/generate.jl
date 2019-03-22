@@ -3,22 +3,25 @@ struct StaticIRGenerateState
     stmts::Vector{Any}
 end
 
-function process!(::StaticIRGenerateState, node) end
+function process!(::StaticIRGenerateState, node, options) end
 
-function process!(state::StaticIRGenerateState, node::TrainableParameterNode)
+function process!(state::StaticIRGenerateState, node::TrainableParameterNode, options)
     push!(state.stmts, :($(node.name) = $(QuoteNode(get_param))(gen_fn, $(QuoteNode(node.name)))))
 end
 
-function process!(state::StaticIRGenerateState, node::ArgumentNode)
+function process!(state::StaticIRGenerateState, node::ArgumentNode, options)
     push!(state.stmts, :($(get_value_fieldname(node)) = $(node.name)))
 end
 
-function process!(state::StaticIRGenerateState, node::JuliaNode)
+function process!(state::StaticIRGenerateState, node::JuliaNode, options)
     args = map((input_node) -> input_node.name, node.inputs)
     push!(state.stmts, :($(node.name) = $(QuoteNode(node.fn))($(args...))))
+    if options.cache_julia_nodes
+        push!(state.stmts, :($(get_value_fieldname(node)) = $(node.name)))
+    end
 end
 
-function process!(state::StaticIRGenerateState, node::RandomChoiceNode)
+function process!(state::StaticIRGenerateState, node::RandomChoiceNode, options)
     schema = state.schema
     args = map((input_node) -> input_node.name, node.inputs)
     incr = gensym("logpdf")
@@ -39,7 +42,7 @@ function process!(state::StaticIRGenerateState, node::RandomChoiceNode)
     push!(state.stmts, :($total_score_fieldname += $incr))
 end
 
-function process!(state::StaticIRGenerateState, node::GenerativeFunctionCallNode)
+function process!(state::StaticIRGenerateState, node::GenerativeFunctionCallNode, options)
     schema = state.schema
     args = map((input_node) -> input_node.name, node.inputs)
     args_tuple = Expr(:tuple, args...)
@@ -73,6 +76,7 @@ function codegen_generate(gen_fn_type::Type{T}, args,
     end
 
     ir = get_ir(gen_fn_type)
+    options = get_options(gen_fn_type)
     stmts = []
 
     # initialize score, weight, and num_nonempty
@@ -88,7 +92,7 @@ function codegen_generate(gen_fn_type::Type{T}, args,
     # process expression nodes in topological order
     state = StaticIRGenerateState(schema, stmts)
     for node in ir.nodes
-        process!(state, node)
+        process!(state, node, options)
     end
 
     # return value

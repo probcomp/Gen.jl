@@ -64,7 +64,9 @@ Currently the possible function annotations are:
 
 - `grad` (see [Differentiable programming](@ref)).
 
-- `static` (see [Static DSL](@ref)).
+- `static` (see [Static Modeling Language](@ref)).
+
+- `nojuliacache` (see [Static Modeling Language](@ref)).
 
 ## Making random choices
 
@@ -425,3 +427,9 @@ load_generated_functions()
 ### Performance tips
 For better performance when the arguments are simple data types like `Float64`, annotate the arguments with the concrete type.
 This permits a more optimized trace data structure to be generated for the generative function.
+
+### Caching Julia values
+
+By default, the values of Julia computations (all calls that are not random choices or calls to generative functions) are cached as part of the trace, so that [Trace update operations](@ref) can avoid unecessary re-execution of Julia code.
+However, this cache may grow the memory footprint of a trace.
+To disable caching of Julia values, use the function annotation `nojuliacache` (this annotation is ignored unless the `static` function annotation is also used).

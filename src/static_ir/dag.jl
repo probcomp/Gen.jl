@@ -40,6 +40,7 @@ struct StaticIR
     arg_nodes::Vector{ArgumentNode}
     choice_nodes::Vector{RandomChoiceNode}
     call_nodes::Vector{GenerativeFunctionCallNode}
+    julia_nodes::Vector{JuliaNode}
     return_node::StaticIRNode
     accepts_output_grad::Bool
 end
@@ -51,6 +52,7 @@ mutable struct StaticIRBuilder
     arg_nodes::Vector{ArgumentNode}
     choice_nodes::Vector{RandomChoiceNode}
     call_nodes::Vector{GenerativeFunctionCallNode}
+    julia_nodes::Vector{JuliaNode}
     return_node::Union{Nothing,StaticIRNode}
     vars::Set{Symbol}
     addrs_to_choice_nodes::Dict{Symbol,RandomChoiceNode}
@@ -65,12 +67,14 @@ function StaticIRBuilder()
     arg_nodes = Vector{ArgumentNode}()
     choice_nodes = Vector{RandomChoiceNode}()
     call_nodes = Vector{GenerativeFunctionCallNode}()
+    julia_nodes = Vector{JuliaNode}()
     return_node = nothing
     vars = Set{Symbol}()
     addrs_to_choice_nodes = Dict{Symbol,RandomChoiceNode}()
     addrs_to_call_nodes = Dict{Symbol,GenerativeFunctionCallNode}()
     accepts_output_grad = false
     StaticIRBuilder(nodes, node_set, trainable_param_nodes, arg_nodes, choice_nodes, call_nodes,
+        julia_nodes,
         return_node, vars, addrs_to_choice_nodes, addrs_to_call_nodes,
         accepts_output_grad)
 end
@@ -85,6 +89,7 @@ function build_ir(builder::StaticIRBuilder)
         builder.arg_nodes,
         builder.choice_nodes,
         builder.call_nodes,
+        builder.julia_nodes,
         builder.return_node,
         builder.accepts_output_grad)
 end
@@ -144,16 +149,18 @@ function add_julia_node!(builder::StaticIRBuilder, fn::Function;
     check_inputs_exist(builder, inputs)
     node = JuliaNode(fn, inputs, name, typ)
     _add_node!(builder, node)
+    push!(builder.julia_nodes, node)
     node
 end
 
 function add_constant_node!(builder::StaticIRBuilder, val,
         name::Symbol=gensym(),
-        typ::Union{Symbol,Expr,QuoteNode}=QuoteNode(Any))
+        typ::Union{Symbol,Expr,QuoteNode}=QuoteNode(typeof(val)))
     check_unique_var(builder, name)
     # NOTE: not wrapping it in a Diffed means it is interpreted as a constant
     node = JuliaNode(() -> val, [], name, typ)
     _add_node!(builder, node)
+    push!(builder.julia_nodes, node)
     node
 end
 

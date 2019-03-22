@@ -292,21 +292,38 @@ at2 = at.kernel
 end
 
 
-@testset "traced diff annotation" begin
+@testset "tracked diff annotation" begin
 
 @gen (static, diffs) function bar(x)
     return x
 end
 
-@test Gen.get_track_diffs(typeof(bar))
+@test Gen.get_options(typeof(bar)).track_diffs
 
 @gen (static) function bar(x)
     return x
 end
 
-@test !Gen.get_track_diffs(typeof(bar))
+@test !Gen.get_options(typeof(bar)).track_diffs
 
 end
+
+@testset "no julia cache annotation" begin
+
+@gen (static, nojuliacache) function bar(x)
+    return x
+end
+
+@test !Gen.get_options(typeof(bar)).cache_julia_nodes
+
+@gen (static) function bar(x)
+    return x
+end
+
+@test Gen.get_options(typeof(bar)).cache_julia_nodes
+
+end
+
 
 
 @testset "trainable parameters" begin

@@ -5,16 +5,17 @@
 include("dag.jl")
 
 
-#################################################
-# generation of specialized trace types from IR #
-#################################################
-
-include("trace.jl")
-
-
 ##############################
 # generative functions types #
 ##############################
+
+struct StaticIRGenerativeFunctionOptions
+    track_diffs::Bool
+    cache_julia_nodes::Bool
+end
+
+# trace code generation
+include("trace.jl")
 
 """
     StaticIRGenerativeFunction{T,U} <: GenerativeFunction{T,U}
@@ -28,11 +29,16 @@ abstract type StaticIRGenerativeFunction{T,U} <: GenerativeFunction{T,U} end
 
 function get_ir end
 function get_gen_fn_type end
-function get_track_diffs end
+function get_options end
 
-function generate_generative_function(ir::StaticIR, name::Symbol, track_diffs::Bool)
+function generate_generative_function(ir::StaticIR, name::Symbol; track_diffs=false, cache_julia_nodes=true)
+    options = StaticIRGenerativeFunctionOptions(track_diffs, cache_julia_nodes)
+    generate_generative_function(ir, name, options)
+end
 
-    (trace_defns, trace_struct_name) = generate_trace_type_and_methods(ir, name)
+function generate_generative_function(ir::StaticIR, name::Symbol, options::StaticIRGenerativeFunctionOptions)
+
+    (trace_defns, trace_struct_name) = generate_trace_type_and_methods(ir, name, options)
 
     gen_fn_type_name = gensym("StaticGenFunction_$name")
     return_type = ir.return_node.typ
@@ -52,7 +58,7 @@ function generate_generative_function(ir::StaticIR, name::Symbol, track_diffs::B
         $(Expr(:(.), Gen, QuoteNode(:accepts_output_grad)))(::$gen_fn_type_name) = $(QuoteNode(accepts_output_grad))
         $(Expr(:(.), Gen, QuoteNode(:get_gen_fn)))(trace::$trace_struct_name) = $(Expr(:(.), :trace, QuoteNode(static_ir_gen_fn_ref)))
         $(Expr(:(.), Gen, QuoteNode(:get_gen_fn_type)))(::Type{$trace_struct_name}) = $gen_fn_type_name
-        $(Expr(:(.), Gen, QuoteNode(:get_track_diffs)))(::Type{$gen_fn_type_name}) = $(QuoteNode(track_diffs))
+        $(Expr(:(.), Gen, QuoteNode(:get_options)))(::Type{$gen_fn_type_name}) = $(QuoteNode(options))
     end
     Expr(:block, trace_defns, gen_fn_defn, Expr(:call, gen_fn_type_name, :(Dict{Symbol,Any}()), :(Dict{Symbol,Any}())))
 end
