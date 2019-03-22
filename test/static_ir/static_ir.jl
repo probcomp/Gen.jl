@@ -4,7 +4,7 @@ using Gen: generate_generative_function
 
 counter = 0
 
-#@gen (static) function bar(y, b)
+#@gen (static, nojuliacache) function bar(y, b)
     #u = begin counter += 1; y + b end
     #v = @trace(normal(0, 1), :v)
     #z = u + v
@@ -21,9 +21,9 @@ v = add_addr_node!(builder, normal, inputs=[zero, one], addr=:v, name=:v)
 z = add_julia_node!(builder, (u, v) -> u + v, inputs=[u, v], name=:z)
 set_return_node!(builder, z)
 ir = build_ir(builder)
-bar = eval(generate_generative_function(ir, :bar, false))
+bar = eval(generate_generative_function(ir, :bar, track_diffs=false, cache_julia_nodes=false))
 
-#@gen (static) function foo(a, b)
+#@gen (static, nojuliacache) function foo(a, b)
     #@param theta::Float64
     #x = @trace(normal(0, 1), :x)
     #y = @trace(normal(x, a), :y)
@@ -44,12 +44,12 @@ z = add_addr_node!(builder, bar, inputs=[y, b], addr=:z, name=:z)
 w = add_julia_node!(builder, (z, a, theta) -> z + 1 + a + theta, inputs=[z, a, theta], name=:w)
 set_return_node!(builder, w)
 ir = build_ir(builder)
-foo = eval(generate_generative_function(ir, :foo, false))
+foo = eval(generate_generative_function(ir, :foo, track_diffs=false, cache_julia_nodes=false))
 
 theta_val = rand()
 set_param!(foo, :theta, theta_val)
 
-#@gen function const_fn()
+#@gen (static, nojuliacache) function const_fn()
     #return 1
 #end
 
@@ -57,7 +57,7 @@ builder = StaticIRBuilder()
 one = add_constant_node!(builder, 2)
 set_return_node!(builder, one)
 ir = build_ir(builder)
-const_fn = eval(generate_generative_function(ir, :const_fn, false))
+const_fn = eval(generate_generative_function(ir, :const_fn, track_diffs=false, cache_julia_nodes=false))
 
 Gen.load_generated_functions()
 
@@ -338,7 +338,7 @@ end
     retval = add_julia_node!(builder, (z, mu_z) -> z + mu_z, inputs=[z, mu_z], name=:retval)
     set_return_node!(builder, retval)
     ir = build_ir(builder)
-    bar = eval(generate_generative_function(ir, :bar, false))
+    bar = eval(generate_generative_function(ir, :bar, track_diffs=false, cache_julia_nodes=false))
 
     #@gen (static) function foo(mu_a::Float64)
         #param theta::Float64
@@ -363,7 +363,7 @@ end
     retval = add_addr_node!(builder, normal, inputs=[c, one], addr=:out, name=:out)
     set_return_node!(builder, retval)
     ir = build_ir(builder)
-    foo = eval(generate_generative_function(ir, :foo, false))
+    foo = eval(generate_generative_function(ir, :foo, track_diffs=false, cache_julia_nodes=false))
 
     Gen.load_generated_functions()
 
@@ -456,7 +456,7 @@ a = add_argument_node!(builder, name=:a)
 x = add_julia_node!(builder, () -> begin counter += 1; 0 end, inputs=[], name=:x)
 set_return_node!(builder, x)
 ir = build_ir(builder)
-bar = eval(generate_generative_function(ir, :bar, false))
+bar = eval(generate_generative_function(ir, :bar, track_diffs=false, cache_julia_nodes=false))
 
 # this function will dynamically obtain NoChange() from the retdiff of bar(),
 # which will cause its own retdiff to be NoChange():
@@ -475,10 +475,10 @@ set_return_node!(builder, y)
 ir = build_ir(builder)
 
 # generate a version of the function with tracked diffs
-foo = eval(generate_generative_function(ir, :foo, true))
+foo = eval(generate_generative_function(ir, :foo, track_diffs=true, cache_julia_nodes=false))
 
 # generate a version of the function without tracked diffs
-foo_without_tracked_diffs = eval(generate_generative_function(ir, :foo, false))
+foo_without_tracked_diffs = eval(generate_generative_function(ir, :foo, track_diffs=false, cache_julia_nodes=false))
 
 Gen.load_generated_functions()
 
@@ -586,6 +586,57 @@ end
     (new_trace, weight, retdiff) = extend(trace, (a,), (UnknownChange(),), choicemap())
     @test counter == 1
     @test retdiff == UnknownChange()
+end
+
+counter = 0
+
+#@gen (static) function foo(a, b)
+    #u = begin a + b; counter += 1 end
+    #x = @trace(normal(u, 1), :x)
+    #return x
+#end
+
+builder = StaticIRBuilder()
+a = add_argument_node!(builder, name=:a)
+b = add_argument_node!(builder, name=:b)
+u = add_julia_node!(builder, (a, b) -> begin counter += 1; a + b end, inputs=[a, b], name=:u)
+one = add_constant_node!(builder, 1.)
+x = add_addr_node!(builder, normal, inputs=[u, one], addr=:x, name=:x)
+set_return_node!(builder, x)
+ir = build_ir(builder)
+foo = eval(generate_generative_function(ir, :foo, track_diffs=false, cache_julia_nodes=true))
+
+Gen.load_generated_functions()
+
+@testset "cached julia nodes" begin
+
+    counter = 0
+    trace = simulate(foo, (1, 2))
+    @test counter == 1
+
+    counter = 0
+    update(trace, (1, 2), (NoChange(), NoChange()), choicemap((:x, 1.0)))
+    @test counter == 0 # would be 1 if nojuliacache was used
+
+    counter = 0
+    extend(trace, (1, 2), (NoChange(), NoChange()), choicemap((:x, 1.0)))
+    @test counter == 0 # would be 1 if nojuliacache was used
+
+    counter = 0
+    regenerate(trace, (1, 2), (NoChange(), NoChange()), select(:x))
+    @test counter == 0 # would be 1 if nojuliacache was used
+
+    counter = 0
+    update(trace, (1, 3), (NoChange(), UnknownChange()), choicemap((:x, 1.0)))
+    @test counter == 1
+
+    counter = 0
+    extend(trace, (1, 3), (NoChange(), UnknownChange()), choicemap((:x, 1.0)))
+    @test counter == 1
+
+    counter = 0
+    regenerate(trace, (1, 3), (NoChange(), UnknownChange()), select(:x))
+    @test counter == 1
 end
 
 end # @testset "static IR"

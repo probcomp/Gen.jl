@@ -256,7 +256,9 @@ function make_static_gen_function(name, args, body, return_type, annotations)
     expr = gensym("gen_fn_defn")
     # note: use the eval() for the user's module, not Gen
     track_diffs = DSL_TRACK_DIFFS_ANNOTATION in annotations
+    cache_julia_nodes = !(DSL_NO_JULIA_CACHE_ANNOTATION in annotations) # cache julia nodes by default
+    options = StaticIRGenerativeFunctionOptions(track_diffs, cache_julia_nodes)
     push!(stmts, :($(esc(name)) = $(esc(:eval))(
-        generate_generative_function(ir, $(QuoteNode(name)), $(QuoteNode(track_diffs))))))
+        generate_generative_function(ir, $(QuoteNode(name)), $(QuoteNode(options))))))
     Expr(:block, stmts...)
 end

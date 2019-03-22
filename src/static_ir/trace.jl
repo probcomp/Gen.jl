@@ -40,6 +40,7 @@ const arg_prefix = gensym("arg")
 const choice_value_prefix = gensym("choice_value")
 const choice_score_prefix = gensym("choice_score")
 const subtrace_prefix = gensym("subtrace")
+const julia_prefix = gensym("julia_prefix")
 
 function get_value_fieldname(node::ArgumentNode)
     Symbol("$(arg_prefix)_$(node.name)")
@@ -47,6 +48,10 @@ end
 
 function get_value_fieldname(node::RandomChoiceNode)
     Symbol("$(choice_value_prefix)_$(node.addr)")
+end
+
+function get_value_fieldname(node::JuliaNode)
+    Symbol("$(julia_prefix)_$(node.name)")
 end
 
 function get_score_fieldname(node::RandomChoiceNode)
@@ -67,7 +72,7 @@ struct TraceField
     typ::Union{Symbol,Expr,QuoteNode}
 end
 
-function get_trace_fields(ir::StaticIR)
+function get_trace_fields(ir::StaticIR, options::StaticIRGenerativeFunctionOptions)
     fields = TraceField[]
     for node in ir.arg_nodes
         fieldname = get_value_fieldname(node)
@@ -84,6 +89,12 @@ function get_trace_fields(ir::StaticIR)
         subtrace_type = QuoteNode(get_trace_type(node.generative_function))
         push!(fields, TraceField(subtrace_fieldname, subtrace_type))
     end
+    if options.cache_julia_nodes
+        for node in ir.julia_nodes
+            fieldname = get_value_fieldname(node)
+            push!(fields, TraceField(fieldname, node.typ))
+        end
+    end
     push!(fields, TraceField(total_score_fieldname, QuoteNode(Float64)))
     push!(fields, TraceField(total_noise_fieldname, QuoteNode(Float64)))
     push!(fields, TraceField(num_nonempty_fieldname, QuoteNode(Int)))
@@ -93,9 +104,9 @@ end
 
 const static_ir_gen_fn_ref = gensym("gen_fn")
 
-function generate_trace_struct(ir::StaticIR, trace_struct_name::Symbol)
+function generate_trace_struct(ir::StaticIR, trace_struct_name::Symbol, options::StaticIRGenerativeFunctionOptions)
     mutable = false
-    fields = get_trace_fields(ir)
+    fields = get_trace_fields(ir, options)
     field_exprs = map((f) -> Expr(:(::), f.fieldname, f.typ), fields)
     Expr(:struct, mutable, Expr(:(<:), trace_struct_name, QuoteNode(StaticIRTrace)),
          Expr(:block, field_exprs..., Expr(:(::), static_ir_gen_fn_ref, QuoteNode(Any))))
@@ -218,9 +229,9 @@ function generate_get_schema(ir::StaticIR, trace_struct_name::Symbol)
                 Set{Symbol}([$(call_addrs...)])))))
 end
 
-function generate_trace_type_and_methods(ir::StaticIR, name::Symbol)
+function generate_trace_type_and_methods(ir::StaticIR, name::Symbol, options::StaticIRGenerativeFunctionOptions)
     trace_struct_name = gensym("StaticIRTrace_$name")
-    trace_struct_expr = generate_trace_struct(ir, trace_struct_name)
+    trace_struct_expr = generate_trace_struct(ir, trace_struct_name, options)
     isempty_expr = generate_isempty(trace_struct_name)
     get_score_expr = generate_get_score(trace_struct_name)
     get_args_expr = generate_get_args(ir, trace_struct_name)

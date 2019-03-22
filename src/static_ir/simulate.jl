@@ -2,22 +2,25 @@ struct StaticIRSimulateState
     stmts::Vector{Any}
 end
 
-function process!(::StaticIRSimulateState, node) end
+function process!(::StaticIRSimulateState, node, options) end
 
-function process!(state::StaticIRSimulateState, node::TrainableParameterNode)
+function process!(state::StaticIRSimulateState, node::TrainableParameterNode, options)
     push!(state.stmts, :($(node.name) = $(QuoteNode(get_param))(gen_fn, $(QuoteNode(node.name)))))
 end
 
-function process!(state::StaticIRSimulateState, node::ArgumentNode)
+function process!(state::StaticIRSimulateState, node::ArgumentNode, options)
     push!(state.stmts, :($(get_value_fieldname(node)) = $(node.name)))
 end
 
-function process!(state::StaticIRSimulateState, node::JuliaNode)
+function process!(state::StaticIRSimulateState, node::JuliaNode, options)
     args = map((input_node) -> input_node.name, node.inputs)
     push!(state.stmts, :($(node.name) = $(QuoteNode(node.fn))($(args...))))
+    if options.cache_julia_nodes
+        push!(state.stmts, :($(get_value_fieldname(node)) = $(node.name)))
+    end
 end
 
-function process!(state::StaticIRSimulateState, node::RandomChoiceNode)
+function process!(state::StaticIRSimulateState, node::RandomChoiceNode, options)
     args = map((input_node) -> input_node.name, node.inputs)
     incr = gensym("logpdf")
     addr = QuoteNode(node.addr)
@@ -30,7 +33,7 @@ function process!(state::StaticIRSimulateState, node::RandomChoiceNode)
     push!(state.stmts, :($total_score_fieldname += $incr))
 end
 
-function process!(state::StaticIRSimulateState, node::GenerativeFunctionCallNode)
+function process!(state::StaticIRSimulateState, node::GenerativeFunctionCallNode, options)
     args = map((input_node) -> input_node.name, node.inputs)
     args_tuple = Expr(:tuple, args...)
     addr = QuoteNode(node.addr)
@@ -47,6 +50,7 @@ end
 function codegen_simulate(gen_fn_type::Type{T}, args) where {T <: StaticIRGenerativeFunction}
 
     ir = get_ir(gen_fn_type)
+    options = get_options(gen_fn_type)
     stmts = []
 
     # initialize score, weight, and num_nonempty
@@ -61,7 +65,7 @@ function codegen_simulate(gen_fn_type::Type{T}, args) where {T <: StaticIRGenera
     # process expression nodes in topological order
     state = StaticIRSimulateState(stmts)
     for node in ir.nodes
-        process!(state, node)
+        process!(state, node, options)
     end
 
     # return value
