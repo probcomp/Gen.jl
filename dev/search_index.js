@@ -613,7 +613,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Built-in Modeling Language",
     "title": "Annotations",
     "category": "section",
-    "text": "Annotations are a syntactic construct in the built-in modeling language that allows users to provide additional information about how @gen functions should be interpreted. Annotations are optional, and not necessary to understand the basics of Gen. There are two types of annotations – argument annotations and function annotations.Argument annotations. In addition to type declarations on arguments like regular Julia functions, @gen functions also support additional annotations on arguments. Each argument can have the following different syntactic forms:y: No type declaration; no annotations.\ny::Float64: Type declaration; but no annotations.\n(grad)(y): No type declaration provided;, annotated with grad.\n(grad)(y::Float64): Type declaration provided; and annotated with grad.Currently, the possible argument annotations are:grad (see Differentiable programming).Function annotations. The @gen function itself can also be optionally associated with zero or more annotations, which are separate from the per-argument annotations. Function-level annotations use the following different syntactic forms:@gen function foo(<args>) <body> end: No function annotations.\n@gen (grad) function foo(<args>) <body> end: The function has the grad annotation.\n@gen (grad,static) function foo(<args>) <body> end: The function has both the grad and static annotations.Currently the possible function annotations are:grad (see Differentiable programming).\nstatic (see Static DSL)."
+    "text": "Annotations are a syntactic construct in the built-in modeling language that allows users to provide additional information about how @gen functions should be interpreted. Annotations are optional, and not necessary to understand the basics of Gen. There are two types of annotations – argument annotations and function annotations.Argument annotations. In addition to type declarations on arguments like regular Julia functions, @gen functions also support additional annotations on arguments. Each argument can have the following different syntactic forms:y: No type declaration; no annotations.\ny::Float64: Type declaration; but no annotations.\n(grad)(y): No type declaration provided;, annotated with grad.\n(grad)(y::Float64): Type declaration provided; and annotated with grad.Currently, the possible argument annotations are:grad (see Differentiable programming).Function annotations. The @gen function itself can also be optionally associated with zero or more annotations, which are separate from the per-argument annotations. Function-level annotations use the following different syntactic forms:@gen function foo(<args>) <body> end: No function annotations.\n@gen (grad) function foo(<args>) <body> end: The function has the grad annotation.\n@gen (grad,static) function foo(<args>) <body> end: The function has both the grad and static annotations.Currently the possible function annotations are:grad (see Differentiable programming).\nstatic (see Static Modeling Language).\nnojuliacache (see Static Modeling Language)."
 },
 
 {
@@ -774,6 +774,14 @@ var documenterSearchIndex = {"docs": [
     "title": "Performance tips",
     "category": "section",
     "text": "For better performance when the arguments are simple data types like Float64, annotate the arguments with the concrete type. This permits a more optimized trace data structure to be generated for the generative function."
+},
+
+{
+    "location": "ref/modeling/#Caching-Julia-values-1",
+    "page": "Built-in Modeling Language",
+    "title": "Caching Julia values",
+    "category": "section",
+    "text": "By default, the values of Julia computations (all calls that are not random choices or calls to generative functions) are cached as part of the trace, so that Trace update operations can avoid unecessary re-execution of Julia code. However, this cache may grow the memory footprint of a trace. To disable caching of Julia values, use the function annotation nojuliacache (this annotation is ignored unless the static function annotation is also used)."
 },
 
 {
