@@ -1,4 +1,4 @@
-# Fast and flexible probabilistic programming with programmable inference
+# Gen: A General-Purpose Probabilistic Programming System with Programmable Inference
 
 Gen is a state-of-the-art platform for probabilistic modeling and inference.
 
