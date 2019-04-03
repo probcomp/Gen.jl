@@ -396,4 +396,40 @@ end
     @test isapprox(get_param_grad(foo, :theta), 0.)
 end
 
+@testset "multi-component addresses" begin
+
+    @gen function bar()
+        @trace(normal(0, 1), :z)
+    end
+
+    @gen function foo()
+        @trace(normal(0, 1), :y)
+        @trace(normal(0, 1), :x => 1)
+        @trace(normal(0, 1), :x => 2)
+        @trace(bar(), :x => 3)
+    end
+
+    trace, _ =  generate(foo, (), choicemap((:x => 1, 1), (:x => 2, 2), (:x => 3 => :z, 3)))
+    @test trace[:x => 1] == 1
+    @test trace[:x => 2] == 2
+    @test trace[:x => 3 => :z] == 3
+
+    choices = get_choices(trace)
+    @test choices[:x => 1] == 1
+    @test choices[:x => 2] == 2
+    @test choices[:x => 3 => :z] == 3
+    @test length(collect(get_values_shallow(choices))) == 1 # :y
+    @test length(collect(get_submaps_shallow(choices))) == 1 # :x
+
+    submap = get_submap(choices, :x)
+    @test submap[1] == 1
+    @test submap[2] == 2
+    @test submap[3 => :z] == 3
+    @test length(collect(get_values_shallow(submap))) == 2 # 1, 2
+    @test length(collect(get_submaps_shallow(submap))) == 1 # 3
+
+    bar_submap = get_submap(submap, 3)
+    @test bar_submap[:z] == 3
+end
+
 end

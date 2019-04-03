@@ -54,7 +54,7 @@ function traceat(state::GFRegenerateState, dist::Distribution{T},
     end
 
     # add to the trace
-    add_choice!(state.trace, key, ChoiceRecord(retval, score))
+    add_choice!(state.trace, key, retval, score)
 
     retval
 end
@@ -111,33 +111,35 @@ function splice(state::GFRegenerateState, gen_fn::DynamicDSLFunction,
     retval
 end
 
-function regenerate_delete_recurse(prev_calls::Trie{Any,CallRecord},
+function regenerate_delete_recurse(prev_trie::Trie{Any,ChoiceOrCallRecord},
                              visited::EmptyAddressSet)
     noise = 0.
-    for (key, call) in get_leaf_nodes(prev_calls)
-        noise += call.noise
+    for (key, choice_or_call) in get_leaf_nodes(prev_trie)
+        if !choice_or_call.is_choice
+            noise += choice_or_call.noise
+        end
     end
-    for (key, subcalls) in get_internal_nodes(prev_calls)
-        noise += regenerate_delete_recurse(subcalls, EmptyAddressSet())
+    for (key, subtrie) in get_internal_nodes(prev_trie)
+        noise += regenerate_delete_recurse(subtrie, EmptyAddressSet())
     end
     noise
 end
 
-function regenerate_delete_recurse(prev_calls::Trie{Any,CallRecord},
+function regenerate_delete_recurse(prev_trie::Trie{Any,ChoiceOrCallRecord},
                              visited::DynamicAddressSet)
     noise = 0.
-    for (key, call) in get_leaf_nodes(prev_calls)
-        if !has_leaf_node(visited, key)
-            noise += call.noise
+    for (key, choice_or_call) in get_leaf_nodes(prev_trie)
+        if !has_leaf_node(visited, key) && !choice_or_call.is_choice
+            noise += choice_or_call.noise
         end
     end
-    for (key, subcalls) in get_internal_nodes(prev_calls)
+    for (key, subtrie) in get_internal_nodes(prev_trie)
         if has_internal_node(visited, key)
             subvisited = get_internal_node(visited, key)
         else
             subvisited = EmptyAddressSet()
         end
-        noise += regenerate_delete_recurse(subcalls, subvisited)
+        noise += regenerate_delete_recurse(subtrie, subvisited)
     end
     noise
 end
@@ -149,6 +151,6 @@ function regenerate(trace::DynamicDSLTrace, args::Tuple, argdiffs::Tuple,
     retval = exec(gen_fn, state, args)
     set_retval!(state.trace, retval)
     visited = state.visitor.visited
-    state.weight -= regenerate_delete_recurse(trace.calls, visited)
+    state.weight -= regenerate_delete_recurse(trace.trie, visited)
     (state.trace, state.weight, UnknownChange())
 end

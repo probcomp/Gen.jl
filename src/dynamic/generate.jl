@@ -33,7 +33,7 @@ function traceat(state::GFGenerateState, dist::Distribution{T},
     score = logpdf(dist, retval, args...)
 
     # add to the trace
-    add_choice!(state.trace, key, ChoiceRecord(retval, score))
+    add_choice!(state.trace, key, retval, score)
 
     # increment weight
     if constrained

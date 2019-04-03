@@ -61,7 +61,7 @@ function traceat(state::GFUpdateState, dist::Distribution{T},
     end
 
     # add to the trace
-    add_choice!(state.trace, key, ChoiceRecord(retval, score))
+    add_choice!(state.trace, key, retval, score)
 
     retval
 end
@@ -118,64 +118,33 @@ function splice(state::GFUpdateState, gen_fn::DynamicDSLFunction,
     retval
 end
 
-function delete_recurse(prev_choices::Trie{Any,ChoiceRecord},
-                        visited::EmptyAddressSet)
-    score = 0.
-    for (key, choice) in get_leaf_nodes(prev_choices)
-        score += choice.score
-    end
-    for (key, subchoices) in get_internal_nodes(prev_choices)
-        score += update_delete_recurse(subchoices, EmptyAddressSet())
-    end
-    score
-end
-
-function update_delete_recurse(prev_choices::Trie{Any,ChoiceRecord},
-                               visited::DynamicAddressSet)
-    score = 0.
-    for (key, choice) in get_leaf_nodes(prev_choices)
-        if !has_leaf_node(visited, key)
-            score += choice.score
-        end
-    end
-    for (key, subchoices) in get_internal_nodes(prev_choices)
-        if has_internal_node(visited, key)
-            subvisited = get_internal_node(visited, key)
-        else
-            subvisited = EmptyAddressSet()
-        end
-        score += update_delete_recurse(subchoices, subvisited)
-    end
-    score
-end
-
-function update_delete_recurse(prev_calls::Trie{Any,CallRecord},
+function update_delete_recurse(prev_trie::Trie{Any,ChoiceOrCallRecord},
                                visited::EmptyAddressSet)
     score = 0.
-    for (key, call) in get_leaf_nodes(prev_calls)
-        score += call.score
+    for (key, choice_or_call) in get_leaf_nodes(prev_trie)
+        score += choice_or_call.score
     end
-    for (key, subcalls) in get_internal_nodes(prev_calls)
-        score += update_delete_recurse(subcalls, EmptyAddressSet())
+    for (key, subtrie) in get_internal_nodes(prev_trie)
+        score += update_delete_recurse(subtrie, EmptyAddressSet())
     end
     score
 end
 
-function update_delete_recurse(prev_calls::Trie{Any,CallRecord},
+function update_delete_recurse(prev_trie::Trie{Any,ChoiceOrCallRecord},
                                visited::DynamicAddressSet)
     score = 0.
-    for (key, call) in get_leaf_nodes(prev_calls)
+    for (key, choice_or_call) in get_leaf_nodes(prev_trie)
         if !has_leaf_node(visited, key)
-            score += call.score
+            score += choice_or_call.score
         end
     end
-    for (key, subcalls) in get_internal_nodes(prev_calls)
+    for (key, subtrie) in get_internal_nodes(prev_trie)
         if has_internal_node(visited, key)
             subvisited = get_internal_node(visited, key)
         else
             subvisited = EmptyAddressSet()
         end
-        score += update_delete_recurse(subcalls, subvisited)
+        score += update_delete_recurse(subtrie, subvisited)
     end
     score
 end
@@ -216,8 +185,7 @@ function update(trace::DynamicDSLTrace, arg_values::Tuple, arg_diffs::Tuple,
     retval = exec(gen_fn, state, arg_values) 
     set_retval!(state.trace, retval)
     visited = get_visited(state.visitor)
-    state.weight -= update_delete_recurse(trace.choices, visited)
-    state.weight -= update_delete_recurse(trace.calls, visited)
+    state.weight -= update_delete_recurse(trace.trie, visited)
     add_unvisited_to_discard!(state.discard, visited, get_choices(trace))
     if !all_visited(visited, constraints)
         error("Did not visit all constraints")
