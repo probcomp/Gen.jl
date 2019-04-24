@@ -564,6 +564,22 @@ function DynamicChoiceMap(tuples...)
 end
 
 """
+    choices = DynamicChoiceMap(other::ChoiceMap)
+
+Copy a choice map, returning a mutable choice map.
+"""
+function DynamicChoiceMap(other::ChoiceMap)
+    choices = DynamicChoiceMap()
+    for (addr, val) in get_values_shallow(other)
+        choices[addr] = val
+    end
+    for (addr, submap) in get_submaps_shallow(other)
+        set_submap!(choices, addr, DynamicChoiceMap(submap))
+    end
+    choices
+end
+
+"""
     choices = choicemap()
 
 Construct an empty mutable choice map.

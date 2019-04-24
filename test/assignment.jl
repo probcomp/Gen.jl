@@ -49,6 +49,21 @@ end
     @test length(collect(get_submaps_shallow(submap2))) == 0
 end
 
+@testset "dynamic assignment copy constructor" begin
+    other = choicemap()
+    other[:x] = 1
+    other[:y] = 2
+    other_nested = choicemap()
+    other_nested[:z] = 3
+    other_nested[:w] = 4
+    set_submap!(other, :u, other_nested)
+    choices = DynamicChoiceMap(other)
+    @test choices[:x] == 1
+    @test choices[:y] == 2
+    @test choices[:u => :z] == 3
+    @test choices[:u => :w] == 4
+end
+
 @testset "internal vector assignment to/from array" begin
     inner = choicemap()
     set_value!(inner, :a, 1.)
