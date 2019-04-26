@@ -309,3 +309,18 @@ end
     @test choices[:x] == 1
     @test choices[:y => :a] == 2
 end
+
+@testset "choice map equality" begin
+
+    a = choicemap((:a, 1), (:b => :c => 2), (:d => :e => :f => 3))
+    b = choicemap((:a, 1), (:d => :e => :f => 3))
+    c = choicemap((:a, 1), (:b => :c => 2), (:d => :e => :f => 4))
+
+    @test a == a
+    @test b == b
+    @test a != b
+    @test b != a
+    @test a != c
+    @test c != a
+
+end

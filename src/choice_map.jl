@@ -253,6 +253,30 @@ function address_set(choices::ChoiceMap)
     set
 end
 
+function Base.:(==)(a::ChoiceMap, b::ChoiceMap)
+    for (addr, value) in get_values_shallow(a)
+        if !has_value(b, addr) || (get_value(b, addr) != value)
+            return false
+        end
+    end
+    for (addr, value) in get_values_shallow(b)
+        if !has_value(a, addr) || (get_value(a, addr) != value)
+            return false
+        end
+    end
+    for (addr, submap) in get_submaps_shallow(a)
+        if submap != get_submap(b, addr)
+            return false
+        end
+    end
+    for (addr, submap) in get_submaps_shallow(b)
+        if submap != get_submap(a, addr)
+            return false
+        end
+    end
+    return true
+end
+
 export ChoiceMap
 export get_address_schema
 export get_submap
