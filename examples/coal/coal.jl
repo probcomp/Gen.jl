@@ -205,7 +205,7 @@ function rate_involution(trace, fwd_choices::ChoiceMap, fwd_ret, proposal_args::
     (new_trace, bwd_choices, weight)
 end
 
-rate_move(trace) = metropolis_hastings(trace, rate_proposal, (), rate_involution)
+rate_move(trace) = metropolis_hastings(trace, rate_proposal, (), rate_involution, check_round_trip=true)
 
 
 #################
@@ -240,7 +240,7 @@ function position_involution(trace, fwd_choices::ChoiceMap, fwd_ret, proposal_ar
     (new_trace, bwd_choices, weight)
 end
 
-position_move(trace) = metropolis_hastings(trace, position_proposal, (), position_involution)
+position_move(trace) = metropolis_hastings(trace, position_proposal, (), position_involution, check_round_trip=true)
 
 
 ######################
@@ -401,7 +401,7 @@ function birth_death_involution(trace, fwd_choices::ChoiceMap, fwd_ret, proposal
     (new_trace, bwd_choices, weight + log(abs(det(J))))
 end
 
-birth_death_move(trace) = metropolis_hastings(trace, birth_death_proposal, (), birth_death_involution)
+birth_death_move(trace) = metropolis_hastings(trace, birth_death_proposal, (), birth_death_involution, check_round_trip=true)
 
 function mcmc_step(trace)
     (trace, _) = rate_move(trace)
