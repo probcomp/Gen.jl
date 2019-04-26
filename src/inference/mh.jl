@@ -62,10 +62,31 @@ When only discrete random choices are used, the `weight` must be equal to `get_s
 When continuous random choices are used, the `weight` must include an additive term that is the determinant of the the Jacobian of the bijection on the continuous random choices that is obtained by currying the involution on the discrete random choices.
 """
 function metropolis_hastings(trace, proposal::GenerativeFunction,
-                    proposal_args::Tuple, involution::Function)
+                    proposal_args::Tuple, involution::Function; check_round_trip=false)
     (fwd_choices, fwd_score, fwd_ret) = propose(proposal, (trace, proposal_args...,))
     (new_trace, bwd_choices, weight) = involution(trace, fwd_choices, fwd_ret, proposal_args)
-    (bwd_score, _) = assess(proposal, (new_trace, proposal_args...), bwd_choices)
+    (bwd_score, bwd_ret) = assess(proposal, (new_trace, proposal_args...), bwd_choices)
+    if check_round_trip
+        (trace_rt, fwd_choices_rt, weight_rt) = involution(new_trace, bwd_choices, bwd_ret, proposal_args)
+        if !isapprox(fwd_choices_rt, fwd_choices)
+            println("fwd_choices:")
+            println(fwd_choices)
+            println("fwd_choices_rt:")
+            println(fwd_choices_rt)
+            error("Involution round trip check failed")
+        end
+        if !isapprox(get_choices(trace), get_choices(trace_rt))
+            println("get_choices(trace):")
+            println(get_choices(trace))
+            println("get_choices(trace_rt):")
+            println(get_choices(trace_rt))
+            error("Involution round trip check failed")
+        end
+        if !isapprox(weight, -weight_rt)
+            println("weight: $weight, -weight_rt: $(-weight_rt)")
+            error("Involution round trip check failed")
+        end
+    end
     if log(rand()) < weight - fwd_score + bwd_score
         # accept
         (new_trace, true)
