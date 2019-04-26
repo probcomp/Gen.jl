@@ -21,12 +21,13 @@ address_set
 ```
 Note that none of these methods mutate the choice map.
 
-Choice maps also provide `Base.isempty`, which tests of there are no random
-choices in the choice map, and `Base.merge`, which takes two choice maps, and
-returns a new choice map containing all random choices in either choice map.
-It is an error if the choice maps both have values at the same address, or if
-one choice map has a value at an address that is the prefix of the address of a
-value in the other choice map.
+Choice maps also implement:
+
+- `Base.isempty`, which tests of there are no random choices in the choice map
+
+- `Base.merge`, which takes two choice maps, and returns a new choice map containing all random choices in either choice map. It is an error if the choice maps both have values at the same address, or if one choice map has a value at an address that is the prefix of the address of a value in the other choice map.
+
+- `==`, which tests if two choice maps have the same addresses and values at those addresses.
 
 
 ## Mutable Choice Maps
