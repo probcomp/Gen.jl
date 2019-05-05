@@ -16,7 +16,7 @@ function project_recurse(trie::Trie{Any,ChoiceOrCallRecord},
             else
                 subselection = EmptyAddressSet()
             end
-            weight += project(call.subtrace, subselection)
+            weight += project(choice_or_call.subtrace_or_retval, subselection)
         end
     end
     for (key, subtrie) in get_internal_nodes(trie)
