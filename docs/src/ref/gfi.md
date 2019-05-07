@@ -132,7 +132,7 @@ In Gen, traces are **persistent data structures**, meaning they can be treated a
 There are several methods that take a trace of a generative function as input and return a new trace of the generative function based on adjustments to the execution history of the function.
 We will illustrate these methods using the following generative function:
 ```julia
-@gen function foo()
+@gen function bar()
     val = @trace(bernoulli(0.3), :a)
     if @trace(bernoulli(0.4), :b)
         val = @trace(bernoulli(0.6), :c) && val
@@ -143,7 +143,7 @@ We will illustrate these methods using the following generative function:
     return val
 end
 ```
-Suppose we have a trace (`trace`) with initial choices:
+Suppose we have a trace (`trace`) of `bar` with initial choices:
 ```
 │
 ├── :a : false
@@ -170,7 +170,7 @@ Suppose we run [`update`](@ref) on the example `trace`, with the following const
 ```
 ```julia
 constraints = choicemap((:b, false), (:d, true))
-(new_trace, w, _, discard) = update(trace, (), noargdiff, constraints)
+(new_trace, w, _, discard) = update(trace, (), (), constraints)
 ```
 Then `get_choices(new_trace)` will be:
 ```
@@ -206,7 +206,7 @@ Suppose we run [`update`](@ref) on the example `trace`, with the following const
 ```
 ```julia
 constraints = choicemap((:b, false))
-(new_trace, w, _, discard) = update(trace, (), noargdiff, constraints)
+(new_trace, w, _, discard) = update(trace, (), (), constraints)
 ```
 Then `get_choices(new_trace)` will be:
 ```
@@ -254,7 +254,7 @@ regenerate
 **Example.**
 Suppose we run [`regenerate`](@ref) on the example `trace`, with selection `:a` and `:b`:
 ```julia
-(new_trace, w, _) = regenerate(trace, (), noargdiff, select(:a, :b))
+(new_trace, w, _) = regenerate(trace, (), (), select(:a, :b))
 ```
 Then, a new value for `:a` will be sampled from `bernoulli(0.3)`, and a new value for `:b` will be sampled from `bernoulli(0.4)`.
 If the new value for `:b` is `true`, then the previous value for `:c` (`false`) will be retained.
