@@ -48,16 +48,17 @@ function traceat(state::GFUpdateState, dist::Distribution{T},
     elseif has_previous
         retval = prev_retval
     else
-        error("Constraint not given for new key: $key")
+        retval = random(dist, args...)
     end
 
     # compute logpdf
     score = logpdf(dist, retval, args...)
 
     # update the weight
-    state.weight += score
     if has_previous
-        state.weight -= prev_score
+        state.weight += score - prev_score
+    elseif constrained
+        state.weight += score
     end
 
     # add to the trace

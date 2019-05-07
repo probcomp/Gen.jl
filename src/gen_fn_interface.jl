@@ -232,14 +232,16 @@ existing random choice(s) and values for any newly introduced random choice(s).
 Given a previous trace \$(x, t, r)\$ (`trace`), new arguments \$x'\$ (`args`), and
 a map \$u\$ (`constraints`), return a new trace \$(x', t', r')\$ (`new_trace`)
 that is consistent with \$u\$.  The values of choices in \$t'\$ are
-deterministically copied either from \$t\$ or from \$u\$ (with \$u\$ taking
-precedence).  All choices in \$u\$ must appear in \$t'\$.  Also return an
+either copied from \$t\$ or from \$u\$ (with \$u\$ taking
+precedence) or are sampled from the internal proposal distribution.  All choices in \$u\$ must appear in \$t'\$.  Also return an
 assignment \$v\$ (`discard`) containing the choices in \$t\$ that were
 overwritten by values from \$u\$, and any choices in \$t\$ whose address does
-not appear in \$t'\$. The new non-addressed randomness is sampled from \$r' \\sim q(\\cdot; x', t')\$.
-Also return a weight (`weight`):
+not appear in \$t'\$. Sample \$t' \\sim q(\\cdot; x', t + u)\$, and \$r' \\sim
+q(\\cdot; x', t')\$, where \$t + u\$ is the choice map obtained by merging
+\$t\$ and \$u\$ with \$u\$ taking precedence for overlapping addresses.  Also
+return a weight (`weight`):
 ```math
-\\log \\frac{p(r', t'; x') q(r; x, t)}{p(r, t; x) q(r'; x', t')}
+\\log \\frac{p(r', t'; x') q(r; x, t)}{p(r, t; x) q(r'; x', t') q(t'; x', t + u)}
 ```
 """
 function update(trace, ::Tuple, argdiffs::Tuple, ::ChoiceMap)
@@ -267,26 +269,6 @@ Return the new trace \$(x', t', r')\$ (`new_trace`) and the weight
 where \$u'\$ is the restriction of \$t'\$ to the complement of \$A\$.
 """
 function regenerate(trace, args::Tuple, argdiffs::Tuple, selection::AddressSet)
-    error("Not implemented")
-end
-
-"""
-    (new_trace, weight, retdiff) = extend(trace, args::Tuple, argdiffs::Tuple,
-                                          constraints::ChoiceMap)
-
-Extend a trace with new random choices by changing the arguments.
-
-Given a previous trace \$(x, t, r)\$ (`trace`), new arguments \$x'\$ (`args`), and
-an assignment \$u\$ (`choices`) that shares no addresses with \$t\$, return a new
-trace \$(x', t', r')\$ (`new_trace`) such that \$t'\$ agrees with \$t\$ on all
-addresses in \$t\$ and \$t'\$ agrees with \$u\$ on all addresses in \$u\$.
-Sample \$t' \\sim Q(\\cdot; t + u, x')\$ and \$r' \\sim Q(\\cdot; t', x)\$.
-Also return the weight (`weight`):
-```math
-\\log \\frac{p(r', t'; x') q(r; x, t)}{p(r, t; x) q(t'; t + u, x') q(r'; x', t')}
-```
-"""
-function extend(trace, args::Tuple, argdiffs::Tuple, constraints::ChoiceMap)
     error("Not implemented")
 end
 
@@ -348,6 +330,5 @@ export propose
 export assess
 export update
 export regenerate
-export extend
 export accumulate_param_gradients!
 export choice_gradients

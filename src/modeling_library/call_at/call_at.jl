@@ -134,20 +134,6 @@ function regenerate(trace::CallAtTrace, args::Tuple, argdiffs::Tuple,
     (new_trace, weight, retdiff)
 end
 
-function extend(trace::CallAtTrace, args::Tuple, argdiffs::Tuple,
-                choices::ChoiceMap)
-    (key, kernel_args) = unpack_call_at_args(args)
-    key_changed = (key != trace.key)
-    submap = get_submap(choices, key)
-    if key_changed
-        error("Cannot remove address $(trace.key) in extend")
-    end
-    (subtrace, weight, retdiff) = extend(
-        trace.subtrace, kernel_args, argdiffs[1:end-1], submap)
-    new_trace = CallAtTrace(trace.gen_fn, subtrace, key)
-    (new_trace, weight, retdiff)
-end
-
 function choice_gradients(trace::CallAtTrace, selection::AddressSet, retval_grad)
     if has_internal_node(selection, trace.key)
         subselection = get_internal_node(selection, trace.key)

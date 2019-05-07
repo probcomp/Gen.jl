@@ -168,7 +168,6 @@ include("assess.jl")
 include("project.jl")
 include("update.jl")
 include("regenerate.jl")
-include("extend.jl")
 include("backprop.jl")
 
 export DynamicDSLFunction

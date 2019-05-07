@@ -100,6 +100,34 @@
         @test retdiff.updated[2] == UnknownChange()
         @test !haskey(retdiff.updated, 3) # new, not retained
 
+        # unknown change to args, increasing length from 2 to 4; constrain 4 and let 3
+        # be generated from prior
+        trace = get_initial_trace()
+        z4 = 4.4
+        constraints = choicemap()
+        constraints[4 => :z] = z4
+        (trace, weight, retdiff, discard) = update(trace,
+            (xs[1:4], ys[1:4]), (UnknownChange(), UnknownChange()), constraints)
+        choices = get_choices(trace)
+        @test isempty(discard)
+        @test get_args(trace) == (xs[1:4], ys[1:4])
+        @test choices[1 => :z] == z1
+        @test choices[2 => :z] == z2
+        @test choices[4 => :z] == z4
+        z3 = choices[3 => :z]
+        score = get_score(trace)
+        expected_score = (logpdf(normal, z1, 4., 1.)
+            + logpdf(normal, z2, 6., 1.)
+            + logpdf(normal, z3, 8., 1.)
+            + logpdf(normal, z4, 10., 1))
+        @test isapprox(score, expected_score)
+        @test isapprox(weight, logpdf(normal, z4 , 10., 1.))
+        @test isa(retdiff, VectorDiff)
+        @test retdiff.prev_length == 2
+        @test retdiff.new_length == 4
+        @test retdiff.updated[1] == UnknownChange()
+        @test retdiff.updated[2] == UnknownChange()
+
         # unknown change to args, decreasing length from 2 to 1 and change 1
         trace = get_initial_trace()
         z1_new = 3.3
@@ -294,88 +322,6 @@
         selection = EmptyAddressSet()
         (trace, weight, retdiff) = regenerate(trace,
             (xs_new[1:2], ys[1:2]), argdiffs, selection)
-        choices = get_choices(trace)
-        @test get_args(trace) == (xs_new[1:2], ys[1:2])
-        @test choices[1 => :z] == z1
-        @test choices[2 => :z] == z2
-        expected_score = (logpdf(normal, z1, 2., 1.)
-            + logpdf(normal, z2, 6., 1.))
-        @test isapprox(get_score(trace), expected_score)
-        expected_weight = (logpdf(normal, z1, 2., 1.)
-            - logpdf(normal, z1, 4., 1.))
-        @test isapprox(weight, expected_weight)
-        retval = get_retval(trace)
-        @test length(retval) == 2
-        @test retval[1] == z1
-        @test retval[2] == z2
-        @test isa(retdiff, VectorDiff)
-        @test retdiff.updated[1] == UnknownChange()
-        @test !haskey(retdiff.updated, 2)
-    end
-
-    @testset "extend" begin
-        z1, z2 = 1.1, 2.2
-
-        function get_initial_trace()
-            constraints = choicemap()
-            constraints[1 => :z] = z1
-            constraints[2 => :z] = z2
-            (trace, _) = generate(bar, (xs[1:2], ys[1:2]), constraints)
-            trace
-        end
-
-        # unknown change to args, increasing length from 2 to 4; constrain 4 and let 3
-        # be generated from prior
-        trace = get_initial_trace()
-        z4 = 4.4
-        constraints = choicemap()
-        constraints[4 => :z] = z4
-        (trace, weight, retdiff) = extend(trace,
-            (xs[1:4], ys[1:4]), (UnknownChange(), UnknownChange()), constraints)
-        choices = get_choices(trace)
-        @test get_args(trace) == (xs[1:4], ys[1:4])
-        @test choices[1 => :z] == z1
-        @test choices[2 => :z] == z2
-        @test choices[4 => :z] == z4
-        z3 = choices[3 => :z]
-        score = get_score(trace)
-        expected_score = (logpdf(normal, z1, 4., 1.)
-            + logpdf(normal, z2, 6., 1.)
-            + logpdf(normal, z3, 8., 1.)
-            + logpdf(normal, z4, 10., 1))
-        @test isapprox(score, expected_score)
-        @test isapprox(weight, logpdf(normal, z4 , 10., 1.))
-        @test isa(retdiff, VectorDiff)
-        @test retdiff.prev_length == 2
-        @test retdiff.new_length == 4
-        @test retdiff.updated[1] == UnknownChange()
-        @test retdiff.updated[2] == UnknownChange()
-
-        # no change to args, change nothing
-        trace = get_initial_trace()
-        (trace, weight, retdiff) = extend(trace,
-            (xs[1:2], ys[1:2]), (NoChange(), NoChange()), EmptyChoiceMap())
-        choices = get_choices(trace)
-        @test get_args(trace) == (xs[1:2], ys[1:2])
-        @test choices[1 => :z] == z1
-        @test choices[2 => :z] == z2
-        expected_score = (logpdf(normal, z1, 4., 1.)
-            + logpdf(normal, z2, 6., 1.))
-        @test isapprox(get_score(trace), expected_score)
-        @test isapprox(weight, 0.)
-        retval = get_retval(trace)
-        @test length(retval) == 2
-        @test retval[1] == z1
-        @test retval[2] == z2
-        @test retdiff == NoChange()
-
-        # custom change to args, no selection
-        trace = get_initial_trace()
-        xs_new = copy(xs)
-        xs_new[1] = -1. # change from 1 to -1
-        argdiffs = (VectorDiff(2, 2, Dict{Int,Diff}(1 => UnknownChange())), NoChange())
-        (trace, weight, retdiff) = extend(trace,
-            (xs_new[1:2], ys[1:2]), argdiffs, EmptyChoiceMap())
         choices = get_choices(trace)
         @test get_args(trace) == (xs_new[1:2], ys[1:2])
         @test choices[1 => :z] == z1
