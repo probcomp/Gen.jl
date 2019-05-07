@@ -150,20 +150,6 @@
         @test isapprox(get_score(new_trace), logpdf(normal, y_new, 0.2, 1))
     end
 
-    @testset "extend" begin
-        (trace, y) = get_trace()
-
-        # change kernel_args, same key, no constraint (the only valid input)
-        (new_trace, weight, retdiff) = extend(trace,
-            (0.2, 3), (UnknownChange(), UnknownChange()), EmptyChoiceMap())
-        choices = get_choices(new_trace)
-        @test choices[3 => :y] == y
-        @test length(collect(get_values_shallow(choices))) == 0
-        @test length(collect(get_submaps_shallow(choices))) == 1
-        @test isapprox(weight, logpdf(normal, y, 0.2, 1) - logpdf(normal, y, 0.4, 1))
-        @test get_retval(new_trace) == 0.2 + y
-    end
-
     @testset "choice_gradients" begin
         (trace, y) = get_trace()
 

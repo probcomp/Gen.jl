@@ -142,8 +142,11 @@ function particle_filter_step!(state::ParticleFilterState{U}, new_args::Tuple, a
         observations::ChoiceMap) where {U}
     num_particles = length(state.traces)
     for i=1:num_particles
-        (state.new_traces[i], increment, _) = extend(
+        (state.new_traces[i], increment, _, discard) = update(
             state.traces[i], new_args, argdiffs, observations)
+        if !isempty(discard)
+            error("Choices were updated or deleted inside particle filter step: $discard")
+        end
         state.log_weights[i] += increment
     end
     
