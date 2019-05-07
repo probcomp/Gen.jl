@@ -213,7 +213,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Generative Functions",
     "title": "Gen.update",
     "category": "function",
-    "text": "(new_trace, weight, retdiff, discard) = update(trace, args::Tuple, argdiffs::Tuple,\n                                               constraints::ChoiceMap)\n\nUpdate a trace by changing the arguments and/or providing new values for some existing random choice(s) and values for any newly introduced random choice(s).\n\nGiven a previous trace (x t r) (trace), new arguments x (args), and a map u (constraints), return a new trace (x t r) (new_trace) that is consistent with u.  The values of choices in t are deterministically copied either from t or from u (with u taking precedence).  All choices in u must appear in t.  Also return an assignment v (discard) containing the choices in t that were overwritten by values from u, and any choices in t whose address does not appear in t. The new non-addressed randomness is sampled from r sim q(cdot x t). Also return a weight (weight):\n\nlog fracp(r t x) q(r x t)p(r t x) q(r x t)\n\n\n\n\n\n"
+    "text": "(new_trace, weight, retdiff, discard) = update(trace, args::Tuple, argdiffs::Tuple,\n                                               constraints::ChoiceMap)\n\nUpdate a trace by changing the arguments and/or providing new values for some existing random choice(s) and values for any newly introduced random choice(s).\n\nGiven a previous trace (x t r) (trace), new arguments x (args), and a map u (constraints), return a new trace (x t r) (new_trace) that is consistent with u.  The values of choices in t are either copied from t or from u (with u taking precedence) or are sampled from the internal proposal distribution.  All choices in u must appear in t.  Also return an assignment v (discard) containing the choices in t that were overwritten by values from u, and any choices in t whose address does not appear in t. Sample t sim q(cdot x t + u), and r sim q(cdot x t), where t + u is the choice map obtained by merging t and u with u taking precedence for overlapping addresses.  Also return a weight (weight):\n\nlog fracp(r t x) q(r x t)p(r t x) q(r x t) q(t x t + u)\n\n\n\n\n\n"
 },
 
 {
@@ -238,14 +238,6 @@ var documenterSearchIndex = {"docs": [
     "title": "Regenerate",
     "category": "section",
     "text": "regenerateSuppose we run regenerate on the example trace, with selection :a and :b:(new_trace, w, _) = regenerate(trace, (), noargdiff, select(:a, :b))Then, a new value for :a will be sampled from bernoulli(0.3), and a new value for :b will be sampled from bernoulli(0.4). If the new value for :b is true, then the previous value for :c (false) will be retained. If the new value for :b is false, then a new value for :d will be sampled from bernoulli(0.7). The previous value for :c will always be retained. Suppose the new value for :a is true, and the new value for :b is true. Then get_choices(new_trace) will be:│\n├── :a : true\n│\n├── :b : true \n│\n├── :c : false\n│\n└── :e : trueThe weight (w) is log 1 = 0."
-},
-
-{
-    "location": "ref/gfi/#Gen.extend",
-    "page": "Generative Functions",
-    "title": "Gen.extend",
-    "category": "function",
-    "text": "(new_trace, weight, retdiff) = extend(trace, args::Tuple, argdiffs::Tuple,\n                                      constraints::ChoiceMap)\n\nExtend a trace with new random choices by changing the arguments.\n\nGiven a previous trace (x t r) (trace), new arguments x (args), and an assignment u (choices) that shares no addresses with t, return a new trace (x t r) (new_trace) such that t agrees with t on all addresses in t and t agrees with u on all addresses in u. Sample t sim Q(cdot t + u x) and r sim Q(cdot t x). Also return the weight (weight):\n\nlog fracp(r t x) q(r x t)p(r t x) q(t t + u x) q(r x t)\n\n\n\n\n\n"
 },
 
 {
