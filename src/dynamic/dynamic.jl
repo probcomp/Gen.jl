@@ -43,6 +43,8 @@ end
 # it returns 'nothing' for those arguemnts that don't have a derivatice
 has_argument_grads(gen::DynamicDSLFunction) = gen.has_argument_grads
 
+const state = gensym("state")
+
 macro trace(expr::Expr, addr)
     if expr.head != :call
         error("syntax error in @trace at $(expr)")

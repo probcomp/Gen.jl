@@ -357,7 +357,7 @@ end
     init_param!(baz, :theta, 0.)
 
     @gen (grad) function foo()
-        return @splice(baz())
+        return @trace(baz())
     end
 
     (trace, _) = generate(foo, ())
