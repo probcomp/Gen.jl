@@ -227,7 +227,7 @@ end
                                                    constraints::ChoiceMap)
 
 Update a trace by changing the arguments and/or providing new values for some
-existing random choice(s) and values for any newly introduced random choice(s).
+existing random choice(s) and values for some newly introduced random choice(s).
 
 Given a previous trace \$(x, t, r)\$ (`trace`), new arguments \$x'\$ (`args`), and
 a map \$u\$ (`constraints`), return a new trace \$(x', t', r')\$ (`new_trace`)

@@ -160,6 +160,7 @@ Note that address `:d` is not present because the branch in which `:d` is sample
 ```@docs
 update
 ```
+**Example.**
 Suppose we run [`update`](@ref) on the example `trace`, with the following constraints:
 ```
 │
@@ -197,10 +198,60 @@ p(t; x') = 0.7 × 0.6 × 0.1 × 0.7 = 0.0294\\
 w = \log p(t'; x')/p(t; x) = \log 0.0294/0.0784 = \log 0.375
 ```
 
+**Example.**
+Suppose we run [`update`](@ref) on the example `trace`, with the following constraints, which *do not* contain a value for `:d`:
+```
+│
+└── :b : false
+```
+```julia
+constraints = choicemap((:b, false))
+(new_trace, w, _, discard) = update(trace, (), noargdiff, constraints)
+```
+Then `get_choices(new_trace)` will be:
+```
+│
+├── :a : false
+│
+├── :b : false
+│
+├── :d : true
+│
+└── :e : true
+```
+with probability 0.1, or:
+```
+│
+├── :a : false
+│
+├── :b : false
+│
+├── :d : false
+│
+└── :e : true
+```
+with probability 0.9.
+Also, `discard` will be:
+```
+│
+├── :b : true
+│
+└── :c : false
+```
+If `:d` is assigned to 0.1, then the weight (`w`) is computed as:
+```math
+p(t'; x) = 0.7 × 0.4 × 0.4 × 0.7 = 0.0784\\
+p(t; x') = 0.7 × 0.6 × 0.1 × 0.7 = 0.0294\\
+q(t'; x', t + u) = 0.1\\
+u = \log p(t'; x')/(p(t; x) q(t'; x', t + u)) = \log 0.0294/(0.0784 \cdot 0.1) = \log (3.75)
+```
+
+
 ### Regenerate
 ```@docs
 regenerate
 ```
+**Example.**
 Suppose we run [`regenerate`](@ref) on the example `trace`, with selection `:a` and `:b`:
 ```julia
 (new_trace, w, _) = regenerate(trace, (), noargdiff, select(:a, :b))
@@ -223,11 +274,6 @@ Then `get_choices(new_trace)` will be:
 ```
 The weight (`w`) is ``\log 1 = 0``.
 
-
-### Extend
-```@docs
-extend
-```
 
 ### Argdiffs
 

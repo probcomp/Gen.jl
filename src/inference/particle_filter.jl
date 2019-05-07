@@ -111,7 +111,7 @@ end
     particle_filter_step!(state::ParticleFilterState, new_args::Tuple, argdiffs,
         observations::ChoiceMap, proposal::GenerativeFunction, proposal_args::Tuple)
 
-Perform a particle filter update, where the model arguments are adjusted, new observations are added, and a custom proposal is used for new latent state.
+Perform a particle filter update, where the model arguments are adjusted, new observations are added, and some combination of a custom proposal and the model's internal proposal is used for proposing new latent state (whatever is not proposed from the custom proposal will be proposed using the model's internal proposal).
 """
 function particle_filter_step!(state::ParticleFilterState{U}, new_args::Tuple, argdiffs::Tuple,
         observations::ChoiceMap, proposal::GenerativeFunction, proposal_args::Tuple) where {U}
