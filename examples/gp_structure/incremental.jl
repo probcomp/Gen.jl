@@ -149,15 +149,15 @@ Gen.load_generated_functions()
     elseif node_type == PLUS
         child1 = get_child(cur, 1, max_branch)
         child2 = get_child(cur, 2, max_branch)
-        @splice(subtree_proposal_recursive(child1))
-        @splice(subtree_proposal_recursive(child2))
+        @trace(subtree_proposal_recursive(child1))
+        @trace(subtree_proposal_recursive(child2))
 
     # times combinator
     elseif node_type == TIMES
         child1 = get_child(cur, 1, max_branch)
         child2 = get_child(cur, 2, max_branch)
-        @splice(subtree_proposal_recursive(child1))
-        @splice(subtree_proposal_recursive(child2))
+        @trace(subtree_proposal_recursive(child1))
+        @trace(subtree_proposal_recursive(child2))
 
     # unknown node type
     else

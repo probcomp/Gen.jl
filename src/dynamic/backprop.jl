@@ -45,7 +45,7 @@ mutable struct GFBackpropParamsState
     # only those tracked parameters that are in scope (not including splice calls)
     tracked_params::Dict{Symbol,Any}
 
-    # tracked parameters for all (nested) @splice calls
+    # tracked parameters for all (nested) splice calls
     splice_tracked_params::Dict{Tuple{GenerativeFunction,Symbol},Any}
 end
 
@@ -118,7 +118,7 @@ function splice(state::GFBackpropParamsState, gen_fn::DynamicDSLFunction,
     state.tracked_params = Dict{Symbol,Any}()
     for name in keys(gen_fn.params)
         if haskey(state.splice_tracked_params, (gen_fn, name))
-            # parameter was already tracked in another @splice
+            # parameter was already tracked in another splice call
             state.tracked_params[name] = state.splice_tracked_params[(gen_fn, name)]
         else
             # parameter was not already tracked
