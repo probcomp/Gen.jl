@@ -213,7 +213,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Generative Functions",
     "title": "Gen.update",
     "category": "function",
-    "text": "(new_trace, weight, retdiff, discard) = update(trace, args::Tuple, argdiffs::Tuple,\n                                               constraints::ChoiceMap)\n\nUpdate a trace by changing the arguments and/or providing new values for some existing random choice(s) and values for any newly introduced random choice(s).\n\nGiven a previous trace (x t r) (trace), new arguments x (args), and a map u (constraints), return a new trace (x t r) (new_trace) that is consistent with u.  The values of choices in t are either copied from t or from u (with u taking precedence) or are sampled from the internal proposal distribution.  All choices in u must appear in t.  Also return an assignment v (discard) containing the choices in t that were overwritten by values from u, and any choices in t whose address does not appear in t. Sample t sim q(cdot x t + u), and r sim q(cdot x t), where t + u is the choice map obtained by merging t and u with u taking precedence for overlapping addresses.  Also return a weight (weight):\n\nlog fracp(r t x) q(r x t)p(r t x) q(r x t) q(t x t + u)\n\n\n\n\n\n"
+    "text": "(new_trace, weight, retdiff, discard) = update(trace, args::Tuple, argdiffs::Tuple,\n                                               constraints::ChoiceMap)\n\nUpdate a trace by changing the arguments and/or providing new values for some existing random choice(s) and values for some newly introduced random choice(s).\n\nGiven a previous trace (x t r) (trace), new arguments x (args), and a map u (constraints), return a new trace (x t r) (new_trace) that is consistent with u.  The values of choices in t are either copied from t or from u (with u taking precedence) or are sampled from the internal proposal distribution.  All choices in u must appear in t.  Also return an assignment v (discard) containing the choices in t that were overwritten by values from u, and any choices in t whose address does not appear in t. Sample t sim q(cdot x t + u), and r sim q(cdot x t), where t + u is the choice map obtained by merging t and u with u taking precedence for overlapping addresses.  Also return a weight (weight):\n\nlog fracp(r t x) q(r x t)p(r t x) q(r x t) q(t x t + u)\n\n\n\n\n\n"
 },
 
 {
@@ -221,7 +221,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Generative Functions",
     "title": "Update",
     "category": "section",
-    "text": "updateSuppose we run update on the example trace, with the following constraints:│\n├── :b : false\n│\n└── :d : trueconstraints = choicemap((:b, false), (:d, true))\n(new_trace, w, _, discard) = update(trace, (), noargdiff, constraints)Then get_choices(new_trace) will be:│\n├── :a : false\n│\n├── :b : false\n│\n├── :d : true\n│\n└── :e : trueand discard will be:│\n├── :b : true\n│\n└── :c : falseNote that the discard contains both the previous values of addresses that were overwritten, and the values for addresses that were in the previous trace but are no longer in the new trace. The weight (w) is computed as:p(t x) = 07  04  04  07 = 00784\np(t x) = 07  06  01  07 = 00294\nw = log p(t x)p(t x) = log 0029400784 = log 0375"
+    "text": "updateExample. Suppose we run update on the example trace, with the following constraints:│\n├── :b : false\n│\n└── :d : trueconstraints = choicemap((:b, false), (:d, true))\n(new_trace, w, _, discard) = update(trace, (), noargdiff, constraints)Then get_choices(new_trace) will be:│\n├── :a : false\n│\n├── :b : false\n│\n├── :d : true\n│\n└── :e : trueand discard will be:│\n├── :b : true\n│\n└── :c : falseNote that the discard contains both the previous values of addresses that were overwritten, and the values for addresses that were in the previous trace but are no longer in the new trace. The weight (w) is computed as:p(t x) = 07  04  04  07 = 00784\np(t x) = 07  06  01  07 = 00294\nw = log p(t x)p(t x) = log 0029400784 = log 0375Example. Suppose we run update on the example trace, with the following constraints, which do not contain a value for :d:│\n└── :b : falseconstraints = choicemap((:b, false))\n(new_trace, w, _, discard) = update(trace, (), noargdiff, constraints)Then get_choices(new_trace) will be:│\n├── :a : false\n│\n├── :b : false\n│\n├── :d : true\n│\n└── :e : truewith probability 0.1, or:│\n├── :a : false\n│\n├── :b : false\n│\n├── :d : false\n│\n└── :e : truewith probability 0.9. Also, discard will be:│\n├── :b : true\n│\n└── :c : falseIf :d is assigned to 0.1, then the weight (w) is computed as:p(t x) = 07  04  04  07 = 00784\np(t x) = 07  06  01  07 = 00294\nq(t x t + u) = 01\nu = log p(t x)(p(t x) q(t x t + u)) = log 00294(00784 cdot 01) = log (375)"
 },
 
 {
@@ -237,15 +237,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Generative Functions",
     "title": "Regenerate",
     "category": "section",
-    "text": "regenerateSuppose we run regenerate on the example trace, with selection :a and :b:(new_trace, w, _) = regenerate(trace, (), noargdiff, select(:a, :b))Then, a new value for :a will be sampled from bernoulli(0.3), and a new value for :b will be sampled from bernoulli(0.4). If the new value for :b is true, then the previous value for :c (false) will be retained. If the new value for :b is false, then a new value for :d will be sampled from bernoulli(0.7). The previous value for :c will always be retained. Suppose the new value for :a is true, and the new value for :b is true. Then get_choices(new_trace) will be:│\n├── :a : true\n│\n├── :b : true \n│\n├── :c : false\n│\n└── :e : trueThe weight (w) is log 1 = 0."
-},
-
-{
-    "location": "ref/gfi/#Extend-1",
-    "page": "Generative Functions",
-    "title": "Extend",
-    "category": "section",
-    "text": "extend"
+    "text": "regenerateExample. Suppose we run regenerate on the example trace, with selection :a and :b:(new_trace, w, _) = regenerate(trace, (), noargdiff, select(:a, :b))Then, a new value for :a will be sampled from bernoulli(0.3), and a new value for :b will be sampled from bernoulli(0.4). If the new value for :b is true, then the previous value for :c (false) will be retained. If the new value for :b is false, then a new value for :d will be sampled from bernoulli(0.7). The previous value for :c will always be retained. Suppose the new value for :a is true, and the new value for :b is true. Then get_choices(new_trace) will be:│\n├── :a : true\n│\n├── :b : true \n│\n├── :c : false\n│\n└── :e : trueThe weight (w) is log 1 = 0."
 },
 
 {
@@ -1149,7 +1141,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Inference Library",
     "title": "Gen.particle_filter_step!",
     "category": "function",
-    "text": "particle_filter_step!(state::ParticleFilterState, new_args::Tuple, argdiffs,\n    observations::ChoiceMap, proposal::GenerativeFunction, proposal_args::Tuple)\n\nPerform a particle filter update, where the model arguments are adjusted, new observations are added, and a custom proposal is used for new latent state.\n\n\n\n\n\nparticle_filter_step!(state::ParticleFilterState, new_args::Tuple, argdiffs,\n    observations::ChoiceMap)\n\nPerform a particle filter update, where the model arguments are adjusted, new observations are added, and the default proposal is used for new latent state.\n\n\n\n\n\n"
+    "text": "particle_filter_step!(state::ParticleFilterState, new_args::Tuple, argdiffs,\n    observations::ChoiceMap, proposal::GenerativeFunction, proposal_args::Tuple)\n\nPerform a particle filter update, where the model arguments are adjusted, new observations are added, and some combination of a custom proposal and the model\'s internal proposal is used for proposing new latent state (whatever is not proposed from the custom proposal will be proposed using the model\'s internal proposal).\n\n\n\n\n\nparticle_filter_step!(state::ParticleFilterState, new_args::Tuple, argdiffs,\n    observations::ChoiceMap)\n\nPerform a particle filter update, where the model arguments are adjusted, new observations are added, and the default proposal is used for new latent state.\n\n\n\n\n\n"
 },
 
 {
