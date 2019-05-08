@@ -957,7 +957,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Selections",
     "title": "Gen.select",
     "category": "function",
-    "text": "selection = select(addrs...)\n\nReturn a selection containing a given set of addresses.\n\nExample:\n\nselection = select(:x, \"foo\", :y => 1 => :z)\n\n\n\n\n\n"
+    "text": "selection = select(addrs...)\n\nReturn a selection containing a given set of addresses.\n\nExamples:\n\nselection = select(:x, \"foo\", :y => 1 => :z)\nselection = select()\nselection = select(:x => 1, :x => 2)\n\n\n\n\n\n"
 },
 
 {
@@ -989,7 +989,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Selections",
     "title": "Gen.HierarchicalSelection",
     "category": "type",
-    "text": "abstract type HierarchicalSelection <: Selection end\n\nAbstract type for selections that have a notion of sub-selections.\n\nget_subselections(selection)\n\nReturn an iterator over pairs of addresses and subselections at associated addresses.\n\n\n\n\n\n"
+    "text": "abstract type HierarchicalSelection <: Selection end\n\nAbstract type for selections that have a notion of sub-selections.\n\nget_subselections(selection::HierarchicalSelection)\n\nReturn an iterator over pairs of addresses and subselections at associated addresses.\n\n\n\n\n\n"
 },
 
 {
@@ -997,7 +997,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Selections",
     "title": "Gen.DynamicSelection",
     "category": "type",
-    "text": "struct DynamicSelection <: HierarchicalSelection .. end\n\nA hierarchical, mutable, selection with arbitrary addresses.\n\nCan be mutated with the following methods:\n\nBase.push!(selection::DynamicSelection, addr)\n\nAdd the address and all of its sub-addresses to the selection.\n\nExample:\n\nselection = select()\n@assert !(:x in selection)\npush!(selection, :x)\n@assert :x in selection\n\n\nset_subselection!(selection::DynamicSelection, addr, other::Selection)\n\nChange the selection status of the given address and its sub-addresses that defined by other.\n\nExample:\n\nselection = select(:x)\n@assert :x in selection\nsubselection = select(:y)\nset_subselection!(selection, :x, subselection)\n@assert (:x => :y) in selection\n@assert !(:x in selection)\n\nNote that set_subselection! does not copy data in other, so other may be mutated by a later calls to set_subselection! for addresses under addr.\n\n\n\n\n\n"
+    "text": "struct DynamicSelection <: HierarchicalSelection .. end\n\nA hierarchical, mutable, selection with arbitrary addresses.\n\nCan be mutated with the following methods:\n\nBase.push!(selection::DynamicSelection, addr)\n\nAdd the address and all of its sub-addresses to the selection.\n\nExample:\n\nselection = select()\n@assert !(:x in selection)\npush!(selection, :x)\n@assert :x in selection\n\nset_subselection!(selection::DynamicSelection, addr, other::Selection)\n\nChange the selection status of the given address and its sub-addresses that defined by other.\n\nExample:\n\nselection = select(:x)\n@assert :x in selection\nsubselection = select(:y)\nset_subselection!(selection, :x, subselection)\n@assert (:x => :y) in selection\n@assert !(:x in selection)\n\nNote that set_subselection! does not copy data in other, so other may be mutated by a later calls to set_subselection! for addresses under addr.\n\n\n\n\n\n"
 },
 
 {
@@ -1013,7 +1013,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Selections",
     "title": "Selections",
     "category": "section",
-    "text": "A selection represents a set of addresses of random choices. Selections allow users to specify to which subset of the random choices in a trace a given inference operation should apply.There is an abstract type for selections:SelectionThere are various concrete types for selections, each of which is a subtype of Selection. Users can construct selections with the select and [selectall] methods:select\nselectallAn address that is added to a selection indicates that either the random choice at that address should be included in the selection, or that all random choices made by a generative function traced at that address should be included. For example, consider the following selection:selection = select(:x, :y)If we use this selection in the context of a trace of the function baz below, we are selecting two random choices, at addresses :x and :y:@gen function baz()\n    @trace(bernoulli(0.5), :x)\n    @trace(bernoulli(0.5), :y)\nendIf we use this selection in the context of a trace of the function bar below, we are actually selecting three random choices–-the one random choice made by bar at address :x and the two random choices made by foo at addresses :y => :z and :y => :w`:@gen function foo()\n    @trace(normal(0, 1), :z)\n    @trace(normal(0, 1), :w)\nend\nend\n\n@gen function bar()\n    @trace(bernoulli(0.5), :x)\n    @trace(foo(), :y)\nendThe select method returns a selection with concrete type DynamicSelection. The selectall method returns a selection with concrete type AllSelection. The full list of concrete types of selections is shown below. Most users need not worry about these types. Note that only selections of type [DynamicSelection]@(ref) are mutable (using push! and set_subselection!).EmptySelection\nAllSelection\nHierarchicalSelection\nDynamicSelection\nStaticSelection"
+    "text": "A selection represents a set of addresses of random choices. Selections allow users to specify to which subset of the random choices in a trace a given inference operation should apply.An address that is added to a selection indicates that either the random choice at that address should be included in the selection, or that all random choices made by a generative function traced at that address should be included. For example, consider the following selection:selection = select(:x, :y)If we use this selection in the context of a trace of the function baz below, we are selecting two random choices, at addresses :x and :y:@gen function baz()\n    @trace(bernoulli(0.5), :x)\n    @trace(bernoulli(0.5), :y)\nendIf we use this selection in the context of a trace of the function bar below, we are actually selecting three random choices–-the one random choice made by bar at address :x and the two random choices made by foo at addresses :y => :z and :y => :w`:@gen function foo()\n    @trace(normal(0, 1), :z)\n    @trace(normal(0, 1), :w)\nend\nend\n\n@gen function bar()\n    @trace(bernoulli(0.5), :x)\n    @trace(foo(), :y)\nendThere is an abstract type for selections:SelectionThere are various concrete types for selections, each of which is a subtype of Selection. Users can construct selections with the select and selectall methods:select\nselectallThe select method returns a selection with concrete type DynamicSelection. The selectall method returns a selection with concrete type AllSelection. The full list of concrete types of selections is shown below. Most users need not worry about these types. Note that only selections of type DynamicSelection are mutable (using push! and set_subselection!).EmptySelection\nAllSelection\nHierarchicalSelection\nDynamicSelection\nStaticSelection"
 },
 
 {
