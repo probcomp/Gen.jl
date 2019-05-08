@@ -170,7 +170,7 @@ function generate(gen_fn::GenerativeFunction, args::Tuple)
 end
 
 """
-    weight = project(trace::U, selection::AddressSet)
+    weight = project(trace::U, selection::Selection)
 
 Estimate the probability that the selected choices take the values they do in a
 trace. 
@@ -182,7 +182,7 @@ let \$u\$ denote the restriction of \$t\$ to \$A\$. Return the weight
 \\log \\frac{p(r, t; x)}{q(t; u, x) q(r; x, t)}
 ```
 """
-function project(trace, selection::AddressSet)
+function project(trace, selection::Selection)
     error("Not implemented")
 end
 
@@ -250,7 +250,7 @@ end
 
 """
     (new_trace, weight, retdiff) = regenerate(trace, args::Tuple, argdiffs::Tuple,
-                                              selection::AddressSet)
+                                              selection::Selection)
 
 Update a trace by changing the arguments and/or randomly sampling new values
 for selected random choices using the internal proposal distribution family.
@@ -268,7 +268,7 @@ Return the new trace \$(x', t', r')\$ (`new_trace`) and the weight
 ```
 where \$u'\$ is the restriction of \$t'\$ to the complement of \$A\$.
 """
-function regenerate(trace, args::Tuple, argdiffs::Tuple, selection::AddressSet)
+function regenerate(trace, args::Tuple, argdiffs::Tuple, selection::Selection)
     error("Not implemented")
 end
 
@@ -298,7 +298,7 @@ end
 accumulate_param_gradients!(trace, retgrad) = accumulate_param_gradients!(trace, retgrad, 1.)
 
 """
-    (arg_grads, choice_values, choice_grads) = choice_gradients(trace, selection::AddressSet,
+    (arg_grads, choice_values, choice_grads) = choice_gradients(trace, selection::Selection,
                                                                 retgrad)
 
 Given a previous trace \$(x, t)\$ (`trace`) and a gradient with respect to the
@@ -315,7 +315,7 @@ the values of these choices:
 ```
 Also return the assignment (`choice_values`) that is the restriction of \$t\$ to \$A\$.
 """
-function choice_gradients(trace, selection::AddressSet, retgrad)
+function choice_gradients(trace, selection::Selection, retgrad)
     error("Not implemented")
 end
 

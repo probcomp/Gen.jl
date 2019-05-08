@@ -1,4 +1,4 @@
-function choice_gradients(trace::VectorTrace{UnfoldType,T,U}, selection::AddressSet,
+function choice_gradients(trace::VectorTrace{UnfoldType,T,U}, selection::Selection,
                         retval_grad) where {T,U}
     error("Not implemented")
 end

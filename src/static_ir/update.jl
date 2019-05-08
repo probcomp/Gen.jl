@@ -58,8 +58,8 @@ end
 
 function process_forward!(schema::AddressSchema, state::ForwardPassState,
                           node::RandomChoiceNode)
-    @assert isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema)
-    if isa(schema, StaticAddressSchema) && (node.addr in leaf_node_keys(schema))
+    @assert isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema) || isa(schema, AllAddressSchema)
+    if isa(schema, AllAddressSchema) || (isa(schema, StaticAddressSchema) && (node.addr in keys(schema)))
         push!(state.constrained_or_selected_choices, node)
         push!(state.value_changed, node)
     end
@@ -70,8 +70,8 @@ end
 
 function process_forward!(schema::AddressSchema, state::ForwardPassState,
                           node::GenerativeFunctionCallNode)
-    @assert isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema)
-    if isa(schema, StaticAddressSchema) && (node.addr in internal_node_keys(schema))
+    @assert isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema) || isa(schema, AllAddressSchema)
+    if isa(schema, AllAddressSchema) || (isa(schema, StaticAddressSchema) && (node.addr in keys(schema)))
         push!(state.constrained_or_selected_calls, node)
         push!(state.value_changed, node)
         push!(state.discard_calls, node)
@@ -326,7 +326,7 @@ function process_codegen!(stmts, fwd::ForwardPassState, back::BackwardPassState,
             $qn_update($prev_subtrace, $(Expr(:tuple, arg_values...)), $(Expr(:tuple, arg_diffs...)), $call_constraints)))
         push!(stmts, :($weight += $call_weight))
         push!(stmts, :($total_score_fieldname += $qn_get_score($subtrace) - $qn_get_score($prev_subtrace)))
-        push!(stmts, :($total_noise_fieldname += $qn_project($subtrace, $qn_empty_address_set) - $qn_project($prev_subtrace, $qn_empty_address_set)))
+        push!(stmts, :($total_noise_fieldname += $qn_project($subtrace, $qn_empty_selection) - $qn_project($prev_subtrace, $qn_empty_selection)))
         push!(stmts, :(if !$qn_isempty($qn_get_choices($subtrace)) && $qn_isempty($qn_get_choices($prev_subtrace))
                             $num_nonempty_fieldname += 1 end))
         push!(stmts, :(if $qn_isempty($qn_get_choices($subtrace)) && !$qn_isempty($qn_get_choices($prev_subtrace))
@@ -363,15 +363,15 @@ function process_codegen!(stmts, fwd::ForwardPassState, back::BackwardPassState,
     call_subselection = gensym("call_subselection")
     if node in fwd.constrained_or_selected_calls || node in fwd.input_changed
         if node in fwd.constrained_or_selected_calls
-            push!(stmts, :($call_subselection = $qn_static_get_internal_node(selection, Val($addr))))
+            push!(stmts, :($call_subselection = $qn_static_getindex(selection, Val($addr))))
         else
-            push!(stmts, :($call_subselection = $qn_empty_address_set))
+            push!(stmts, :($call_subselection = $qn_empty_selection))
         end
         push!(stmts, :(($subtrace, $call_weight, $(calldiff_var(node))) = 
             $qn_regenerate($prev_subtrace, $(Expr(:tuple, arg_values...)), $(Expr(:tuple, arg_diffs...)), $call_subselection)))
         push!(stmts, :($weight += $call_weight))
         push!(stmts, :($total_score_fieldname += $qn_get_score($subtrace) - $qn_get_score($prev_subtrace)))
-        push!(stmts, :($total_noise_fieldname += $qn_project($subtrace, $qn_empty_address_set) - $qn_project($prev_subtrace, $qn_empty_address_set)))
+        push!(stmts, :($total_noise_fieldname += $qn_project($subtrace, $qn_empty_selection) - $qn_project($prev_subtrace, $qn_empty_selection)))
         push!(stmts, :(if !$qn_isempty($qn_get_choices($subtrace)) && !$qn_isempty($qn_get_choices($prev_subtrace))
                             $num_nonempty_fieldname += 1 end))
         push!(stmts, :(if $qn_isempty($qn_get_choices($subtrace)) && !$qn_isempty($qn_get_choices($prev_subtrace))
@@ -517,9 +517,9 @@ function codegen_regenerate(trace_type::Type{T}, args_type::Type, argdiffs_type:
     gen_fn_type = get_gen_fn_type(trace_type)
     schema = get_address_schema(selection_type)
 
-    # convert the constraints to a static assignment if it is not already one
-    if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
-        return quote $qn_regenerate(trace, args, argdiffs, $(QuoteNode(StaticAddressSet))(selection)) end
+    # convert a hierarchical selection to a static selection if it is not alreay one
+    if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema) || isa(schema, AllAddressSchema))
+        return quote $qn_regenerate(trace, args, argdiffs, $(QuoteNode(StaticSelection))(selection)) end
     end
 
     ir = get_ir(gen_fn_type)
@@ -564,7 +564,7 @@ end)
 
 push!(generated_functions, quote
 @generated function $(Expr(:(.), Gen, QuoteNode(:regenerate)))(trace::T, args::Tuple, argdiffs::Tuple,
-                                   selection::$(QuoteNode(AddressSet))) where {T<:$(QuoteNode(StaticIRTrace))}
+                                   selection::$(QuoteNode(Selection))) where {T<:$(QuoteNode(StaticIRTrace))}
     $(QuoteNode(codegen_regenerate))(trace, args, argdiffs, selection)
 end
 end)

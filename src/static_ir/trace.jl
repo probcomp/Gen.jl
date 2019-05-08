@@ -221,12 +221,12 @@ end
 function generate_get_schema(ir::StaticIR, trace_struct_name::Symbol)
     choice_addrs = [QuoteNode(node.addr) for node in ir.choice_nodes]
     call_addrs = [QuoteNode(node.addr) for node in ir.call_nodes]
+    addrs = vcat(choice_addrs, call_addrs)
     Expr(:function,
         Expr(:call, Expr(:(.), Gen, QuoteNode(:get_schema)), :(::Type{$trace_struct_name})),
         Expr(:block,
             :($(QuoteNode(StaticAddressSchema))(
-                Set{Symbol}([$(choice_addrs...)]),
-                Set{Symbol}([$(call_addrs...)])))))
+                Set{Symbol}([$(addrs...)])))))
 end
 
 function generate_trace_type_and_methods(ir::StaticIR, name::Symbol, options::StaticIRGenerativeFunctionOptions)

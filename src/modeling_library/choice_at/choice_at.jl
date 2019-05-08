@@ -88,8 +88,8 @@ function generate(gen_fn::ChoiceAtCombinator{T,K}, args::Tuple, choices::ChoiceM
     (trace, weight)
 end
 
-function project(trace::ChoiceAtTrace, selection::AddressSet)
-    has_leaf_node(selection, trace.key) ? trace.score : 0.
+function project(trace::ChoiceAtTrace, selection::Selection)
+    (trace.key in selection) ? trace.score : 0.
 end
 
 function update(trace::ChoiceAtTrace, args::Tuple, argdiffs::Tuple,
@@ -116,10 +116,10 @@ function update(trace::ChoiceAtTrace, args::Tuple, argdiffs::Tuple,
 end
 
 function regenerate(trace::ChoiceAtTrace, args::Tuple, argdiffs::Tuple,
-                    selection::AddressSet)
+                    selection::Selection)
     (key, kernel_args) = unpack_choice_at_args(args)
     key_changed = (key != trace.key)
-    selected = has_leaf_node(selection, key)
+    selected = key in selection
     if !key_changed && selected 
         new_value = random(trace.gen_fn.dist, kernel_args...)
     elseif !key_changed && !selected
@@ -141,14 +141,14 @@ function regenerate(trace::ChoiceAtTrace, args::Tuple, argdiffs::Tuple,
     (new_trace, weight, UnknownChange())
 end
 
-function choice_gradients(trace::ChoiceAtTrace, selection::AddressSet, retval_grad)
+function choice_gradients(trace::ChoiceAtTrace, selection::Selection, retval_grad)
     if retval_grad == nothing && accepts_output_grad(trace.gen_fn)
         error("return value gradient required but not provided")
     elseif retval_grad != nothing && !accepts_output_grad(trace.gen_fn)
         error("return value gradient not accepted but one was provided")
     end
     kernel_arg_grads = logpdf_grad(trace.gen_fn.dist, trace.value, trace.kernel_args...)
-    if has_leaf_node(selection, trace.key)
+    if trace.key in selection
         value_choices = ChoiceAtChoiceMap(trace.key, trace.value)
         choice_grad = kernel_arg_grads[1]
         if choice_grad == nothing

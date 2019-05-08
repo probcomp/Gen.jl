@@ -1,5 +1,5 @@
 struct StaticIRProjectState
-    schema::Union{StaticAddressSchema, EmptyAddressSchema}
+    schema::Union{StaticAddressSchema,EmptyAddressSchema,AllAddressSchema}
     stmts::Vector{Any}
 end
 
@@ -7,8 +7,8 @@ function process!(state::StaticIRProjectState, node) end
 
 function process!(state::StaticIRProjectState, node::RandomChoiceNode)
     schema = state.schema
-    @assert isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema)
-    if isa(schema, StaticAddressSchema) && (node.addr in leaf_node_keys(schema))
+    @assert isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema) || isa(schema, AllAddressSchema)
+    if isa(schema, AllAddressSchema) || (isa(schema, StaticAddressSchema) && (node.addr in keys(schema)))
         push!(state.stmts, :($weight += trace.$(get_score_fieldname(node))))
     end
 end
@@ -16,14 +16,14 @@ end
 function process!(state::StaticIRProjectState, node::GenerativeFunctionCallNode)
     schema = state.schema
     addr = QuoteNode(node.addr)
-    @assert isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema)
+    @assert isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema) || isa(schema, AllAddressSchema)
     subtrace = get_subtrace_fieldname(node)
     subselection = gensym("subselection")
-    if isa(schema, StaticAddressSchema) && (node.addr in internal_node_keys(schema))
-        push!(state.stmts, :($subselection = $(QuoteNode(static_get_internal_node))(selection, Val($addr))))
+    if isa(schema, AllAddressSchema) || (isa(schema, StaticAddressSchema) && (node.addr in keys(schema)))
+        push!(state.stmts, :($subselection = $qn_static_getindex(selection, Val($addr))))
         push!(state.stmts, :($weight += $qn_project(trace.$subtrace, $subselection)))
     else
-        push!(state.stmts, :($weight += $qn_project(trace.$subtrace, $qn_empty_address_set)))
+        push!(state.stmts, :($weight += $qn_project(trace.$subtrace, $qn_empty_selection)))
     end
 end
 
@@ -32,8 +32,8 @@ function codegen_project(trace_type::Type, selection_type::Type)
     schema = get_address_schema(selection_type)
 
     # convert the selection to a static selection if it is not already one
-    if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
-        return quote $qn_project(trace, $(QuoteNode(StaticAddressSet))(selection)) end
+    if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema) || isa(schema, AllAddressSchema))
+        return quote $qn_project(trace, $(QuoteNode(StaticSelection))(selection)) end
     end
 
     ir = get_ir(gen_fn_type)
@@ -55,7 +55,7 @@ function codegen_project(trace_type::Type, selection_type::Type)
 end
 
 push!(generated_functions, quote
-@generated function $(Expr(:(.), Gen, QuoteNode(:project)))(trace::T, selection::$(QuoteNode(AddressSet))) where {T <: $(QuoteNode(StaticIRTrace))}
+@generated function $(Expr(:(.), Gen, QuoteNode(:project)))(trace::T, selection::$(QuoteNode(Selection))) where {T <: $(QuoteNode(StaticIRTrace))}
     $(QuoteNode(codegen_project))(trace, selection)
 end
 end)

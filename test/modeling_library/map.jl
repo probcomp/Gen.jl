@@ -277,7 +277,7 @@
 
         # no change to arguments, change nothing
         trace = get_initial_trace()
-        selection = EmptyAddressSet()
+        selection = EmptySelection()
         (trace, weight, retdiff) = regenerate(trace,
             (xs[1:2], ys[1:2]), (NoChange(), NoChange()), selection)
         choices = get_choices(trace)
@@ -319,7 +319,7 @@
         xs_new = copy(xs)
         xs_new[1] = -1. # change from 1 to -1
         argdiffs = (VectorDiff(2, 2, Dict{Int,Diff}(1 => UnknownChange())), NoChange())
-        selection = EmptyAddressSet()
+        selection = EmptySelection()
         (trace, weight, retdiff) = regenerate(trace,
             (xs_new[1:2], ys[1:2]), argdiffs, selection)
         choices = get_choices(trace)

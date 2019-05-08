@@ -28,7 +28,7 @@ function process!(state::StaticIRGenerateState, node::RandomChoiceNode, options)
     addr = QuoteNode(node.addr)
     dist = QuoteNode(node.dist)
     @assert isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema)
-    if isa(schema, StaticAddressSchema) && (node.addr in leaf_node_keys(schema))
+    if isa(schema, StaticAddressSchema) && (node.addr in keys(schema))
         push!(state.stmts, :($(node.name) = $qn_static_get_value(constraints, Val($addr))))
         push!(state.stmts, :($incr = $qn_logpdf($dist, $(node.name), $(args...))))
         push!(state.stmts, :($weight += $incr))
@@ -52,7 +52,7 @@ function process!(state::StaticIRGenerateState, node::GenerativeFunctionCallNode
     subtrace = get_subtrace_fieldname(node)
     incr = gensym("weight")
     subconstraints = gensym("subconstraints")
-    if isa(schema, StaticAddressSchema) && (node.addr in internal_node_keys(schema))
+    if isa(schema, StaticAddressSchema) && (node.addr in keys(schema))
         push!(state.stmts, :($subconstraints = $qn_static_get_submap(constraints, Val($addr))))
         push!(state.stmts, :(($subtrace, $incr) = $qn_generate($gen_fn, $args_tuple, $subconstraints)))
     else
@@ -62,7 +62,7 @@ function process!(state::StaticIRGenerateState, node::GenerativeFunctionCallNode
     push!(state.stmts, :($num_nonempty_fieldname += !$qn_isempty($qn_get_choices($subtrace)) ? 1 : 0))
     push!(state.stmts, :($(node.name) = $qn_get_retval($subtrace)))
     push!(state.stmts, :($total_score_fieldname += $qn_get_score($subtrace)))
-    push!(state.stmts, :($total_noise_fieldname += $qn_project($subtrace, $qn_empty_address_set)))
+    push!(state.stmts, :($total_noise_fieldname += $qn_project($subtrace, $qn_empty_selection)))
 end
 
 function codegen_generate(gen_fn_type::Type{T}, args,

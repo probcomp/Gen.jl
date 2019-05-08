@@ -395,7 +395,7 @@
         trace = get_initial_trace()
         (trace, weight, retdiff) = regenerate(trace,
             (2, x_init, alpha, beta),
-            (NoChange(), NoChange(), NoChange(), NoChange()), EmptyAddressSet())
+            (NoChange(), NoChange(), NoChange(), NoChange()), EmptySelection())
         choices = get_choices(trace)
         @test get_args(trace) == (2, x_init, alpha, beta)
         @test choices[1 => :x] == x1
@@ -438,7 +438,7 @@
         x_init_new = -0.1
         (trace, weight, retdiff) = regenerate(trace,
             (2, x_init_new, alpha, beta),
-            (NoChange(), UnknownChange(), NoChange(), NoChange()), EmptyAddressSet())
+            (NoChange(), UnknownChange(), NoChange(), NoChange()), EmptySelection())
         choices = get_choices(trace)
         @test get_args(trace) == (2, x_init_new, alpha, beta)
         @test choices[1 => :x] == x1
@@ -460,7 +460,7 @@
         alpha_new = 0.5
         (trace, weight, retdiff) = regenerate(trace,
             (2, x_init, alpha_new, beta),
-            (NoChange(), NoChange(), UnknownChange(), UnknownChange()), EmptyAddressSet())
+            (NoChange(), NoChange(), UnknownChange(), UnknownChange()), EmptySelection())
         choices = get_choices(trace)
         @test get_args(trace) == (2, x_init, alpha_new, beta)
         @test choices[1 => :x] == x1

@@ -72,7 +72,7 @@ function Gen.update(trace::PFCombinatorTrace, args::Tuple, argdiff, choices::Cho
     (new_trace, weight, DefaultRetDiff(), EmptyChoiceMap())
 end
 
-function Gen.regenerate(trace::PFCombinatorTrace, args::Tuple, argdiff, selection::AddressSet)
+function Gen.regenerate(trace::PFCombinatorTrace, args::Tuple, argdiff, selection::Selection)
     if !isempty(selection)
         error("Not implemented")
     end
@@ -87,7 +87,7 @@ function Gen.extend(::PFCombinatorTrace, ::Tuple, argdiff, ::ChoiceMap)
     error("Not implemented")
 end
 
-function Gen.choice_gradients(::PFCombinatorTrace, ::AddressSet)
+function Gen.choice_gradients(::PFCombinatorTrace, ::Selection)
     error("Not implemented")
 end
 
@@ -104,7 +104,7 @@ function Gen.assess(::ParticleFilterCombinator, args::Tuple, choices::ChoiceMap)
     error("Not implemented")
 end
 
-function Gen.project(tr::PFCombinatorTrace, ::EmptyAddressSet)
+function Gen.project(tr::PFCombinatorTrace, ::EmptySelection)
     # q(t; u=empty, x) = simulate forward from model
     # q(r; x, t) = run sMC
     # therefore, the result is SMC-ML-est / forward probability

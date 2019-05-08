@@ -17,7 +17,6 @@ get_values_shallow
 get_submaps_shallow
 to_array
 from_array
-address_set
 ```
 Note that none of these methods mutate the choice map.
 

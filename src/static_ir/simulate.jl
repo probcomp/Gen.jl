@@ -44,7 +44,7 @@ function process!(state::StaticIRSimulateState, node::GenerativeFunctionCallNode
     push!(state.stmts, :($num_nonempty_fieldname += !$qn_isempty($qn_get_choices($subtrace)) ? 1 : 0))
     push!(state.stmts, :($(node.name) = $qn_get_retval($subtrace)))
     push!(state.stmts, :($total_score_fieldname += $qn_get_score($subtrace)))
-    push!(state.stmts, :($total_noise_fieldname += $qn_project($subtrace, $qn_empty_address_set)))
+    push!(state.stmts, :($total_noise_fieldname += $qn_project($subtrace, $qn_empty_selection)))
 end
 
 function codegen_simulate(gen_fn_type::Type{T}, args) where {T <: StaticIRGenerativeFunction}

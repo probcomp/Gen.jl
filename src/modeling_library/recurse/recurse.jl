@@ -45,7 +45,7 @@ end
 get_score(trace::RecurseTrace) = trace.score
 
 # TODO assumes there is no untraced randomness
-project(trace::RecurseTrace, ::EmptyAddressSet) = 0.
+project(trace::RecurseTrace, ::EmptySelection) = 0.
 
 ##############################
 # recurse assignment wrapper #

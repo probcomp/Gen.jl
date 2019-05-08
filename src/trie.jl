@@ -173,22 +173,6 @@ function Base.merge!(a::Trie{K,V}, b::Trie{K,V}) where {K,V}
     a
 end
 
-function Base.delete!(trie::Trie, addrs::AddressSet)
-    for key in get_leaf_nodes(addrs)
-        delete_leaf_node!(trie, key)
-        delete_internal_node!(trie, key)
-    end
-    for (key, addrs_node) in get_internal_nodes(addrs)
-        if has_internal_node(trie, key)
-            trie_node = get_internal_node(trie, key)
-            if delete!(trie_node, addrs_node)
-                delete!(trie.internal_nodes, key)
-            end
-        end
-    end
-    return isempty(trie)
-end
-
 get_address_schema(::Trie) = DynamicSchema()
 
 Base.haskey(trie::Trie, key) = has_leaf_node(trie, key)
