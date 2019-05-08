@@ -9,9 +9,10 @@ Selection
 ```
 
 There are various concrete types for selections, each of which is a subtype of [`Selection`](@ref).
-Users can construct selections with the [`select`](@ref) method:
+Users can construct selections with the [`select`](@ref) and [`selectall`] methods:
 ```@docs
 select
+selectall
 ```
 
 An address that is added to a selection indicates that either the random choice at that address should be included in the selection, or that all random choices made by a generative function traced at that address should be included.
@@ -42,17 +43,11 @@ end
 end
 ```
 
-Users can add new addresses to selections using [`push!`]. For example:
-```julia
-sel = select()
-push!(sel, :x)
-push!(sel, "foo")
-push!(sel, :y => 1 => :z)
-```
-
 The [`select`](@ref) method returns a selection with concrete type [`DynamicSelection`](@ref).
-There are also other concrete types of selections, shown below.
+The [`selectall`](@ref) method returns a selection with concrete type [`AllSelection`](@ref).
+The full list of concrete types of selections is shown below.
 Most users need not worry about these types.
+Note that only selections of type [`DynamicSelection`]@(ref) are mutable (using `push!` and `set_subselection!`).
 ```@docs
 EmptySelection
 AllSelection

@@ -191,14 +191,40 @@ export StaticSelection
 # dynamic selection #
 #####################
 
-# TODO also implements push!, and the Gen.select() constructor
-
 """
     struct DynamicSelection <: HierarchicalSelection .. end
 
-A hierarchical selection with arbitrary addresses.
+A hierarchical, mutable, selection with arbitrary addresses.
 
-Also implements the push! method, which allows additional addresses to be added to the selection.
+Can be mutated with the following methods:
+
+
+    Base.push!(selection::DynamicSelection, addr)
+
+Add the address and all of its sub-addresses to the selection.
+
+Example:
+
+    selection = select()
+    @assert !(:x in selection)
+    push!(selection, :x)
+    @assert :x in selection
+
+
+    set_subselection!(selection::DynamicSelection, addr, other::Selection)
+
+Change the selection status of the given address and its sub-addresses that defined by `other`.
+
+Example:
+
+    selection = select(:x)
+    @assert :x in selection
+    subselection = select(:y)
+    set_subselection!(selection, :x, subselection)
+    @assert (:x => :y) in selection
+    @assert !(:x in selection)
+
+Note that `set_subselection!` does not copy data in `other`, so `other` may be mutated by a later calls to `set_subselection!` for addresses under `addr`.
 """
 struct DynamicSelection <: HierarchicalSelection
     # note: only store subselections for which isempty = false
@@ -266,6 +292,21 @@ function Base.push!(selection::DynamicSelection, addr::Pair)
     push!(subselection, rest)
 end
 
+function set_subselection!(selection::DynamicSelection, addr, other::Selection)
+    selection.subselections[addr] = other
+end
+
+function set_subselection!(selection::DynamicSelection, addr::Pair, other::Selection)
+    (first, rest) = addr
+    if haskey(selection.subselections, first)
+        subselection = selection.subselections[first]
+    else
+        subselection = DynamicSelection()
+        selection.subselections[first] = subselection 
+    end
+    set_subselection!(subselection, rest, other)
+end
+
 get_subselections(selection::DynamicSelection) = selection.subselections
 
 """
@@ -285,5 +326,14 @@ function select(addrs...)
     selection
 end
 
+"""
+    selection = selectall()
+
+Construct a selection that includes all random choices.
+"""
+function selectall()
+    AllSelection()
+end
+
 export DynamicSelection
-export select
+export select, selectall, set_subselection!
