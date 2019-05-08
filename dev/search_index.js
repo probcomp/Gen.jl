@@ -229,7 +229,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Generative Functions",
     "title": "Gen.regenerate",
     "category": "function",
-    "text": "(new_trace, weight, retdiff) = regenerate(trace, args::Tuple, argdiffs::Tuple,\n                                          selection::AddressSet)\n\nUpdate a trace by changing the arguments and/or randomly sampling new values for selected random choices using the internal proposal distribution family.\n\nGiven a previous trace (x t r) (trace), new arguments x (args), and a set of addresses A (selection), return a new trace (x t) (new_trace) such that t agrees with t on all addresses not in A (t and t may have different sets of addresses).  Let u denote the restriction of t to the complement of A.  Sample t sim Q(cdot u x) and sample r sim Q(cdot x t). Return the new trace (x t r) (new_trace) and the weight (weight):\n\nlog fracp(r t x) q(t u x) q(r x t)p(r t x) q(t u x) q(r x t)\n\nwhere u is the restriction of t to the complement of A.\n\n\n\n\n\n"
+    "text": "(new_trace, weight, retdiff) = regenerate(trace, args::Tuple, argdiffs::Tuple,\n                                          selection::Selection)\n\nUpdate a trace by changing the arguments and/or randomly sampling new values for selected random choices using the internal proposal distribution family.\n\nGiven a previous trace (x t r) (trace), new arguments x (args), and a set of addresses A (selection), return a new trace (x t) (new_trace) such that t agrees with t on all addresses not in A (t and t may have different sets of addresses).  Let u denote the restriction of t to the complement of A.  Sample t sim Q(cdot u x) and sample r sim Q(cdot x t). Return the new trace (x t r) (new_trace) and the weight (weight):\n\nlog fracp(r t x) q(t u x) q(r x t)p(r t x) q(t u x) q(r x t)\n\nwhere u is the restriction of t to the complement of A.\n\n\n\n\n\n"
 },
 
 {
@@ -301,7 +301,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Generative Functions",
     "title": "Gen.choice_gradients",
     "category": "function",
-    "text": "(arg_grads, choice_values, choice_grads) = choice_gradients(trace, selection::AddressSet,\n                                                            retgrad)\n\nGiven a previous trace (x t) (trace) and a gradient with respect to the return value _y J (retgrad), return the following gradient (arg_grads) with respect to the arguments x:\n\n_x left( log P(t x) + J right)\n\nAlso given a set of addresses A (selection) that are continuous-valued random choices, return the folowing gradient (choice_grads) with respect to the values of these choices:\n\n_A left( log P(t x) + J right)\n\nAlso return the assignment (choice_values) that is the restriction of t to A.\n\n\n\n\n\n"
+    "text": "(arg_grads, choice_values, choice_grads) = choice_gradients(trace, selection::Selection,\n                                                            retgrad)\n\nGiven a previous trace (x t) (trace) and a gradient with respect to the return value _y J (retgrad), return the following gradient (arg_grads) with respect to the arguments x:\n\n_x left( log P(t x) + J right)\n\nAlso given a set of addresses A (selection) that are continuous-valued random choices, return the folowing gradient (choice_grads) with respect to the values of these choices:\n\n_A left( log P(t x) + J right)\n\nAlso return the assignment (choice_values) that is the restriction of t to A.\n\n\n\n\n\n"
 },
 
 {
@@ -325,7 +325,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Generative Functions",
     "title": "Gen.project",
     "category": "function",
-    "text": "weight = project(trace::U, selection::AddressSet)\n\nEstimate the probability that the selected choices take the values they do in a trace. \n\nGiven a trace (x t r) (trace) and a set of addresses A (selection), let u denote the restriction of t to A. Return the weight (weight):\n\nlog fracp(r t x)q(t u x) q(r x t)\n\n\n\n\n\n"
+    "text": "weight = project(trace::U, selection::Selection)\n\nEstimate the probability that the selected choices take the values they do in a trace. \n\nGiven a trace (x t r) (trace) and a set of addresses A (selection), let u denote the restriction of t to A. Return the weight (weight):\n\nlog fracp(r t x)q(t u x) q(r x t)\n\n\n\n\n\n"
 },
 
 {
@@ -897,19 +897,11 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "ref/choice_maps/#Gen.address_set",
-    "page": "Choice Maps",
-    "title": "Gen.address_set",
-    "category": "function",
-    "text": "addrs::AddressSet = address_set(choices::ChoiceMap)\n\nReturn an AddressSet containing the addresses of values in the given assignment.\n\n\n\n\n\n"
-},
-
-{
     "location": "ref/choice_maps/#Choice-Maps-1",
     "page": "Choice Maps",
     "title": "Choice Maps",
     "category": "section",
-    "text": "Maps from the addresses of random choices to their values are stored in associative tree-structured data structures that have the following abstract type:ChoiceMapChoice maps are constructed by users to express observations and/or constraints on the traces of generative functions. Choice maps are also returned by certain Gen inference methods, and are used internally by various Gen inference methods.Choice maps provide the following methods:has_value\nget_value\nget_submap\nget_values_shallow\nget_submaps_shallow\nto_array\nfrom_array\naddress_setNote that none of these methods mutate the choice map.Choice maps also implement:Base.isempty, which tests of there are no random choices in the choice map\nBase.merge, which takes two choice maps, and returns a new choice map containing all random choices in either choice map. It is an error if the choice maps both have values at the same address, or if one choice map has a value at an address that is the prefix of the address of a value in the other choice map.\n==, which tests if two choice maps have the same addresses and values at those addresses."
+    "text": "Maps from the addresses of random choices to their values are stored in associative tree-structured data structures that have the following abstract type:ChoiceMapChoice maps are constructed by users to express observations and/or constraints on the traces of generative functions. Choice maps are also returned by certain Gen inference methods, and are used internally by various Gen inference methods.Choice maps provide the following methods:has_value\nget_value\nget_submap\nget_values_shallow\nget_submaps_shallow\nto_array\nfrom_arrayNote that none of these methods mutate the choice map.Choice maps also implement:Base.isempty, which tests of there are no random choices in the choice map\nBase.merge, which takes two choice maps, and returns a new choice map containing all random choices in either choice map. It is an error if the choice maps both have values at the same address, or if one choice map has a value at an address that is the prefix of the address of a value in the other choice map.\n==, which tests if two choice maps have the same addresses and values at those addresses."
 },
 
 {
@@ -953,11 +945,75 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "ref/selections/#Gen.Selection",
+    "page": "Selections",
+    "title": "Gen.Selection",
+    "category": "type",
+    "text": "abstract type Selection end\n\nAbstract type for selections of addresses.\n\nAll selections implement the following methods:\n\nBase.in(addr, selection)\n\nIs the address selected?\n\nBase.getindex(selection, addr)\n\nGet the subselection at the given address.\n\nBase.isempty(set)\n\nIs the selection guaranteed to be empty?\n\nget_address_schema(T)\n\nReturn a shallow, compile-time address schema, where T is the concrete type of the selection.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/selections/#Gen.select",
+    "page": "Selections",
+    "title": "Gen.select",
+    "category": "function",
+    "text": "selection = select(addrs...)\n\nReturn a selection containing a given set of addresses.\n\nExample:\n\nselection = select(:x, \"foo\", :y => 1 => :z)\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/selections/#Gen.selectall",
+    "page": "Selections",
+    "title": "Gen.selectall",
+    "category": "function",
+    "text": "selection = selectall()\n\nConstruct a selection that includes all random choices.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/selections/#Gen.EmptySelection",
+    "page": "Selections",
+    "title": "Gen.EmptySelection",
+    "category": "type",
+    "text": "struct EmptySelection <: Selection end\n\nA singleton type for a selection that is always empty.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/selections/#Gen.AllSelection",
+    "page": "Selections",
+    "title": "Gen.AllSelection",
+    "category": "type",
+    "text": "struct AllSelection <: Selection end\n\nA singleton type for a selection that contains all choices at or under an address.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/selections/#Gen.HierarchicalSelection",
+    "page": "Selections",
+    "title": "Gen.HierarchicalSelection",
+    "category": "type",
+    "text": "abstract type HierarchicalSelection <: Selection end\n\nAbstract type for selections that have a notion of sub-selections.\n\nget_subselections(selection)\n\nReturn an iterator over pairs of addresses and subselections at associated addresses.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/selections/#Gen.DynamicSelection",
+    "page": "Selections",
+    "title": "Gen.DynamicSelection",
+    "category": "type",
+    "text": "struct DynamicSelection <: HierarchicalSelection .. end\n\nA hierarchical, mutable, selection with arbitrary addresses.\n\nCan be mutated with the following methods:\n\nBase.push!(selection::DynamicSelection, addr)\n\nAdd the address and all of its sub-addresses to the selection.\n\nExample:\n\nselection = select()\n@assert !(:x in selection)\npush!(selection, :x)\n@assert :x in selection\n\n\nset_subselection!(selection::DynamicSelection, addr, other::Selection)\n\nChange the selection status of the given address and its sub-addresses that defined by other.\n\nExample:\n\nselection = select(:x)\n@assert :x in selection\nsubselection = select(:y)\nset_subselection!(selection, :x, subselection)\n@assert (:x => :y) in selection\n@assert !(:x in selection)\n\nNote that set_subselection! does not copy data in other, so other may be mutated by a later calls to set_subselection! for addresses under addr.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/selections/#Gen.StaticSelection",
+    "page": "Selections",
+    "title": "Gen.StaticSelection",
+    "category": "type",
+    "text": "struct StaticSelection{T,U} <: HierarchicalSelection .. end\n\nA hierarchical selection whose keys are among its type parameters.\n\n\n\n\n\n"
+},
+
+{
     "location": "ref/selections/#Selections-1",
     "page": "Selections",
     "title": "Selections",
     "category": "section",
-    "text": "A selection is a set of addresses. Users typically construct selections and pass them to Gen inference library methods.There are various concrete types for selections, each of which is a subtype of AddressSet. One such concrete type is DynamicAddressSet, which users can populate using Base.push!, e.g.:sel = DynamicAddressSet()\npush!(sel, :x)\npush!(sel, \"foo\")\npush!(sel, :y => 1 => :z)There is also the following syntactic sugar:sel = select(:x, \"foo\", :y => 1 => :z)"
+    "text": "A selection represents a set of addresses of random choices. Selections allow users to specify to which subset of the random choices in a trace a given inference operation should apply.There is an abstract type for selections:SelectionThere are various concrete types for selections, each of which is a subtype of Selection. Users can construct selections with the select and [selectall] methods:select\nselectallAn address that is added to a selection indicates that either the random choice at that address should be included in the selection, or that all random choices made by a generative function traced at that address should be included. For example, consider the following selection:selection = select(:x, :y)If we use this selection in the context of a trace of the function baz below, we are selecting two random choices, at addresses :x and :y:@gen function baz()\n    @trace(bernoulli(0.5), :x)\n    @trace(bernoulli(0.5), :y)\nendIf we use this selection in the context of a trace of the function bar below, we are actually selecting three random choices–-the one random choice made by bar at address :x and the two random choices made by foo at addresses :y => :z and :y => :w`:@gen function foo()\n    @trace(normal(0, 1), :z)\n    @trace(normal(0, 1), :w)\nend\nend\n\n@gen function bar()\n    @trace(bernoulli(0.5), :x)\n    @trace(foo(), :y)\nendThe select method returns a selection with concrete type DynamicSelection. The selectall method returns a selection with concrete type AllSelection. The full list of concrete types of selections is shown below. Most users need not worry about these types. Note that only selections of type [DynamicSelection]@(ref) are mutable (using push! and set_subselection!).EmptySelection\nAllSelection\nHierarchicalSelection\nDynamicSelection\nStaticSelection"
 },
 
 {
@@ -1077,7 +1133,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Inference Library",
     "title": "Gen.metropolis_hastings",
     "category": "function",
-    "text": "(new_trace, accepted) = metropolis_hastings(trace, selection::AddressSet)\n\nPerform a Metropolis-Hastings update that proposes new values for the selected addresses from the internal proposal (often using ancestral sampling).\n\n\n\n\n\n(new_trace, accepted) = metropolis_hastings(trace, proposal::GenerativeFunction, proposal_args::Tuple)\n\nPerform a Metropolis-Hastings update that proposes new values for some subset of random choices in the given trace using the given proposal generative function.\n\nThe proposal generative function should take as its first argument the current trace of the model, and remaining arguments proposal_args. If the proposal modifies addresses that determine the control flow in the model, values must be provided by the proposal for any addresses that are newly sampled by the model.\n\n\n\n\n\n(new_trace, accepted) = metropolis_hastings(trace, proposal::GenerativeFunction, proposal_args::Tuple, involution::Function)\n\nPerform a generalized Metropolis-Hastings update based on an involution (bijection that is its own inverse) on a space of assignments.\n\nThe `involution\' Julia function has the following signature:\n\n(new_trace, bwd_choices::ChoiceMap, weight) = involution(trace, fwd_choices::ChoiceMap, fwd_ret, proposal_args::Tuple)\n\nThe generative function proposal is executed on arguments (trace, proposal_args...), producing an assignment fwd_choices and return value fwd_ret. For each value of model arguments (contained in trace) and proposal_args, the involution function applies an involution that maps the tuple (get_choices(trace), fwd_choices) to the tuple (get_choices(new_trace), bwd_choices). Note that fwd_ret is a deterministic function of fwd_choices and proposal_args. When only discrete random choices are used, the weight must be equal to get_score(new_trace) - get_score(trace).\n\nIncluding Continuous Random Choices When continuous random choices are used, the weight must include an additive term that is the determinant of the the Jacobian of the bijection on the continuous random choices that is obtained by currying the involution on the discrete random choices.\n\n\n\n\n\n"
+    "text": "(new_trace, accepted) = metropolis_hastings(trace, selection::Selection)\n\nPerform a Metropolis-Hastings update that proposes new values for the selected addresses from the internal proposal (often using ancestral sampling).\n\n\n\n\n\n(new_trace, accepted) = metropolis_hastings(trace, proposal::GenerativeFunction, proposal_args::Tuple)\n\nPerform a Metropolis-Hastings update that proposes new values for some subset of random choices in the given trace using the given proposal generative function.\n\nThe proposal generative function should take as its first argument the current trace of the model, and remaining arguments proposal_args. If the proposal modifies addresses that determine the control flow in the model, values must be provided by the proposal for any addresses that are newly sampled by the model.\n\n\n\n\n\n(new_trace, accepted) = metropolis_hastings(trace, proposal::GenerativeFunction, proposal_args::Tuple, involution::Function)\n\nPerform a generalized Metropolis-Hastings update based on an involution (bijection that is its own inverse) on a space of assignments.\n\nThe `involution\' Julia function has the following signature:\n\n(new_trace, bwd_choices::ChoiceMap, weight) = involution(trace, fwd_choices::ChoiceMap, fwd_ret, proposal_args::Tuple)\n\nThe generative function proposal is executed on arguments (trace, proposal_args...), producing an assignment fwd_choices and return value fwd_ret. For each value of model arguments (contained in trace) and proposal_args, the involution function applies an involution that maps the tuple (get_choices(trace), fwd_choices) to the tuple (get_choices(new_trace), bwd_choices). Note that fwd_ret is a deterministic function of fwd_choices and proposal_args. When only discrete random choices are used, the weight must be equal to get_score(new_trace) - get_score(trace).\n\nIncluding Continuous Random Choices When continuous random choices are used, the weight must include an additive term that is the determinant of the the Jacobian of the bijection on the continuous random choices that is obtained by currying the involution on the discrete random choices.\n\n\n\n\n\n"
 },
 
 {
@@ -1085,7 +1141,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Inference Library",
     "title": "Gen.mh",
     "category": "function",
-    "text": "(new_trace, accepted) = mh(trace, selection::AddressSet)\n(new_trace, accepted) = mh(trace, proposal::GenerativeFunction, proposal_args::Tuple)\n(new_trace, accepted) = mh(trace, proposal::GenerativeFunction, proposal_args::Tuple, involution::Function)\n\nAlias for metropolis_hastings. Perform a Metropolis-Hastings update on the given trace.\n\n\n\n\n\n"
+    "text": "(new_trace, accepted) = mh(trace, selection::Selection)\n(new_trace, accepted) = mh(trace, proposal::GenerativeFunction, proposal_args::Tuple)\n(new_trace, accepted) = mh(trace, proposal::GenerativeFunction, proposal_args::Tuple, involution::Function)\n\nAlias for metropolis_hastings. Perform a Metropolis-Hastings update on the given trace.\n\n\n\n\n\n"
 },
 
 {
@@ -1093,7 +1149,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Inference Library",
     "title": "Gen.mala",
     "category": "function",
-    "text": "(new_trace, accepted) = mala(trace, selection::AddressSet, tau::Real)\n\nApply a Metropolis-Adjusted Langevin Algorithm (MALA) update.\n\nReference URL\n\n\n\n\n\n"
+    "text": "(new_trace, accepted) = mala(trace, selection::Selection, tau::Real)\n\nApply a Metropolis-Adjusted Langevin Algorithm (MALA) update.\n\nReference URL\n\n\n\n\n\n"
 },
 
 {
@@ -1101,7 +1157,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Inference Library",
     "title": "Gen.hmc",
     "category": "function",
-    "text": "(new_trace, accepted) = hmc(trace, selection::AddressSet, mass=0.1, L=10, eps=0.1)\n\nApply a Hamiltonian Monte Carlo (HMC) update.\n\nNeal, Radford M. \"MCMC using Hamiltonian dynamics.\" Handbook of Markov Chain Monte Carlo 2.11 (2011): 2.\n\nReference URL\n\n\n\n\n\n"
+    "text": "(new_trace, accepted) = hmc(trace, selection::Selection, mass=0.1, L=10, eps=0.1)\n\nApply a Hamiltonian Monte Carlo (HMC) update.\n\nNeal, Radford M. \"MCMC using Hamiltonian dynamics.\" Handbook of Markov Chain Monte Carlo 2.11 (2011): 2.\n\nReference URL\n\n\n\n\n\n"
 },
 
 {
@@ -1117,7 +1173,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Inference Library",
     "title": "Gen.map_optimize",
     "category": "function",
-    "text": "new_trace = map_optimize(trace, selection::AddressSet, \n    max_step_size=0.1, tau=0.5, min_step_size=1e-16, verbose=false)\n\nPerform backtracking gradient ascent to optimize the log probability of the trace over selected continuous choices.\n\nSelected random choices must have support on the entire real line.\n\n\n\n\n\n"
+    "text": "new_trace = map_optimize(trace, selection::Selection, \n    max_step_size=0.1, tau=0.5, min_step_size=1e-16, verbose=false)\n\nPerform backtracking gradient ascent to optimize the log probability of the trace over selected continuous choices.\n\nSelected random choices must have support on the entire real line.\n\n\n\n\n\n"
 },
 
 {
