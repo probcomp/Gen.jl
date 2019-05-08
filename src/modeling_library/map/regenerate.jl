@@ -9,17 +9,13 @@ mutable struct MapRegenerateState{T,U}
 end
 
 function process_retained!(gen_fn::Map{T,U}, args::Tuple,
-                           selection::AddressSet, key::Int, kernel_argdiffs::Tuple,
+                           selection::Selection, key::Int, kernel_argdiffs::Tuple,
                            state::MapRegenerateState{T,U}) where {T,U}
     local subtrace::U
     local prev_subtrace::U
     local retval::T
 
-    if has_internal_node(selection, key)
-        subselection = get_internal_node(selection, key)
-    else
-        subselection = EmptyAddressSet()
-    end
+    subselection = selection[key]
     kernel_args = get_args_for_key(args, key)
 
     # get new subtrace with recursive call to regenerate()
@@ -35,7 +31,7 @@ function process_retained!(gen_fn::Map{T,U}, args::Tuple,
     # update state
     state.weight += weight
     state.score += (get_score(subtrace) - get_score(prev_subtrace))
-    state.noise += (project(subtrace, EmptyAddressSet()) - project(subtrace, EmptyAddressSet()))
+    state.noise += (project(subtrace, EmptySelection()) - project(subtrace, EmptySelection()))
     state.subtraces = assoc(state.subtraces, key, subtrace)
     retval = get_retval(subtrace)
     state.retval = assoc(state.retval, key, retval)
@@ -48,12 +44,11 @@ function process_retained!(gen_fn::Map{T,U}, args::Tuple,
     end
 end
 
-function process_new!(gen_fn::Map{T,U}, args::Tuple, selection::AddressSet, key::Int,
+function process_new!(gen_fn::Map{T,U}, args::Tuple, selection::Selection, key::Int,
                       state::MapRegenerateState{T,U}) where {T,U}
     local subtrace::U
     local retval::T
-
-    if has_internal_node(selection, key)
+    if !isempty(selection[key])
         error("Tried to select new address in regenerate at key $key")
     end
     kernel_args = get_args_for_key(args, key)
@@ -76,7 +71,7 @@ end
 
 
 function regenerate(trace::VectorTrace{MapType,T,U}, args::Tuple, argdiffs::Tuple,
-                    selection::AddressSet) where {T,U}
+                    selection::Selection) where {T,U}
     gen_fn = trace.gen_fn
     (new_length, prev_length) = get_prev_and_new_lengths(args, trace)
     retained_and_selected = get_retained_and_selected(selection, prev_length, new_length)

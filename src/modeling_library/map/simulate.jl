@@ -12,7 +12,7 @@ function process!(gen_fn::Map{T,U}, args::Tuple,
     local retval::T
     kernel_args = get_args_for_key(args, key)
     subtrace = simulate(gen_fn.kernel, kernel_args)
-    state.noise += project(subtrace, EmptyAddressSet())
+    state.noise += project(subtrace, EmptySelection())
     state.num_nonempty += (isempty(get_choices(subtrace)) ? 0 : 1)
     state.score += get_score(subtrace)
     state.subtraces[key] = subtrace

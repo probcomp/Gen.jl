@@ -11,7 +11,7 @@ function assess_momenta(momenta, mass)
 end
 
 """
-    (new_trace, accepted) = hmc(trace, selection::AddressSet, mass=0.1, L=10, eps=0.1)
+    (new_trace, accepted) = hmc(trace, selection::Selection, mass=0.1, L=10, eps=0.1)
 
 Apply a Hamiltonian Monte Carlo (HMC) update.
 
@@ -19,7 +19,7 @@ Neal, Radford M. "MCMC using Hamiltonian dynamics." Handbook of Markov Chain Mon
 
 [Reference URL](http://www.mcmchandbook.net/HandbookChapter5.pdf)
 """
-function hmc(trace::U, selection::AddressSet;
+function hmc(trace::U, selection::Selection;
              mass=0.1, L=10, eps=0.1) where {T,U}
     prev_model_score = get_score(trace)
     args = get_args(trace)

@@ -1,9 +1,9 @@
 """
-    (new_trace, accepted) = metropolis_hastings(trace, selection::AddressSet)
+    (new_trace, accepted) = metropolis_hastings(trace, selection::Selection)
 
 Perform a Metropolis-Hastings update that proposes new values for the selected addresses from the internal proposal (often using ancestral sampling).
 """
-function metropolis_hastings(trace, selection::AddressSet)
+function metropolis_hastings(trace, selection::Selection)
     args = get_args(trace)
     argdiffs = map((_) -> NoChange(), args)
     (new_trace, weight) = regenerate(trace, args, argdiffs, selection)
@@ -97,7 +97,7 @@ function metropolis_hastings(trace, proposal::GenerativeFunction,
 end
 
 """
-    (new_trace, accepted) = mh(trace, selection::AddressSet)
+    (new_trace, accepted) = mh(trace, selection::Selection)
     (new_trace, accepted) = mh(trace, proposal::GenerativeFunction, proposal_args::Tuple)
     (new_trace, accepted) = mh(trace, proposal::GenerativeFunction, proposal_args::Tuple, involution::Function)
 

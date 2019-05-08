@@ -1,4 +1,4 @@
-function choice_gradients(trace::VectorTrace{MapType,T,U}, selection::AddressSet,
+function choice_gradients(trace::VectorTrace{MapType,T,U}, selection::Selection,
                         retval_grad) where {T,U}
 
     args = get_args(trace)
@@ -20,11 +20,7 @@ function choice_gradients(trace::VectorTrace{MapType,T,U}, selection::AddressSet
     
     for key=1:len
         subtrace = trace.subtraces[key]
-        if has_internal_node(selection, key)
-            sub_selection = get_internal_node(selection, key)
-        else
-            sub_selection = EmptyAddressSet()
-        end
+        sub_selection = selection[key]
         kernel_retval_grad = (retval_grad == nothing) ? nothing : retval_grad[key]
         (kernel_arg_grad::Tuple, kernel_value_choices, kernel_gradient_choices) = choice_gradients(
             subtrace, sub_selection, kernel_retval_grad)

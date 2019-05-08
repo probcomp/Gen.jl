@@ -237,22 +237,6 @@ function Base.merge(choices1::ChoiceMap, choices2::ChoiceMap)
     return choices
 end
 
-"""
-    addrs::AddressSet = address_set(choices::ChoiceMap)
-
-Return an `AddressSet` containing the addresses of values in the given assignment.
-"""
-function address_set(choices::ChoiceMap)
-    set = DynamicAddressSet()
-    for (key, _) in get_values_shallow(choices)
-        push_leaf_node!(set, key)
-    end
-    for (key, submap) in get_submaps_shallow(choices)
-        set_internal_node!(set, key, address_set(submap))
-    end
-    set
-end
-
 function Base.:(==)(a::ChoiceMap, b::ChoiceMap)
     for (addr, value) in get_values_shallow(a)
         if !has_value(b, addr) || (get_value(b, addr) != value)
@@ -312,7 +296,6 @@ export get_values_shallow
 export static_get_value
 export static_get_submap
 export to_array, from_array
-export address_set
 
 
 ######################
@@ -339,15 +322,14 @@ end
 # invariant: all internal_nodes are nonempty
 
 function get_address_schema(::Type{StaticChoiceMap{R,S,T,U}}) where {R,S,T,U}
-    leaf_keys = Set{Symbol}()
-    internal_keys = Set{Symbol}()
+    keys = Set{Symbol}()
     for (key, _) in zip(R, S.parameters)
-        push!(leaf_keys, key)
+        push!(keys, key)
     end
     for (key, _) in zip(T, U.parameters)
-        push!(internal_keys, key)
+        push!(keys, key)
     end
-    StaticAddressSchema(leaf_keys, internal_keys)
+    StaticAddressSchema(keys)
 end
 
 function Base.isempty(choices::StaticChoiceMap)

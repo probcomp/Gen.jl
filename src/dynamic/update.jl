@@ -120,41 +120,37 @@ function splice(state::GFUpdateState, gen_fn::DynamicDSLFunction,
 end
 
 function update_delete_recurse(prev_trie::Trie{Any,ChoiceOrCallRecord},
-                               visited::EmptyAddressSet)
+                               visited::EmptySelection)
     score = 0.
     for (key, choice_or_call) in get_leaf_nodes(prev_trie)
         score += choice_or_call.score
     end
     for (key, subtrie) in get_internal_nodes(prev_trie)
-        score += update_delete_recurse(subtrie, EmptyAddressSet())
+        score += update_delete_recurse(subtrie, EmptySelection())
     end
     score
 end
 
 function update_delete_recurse(prev_trie::Trie{Any,ChoiceOrCallRecord},
-                               visited::DynamicAddressSet)
+                               visited::DynamicSelection)
     score = 0.
     for (key, choice_or_call) in get_leaf_nodes(prev_trie)
-        if !has_leaf_node(visited, key)
+        if !(key in visited)
             score += choice_or_call.score
         end
     end
     for (key, subtrie) in get_internal_nodes(prev_trie)
-        if has_internal_node(visited, key)
-            subvisited = get_internal_node(visited, key)
-        else
-            subvisited = EmptyAddressSet()
-        end
+        subvisited = visited[key]
         score += update_delete_recurse(subtrie, subvisited)
     end
     score
 end
 
 function add_unvisited_to_discard!(discard::DynamicChoiceMap,
-                                   visited::DynamicAddressSet,
+                                   visited::DynamicSelection,
                                    prev_choices::ChoiceMap)
     for (key, value) in get_values_shallow(prev_choices)
-        if !has_leaf_node(visited, key)
+        if !(key in visited)
             @assert !has_value(discard, key)
             @assert isempty(get_submap(discard, key))
             set_value!(discard, key, value)
@@ -162,19 +158,23 @@ function add_unvisited_to_discard!(discard::DynamicChoiceMap,
     end
     for (key, submap) in get_submaps_shallow(prev_choices)
         @assert !has_value(discard, key)
-        if has_leaf_node(visited, key)
+        if key in visited
             # the recursive call to update already handled the discard
             # for this entire submap
             continue
-        elseif has_internal_node(visited, key)
-            subvisited = get_internal_node(visited, key)
-            subdiscard = get_submap(discard, key)
-            add_unvisited_to_discard!(isempty(subdiscard) ? choicemap() : subdiscard, subvisited, submap)
-            set_submap!(discard, key, subdiscard)
-        else
-            # none of this submap was visited, so we discard the whole thing
-            @assert isempty(get_submap(discard, key))
-            set_submap!(discard, key, submap)
+        else 
+            subvisited = visited[key]
+            if isempty(subvisited)
+                # none of this submap was visited, so we discard the whole thing
+                @assert isempty(get_submap(discard, key))
+                set_submap!(discard, key, submap)
+            else
+                subdiscard = get_submap(discard, key)
+                add_unvisited_to_discard!(
+                    isempty(subdiscard) ? choicemap() : subdiscard,
+                    subvisited, submap)
+                set_submap!(discard, key, subdiscard)
+            end
         end
     end
 end

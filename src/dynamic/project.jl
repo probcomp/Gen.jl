@@ -1,36 +1,25 @@
 function project_recurse(trie::Trie{Any,ChoiceOrCallRecord},
-                         selection::AddressSet)
+                         selection::Selection)
     weight = 0.
     for (key, choice_or_call) in get_leaf_nodes(trie)
         if choice_or_call.is_choice
-            if has_leaf_node(selection, key)
+            if key in selection
                 weight += choice_or_call.score
-            elseif has_internal_node(selection, key)
-                error("Got internal selection node for choice at key $key")
             end
         else
-            if has_internal_node(selection, key)
-                subselection = get_internal_node(selection, key)
-            elseif has_leaf_node(selection, key)
-                error("Got leaf selection node for choice map at $key") # TODO handle this
-            else
-                subselection = EmptyAddressSet()
-            end
+            subselection = selection[key]
             weight += project(choice_or_call.subtrace_or_retval, subselection)
         end
     end
     for (key, subtrie) in get_internal_nodes(trie)
-        if has_internal_node(selection, key)
-            subselection = get_internal_node(selection, key)
-            @assert !isempty(subselection) # otherwise it would not has_internal_node
-            weight += project_recurse(subtrie, subselection)
-        end
+        subselection = selection[key]
+        weight += project_recurse(subtrie, subselection)
     end
     weight
 end
 
-function project(trace::DynamicDSLTrace, selection::AddressSet)
+function project(trace::DynamicDSLTrace, selection::Selection)
     project_recurse(trace.trie, selection)
 end
 
-project(trace::DynamicDSLTrace, ::EmptyAddressSet) = trace.noise
+project(trace::DynamicDSLTrace, ::EmptySelection) = trace.noise

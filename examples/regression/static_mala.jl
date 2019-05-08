@@ -12,8 +12,8 @@ end
 
 Gen.load_generated_functions()
 
-line_selection = StaticAddressSet(select(:slope, :intercept))
-std_selection = StaticAddressSet(select(:log_inlier_std, :log_outlier_std))
+line_selection = StaticSelection(select(:slope, :intercept))
+std_selection = StaticSelection(select(:log_inlier_std, :log_outlier_std))
 
 function do_inference(xs, ys, num_iters)
 

@@ -350,7 +350,7 @@ end
 
     # compute gradients with choice_gradients
     selection = select(:bar => :z, :a, :out)
-    selection = StaticAddressSet(selection)
+    selection = StaticSelection(selection)
     retval_grad = 2.
     ((mu_a_grad,), value_trie, gradient_trie) = choice_gradients(trace, selection, retval_grad)
 

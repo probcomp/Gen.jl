@@ -89,7 +89,7 @@ function add_call!(trace::DynamicDSLTrace, addr, subtrace)
             The same address cannot be reused for multiple random choices.")
     end
     score = get_score(subtrace)
-    noise = project(subtrace, EmptyAddressSet())
+    noise = project(subtrace, EmptySelection())
     submap = get_choices(subtrace)
     trace.isempty = trace.isempty && isempty(submap)
     trace.trie[addr] = ChoiceOrCallRecord(subtrace, score, noise, false)

@@ -13,7 +13,7 @@ function process!(gen_fn::Unfold{T,U}, params::Tuple,
     local new_state::T
     kernel_args = (key, state.state, params...)
     subtrace = simulate(gen_fn.kernel, kernel_args)
-    state.noise += project(subtrace, EmptyAddressSet())
+    state.noise += project(subtrace, EmptySelection())
     state.num_nonempty += (isempty(get_choices(subtrace)) ? 0 : 1)
     state.score += get_score(subtrace)
     state.subtraces[key] = subtrace

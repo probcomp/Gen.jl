@@ -279,9 +279,9 @@ function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
         subtrace_fieldname = get_subtrace_fieldname(node)
         call_selection = gensym("call_selection")
         if node in selected_calls
-            push!(stmts, :($call_selection = $(QuoteNode(static_get_internal_node))(selection, $(QuoteNode(Val(node.addr))))))
+            push!(stmts, :($call_selection = $qn_static_getindex(selection, $(QuoteNode(Val(node.addr))))))
         else
-            push!(stmts, :($call_selection = EmptyAddressSet()))
+            push!(stmts, :($call_selection = EmptySelection()))
         end
         retval_grad = node in back_marked ? gradient_var(node) : :(nothing)
         push!(stmts, :(($input_grads, $value_trie, $gradient_trie) = choice_gradients(
@@ -351,8 +351,12 @@ function get_selected_choices(::EmptyAddressSchema, ::StaticIR)
     Set{RandomChoiceNode}()
 end
 
+function get_selected_choices(::AllAddressSchema, ir::StaticIR)
+    Set{RandomChoiceNodes}(ir.choice_nodes)
+end
+
 function get_selected_choices(schema::StaticAddressSchema, ir::StaticIR)
-    selected_choice_addrs = Set(leaf_node_keys(schema))
+    selected_choice_addrs = Set(keys(schema))
     selected_choices = Set{RandomChoiceNode}()
     for node in ir.choice_nodes
         if node.addr in selected_choice_addrs
@@ -366,8 +370,12 @@ function get_selected_calls(::EmptyAddressSchema, ::StaticIR)
     Set{GenerativeFunctionCallNode}()
 end
 
+function get_selected_calls(::AllAddressSchema, ir::StaticIR)
+    Set{GenerativeFunctionCallNode}(ir.call_nodes)
+end
+
 function get_selected_calls(schema::StaticAddressSchema, ir::StaticIR)
-    selected_call_addrs = Set(internal_node_keys(schema))
+    selected_call_addrs = Set(keys(schema))
     selected_calls = Set{GenerativeFunctionCallNode}()
     for node in ir.call_nodes
         if node.addr in selected_call_addrs
@@ -382,9 +390,9 @@ function codegen_choice_gradients(trace_type::Type{T}, selection_type::Type,
     gen_fn_type = get_gen_fn_type(trace_type)
     schema = get_address_schema(selection_type)
 
-    # convert the selection to a static address set if it is not already one
-    if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
-        return quote choice_gradients(trace, StaticAddressSet(selection), retval_grad) end
+    # convert a hierarchical selection to a static selection if it is not already one
+    if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema) || isa(schema, AllAddressSchema))
+        return quote choice_gradients(trace, StaticSelection(selection), retval_grad) end
     end
 
     ir = get_ir(gen_fn_type)
@@ -490,7 +498,7 @@ end
 
 
 push!(generated_functions, quote
-@generated function $(Expr(:(.), Gen, QuoteNode(:choice_gradients)))(trace::T, selection::$(QuoteNode(AddressSet)),
+@generated function $(Expr(:(.), Gen, QuoteNode(:choice_gradients)))(trace::T, selection::$(QuoteNode(Selection)),
                                        retval_grad) where {T<:$(QuoteNode(StaticIRTrace))}
     $(QuoteNode(codegen_choice_gradients))(trace, selection, retval_grad)
 end

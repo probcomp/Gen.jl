@@ -95,9 +95,9 @@ const qn_no_change = QuoteNode(NoChange())
 const qn_get_internal_node = QuoteNode(get_internal_node)
 const qn_static_get_value = QuoteNode(static_get_value)
 const qn_static_get_submap = QuoteNode(static_get_submap)
-const qn_static_get_internal_node = QuoteNode(static_get_internal_node)
+const qn_static_getindex = QuoteNode(static_getindex) # for getting a subselection
 const qn_empty_choice_map = QuoteNode(EmptyChoiceMap())
-const qn_empty_address_set = QuoteNode(EmptyAddressSet())
+const qn_empty_selection = QuoteNode(EmptySelection())
 
 include("simulate.jl")
 include("generate.jl")
