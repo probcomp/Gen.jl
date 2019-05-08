@@ -67,7 +67,7 @@ export Selection
 
 Abstract type for selections that have a notion of sub-selections.
 
-    get_subselections(selection)
+    get_subselections(selection::HierarchicalSelection)
 
 Return an iterator over pairs of addresses and subselections at associated addresses.
 """
@@ -204,25 +204,26 @@ Can be mutated with the following methods:
 Add the address and all of its sub-addresses to the selection.
 
 Example:
-
-    selection = select()
-    @assert !(:x in selection)
-    push!(selection, :x)
-    @assert :x in selection
-
+```julia
+selection = select()
+@assert !(:x in selection)
+push!(selection, :x)
+@assert :x in selection
+```
 
     set_subselection!(selection::DynamicSelection, addr, other::Selection)
 
 Change the selection status of the given address and its sub-addresses that defined by `other`.
 
 Example:
-
-    selection = select(:x)
-    @assert :x in selection
-    subselection = select(:y)
-    set_subselection!(selection, :x, subselection)
-    @assert (:x => :y) in selection
-    @assert !(:x in selection)
+```julia
+selection = select(:x)
+@assert :x in selection
+subselection = select(:y)
+set_subselection!(selection, :x, subselection)
+@assert (:x => :y) in selection
+@assert !(:x in selection)
+```
 
 Note that `set_subselection!` does not copy data in `other`, so `other` may be mutated by a later calls to `set_subselection!` for addresses under `addr`.
 """
@@ -314,9 +315,12 @@ get_subselections(selection::DynamicSelection) = selection.subselections
 
 Return a selection containing a given set of addresses.
 
-Example:
-
-    selection = select(:x, "foo", :y => 1 => :z)
+Examples:
+```julia
+selection = select(:x, "foo", :y => 1 => :z)
+selection = select()
+selection = select(:x => 1, :x => 2)
+```
 """
 function select(addrs...)
     selection = DynamicSelection()

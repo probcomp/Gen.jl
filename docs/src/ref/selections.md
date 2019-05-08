@@ -3,18 +3,6 @@
 A *selection* represents a set of addresses of random choices.
 Selections allow users to specify to which subset of the random choices in a trace a given inference operation should apply.
 
-There is an abstract type for selections:
-```@docs
-Selection
-```
-
-There are various concrete types for selections, each of which is a subtype of [`Selection`](@ref).
-Users can construct selections with the [`select`](@ref) and [`selectall`] methods:
-```@docs
-select
-selectall
-```
-
 An address that is added to a selection indicates that either the random choice at that address should be included in the selection, or that all random choices made by a generative function traced at that address should be included.
 For example, consider the following selection:
 ```julia
@@ -43,11 +31,23 @@ end
 end
 ```
 
+There is an abstract type for selections:
+```@docs
+Selection
+```
+
+There are various concrete types for selections, each of which is a subtype of [`Selection`](@ref).
+Users can construct selections with the [`select`](@ref) and [`selectall`](@ref) methods:
+```@docs
+select
+selectall
+```
+
 The [`select`](@ref) method returns a selection with concrete type [`DynamicSelection`](@ref).
 The [`selectall`](@ref) method returns a selection with concrete type [`AllSelection`](@ref).
 The full list of concrete types of selections is shown below.
 Most users need not worry about these types.
-Note that only selections of type [`DynamicSelection`]@(ref) are mutable (using `push!` and `set_subselection!`).
+Note that only selections of type [`DynamicSelection`](@ref) are mutable (using `push!` and `set_subselection!`).
 ```@docs
 EmptySelection
 AllSelection
