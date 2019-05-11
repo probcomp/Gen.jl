@@ -23,6 +23,7 @@ function logpdf_grad(::Normal, x::Real, mu::Real, std::Real)
 end
 
 random(::Normal, mu::Real, std::Real) = mu + std * randn()
+is_discrete(::Normal) = false
 
 (::Normal)(mu, std) = random(Normal(), mu, std)
 

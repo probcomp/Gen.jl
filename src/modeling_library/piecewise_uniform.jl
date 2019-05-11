@@ -64,6 +64,8 @@ function logpdf_grad(::PiecewiseUniform, x::Real, bounds, probs)
     (0., bounds_grad, probs_grad)
 end
 
+is_discrete(::PiecewiseUniform) = false
+
 has_output_grad(::PiecewiseUniform) = true
 has_argument_grads(::PiecewiseUniform) = (true, true)
 

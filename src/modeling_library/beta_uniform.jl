@@ -39,6 +39,8 @@ end
 
 (::BetaUniformMixture)(theta, alpha, beta) = random(BetaUniformMixture(), theta, alpha, beta)
 
+is_discrete(::BetaUniformMixture) = false
+
 has_output_grad(::BetaUniformMixture) = true
 has_argument_grads(::BetaUniformMixture) = (true, true, true)
 

@@ -24,6 +24,8 @@ function Gen.random(::Geometric, p::Real)
     rand(Distributions.Geometric(p))
 end
 
+is_discrete(::Geometric) = true
+
 (::Geometric)(p) = random(Geometric(), p)
 
 Gen.has_output_grad(::Geometric) = false

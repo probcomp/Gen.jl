@@ -23,6 +23,7 @@ function random(::UniformContinuous, low::Real, high::Real)
 end
 
 (::UniformContinuous)(low, high) = random(UniformContinuous(), low, high)
+is_discrete(::UniformContinuous) = false
 
 has_output_grad(::UniformContinuous) = true
 has_argument_grads(::UniformContinuous) = (true, true)

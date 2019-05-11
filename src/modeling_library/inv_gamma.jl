@@ -25,6 +25,8 @@ function random(::InverseGamma, shape::Real, scale::Real)
     rand(Distributions.InverseGamma(shape, scale))
 end
 
+is_discrete(::InverseGamma) = false
+
 (::InverseGamma)(shape, scale) = random(InverseGamma(), shape, scale)
 
 has_output_grad(::InverseGamma) = false
