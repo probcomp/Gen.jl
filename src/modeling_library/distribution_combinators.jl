@@ -1,10 +1,10 @@
 # TODO: This does not allow a distribution to change type.
 # (i.e., from Int to Float64).
 using MacroTools
-# Should return a new expression that evaluates to a distribution,
-# and a list of variables / constant expressions forming the arguments
-# to that distribution.
-# We can then create the distribution types and the various methods.
+
+# A function call within a @dist body
+# TODO: Improve to handle when args includes an Arg.
+# Will require creating a new type of Arg.
 dist_call(f, args) = f(args...)
 dist_call(d::Distribution{T}, args) where T = DistWithArgs{T}(d, args)
 
@@ -143,7 +143,7 @@ has_argument_grads(d::TranslatedByConstant{T}) where T <: Real = has_argument_gr
 
 Base.:+(b::DistWithArgs{T}, a::Real) where T <: Real = DistWithArgs(TranslatedByConstant(a, b.base), b.arglist)
 Base.:+(a::Real, b::DistWithArgs{T}) where T <: Real = b + a
-Base.:-(b::DistWithArgs{T}, a::Real) where T <: Real = DistWithArgs(TranslatedByConstant(-a, b.base), b.arglist)
+Base.:-(b::DistWithArgs{T}, a::Real) where T <: Real = b + (-a)
 
 struct WithLocationArg{T} <: Distribution{T}
     base :: Distribution{T}
@@ -221,8 +221,9 @@ has_argument_grads(d::ScaledByConstant{T}) where T <: Real = has_argument_grads(
 
 Base.:*(b::DistWithArgs{T}, a::Real) where T <: Real = DistWithArgs(ScaledByConstant(a, b.base), b.arglist)
 Base.:*(a::Real, b::DistWithArgs{T}) where T <: Real = b * a
-Base.:-(a::Real, b::DistWithArgs{T}) where T <: Real = DistWithArgs(TranslatedByConstant(a, ScaledByConstant(-1., b.base)), b.arglist)
-Base.:/(b::DistWithArgs{T}, a::Real) where T <: Real = DistWithArgs(ScaledByConstant(1.0/a, b.base), b.arglist)
+Base.:-(a::Real, b::DistWithArgs{T}) where T <: Real = a + (-1 * b) # DistWithArgs(TranslatedByConstant(a, ScaledByConstant(-1., b.base)), b.arglist)
+Base.:-(b::DistWithArgs{T}, a::Real) where T <: Real = b + (-1 * a)
+Base.:/(b::DistWithArgs{T}, a::Real) where T <: Real = 1.0/a * b # DistWithArgs(ScaledByConstant(1.0/a, b.base), b.arglist)
 
 struct WithScaleArg{T} <: Distribution{T}
     base :: Distribution{T}
@@ -264,7 +265,9 @@ has_argument_grads(d::WithScaleArg{T}) where T <: Real = (has_output_grad(d.base
 
 Base.:*(b::DistWithArgs{T}, a::Arg) where T <: Real = DistWithArgs(WithScaleArg(b.base), (a, b.arglist...))
 Base.:*(a::Arg, b::DistWithArgs{T}) where T <: Real = b * a
-Base.:-(a::Arg, b::DistWithArgs{T}) where T <: Real = DistWithArgs(WithLocationArg(ScaledByConstant(-1., b)), (a, b.arglist...))
+Base.:-(a::Arg, b::DistWithArgs{T}) where T <: Real = -1 * b + a
+Base.:-(b::DistWithArgs{T}, a::Arg) where T <: Real = -1 * (a - b)
+
 # TODO: Add this later
 # Base.:/(b::DistWithArgs{T}, a::Arg) where T <: Real = ScaledByConstant(1.0/a, b)
 
