@@ -321,6 +321,95 @@ Base.:/(a::Union{Real, Arg}, b::DistWithArgs{T}) where T <: Real = a * DistWithA
 Base.:/(b::DistWithArgs{T}, a::Arg) where T <: Real = 1.0 / (a / b)
 
 
+
+
+struct ExponentiatedDistribution{T} <: Distribution{Float64}
+    base :: Distribution{T}
+end
+
+function logpdf(d::ExponentiatedDistribution{T}, x::T, base_args...) where T <: Real
+    if is_discrete(d.base)
+        # TODO: is this unstable? If base distribution is discrete,
+        # then x must be an exact multiple of an element of its support.
+        # logpdf(d.base, log(x), base_args...)
+        error("Cannot exponentiate a discrete distribution")
+    else
+        logpdf(d.base, log(x), base_args...) - log(abs(x))
+    end
+end
+
+function logpdf_grad(d::ExponentiatedDistribution{T}, x::T, base_args...) where T <: Real
+    if !is_discrete(d.base) && has_output_grad(d.base)
+        grads = logpdf_grad(d.base, log(x), base_args...)
+        dx = (grads[1] - 1.0) / x
+        (dx, grads[2:end]...)
+    else
+        error("Cannot exponentiate a discrete distribution")
+        # logpdf_grad(d.base, x/d.a, base_args...)
+    end
+end
+
+function random(d::ExponentiatedDistribution{T}, base_args...)::Float64 where T <: Real
+    exp(random(d.base, base_args...))
+end
+
+is_discrete(d::ExponentiatedDistribution{T}) where T <: Real = is_discrete(d.base)
+
+(d::ExponentiatedDistribution{T})(base_args...) where T <: Real = random(d, base_args...)
+
+function has_output_grad(d::ExponentiatedDistribution{T}) where T <: Real
+    !is_discrete(d.base) && has_output_grad(d.base)
+end
+
+has_argument_grads(d::ExponentiatedDistribution{T}) where T <: Real = (has_output_grad(d), has_argument_grads(d.base)...)
+
+Base.exp(d::DistWithArgs{T}) where T <: Real = DistWithArgs{T}(ExponentiatedDistribution(d.base), d.arglist)
+
+
+
+struct LogDistribution{T} <: Distribution{Float64}
+    base :: Distribution{T}
+end
+
+function logpdf(d::LogDistribution{T}, x::T, base_args...) where T <: Real
+    if is_discrete(d.base)
+        # TODO: is this unstable? If base distribution is discrete,
+        # then x must be an exact multiple of an element of its support.
+        # logpdf(d.base, log(x), base_args...)
+        error("Cannot take log of a discrete distribution")
+    else
+        logpdf(d.base, exp(x), base_args...) + x
+    end
+end
+
+function logpdf_grad(d::LogDistribution{T}, x::T, base_args...) where T <: Real
+    if !is_discrete(d.base) && has_output_grad(d.base)
+        grads = logpdf_grad(d.base, exp(x), base_args...)
+        dx = exp(x) * grads[1] + 1.0
+        (dx, grads[2:end]...)
+    else
+        error("Cannot take log of a discrete distribution")
+        # logpdf_grad(d.base, x/d.a, base_args...)
+    end
+end
+
+function random(d::LogDistribution{T}, base_args...)::Float64 where T <: Real
+    log(random(d.base, base_args...))
+end
+
+is_discrete(d::LogDistribution{T}) where T <: Real = is_discrete(d.base)
+
+(d::LogDistribution{T})(base_args...) where T <: Real = random(d, base_args...)
+
+function has_output_grad(d::LogDistribution{T}) where T <: Real
+    !is_discrete(d.base) && has_output_grad(d.base)
+end
+
+has_argument_grads(d::LogDistribution{T}) where T <: Real = (has_output_grad(d), has_argument_grads(d.base)...)
+
+Base.log(d::DistWithArgs{T}) where T <: Real = DistWithArgs{T}(LogDistribution(d.base), d.arglist)
+
+
 export @dist
 
 
