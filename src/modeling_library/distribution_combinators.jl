@@ -200,7 +200,7 @@ function logpdf(d::ScaledByConstant{T}, x::T, base_args...) where T <: Real
         # then x must be an exact multiple of an element of its support.
         logpdf(d.base, x/d.a, base_args...)
     else
-        logpdf(d.base, x/d.a, base_args...) - log(d.a)
+        logpdf(d.base, x/d.a, base_args...) - log(abs(d.a))
     end
 end
 
@@ -242,14 +242,16 @@ function logpdf(d::WithScaleArg{T}, x::T, scale::Real, base_args...) where T <: 
         # then x must be an exact multiple of an element of its support.
         logpdf(d.base, x/scale, base_args...)
     else
-        logpdf(d.base, x/scale, base_args...) - log(scale)
+        logpdf(d.base, x/scale, base_args...) - log(abs(scale))
     end
 end
 
 function logpdf_grad(d::WithScaleArg{T}, x::T, scale::Real, base_args...) where T <: Real
     if !is_discrete(d.base) && has_output_grad(d.base)
         grads = logpdf_grad(d.base, x/scale, base_args...)
-        (grads[1] / scale, -1. * grads[1] * x / (scale*scale), grads[2:end]...)
+        dx = grads[1] / scale
+        dscale = (-1.0*grads[1]*x/(scale*scale)) - (1.0/scale)
+        (dx, dscale, grads[2:end]...)
     else
         grads = logpdf_grad(d.base, x/scale, base_args...)
         (grads[1], nothing, grads[2:end])
@@ -275,8 +277,49 @@ Base.:*(a::Arg, b::DistWithArgs{T}) where T <: Real = b * a
 Base.:-(a::Arg, b::DistWithArgs{T}) where T <: Real = -1 * b + a
 Base.:-(b::DistWithArgs{T}, a::Arg) where T <: Real = -1 * (a - b)
 
-# TODO: Add this later
-# Base.:/(b::DistWithArgs{T}, a::Arg) where T <: Real = ScaledByConstant(1.0/a, b)
+struct InvertedDistribution{T} <: Distribution{Float64}
+    base :: Distribution{T}
+end
+
+function logpdf(d::InvertedDistribution{T}, x::Float64, base_args...) where T <: Real
+    if is_discrete(d.base)
+        # TODO: is this unstable? If base distribution is discrete,
+        # then x must be an exact multiple of an element of its support.
+        # logpdf(d.base, 1.0/x, base_args...)
+        error("Cannot make a distribution that is a reciprocal of a discrete distribution")
+    else
+        logpdf(d.base, 1.0/x, base_args...) - 2 * log(x)
+    end
+end
+
+function logpdf_grad(d::InvertedDistribution{T}, x::Float64, base_args...) where T <: Real
+    if !is_discrete(d.base) && has_output_grad(d.base)
+        grads = logpdf_grad(d.base, 1.0/x, base_args...)
+        dx = -grads[1] / (x*x) - (2. / x)
+        (dx, grads[2:end]...)
+    else
+        error("Cannot make a distribution that is a reciprocal of a discrete distribution")
+    end
+end
+
+function random(d::InvertedDistribution{T}, base_args...)::T where T <: Real
+    1.0 / random(d.base, base_args...)
+end
+
+is_discrete(d::InvertedDistribution{T}) where T <: Real = is_discrete(d.base)
+
+(d::InvertedDistribution{T})(base_args...) where T <: Real = random(d, base_args...)
+
+function has_output_grad(d::InvertedDistribution{T}) where T <: Real
+    !is_discrete(d.base) && has_output_grad(d.base)
+end
+
+has_argument_grads(d::InvertedDistribution{T}) where T <: Real = (has_output_grad(d), has_argument_grads(d.base)...)
+
+Base.:/(a::Union{Real, Arg}, b::DistWithArgs{T}) where T <: Real = a * DistWithArgs(InvertedDistribution(b.base), b.arglist)
+# TODO: Use functions of args to get this effect
+Base.:/(b::DistWithArgs{T}, a::Arg) where T <: Real = 1.0 / (a / b)
+
 
 export @dist
 
