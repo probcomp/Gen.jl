@@ -45,7 +45,7 @@ mutable struct GFBackpropParamsState
     # only those tracked parameters that are in scope (not including splice calls)
     tracked_params::Dict{Symbol,Any}
 
-    # tracked parameters for all (nested) @splice calls
+    # tracked parameters for all (nested) splice calls
     splice_tracked_params::Dict{Tuple{GenerativeFunction,Symbol},Any}
 end
 
@@ -118,7 +118,7 @@ function splice(state::GFBackpropParamsState, gen_fn::DynamicDSLFunction,
     state.tracked_params = Dict{Symbol,Any}()
     for name in keys(gen_fn.params)
         if haskey(state.splice_tracked_params, (gen_fn, name))
-            # parameter was already tracked in another @splice
+            # parameter was already tracked in another splice call
             state.tracked_params[name] = state.splice_tracked_params[(gen_fn, name)]
         else
             # parameter was not already tracked
@@ -222,7 +222,7 @@ mutable struct GFBackpropTraceState
     tape::InstructionTape
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
-    selection::AddressSet
+    selection::Selection
     tracked_choices::Trie{Any,TrackedReal}
     value_choices::DynamicChoiceMap
     gradient_choices::DynamicChoiceMap
@@ -273,12 +273,9 @@ function traceat(state::GFBackpropTraceState, dist::Distribution{T},
     local retval::T
     visit!(state.visitor, key)
     retval = get_choice(state.trace, key).retval
-    if has_internal_node(state.selection, key)
-        error("Got internal node but expected leaf node in selection at $key")
-    end
     args = map(value, args_maybe_tracked)
     score_tracked = track(logpdf(dist, retval, args...), state.tape)
-    if has_leaf_node(state.selection, key)
+    if key in state.selection
         tracked_retval = track(retval, state.tape)
         set_leaf_node!(state.tracked_choices, key, tracked_retval)
         record!(state.tape, ReverseDiff.SpecialInstruction, dist,
@@ -296,7 +293,7 @@ end
 struct BackpropTraceRecord
     gen_fn::GenerativeFunction
     subtrace::Any
-    selection::AddressSet
+    selection::Selection
     value_choices::DynamicChoiceMap
     gradient_choices::DynamicChoiceMap
     key::Any
@@ -307,9 +304,6 @@ function traceat(state::GFBackpropTraceState, gen_fn::GenerativeFunction{T,U},
     local retval::T
     local subtrace::U
     visit!(state.visitor, key)
-    if has_leaf_node(state.selection, key)
-        error("Cannot select a whole subtrace, tried to select $key")
-    end
     subtrace = get_call(state.trace, key).subtrace
     get_gen_fn(subtrace) === gen_fn || gen_fn_changed_error(key)
     retval = get_retval(subtrace)
@@ -320,11 +314,7 @@ function traceat(state::GFBackpropTraceState, gen_fn::GenerativeFunction{T,U},
         retval_maybe_tracked = retval
         @assert !istracked(retval_maybe_tracked)
     end
-    if has_internal_node(state.selection, key)
-        selection = get_internal_node(state.selection, key)
-    else
-        selection = EmptyAddressSet()
-    end
+    selection = state.selection[key]
     record = BackpropTraceRecord(gen_fn, subtrace, selection, state.value_choices,
         state.gradient_choices, key)
     record!(state.tape, ReverseDiff.SpecialInstruction, record, (args_maybe_tracked...,), retval_maybe_tracked)
@@ -376,7 +366,7 @@ end
     nothing
 end
 
-function choice_gradients(trace::DynamicDSLTrace, selection::AddressSet, retval_grad)
+function choice_gradients(trace::DynamicDSLTrace, selection::Selection, retval_grad)
     gen_fn = trace.gen_fn
     tape = new_tape()
     state = GFBackpropTraceState(trace, selection, gen_fn.params, tape)

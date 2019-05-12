@@ -10,18 +10,14 @@ mutable struct UnfoldRegenerateState{T,U}
 end
 
 function process_retained!(gen_fn::Unfold{T,U}, params::Tuple,
-                           selection::AddressSet, key::Int, kernel_argdiffs::Tuple,
+                           selection::Selection, key::Int, kernel_argdiffs::Tuple,
                            state::UnfoldRegenerateState{T,U}) where {T,U}
     local subtrace::U
     local prev_subtrace::U
     local prev_state::T
     local new_state::T
 
-    if has_internal_node(selection, key)
-        subselection = get_internal_node(selection, key)
-    else
-        subselection = EmptyAddressSet()
-    end
+    subselection = selection[key]
     prev_state = (key == 1) ? state.init_state : state.retval[key-1]
     kernel_args = (key, prev_state, params...)
 
@@ -38,7 +34,7 @@ function process_retained!(gen_fn::Unfold{T,U}, params::Tuple,
     # update state
     state.weight += weight
     state.score += (get_score(subtrace) - get_score(prev_subtrace))
-    state.noise += (project(subtrace, EmptyAddressSet()) - project(subtrace, EmptyAddressSet()))
+    state.noise += (project(subtrace, EmptySelection()) - project(subtrace, EmptySelection()))
     state.subtraces = assoc(state.subtraces, key, subtrace)
     new_state = get_retval(subtrace)
     state.retval = assoc(state.retval, key, new_state)
@@ -53,13 +49,13 @@ function process_retained!(gen_fn::Unfold{T,U}, params::Tuple,
     retdiff
 end
 
-function process_new!(gen_fn::Unfold{T,U}, params::Tuple, selection::AddressSet, key::Int,
+function process_new!(gen_fn::Unfold{T,U}, params::Tuple, selection::Selection, key::Int,
                       state::UnfoldRegenerateState{T,U}) where {T,U}
     local subtrace::U
     local prev_state::T
     local new_state::T
 
-    if has_internal_node(selection, key)
+    if !isempty(selection[key])
         error("Cannot select new addresses in regenerate")
     end
     prev_state = (key == 1) ? state.init_state : state.retval[key-1]
@@ -83,7 +79,7 @@ end
 
 function regenerate(trace::VectorTrace{UnfoldType,T,U},
                     args::Tuple, argdiffs::Tuple,
-                    selection::AddressSet) where {T,U}
+                    selection::Selection) where {T,U}
     gen_fn = trace.gen_fn
     (new_length, init_state, params) = unpack_args(args)
     check_length(new_length)

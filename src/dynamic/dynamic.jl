@@ -43,6 +43,8 @@ end
 # it returns 'nothing' for those arguemnts that don't have a derivatice
 has_argument_grads(gen::DynamicDSLFunction) = gen.has_argument_grads
 
+const state = gensym("state")
+
 macro trace(expr::Expr, addr)
     if expr.head != :call
         error("syntax error in @trace at $(expr)")
@@ -95,47 +97,42 @@ end
 ##################
 
 struct AddressVisitor
-    visited::DynamicAddressSet
+    visited::DynamicSelection
 end
 
-AddressVisitor() = AddressVisitor(DynamicAddressSet())
+AddressVisitor() = AddressVisitor(DynamicSelection())
 
 function visit!(visitor::AddressVisitor, addr)
+    if addr in visitor.visited
+        error("Attempted to visit address $addr, but it was already visited")
+    end
     push!(visitor.visited, addr)
 end
 
-function all_visited(visited::AddressSet, choices::ChoiceMap)
+function all_visited(visited::Selection, choices::ChoiceMap)
     allvisited = true
     for (key, _) in get_values_shallow(choices)
-        allvisited = allvisited && has_leaf_node(visited, key)
+        allvisited = allvisited && (key in visited)
     end
     for (key, submap) in get_submaps_shallow(choices)
-        if !has_leaf_node(visited, key)
-            if has_internal_node(visited, key)
-                subvisited = get_internal_node(visited, key)
-            else
-                subvisited = EmptyAddressSet()
-            end
+        if !(key in visited)
+            subvisited = visited[key]
             allvisited = allvisited && all_visited(subvisited, submap)
         end
     end
     allvisited
 end
 
-function get_unvisited(visited::AddressSet, choices::ChoiceMap)
+function get_unvisited(visited::Selection, choices::ChoiceMap)
     unvisited = choicemap()
     for (key, _) in get_values_shallow(choices)
-        if !has_leaf_node(visited, key)
+        if !(key in visited)
             set_value!(unvisited, key, get_value(choices, key))
         end
     end
     for (key, submap) in get_submaps_shallow(choices)
-        if !has_leaf_node(visited, key)
-            if has_internal_node(visited, key)
-                subvisited = get_internal_node(visited, key)
-            else
-                subvisited = EmptyAddressSet()
-            end
+        if !(key in visited)
+            subvisited = visited[key]
             sub_unvisited = get_unvisited(subvisited, submap)
             set_submap!(unvisited, key, sub_unvisited)
         end
@@ -168,7 +165,6 @@ include("assess.jl")
 include("project.jl")
 include("update.jl")
 include("regenerate.jl")
-include("extend.jl")
 include("backprop.jl")
 
 export DynamicDSLFunction

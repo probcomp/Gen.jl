@@ -5,12 +5,10 @@
 abstract type AddressSchema end
 
 struct StaticAddressSchema <: AddressSchema
-    leaf_nodes::Set{Symbol}
-    internal_nodes::Set{Symbol}
+    keys::Set{Symbol}
 end
 
-leaf_node_keys(schema::StaticAddressSchema) = schema.leaf_nodes
-internal_node_keys(schema::StaticAddressSchema) = schema.internal_nodes
+Base.keys(schema::StaticAddressSchema) = schema.keys
 
 struct VectorAddressSchema <: AddressSchema end 
 struct SingleDynamicKeyAddressSchema <: AddressSchema end 
@@ -19,279 +17,327 @@ struct EmptyAddressSchema <: AddressSchema end
 struct AllAddressSchema <: AddressSchema end
 
 export AddressSchema
-export StaticAddressSchema
-export VectorAddressSchema
-export SingleDynamicKeyAddressSchema
-export DynamicAddressSchema
+export StaticAddressSchema # hierarchical
+export VectorAddressSchema # hierarchical
+export SingleDynamicKeyAddressSchema # hierarchical
+export DynamicAddressSchema # hierarchical
 export EmptyAddressSchema
 export AllAddressSchema
 
-export leaf_node_keys
-export internal_node_keys
-
-########################
-# abstract address set #
-########################
+######################
+# abstract selection #
+######################
 
 """
-    get_address_schema(T)
+    abstract type Selection end
+
+Abstract type for selections of addresses.
+
+All selections implement the following methods:
+
+    Base.in(addr, selection)
+
+Is the address selected?
+
+    Base.getindex(selection, addr)
+
+Get the subselection at the given address.
 
     Base.isempty(set)
 
-Is the set empty?
+Is the selection guaranteed to be empty?
 
-Return a shallow, compile-time address schema.
+    get_address_schema(T)
 
-    has_internal_node(set, addr)
+Return a shallow, compile-time address schema, where `T` is the concrete type of the selection.
+"""
+abstract type Selection end
 
-    get_internal_node(set, addr)
+Base.in(addr, ::Selection) = false
+Base.getindex(::Selection, addr) = EmptySelection()
 
-Return the set of address set nodes in the given namespace (they are all nonempty?)
+export Selection
 
-    get_internal_nodes(set)
-
-Return an iterator over top-level internal nodes (pairs of keys and nodes)
-
-    has_leaf_node(set, addr)
-
-Is the address in the set
-
-    get_leaf_nodes(set)
-
-Return an iterator over top-level leaf nodes (keys)
-
-    Base.in(set, addr)
-
-Alias for has_leaf_node
-
-    Base.getindex(set, addr)
-
-Alias for get_internal_node
-
-    Base.haskey(set, addr)
-
-Alias for has_internal_node
+##########################
+# hierarchical selection #
+##########################
 
 """
-abstract type AddressSet end
+    abstract type HierarchicalSelection <: Selection end
 
-has_internal_node(::AddressSet, addr) = false
-get_internal_node(::AddressSet, addr) = throw(KeyError(addr))
-has_leaf_node(::AddressSet, addr) = false
-Base.in(addr, set::AddressSet) = has_leaf_node(set, addr)
-Base.getindex(set::AddressSet, addr) = get_internal_node(set, addr)
-Base.haskey(set::AddressSet, addr) = has_internal_node(set, addr)
+Abstract type for selections that have a notion of sub-selections.
 
-export AddressSet
-export has_internal_node
-export get_internal_node
-export has_leaf_node
+    get_subselections(selection::HierarchicalSelection)
 
-#####################
-# empty address set #
-#####################
+Return an iterator over pairs of addresses and subselections at associated addresses.
+"""
+abstract type HierarchicalSelection <: Selection end
 
-struct EmptyAddressSet <: AddressSet end
-get_address_schema(::Type{EmptyAddressSet}) = EmptyAddressSchema()
-Base.isempty(::EmptyAddressSet) = true
-get_leaf_nodes(::EmptyAddressSet) = ()
-get_internal_nodes(::EmptyAddressSet) = ()
+export HierarchicalSelection
+export get_subselections
 
-export EmptyAddressSet
+###################
+# empty selection #
+###################
 
-######################
-# static address set #
-######################
+"""
+    struct EmptySelection <: Selection end
+
+A singleton type for a selection that is always empty.
+"""
+struct EmptySelection <: Selection end
+get_address_schema(::Type{EmptySelection}) = EmptyAddressSchema()
+Base.isempty(::EmptySelection) = true
+
+export EmptySelection
+
+#################
+# all selection #
+#################
+
+"""
+    struct AllSelection <: Selection end
+
+A singleton type for a selection that contains all choices at or under an address.
+"""
+struct AllSelection <: Selection end
+get_address_schema(::Type{AllSelection}) = AllAddressSchema()
+Base.isempty(::AllSelection) = false
+Base.in(addr, ::AllSelection) = true
+Base.getindex(::AllSelection, addr) = AllSelection()
+
+export AllSelection
+
+####################
+# static selection #
+####################
 
 # R is a tuple of symbols..
 # T is a tuple of symbols
-# U the tuple type of internal nodes
-struct StaticAddressSet{R,T,U} <: AddressSet
-    internal_nodes::NamedTuple{T,U}
+# U the tuple type of subselections
+
+"""
+    struct StaticSelection{T,U} <: HierarchicalSelection .. end
+
+A hierarchical selection whose keys are among its type parameters.
+"""
+struct StaticSelection{T,U} <: HierarchicalSelection
+    subselections::NamedTuple{T,U}
 end
 
-function Base.isempty(set::StaticAddressSet{R,T,U}) where {R,T,U}
-    length(R) == 0 && all(isempty(node) for node in set.internal_nodes)
+function Base.isempty(selection::StaticSelection{T,U}) where {T,U}
+    length(R) == 0 && all(isempty(node) for node in selection.subselections)
 end
 
-function get_address_schema(::Type{StaticAddressSet{R,T,U}}) where {R,T,U}
-    leaf_keys = Set{Symbol}()
-    internal_keys = Set{Symbol}()
-    for key in R
-        push!(leaf_keys, key)
-    end
+function get_address_schema(::Type{StaticSelection{T,U}}) where {T,U}
+    keys = Set{Symbol}()
     for (key, _) in zip(T, U.parameters)
-        push!(internal_keys, key)
+        push!(keys, key)
     end
-    StaticAddressSchema(leaf_keys, internal_keys)
+    StaticAddressSchema(keys)
 end
 
-get_leaf_nodes(::StaticAddressSet{R,T,U}) where {R,T,U} = R
+get_subselections(selection::StaticSelection) = pairs(selection.subselections)
 
-get_internal_nodes(set::StaticAddressSet) = pairs(set.internal_nodes)
-
-function has_internal_node(set::StaticAddressSet, key::Symbol)
-    haskey(set.internal_nodes, key)
+function static_getindex(selection::StaticSelection, ::Val{A}) where {A}
+    selection.subselections[A]
 end
 
-function has_internal_node(set::StaticAddressSet, addr::Pair)
+# TODO do we no longer need static_in?
+
+function Base.getindex(selection::StaticSelection, addr::Symbol)
+    if haskey(selection.subselections, addr)
+        selection.subselections[addr]
+    else
+        EmptySelection()
+    end
+end
+
+function Base.getindex(selection::StaticSelection, addr::Pair)
     (first, rest) = addr
-    if haskey(set.internal_nodes, first)
-        node = set.internal_nodes[first]
-        has_internal_node(node, rest)
+    subselection = selection.subselections[first]
+    get_subselection(subselection, rest)
+end
+
+function Base.in(addr::Symbol, selection::StaticSelection{T,U}) where {T,U}
+    addr in T && selection.subselections[addr] == AllSelection()
+end
+
+function Base.in(addr::Pair, selection::StaticSelection)
+    (first, rest) = addr
+    if haskey(selection.subselections, first)
+        subselection = selection.subselections[first]
+        in(subselection, rest)
     else
         false
     end
 end
 
-function static_get_internal_node(set::StaticAddressSet, ::Val{A}) where {A}
-    set.internal_nodes[A]
+function StaticSelection(other::HierarchicalSelection)
+    keys_and_subselections = collect(get_subselections(other))
+    if length(keys_and_subselections) > 0
+        (keys, subselections) = collect(zip(keys_and_subselections...))
+    else
+        (keys, subselections) = ((), ())
+    end
+    types = map(typeof, subselections)
+    StaticSelection{keys,Tuple{types...}}(NamedTuple{keys}(subselections))
 end
 
-function get_internal_node(set::StaticAddressSet, key::Symbol)
-    set.internal_nodes[key]
+export StaticSelection
+
+
+#####################
+# dynamic selection #
+#####################
+
+"""
+    struct DynamicSelection <: HierarchicalSelection .. end
+
+A hierarchical, mutable, selection with arbitrary addresses.
+
+Can be mutated with the following methods:
+
+
+    Base.push!(selection::DynamicSelection, addr)
+
+Add the address and all of its sub-addresses to the selection.
+
+Example:
+```julia
+selection = select()
+@assert !(:x in selection)
+push!(selection, :x)
+@assert :x in selection
+```
+
+    set_subselection!(selection::DynamicSelection, addr, other::Selection)
+
+Change the selection status of the given address and its sub-addresses that defined by `other`.
+
+Example:
+```julia
+selection = select(:x)
+@assert :x in selection
+subselection = select(:y)
+set_subselection!(selection, :x, subselection)
+@assert (:x => :y) in selection
+@assert !(:x in selection)
+```
+
+Note that `set_subselection!` does not copy data in `other`, so `other` may be mutated by a later calls to `set_subselection!` for addresses under `addr`.
+"""
+struct DynamicSelection <: HierarchicalSelection
+    # note: only store subselections for which isempty = false
+    subselections::Dict{Any,Selection}
 end
 
-function get_internal_node(set::StaticAddressSet, addr::Pair)
-    (first, rest) = addr
-    node = set.internal_nodes[first]
-    get_internal_node(node, rest)
+function Base.isempty(set::DynamicSelection)
+    isempty(set.subselections)
 end
 
-function has_leaf_node(set::StaticAddressSet{R,T,U}, key::Symbol) where {R,T,U}
-    key in R # TODO this is O(N)
-end
+DynamicSelection() = DynamicSelection(Dict{Any,Selection}())
 
-function has_leaf_node(set::StaticAddressSet, addr::Pair)
-    (first, rest) = addr
-    if haskey(set.internal_nodes, first)
-        node = set.internal_nodes[first]
-        has_leaf_node(node, rest)
+get_address_schema(::Type{DynamicSelection}) = DynamicAddressSchema()
+
+function Base.in(addr, selection::DynamicSelection)
+    if haskey(selection.subselections, addr)
+        selection.subselections[addr] == AllSelection()
     else
         false
     end
 end
 
-function StaticAddressSet(other::AddressSet)
-    leaf_keys = (get_leaf_nodes(other)...,)
-    internal_keys_and_nodes = collect(get_internal_nodes(other))
-    if length(internal_keys_and_nodes) > 0
-        (internal_keys, internal_nodes) = collect(zip(internal_keys_and_nodes...))
-    else
-        (internal_keys, internal_nodes) = ((), ())
-    end
-    internal_types = map(typeof, internal_nodes)
-    StaticAddressSet{leaf_keys,internal_keys,Tuple{internal_types...}}(
-        NamedTuple{internal_keys}(internal_nodes))
-end
-
-export StaticAddressSet
-
-
-#######################
-# dynamic address set #
-#######################
-
-struct DynamicAddressSet <: AddressSet
-    leaf_nodes::Set{Any} # set of keys
-    internal_nodes::Dict{Any,AddressSet}
-end
-
-# invariant: all internal nodes are nonempty
-function Base.isempty(set::DynamicAddressSet)
-    isempty(set.leaf_nodes) && isempty(set.internal_nodes)
-end
-
-DynamicAddressSet() = DynamicAddressSet(Set{Any}(), Dict{Any,DynamicAddressSet}())
-
-get_address_schema(::Type{DynamicAddressSet}) = DynamicAddressSchema()
-
-has_leaf_node(set::DynamicAddressSet, addr) = (addr in set.leaf_nodes)
-
-function has_leaf_node(set::DynamicAddressSet, addr::Pair)
+function Base.in(addr::Pair, selection::DynamicSelection)
     (first, rest) = addr
-    if haskey(set.internal_nodes, first)
-        internal_node = set.internal_nodes[first]
-        has_leaf_node(internal_node, rest)
+    if haskey(selection.subselections, first)
+        subselection = selection.subselections[first]
+        @assert !isempty(subselection)
+        rest in subselection
     else
         false
     end
 end
 
-function has_internal_node(set::DynamicAddressSet, addr)
-    haskey(set.internal_nodes, addr)
-end
-
-function has_internal_node(set::DynamicAddressSet, addr::Pair)
-    (first, rest) = addr
-    if haskey(set.internal_nodes, first)
-        node = set.internal_nodes[first]
-        has_internal_node(node, rest)
+function Base.getindex(selection::DynamicSelection, addr)
+    if haskey(selection.subselections, addr)
+        selection.subselections[addr]
     else
-        false
+        EmptySelection()
     end
 end
 
-function get_internal_node(set::DynamicAddressSet, addr)
-    set.internal_nodes[addr]
-end
-
-function get_internal_node(set::DynamicAddressSet, addr::Pair)
+function Base.getindex(set::DynamicSelection, addr::Pair)
     (first, rest) = addr
-    node = set.internal_nodes[first]
-    get_internal_node(node, rest)
-end
-
-function push_leaf_node!(set::DynamicAddressSet, addr)
-    if haskey(set.internal_nodes, addr)
-        error("Tried to push_leaf_node! $addr but there is already a namespace rooted at $addr")
-    end
-    push!(set.leaf_nodes, addr)
-end
-
-function push_leaf_node!(set::DynamicAddressSet, addr::Pair)
-    (first, rest) = addr
-    if haskey(set.internal_nodes, first)
-        node = set.internal_nodes[first]
+    if haskey(selection.subselections, first)
+        subselection = selection.subselections[first]
+        @assert !isempty(subselection)
+        getindex(subselection, rest)
     else
-        node = DynamicAddressSet()
-        set.internal_nodes[first] = node
-    end
-    push_leaf_node!(node, rest)
-end
-
-function set_internal_node!(set::DynamicAddressSet, addr, node)
-    if isempty(node)
-        return
-    end
-    if addr in set.leaf_nodes
-        error("Tried to set_internal_node! $addr but that addres is already a leaf")
-    else
-        set.internal_nodes[addr] = node
+        EmptySelection()
     end
 end
 
-function set_internal_node!(set::DynamicAddressSet, addr::Pair, node)
-    if isempty(node)
-        return
-    end
+function Base.push!(selection::DynamicSelection, addr)
+    selection.subselections[addr] = AllSelection()
+end
+
+function Base.push!(selection::DynamicSelection, addr::Pair)
     (first, rest) = addr
-    node = set.internal_nodes[first]
-    set_internal_node!(node, rest, node)
+    if haskey(selection.subselections, first)
+        subselection = selection.subselections[first]
+    else
+        subselection = DynamicSelection()
+        selection.subselections[first] = subselection 
+    end
+    push!(subselection, rest)
 end
 
-get_leaf_nodes(addrs::DynamicAddressSet) = addrs.leaf_nodes
-get_internal_nodes(addrs::DynamicAddressSet) = addrs.internal_nodes
+function set_subselection!(selection::DynamicSelection, addr, other::Selection)
+    selection.subselections[addr] = other
+end
 
-Base.push!(set::DynamicAddressSet, addr) = push_leaf_node!(set, addr)
+function set_subselection!(selection::DynamicSelection, addr::Pair, other::Selection)
+    (first, rest) = addr
+    if haskey(selection.subselections, first)
+        subselection = selection.subselections[first]
+    else
+        subselection = DynamicSelection()
+        selection.subselections[first] = subselection 
+    end
+    set_subselection!(subselection, rest, other)
+end
 
+get_subselections(selection::DynamicSelection) = selection.subselections
+
+"""
+    selection = select(addrs...)
+
+Return a selection containing a given set of addresses.
+
+Examples:
+```julia
+selection = select(:x, "foo", :y => 1 => :z)
+selection = select()
+selection = select(:x => 1, :x => 2)
+```
+"""
 function select(addrs...)
-    selection = DynamicAddressSet()
+    selection = DynamicSelection()
     for addr in addrs
         push!(selection, addr)
     end
     selection
 end
 
-export DynamicAddressSet
-export set_internal_node!, select
+"""
+    selection = selectall()
+
+Construct a selection that includes all random choices.
+"""
+function selectall()
+    AllSelection()
+end
+
+export DynamicSelection
+export select, selectall, set_subselection!

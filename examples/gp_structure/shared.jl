@@ -241,8 +241,8 @@ const max_branch = 2
     elseif @trace(bernoulli(0.5), :done => depth)
         (cur, depth)
     elseif @trace(bernoulli(0.5), :recurse_left => cur)
-        @splice(pick_random_node(node.left, get_child(cur, 1, max_branch), depth+1))
+        @trace(pick_random_node(node.left, get_child(cur, 1, max_branch), depth+1))
     else
-        @splice(pick_random_node(node.right, get_child(cur, 2, max_branch), depth+1))
+        @trace(pick_random_node(node.right, get_child(cur, 2, max_branch), depth+1))
     end
 end

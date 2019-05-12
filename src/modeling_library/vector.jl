@@ -50,17 +50,10 @@ get_args(trace::VectorTrace) = trace.args
 get_score(trace::VectorTrace) = trace.score
 get_gen_fn(trace::VectorTrace) = trace.gen_fn
 
-function project(trace::VectorTrace, selection::AddressSet)
-    if !isempty(get_leaf_nodes(selection))
-        error("An entire sub-assignment was selected at key $key")
-    end
+function project(trace::VectorTrace, selection::Selection)
     weight = 0.
     for key=1:trace.len
-        if has_internal_node(selection, key)
-            subselection = get_internal_node(selection, key)
-        else
-            subselection = EmptyAddressSet()
-        end
+        subselection = selection[key]
         weight += project(trace.subtraces[key], subselection)
     end
     weight
@@ -101,22 +94,30 @@ function get_retained_and_constrained(constraints::ChoiceMap, prev_length::Int, 
         if key > 0 && key <= new_length
             push!(keys, key)
         else
-            error("Constraint namespace does not exist: $key")
+            error("Constrained address does not exist: $key")
         end
     end
     keys 
 end
 
-function get_retained_and_selected(selection::AddressSet, prev_length::Int, new_length::Int)
+function get_retained_and_selected(selection::EmptySelection, prev_length::Int, new_length::Int)
+    Set{Int}()
+end
+
+function get_retained_and_selected(selection::HierarchicalSelection, prev_length::Int, new_length::Int)
     keys = Set{Int}()
-    for (key::Int, _) in get_internal_nodes(selection)
+    for (key::Int, _) in get_subselections(selection)
         if key > 0 && key <= new_length
             push!(keys, key)
         else
-            error("Selection namespace does not exist: $key")
+            error("Selected address does not exist: $key")
         end
     end
     keys 
+end
+
+function get_retained_and_selected(selection::AllSelection, prev_length::Int, new_length::Int)
+    Set{Int}(1:min(prev_length, new_length))
 end
 
 function vector_compute_retdiff(updated_retdiffs::Dict{Int,Diff}, new_length::Int, prev_length::Int)
@@ -136,7 +137,7 @@ function vector_update_delete(new_length::Int, prev_length::Int,
     for key=new_length+1:prev_length
         subtrace = prev_trace.subtraces[key]
         score_decrement += get_score(subtrace)
-        noise_decrement += project(subtrace, EmptyAddressSet())
+        noise_decrement += project(subtrace, EmptySelection())
         if !isempty(get_choices(subtrace))
             num_nonempty -= 1
         end
@@ -154,7 +155,7 @@ function vector_regenerate_delete(new_length::Int, prev_length::Int,
     for key=new_length+1:prev_length
         subtrace = prev_trace.subtraces[key]
         score_decrement += get_score(subtrace)
-        noise_decrement += project(subtrace, EmptyAddressSet())
+        noise_decrement += project(subtrace, EmptySelection())
         if !isempty(get_choices(subtrace))
             num_nonempty -= 1
         end

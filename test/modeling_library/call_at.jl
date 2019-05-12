@@ -57,7 +57,7 @@
 
     @testset "project" begin
         (trace, y) = get_trace()
-        @test isapprox(project(trace, EmptyAddressSet()), 0.)
+        @test isapprox(project(trace, EmptySelection()), 0.)
         selection = select(3 => :y)
         @test isapprox(project(trace, selection), logpdf(normal, y, 0.4, 1))
     end
@@ -117,7 +117,7 @@
 
         # change kernel_args, same key, not selected
         (new_trace, weight, retdiff) = regenerate(trace,
-            (0.2, 3), (UnknownChange(), UnknownChange()), EmptyAddressSet())
+            (0.2, 3), (UnknownChange(), UnknownChange()), EmptySelection())
         choices = get_choices(new_trace)
         @test choices[3 => :y] == y
         @test length(collect(get_values_shallow(choices))) == 0
@@ -140,7 +140,7 @@
 
         # change kernel_args, different key, not selected
         (new_trace, weight, retdiff) = regenerate(trace,
-            (0.2, 4), (UnknownChange(), UnknownChange()), EmptyAddressSet())
+            (0.2, 4), (UnknownChange(), UnknownChange()), EmptySelection())
         choices = get_choices(new_trace)
         y_new = choices[4 => :y]
         @test length(collect(get_values_shallow(choices))) == 0
@@ -150,27 +150,13 @@
         @test isapprox(get_score(new_trace), logpdf(normal, y_new, 0.2, 1))
     end
 
-    @testset "extend" begin
-        (trace, y) = get_trace()
-
-        # change kernel_args, same key, no constraint (the only valid input)
-        (new_trace, weight, retdiff) = extend(trace,
-            (0.2, 3), (UnknownChange(), UnknownChange()), EmptyChoiceMap())
-        choices = get_choices(new_trace)
-        @test choices[3 => :y] == y
-        @test length(collect(get_values_shallow(choices))) == 0
-        @test length(collect(get_submaps_shallow(choices))) == 1
-        @test isapprox(weight, logpdf(normal, y, 0.2, 1) - logpdf(normal, y, 0.4, 1))
-        @test get_retval(new_trace) == 0.2 + y
-    end
-
     @testset "choice_gradients" begin
         (trace, y) = get_trace()
 
         # not selected
         retval_grad = 1.234
         (input_grads, choices, gradients) = choice_gradients(
-            trace, EmptyAddressSet(), retval_grad)
+            trace, EmptySelection(), retval_grad)
         @test isempty(choices)
         @test isempty(gradients)
         @test length(input_grads) == 2

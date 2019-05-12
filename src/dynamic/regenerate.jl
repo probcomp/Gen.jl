@@ -1,7 +1,7 @@
 mutable struct GFRegenerateState
     prev_trace::DynamicDSLTrace
     trace::DynamicDSLTrace
-    selection::AddressSet
+    selection::Selection
     weight::Float64
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
@@ -31,10 +31,7 @@ function traceat(state::GFRegenerateState, dist::Distribution{T},
     end
 
     # check whether the key was selected
-    if has_internal_node(state.selection, key)
-        error("Got internal node but expected leaf node in selection at $key")
-    end
-    in_selection = has_leaf_node(state.selection, key)
+    in_selection = key in state.selection
 
     # get return value
     if has_previous && in_selection
@@ -69,14 +66,7 @@ function traceat(state::GFRegenerateState, gen_fn::GenerativeFunction{T,U},
     visit!(state.visitor, key)
 
     # check whether the key was selected
-    if has_leaf_node(state.selection, key)
-        error("Entire sub-traces cannot be selected, tried to select $key")
-    end
-    if has_internal_node(state.selection, key)
-        selection = get_internal_node(state.selection, key)
-    else
-        selection = EmptyAddressSet()
-    end
+    subselection = state.selection[key]
 
     # get subtrace
     has_previous = has_call(state.prev_trace, key)
@@ -85,7 +75,7 @@ function traceat(state::GFRegenerateState, gen_fn::GenerativeFunction{T,U},
         prev_subtrace = prev_call.subtrace
         get_gen_fn(prev_subtrace) === gen_fn || gen_fn_changed_error(key)
         (subtrace, weight, _) = regenerate(
-            prev_subtrace, args, map((_) -> UnknownChange(), args), selection)
+            prev_subtrace, args, map((_) -> UnknownChange(), args), subselection)
     else
         (subtrace, weight) = generate(gen_fn, args, EmptyChoiceMap())
     end
@@ -112,7 +102,7 @@ function splice(state::GFRegenerateState, gen_fn::DynamicDSLFunction,
 end
 
 function regenerate_delete_recurse(prev_trie::Trie{Any,ChoiceOrCallRecord},
-                             visited::EmptyAddressSet)
+                             visited::EmptySelection)
     noise = 0.
     for (key, choice_or_call) in get_leaf_nodes(prev_trie)
         if !choice_or_call.is_choice
@@ -120,32 +110,28 @@ function regenerate_delete_recurse(prev_trie::Trie{Any,ChoiceOrCallRecord},
         end
     end
     for (key, subtrie) in get_internal_nodes(prev_trie)
-        noise += regenerate_delete_recurse(subtrie, EmptyAddressSet())
+        noise += regenerate_delete_recurse(subtrie, EmptySelection())
     end
     noise
 end
 
 function regenerate_delete_recurse(prev_trie::Trie{Any,ChoiceOrCallRecord},
-                             visited::DynamicAddressSet)
+                             visited::DynamicSelection)
     noise = 0.
     for (key, choice_or_call) in get_leaf_nodes(prev_trie)
-        if !has_leaf_node(visited, key) && !choice_or_call.is_choice
+        if !(key in visited) && !choice_or_call.is_choice
             noise += choice_or_call.noise
         end
     end
     for (key, subtrie) in get_internal_nodes(prev_trie)
-        if has_internal_node(visited, key)
-            subvisited = get_internal_node(visited, key)
-        else
-            subvisited = EmptyAddressSet()
-        end
+        subvisited = visited[key]
         noise += regenerate_delete_recurse(subtrie, subvisited)
     end
     noise
 end
 
 function regenerate(trace::DynamicDSLTrace, args::Tuple, argdiffs::Tuple,
-                    selection::AddressSet)
+                    selection::Selection)
     gen_fn = trace.gen_fn
     state = GFRegenerateState(gen_fn, args, trace, selection, gen_fn.params)
     retval = exec(gen_fn, state, args)

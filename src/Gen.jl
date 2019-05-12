@@ -38,9 +38,6 @@ include("diff.jl")
 # built-in probability disributions
 include("modeling_library/modeling_library.jl")
 
-# utilities for parsing
-include("dsl_common.jl")
-
 # optimization of trainable parameters
 include("optimization.jl")
 
@@ -56,12 +53,6 @@ include("builtin_optimization.jl")
 # DSLs for defining dynamic embedded and static IR generative functions
 # 'Dynamic DSL' and 'Static DSL'
 include("dsl/dsl.jl")
-
-# injective function DSL (not currently documented)
-include("injective.jl")
-
-# selection DSL (not currently documented)
-include("selection.jl")
 
 # inference and learning library
 include("inference/inference.jl")

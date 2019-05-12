@@ -22,10 +22,10 @@ const dx = 1e-6
 
 include("autodiff.jl")
 include("diff.jl")
+include("selection.jl")
 include("assignment.jl")
 include("dynamic_dsl.jl")
 include("static_ir/static_ir.jl")
 include("static_dsl.jl")
-include("injective.jl")
 include("inference/inference.jl")
 include("modeling_library/modeling_library.jl")

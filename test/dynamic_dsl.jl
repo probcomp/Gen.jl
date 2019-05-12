@@ -357,7 +357,7 @@ end
     init_param!(baz, :theta, 0.)
 
     @gen (grad) function foo()
-        return @splice(baz())
+        return @trace(baz())
     end
 
     (trace, _) = generate(foo, ())
@@ -430,6 +430,29 @@ end
 
     bar_submap = get_submap(submap, 3)
     @test bar_submap[:z] == 3
+end
+
+@testset "project" begin
+
+    @gen function bar()
+        @trace(normal(0, 1), :x)
+    end
+    
+    @gen function foo()
+        @trace(normal(0, 2), :y)
+        @trace(bar(), :z)
+    end
+
+    tr = simulate(foo, ())
+
+    x = tr[:z => :x]
+    y = tr[:y]
+
+    @test isapprox(project(tr, select()), 0.)
+    @test isapprox(project(tr, select(:y)), logpdf(normal, y, 0, 2))
+    @test isapprox(project(tr, select(:z => :x)), logpdf(normal, x, 0, 1))
+    @test isapprox(project(tr, select(:z => :x, :y)),
+            logpdf(normal, x, 0, 1) + logpdf(normal, y, 0, 2))
 end
 
 end

@@ -273,56 +273,6 @@ end
 
 end
 
-@testset "extend without tracked retdiffs" begin
-
-    # generate initial trace
-    a = 1
-    b = 2
-    trace = simulate(foo, (a, b))
-    x_init = get_choices(trace)[:x]
-    y_init = get_choices(trace)[:y]
-    v_init = get_choices(trace)[:z => :v]
-    w_init = get_retval(trace)
-
-    # case 1: diff(a) is NoChange(), :y is not constrained, diff(b) is NoChange()
-    counter = 0
-    (new_trace, weight, retdiff) = extend(trace, (a, b), (NoChange(), NoChange()), choicemap())
-    @test get_choices(new_trace)[:x] == x_init
-    @test get_choices(new_trace)[:y] == y_init
-    @test get_choices(new_trace)[:z => :v] == v_init
-    @test get_retval(new_trace) == w_init
-    @test isapprox(weight, 0.)
-    @test retdiff == NoChange()
-    @test counter == 0
-    @test isapprox(get_score(new_trace), expected_score(a, b, x_init, y_init, v_init))
-
-    # case 2: diff(a) is NoChange(), no constraints, diff(b) is UnknownChange()
-    a_new = 3
-    counter = 0
-    (new_trace, weight, retdiff) = extend(trace, (a_new, b), (UnknownChange(), NoChange()), choicemap())
-    @test get_choices(new_trace)[:x] == x_init
-    @test get_choices(new_trace)[:y] == y_init
-    @test get_choices(new_trace)[:z => :v] == v_init
-    @test isapprox(get_retval(new_trace), w_init + a_new - a)
-    @test isapprox(weight, logpdf(normal, y_init, x_init, a_new) - logpdf(normal, y_init, x_init, a))
-    @test retdiff == UnknownChange() # because w depends on a
-    @test counter == 0 # y blocks the dependnece on b on a
-    @test isapprox(get_score(new_trace), expected_score(a_new, b, x_init, y_init, v_init))
-
-    # case 3: diff(a) is UnknownChange(), no constraints, diff(b) is NoChange()
-    counter = 0
-    (new_trace, weight, retdiff) = extend(trace, (a, b), (NoChange(), UnknownChange()), choicemap())
-    @test get_choices(new_trace)[:x] == x_init
-    @test get_choices(new_trace)[:y] == y_init
-    @test get_choices(new_trace)[:z => :v] == v_init
-    @test get_retval(new_trace) == w_init
-    @test isapprox(weight, 0.)
-    @test retdiff == UnknownChange() # because w depends on z which depends on b
-    @test counter == 1 # because the call to bar depends on b
-    @test isapprox(get_score(new_trace), expected_score(a, b, x_init, y_init, v_init))
-
-end
-
 @testset "backprop" begin
 
     #@gen (static) function bar(mu_z::Float64)
@@ -400,7 +350,7 @@ end
 
     # compute gradients with choice_gradients
     selection = select(:bar => :z, :a, :out)
-    selection = StaticAddressSet(selection)
+    selection = StaticSelection(selection)
     retval_grad = 2.
     ((mu_a_grad,), value_trie, gradient_trie) = choice_gradients(trace, selection, retval_grad)
 
@@ -553,41 +503,6 @@ end
     @test retdiff == UnknownChange()
 end
 
-@testset "extend with tracked diffs" begin
-
-    # generate initial trace from function with tracked diffs
-    a = 1
-    trace = simulate(foo, (a,))
-
-    # case 1: diff(a) is NoChange, it will statically avoid running bar()
-    counter = 0
-    (new_trace, weight, retdiff) = extend(trace, (a,), (NoChange(),), choicemap())
-    @test counter == 0
-    @test retdiff == NoChange()
-
-    # case 2: diff(a) is UnknownChange, it will run bar(), but still return retdiff of NoChange()
-    counter = 0
-    (new_trace, weight, retdiff) = extend(trace, (a,), (UnknownChange(),), choicemap())
-    @test counter == 1
-    @test retdiff == NoChange()
-
-    # generate initial trace from function without tracked diffs
-    a = 1
-    trace = simulate(foo_without_tracked_diffs, (a,))
-
-    # case 1: diff(a) is NoChange, it will statically avoid running bar()
-    counter = 0
-    (new_trace, weight, retdiff) = extend(trace, (a,), (NoChange(),), choicemap())
-    @test counter == 0
-    @test retdiff == NoChange()
-
-    # case 2: diff(a) is UnknownChange, it will run bar()
-    counter = 0
-    (new_trace, weight, retdiff) = extend(trace, (a,), (UnknownChange(),), choicemap())
-    @test counter == 1
-    @test retdiff == UnknownChange()
-end
-
 counter = 0
 
 #@gen (static) function foo(a, b)
@@ -619,7 +534,7 @@ Gen.load_generated_functions()
     @test counter == 0 # would be 1 if nojuliacache was used
 
     counter = 0
-    extend(trace, (1, 2), (NoChange(), NoChange()), choicemap((:x, 1.0)))
+    update(trace, (1, 2), (NoChange(), NoChange()), choicemap((:x, 1.0)))
     @test counter == 0 # would be 1 if nojuliacache was used
 
     counter = 0
@@ -631,7 +546,7 @@ Gen.load_generated_functions()
     @test counter == 1
 
     counter = 0
-    extend(trace, (1, 3), (NoChange(), UnknownChange()), choicemap((:x, 1.0)))
+    update(trace, (1, 3), (NoChange(), UnknownChange()), choicemap((:x, 1.0)))
     @test counter == 1
 
     counter = 0

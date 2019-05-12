@@ -288,21 +288,6 @@ end
     @test threw
 end
 
-@testset "address_set" begin
-
-    choices = choicemap()
-    choices[:x] = 1
-    choices[:y => :a] = 2
-    choices[:y => :b] = 3
-    choices[:y => :c => :z] = 4
-
-    set = address_set(choices)
-    @test has_leaf_node(set, :x)
-    @test has_leaf_node(set, :y => :a)
-    @test has_leaf_node(set, :y => :b)
-    @test has_leaf_node(set, :y => :c => :z)
-end
-
 @testset "dynamic assignment constructor" begin
 
     choices = choicemap((:x, 1), (:y => :a, 2))
