@@ -79,23 +79,25 @@ end
 eval_arg(x::Any, args) = x
 eval_arg(x::Arg, args) = args[x.i]
 
-function logpdf(d::CompiledDistWithArgs{T}, x::T, args...) where T <: Real
+function logpdf(d::CompiledDistWithArgs{T}, x::T, args...) where T
     concrete_args = [eval_arg(arg, args) for arg in d.arglist]
     logpdf(d.base, x, concrete_args...)
 end
 
-function logpdf_grad(d::CompiledDistWithArgs{T}, x::T, args...) where T <: Real
+function logpdf_grad(d::CompiledDistWithArgs{T}, x::T, args...) where T
     concrete_args = [eval_arg(arg, args) for arg in d.arglist]
     base_grad = logpdf_grad(d.base, x, concrete_args...)
 
-    this_grad = fill(0.0, d.n_args+1)
+    this_grad = fill(missing, d.n_args+1)
     # output grad
     this_grad[1] = base_grad[1]
     # arg grads
     for (argind, arg) in enumerate(d.arglist)
         if typeof(arg) == Arg
-            if this_grad[arg.i+1] == nothing || base_grad[argind+1] == nothing
+            if this_grad[arg.i+1] === nothing || base_grad[argind+1] === nothing
                 this_grad[arg.i+1] = nothing
+            elseif ismissing(this_grad[arg.i+1])
+                this_grad[arg.i+1] = base_grad[argind+1]
             else
                 this_grad[arg.i+1] += base_grad[argind+1]
             end
@@ -104,20 +106,20 @@ function logpdf_grad(d::CompiledDistWithArgs{T}, x::T, args...) where T <: Real
     this_grad
 end
 
-function random(d::CompiledDistWithArgs{T}, args...)::T where T <: Real
+function random(d::CompiledDistWithArgs{T}, args...)::T where T
     concrete_args = [eval_arg(arg, args) for arg in d.arglist]
     random(d.base, concrete_args...)
 end
 
-is_discrete(d::CompiledDistWithArgs{T}) where T <: Real = is_discrete(d.base)
+is_discrete(d::CompiledDistWithArgs{T}) where T = is_discrete(d.base)
 
-(d::CompiledDistWithArgs{T})(args...) where T <: Real = random(d, args...)
+(d::CompiledDistWithArgs{T})(args...) where T = random(d, args...)
 
-function has_output_grad(d::CompiledDistWithArgs{T}) where T <: Real
+function has_output_grad(d::CompiledDistWithArgs{T}) where T
     has_output_grad(d.base)
 end
 
-function has_argument_grads(d::CompiledDistWithArgs{T}) where T <: Real
+function has_argument_grads(d::CompiledDistWithArgs{T}) where T
     d.arg_grad_bools
 end
 
@@ -409,6 +411,117 @@ has_argument_grads(d::LogDistribution{T}) where T <: Real = (has_output_grad(d),
 
 Base.log(d::DistWithArgs{T}) where T <: Real = DistWithArgs{T}(LogDistribution(d.base), d.arglist)
 
+struct WithLabelArg{T, U} <: Distribution{T}
+    base :: Distribution{U}
+end
+
+function logpdf(d::WithLabelArg{T, U}, x::T, collection, base_args...) where {T, U}
+    if is_discrete(d.base)
+        # Accumulate
+        logprobs::Array{Float64, 1} = []
+        for p in pairs(collection)
+            (index, item) = (p.first, p.second)
+            if item == x
+                push!(logprobs, logpdf(d.base, index, base_args...))
+            end
+        end
+        logsumexp(logprobs)
+    else
+        error("Cannot relabel a continuous distribution")
+    end
+end
+
+function logpdf_grad(d::WithLabelArg{T, U}, x::T, collection, base_args...) where {T, U}
+    base_arg_grads = fill(nothing, length(base_args))
+
+    for p in pairs(collection)
+        (index, item) = (p.first, p.second)
+        if item == x
+            new_grads = logpdf_grad(d.base, index, base_args...)
+            for (arg_idx, grad) in enumerate(new_grads)
+                if base_arg_grads[arg_idx] === nothing
+                    base_arg_grads[arg_idx] = grad
+                elseif grad !== nothing
+                    base_arg_grads[arg_idx] += grad
+                end
+            end
+        end
+    end
+    (nothing, nothing, base_arg_grads...)
+end
+
+function random(d::WithLabelArg{T, U}, collection, base_args...)::T where {T, U}
+    collection[random(d.base, base_args...)]
+end
+
+is_discrete(d::WithLabelArg{T, U}) where {T, U} = true
+
+(d::WithLabelArg{T, U})(collection, base_args...) where {T, U} = random(d, collection, base_args...)
+
+function has_output_grad(d::WithLabelArg{T, U}) where {T, U}
+    false
+end
+
+has_argument_grads(d::WithLabelArg{T, U}) where {T, U} = (false, has_argument_grads(d.base)...)
+
+Base.getindex(collection::Arg, d::DistWithArgs{T}) where T = DistWithArgs{Any}(WithLabelArg{Any, T}(d.base), (collection, d.arglist...))
+
+struct RelabeledDistribution{T, U} <: Distribution{T}
+    base :: Distribution{U}
+    collection::Union{AbstractArray{T}, AbstractDict{T}}
+end
+
+function logpdf(d::RelabeledDistribution{T, U}, x::T, base_args...) where {T, U}
+    if is_discrete(d.base)
+        # Accumulate
+        logprobs::Array{Float64, 1} = []
+        for p in pairs(d.collection)
+            (index, item) = (p.first, p.second)
+            if item == x
+                push!(logprobs, logpdf(d.base, index, base_args...))
+            end
+        end
+        logsumexp(logprobs)
+    else
+        error("Cannot relabel a continuous distribution")
+    end
+end
+
+function logpdf_grad(d::RelabeledDistribution{T, U}, x::T, base_args...) where {T, U}
+    base_arg_grads = fill(nothing, length(base_args))
+
+    for p in pairs(d.collection)
+        (index, item) = (p.first, p.second)
+        if item == x
+            new_grads = logpdf_grad(d.base, index, base_args...)
+            for (arg_idx, grad) in enumerate(new_grads)
+                if base_arg_grads[arg_idx] === nothing
+                    base_arg_grads[arg_idx] = grad
+                elseif grad !== nothing
+                    base_arg_grads[arg_idx] += grad
+                end
+            end
+        end
+    end
+    (nothing, base_arg_grads...)
+end
+
+function random(d::RelabeledDistribution{T, U}, base_args...)::T where {T, U}
+    d.collection[random(d.base, base_args...)]
+end
+
+is_discrete(d::RelabeledDistribution{T, U}) where {T, U} = true
+
+(d::RelabeledDistribution{T, U})(base_args...) where {T, U} = random(d, base_args...)
+
+function has_output_grad(d::RelabeledDistribution{T, U}) where {T, U}
+    false
+end
+
+has_argument_grads(d::RelabeledDistribution{T, U}) where {T, U} = has_argument_grads(d.base)
+
+Base.getindex(collection::AbstractArray{T}, d::DistWithArgs{U}) where {T, U} = DistWithArgs{T}(RelabeledDistribution{T, U}(d.base, collection), d.arglist)
+Base.getindex(collection::AbstractDict{T}, d::DistWithArgs{U}) where {T, U} = DistWithArgs{T}(RelabeledDistribution{T, U}(d.base, collection), d.arglist)
 
 export @dist
 
