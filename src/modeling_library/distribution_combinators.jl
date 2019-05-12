@@ -32,10 +32,8 @@ macro dist(fnexpr)
       if typeof(node) == Symbol &&haskey(name_to_index, node)
           return :($(Arg(name_to_index[node])))
       end
-      if @capture(node, f_(xs__))
-          if f != :dist_call
-              return :(Gen.dist_call($(f), ($(xs...),)))
-          end
+      if @capture(node, f_(xs__)) && f != :dist_call
+          return :(Gen.dist_call($(f), ($(xs...),)))
       end
       node
   end
@@ -57,7 +55,6 @@ end
 struct CompiledDistWithArgs{T} <: Distribution{T}
     base :: Distribution{T}
     n_args :: Int8
-    mapping :: Dict{Int8, Int8} # from 1:n_args to position in base arg list
     arg_grad_bools
     arglist
 end
@@ -70,11 +67,13 @@ function compile_dist_with_args(d::DistWithArgs{T}, n::Int8)::CompiledDistWithAr
         end
     end
     base_arg_grads = has_argument_grads(d.base)
-    arg_grad_bools = []
-    for i=1:n
-        push!(arg_grad_bools, !haskey(mapping, i) || base_arg_grads[mapping[i]])
+    arg_grad_bools = fill(true, n)
+    for (i, arg) in enumerate(d.arglist)
+        if typeof(arg) == Arg
+            arg_grad_bools[arg.i] = arg_grad_bools[arg.i] && base_arg_grads[i]
+        end
     end
-    CompiledDistWithArgs{T}(d.base, n, mapping, arg_grad_bools, d.arglist)
+    CompiledDistWithArgs{T}(d.base, n, arg_grad_bools, d.arglist)
 end
 
 eval_arg(x::Any, args) = x
@@ -89,9 +88,18 @@ function logpdf_grad(d::CompiledDistWithArgs{T}, x::T, args...) where T <: Real
     concrete_args = [eval_arg(arg, args) for arg in d.arglist]
     base_grad = logpdf_grad(d.base, x, concrete_args...)
 
-    this_grad = [base_grad[1]]
-    for j=1:d.n_args
-        push!(this_grad, haskey(mapping, j) ? base_grad[mapping[j]] : 0.0)
+    this_grad = fill(0.0, d.n_args+1)
+    # output grad
+    this_grad[1] = base_grad[1]
+    # arg grads
+    for (argind, arg) in enumerate(d.arglist)
+        if typeof(arg) == Arg
+            if this_grad[arg.i+1] == nothing || base_grad[argind+1] == nothing
+                this_grad[arg.i+1] = nothing
+            else
+                this_grad[arg.i+1] += base_grad[argind+1]
+            end
+        end
     end
     this_grad
 end
@@ -222,7 +230,6 @@ has_argument_grads(d::ScaledByConstant{T}) where T <: Real = has_argument_grads(
 Base.:*(b::DistWithArgs{T}, a::Real) where T <: Real = DistWithArgs(ScaledByConstant(a, b.base), b.arglist)
 Base.:*(a::Real, b::DistWithArgs{T}) where T <: Real = b * a
 Base.:-(a::Real, b::DistWithArgs{T}) where T <: Real = a + (-1 * b) # DistWithArgs(TranslatedByConstant(a, ScaledByConstant(-1., b.base)), b.arglist)
-Base.:-(b::DistWithArgs{T}, a::Real) where T <: Real = b + (-1 * a)
 Base.:/(b::DistWithArgs{T}, a::Real) where T <: Real = 1.0/a * b # DistWithArgs(ScaledByConstant(1.0/a, b.base), b.arglist)
 
 struct WithScaleArg{T} <: Distribution{T}
