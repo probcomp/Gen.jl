@@ -88,7 +88,8 @@ function logpdf_grad(d::CompiledDistWithArgs{T}, x::T, args...) where T
     concrete_args = [eval_arg(arg, args) for arg in d.arglist]
     base_grad = logpdf_grad(d.base, x, concrete_args...)
 
-    this_grad = fill(missing, d.n_args+1)
+    # Look into whether we can change this...
+    this_grad::Vector{Any} = fill(missing, d.n_args+1)
     # output grad
     this_grad[1] = base_grad[1]
     # arg grads
@@ -123,293 +124,103 @@ function has_argument_grads(d::CompiledDistWithArgs{T}) where T
     d.arg_grad_bools
 end
 
-
-struct TranslatedByConstant{T} <: Distribution{T}
-    a :: Real
-    base :: Distribution{T}
+struct TransformedDistribution{T, U} <: Distribution{T}
+    base :: Distribution{U}
+    # How many more parameters does this distribution have
+    # than the base distribution?
+    nArgs :: Int8
+    # forward is a U, arg... -> T function,
+    # and backward is a T, arg... -> U function,
+    # such that for any `args`, we have
+    # backward(forward(u, args...), args...) == u
+    # and
+    # forward(backward(t, args...), args...) == t.
+    # Note that if base is a continuous distribution, then
+    # forward and backward must be differentiable.
+    forward :: Function
+    backward :: Function
+    backward_grad :: Function
 end
 
-function logpdf(d::TranslatedByConstant{T}, x::T, base_args...) where T <: Real
-    logpdf(d.base, x-d.a, base_args...)
+function random(d::TransformedDistribution{T, U}, args...)::T where {T, U}
+    d.forward(random(d.base, args[d.nArgs+1:end]...), args[1:d.nArgs]...)
 end
 
-function logpdf_grad(d::TranslatedByConstant{T}, x::T, base_args...) where T <: Real
-    logpdf_grad(d.base, x-d.a, base_args...)
+function logpdf_correction(d::TransformedDistribution{T, U}, x, args) where {T, U}
+    log(abs(d.backward_grad(x, args...)[1]))
 end
 
-function random(d::TranslatedByConstant{T}, base_args...)::T where T <: Real
-    random(d.base, base_args...) + d.a
+function logpdf(d::TransformedDistribution{T, U}, x::T, args...) where {T, U}
+    orig_x = d.backward(x, args[1:d.nArgs]...)
+    orig_logpdf = logpdf(d.base, orig_x, args[d.nArgs+1:end]...)
+
+    if is_discrete(d.base)
+        orig_logpdf
+    else
+        orig_logpdf + logpdf_correction(d, x, args[1:d.nArgs])
+    end
 end
 
-is_discrete(d::TranslatedByConstant{T}) where T <: Real = is_discrete(d.base)
+function logpdf_grad(d::TransformedDistribution{T, U}, x::T, args...) where {T, U}
+    orig_x = d.backward(x, args[1:d.nArgs]...)
+    base_grad = logpdf_grad(d.base, orig_x, args[d.nArgs+1:end]...)
 
-(d::TranslatedByConstant{T})(base_args...) where T <: Real = random(d, base_args...)
+    if is_discrete(d.base) || !has_output_grad(d.base)
+        # TODO: should this be nothing or 0?
+        [base_grad[1], fill(nothing, d.nArgs)..., base_grad[2:end]...]
+    else
+        transformation_grad = d.backward_grad(x, args[1:d.nArgs]...)
+        correction_grad = ReverseDiff.gradient(v -> logpdf_correction(d, v[1], v[2:end]), [x, args[1:d.nArgs]...])
+        # TODO: Will this sort of thing work if the arguments w.r.t. which we are taking
+        # gradients are themselves vector-valued?
+        full_grad = (transformation_grad .* base_grad[1]) .+ correction_grad
+        [full_grad..., base_grad[2:end]...]
+    end
+end
 
-function has_output_grad(d::TranslatedByConstant{T}) where T <: Real
+is_discrete(d::TransformedDistribution{T, U}) where {T, U} = is_discrete(d.base)
+
+(d::TransformedDistribution{T, U})(args...) where {T, U} = random(d, args...)
+
+function has_output_grad(d::TransformedDistribution{T, U}) where {T, U}
     has_output_grad(d.base)
 end
 
-has_argument_grads(d::TranslatedByConstant{T}) where T <: Real = has_argument_grads(d.base)
+function has_argument_grads(d::TransformedDistribution{T, U}) where {T, U}
+    if is_discrete(d.base) || !has_output_grad(d.base)
+        [fill(false, d.nArgs)..., has_argument_grads(d.base)...]
+    else
+        [fill(true, d.nArgs)..., has_argument_grads(d.base)...]
+    end
+end
 
-Base.:+(b::DistWithArgs{T}, a::Real) where T <: Real = DistWithArgs(TranslatedByConstant(a, b.base), b.arglist)
+# Addition
+Base.:+(b::DistWithArgs{T}, a::Real) where T <: Real = DistWithArgs(TransformedDistribution{T, T}(b.base, 0, x -> x + a, x -> x - a, x -> (1.0,)), b.arglist)
+Base.:+(b::DistWithArgs{T}, a::Arg) where T <: Real = DistWithArgs(TransformedDistribution{T, T}(b.base, 1, +, -, (x, a) -> (1.0, -1.0)), (a, b.arglist...))
 Base.:+(a::Real, b::DistWithArgs{T}) where T <: Real = b + a
-Base.:-(b::DistWithArgs{T}, a::Real) where T <: Real = b + (-a)
+Base.:+(a::Arg, b::DistWithArgs{T}) where T <: Real = b + a
 
-struct WithLocationArg{T} <: Distribution{T}
-    base :: Distribution{T}
-end
+# Subtraction
+Base.:-(b::DistWithArgs{T}, a::Real) where T <: Real = b + (-1 * a)
+Base.:-(b::DistWithArgs{T}, a::Arg) where T <: Real = DistWithArgs(TransformedDistribution{T, T}(b.base, 1, -, +, (x, a) -> (1.0, 1.0)), (a, b.arglist...))
+Base.:-(a::Real, b::DistWithArgs{T}) where T <: Real = DistWithArgs(TransformedDistribution{T, T}(b.base, 1, x -> a - x, x -> a - x, x -> (-1.0,)), b.arglist)
+Base.:-(a::Arg, b::DistWithArgs{T}) where T <: Real = DistWithArgs(TransformedDistribution{T, T}(b.base, 1, (x, a) -> a - x, (x, a) -> a - x, (x, a) -> (-1.0, 1.0)), (a, b.arglist...))
 
-function logpdf(d::WithLocationArg{T}, x::T, loc::Real, base_args...) where T <: Real
-    logpdf(d.base, x-loc, base_args...)
-end
-
-function logpdf_grad(d::WithLocationArg{T}, x::T, loc::Real, base_args...) where T <: Real
-    base_grad = logpdf_grad(d.base, x-loc, base_args...)
-    (base_grad[1], has_output_grad(d.base) ? (-1.0 * base_grad[1]) : nothing, base_grad[2:end]...)
-end
-
-function random(d::WithLocationArg{T}, loc::Real, base_args...)::T where T <: Real
-    random(d.base, base_args...) + loc
-end
-
-is_discrete(d::WithLocationArg{T}) where T <: Real = is_discrete(d.base)
-
-(d::WithLocationArg{T})(loc::Real, base_args...) where T <: Real = random(d, loc, base_args...)
-
-function has_output_grad(d::WithLocationArg{T}) where T <: Real
-    has_output_grad(d.base)
-end
-
-function has_argument_grads(d::WithLocationArg{T}) where T <: Real
-    (has_output_grad(d.base), has_argument_grads(d.base)...)
-end
-
-Base.:+(b::DistWithArgs{T}, a::Arg) where T <: Real = DistWithArgs(WithLocationArg(b.base), (a, b.arglist...))
-Base.:+(a::Arg, b::Distribution{T}) where T <: Real = b + a
-# TODO: Make this work, using Var transformations.
-#  But first, I should get things  working with simple vars.
-# Base.:-(b::Distribution{T}, a::Real) where T <: Real = DistWithArgs(TranslatedByConstant(-a, b.base), b.arglist)
-
-
-struct ScaledByConstant{T} <: Distribution{T}
-    a :: Real
-    base :: Distribution{T}
-end
-
-function logpdf(d::ScaledByConstant{T}, x::T, base_args...) where T <: Real
-    if is_discrete(d.base)
-        # TODO: is this unstable? If base distribution is discrete,
-        # then x must be an exact multiple of an element of its support.
-        logpdf(d.base, x/d.a, base_args...)
-    else
-        logpdf(d.base, x/d.a, base_args...) - log(abs(d.a))
-    end
-end
-
-function logpdf_grad(d::ScaledByConstant{T}, x::T, base_args...) where T <: Real
-    if !is_discrete(d.base) && has_output_grad(d.base)
-        grads = logpdf_grad(d.base, x/d.a, base_args...)
-        (grads[1] / d.a, grads[2:end]...)
-    else
-        logpdf_grad(d.base, x/d.a, base_args...)
-    end
-end
-
-function random(d::ScaledByConstant{T}, base_args...)::T where T <: Real
-    random(d.base, base_args...) * d.a
-end
-
-is_discrete(d::ScaledByConstant{T}) where T <: Real = is_discrete(d.base)
-
-(d::ScaledByConstant{T})(base_args...) where T <: Real = random(d, base_args...)
-
-function has_output_grad(d::ScaledByConstant{T}) where T <: Real
-    has_output_grad(d.base)
-end
-
-has_argument_grads(d::ScaledByConstant{T}) where T <: Real = has_argument_grads(d.base)
-
-Base.:*(b::DistWithArgs{T}, a::Real) where T <: Real = DistWithArgs(ScaledByConstant(a, b.base), b.arglist)
+# Multiplication
+Base.:*(b::DistWithArgs{T}, a::Real) where T <: Real = DistWithArgs(TransformedDistribution{T, T}(b.base, 0, x -> x * a, x -> x / a, x -> (1.0/a,)), b.arglist)
+Base.:*(b::DistWithArgs{T}, a::Arg) where T <: Real = DistWithArgs(TransformedDistribution{T, T}(b.base, 1, *, /, (x, a) -> (1.0/a, -x/(a*a))), (a, b.arglist...))
 Base.:*(a::Real, b::DistWithArgs{T}) where T <: Real = b * a
-Base.:-(a::Real, b::DistWithArgs{T}) where T <: Real = a + (-1 * b) # DistWithArgs(TranslatedByConstant(a, ScaledByConstant(-1., b.base)), b.arglist)
-Base.:/(b::DistWithArgs{T}, a::Real) where T <: Real = 1.0/a * b # DistWithArgs(ScaledByConstant(1.0/a, b.base), b.arglist)
-
-struct WithScaleArg{T} <: Distribution{T}
-    base :: Distribution{T}
-end
-
-function logpdf(d::WithScaleArg{T}, x::T, scale::Real, base_args...) where T <: Real
-    if is_discrete(d.base)
-        # TODO: is this unstable? If base distribution is discrete,
-        # then x must be an exact multiple of an element of its support.
-        logpdf(d.base, x/scale, base_args...)
-    else
-        logpdf(d.base, x/scale, base_args...) - log(abs(scale))
-    end
-end
-
-function logpdf_grad(d::WithScaleArg{T}, x::T, scale::Real, base_args...) where T <: Real
-    if !is_discrete(d.base) && has_output_grad(d.base)
-        grads = logpdf_grad(d.base, x/scale, base_args...)
-        dx = grads[1] / scale
-        dscale = (-1.0*grads[1]*x/(scale*scale)) - (1.0/scale)
-        (dx, dscale, grads[2:end]...)
-    else
-        grads = logpdf_grad(d.base, x/scale, base_args...)
-        (grads[1], nothing, grads[2:end])
-    end
-end
-
-function random(d::WithScaleArg{T}, scale::Real, base_args...)::T where T <: Real
-    random(d.base, base_args...) * scale
-end
-
-is_discrete(d::WithScaleArg{T}) where T <: Real = is_discrete(d.base)
-
-(d::WithScaleArg{T})(scale::Real, base_args...) where T <: Real = random(d, scale, base_args...)
-
-function has_output_grad(d::WithScaleArg{T}) where T <: Real
-    has_output_grad(d.base)
-end
-
-has_argument_grads(d::WithScaleArg{T}) where T <: Real = (has_output_grad(d.base), has_argument_grads(d.base)...)
-
-Base.:*(b::DistWithArgs{T}, a::Arg) where T <: Real = DistWithArgs(WithScaleArg(b.base), (a, b.arglist...))
 Base.:*(a::Arg, b::DistWithArgs{T}) where T <: Real = b * a
-Base.:-(a::Arg, b::DistWithArgs{T}) where T <: Real = -1 * b + a
-Base.:-(b::DistWithArgs{T}, a::Arg) where T <: Real = -1 * (a - b)
 
-struct InvertedDistribution{T} <: Distribution{Float64}
-    base :: Distribution{T}
-end
+# Division
+Base.:/(b::DistWithArgs{T}, a::Real) where T <: Real = DistWithArgs(TransformedDistribution{T, T}(b.base, 0, x -> x / a, x -> x * a, x -> (a,)), b.arglist)
+Base.:/(b::DistWithArgs{T}, a::Arg) where T <: Real = DistWithArgs(TransformedDistribution{T, T}(b.base, 1, /, *, (x, a) -> (a, x)), (a, b.arglist...))
+Base.:/(a::Real, b::DistWithArgs{T}) where T <: Real = DistWithArgs(TransformedDistribution{T, T}(b.base, 0, x -> a / x, x -> a / x, x -> (-a / (x*x),)), b.arglist)
+Base.:/(a::Arg, b::DistWithArgs{T}) where T <: Real = DistWithArgs(TransformedDistribution{T, T}(b.base, 1, (x, a) -> a/x, (x, a) -> a/x, (x, a) -> (-a/(x*x), 1.0/x)), (a, b.arglist...))
 
-function logpdf(d::InvertedDistribution{T}, x::Float64, base_args...) where T <: Real
-    if is_discrete(d.base)
-        # TODO: is this unstable? If base distribution is discrete,
-        # then x must be an exact multiple of an element of its support.
-        # logpdf(d.base, 1.0/x, base_args...)
-        error("Cannot make a distribution that is a reciprocal of a discrete distribution")
-    else
-        logpdf(d.base, 1.0/x, base_args...) - 2 * log(x)
-    end
-end
-
-function logpdf_grad(d::InvertedDistribution{T}, x::Float64, base_args...) where T <: Real
-    if !is_discrete(d.base) && has_output_grad(d.base)
-        grads = logpdf_grad(d.base, 1.0/x, base_args...)
-        dx = -grads[1] / (x*x) - (2. / x)
-        (dx, grads[2:end]...)
-    else
-        error("Cannot make a distribution that is a reciprocal of a discrete distribution")
-    end
-end
-
-function random(d::InvertedDistribution{T}, base_args...)::T where T <: Real
-    1.0 / random(d.base, base_args...)
-end
-
-is_discrete(d::InvertedDistribution{T}) where T <: Real = is_discrete(d.base)
-
-(d::InvertedDistribution{T})(base_args...) where T <: Real = random(d, base_args...)
-
-function has_output_grad(d::InvertedDistribution{T}) where T <: Real
-    !is_discrete(d.base) && has_output_grad(d.base)
-end
-
-has_argument_grads(d::InvertedDistribution{T}) where T <: Real = (has_output_grad(d), has_argument_grads(d.base)...)
-
-Base.:/(a::Union{Real, Arg}, b::DistWithArgs{T}) where T <: Real = a * DistWithArgs(InvertedDistribution(b.base), b.arglist)
-# TODO: Use functions of args to get this effect
-Base.:/(b::DistWithArgs{T}, a::Arg) where T <: Real = 1.0 / (a / b)
-
-
-
-
-struct ExponentiatedDistribution{T} <: Distribution{Float64}
-    base :: Distribution{T}
-end
-
-function logpdf(d::ExponentiatedDistribution{T}, x::T, base_args...) where T <: Real
-    if is_discrete(d.base)
-        # TODO: is this unstable? If base distribution is discrete,
-        # then x must be an exact multiple of an element of its support.
-        # logpdf(d.base, log(x), base_args...)
-        error("Cannot exponentiate a discrete distribution")
-    else
-        logpdf(d.base, log(x), base_args...) - log(abs(x))
-    end
-end
-
-function logpdf_grad(d::ExponentiatedDistribution{T}, x::T, base_args...) where T <: Real
-    if !is_discrete(d.base) && has_output_grad(d.base)
-        grads = logpdf_grad(d.base, log(x), base_args...)
-        dx = (grads[1] - 1.0) / x
-        (dx, grads[2:end]...)
-    else
-        error("Cannot exponentiate a discrete distribution")
-        # logpdf_grad(d.base, x/d.a, base_args...)
-    end
-end
-
-function random(d::ExponentiatedDistribution{T}, base_args...)::Float64 where T <: Real
-    exp(random(d.base, base_args...))
-end
-
-is_discrete(d::ExponentiatedDistribution{T}) where T <: Real = is_discrete(d.base)
-
-(d::ExponentiatedDistribution{T})(base_args...) where T <: Real = random(d, base_args...)
-
-function has_output_grad(d::ExponentiatedDistribution{T}) where T <: Real
-    !is_discrete(d.base) && has_output_grad(d.base)
-end
-
-has_argument_grads(d::ExponentiatedDistribution{T}) where T <: Real = (has_output_grad(d), has_argument_grads(d.base)...)
-
-Base.exp(d::DistWithArgs{T}) where T <: Real = DistWithArgs{T}(ExponentiatedDistribution(d.base), d.arglist)
-
-
-
-struct LogDistribution{T} <: Distribution{Float64}
-    base :: Distribution{T}
-end
-
-function logpdf(d::LogDistribution{T}, x::T, base_args...) where T <: Real
-    if is_discrete(d.base)
-        # TODO: is this unstable? If base distribution is discrete,
-        # then x must be an exact multiple of an element of its support.
-        # logpdf(d.base, log(x), base_args...)
-        error("Cannot take log of a discrete distribution")
-    else
-        logpdf(d.base, exp(x), base_args...) + x
-    end
-end
-
-function logpdf_grad(d::LogDistribution{T}, x::T, base_args...) where T <: Real
-    if !is_discrete(d.base) && has_output_grad(d.base)
-        grads = logpdf_grad(d.base, exp(x), base_args...)
-        dx = exp(x) * grads[1] + 1.0
-        (dx, grads[2:end]...)
-    else
-        error("Cannot take log of a discrete distribution")
-        # logpdf_grad(d.base, x/d.a, base_args...)
-    end
-end
-
-function random(d::LogDistribution{T}, base_args...)::Float64 where T <: Real
-    log(random(d.base, base_args...))
-end
-
-is_discrete(d::LogDistribution{T}) where T <: Real = is_discrete(d.base)
-
-(d::LogDistribution{T})(base_args...) where T <: Real = random(d, base_args...)
-
-function has_output_grad(d::LogDistribution{T}) where T <: Real
-    !is_discrete(d.base) && has_output_grad(d.base)
-end
-
-has_argument_grads(d::LogDistribution{T}) where T <: Real = (has_output_grad(d), has_argument_grads(d.base)...)
-
-Base.log(d::DistWithArgs{T}) where T <: Real = DistWithArgs{T}(LogDistribution(d.base), d.arglist)
+# Exponentiation
+Base.exp(b::DistWithArgs{T}) where T <: Real = DistWithArgs(TransformedDistribution{T, T}(b.base, 0, exp, log, x -> (1.0 / x,)), b.arglist)
+Base.log(b::DistWithArgs{T}) where T <: Real = DistWithArgs(TransformedDistribution{T, T}(b.base, 0, log, exp, x -> (exp(x),)), b.arglist)
 
 struct WithLabelArg{T, U} <: Distribution{T}
     base :: Distribution{U}
