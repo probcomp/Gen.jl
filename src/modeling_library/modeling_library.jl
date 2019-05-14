@@ -67,7 +67,7 @@ include("piecewise_uniform.jl")
 include("beta_uniform.jl")
 include("geometric.jl")
 include("exponential.jl")
-include("distribution_combinators.jl")
+include("dist/dist_dsl.jl")
 
 ###############
 # combinators #
