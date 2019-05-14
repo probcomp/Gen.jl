@@ -2,11 +2,50 @@
 # (i.e., from Int to Float64).
 using MacroTools
 
+abstract type Arg end
+
+# Represents a argument at a certain index
+struct SimpleArg <: Arg
+    i :: Int8
+end
+
+struct TransformedArg <: Arg
+    f_args :: Vector{Arg} # Is it better to do Union{TransformedArg, SimpleArg}?
+    orig_f :: Function
+    arg_passer :: Function
+end
+
+#TODO: Remove Distribution{T} from structs; use a type U instead
+
 # A function call within a @dist body
-# TODO: Improve to handle when args includes an Arg.
-# Will require creating a new type of Arg.
-dist_call(f, args) = f(args...)
-dist_call(d::Distribution{T}, args) where T = DistWithArgs{T}(d, args)
+function dist_call(d::Distribution{T}, args) where T
+    DistWithArgs{T}(d, args)
+end
+function dist_call(f, args)
+    if any(x -> (typeof(x) <: DistWithArgs), args)
+        f(args...)
+    elseif any(x -> (typeof(x) <: Arg), args)
+        # Create a transformed distribution
+        f_args = []
+        new_f_arg_names = []
+        actual_arg_exprs = []
+
+        for (i, x) in enumerate(args)
+            if typeof(x) <: Arg
+                push!(f_args, x)
+                name = gensym()
+                push!(new_f_arg_names, name)
+                push!(actual_arg_exprs, name)
+            else
+                push!(actual_arg_exprs, Meta.quot(x))
+            end
+        end
+        arg_passer = eval(:((f, $(new_f_arg_names...)) -> f($(actual_arg_exprs...))))
+        TransformedArg(f_args, f, arg_passer)
+    else
+        f(args...)
+    end
+end
 
 
 #TODO: Make this actually compile a new type
@@ -29,8 +68,8 @@ macro dist(fnexpr)
   end
 
   function process_node(node)
-      if typeof(node) == Symbol &&haskey(name_to_index, node)
-          return :($(Arg(name_to_index[node])))
+      if typeof(node) == Symbol && haskey(name_to_index, node)
+          return :($(SimpleArg(name_to_index[node])))
       end
       if @capture(node, f_(xs__)) && f != :dist_call
           return :(Gen.dist_call($(f), ($(xs...),)))
@@ -40,11 +79,6 @@ macro dist(fnexpr)
 
   dwa_expr = MacroTools.postwalk(process_node, body)
   :($(esc(fndef[:name])) = compile_dist_with_args($(esc(dwa_expr)), Int8($(length(arguments)))))
-end
-
-# Represents a argument at a certain index
-struct Arg
-    i :: Int8
 end
 
 struct DistWithArgs{T}
@@ -59,52 +93,56 @@ struct CompiledDistWithArgs{T} <: Distribution{T}
     arglist
 end
 
+
+# Each j is an Arg, and has a yes/no answer about whether
+# it supports gradients. The Arg may correspond to multiple i's,
+# which are user-facing parameters.
+all_indices(arg::SimpleArg) = [arg.i]
+all_indices(arg::TransformedArg) = vcat([all_indices(a) for a in arg.f_args]...)
+
 function compile_dist_with_args(d::DistWithArgs{T}, n::Int8)::CompiledDistWithArgs{T} where T
-    mapping = Dict{Int8, Int8}()
-    for (i, arg) in enumerate(d.arglist)
-        if typeof(arg) == Arg
-            mapping[arg.i] = Int8(i)
-        end
-    end
     base_arg_grads = has_argument_grads(d.base)
     arg_grad_bools = fill(true, n)
     for (i, arg) in enumerate(d.arglist)
-        if typeof(arg) == Arg
-            arg_grad_bools[arg.i] = arg_grad_bools[arg.i] && base_arg_grads[i]
+        if typeof(arg) <: Arg
+            for idx in all_indices(arg)
+                arg_grad_bools[idx] = arg_grad_bools[idx] && base_arg_grads[i]
+            end
         end
     end
     CompiledDistWithArgs{T}(d.base, n, arg_grad_bools, d.arglist)
 end
 
 eval_arg(x::Any, args) = x
-eval_arg(x::Arg, args) = args[x.i]
+eval_arg(x::SimpleArg, args) = args[x.i]
+eval_arg(x::TransformedArg, args) = x.arg_passer(x.orig_f, [eval_arg(a, args) for a in x.f_args]...)
 
 function logpdf(d::CompiledDistWithArgs{T}, x::T, args...) where T
     concrete_args = [eval_arg(arg, args) for arg in d.arglist]
     logpdf(d.base, x, concrete_args...)
 end
 
-function logpdf_grad(d::CompiledDistWithArgs{T}, x::T, args...) where T
-    concrete_args = [eval_arg(arg, args) for arg in d.arglist]
-    base_grad = logpdf_grad(d.base, x, concrete_args...)
 
-    # Look into whether we can change this...
-    this_grad::Vector{Any} = fill(missing, d.n_args+1)
-    # output grad
-    this_grad[1] = base_grad[1]
-    # arg grads
-    for (argind, arg) in enumerate(d.arglist)
-        if typeof(arg) == Arg
-            if this_grad[arg.i+1] === nothing || base_grad[argind+1] === nothing
-                this_grad[arg.i+1] = nothing
-            elseif ismissing(this_grad[arg.i+1])
-                this_grad[arg.i+1] = base_grad[argind+1]
-            else
-                this_grad[arg.i+1] += base_grad[argind+1]
-            end
+function logpdf_grad(d::CompiledDistWithArgs{T}, x::T, args...) where T
+    self_has_output_grad = has_output_grad(d)
+    self_has_arg_grads = has_argument_grads(d)
+    concrete_args = [eval_arg(arg, args) for arg in d.arglist]
+    base_has_arg_grads = has_argument_grads(d.base)
+    base_grads = logpdf_grad(d.base, x, concrete_args...)
+
+    base_arg_grads = [g for (i, g) in enumerate(base_grads[2:end]) if base_has_arg_grads[i]]
+    argvec = collect(args)
+    eval_arg_grads = hcat([ReverseDiff.gradient(xs -> eval_arg(arg, xs), argvec) for (i, arg) in enumerate(d.arglist) if base_has_arg_grads[i]]...)
+
+    retval = [base_grads[1]]
+    for i in 1:d.n_args
+        if self_has_arg_grads[i]
+            push!(retval, eval_arg_grads[i,:]' * base_arg_grads)
+        else
+            push!(retval, nothing)
         end
     end
-    this_grad
+    retval
 end
 
 function random(d::CompiledDistWithArgs{T}, args...)::T where T
@@ -335,10 +373,3 @@ Base.getindex(collection::AbstractArray{T}, d::DistWithArgs{U}) where {T, U} = D
 Base.getindex(collection::AbstractDict{T}, d::DistWithArgs{U}) where {T, U} = DistWithArgs{T}(RelabeledDistribution{T, U}(d.base, collection), d.arglist)
 
 export @dist
-
-
-
-# TODO: Gradient calculation is wrong if the argument appears more than once.
-#  We should _sum_ contributions.
-
-# The problem with f(a) is for derivative taking.
