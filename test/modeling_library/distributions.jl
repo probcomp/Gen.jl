@@ -139,12 +139,15 @@ end
                                                ones(2, 1), ones(1,2), ones(1,3))
 
     ## Equivalence of broadcast to operating on bigger arrays
-    compact = OrderedDict(:x => fill(0.2, (1, 3, 1)),
-                          :mu => fill(0.7, (1, 1, 4)),
-                          :std => fill(0.1, (2, 1, 1)))
-    expanded = OrderedDict(:x => fill(0.2, (2, 3, 4)),
-                           :mu => fill(0.7, (2, 3, 4)),
-                           :std => fill(0.1, (2, 3, 4)))
+    compact = OrderedDict(:x => reshape([0.2, 0.3, 0.4],
+                                        (1, 3, 1)),
+                          :mu => reshape([0.7, 0.7, 0.8, 0.6],
+                                         (1, 1, 4)),
+                          :std => reshape([0.2, 0.1],
+                                          (2, 1, 1)))
+    expanded = OrderedDict(:x => repeat(compact[:x], outer=(2, 1, 4)),
+                           :mu => repeat(compact[:mu], outer=(2, 3, 1)),
+                           :std => repeat(compact[:std], outer=(1, 3, 4)))
     @test (logpdf(normal, values(compact)...) ==
            logpdf(normal, values(expanded)...))
     @test (logpdf_grad(normal, values(compact)...) ==
