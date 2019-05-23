@@ -25,7 +25,7 @@ The shapes of `mu` and `std` must be broadcast-compatible.  For methods such as
 `logpdf(x, mu, std)` which involve an element of the support of the
 distribution, the shapes of `x`, `mu` and `std` must be mutually
 broadcast-compatible, and the (scalar-valued) logpdf is computed as if for a
-multivariate normal of shape `broadcast(shape(x), shape(mu), shape(std))`.
+multivariate normal of shape `broadcast(size(x), size(mu), size(std))`.
 
 If all args are 0-dimensional arrays, then sampling via `random` returns a
 `Float64` rather than properly returning an `Array{Float64, 0}`s.  This is
