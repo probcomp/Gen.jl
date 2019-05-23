@@ -2,12 +2,31 @@ using Gen
 using Test
 import Random
 
-function finite_diff(f::Function, args::Tuple, i::Int, dx::Float64)
+"""
+Compute a numerical partial derivative of `f` with respect to the `i`th
+argument using finite differences.
+
+If `broadcast` is `false`, then `args[i]` must be a scalar.
+
+If `broadcast` is `true`, then `args[i]` may be an array.  In that case, `f` is
+assumed to be the broadcast of a function whose `i`th argument is a scalar.  In
+particular, `f` must still operate independently on each element of `i`.  This
+condition cannot be checked automatically for arbitrary `f::Function`, so the
+caller must guarantee it.
+"""
+function finite_diff(f::Function, args::Tuple, i::Int, dx::Float64;
+                     broadcast=false)
     pos_args = Any[args...]
-    pos_args[i] += dx
     neg_args = Any[args...]
-    neg_args[i] -= dx
-    return (f(pos_args...) - f(neg_args...)) / (2. * dx)
+    if broadcast
+        pos_args[i] = copy(args[i]) .+ dx
+        neg_args[i] = copy(args[i]) .- dx
+        return (f(pos_args...) - f(neg_args...)) ./ (2. * dx)
+    else
+        pos_args[i] += dx
+        neg_args[i] -= dx
+        return (f(pos_args...) - f(neg_args...)) / (2. * dx)
+    end
 end
 
 function finite_diff_vec(f::Function, args::Tuple, i::Int, j::Int, dx::Float64)
