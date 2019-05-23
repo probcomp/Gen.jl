@@ -75,7 +75,7 @@ function logpdf_grad(::Normal,
     diff = mu - x
     deriv_x = diff .* precision
     deriv_mu = -deriv_x
-    deriv_std = -1.0 ./ std + (diff .* diff) / (std .* std .* std)
+    deriv_std = -1.0 ./ std + (diff .* diff) ./ (std .* std .* std)
     (deriv_x, deriv_mu, deriv_std)
 end
 
