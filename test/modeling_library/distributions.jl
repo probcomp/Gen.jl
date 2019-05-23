@@ -60,7 +60,7 @@ end
     @test isapprox(actual[3], finite_diff(f, args, 3, dx))
 end
 
-@testset "normal" begin
+@testset "scalar normal" begin
 
     # random
     x = normal(0, 1)
@@ -72,6 +72,81 @@ end
     @test isapprox(actual[1], finite_diff(f, args, 1, dx))
     @test isapprox(actual[2], finite_diff(f, args, 2, dx))
     @test isapprox(actual[3], finite_diff(f, args, 3, dx))
+end
+
+@testset "zero-dimensional array normal" begin
+
+    # random
+    x = normal(0, 1)
+
+    # logpdf_grad
+    f = (x, mu, std) -> logpdf(normal, x, mu, std)
+    args = (fill(0.4), fill(0.2), fill(0.3))
+    actual = logpdf_grad(normal, args...)
+    @test isapprox(actual[1], finite_diff(f, args, 1, dx))
+    @test isapprox(actual[2], finite_diff(f, args, 2, dx))
+    @test isapprox(actual[3], finite_diff(f, args, 3, dx))
+end
+
+@testset "array normal" begin
+
+    # random
+    x = normal(0, 1)
+
+    # logpdf_grad
+    f = (x, mu, std) -> logpdf(normal, x, mu, std)
+    args = ([ 1     2     3    ;
+              4     5     6    ],
+            [ 0.1   0.2   0.3  ;
+              0.4   0.5   0.6  ],
+            [ 0.01  0.02  0.03 ;
+              0.04  0.05  0.06 ])
+    actual = logpdf_grad(normal, args...)
+    @test isapprox(actual[1], finite_diff(f, args, 1, dx))
+    @test isapprox(actual[2], finite_diff(f, args, 2, dx))
+    @test isapprox(actual[3], finite_diff(f, args, 3, dx))
+end
+
+@testset "array normal with broadcasting" begin
+
+    ## Return shape of `normal`
+    @test size(normal([0. 0. 0.], 1.)) == (1, 3)
+    @test size(normal(zeros(1, 3, 4), ones(2, 1, 4))) == (2, 3, 4)
+    @test_throws DimensionMismatch normal([0 0 0], [1 1])
+
+    ## Return shape of `logpdf` and `logpdf_grad`
+    @test size(logpdf(normal,
+                      ones(1, 3, 1), ones(2, 1, 1), ones(1, 1, 4))) == (2, 3, 4)
+    @test all(size(g) == (2, 3, 4)
+              for g in logpdf_grad(
+                  normal, ones(1, 3, 1), ones(2, 1, 1), ones(1, 1, 4)))
+    # `x` and `mu` are broadcast-incompatible
+    @test_throws DimensionMismatch logpdf(normal,
+                                          ones(1, 2), ones(1,3), ones(2,1))
+    @test_throws DimensionMismatch logpdf_grad(normal,
+                                               ones(1, 2), ones(1,3), ones(2,1))
+    # `x` and `std` are broadcast-incompatible
+    @test_throws DimensionMismatch logpdf(normal,
+                                          ones(1, 2), ones(2,1), ones(1,3))
+    @test_throws DimensionMismatch logpdf_grad(normal,
+                                               ones(1, 2), ones(2,1), ones(1,3))
+    # `mu` and `std` are broadcast-incompatible
+    @test_throws DimensionMismatch logpdf(normal,
+                                          ones(2, 1), ones(1,2), ones(1,3))
+    @test_throws DimensionMismatch logpdf_grad(normal,
+                                               ones(2, 1), ones(1,2), ones(1,3))
+
+    ## Equivalence of broadcast to operating on bigger arrays
+    compact = OrderedDict(:x => fill(0.2, (1, 3, 1)),
+                          :mu => fill(0.7, (1, 1, 4)),
+                          :std => fill(0.1, (2, 1, 1)))
+    expanded = OrderedDict(:x => fill(0.2, (2, 3, 4)),
+                           :mu => fill(0.7, (2, 3, 4)),
+                           :std => fill(0.1, (2, 3, 4)))
+    @test (logpdf(normal, values(compact)...) ==
+           logpdf(normal, values(expanded)...))
+    @test (logpdf_grad(normal, values(compact)...) ==
+           logpdf_grad(normal, values(expanded)...))
 end
 
 @testset "multivariate normal" begin
