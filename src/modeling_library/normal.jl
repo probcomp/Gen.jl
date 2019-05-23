@@ -47,8 +47,10 @@ function logpdf(::Normal, x::Real, mu::Real, std::Real)
     -(diff * diff)/ (2.0 * var) - 0.5 * log(2.0 * pi * var)
 end
 
-function logpdf(::Normal, x::Array{Real, N},
-                mu::Array{Real, N}, std::Array{Real, N}) where N
+function logpdf(::Normal,
+                x::Array{T, N},
+                mu::Array{U, N},
+                std::Array{V, N}) where {T<:Real, U<:Real, V<:Real, N}
     broadcast_compatible_or_crash(x, mu, std)
     var = std .* std
     diff = x - y
@@ -64,8 +66,10 @@ function logpdf_grad(::Normal, x::Real, mu::Real, std::Real)
     (deriv_x, deriv_mu, deriv_std)
 end
 
-function logpdf_grad(::Normal, x::Array{Real, N},
-                     mu::Array{Real, N}, std::Array{Real, N}) where N
+function logpdf_grad(::Normal,
+                     x::Array{T, N},
+                     mu::Array{U, N},
+                     std::Array{V, N}) where {T<:Real, U<:Real, V<:Real, N}
     broadcast_compatible_or_crash(x, mu, std)
     precision = 1.0 / (std .* std)
     diff = mu - x
@@ -76,7 +80,10 @@ function logpdf_grad(::Normal, x::Array{Real, N},
 end
 
 random(::Normal, mu::Real, std::Real) = mu + std * randn()
-function random(::Normal, mu::Array{Real, N}, std::Array{Real, N}) where N
+
+function random(::Normal,
+                mu::Array{T, N},
+                std::Array{U, N}) where {T<:Real, U<:Real, N}
     broadcast_compatible_or_crash(mu, std)
     mu + std .* randn(size(mu))
 end
