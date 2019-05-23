@@ -71,7 +71,7 @@ function logpdf_grad(::Normal,
                      mu::Array{U, N},
                      std::Array{V, N}) where {T<:Real, U<:Real, V<:Real, N}
     broadcast_compatible_or_crash(x, mu, std)
-    precision = 1.0 / (std .* std)
+    precision = 1.0 ./ (std .* std)
     diff = mu - x
     deriv_x = diff .* precision
     deriv_mu = -deriv_x
