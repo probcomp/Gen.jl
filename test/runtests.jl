@@ -10,9 +10,9 @@ If `broadcast` is `false`, then `args[i]` must be a scalar.
 
 If `broadcast` is `true`, then `args[i]` may be an array.  In that case, `f` is
 assumed to be the broadcast of a function whose `i`th argument is a scalar.  In
-particular, `f` must still operate independently on each element of `i`.  This
-condition cannot be checked automatically for arbitrary `f::Function`, so the
-caller must guarantee it.
+particular, `f` must still operate independently on each element of `args[i]`.
+This condition cannot be checked automatically for arbitrary `f::Function`, so
+the caller must guarantee it.
 """
 function finite_diff(f::Function, args::Tuple, i::Int, dx::Float64;
                      broadcast=false)
