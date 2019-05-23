@@ -74,19 +74,23 @@ end
     @test isapprox(actual[3], finite_diff(f, args, 3, dx))
 end
 
-@testset "zero-dimensional array normal" begin
-
-    # random
-    x = normal(0, 1)
-
-    # logpdf_grad
-    f = (x, mu, std) -> logpdf(normal, x, mu, std)
-    args = (fill(0.4), fill(0.2), fill(0.3))
-    actual = logpdf_grad(normal, args...)
-    @test isapprox(actual[1], finite_diff(f, args, 1, dx))
-    @test isapprox(actual[2], finite_diff(f, args, 2, dx))
-    @test isapprox(actual[3], finite_diff(f, args, 3, dx))
-end
+## TODO: Reinstate this test once
+## https://github.com/JuliaLang/julia/issues/32115
+## is resolved.
+#
+# @testset "zero-dimensional array normal" begin
+#
+#     # random
+#     x = normal(0, 1)
+#
+#     # logpdf_grad
+#     f = (x, mu, std) -> logpdf(normal, x, mu, std)
+#     args = (fill(0.4), fill(0.2), fill(0.3))
+#     actual = logpdf_grad(normal, args...)
+#     @test isapprox(actual[1], finite_diff(f, args, 1, dx))
+#     @test isapprox(actual[2], finite_diff(f, args, 2, dx))
+#     @test isapprox(actual[3], finite_diff(f, args, 3, dx))
+# end
 
 @testset "array normal" begin
 
