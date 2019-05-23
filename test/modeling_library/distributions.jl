@@ -1,3 +1,5 @@
+import DataStructures: OrderedDict
+
 @testset "bernoulli" begin
     
     # random
@@ -87,9 +89,9 @@ end
 #     f = (x, mu, std) -> logpdf(normal, x, mu, std)
 #     args = (fill(0.4), fill(0.2), fill(0.3))
 #     actual = logpdf_grad(normal, args...)
-#     @test isapprox(actual[1], finite_diff(f, args, 1, dx))
-#     @test isapprox(actual[2], finite_diff(f, args, 2, dx))
-#     @test isapprox(actual[3], finite_diff(f, args, 3, dx))
+#     @test isapprox(actual[1], finite_diff(f, args, 1, dx; broadcast=true))
+#     @test isapprox(actual[2], finite_diff(f, args, 2, dx; broadcast=true))
+#     @test isapprox(actual[3], finite_diff(f, args, 3, dx; broadcast=true))
 # end
 
 @testset "array normal" begin
@@ -99,16 +101,16 @@ end
 
     # logpdf_grad
     f = (x, mu, std) -> logpdf(normal, x, mu, std)
-    args = ([ 1     2     3    ;
-              4     5     6    ],
-            [ 0.1   0.2   0.3  ;
+    args = ([ 0.1   0.2   0.3  ;
               0.4   0.5   0.6  ],
             [ 0.01  0.02  0.03 ;
-              0.04  0.05  0.06 ])
+              0.04  0.05  0.06 ],
+            [ 1.    2.    3.   ;
+              4.    5.    6.   ])
     actual = logpdf_grad(normal, args...)
-    @test isapprox(actual[1], finite_diff(f, args, 1, dx))
-    @test isapprox(actual[2], finite_diff(f, args, 2, dx))
-    @test isapprox(actual[3], finite_diff(f, args, 3, dx))
+    @test isapprox(actual[1], finite_diff(f, args, 1, dx; broadcast=true))
+    @test isapprox(actual[2], finite_diff(f, args, 2, dx; broadcast=true))
+    @test isapprox(actual[3], finite_diff(f, args, 3, dx; broadcast=true))
 end
 
 @testset "array normal with broadcasting" begin
