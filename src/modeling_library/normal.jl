@@ -26,9 +26,10 @@ The shapes of `mu` and `std` must be broadcast-compatible.  For methods such as
 distribution, the shapes of `x`, `mu` and `std` must be mutually
 broadcast-compatible.
 
-If `N == 0`, then distribution-related methods such as `logpdf`, `logpdf_grad`
-and `random` return `Float64`s rather than properly returning `Array{Float64,
-0}`s.  This is consistent with Julia's own inconsistency on the matter:
+If all args are 0-dimensional arrays, then distribution-related methods such as
+`logpdf`, `logpdf_grad` and `random` return `Float64`s rather than properly
+returning `Array{Float64, 0}`s.  This is consistent with Julia's own
+inconsistency on the matter:
 
 ```jldoctest
 julia> typeof(ones())
