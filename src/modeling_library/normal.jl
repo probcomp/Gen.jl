@@ -24,12 +24,12 @@ more efficient than that of the more general `mvnormal` for this case.
 The shapes of `mu` and `std` must be broadcast-compatible.  For methods such as
 `logpdf(x, mu, std)` which involve an element of the support of the
 distribution, the shapes of `x`, `mu` and `std` must be mutually
-broadcast-compatible.
+broadcast-compatible, and the (scalar-valued) logpdf is computed as if for a
+multivariate normal of shape `broadcast(shape(x), shape(mu), shape(std))`.
 
-If all args are 0-dimensional arrays, then distribution-related methods such as
-`logpdf`, `logpdf_grad` and `random` return `Float64`s rather than properly
-returning `Array{Float64, 0}`s.  This is consistent with Julia's own
-inconsistency on the matter:
+If all args are 0-dimensional arrays, then sampling via `random` returns a
+`Float64` rather than properly returning an `Array{Float64, 0}`s.  This is
+consistent with Julia's own inconsistency on the matter:
 
 ```jldoctest
 julia> typeof(ones())
@@ -48,7 +48,7 @@ function logpdf(::Normal,
     broadcast_compatible_or_crash(x, mu, std)
     var = std .* std
     diff = x .- mu
-    -(diff .* diff) ./ (2.0 * var) .- 0.5 * log.(2.0 * pi * var)
+    sum(-(diff .* diff) ./ (2.0 * var) .- 0.5 * log.(2.0 * pi * var))
 end
 
 function logpdf(::Normal, x::Real, mu::Real, std::Real)
@@ -64,9 +64,9 @@ function logpdf_grad(::Normal,
     broadcast_compatible_or_crash(x, mu, std)
     precision = 1.0 ./ (std .* std)
     diff = mu .- x
-    deriv_x = diff .* precision
-    deriv_mu = -deriv_x
-    deriv_std = -1.0 ./ std .+ (diff .* diff) ./ (std .* std .* std)
+    deriv_x = sum(diff .* precision)
+    deriv_mu = sum(-deriv_x)
+    deriv_std = sum(-1.0 ./ std .+ (diff .* diff) ./ (std .* std .* std))
     (deriv_x, deriv_mu, deriv_std)
 end
 

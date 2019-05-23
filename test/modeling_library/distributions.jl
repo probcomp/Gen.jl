@@ -118,8 +118,8 @@ end
 
     ## Return shape of `logpdf` and `logpdf_grad`
     @test size(logpdf(normal,
-                      ones(1, 3, 1), ones(2, 1, 1), ones(1, 1, 4))) == (2, 3, 4)
-    @test all(size(g) == (2, 3, 4)
+                      ones(1, 3, 1), ones(2, 1, 1), ones(1, 1, 4))) == ()
+    @test all(size(g) == ()
               for g in logpdf_grad(
                   normal, ones(1, 3, 1), ones(2, 1, 1), ones(1, 1, 4)))
     # `x` and `mu` are broadcast-incompatible
