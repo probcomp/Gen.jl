@@ -80,4 +80,91 @@ end
 
 (xs, ys) = make_data_set(200)
 do_inference(xs, ys, 10)
-@time scores = do_inference(xs, ys, 50)
+@time do_inference(xs, ys, 50)
+
+# handcoded version
+
+mutable struct State
+    xs::Vector{Float64}
+    log_inlier_std::Float64
+    log_outlier_std::Float64
+    slope::Float64
+    intercept::Float64
+    is_outlier::Vector{Bool}
+    ys::Vector{Float64}
+end
+
+function init_state(xs, ys)
+    log_inlier_std = random(normal, 0, 2)
+    log_outlier_std = random(normal, 0, 2)
+    slope = random(normal, 0, 2)
+    intercept = random(normal, 0, 2)
+    is_outlier = Vector{Bool}(undef, length(xs))
+    for i=1:length(xs)
+        is_outlier[i] = (rand() < 0.5)
+    end
+    State(xs, log_inlier_std, log_outlier_std, slope, intercept, is_outlier, ys)
+end
+
+function log_likelihood(x, y, is_outlier, log_inlier_std, log_outlier_std, slope, intercept)
+    std = is_outlier ? exp(log_outlier_std) : exp(log_inlier_std)
+    logpdf(normal, y, slope * x + intercept, std)
+end
+
+function log_likelihood(state)
+    ll = 0.
+    for (x, is_outlier, y) in zip(state.xs, state.is_outlier, state.ys)
+        ll += log_likelihood(x, y, is_outlier,
+                    state.log_inlier_std, state.log_outlier_std, state.slope, state.intercept)
+    end
+    ll
+end
+
+macro parameter_mh_move!(state, addr)
+    quote 
+        prev_ll = log_likelihood($(esc(state)))
+        prev_val = $(esc(state)).$addr
+        new_val = normal(prev_val, 0.5)
+        prev_prior = logpdf(normal, prev_val, 0, 2)
+        new_prior = logpdf(normal, new_val, 0, 2)
+        $(esc(state)).$addr = new_val
+        new_ll = log_likelihood($(esc(state)))
+        if log(rand()) >= new_ll - prev_ll + new_prior - prev_prior 
+            $(esc(state)).$addr = prev_val # reject
+        end
+    end
+end
+
+function is_outlier_mh_move!(state, i::Int)
+    prev_val = state.is_outlier[i]
+    new_val = !prev_val
+    x = state.xs[i]
+    y = state.ys[i]
+    prev_ll = log_likelihood(x, y, prev_val,
+        state.log_inlier_std, state.log_outlier_std, state.slope, state.intercept)
+    new_ll = log_likelihood(x, y, new_val,
+        state.log_inlier_std, state.log_outlier_std, state.slope, state.intercept)
+    if log(rand()) < new_ll - prev_ll
+        state.is_outlier[i] = new_val
+    end
+end
+
+function handcoded_inference(xs, ys, iters)
+    state = init_state(xs, ys)
+    for iter=1:iters
+        for j=1:5
+            @parameter_mh_move!(state, slope)
+            @parameter_mh_move!(state, intercept)
+            @parameter_mh_move!(state, log_inlier_std)
+            @parameter_mh_move!(state, log_outlier_std)
+        end
+        for j=1:length(xs)
+            is_outlier_mh_move!(state, j)
+        end
+    end
+    println("slope: $(state.slope)")
+    println("intercept: $(state.intercept)")
+end
+
+handcoded_inference(xs, ys, 50)
+@time handcoded_inference(xs, ys, 50)
