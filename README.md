@@ -1,4 +1,4 @@
-# Gen
+# [Gen](https://probcomp.github.com/Gen/)
 
 [![Build Status](https://travis-ci.org/probcomp/Gen.svg?branch=master)](https://travis-ci.org/probcomp/Gen)
 [![](https://img.shields.io/badge/docs-stable-blue.svg)](https://probcomp.github.io/Gen/stable)
@@ -7,3 +7,4 @@
 Gen: A General-Purpose Probabilistic Programming System with Programmable Inference
 
 *Warning: This is rapidly evolving research software.*
+
