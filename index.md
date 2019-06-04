@@ -14,6 +14,8 @@ It is possible to use built-in algorithms that require only a couple lines of co
 Gen's flexible modeling and inference programming capabilities unify symbolic, neural, probabilistic, and simulation-based approaches to modeling and inference, including causal modeling, symbolic programming, deep learning, hierarchical Bayesiam modeling, graphics and physics engines, and planningand reinforcement learning.
 
 # Getting Started
+
+## Using Julia package manager
 First, [download Julia 1.0 or later](https://julialang.org/downloads/).
 
 The, install the Gen package with the Julia package manager.
@@ -21,14 +23,13 @@ From the Julia REPL, type `]` to enter the Pkg REPL mode and then run:
 ```
 pkg> add https://github.com/probcomp/Gen
 ```
+## Docker
+
+A docker image containing an installation of Gen, with tutorial Jupyter notebooks, is available [here](https://github.com/probcomp/gen-quickstart). 
 
 # Benchmarks
 
 Code for benchmarks, presented at PLDI 2019, are available [here](https://github.com/probcomp/pldi2019-gen-experiments).
-
-# Docker Image with Tutorials
-
-A docker image, with tutorial Jupyter notebooks are available [here](https://github.com/probcomp/gen-quickstart). 
 
 # Publications
 
