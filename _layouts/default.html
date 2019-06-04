@@ -2,6 +2,33 @@
 <html lang="{{ site.lang | default: "en-US" }}">
   <head>
 
+    <!-- https://quuxplusone.github.io/blog/2018/08/05/mathjax-in-jekyll/ -->
+    <script type="text/x-mathjax-config">
+      MathJax.Hub.Config({
+        extensions: [
+          "MathMenu.js",
+          "MathZoom.js",
+          "AssistiveMML.js",
+          "a11y/accessibility-menu.js"
+        ],
+        jax: ["input/TeX", "output/CommonHTML"],
+        TeX: {
+          extensions: [
+            "AMSmath.js",
+            "AMSsymbols.js",
+            "noErrors.js",
+            "noUndefined.js",
+          ]
+        },
+        tex2jax: {
+            inlineMath: [ ['$','$'] ]
+        }
+    });
+    </script>
+    <script type="text/javascript" async
+        src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML">
+    </script>
+
     {% if site.google_analytics %}
       <script async src="https://www.googletagmanager.com/gtag/js?id={{ site.google_analytics }}"></script>
       <script>
@@ -25,7 +52,8 @@
     <header class="page-header" role="banner">
       <h1 class="project-name">Gen</h1>
       <h2 class="project-tagline">A general-purpose probabilistic programming system with programmable inference.</h2>
-      <a href="https://github.com/probcomp/gen-quickstart" class="btn">Examples</a>
+      <a href="/Gen/" class="btn">Overview</a>
+      <a href="/Gen/tutorials/" class="btn">Tutorials</a>
       <a href="https://probcomp.github.io/Gen/dev/" class="btn">Docs</a>
       <a href="{{ site.github.repository_url }}" class="btn">Source</a>
     </header>
