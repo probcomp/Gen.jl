@@ -1,3 +1,5 @@
+import DataStructures: OrderedDict
+
 @testset "bernoulli" begin
     
     # random
@@ -72,6 +74,88 @@ end
     @test isapprox(actual[1], finite_diff(f, args, 1, dx))
     @test isapprox(actual[2], finite_diff(f, args, 2, dx))
     @test isapprox(actual[3], finite_diff(f, args, 3, dx))
+end
+
+@testset "zero-dimensional broadcasted normal" begin
+
+    # random
+    x = broadcasted_normal(fill(0), fill(1))
+
+    # logpdf_grad
+    f = (x, mu, std) -> logpdf(broadcasted_normal, x, mu, std)
+    args = (fill(0.4), fill(0.2), fill(0.3))
+    actual = logpdf_grad(broadcasted_normal, args...)
+    @test isapprox(actual[1], finite_diff(f, args, 1, dx; broadcast=true))
+    @test isapprox(actual[2], finite_diff(f, args, 2, dx; broadcast=true))
+    @test isapprox(actual[3], finite_diff(f, args, 3, dx; broadcast=true))
+end
+
+@testset "array normal (trivially broadcasted: all args have same shape)" begin
+
+    mu =  [ 0.1   0.2   0.3  ;
+            0.4   0.5   0.6  ]
+    std = [ 0.01  0.02  0.03 ;
+            0.04  0.05  0.06 ]
+    x =   [ 1.    2.    3.   ;
+            4.    5.    6.   ]
+
+    # random
+    broadcasted_normal(mu, std)
+
+    # logpdf_grad
+    f = (x, mu, std) -> logpdf(broadcasted_normal, x, mu, std)
+    args = (mu, std, x)
+    actual = logpdf_grad(broadcasted_normal, args...)
+    @test isapprox(actual[1], finite_diff(f, args, 1, dx; broadcast=true))
+    @test isapprox(actual[2], finite_diff(f, args, 2, dx; broadcast=true))
+    @test isapprox(actual[3], finite_diff(f, args, 3, dx; broadcast=true))
+end
+
+@testset "broadcasted normal" begin
+
+    ## Return shape of `broadcasted_normal`
+    @test size(broadcasted_normal([0. 0. 0.], 1.)) == (1, 3)
+    @test size(broadcasted_normal(zeros(1, 3, 4), ones(2, 1, 4))) == (2, 3, 4)
+    @test_throws DimensionMismatch broadcasted_normal([0 0 0], [1 1])
+
+    ## Return shape of `logpdf` and `logpdf_grad`
+    @test size(logpdf(broadcasted_normal,
+                      ones(2, 4), ones(2, 1), ones(1, 4))) == ()
+    @test all(size(g) == ()
+              for g in logpdf_grad(
+                  broadcasted_normal, ones(2, 4), ones(2, 1), ones(1, 4)))
+    # `x` has the wrong shape
+    @test_throws DimensionMismatch logpdf(broadcasted_normal,
+                                          ones(1, 2), ones(1,3), ones(2,1))
+    @test_throws DimensionMismatch logpdf_grad(broadcasted_normal,
+                                               ones(1, 2), ones(1,3), ones(2,1))
+    # `x` has a shape that is broadcast-compatible with but not equal to the
+    # right shape
+    @test_throws DimensionMismatch logpdf(broadcasted_normal,
+                                          ones(1, 3), ones(1,3), ones(2,1))
+    @test_throws DimensionMismatch logpdf_grad(broadcasted_normal,
+                                               ones(1, 3), ones(1,3), ones(2,1))
+    # `mu` and `std` are broadcast-incompatible
+    @test_throws DimensionMismatch logpdf(broadcasted_normal,
+                                          ones(2, 1), ones(1,2), ones(1,3))
+    @test_throws DimensionMismatch logpdf_grad(broadcasted_normal,
+                                               ones(2, 1), ones(1,2), ones(1,3))
+
+    ## Equivalence of broadcast to supplying bigger arrays for `mu` and `std`
+    compact = OrderedDict(:x => reshape([ 0.2  0.3  0.4  0.5 ;
+                                          0.5  0.4  0.3  0.2 ],
+                                        (2, 4)),
+                          :mu => reshape([0.7  0.7  0.8  0.6],
+                                         (1, 4)),
+                          :std => reshape([0.2, 0.1],
+                                          (2, 1)))
+    expanded = OrderedDict(:x => compact[:x],
+                           :mu => repeat(compact[:mu], outer=(2, 1)),
+                           :std => repeat(compact[:std], outer=(1, 4)))
+    @test (logpdf(broadcasted_normal, values(compact)...) ==
+           logpdf(broadcasted_normal, values(expanded)...))
+    @test (logpdf_grad(broadcasted_normal, values(compact)...) ==
+           logpdf_grad(broadcasted_normal, values(expanded)...))
 end
 
 @testset "multivariate normal" begin
