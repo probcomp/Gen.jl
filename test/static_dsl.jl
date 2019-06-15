@@ -21,6 +21,9 @@ end
 
 data_fn = Map(datum)
 
+"""
+my documentation
+"""
 @gen (static) function model(xs::Vector{Float64})
     n = length(xs)
     inlier_std = @trace(gamma(1, 1), :inlier_std)
@@ -353,5 +356,12 @@ load_generated_functions()
 @test foo() == [3, 4, 5, 6]
 
 end
+
+@testset "docstrings" begin
+    io = IOBuffer()
+    print(io, @doc model)
+    @test String(take!(io)) == "my documentation\n"
+end
+
 
 end # @testset "static DSL"
