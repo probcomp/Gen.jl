@@ -258,7 +258,7 @@ function make_static_gen_function(name, args, body, return_type, annotations)
     track_diffs = DSL_TRACK_DIFFS_ANNOTATION in annotations
     cache_julia_nodes = !(DSL_NO_JULIA_CACHE_ANNOTATION in annotations) # cache julia nodes by default
     options = StaticIRGenerativeFunctionOptions(track_diffs, cache_julia_nodes)
-    push!(stmts, :($(esc(name)) = $(esc(:eval))(
+    push!(stmts, :(Core.@__doc__ $(esc(name)) = $(esc(:eval))(
         generate_generative_function(ir, $(QuoteNode(name)), $(QuoteNode(options))))))
     Expr(:block, stmts...)
 end
