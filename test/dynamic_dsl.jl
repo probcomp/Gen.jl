@@ -456,12 +456,18 @@ end
 end
 
 @testset "docstrings" begin
-    @doc "my documentation" (@gen function foo(x)
-        return x + 1
-    end)
+
+    """
+    my documentation
+    """
+    @gen function foo(x)
+            return x + 1
+        end
+
     io = IOBuffer()
     print(io, @doc foo)
     @test String(take!(io)) == "my documentation\n"
+
 end
 
 end
