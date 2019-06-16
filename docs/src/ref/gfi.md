@@ -279,7 +279,7 @@ The weight (`w`) is ``\log 1 = 0``.
 
 In addition to the input trace, and other arguments that indicate how to adjust the trace, each of these methods also accepts an **args** argument and an **argdiffs** argument, both of which are tuples.
 The args argument contains the new arguments to the generative function, which may differ from the previous arguments to the generative function (which can be retrieved by applying [`get_args`](@ref) to the previous trace).
-In many cases, the adjustment to the execution specified by the other arguments to these methods is 'small' and only effects certain parts of the computation.
+In many cases, the adjustment to the execution specified by the other arguments to these methods is 'small' and only affects certain parts of the computation.
 Therefore, it is often possible to generate the new trace and the appropriate log probability ratios required for these methods without revisiting every state of the computation of the generative function.
 To enable this, the argdiffs argument provides additional information about the *difference* between each of the previous arguments to the generative function, and its new argument value.
 This argdiff information permits the implementation of the update method to avoid inspecting the entire argument data structure to identify which parts were updated.
