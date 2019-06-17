@@ -7,13 +7,13 @@ To edit the website, check out the `gh-pages` branch, and commit and push change
 Automatically-generated Gen documentation is pushed to the `gh-pages` branch whenever a commit is made to the `master` branch of the Gen repository.
 The automatically-managed files and directories are:
 
-    - `dev/` (documentation for the version of Gen on the head of `master` branch)
+- `dev/` (documentation for the version of Gen on the head of `master` branch)
 
-    - `v*.*.*/` (directories that contain documentation for each tagged release of Gen)
+- `v*.*.*/` (directories that contain documentation for each tagged release of Gen)
 
-    - `latest/` (a symbolic link to `dev/`)
+- `latest/` (a symbolic link to `dev/`)
 
-    - `stable/` (a symbolic link to the documentation directory of the latest tagged release Gen)
+- `stable/` (a symbolic link to the documentation directory of the latest tagged release Gen)
 
 *Do not make commits that modify the contents of these automatically managed directories.*
 
