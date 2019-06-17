@@ -17,4 +17,4 @@ The automatically-managed files and directories are:
 
 *Do not make commits that modify the contents of these automatically managed directories.*
 
-To develop the Gen website locally, check out the `gh-pages` branch, and follow steps 2 and 4 of [Setting up your GitHub Pages site locally with Jekyll](https://help.github.com/en/articles/setting-up-your-github-pages-site-locally-with-jekyll).
+To locally test changes to the Gen website, check out the `gh-pages` branch, and follow steps 2 and 4 of [Setting up your GitHub Pages site locally with Jekyll](https://help.github.com/en/articles/setting-up-your-github-pages-site-locally-with-jekyll).
