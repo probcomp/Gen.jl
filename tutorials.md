@@ -1,6 +1,9 @@
 The pages below contain tutorials on different features of Gen.
 These tutorials were generated from Jupyter notebooks, which are available as part of a Docker container, at [Gen Quickstart](https://github.com/probcomp/gen-quickstart).
 
+## [Introduction to Modeling in Gen](intro-to-modeling/Introduction to Modeling in Gen)
+This tutorial introduces the basics of modeling in Gen. It shows how to perform inference using generic inference algorithms. It does not explore custom inference programming.
+
 ## [A Bottom-up Introduction to Gen](bottom-up/A Bottom-Up Introduction to Gen)
 This tutorial describes the reasoning behind some of the basic concepts in Gen.
 
