@@ -13,6 +13,9 @@ It is possible to use built-in algorithms that require only a couple lines of co
 
 Gen's flexible modeling and inference programming capabilities unify symbolic, neural, probabilistic, and simulation-based approaches to modeling and inference, including causal modeling, symbolic programming, deep learning, hierarchical Bayesiam modeling, graphics and physics engines, and planning and reinforcement learning.
 
+Gen is a package for the [Julia](https://julialang.org/) programming language.
+Gen consists of multiple modeling languages that are implemented as DSLs in Julia and a Julia library for inference programming.
+
 # Getting Started
 
 ## Using Julia package manager
