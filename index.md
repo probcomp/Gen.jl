@@ -42,3 +42,25 @@ A design proposal for Gen: Probabilistic programming with fast custom inference 
 Using probabilistic programs as proposals. Cusumano-Towner, M. F.; and Mansinghka, V. K. In Workshop on Probabilistic Programming Languages, Semantics, and Systems (PPS, co-located with POPL). 2018. [URL](https://arxiv.org/pdf/1801.03612.pdf).
 
 Encapsulating models and approximate inference programs in probabilistic modules. Cusumano-Towner, M. F.; and Mansinghka, V. K. In Workshop on Probabilistic Programming Semantics (PPS, co-located with POPL). 2017. [URL](https://arxiv.org/pdf/1612.04759.pdf).
+
+# Citing
+To cite Gen, please use:
+```
+@inproceedings{Cusumano-Towner:2019:GGP:3314221.3314642,
+ author = {Cusumano-Towner, Marco F. and Saad, Feras A. and Lew, Alexander K. and Mansinghka, Vikash K.},
+ title = {Gen: A General-purpose Probabilistic Programming System with Programmable Inference},
+ booktitle = {Proceedings of the 40th ACM SIGPLAN Conference on Programming Language Design and Implementation},
+ series = {PLDI 2019},
+ year = {2019},
+ isbn = {978-1-4503-6712-7},
+ location = {Phoenix, AZ, USA},
+ pages = {221--236},
+ numpages = {16},
+ url = {http://doi.acm.org/10.1145/3314221.3314642},
+ doi = {10.1145/3314221.3314642},
+ acmid = {3314642},
+ publisher = {ACM},
+ address = {New York, NY, USA},
+ keywords = {Markov chain Monte Carlo, Probabilistic programming, sequential Monte Carlo, variational inference},
+} 
+```
