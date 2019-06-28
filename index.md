@@ -11,7 +11,7 @@ Like some probabilistic programming research languages, Gen includes *universal*
 However, Gen is distinguished by the flexibility that it affords to users for customizing their inference algorithm.
 It is possible to use built-in algorithms that require only a couple lines of code, as well as develop custom algorithms that are more able to meet scalability and efficiency requirements.
 
-Gen's flexible modeling and inference programming capabilities unify symbolic, neural, probabilistic, and simulation-based approaches to modeling and inference, including causal modeling, symbolic programming, deep learning, hierarchical Bayesiam modeling, graphics and physics engines, and planningand reinforcement learning.
+Gen's flexible modeling and inference programming capabilities unify symbolic, neural, probabilistic, and simulation-based approaches to modeling and inference, including causal modeling, symbolic programming, deep learning, hierarchical Bayesiam modeling, graphics and physics engines, and planning and reinforcement learning.
 
 # Getting Started
 
