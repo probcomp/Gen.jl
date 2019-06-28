@@ -33,9 +33,7 @@ Code for benchmarks, presented at PLDI 2019, are available [here](https://github
 
 # Publications
 
-Gen: A General-Purpose Probabilistic Programming System with Programmable Inference. Cusumano-Towner, M. F.; Saad, F. A.; Lew, A.; and Mansinghka, V. K. To appear in the Proceedings of the 40th ACM SIGPLAN Conference on Programming Language Design and Implementation (PLDI '19).
-
-Gen: A General-Purpose Probabilistic Programming System with Programmable Inference. Cusumano-Towner, M. F.; Saad, F. A.; Lew, A.; and Mansinghka, V. K. Technical Report MIT-CSAIL-TR-2018-020, Computer Science and Artificial Intelligence Laboratory, Massachusetts Institute of Technology, Cambridge, Massachusetts, November 2018. [URL](http://hdl.handle.net/1721.1/119255).
+Gen: A General-Purpose Probabilistic Programming System with Programmable Inference. Cusumano-Towner, M. F.; Saad, F. A.; Lew, A.; and Mansinghka, V. K. In Proceedings of the 40th ACM SIGPLAN Conference on Programming Language Design and Implementation (PLDI '19). [URL](https://dl.acm.org/citation.cfm?id=3314642)
 
 Incremental inference for probabilistic programs. Cusumano-Towner, M. F.; Bichsel, B.; Gehr, T.; Vechev, M.; and Mansinghka, V. K. In Proceedings of the 39th ACM SIGPLAN Conference on Programming Language Design and Implementation (PLDI), pages 571–585. ACM, 2018. [URL](https://dl.acm.org/citation.cfm?id=3192399).
 
