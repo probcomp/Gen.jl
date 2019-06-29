@@ -18,6 +18,8 @@ Gen consists of multiple modeling languages that are implemented as DSLs in Juli
 
 # Getting Started
 
+*Warning: Gen is rapidly evolving pre-alpha research software.*
+
 ## Using Julia package manager
 First, [download Julia 1.0 or later](https://julialang.org/downloads/).
 
