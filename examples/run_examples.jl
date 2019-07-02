@@ -1,6 +1,7 @@
 using Gen
 using Test
 
+include("decode/run.jl")
 include("regression/static_mala.jl")
 include("regression/static_map_optimize.jl")
 include("regression/static_mh.jl")

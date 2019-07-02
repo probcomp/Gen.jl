@@ -76,7 +76,7 @@ function swap_involution(trace, fwd_choices::ChoiceMap, fwd_ret, proposal_args::
         constraints[replica => :text => l] = new_char
     end
 
-    (new_trace, weight, _, _) = update(trace, model_args, noargdiff, constraints)
+    (new_trace, weight, _, _) = update(trace, model_args, (NoChange(),), constraints)
     (new_trace, bwd_choices, weight)
 end
 
@@ -94,7 +94,7 @@ function exchange_involution(trace, fwd_choices::ChoiceMap, fwd_ret, proposal_ar
     replica_plus_one = (((replica-1)+1)%num_replicas)+1
     set_submap!(constraints, replica_plus_one, get_submap(choices, replica))
     set_submap!(constraints, replica, get_submap(choices, replica_plus_one))
-    (new_trace, weight, _, _) = update(trace, model_args, noargdiff, constraints)
+    (new_trace, weight, _, _) = update(trace, model_args, (NoChange(),), constraints)
     (new_trace, EmptyChoiceMap(), weight)
 end
 
@@ -132,6 +132,7 @@ function do_inference(encoded_text::AbstractString, num_iter::Int)
 
     # do MCMC
     for iter=1:num_iter
+        println("iter: $iter")
 
         # print state
         if (iter - 1) % 1 == 0
@@ -195,4 +196,4 @@ original_text_int = map((char) -> letter_to_int[char], collect(original_text))
 encoded_text = join(map((letter_int) -> alphabet[letter_int], code[original_text_int]))
 println("encoded text:")
 println(encoded_text)
-do_inference(encoded_text, 100000)
+do_inference(encoded_text, 1000)
