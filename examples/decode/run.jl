@@ -132,10 +132,10 @@ function do_inference(encoded_text::AbstractString, num_iter::Int)
 
     # do MCMC
     for iter=1:num_iter
-        println("iter: $iter")
 
         # print state
-        if (iter - 1) % 1 == 0
+        if (iter - 1) % 100 == 1
+            println("iter: $iter")
             retval = get_retval(trace)
             choices = get_choices(trace)
             @assert length(retval) == length(alphas)
