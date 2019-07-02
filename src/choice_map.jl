@@ -9,49 +9,14 @@ Return the (top-level) address schema for the given choice map.
 """
 function get_address_schema end
 
-"""
-    submap = get_submap(choices::ChoiceMap, addr)
-
-Return the sub-assignment containing all choices whose address is prefixed by addr.
-
-It is an error if the assignment contains a value at the given address. If
-there are no choices whose address is prefixed by addr then return an
-`EmptyChoiceMap`.
-"""
-function get_submap end
-
-"""
-    value = get_value(choices::ChoiceMap, addr)
-
-Return the value at the given address in the assignment, or throw a KeyError if
-no value exists. A syntactic sugar is `Base.getindex`:
-
-    value = choices[addr]
-"""
-function get_value end
-
-"""
-    key_submap_iterable = get_submaps_shallow(choices::ChoiceMap)
-
-Return an iterable collection of tuples `(key, submap::ChoiceMap)` for each top-level key
-that has a non-empty sub-assignment.
-"""
-function get_submaps_shallow end
-
-"""
-    has_value(choices::ChoiceMap, addr)
-
-Return true if there is a value at the given address.
-"""
-function has_value end
-
-"""
-    key_submap_iterable = get_values_shallow(choices::ChoiceMap)
-
-Return an iterable collection of tuples `(key, value)` for each
-top-level key associated with a value.
-"""
-function get_values_shallow end
+# getindex - for getting values and submaps
+#   problem: get_submap returned an empty choice map if the key does not exist - that is useful
+#            get_value threw a key error if the key did not exist. we can make get_value also do the same.
+#            so getindex always returns either a choice map or a value (and never throws a key error?)
+#            
+# haskey - for checking if values and submaps exist
+# iterate - for iterating over values and submaps (key, value)
+# isempty - if there are no submaps ( if it is false, it doesn't mean that there are actually any choices at the leafs )
 
 """
     abstract type ChoiceMap end
@@ -60,39 +25,22 @@ Abstract type for maps from hierarchical addresses to values.
 """
 abstract type ChoiceMap end
 
-"""
-    Base.isempty(choices::ChoiceMap)
+Base.getindex(choices::ChoiceMap, addr) = EmptyChoiceMap() # it never throws a KeyError
+Base.haskey(choices::ChoiceMap, addr) = false
 
-Return true if there are no values in the assignment.
-"""
-function Base.isempty(::ChoiceMap)
-    true
-end
-
-get_submap(choices::ChoiceMap, addr) = EmptyChoiceMap()
-has_value(choices::ChoiceMap, addr) = false
-get_value(choices::ChoiceMap, addr) = throw(KeyError(addr))
-Base.getindex(choices::ChoiceMap, addr) = get_value(choices, addr)
-
-function _has_value(choices::T, addr::Pair) where {T <: ChoiceMap}
+function _haskey(choices::T, addr::Pair) where {T <: ChoiceMap}
     (first, rest) = addr
-    submap = get_submap(choices, first)
-    has_value(submap, rest)
+    submap = choices[first]
+    haskey(submap, rest)
 end
 
-function _get_value(choices::T, addr::Pair) where {T <: ChoiceMap}
+function _getindex(choices::T, addr::Pair) where {T <: ChoiceMap}
     (first, rest) = addr
-    submap = get_submap(choices, first)
-    get_value(submap, rest)
+    submap = choices[first]
+    submap[rest]
 end
 
-function _get_submap(choices::T, addr::Pair) where {T <: ChoiceMap}
-    (first, rest) = addr
-    submap = get_submap(choices, first)
-    get_submap(submap, rest)
-end
-
-function _print(io::IO, choices::ChoiceMap, pre, vert_bars::Tuple)
+function prefix_strings(pre::Int, vert_bars::Tuple)
     VERT = '\u2502'
     PLUS = '\u251C'
     HORZ = '\u2500'
@@ -110,32 +58,36 @@ function _print(io::IO, choices::ChoiceMap, pre, vert_bars::Tuple)
     indent_vert_last_str = join(indent_vert_last)
     indent_str = join(indent)
     indent_last_str = join(indent_last)
-    key_and_values = collect(get_values_shallow(choices))
-    key_and_submaps = collect(get_submaps_shallow(choices))
-    n = length(key_and_values) + length(key_and_submaps)
+    (indent_vert_str, indent_vert_last_str, indent_str, indent_last_str)
+end
+
+function _print(io::IO, value, pre::Int, vert_bars::Tuple, top_key)
+    print(io, "$(repr(top_key)) : $value\n")
+end
+
+function _print(io::IO, choices::ChoiceMap, pre::Int, vert_bars::Tuple, top_key)
+    print(io, "$(repr(top_key))\n")
+    (indent_vert_str, indent_vert_last_str, indent_str, indent_last_str) = prefix_strings(pre, vert_bars)
+    key_and_values = collect(choices)
+    n = length(key_and_values)
     cur = 1
-    for (key, value) in key_and_values
+    for (key, submap_or_value) in key_and_values
         print(io, indent_vert_str)
-        print(io, (cur == n ? indent_last_str : indent_str) * "$(repr(key)) : $value\n")
-        cur += 1
-    end
-    for (key, submap) in key_and_submaps
-        print(io, indent_vert_str)
-        print(io, (cur == n ? indent_last_str : indent_str) * "$(repr(key))\n")
-        _print(io, submap, pre + 4, cur == n ? (vert_bars...,) : (vert_bars..., pre+1))
+        print(io, (cur == n ? indent_last_str : indent_str))
+        _print(io, submap_or_value, pre + 4, cur == n ? (vert_bars...,) : (vert_bars..., pre+1), key)
         cur += 1
     end
 end
 
 function Base.print(io::IO, choices::ChoiceMap)
-    _print(io, choices, 0, ())
+    _print(io, choices, 0, (), "")
 end
 
 # assignments that have static address schemas should also support faster
 # accessors, which make the address explicit in the type (Val(:foo) instaed of
 # :foo)
-function static_get_value end
-function static_get_submap end
+function static_getindex end
+#function static_get_submap end
 
 function _fill_array! end
 function _from_array end
