@@ -52,7 +52,7 @@ function get_choices end
 """
     get_score(trace)
 
-Return \$P(r, t; x) / Q(r; tx, t)\$. When there is no non-addressed randomness, this simplifies to the log probability `\$P(t; x)\$.
+Return \$P(r, t; x) / Q(r; x, t)\$. When there is no non-addressed randomness, this simplifies to the log probability `\$P(t; x)\$.
 """
 function get_score end
 
