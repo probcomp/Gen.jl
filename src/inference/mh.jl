@@ -1,7 +1,7 @@
 """
     (new_trace, accepted) = metropolis_hastings(trace, selection::Selection)
 
-Perform a Metropolis-Hastings update that proposes new values for the selected addresses from the internal proposal (often using ancestral sampling).
+Perform a Metropolis-Hastings update that proposes new values for the selected addresses from the internal proposal (often using ancestral sampling), returning the new trace (which is equal to the previous trace if the move was not accepted) and a Bool indicating whether the move was accepted or not.
 """
 function metropolis_hastings(trace, selection::Selection)
     args = get_args(trace)
@@ -20,7 +20,7 @@ end
 """
     (new_trace, accepted) = metropolis_hastings(trace, proposal::GenerativeFunction, proposal_args::Tuple)
 
-Perform a Metropolis-Hastings update that proposes new values for some subset of random choices in the given trace using the given proposal generative function.
+Perform a Metropolis-Hastings update that proposes new values for some subset of random choices in the given trace using the given proposal generative function, returning the new trace (which is equal to the previous trace if the move was not accepted) and a Bool indicating whether the move was accepted or not.
 
 The proposal generative function should take as its first argument the current trace of the model, and remaining arguments `proposal_args`.
 If the proposal modifies addresses that determine the control flow in the model, values must be provided by the proposal for any addresses that are newly sampled by the model.
@@ -47,13 +47,13 @@ end
 """
     (new_trace, accepted) = metropolis_hastings(trace, proposal::GenerativeFunction, proposal_args::Tuple, involution::Function)
 
-Perform a generalized Metropolis-Hastings update based on an involution (bijection that is its own inverse) on a space of assignments.
+Perform a generalized Metropolis-Hastings update based on an involution (bijection that is its own inverse) on a space of choice maps, returning the new trace (which is equal to the previous trace if the move was not accepted) and a Bool indicating whether the move was accepted or not.
 
 The `involution' Julia function has the following signature:
 
     (new_trace, bwd_choices::ChoiceMap, weight) = involution(trace, fwd_choices::ChoiceMap, fwd_ret, proposal_args::Tuple)
 
-The generative function `proposal` is executed on arguments `(trace, proposal_args...)`, producing an assignment `fwd_choices` and return value `fwd_ret`.
+The generative function `proposal` is executed on arguments `(trace, proposal_args...)`, producing a choice map `fwd_choices` and return value `fwd_ret`.
 For each value of model arguments (contained in `trace`) and `proposal_args`, the `involution` function applies an involution that maps the tuple `(get_choices(trace), fwd_choices)` to the tuple `(get_choices(new_trace), bwd_choices)`.
 Note that `fwd_ret` is a deterministic function of `fwd_choices` and `proposal_args`.
 When only discrete random choices are used, the `weight` must be equal to `get_score(new_trace) - get_score(trace)`.
