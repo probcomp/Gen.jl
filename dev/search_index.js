@@ -521,11 +521,19 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "ref/distributions/#Gen.exponential",
+    "page": "Probability Distributions",
+    "title": "Gen.exponential",
+    "category": "constant",
+    "text": "exponential(rate::Real)\n\nSample a Float64 from the exponential distribution with rate parameter rate.\n\n\n\n\n\n"
+},
+
+{
     "location": "ref/distributions/#Built-In-Distributions-1",
     "page": "Probability Distributions",
     "title": "Built-In Distributions",
     "category": "section",
-    "text": "bernoulli\nnormal\nmvnormal\ngamma\ninv_gamma\nbeta\ncategorical\nuniform\nuniform_discrete\npoisson\npiecewise_uniform\nbeta_uniform"
+    "text": "bernoulli\nnormal\nmvnormal\ngamma\ninv_gamma\nbeta\ncategorical\nuniform\nuniform_discrete\npoisson\npiecewise_uniform\nbeta_uniform\nexponential"
 },
 
 {
