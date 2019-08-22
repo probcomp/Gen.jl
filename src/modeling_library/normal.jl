@@ -27,8 +27,8 @@ Samples a `Float64` value from a normal distribution.
 const normal = Normal()
 
 """
-    broadcasted_normal(mu::AbstractArray{T, N1},
-                       std::AbstractArray{U, N2}) where {T<:Real, U<:Real, N1, N2}
+    broadcasted_normal(mu::AbstractArray{<:Real, N1},
+                       std::AbstractArray{<:Real, N2}) where {N1, N2}
 
 Samples an `Array{Float64, max(N1, N2)}` of shape
 `Broadcast.broadcast_shapes(size(mu), size(std))` where each element is
