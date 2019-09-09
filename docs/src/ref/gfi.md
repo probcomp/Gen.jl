@@ -85,7 +85,7 @@ q(r; x, t) > 0 \mbox{ if and only if } p(r; x, t) > 0
 
 An **execution trace** (or just *trace*) is a record of an execution of a generative function.
 There is no abstract type representing all traces.
-Different concrete types of generative functions use different data structures and different Jula types for their traces.
+Different concrete types of generative functions use different data structures and different Julia types for their traces.
 The trace type that a generative function uses is the second type parameter of the [`GenerativeFunction`](@ref) abstract type.
 
 A generative function can be executed and traced using:
