@@ -181,7 +181,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Generative Functions",
     "title": "Gen.get_score",
     "category": "function",
-    "text": "get_score(trace)\n\nReturn P(r t x)  Q(r x t). When there is no non-addressed randomness, this simplifies to the log probability `P(t x).\n\n\n\n\n\n"
+    "text": "get_score(trace)\n\nReturn:\n\nlog fracp(t r x)q(r x t)\n\nWhen there is no non-addressed randomness, this simplifies to the log probability `log p(t x).\n\n\n\n\n\n"
 },
 
 {
