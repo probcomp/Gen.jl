@@ -2,6 +2,12 @@
 
 module Gen
 
+function test()
+    println("TEST!")
+end
+
+export test
+
 const generated_functions = []
 
 """
