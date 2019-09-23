@@ -27,8 +27,8 @@ Samples a `Float64` value from a normal distribution.
 const normal = Normal()
 
 """
-    broadcasted_normal(mu::Array{T, N1},
-                       std::Array{U, N2}) where {T<:Real, U<:Real, N1, N2}
+    broadcasted_normal(mu::AbstractArray{<:Real, N1},
+                       std::AbstractArray{<:Real, N2}) where {N1, N2}
 
 Samples an `Array{Float64, max(N1, N2)}` of shape
 `Broadcast.broadcast_shapes(size(mu), size(std))` where each element is
@@ -60,9 +60,9 @@ function logpdf(::Normal, x::Real, mu::Real, std::Real)
 end
 
 function logpdf(::BroadcastedNormal,
-                x::Union{Array{T}, T},
-                mu::Union{Array{U}, U},
-                std::Union{Array{V}, V}) where {T<:Real, U<:Real, V<:Real}
+                x::Union{AbstractArray{<:Real}, Real},
+                mu::Union{AbstractArray{<:Real}, Real},
+                std::Union{AbstractArray{<:Real}, Real})
     assert_has_shape(x, broadcast_shapes_or_crash(mu, std);
                      msg="Shape of `x` does not agree with the sample space")
     var = std .* std
@@ -80,9 +80,9 @@ function logpdf_grad(::Normal, x::Real, mu::Real, std::Real)
 end
 
 function logpdf_grad(::BroadcastedNormal,
-                     x::Union{Array{T}, T},
-                     mu::Union{Array{U}, U},
-                     std::Union{Array{V}, V}) where {T<:Real, U<:Real, V<:Real}
+                     x::Union{AbstractArray{<:Real}, Real},
+                     mu::Union{AbstractArray{<:Real}, Real},
+                     std::Union{AbstractArray{<:Real}, Real})
     assert_has_shape(x, broadcast_shapes_or_crash(mu, std);
                      msg="Shape of `x` does not agree with the sample space")
     precision = 1.0 ./ (std .* std)
@@ -96,8 +96,8 @@ end
 random(::Normal, mu::Real, std::Real) = mu + std * randn()
 
 function random(::BroadcastedNormal,
-                mu::Union{Array{T}, T},
-                std::Union{Array{U}, U}) where {T<:Real, U<:Real}
+                mu::Union{AbstractArray{<:Real}, Real},
+                std::Union{AbstractArray{<:Real}, Real})
     broadcast_shape = broadcast_shapes_or_crash(mu, std)
     mu .+ std .* randn(broadcast_shape)
 end
