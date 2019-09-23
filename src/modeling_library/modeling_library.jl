@@ -51,6 +51,7 @@ export logpdf_grad
 export has_output_grad
 
 include("bernoulli.jl")
+include("binomial.jl")
 include("normal.jl")
 include("mvnormal.jl")
 include("gamma.jl")
