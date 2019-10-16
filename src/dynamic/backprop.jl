@@ -247,7 +247,7 @@ function fill_gradient_map!(gradient_choices::DynamicChoiceMap,
     # choices and the gen_fn invocations, as enforced by the visitor
     for (key, subtrie) in get_internal_nodes(tracked_trie)
         @assert !has_value(gradient_choices, key) && isempty(get_submap(gradient_choices, key))
-        gradient_subssmt = choicemap()
+        gradient_submap = choicemap()
         fill_gradient_map!(gradient_submap, subtrie)
         set_submap!(gradient_choices, key, gradient_submap)
     end
