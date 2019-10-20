@@ -70,7 +70,9 @@ the arguments \$x\$:
 Also increment the gradient accumulators for the trainable parameters \$Θ\$ of
 the function by:
 ```math
-\\mbox{scalar} * ∇_Θ J
+s * ∇_Θ J
+```
+where \$s\$ is `scaler`.
 """
 function accumulate_param_gradients_det! end
 

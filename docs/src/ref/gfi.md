@@ -328,10 +328,13 @@ However, to develop new modeling DSLs, or optimized implementations of certain p
 
 ### Implementing a custom deterministic generative function
 
-If your custom generative function is deterministic, you do not need to implement the entire GFI.
-Instead, implement a new type that is a subtype of [CustomDetGF](@ref), which as the following methods:
+If your custom generative function is deterministic (one that makes no random choices), you do not need to implement the entire GFI.
+Instead, implement a new type that is a subtype of:
 ```@docs
 CustomDetGF
+```
+with the following methods:
+```@docs
 execute_det
 update_det
 gradient_det
@@ -341,17 +344,17 @@ accumulate_param_gradients_det!
 ### Implementing a general custom generative function
 We recommend the following steps for implementing a new type of generative function, and also looking at the implementation for the [`DynamicDSLFunction`](@ref) type as an example.
 
-#### Define a trace data type
+##### Define a trace data type
 ```julia
 struct MyTraceType
     ..
 end
 ```
 
-#### Decide the return type for the generative function
+##### Decide the return type for the generative function
 Suppose our return type is `Vector{Float64}`.
 
-#### Define a data type for your generative function
+##### Define a data type for your generative function
 This should be a subtype of [`GenerativeFunction`](@ref), with the appropriate type parameters.
 ```julia
 struct MyGenerativeFunction <: GenerativeFunction{Vector{Float64},MyTraceType}
@@ -366,18 +369,18 @@ function MyGenerativeFunction(...)
 end
 ```
 
-#### Decide what the arguments to a generative function should be
+##### Decide what the arguments to a generative function should be
 For example, our generative functions might take two arguments, `a` (of type `Int`) and `b` (of type `Float64`).
 Then, the argument tuple passed to e.g. [`generate`](@ref) will have two elements.
 
 NOTE: Be careful to distinguish between arguments to the generative function itself, and arguments to the constructor of the generative function.
 For example, if you have a generative function type that is parametrized by, for example, modeling DSL code, this DSL code would be a parameter of the generative function constructor.
 
-#### Decide what the traced random choices (if any) will be
+##### Decide what the traced random choices (if any) will be
 Remember that each random choice is assigned a unique address in (possibly) hierarchical address space.
 You are free to design this address space as you wish, although you should document it for users of your generative function type.
 
-#### Implement the methods of the interface
+##### Implement the methods of the interface
 
 - At minimum, you need to implement all methods under the [`Traces`](@ref) heading (e.g. [`generate`](@ref), ..)
 
