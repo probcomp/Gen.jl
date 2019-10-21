@@ -267,7 +267,7 @@ function Base.getindex(selection::DynamicSelection, addr)
     end
 end
 
-function Base.getindex(set::DynamicSelection, addr::Pair)
+function Base.getindex(selection::DynamicSelection, addr::Pair)
     (first, rest) = addr
     if haskey(selection.subselections, first)
         subselection = selection.subselections[first]
