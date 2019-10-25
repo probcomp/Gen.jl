@@ -346,7 +346,7 @@ We recommend the following steps for implementing a new type of generative funct
 
 ##### Define a trace data type
 ```julia
-struct MyTraceType
+struct MyTraceType <: Trace
     ..
 end
 ```
