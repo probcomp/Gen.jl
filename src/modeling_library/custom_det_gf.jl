@@ -5,7 +5,7 @@
 """
     CustomDetGFTrace{T,S} <: Trace
 
-Trace type for custom generative deterministic generative function.
+Trace type for custom deterministic generative function.
 """
 struct CustomDetGFTrace{T,S} <: Trace
     retval::T
