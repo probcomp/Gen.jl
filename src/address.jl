@@ -43,7 +43,7 @@ Is the address selected?
 
 Get the subselection at the given address.
 
-    Base.isempty(set)
+    Base.isempty(selection)
 
 Is the selection guaranteed to be empty?
 
@@ -232,8 +232,8 @@ struct DynamicSelection <: HierarchicalSelection
     subselections::Dict{Any,Selection}
 end
 
-function Base.isempty(set::DynamicSelection)
-    isempty(set.subselections)
+function Base.isempty(selection::DynamicSelection)
+    isempty(selection.subselections)
 end
 
 DynamicSelection() = DynamicSelection(Dict{Any,Selection}())
