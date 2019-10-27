@@ -83,4 +83,4 @@ include("recurse/recurse.jl")
 # abstractions for constructing custom generative functions #
 #############################################################
 
-include("custom_det_gf.jl")
+include("custom_determ.jl")

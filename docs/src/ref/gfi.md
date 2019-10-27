@@ -331,14 +331,14 @@ However, to develop new modeling DSLs, or optimized implementations of certain p
 If your custom generative function is deterministic (one that makes no random choices), you do not need to implement the entire GFI.
 Instead, implement a new type that is a subtype of:
 ```@docs
-CustomDetGF
+CustomDetermGF
 ```
 with the following methods:
 ```@docs
-execute_det
-update_det
-gradient_det
-accumulate_param_gradients_det!
+execute_determ
+update_determ
+gradient_determ
+accumulate_param_gradients_determ!
 ```
 
 ### Implementing a general custom generative function

@@ -10,32 +10,32 @@
     # arr is the argument
     # my_param is a trainable parameter
 
-    mutable struct MyDeterministicGF <: CustomDetGF{Float64,MyDeterministicGFState}
+    mutable struct MyDeterministicGF <: CustomDetermGF{Float64,MyDeterministicGFState}
         my_param::Float64
         my_grad::Float64
     end
 
     MyDeterministicGF() = MyDeterministicGF(1., 0.)
 
-    function Gen.execute_det(gen_fn::MyDeterministicGF, args::Tuple)
+    function Gen.execute_determ(gen_fn::MyDeterministicGF, args::Tuple)
         arr = args[1]
         retval = sum(arr) * gen_fn.my_param
         state = MyDeterministicGFState(retval, arr, gen_fn.my_param)
         retval, state
     end
 
-    function Gen.update_det(gen_fn::MyDeterministicGF, state, args, argdiffs)
+    function Gen.update_determ(gen_fn::MyDeterministicGF, state, args, argdiffs)
         arr = args[1]
         retval = sum(arr) * state.my_param
         state = MyDeterministicGFState(retval, arr, state.my_param)
         state, retval, UnknownChange()
     end
 
-    function Gen.update_det(::MyDeterministicGF, state, args, argdiffs::Tuple{NoChange})
+    function Gen.update_determ(::MyDeterministicGF, state, args, argdiffs::Tuple{NoChange})
         state, state.sum * state.my_param, NoChange()
     end
 
-    function Gen.update_det(::MyDeterministicGF, state, args, argdiffs::Tuple{VectorDiff})
+    function Gen.update_determ(::MyDeterministicGF, state, args, argdiffs::Tuple{VectorDiff})
         arr = args[1]
         retval = state.sum * state.my_param
         for i in keys(argdiffs[1].updated)
@@ -57,12 +57,12 @@
 
     Gen.accepts_output_grad(::MyDeterministicGF) = true
 
-    function Gen.gradient_det(::MyDeterministicGF, state, retgrad)
+    function Gen.gradient_determ(::MyDeterministicGF, state, retgrad)
         arr_gradient = fill(retgrad * state.my_param, length(state.prev))
         (arr_gradient,)
     end
 
-    function Gen.accumulate_param_gradients_det!(gen_fn::MyDeterministicGF, state, retgrad, scaler)
+    function Gen.accumulate_param_gradients_determ!(gen_fn::MyDeterministicGF, state, retgrad, scaler)
         gen_fn.my_grad += (retgrad * state.sum) * scaler
         arr_gradient = fill(retgrad * state.my_param, length(state.prev))
         (arr_gradient,)        
