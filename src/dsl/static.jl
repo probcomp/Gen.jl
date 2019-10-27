@@ -194,7 +194,7 @@ function parse_trace_line!(stmts::Vector{Expr}, bindings, line::Expr)
     end
 end
 
-# return foo (must be a symbol)
+# return foo (must be a symbol) or return @trace(..)
 function parse_return!(stmts::Vector{Expr}, bindings, line::Expr)
     if line.head != :return
         return false
@@ -202,7 +202,9 @@ function parse_return!(stmts::Vector{Expr}, bindings, line::Expr)
     if isa(line.args[1], Expr) && line.args[1].head == :macrocall
         var = gensym()
         typ = QuoteNode(Any)
-        res = parse_trace_expr!(stmts, bindings, var, line.args[1], typ)
+        if !parse_trace_expr!(stmts, bindings, var, line.args[1], typ)
+            return false # the right-hand-side is a macro but not a valid `@trace` expression
+        end
     elseif isa(line.args[1], Symbol)
         var = line.args[1]
     else
