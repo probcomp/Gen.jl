@@ -957,7 +957,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Selections",
     "title": "Gen.Selection",
     "category": "type",
-    "text": "abstract type Selection end\n\nAbstract type for selections of addresses.\n\nAll selections implement the following methods:\n\nBase.in(addr, selection)\n\nIs the address selected?\n\nBase.getindex(selection, addr)\n\nGet the subselection at the given address.\n\nBase.isempty(set)\n\nIs the selection guaranteed to be empty?\n\nget_address_schema(T)\n\nReturn a shallow, compile-time address schema, where T is the concrete type of the selection.\n\n\n\n\n\n"
+    "text": "abstract type Selection end\n\nAbstract type for selections of addresses.\n\nAll selections implement the following methods:\n\nBase.in(addr, selection)\n\nIs the address selected?\n\nBase.getindex(selection, addr)\n\nGet the subselection at the given address.\n\nBase.isempty(selection)\n\nIs the selection guaranteed to be empty?\n\nget_address_schema(T)\n\nReturn a shallow, compile-time address schema, where T is the concrete type of the selection.\n\n\n\n\n\n"
 },
 
 {
