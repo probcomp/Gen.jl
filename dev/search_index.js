@@ -357,7 +357,63 @@ var documenterSearchIndex = {"docs": [
     "page": "Generative Functions",
     "title": "Custom generative function types",
     "category": "section",
-    "text": "Most users can just use generative functions written in the Built-in Modeling Language, and can skip this section. However, to develop new modeling DSLs, or optimized implementations of certain probabilistic modeling components, users can also implement custom types of generative functions. We recommend the following steps for implementing a new type of generative function, and also looking at the implementation for the DynamicDSLFunction type as an example."
+    "text": "Most users can just use generative functions written in the Built-in Modeling Language, and can skip this section. However, to develop new modeling DSLs, or optimized implementations of certain probabilistic modeling components, users can also implement custom types of generative functions."
+},
+
+{
+    "location": "ref/gfi/#Gen.CustomDetermGF",
+    "page": "Generative Functions",
+    "title": "Gen.CustomDetermGF",
+    "category": "type",
+    "text": "CustomDetermGF{T,S} <: GenerativeFunction{T,CustomDetermGFTrace{T,S}}\n\nAbstract type for a custom deterministic generative function. \n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/gfi/#Gen.execute_determ",
+    "page": "Generative Functions",
+    "title": "Gen.execute_determ",
+    "category": "function",
+    "text": "retval, state = execute_determ(gen_fn::CustomDetermGF, args)\n\nExecute the generative function and return the return value and the state.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/gfi/#Gen.update_determ",
+    "page": "Generative Functions",
+    "title": "Gen.update_determ",
+    "category": "function",
+    "text": "state, retval, retdiff = update_determ(gen_fn::CustomDetermGF, state, args, argdiffs)\n\nUpdate the arguments to the generative function and return new return value and state.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/gfi/#Gen.gradient_determ",
+    "page": "Generative Functions",
+    "title": "Gen.gradient_determ",
+    "category": "function",
+    "text": "arg_grads = gradient_determ(gen_fn::CustomDetermGF, state, retgrad)\n\nReturn the gradient tuple with respect to the arguments.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/gfi/#Gen.accumulate_param_gradients_determ!",
+    "page": "Generative Functions",
+    "title": "Gen.accumulate_param_gradients_determ!",
+    "category": "function",
+    "text": "arg_grads = accumulate_param_gradients_get!(trace::CustomDefGF, retgrad, scaler)\n\nIncrement gradient accumulators for parameters the gradient with respect to the arguments, optionally scaled, and return the gradient with respect to the arguments (not scaled).\n\nGiven the previous state and a gradient with respect to the return value _y J (retgrad), return the following gradient (arg_grads) with respect to the arguments x:\n\n_x J\n\nAlso increment the gradient accumulators for the trainable parameters Θ of the function by:\n\ns * _Θ J\n\nwhere s is scaler.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/gfi/#Implementing-a-custom-deterministic-generative-function-1",
+    "page": "Generative Functions",
+    "title": "Implementing a custom deterministic generative function",
+    "category": "section",
+    "text": "If your custom generative function is deterministic (one that makes no random choices), you do not need to implement the entire GFI. Instead, implement a new type that is a subtype of:CustomDetermGFwith the following methods:execute_determ\nupdate_determ\ngradient_determ\naccumulate_param_gradients_determ!"
+},
+
+{
+    "location": "ref/gfi/#Implementing-a-general-custom-generative-function-1",
+    "page": "Generative Functions",
+    "title": "Implementing a general custom generative function",
+    "category": "section",
+    "text": "We recommend the following steps for implementing a new type of generative function, and also looking at the implementation for the DynamicDSLFunction type as an example."
 },
 
 {
@@ -365,7 +421,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Generative Functions",
     "title": "Define a trace data type",
     "category": "section",
-    "text": "struct MyTraceType\n    ..\nend"
+    "text": "struct MyTraceType <: Trace\n    ..\nend"
 },
 
 {
