@@ -78,3 +78,9 @@ include("call_at/call_at.jl")
 include("map/map.jl")
 include("unfold/unfold.jl")
 include("recurse/recurse.jl")
+
+#############################################################
+# abstractions for constructing custom generative functions #
+#############################################################
+
+include("custom_determ.jl")
