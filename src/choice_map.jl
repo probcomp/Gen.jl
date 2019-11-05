@@ -200,11 +200,11 @@ end
 """
     choices = Base.merge(choices1::ChoiceMap, choices2::ChoiceMap)
 
-Merge two assignments.
+Merge two choice maps.
 
-It is an error if the assignments both have values at the same address, or if
-one assignment has a value at an address that is the prefix of the address of a
-value in the other assignment.
+It is an error if the choice maps both have values at the same address, or if
+one choice map has a value at an address that is the prefix of the address of a
+value in the other choice map.
 """
 function Base.merge(choices1::ChoiceMap, choices2::ChoiceMap)
     choices = DynamicChoiceMap()
@@ -235,6 +235,13 @@ function Base.merge(choices1::ChoiceMap, choices2::ChoiceMap)
         end
     end
     return choices
+end
+
+"""
+Variadic merge of choice maps.
+"""
+function Base.merge(choices1::ChoiceMap, choices_rest::ChoiceMap...)
+    reduce(Base.merge, choices_rest; init=choices1)
 end
 
 function Base.:(==)(a::ChoiceMap, b::ChoiceMap)

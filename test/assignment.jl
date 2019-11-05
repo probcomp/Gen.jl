@@ -111,6 +111,15 @@ end
     @test length(collect(get_values_shallow(choices))) == 3
 end
 
+@testset "dynamic assignment variadic merge" begin
+    choices1 = choicemap((:a, 1))
+    choices2 = choicemap((:b, 2))
+    choices3 = choicemap((:c, 3))
+    choices_all = choicemap((:a, 1), (:b, 2), (:c, 3))
+    @test merge(choices1) == choices1
+    @test merge(choices1, choices2, choices3) == choices_all
+end
+
 @testset "static assignment merge" begin
     submap = choicemap()
     set_value!(submap, :x, 1)
@@ -129,6 +138,15 @@ end
     @test choices[:shared => :y] == 4.
     @test length(collect(get_submaps_shallow(choices))) == 4
     @test length(collect(get_values_shallow(choices))) == 3
+end
+
+@testset "static assignment variadic merge" begin
+    choices1 = StaticChoiceMap((a=1,), NamedTuple())
+    choices2 = StaticChoiceMap((b=2,), NamedTuple())
+    choices3 = StaticChoiceMap((c=3,), NamedTuple())
+    choices_all = StaticChoiceMap((a=1, b=2, c=3), NamedTuple())
+    @test merge(choices1) == choices1
+    @test merge(choices1, choices2, choices3) == choices_all
 end
 
 @testset "static assignment errors" begin
