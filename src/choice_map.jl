@@ -160,11 +160,28 @@ and return the number of elements in `arr` that were populated.
 """
 function to_array(choices::ChoiceMap, ::Type{T}) where {T}
     arr = Vector{T}(undef, 32)
-    n = _fill_array!(choices, arr, 0)
+    n = _fill_array!(choices, arr, 1)
     @assert n <= length(arr)
     resize!(arr, n)
     arr
 end
+
+function _fill_array!(value::T, arr::Vector{T}, start_idx::Int) where {T}
+    if length(arr) < start_idx
+        resize!(arr, 2 * start_idx)
+    end
+    arr[start_idx] = value
+    1
+end
+
+function _fill_array!(value::Vector{T}, arr::Vector{T}, start_idx::Int) where {T}
+    if length(arr) < start_idx + length(value)
+        resize!(arr, 2 * (start_idx + length(value)))
+    end
+    arr[start_idx:start_idx+length(value)-1] = value
+    length(value)
+end
+
 
 """
     choices::ChoiceMap = from_array(proto_choices::ChoiceMap, arr::Vector)
@@ -189,11 +206,20 @@ but with values read off from `arr`, starting at position `start_idx`, and the
 number of elements read from `arr`.
 """
 function from_array(proto_choices::ChoiceMap, arr::Vector)
-    (n, choices) = _from_array(proto_choices, arr, 0)
+    (n, choices) = _from_array(proto_choices, arr, 1)
     if n != length(arr)
         error("Dimension mismatch: $n, $(length(arr))")
     end
     choices
+end
+
+function _from_array(::T, arr::Vector{T}, start_idx::Int) where {T}
+    (1, arr[start_idx])
+end
+
+function _from_array(value::Vector{T}, arr::Vector{T}, start_idx::Int) where {T}
+    n_read = length(value)
+    (n_read, arr[start_idx:start_idx+n_read-1])
 end
 
 
@@ -432,52 +458,54 @@ function unpair(choices::ChoiceMap, key1::Symbol, key2::Symbol)
     (a, b)
 end
 
-# TODO make it a generated function?
+# TODO make a generated function?
 function _fill_array!(choices::StaticChoiceMap, arr::Vector{T}, start_idx::Int) where {T}
-    if length(arr) < start_idx + length(choices.leaf_nodes)
-        resize!(arr, 2 * length(arr))
+    idx = start_idx
+    for value in choices.leaf_nodes
+        n_written = _fill_array!(value, arr, idx)
+        idx += n_written
     end
-    for (i, value) in enumerate(choices.leaf_nodes)
-        arr[start_idx + i] = value
-    end
-    idx = start_idx + length(choices.leaf_nodes)
-    for (i, node) in enumerate(choices.internal_nodes)
+    for node in choices.internal_nodes
         n_written = _fill_array!(node, arr, idx)
         idx += n_written
     end
     idx - start_idx
 end
 
-@generated function _from_array(proto_choices::StaticChoiceMap{R,S,T,U}, arr::Vector{V}, start_idx::Int) where {R,S,T,U,V}
+@generated function _from_array(
+        proto_choices::StaticChoiceMap{R,S,T,U}, arr::Vector{V}, start_idx::Int) where {R,S,T,U,V}
     leaf_node_keys = proto_choices.parameters[1]
     leaf_node_types = proto_choices.parameters[2].parameters
     internal_node_keys = proto_choices.parameters[3]
     internal_node_types = proto_choices.parameters[4].parameters
 
+    exprs = [quote idx = start_idx end]
+    leaf_node_names = []
+    internal_node_names = []
+
     # leaf nodes
-    leaf_node_refs = Expr[]
-    for (i, key) in enumerate(leaf_node_keys)
-        expr = Expr(:ref, :arr, Expr(:call, :(+), :start_idx, QuoteNode(i)))
-        push!(leaf_node_refs, expr)
+    for key in leaf_node_keys
+        value = gensym()
+        push!(leaf_node_names, value)
+        push!(exprs, quote
+            (n_read, $value) = _from_array(proto_choices.leaf_nodes.$key, arr, idx)
+            idx += n_read
+        end)
     end
 
     # internal nodes
-    internal_node_blocks = Expr[]
-    internal_node_names = Symbol[]
-    for (key, typ) in zip(internal_node_keys, internal_node_types)
+    for key in internal_node_keys
         node = gensym()
         push!(internal_node_names, node)
-        push!(internal_node_blocks, quote
-            (n_read, $node::$typ) = _from_array(proto_choices.internal_nodes.$key, arr, idx)
+        push!(exprs, quote
+            (n_read, $node) = _from_array(proto_choices.internal_nodes.$key, arr, idx)
             idx += n_read 
         end)
     end
 
     quote
-        n_read = $(QuoteNode(length(leaf_node_keys)))
-        leaf_nodes_field = NamedTuple{R,S}(($(leaf_node_refs...),))
-        idx::Int = start_idx + n_read
-        $(internal_node_blocks...)
+        $(exprs...)
+        leaf_nodes_field = NamedTuple{R,S}(($(leaf_node_names...),))
         internal_nodes_field = NamedTuple{T,U}(($(internal_node_names...),))
         choices = StaticChoiceMap{R,S,T,U}(leaf_nodes_field, internal_nodes_field)
         (idx - start_idx, choices)
@@ -737,15 +765,14 @@ end
 Base.setindex!(choices::DynamicChoiceMap, value, addr) = set_value!(choices, addr, value)
 
 function _fill_array!(choices::DynamicChoiceMap, arr::Vector{T}, start_idx::Int) where {T}
-    if length(arr) < start_idx + length(choices.leaf_nodes)
-        resize!(arr, 2 * length(arr))
-    end
     leaf_keys_sorted = sort(collect(keys(choices.leaf_nodes)))
     internal_node_keys_sorted = sort(collect(keys(choices.internal_nodes)))
-    for (i, key) in enumerate(leaf_keys_sorted)
-        arr[start_idx + i] = choices.leaf_nodes[key]
+    idx = start_idx
+    for key in leaf_keys_sorted
+        value = choices.leaf_nodes[key]
+        n_written = _fill_array!(value, arr, idx)
+        idx += n_written
     end
-    idx = start_idx + length(choices.leaf_nodes)
     for key in internal_node_keys_sorted
         n_written = _fill_array!(get_submap(choices, key), arr, idx)
         idx += n_written
@@ -758,10 +785,12 @@ function _from_array(proto_choices::DynamicChoiceMap, arr::Vector{T}, start_idx:
     choices = DynamicChoiceMap()
     leaf_keys_sorted = sort(collect(keys(proto_choices.leaf_nodes)))
     internal_node_keys_sorted = sort(collect(keys(proto_choices.internal_nodes)))
-    for (i, key) in enumerate(leaf_keys_sorted)
-        choices.leaf_nodes[key] = arr[start_idx + i]
+    idx = start_idx
+    for key in leaf_keys_sorted
+        (n_read, value) = _from_array(proto_choices.leaf_nodes[key], arr, idx)
+        idx += n_read
+        choices.leaf_nodes[key] = value
     end
-    idx = start_idx + length(choices.leaf_nodes)
     for key in internal_node_keys_sorted
         (n_read, node) = _from_array(get_submap(proto_choices, key), arr, idx)
         idx += n_read

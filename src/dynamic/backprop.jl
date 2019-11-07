@@ -223,7 +223,7 @@ mutable struct GFBackpropTraceState
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
     selection::Selection
-    tracked_choices::Trie{Any,TrackedReal}
+    tracked_choices::Trie{Any,Union{TrackedReal,TrackedArray}}
     value_choices::DynamicChoiceMap
     gradient_choices::DynamicChoiceMap
 end
@@ -231,7 +231,7 @@ end
 function GFBackpropTraceState(trace, selection, params, tape)
     score = track(0., tape)
     visitor = AddressVisitor()
-    tracked_choices = Trie{Any,TrackedReal}()
+    tracked_choices = Trie{Any,Union{TrackedReal,TrackedArray}}()
     value_choices = choicemap()
     gradient_choices = choicemap()
     GFBackpropTraceState(trace, score, tape, visitor, params,
@@ -239,7 +239,7 @@ function GFBackpropTraceState(trace, selection, params, tape)
 end
 
 function fill_gradient_map!(gradient_choices::DynamicChoiceMap,
-                             tracked_trie::Trie{Any,TrackedReal})
+                             tracked_trie::Trie{Any,Union{TrackedReal,TrackedArray}})
     for (key, tracked) in get_leaf_nodes(tracked_trie)
         set_value!(gradient_choices, key, deriv(tracked))
     end
@@ -254,7 +254,7 @@ function fill_gradient_map!(gradient_choices::DynamicChoiceMap,
 end
 
 function fill_value_map!(value_choices::DynamicChoiceMap,
-                          tracked_trie::Trie{Any,TrackedReal})
+                          tracked_trie::Trie{Any,Union{TrackedReal,TrackedArray}})
     for (key, tracked) in get_leaf_nodes(tracked_trie)
         set_value!(value_choices, key, value(tracked))
     end
