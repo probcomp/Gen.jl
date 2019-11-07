@@ -278,7 +278,7 @@ function regenerate(trace, args::Tuple, argdiffs::Tuple, selection::Selection)
 end
 
 """
-    arg_grads = accumulate_param_gradients!(trace, retgrad, scaler=1.)
+    arg_grads = accumulate_param_gradients!(trace, retgrad, scale_factor=1.)
 
 Increment gradient accumulators for parameters by the gradient of the
 log-probability of the trace, optionally scaled, and return the gradient with
@@ -296,7 +296,7 @@ the function by:
 ∇_Θ \\left( \\log P(t; x) + J \\right)
 ```
 """
-function accumulate_param_gradients!(trace, retgrad, scaler)
+function accumulate_param_gradients!(trace, retgrad, scale_factor)
     error("Not implemented")
 end
 
