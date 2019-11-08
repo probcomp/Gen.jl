@@ -170,7 +170,9 @@ end
     actual = logpdf_grad(mvnormal, args...)
     @test isapprox(actual[1][1], finite_diff_vec(f, args, 1, 1, dx))
     @test isapprox(actual[1][2], finite_diff_vec(f, args, 1, 2, dx))
-    @test actual[2] === nothing # not yet implemented 
+    @test isapprox(actual[2][1], finite_diff_vec(f, args, 2, 1, dx))
+    @test isapprox(actual[2][2], finite_diff_vec(f, args, 2, 2, dx))
+
     @test actual[3] === nothing # not yet implemented
 end
 
