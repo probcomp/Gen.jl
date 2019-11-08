@@ -16,8 +16,13 @@ end
 function logpdf_grad(::MultivariateNormal, x::AbstractVector{T}, mu::AbstractVector{U},
                 cov::AbstractMatrix{V}) where {T,U,V}
     dist = Distributions.MvNormal(mu, cov)
+    inv_cov = Distributions.invcov(dist)
+
     x_deriv = Distributions.gradlogpdf(dist, x)
-    (x_deriv, nothing, nothing)
+    mu_deriv = -x_deriv
+    cov_deriv = -0.5 * (inv_cov - (mu_deriv * transpose(mu_deriv)))
+
+    (x_deriv, mu_deriv, cov_deriv)
 end
 
 function random(::MultivariateNormal, mu::AbstractVector{U},
@@ -28,6 +33,6 @@ end
 (::MultivariateNormal)(mu, cov) = random(MultivariateNormal(), mu, cov)
 
 has_output_grad(::MultivariateNormal) = true
-has_argument_grads(::MultivariateNormal) = (false, false)
+has_argument_grads(::MultivariateNormal) = (true, true)
 
 export mvnormal
