@@ -174,6 +174,8 @@ end
     @test isapprox(actual[2][2], finite_diff_vec(f, args, 2, 2, dx))
     @test isapprox(actual[3][1, 1], finite_diff_mat_sym(f, args, 3, 1, 1, dx))
     @test isapprox(actual[3][1, 2], finite_diff_mat_sym(f, args, 3, 1, 2, dx))
+    @test isapprox(actual[3][2, 1], finite_diff_mat_sym(f, args, 3, 2, 1, dx))
+    @test isapprox(actual[3][2, 2], finite_diff_mat_sym(f, args, 3, 2, 2, dx))
 end
 
 @testset "piecewise_uniform" begin
