@@ -37,6 +37,31 @@ function finite_diff_vec(f::Function, args::Tuple, i::Int, j::Int, dx::Float64)
     return (f(pos_args...) - f(neg_args...)) / (2. * dx)
 end
 
+"""
+Compute a numerical partial derivative of `f` with respect to the `i`th argument, a symettric matrix, using finite differences.
+
+Finite differences are applied symettrically to off-diagonal elements of the matrix, ensuring that the modified matrix is still symettric. 
+
+When applied to off-diagonal elements, the finite difference is scaled by a factor of 1/2.
+
+The condition that the `i`th argument is a symettric matrix cannot be checked automatically, so the caller must guarantee it.
+"""
+
+function finite_diff_mat_sym(f::Function, args::Tuple, i::Int, j::Int, k::Int, dx::Float64)
+    pos_args = Any[deepcopy(args)...]
+    pos_args[i][j, k] += dx
+    neg_args = Any[deepcopy(args)...]
+    neg_args[i][j, k] -= dx
+    
+    if j!=k
+        pos_args[i][k, j] += dx
+        neg_args[i][k, j] -= dx
+        return (f(pos_args...) - f(neg_args...)) / (4. * dx)
+    end
+    
+    return (f(pos_args...) - f(neg_args...)) / (2. * dx)
+end
+
 const dx = 1e-6
 
 include("autodiff.jl")
