@@ -53,7 +53,7 @@ has_argument_grads(d::WithLabelArg{T, U}) where {T, U} = (false, has_argument_gr
 
 struct RelabeledDistribution{T, U} <: Distribution{T}
     base :: Distribution{U}
-    collection::Union{AbstractArray{T}, AbstractDict{T}}
+    collection::Union{AbstractArray{T}, AbstractDict{U, T}}
 end
 
 function logpdf(d::RelabeledDistribution{T, U}, x::T, base_args...) where {T, U}
