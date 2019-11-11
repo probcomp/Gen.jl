@@ -1,6 +1,6 @@
-# Gen
+# Gen.jl
 
-*A General-Purpose Probabilistic Programming System with Programmable Inference*
+*A general-purpose probabilistic programming system with programmable inference, embedded in Julia*
 
 ```@contents
 Pages = [
