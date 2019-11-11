@@ -21,7 +21,8 @@
         expected_score = 0.
         for i=1:2
             expected_score += logpdf(normal, trace[i => :z], xs[i] + ys[i], 1.)
-            @test get_retval(trace)[i] == trace[i => :z]
+            @test get_retval(trace)[i] == trace[i => :z] # random choice
+            @test get_retval(trace)[i] == trace[i] # auxiliary state
         end
         @test isapprox(get_score(trace), expected_score)
     end
