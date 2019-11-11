@@ -71,7 +71,7 @@ Finally, we run the inference program on some data, and get the results:
 xs = [1., 2., 3., 4., 5., 6., 7., 8., 9., 10.]
 ys = [8.23, 5.87, 3.99, 2.59, 0.23, -0.66, -3.53, -6.91, -7.24, -9.90]
 (slope, intercept) = my_inference_program(xs, ys, 1000)
-println("slope: $slope, intercept: $slope")
+println("slope: $slope, intercept: $intercept")
 ```
 
 ## Visualization Framework

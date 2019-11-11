@@ -21,6 +21,9 @@ end
 
 data_fn = Map(datum)
 
+"""
+my documentation
+"""
 @gen (static) function model(xs::Vector{Float64})
     n = length(xs)
     inlier_std = @trace(gamma(1, 1), :inlier_std)
@@ -340,6 +343,35 @@ theta = get_node_by_name(ir, :theta)
 
 end
 
+@testset "returning a trace directly" begin
+
+@gen (static) function f1()
+    x = @trace(normal(0, 1), :foo)
+    return x
+end
+
+@gen (static) function f2()
+    return @trace(normal(0, 1), :foo)
+end
+
+ir1 = Gen.get_ir(typeof(f1))
+ir2 = Gen.get_ir(typeof(f2))
+return_node1 = ir1.return_node
+return_node2 = ir2.return_node
+@test isa(return_node2, typeof(return_node1))
+@test return_node2.dist == return_node1.dist
+
+inputs1 = return_node1.inputs
+inputs2 = return_node2.inputs
+@test 0 == inputs1[1].fn() == inputs2[1].fn()
+@test 1 == inputs1[2].fn() == inputs2[2].fn()
+
+@test return_node2.name != return_node1.name
+@test return_node2.addr == return_node1.addr
+@test return_node2.typ === return_node1.typ
+
+end
+
 @testset "use of 'end'" begin
 
 @gen (static) function foo()
@@ -353,5 +385,12 @@ load_generated_functions()
 @test foo() == [3, 4, 5, 6]
 
 end
+
+@testset "docstrings" begin
+    io = IOBuffer()
+    print(io, @doc model)
+    @test String(take!(io)) == "my documentation\n"
+end
+
 
 end # @testset "static DSL"

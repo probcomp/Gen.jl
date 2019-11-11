@@ -92,7 +92,7 @@ function Gen.choice_gradients(::PFCombinatorTrace, ::Selection)
 end
 
 function Gen.accumulate_param_gradients!(::PFCombinatorTrace,
-    retgrad, scaler)
+    retgrad, scale_factor)
     error("Not implemented")
 end
 

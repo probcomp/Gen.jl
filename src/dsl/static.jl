@@ -115,6 +115,7 @@ end
 choice_or_call_at(gen_fn::GenerativeFunction, addr_typ) = call_at(gen_fn, addr_typ)
 choice_or_call_at(dist::Distribution, addr_typ) = choice_at(dist, addr_typ)
 
+       # parse_trace_expr!(stmts::Vector{Expr}, bindings, name::Symbol("##XYZ"), line::Epr(not :(=)), typ)
 function parse_trace_expr!(stmts, bindings, name, addr_expr, typ)
     # NOTE: typ is unused
     if !(isa(addr_expr, Expr) && addr_expr.head == :macrocall
@@ -193,12 +194,22 @@ function parse_trace_line!(stmts::Vector{Expr}, bindings, line::Expr)
     end
 end
 
-# return foo (must be a symbol)
+# return foo (must be a symbol) or return @trace(..)
 function parse_return!(stmts::Vector{Expr}, bindings, line::Expr)
-    if line.head != :return || !isa(line.args[1], Symbol)
+    if line.head != :return
         return false
     end
-    var = line.args[1]
+    if isa(line.args[1], Expr) && line.args[1].head == :macrocall
+        var = gensym()
+        typ = QuoteNode(Any)
+        if !parse_trace_expr!(stmts, bindings, var, line.args[1], typ)
+            return false # the right-hand-side is a macro but not a valid `@trace` expression
+        end
+    elseif isa(line.args[1], Symbol)
+        var = line.args[1]
+    else
+        return false
+    end
     if haskey(bindings, var)
         node = bindings[var]
         push!(stmts, :(set_return_node!(builder, $(esc(node)))))
@@ -258,7 +269,7 @@ function make_static_gen_function(name, args, body, return_type, annotations)
     track_diffs = DSL_TRACK_DIFFS_ANNOTATION in annotations
     cache_julia_nodes = !(DSL_NO_JULIA_CACHE_ANNOTATION in annotations) # cache julia nodes by default
     options = StaticIRGenerativeFunctionOptions(track_diffs, cache_julia_nodes)
-    push!(stmts, :($(esc(name)) = $(esc(:eval))(
+    push!(stmts, :(Core.@__doc__ $(esc(name)) = $(esc(:eval))(
         generate_generative_function(ir, $(QuoteNode(name)), $(QuoteNode(options))))))
     Expr(:block, stmts...)
 end

@@ -1,16 +1,16 @@
 @testset "static assignment to/from array" begin
-    submap = StaticChoiceMap((a=1., b=2.),NamedTuple())
+    submap = StaticChoiceMap((a=1., b=[2., 2.5]),NamedTuple())
     outer = StaticChoiceMap((c=3.,), (d=submap, e=submap))
     
     arr = to_array(outer, Float64)
-    @test to_array(outer, Float64) == Float64[3.0, 1.0, 2.0, 1.0, 2.0]
+    @test to_array(outer, Float64) == Float64[3.0, 1.0, 2.0, 2.5, 1.0, 2.0, 2.5]
     
-    choices = from_array(outer, Float64[1, 2, 3, 4, 5])
+    choices = from_array(outer, Float64[1, 2, 3, 4, 5, 6, 7])
     @test choices[:c] == 1.0
     @test choices[:d => :a] == 2.0
-    @test choices[:d => :b] == 3.0
-    @test choices[:e => :a] == 4.0
-    @test choices[:e => :b] == 5.0
+    @test choices[:d => :b] == [3.0, 4.0]
+    @test choices[:e => :a] == 5.0
+    @test choices[:e => :b] == [6.0, 7.0]
     @test length(collect(get_submaps_shallow(choices))) == 2
     @test length(collect(get_values_shallow(choices))) == 1
     submap1 = get_submap(choices, :d)
@@ -26,19 +26,19 @@ end
     set_value!(outer, :c, 3.)
     submap = choicemap()
     set_value!(submap, :a, 1.)
-    set_value!(submap, :b, 2.)
+    set_value!(submap, :b, [2., 2.5])
     set_submap!(outer, :d, submap)
     set_submap!(outer, :e, submap)
     
     arr = to_array(outer, Float64)
-    @test to_array(outer, Float64) == Float64[3.0, 1.0, 2.0, 1.0, 2.0]
+    @test to_array(outer, Float64) == Float64[3.0, 1.0, 2.0, 2.5, 1.0, 2.0, 2.5]
     
-    choices = from_array(outer, Float64[1, 2, 3, 4, 5])
+    choices = from_array(outer, Float64[1, 2, 3, 4, 5, 6, 7])
     @test choices[:c] == 1.0
     @test choices[:d => :a] == 2.0
-    @test choices[:d => :b] == 3.0
-    @test choices[:e => :a] == 4.0
-    @test choices[:e => :b] == 5.0
+    @test choices[:d => :b] == [3.0, 4.0]
+    @test choices[:e => :a] == 5.0
+    @test choices[:e => :b] == [6.0, 7.0]
     @test length(collect(get_submaps_shallow(choices))) == 2
     @test length(collect(get_values_shallow(choices))) == 1
     submap1 = get_submap(choices, :d)
@@ -111,6 +111,15 @@ end
     @test length(collect(get_values_shallow(choices))) == 3
 end
 
+@testset "dynamic assignment variadic merge" begin
+    choices1 = choicemap((:a, 1))
+    choices2 = choicemap((:b, 2))
+    choices3 = choicemap((:c, 3))
+    choices_all = choicemap((:a, 1), (:b, 2), (:c, 3))
+    @test merge(choices1) == choices1
+    @test merge(choices1, choices2, choices3) == choices_all
+end
+
 @testset "static assignment merge" begin
     submap = choicemap()
     set_value!(submap, :x, 1)
@@ -129,6 +138,15 @@ end
     @test choices[:shared => :y] == 4.
     @test length(collect(get_submaps_shallow(choices))) == 4
     @test length(collect(get_values_shallow(choices))) == 3
+end
+
+@testset "static assignment variadic merge" begin
+    choices1 = StaticChoiceMap((a=1,), NamedTuple())
+    choices2 = StaticChoiceMap((b=2,), NamedTuple())
+    choices3 = StaticChoiceMap((c=3,), NamedTuple())
+    choices_all = StaticChoiceMap((a=1, b=2, c=3), NamedTuple())
+    @test merge(choices1) == choices1
+    @test merge(choices1, choices2, choices3) == choices_all
 end
 
 @testset "static assignment errors" begin

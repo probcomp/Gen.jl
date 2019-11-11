@@ -18,6 +18,7 @@
     @test :z in sub
     @test :w in sub
     @test s[:u] == EmptySelection()
+    @test s[:y => :z] == AllSelection()
 
     # test set_subselection!
     set_subselection!(s, :y, select(:z))

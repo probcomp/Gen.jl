@@ -455,4 +455,19 @@ end
             logpdf(normal, x, 0, 1) + logpdf(normal, y, 0, 2))
 end
 
+@testset "docstrings" begin
+
+    """
+    my documentation
+    """
+    @gen function foo(x)
+            return x + 1
+        end
+
+    io = IOBuffer()
+    print(io, @doc foo)
+    @test String(take!(io)) == "my documentation\n"
+
+end
+
 end
