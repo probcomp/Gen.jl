@@ -49,6 +49,7 @@ get_retval(trace::VectorTrace) = trace.retval
 get_args(trace::VectorTrace) = trace.args
 get_score(trace::VectorTrace) = trace.score
 get_gen_fn(trace::VectorTrace) = trace.gen_fn
+Base.getindex(trace::VectorTrace, addr) = get_choices(trace)[addr]
 
 function project(trace::VectorTrace, selection::Selection)
     weight = 0.

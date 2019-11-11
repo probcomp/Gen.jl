@@ -455,6 +455,37 @@ end
             logpdf(normal, x, 0, 1) + logpdf(normal, y, 0, 2))
 end
 
+@testset "getindex(trace)" begin
+    @gen function bar(r)
+        @trace(normal(0, 1), :a)
+        return r
+    end
+
+    @gen function foo()
+        @trace(bar(1), :x)
+        @trace(bar(2), :y => :z)
+        @trace(normal(0, 1), :u)
+        @trace(normal(0, 1), :v => :w)
+    end
+
+    constraints = choicemap()
+    constraints[:u] = 1.1
+    constraints[:v => :w] = 1.2
+    constraints[:x => :a] = 1.3
+    constraints[:y => :z => :a] = 1.4
+    trace, = generate(foo, (), constraints)
+
+    # random choices
+    @test trace[:u] == 1.1
+    @test trace[:v => :w] == 1.2
+    @test trace[:x => :a] == 1.3
+    @test trace[:y => :z => :a] == 1.4
+
+    # auxiliary state
+    @test trace[:x] == 1
+    @test trace[:y => :z] == 2
+end
+
 @testset "docstrings" begin
 
     """
