@@ -3,7 +3,7 @@
 ##########
 
 """
-    Trace{T}
+    Trace
 
 Abstract type for a trace of a generative function.
 """
@@ -69,7 +69,7 @@ Return the generative function that produced the given trace.
 function get_gen_fn end
 
 """
-    value = trace[addr]
+    value = getindex(trace::Trace, addr)
 
 Get the value of the random choice, or auxiliary state (e.g. return value of inner function call), at address `addr`.
 """
@@ -325,6 +325,7 @@ function choice_gradients(trace, selection::Selection, retgrad)
 end
 
 export GenerativeFunction
+export Trace
 export has_argument_grads
 export accepts_output_grad
 export get_params
