@@ -32,7 +32,7 @@ For example, we can call a generative function `foo` on arguments and get an out
 However, generative functions are distinct from Julia functions because they support additional behaviors, described in the remainder of this section.
 
 
-## Mathematical definition
+## Mathematical concepts
 
 Generative functions represent computations that accept some arguments, may use randomness internally, return an output, and cannot mutate externally observable state.
 We represent the randomness used during an execution of a generative function as a **choice map** from unique **addresses** to values of random choices, denoted ``t : A \to V`` where ``A`` is an address set and ``V`` is a set of possible values that random choices can take.
@@ -45,10 +45,10 @@ Untraced randomness is useful for example, when calling black box Julia code tha
 
 The observable behavior of every generative function is defined by the following mathematical objects:
 
-### 1. Input type
+### Input type
 The set of valid argument tuples to the function, denoted ``X``.
 
-### 2. Probability distribution family
+### Probability distribution family
 A family of probability distributions ``p(t, r; x)`` on maps ``t`` from random choice addresses to their values, and untraced randomness ``r``, indexed by arguments ``x``, for all ``x \in X``.
 Note that the distribution must be normalized:
 ```math
@@ -64,11 +64,19 @@ And we denote the conditional distribution on untraced randomness ``r``, given t
 p(r; x, t) := p(t, r; x) / p(t; x)
 ```
 
-### 3. Return value function
-A (deterministic) function ``f`` that maps the tuple ``(x, t)`` of the arguments and the random choice map to the return value of the function (which we denote by ``y``).
+### Return value function
+A (deterministic) function ``f`` that maps the tuple ``(x, t)`` of the arguments and the choice map to the return value of the function (which we denote by ``y``).
 Note that the return value cannot depend on the untraced randomness.
 
-### 4. Internal proposal distribution family
+### Auxiliary state
+Generative functions may expose additional **auxiliary state** associated with an execution, besides the choice map and the return value.
+This auxiliary state is a function ``z = h(x, t, r)`` of the arguments, choice map, and untraced randomness.
+Like the choice map, the auxiliary state is indexed by addresses.
+We require that the addresses of auxiliary state are disjoint from the addresses in the choice map.
+Note that when a generative function is called within a model, the auxiliary state is not available to the caller.
+It is typically used by inference programs, for logging and for caching the results of deterministic computations that would otherwise need to be reconstructed.
+
+### Internal proposal distribution family
 A family of probability distributions ``q(t; x, u)`` on maps ``t`` from random choice addresses to their values, indexed by tuples ``(x, u)`` where ``u`` is a map from random choice addresses to values, and where ``x`` are the arguments to the function.
 It must satisfy the following conditions:
 ```math
@@ -85,6 +93,7 @@ There is also a family of probability distributions ``q(r; x, t)`` on untraced r
 q(r; x, t) > 0 \mbox{ if and only if } p(r; x, t) > 0
 ```
 
+
 ## Traces
 
 An **execution trace** (or just *trace*) is a record of an execution of a generative function.
@@ -98,9 +107,9 @@ Traces contain:
 
 - the return value
 
-- auxiliary state (e.g. the return value of internal calls)
+- auxiliary state
 
-- other implementation-specific state needed to incrementally update an execution
+- other implementation-specific state that is not exposed to the caller or user of the generative function, but is used internally to facilitate e.g. incremental updates to executions.
 
 Different concrete types of generative functions use different data structures and different Julia types for their traces, but traces are subtypes of [`Trace`](@ref).
 ```@docs
@@ -129,7 +138,8 @@ There are various methods for inspecting traces, including:
 
 - [`get_gen_fn`](@ref) (returns a reference to the generative function)
 
-You can also access the values in the choice map, and the auxiliary state of the trace, using [`Base.getindex`](@ref), e.g.:
+You can also access the values in the choice map and the auxiliary state of the trace by passing the address to [`Base.getindex`](@ref).
+For example, to retrieve the value of random choice at address `:z`:
 ```julia
 z = trace[:z]
 ```
