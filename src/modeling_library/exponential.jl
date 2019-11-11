@@ -24,6 +24,8 @@ function Gen.random(::Exponential, rate::Real)
     rand(Distributions.Exponential(scale))
 end
 
+is_discrete(::Exponential) = false
+
 (::Exponential)(rate) = random(Exponential(), rate)
 
 Gen.has_output_grad(::Exponential) = true

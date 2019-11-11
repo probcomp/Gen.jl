@@ -22,6 +22,7 @@ function random(::Poisson, lambda::Real)
 end
 
 (::Poisson)(lambda) = random(Poisson(), lambda)
+is_discrete(::Poisson) = true
 
 has_output_grad(::Poisson) = false
 has_argument_grads(::Poisson) = (false,)

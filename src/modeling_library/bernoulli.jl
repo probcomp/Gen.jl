@@ -18,6 +18,8 @@ end
 
 random(::Bernoulli, prob::Real) = rand() < prob
 
+is_discrete(::Bernoulli) = true
+
 (::Bernoulli)(prob) = random(Bernoulli(), prob)
 
 has_output_grad(::Bernoulli) = false
