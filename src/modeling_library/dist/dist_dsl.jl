@@ -6,7 +6,7 @@ include("relabeled_distribution.jl")
 #TODO: Remove Distribution{T} from structs; use a type U instead
 
 
-# Arg types: represent arguments to distributions
+# `Arg` types: represent arguments to distributions
 abstract type Arg end
 
 # Represents a argument at a certain index
@@ -207,6 +207,14 @@ Base.log(b::DistWithArgs{T}) where T <: Real = DistWithArgs(TransformedDistribut
 # Indexing
 Base.getindex(collection::Arg, d::DistWithArgs{T}) where T = DistWithArgs{Any}(WithLabelArg{Any, T}(d.base), (collection, d.arglist...))
 Base.getindex(collection::AbstractArray{T}, d::DistWithArgs{U}) where {T, U} = DistWithArgs{T}(RelabeledDistribution{T, U}(d.base, collection), d.arglist)
-Base.getindex(collection::AbstractDict{T}, d::DistWithArgs{U}) where {T, U} = DistWithArgs{T}(RelabeledDistribution{T, U}(d.base, collection), d.arglist)
+Base.getindex(collection::AbstractDict{U, T}, d::DistWithArgs{U}) where {T, U} = DistWithArgs{T}(RelabeledDistribution{T, U}(d.base, collection), d.arglist)
+# Ensure no ambiguity with `Base` implementation.
+Base.getindex(collection::Dict{U, T}, d::DistWithArgs{U}) where {T, U} = DistWithArgs{T}(RelabeledDistribution{T, U}(d.base, collection), d.arglist)
+
+# `Enum` constructors
+function (::Type{T})(d::DistWithArgs{U}) where {T <: Enum, U}
+    lookup = Dict(Int(i) => i for i in instances(T))
+    DistWithArgs{T}(RelabeledDistribution{T, U}(d.base, lookup), d.arglist)
+end
 
 export @dist
