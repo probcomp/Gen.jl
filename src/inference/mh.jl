@@ -49,7 +49,7 @@ end
 
 Perform a generalized Metropolis-Hastings update based on an involution (bijection that is its own inverse) on a space of choice maps, returning the new trace (which is equal to the previous trace if the move was not accepted) and a Bool indicating whether the move was accepted or not.
 
-The `involution' Julia function has the following signature:
+The `involution` Julia function has the following signature:
 
     (new_trace, bwd_choices::ChoiceMap, weight) = involution(trace, fwd_choices::ChoiceMap, fwd_ret, proposal_args::Tuple)
 
