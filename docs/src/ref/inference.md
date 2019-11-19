@@ -13,6 +13,7 @@ metropolis_hastings
 mh
 mala
 hmc
+elliptical_slice
 ```
 
 ## Optimization over Random Choices
