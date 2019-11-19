@@ -1225,11 +1225,19 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "ref/inference/#Gen.elliptical_slice",
+    "page": "Inference Library",
+    "title": "Gen.elliptical_slice",
+    "category": "function",
+    "text": "new_trace = elliptical_slice(trace, addr, mu, cov)\n\nApply an elliptical slice sampling update to a given random choice with a multivariate normal prior.\n\nAlso takes the mean vector and covariance matrix of the prior.\n\nReference URL\n\n\n\n\n\n"
+},
+
+{
     "location": "ref/inference/#Markov-Chain-Monte-Carlo-1",
     "page": "Inference Library",
     "title": "Markov Chain Monte Carlo",
     "category": "section",
-    "text": "The following inference library methods take a trace and return a new trace.metropolis_hastings\nmh\nmala\nhmc"
+    "text": "The following inference library methods take a trace and return a new trace.metropolis_hastings\nmh\nmala\nhmc\nelliptical_slice"
 },
 
 {
