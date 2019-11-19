@@ -29,9 +29,11 @@ function do_inference(xs, ys, num_iters)
     
     scores = Vector{Float64}(undef, num_iters)
     for i=1:num_iters
-        (trace, _) = mala(trace, line_selection, 0.001)
-        (trace, _) = mala(trace, std_selection, 0.001)
-    
+        trace, = hmc(trace, line_selection; eps=1e-2, L=10)
+        trace, = hmc(trace, std_selection; eps=1e-2, L=10)
+        trace, = mala(trace, line_selection, 0.001)
+        trace, = mala(trace, std_selection, 0.001)
+
         # step on the outliers
         for j=1:length(xs)
             (trace, _) = metropolis_hastings(trace, is_outlier_proposal, (j,))
