@@ -1221,7 +1221,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Inference Library",
     "title": "Gen.hmc",
     "category": "function",
-    "text": "(new_trace, accepted) = hmc(trace, selection::Selection, mass=0.1, L=10, eps=0.1)\n\nApply a Hamiltonian Monte Carlo (HMC) update.\n\nNeal, Radford M. \"MCMC using Hamiltonian dynamics.\" Handbook of Markov Chain Monte Carlo 2.11 (2011): 2.\n\nReference URL\n\n\n\n\n\n"
+    "text": "(new_trace, accepted) = hmc(trace, selection::Selection, L=10, eps=0.1)\n\nApply a Hamiltonian Monte Carlo (HMC) update.\n\nNeal, Radford M. \"MCMC using Hamiltonian dynamics.\" Handbook of Markov Chain Monte Carlo 2.11 (2011): 2.\n\nReference URL\n\n\n\n\n\n"
 },
 
 {
