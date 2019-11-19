@@ -327,3 +327,11 @@ end
     @test c != a
 
 end
+
+@testset "choice map nested view" begin
+    c = choicemap((:a, 1),
+                  (:b => :c, 2))
+    cv = nested_view(c)
+    @test c[:a] == cv[:a]
+    @test c[:b => :c] == cv[:b][:c]
+end

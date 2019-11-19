@@ -886,3 +886,69 @@ _fill_array!(::EmptyChoiceMap, arr::Vector, start_idx::Int) = 0
 _from_array(::EmptyChoiceMap, arr::Vector, start_idx::Int) = (0, EmptyChoiceMap())
 
 export EmptyChoiceMap
+
+############################################
+# Nested-dict–like accessor for choicemaps #
+############################################
+
+"""
+Wrapper for a `ChoiceMap` that provides nested-dict–like syntax, rather than
+the default syntax which looks like a flat dict of full keypaths.
+
+```jldoctest
+julia> using Gen
+julia> c = choicemap((:a, 1),
+                     (:b => :c, 2));
+julia> cv = nested_view(c);
+julia> c[:a] == cv[:a]
+true
+julia> c[:b => :c] == cv[:b][:c]
+true
+```
+"""
+struct ChoiceMapNestedView
+    choice_map::ChoiceMap
+end
+
+function Base.getindex(choices::ChoiceMapNestedView, addr)
+    if has_value(choices.choice_map, addr)
+        return get_value(choices.choice_map, addr)
+    end
+    submap = get_submap(choices.choice_map, addr)
+    if isempty(submap)
+        throw(KeyError(addr))
+    end
+    ChoiceMapNestedView(submap)
+end
+
+function Base.iterate(c::ChoiceMapNestedView)
+    inner_iterator = Base.Iterators.flatten((
+        get_values_shallow(c.choice_map),
+        ((k, ChoiceMapNestedView(v))
+         for (k, v) in get_submaps_shallow(c.choice_map))))
+    r = Base.iterate(inner_iterator)
+    if r == nothing
+        return nothing
+    end
+    (next_kv, next_inner_state) = r
+    (next_kv, (inner_iterator, next_inner_state))
+end
+
+function Base.iterate(c::ChoiceMapNestedView, state)
+    (inner_iterator, inner_state) = state
+    r = Base.iterate(inner_iterator, inner_state)
+    if r == nothing
+        return nothing
+    end
+    (next_kv, next_inner_state) = r
+    (next_kv, (inner_iterator, next_inner_state))
+end
+
+Base.print(io::IO, c::ChoiceMapNestedView) = Base.print(io, c.choice_map)
+
+nested_view(c::ChoiceMap) = ChoiceMapNestedView(c)
+# TODO: Rearrange code so that `Trace` has been declared by this point, and
+# qualify the argument as `trace::Trace`
+nested_view(trace) = ChoiceMapNestedView(get_choices(trace))
+
+export nested_view
