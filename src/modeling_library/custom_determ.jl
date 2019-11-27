@@ -26,12 +26,23 @@ project(trace::CustomDetermGFTrace, selection::Selection) = 0.
 
 get_gen_fn(trace::CustomDetermGFTrace) = trace.gen_fn
 
+
 """
     CustomDetermGF{T,S} <: GenerativeFunction{T,CustomDetermGFTrace{T,S}} 
 
 Abstract type for a custom deterministic generative function. 
+
+A concrete subtype U <: CustomDetermGF must implement at a minimum the following functions:
+
+- execute_determ(gen_fn::U, args)
+
+- has_argument_grads(::U)
+
 """
 abstract type CustomDetermGF{T,S} <: GenerativeFunction{T,CustomDetermGFTrace{T,S}} end
+
+# default implementation, can be overridden
+accepts_output_grad(::CustomDetermGF) = false
 
 """
     retval, state = execute_determ(gen_fn::CustomDetermGF, args)
@@ -45,17 +56,26 @@ function execute_determ end
 
 Update the arguments to the generative function and return new return value and state.
 """
-function update_determ end
+function update_determ(gen_fn::CustomDetermGF{T,S}, state, args, argdiffs) where {T,S}
+    # default implementation, can be overridden
+    new_retval, new_state = execute_determ(gen_fn, args)
+    retdiff = UnknownChange()
+    (new_state, new_retval, retdiff)
+end
 
 """
-    arg_grads = gradient_determ(gen_fn::CustomDetermGF, state, retgrad) 
+    arg_grads = gradient_determ(gen_fn::CustomDetermGF, state, args, retgrad) 
 
 Return the gradient tuple with respect to the arguments.
 """
-function gradient_determ end
+function gradient_determ(gen_fn::CustomDetermGF, state, args, retgrad)
+    # default implementation, can be overridden
+    map((_) -> nothing, args)
+end
 
 """
-    arg_grads = accumulate_param_gradients_get!(trace::CustomDefGF, retgrad, scaler)
+    arg_grads = accumulate_param_gradients_determ!(
+        gen_fn::CustomDetermGF, state, args, retgrad, scale_factor)
     
 Increment gradient accumulators for parameters the gradient with respect to the
 arguments, optionally scaled, and return the gradient with respect to the
@@ -72,9 +92,13 @@ the function by:
 ```math
 s * ∇_Θ J
 ```
-where \$s\$ is `scaler`.
+where \$s\$ is `scale_factor`.
 """
-function accumulate_param_gradients_determ! end
+function accumulate_param_gradients_determ!(
+        gen_fn::CustomDetermGF, state, args, retgrad, scale_factor)
+    # default implementation, can be overridden
+    gradient_determ(gen_fn, state, args, retgrad)
+end
 
 function simulate(gen_fn::CustomDetermGF{T,S}, args::Tuple) where {T,S}
     retval, state = execute_determ(gen_fn, args)
@@ -104,12 +128,12 @@ function regenerate(trace::CustomDetermGFTrace, args::Tuple, argdiffs::Tuple, se
 end
 
 function choice_gradients(trace::CustomDetermGFTrace, selection::Selection, retgrad)
-    arg_grads = gradient_determ(trace.gen_fn, trace.state, retgrad)
+    arg_grads = gradient_determ(trace.gen_fn, trace.state, trace.args, retgrad)
     (arg_grads, EmptyChoiceMap(), EmptyChoiceMap())
 end
 
-function accumulate_param_gradients!(trace::CustomDetermGFTrace, retgrad, scaler)
-    accumulate_param_gradients_determ!(trace.gen_fn, trace.state, retgrad, scaler)
+function accumulate_param_gradients!(trace::CustomDetermGFTrace, retgrad, scale_factor)
+    accumulate_param_gradients_determ!(trace.gen_fn, trace.state, trace.args, retgrad, scale_factor)
 end
 
 export CustomDetermGF, CustomDetermGFTrace, execute_determ, update_determ, gradient_determ, accumulate_param_gradients_determ!

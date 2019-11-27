@@ -1,4 +1,4 @@
-@testset "custom deterministic generative function" begin
+@testset "custom deterministic generative function with custom update and gradient" begin
 
     struct MyDeterministicGFState
         sum::Float64
@@ -57,12 +57,13 @@
 
     Gen.accepts_output_grad(::MyDeterministicGF) = true
 
-    function Gen.gradient_determ(::MyDeterministicGF, state, retgrad)
+    function Gen.gradient_determ(::MyDeterministicGF, state, args, retgrad)
         arr_gradient = fill(retgrad * state.my_param, length(state.prev))
         (arr_gradient,)
     end
 
-    function Gen.accumulate_param_gradients_determ!(gen_fn::MyDeterministicGF, state, retgrad, scaler)
+    function Gen.accumulate_param_gradients_determ!(
+            gen_fn::MyDeterministicGF, state, args, retgrad, scaler)
         gen_fn.my_grad += (retgrad * state.sum) * scaler
         arr_gradient = fill(retgrad * state.my_param, length(state.prev))
         (arr_gradient,)        
@@ -116,8 +117,34 @@
     # accumulate parameter gradients
     gen_fn = MyDeterministicGF()
     trace = simulate(gen_fn, ([1, 2, 3],))
-    arg_grads = accumulate_param_gradients!(trace, 2., 1.)
-    @test arg_grads[1] == [2., 2., 2.]
-    @test gen_fn.my_grad == 2. * (1 + 2 + 3)
+    arg_grads = accumulate_param_gradients!(trace, 2., 3.)
+    @test arg_grads[1] == [2., 2., 2.] # not scaled by 3.
+    @test gen_fn.my_grad == 2. * (1 + 2 + 3) * 3. # scaled by 3.
+end
 
+
+@testset "custom deterministic generative function with custom gradient only" begin
+
+    struct CustomPlus <: CustomDetermGF{Float64,Nothing} end
+    Gen.accepts_output_grad(::CustomPlus) = true
+    Gen.has_argument_grads(::CustomPlus) = (true, true)
+    Gen.execute_determ(::CustomPlus, args::Tuple{Float64,Float64}) = (args[1] + args[2], nothing)
+    Gen.gradient_determ(::CustomPlus, state::Nothing, args, retgrad) = (retgrad, retgrad)
+    custom_plus = CustomPlus()
+    trace = simulate(custom_plus, (1., 2.))
+    
+    # update (UnknownChange)
+    new_trace, w, retdiff = update(trace, (1., 3.), (UnknownChange(),), EmptyChoiceMap())
+    @test w == 0.
+    @test get_retval(new_trace) == 1. + 3.
+    @test get_args(new_trace) == (1., 3.)
+    @test retdiff == UnknownChange()
+
+    # choice gradients
+    arg_grads, _, _ = choice_gradients(trace, EmptySelection(), 2.) 
+    @test arg_grads == (2., 2.)
+
+    # accumulate parameter gradients
+    arg_grads = accumulate_param_gradients!(trace, 2., 3.)
+    @test arg_grads == (2., 2.) # note arg grads are not scaled
 end
