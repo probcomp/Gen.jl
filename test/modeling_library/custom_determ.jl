@@ -185,17 +185,19 @@ end
     @test get_score(trace) == 0.
 
     # update (UnknownChange)
-    new_trace, w, retdiff = update(trace, ([1, 2, 4],), (UnknownChange(),), EmptyChoiceMap())
+    new_trace, w, retdiff, discard = update(trace, ([1, 2, 4],), (UnknownChange(),), EmptyChoiceMap())
     @test w == 0.
     @test get_retval(new_trace) == 1 + 2 + 4
     @test get_args(new_trace) == ([1, 2, 4],)
     @test retdiff == UnknownChange()
+    @test isempty(discard)
 
     # update (VectorDiff)
     diff = VectorDiff(4, 3, Dict(3 => UnknownChange()))
-    new_trace, w, retdiff = update(trace, ([1, 2, 4, 5],), (diff,), EmptyChoiceMap())
+    new_trace, w, retdiff, discard = update(trace, ([1, 2, 4, 5],), (diff,), EmptyChoiceMap())
     @test w == 0.
     @test get_retval(new_trace) == 1 + 2 + 4 + 5
     @test get_args(new_trace) == ([1, 2, 4, 5],)
     @test retdiff == UnknownChange()
+    @test isempty(discard)
 end

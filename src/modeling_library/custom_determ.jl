@@ -113,7 +113,7 @@ function update(trace::CustomDetermGFTrace{T,S}, args::Tuple, argdiffs::Tuple, c
     end
     state, retval, retdiff = update_with_state(trace.gen_fn, trace.state, args, argdiffs)
     new_trace = CustomDetermGFTrace{T,S}(retval, state, args, trace.gen_fn)
-    (new_trace, 0., retdiff)
+    (new_trace, 0., retdiff, choicemap())
 end
 
 function regenerate(trace::CustomDetermGFTrace, args::Tuple, argdiffs::Tuple, selection::Selection)
