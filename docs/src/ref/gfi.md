@@ -81,54 +81,58 @@ There is also a family of probability distributions ``q(r; x, t)`` on untraced r
 q(r; x, t) > 0 \mbox{ if and only if } p(r; x, t) > 0
 ```
 
+
 ## Traces
 
 An **execution trace** (or just *trace*) is a record of an execution of a generative function.
-There is no abstract type representing all traces.
-Different concrete types of generative functions use different data structures and different Julia types for their traces.
-The trace type that a generative function uses is the second type parameter of the [`GenerativeFunction`](@ref) abstract type.
+Traces are the primary data structures manipulated by Gen inference programs.
+There are various methods for producing, updating, and inspecting traces.
+Traces contain:
 
-A generative function can be executed and traced using:
+- the arguments to the generative function
+
+- the random choice map 
+
+- the return value
+
+- other implementation-specific state needed to incrementally update an execution
+
+Different concrete types of generative functions use different data structures and different Julia types for their traces, but traces are subtypes of [`Trace`](@ref).
 ```@docs
-simulate
+Trace
+```
+The concrete trace type that a generative function uses is the second type parameter of the [`GenerativeFunction`](@ref) abstract type.
+For example, the trace type of [`DynamicDSLFunction`](@ref) is `DynamicDSLTrace`.
+
+A generative function can be executed to produce a trace of the execution using [`simulate`](@ref):
+```julia
+trace = simulate(foo, (a, b))
+```
+An traced execution that satisfies constraints on the choice map can be generated using [`generate`](@ref):
+```julia
+trace, weight = generate(foo, (a, b), choicemap((:z, false)))
+```
+There are various methods for inspecting traces, including:
+
+- [`get_args`](@ref) (returns the arguments to the function)
+
+- [`get_retval`](@ref) (returns the return value of the function)
+
+- [`get_choices`](@ref) (returns the choice map)
+
+- [`get_score`](@ref) (returns the log probability that the random choices took the values they did)
+
+- [`get_gen_fn`](@ref) (returns a reference to the generative function)
+
+You can also access the values in the choice map using [`Base.getindex`](@ref), e.g.:
+```julia
+z = trace[:z]
 ```
 
-An traced execution that satisfies constraints on the choice map can be generated using:
-```@docs
-generate
-```
+## Updating traces
 
-The trace contains various information about the execution, including:
-
-The arguments to the generative function:
-```@docs
-get_args
-```
-
-The return value of the generative function:
-```@docs
-get_retval
-```
-
-The map ``t`` from addresses of random choices to their values:
-```@docs
-get_choices
-```
-
-The log probability that the random choices took the values they did:
-```@docs
-get_score
-```
-
-A reference to the generative function that was executed:
-```@docs
-get_gen_fn
-```
-
-## Trace update methods
-
-It is often important to update or adjust the trace of a generative function.
-In Gen, traces are **persistent data structures**, meaning they can be treated as immutable values.
+It is often important to adjust the trace of a generative function (e.g. within MCMC, numerical optimization, sequential Monte Carlo, etc.).
+In Gen, traces are **functional data structures**, meaning they can be treated as immutable values.
 There are several methods that take a trace of a generative function as input and return a new trace of the generative function based on adjustments to the execution history of the function.
 We will illustrate these methods using the following generative function:
 ```julia
@@ -157,9 +161,8 @@ Suppose we have a trace (`trace`) of `bar` with initial choices:
 Note that address `:d` is not present because the branch in which `:d` is sampled was not taken because random choice `:b` had value `true`.
 
 ### Update
-```@docs
-update
-```
+The [`update`](@ref) method takes a trace and generates an adjusted trace that is consistent with given changes to the arguments to the function, and changes to the values of random choices made.
+
 **Example.**
 Suppose we run [`update`](@ref) on the example `trace`, with the following constraints:
 ```
@@ -248,9 +251,8 @@ u = \log p(t'; x')/(p(t; x) q(t'; x', t + u)) = \log 0.0294/(0.0784 \cdot 0.1) =
 
 
 ### Regenerate
-```@docs
-regenerate
-```
+The [`regenerate`](@ref) method takes a trace and generates an adjusted trace that is consistent with a change to the arguments to the function, and also generates new values for selected random choices.
+
 **Example.**
 Suppose we run [`regenerate`](@ref) on the example `trace`, with selection `:a` and `:b`:
 ```julia
@@ -300,23 +302,32 @@ To enable generative functions that invoke other functions to efficiently make u
 
 Generative functions may support computation of gradients with respect to (i) all or a subset of its arguments, (ii) its **trainable parameters**, and (iii) the value of certain random choices.
 The set of elements (either arguments, trainable parameters, or random choices) for which gradients are available is called the *gradient source set*.
-A generative function statically reports whether or not it is able to compute gradients with respect to each of its arguments, through the function `has_argument_grads`.
+A generative function statically reports whether or not it is able to compute gradients with respect to each of its arguments, through the function [`has_argument_grads`](@ref).
 Let ``x_G`` denote the set of arguments for which the generative function does support gradient computation.
 Similarly, a generative function supports gradients with respect the value of random choices made at all or a subset of addresses.
 If the return value of the function is conditionally independent of each element in the gradient source set given the other elements in the gradient source set and values of all other random choices, for all possible traces of the function, then the generative function requires a *return value gradient* to compute gradients with respect to elements of the gradient source set.
-This static property of the generative function is reported by `accepts_output_grad`.
+This static property of the generative function is reported by [`accepts_output_grad`](@ref).
 
+## Generative function interface
+
+The complete set of methods in the generative function interface (GFI) is:
 ```@docs
+simulate
+generate
+update
+regenerate
+get_args
+get_retval
+get_choices
+get_score
+get_gen_fn
+Base.getindex
+project
+propose
+assess
 has_argument_grads
 accepts_output_grad
 accumulate_param_gradients!
 choice_gradients
 get_params
-```
-
-### Additional methods
-```@docs
-project
-propose
-assess
 ```
