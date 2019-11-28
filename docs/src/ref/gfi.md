@@ -326,19 +326,28 @@ assess
 Most users can just use generative functions written in the [Built-in Modeling Language](@ref), and can skip this section.
 However, to develop new modeling DSLs, or optimized implementations of certain probabilistic modeling components, users can also implement custom types of generative functions.
 
-### Implementing a custom deterministic generative function
+### Custom deterministic generative functions
 
 If your custom generative function is deterministic (one that makes no random choices), you do not need to implement the entire GFI.
 Instead, implement a new type that is a subtype of:
 ```@docs
 CustomDetermGF
 ```
-with the following methods:
+and implement, at minimum, the following functions:
 ```@docs
 execute_determ
-update_determ
+accepts_output_grad
+has_argument_grads
+```
+
+**Custom gradient.** If you want to support a gradient computation, then also implement:
+```@docs
 gradient_determ
 accumulate_param_gradients_determ!
+```
+**Incremental computation.** If you also want to update a custom `update` computation (for incremental computation of return value given a known change to the arguments), then also implement:
+```@docs
+update_determ
 ```
 
 ### Implementing a general custom generative function
