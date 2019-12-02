@@ -13,7 +13,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Home",
     "title": "Gen.jl",
     "category": "section",
-    "text": "A general-purpose probabilistic programming system with programmable inference, embedded in JuliaPages = [\n    \"getting_started.md\",\n    \"tutorials.md\",\n    \"guide.md\",\n]\nDepth = 2ReferencePages = [\n    \"ref/modeling.md\",\n    \"ref/combinators.md\",\n    \"ref/assignments.md\",\n    \"ref/selections.md\",\n    \"ref/parameter_optimization.md\",\n    \"ref/inference.md\",\n    \"ref/gfi.md\",\n    \"ref/distributions.md\"\n]\nDepth = 2"
+    "text": "A general-purpose probabilistic programming system with programmable inference, embedded in JuliaPages = [\n    \"getting_started.md\",\n    \"tutorials.md\",\n    \"guide.md\",\n]\nDepth = 2ReferencePages = [\n    \"ref/modeling.md\",\n    \"ref/combinators.md\",\n    \"ref/assignments.md\",\n    \"ref/selections.md\",\n    \"ref/parameter_optimization.md\",\n    \"ref/inference.md\",\n    \"ref/gfi.md\",\n    \"ref/distributions.md\"\n    \"ref/extending.md\",\n]\nDepth = 2"
 },
 
 {
@@ -101,7 +101,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Generative Functions",
     "title": "Mathematical definition",
     "category": "section",
-    "text": "Generative functions represent computations that accept some arguments, may use randomness internally, return an output, and cannot mutate externally observable state. We represent the randomness used during an execution of a generative function as a map from unique addresses to values, denoted t  A to V where A is an address set and V is a set of possible values that random choices can take. In this section, we assume that random choices are discrete to simplify notation. We say that two random choice maps t and s agree if they assign the same value for any address that is in both of their domains.Generative functions may also use untraced randomness, which is not included in the map t. However, the state of untraced random choices is maintained by the trace internally. We denote untraced randomness by r. Untraced randomness is useful for example, when calling black box Julia code that implements a randomized algorithm.The observable behavior of every generative function is defined by the following mathematical objects:"
+    "text": "Generative functions represent computations that accept some arguments, may use randomness internally, return an output, and cannot mutate externally observable state. We represent the randomness used during an execution of a generative function as a choice map from unique addresses to values of random choices, denoted t  A to V where A is an address set and V is a set of possible values that random choices can take. In this section, we assume that random choices are discrete to simplify notation. We say that two choice maps t and s agree if they assign the same value for any address that is in both of their domains.Generative functions may also use untraced randomness, which is not included in the map t. We denote untraced randomness by r. Untraced randomness is useful for example, when calling black box Julia code that implements a randomized algorithm.The observable behavior of every generative function is defined by the following mathematical objects:"
 },
 
 {
@@ -137,6 +137,102 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "ref/gfi/#Gen.Trace",
+    "page": "Generative Functions",
+    "title": "Gen.Trace",
+    "category": "type",
+    "text": "Trace\n\nAbstract type for a trace of a generative function.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/gfi/#Traces-1",
+    "page": "Generative Functions",
+    "title": "Traces",
+    "category": "section",
+    "text": "An execution trace (or just trace) is a record of an execution of a generative function. Traces are the primary data structures manipulated by Gen inference programs. There are various methods for producing, updating, and inspecting traces. Traces contain:the arguments to the generative function\nthe random choice map \nthe return value\nother implementation-specific state needed to incrementally update an executionDifferent concrete types of generative functions use different data structures and different Julia types for their traces, but traces are subtypes of Trace.TraceThe concrete trace type that a generative function uses is the second type parameter of the GenerativeFunction abstract type. For example, the trace type of DynamicDSLFunction is DynamicDSLTrace.A generative function can be executed to produce a trace of the execution using simulate:trace = simulate(foo, (a, b))An traced execution that satisfies constraints on the choice map can be generated using generate:trace, weight = generate(foo, (a, b), choicemap((:z, false)))There are various methods for inspecting traces, including:get_args (returns the arguments to the function)\nget_retval (returns the return value of the function)\nget_choices (returns the choice map)\nget_score (returns the log probability that the random choices took the values they did)\nget_gen_fn (returns a reference to the generative function)You can also access the values in the choice map using Base.getindex, e.g.:z = trace[:z]"
+},
+
+{
+    "location": "ref/gfi/#Updating-traces-1",
+    "page": "Generative Functions",
+    "title": "Updating traces",
+    "category": "section",
+    "text": "It is often important to adjust the trace of a generative function (e.g. within MCMC, numerical optimization, sequential Monte Carlo, etc.). In Gen, traces are functional data structures, meaning they can be treated as immutable values. There are several methods that take a trace of a generative function as input and return a new trace of the generative function based on adjustments to the execution history of the function. We will illustrate these methods using the following generative function:@gen function bar()\n    val = @trace(bernoulli(0.3), :a)\n    if @trace(bernoulli(0.4), :b)\n        val = @trace(bernoulli(0.6), :c) && val\n    else\n        val = @trace(bernoulli(0.1), :d) && val\n    end\n    val = @trace(bernoulli(0.7), :e) && val\n    return val\nendSuppose we have a trace (trace) of bar with initial choices:│\n├── :a : false\n│\n├── :b : true\n│\n├── :c : false\n│\n└── :e : trueNote that address :d is not present because the branch in which :d is sampled was not taken because random choice :b had value true."
+},
+
+{
+    "location": "ref/gfi/#Update-1",
+    "page": "Generative Functions",
+    "title": "Update",
+    "category": "section",
+    "text": "The update method takes a trace and generates an adjusted trace that is consistent with given changes to the arguments to the function, and changes to the values of random choices made.Example. Suppose we run update on the example trace, with the following constraints:│\n├── :b : false\n│\n└── :d : trueconstraints = choicemap((:b, false), (:d, true))\n(new_trace, w, _, discard) = update(trace, (), (), constraints)Then get_choices(new_trace) will be:│\n├── :a : false\n│\n├── :b : false\n│\n├── :d : true\n│\n└── :e : trueand discard will be:│\n├── :b : true\n│\n└── :c : falseNote that the discard contains both the previous values of addresses that were overwritten, and the values for addresses that were in the previous trace but are no longer in the new trace. The weight (w) is computed as:p(t x) = 07  04  04  07 = 00784\np(t x) = 07  06  01  07 = 00294\nw = log p(t x)p(t x) = log 0029400784 = log 0375Example. Suppose we run update on the example trace, with the following constraints, which do not contain a value for :d:│\n└── :b : falseconstraints = choicemap((:b, false))\n(new_trace, w, _, discard) = update(trace, (), (), constraints)Then get_choices(new_trace) will be:│\n├── :a : false\n│\n├── :b : false\n│\n├── :d : true\n│\n└── :e : truewith probability 0.1, or:│\n├── :a : false\n│\n├── :b : false\n│\n├── :d : false\n│\n└── :e : truewith probability 0.9. Also, discard will be:│\n├── :b : true\n│\n└── :c : falseIf :d is assigned to 0.1, then the weight (w) is computed as:p(t x) = 07  04  04  07 = 00784\np(t x) = 07  06  01  07 = 00294\nq(t x t + u) = 01\nu = log p(t x)(p(t x) q(t x t + u)) = log 00294(00784 cdot 01) = log (375)"
+},
+
+{
+    "location": "ref/gfi/#Regenerate-1",
+    "page": "Generative Functions",
+    "title": "Regenerate",
+    "category": "section",
+    "text": "The regenerate method takes a trace and generates an adjusted trace that is consistent with a change to the arguments to the function, and also generates new values for selected random choices.Example. Suppose we run regenerate on the example trace, with selection :a and :b:(new_trace, w, _) = regenerate(trace, (), (), select(:a, :b))Then, a new value for :a will be sampled from bernoulli(0.3), and a new value for :b will be sampled from bernoulli(0.4). If the new value for :b is true, then the previous value for :c (false) will be retained. If the new value for :b is false, then a new value for :d will be sampled from bernoulli(0.7). The previous value for :c will always be retained. Suppose the new value for :a is true, and the new value for :b is true. Then get_choices(new_trace) will be:│\n├── :a : true\n│\n├── :b : true \n│\n├── :c : false\n│\n└── :e : trueThe weight (w) is log 1 = 0."
+},
+
+{
+    "location": "ref/gfi/#Gen.NoChange",
+    "page": "Generative Functions",
+    "title": "Gen.NoChange",
+    "category": "type",
+    "text": "NoChange\n\nThe value did not change.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/gfi/#Gen.UnknownChange",
+    "page": "Generative Functions",
+    "title": "Gen.UnknownChange",
+    "category": "type",
+    "text": "UnknownChange\n\nNo information is provided about the change to the value.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/gfi/#Argdiffs-1",
+    "page": "Generative Functions",
+    "title": "Argdiffs",
+    "category": "section",
+    "text": "In addition to the input trace, and other arguments that indicate how to adjust the trace, each of these methods also accepts an args argument and an argdiffs argument, both of which are tuples. The args argument contains the new arguments to the generative function, which may differ from the previous arguments to the generative function (which can be retrieved by applying get_args to the previous trace). In many cases, the adjustment to the execution specified by the other arguments to these methods is \'small\' and only affects certain parts of the computation. Therefore, it is often possible to generate the new trace and the appropriate log probability ratios required for these methods without revisiting every state of the computation of the generative function. To enable this, the argdiffs argument provides additional information about the difference between each of the previous arguments to the generative function, and its new argument value. This argdiff information permits the implementation of the update method to avoid inspecting the entire argument data structure to identify which parts were updated. Note that the correctness of the argdiff is in general not verified by Gen–-passing incorrect argdiff information may result in incorrect behavior.The trace update methods for all generative functions above should accept at least the following types of argdiffs:NoChange\nUnknownChangeGenerative functions may also be able to process more specialized diff data types for each of their arguments, that allow more precise information about the different to be supplied."
+},
+
+{
+    "location": "ref/gfi/#Retdiffs-1",
+    "page": "Generative Functions",
+    "title": "Retdiffs",
+    "category": "section",
+    "text": "To enable generative functions that invoke other functions to efficiently make use of incremental computation, the trace update methods of generative functions also return a retdiff value, which provides information about the difference in the return value of the previous trace an the return value of the new trace."
+},
+
+{
+    "location": "ref/gfi/#Differentiable-programming-1",
+    "page": "Generative Functions",
+    "title": "Differentiable programming",
+    "category": "section",
+    "text": "The trace of a generative function may support computation of gradients of its log probability with respect to some subset of (i) its arguments, (ii) values of random choice, and (iii) any of its trainable parameters (see below).To compute gradients with respect to the arguments as well as certain selected random choices, use:choice_gradientsTo compute gradients with respect to the arguments, and to increment a stateful gradient accumulator for the trainable parameters of the generative function, use:accumulate_param_gradients!A generative function statically reports whether or not it is able to compute gradients with respect to each of its arguments, through the function has_argument_grads."
+},
+
+{
+    "location": "ref/gfi/#Trainable-parameters-1",
+    "page": "Generative Functions",
+    "title": "Trainable parameters",
+    "category": "section",
+    "text": "The trainable parameters of a generative function are (unlike arguments and random choices) state of the generative function itself, and are not contained in the trace. Generative functions that have trainable parameters maintain gradient accumulators for these parameters, which get incremented by the gradient induced by the given trace by a call to accumulate_param_gradients!. Users then use these accumulated gradients to update to the values of the trainable parameters."
+},
+
+{
+    "location": "ref/gfi/#Return-value-gradient-1",
+    "page": "Generative Functions",
+    "title": "Return value gradient",
+    "category": "section",
+    "text": "The set of elements (either arguments, random choices, or trainable parameters) for which gradients are available is called the gradient source set. If the return value of the function is conditionally dependent on any element in the gradient source set given the arguments and values of all other random choices, for all possible traces of the function, then the generative function requires a return value gradient to compute gradients with respect to elements of the gradient source set. This static property of the generative function is reported by accepts_output_grad."
+},
+
+{
     "location": "ref/gfi/#Gen.simulate",
     "page": "Generative Functions",
     "title": "Gen.simulate",
@@ -150,6 +246,22 @@ var documenterSearchIndex = {"docs": [
     "title": "Gen.generate",
     "category": "function",
     "text": "(trace::U, weight) = generate(gen_fn::GenerativeFunction{T,U}, args::Tuple)\n\nReturn a trace of a generative function.\n\n(trace::U, weight) = generate(gen_fn::GenerativeFunction{T,U}, args::Tuple,\n                                constraints::ChoiceMap)\n\nReturn a trace of a generative function that is consistent with the given constraints on the random choices.\n\nGiven arguments x (args) and assignment u (constraints) (which is empty for the first form), sample t sim q(cdot u x) and r sim q(cdot x t), and return the trace (x t r) (trace).  Also return the weight (weight):\n\nlog fracp(t r x)q(t u x) q(r x t)\n\nExample without constraints:\n\n(trace, weight) = generate(foo, (2, 4))\n\nExample with constraint that address :z takes value true.\n\n(trace, weight) = generate(foo, (2, 4), choicemap((:z, true))\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/gfi/#Gen.update",
+    "page": "Generative Functions",
+    "title": "Gen.update",
+    "category": "function",
+    "text": "(new_trace, weight, retdiff, discard) = update(trace, args::Tuple, argdiffs::Tuple,\n                                               constraints::ChoiceMap)\n\nUpdate a trace by changing the arguments and/or providing new values for some existing random choice(s) and values for some newly introduced random choice(s).\n\nGiven a previous trace (x t r) (trace), new arguments x (args), and a map u (constraints), return a new trace (x t r) (new_trace) that is consistent with u.  The values of choices in t are either copied from t or from u (with u taking precedence) or are sampled from the internal proposal distribution.  All choices in u must appear in t.  Also return an assignment v (discard) containing the choices in t that were overwritten by values from u, and any choices in t whose address does not appear in t. Sample t sim q(cdot x t + u), and r sim q(cdot x t), where t + u is the choice map obtained by merging t and u with u taking precedence for overlapping addresses.  Also return a weight (weight):\n\nlog fracp(r t x) q(r x t)p(r t x) q(r x t) q(t x t + u)\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/gfi/#Gen.regenerate",
+    "page": "Generative Functions",
+    "title": "Gen.regenerate",
+    "category": "function",
+    "text": "(new_trace, weight, retdiff) = regenerate(trace, args::Tuple, argdiffs::Tuple,\n                                          selection::Selection)\n\nUpdate a trace by changing the arguments and/or randomly sampling new values for selected random choices using the internal proposal distribution family.\n\nGiven a previous trace (x t r) (trace), new arguments x (args), and a set of addresses A (selection), return a new trace (x t) (new_trace) such that t agrees with t on all addresses not in A (t and t may have different sets of addresses).  Let u denote the restriction of t to the complement of A.  Sample t sim Q(cdot u x) and sample r sim Q(cdot x t). Return the new trace (x t r) (new_trace) and the weight (weight):\n\nlog fracp(r t x) q(t u x) q(r x t)p(r t x) q(t u x) q(r x t)\n\nwhere u is the restriction of t to the complement of A.\n\n\n\n\n\n"
 },
 
 {
@@ -193,83 +305,35 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "ref/gfi/#Traces-1",
+    "location": "ref/gfi/#Base.getindex",
     "page": "Generative Functions",
-    "title": "Traces",
-    "category": "section",
-    "text": "An execution trace (or just trace) is a record of an execution of a generative function. There is no abstract type representing all traces. Different concrete types of generative functions use different data structures and different Julia types for their traces. The trace type that a generative function uses is the second type parameter of the GenerativeFunction abstract type.A generative function can be executed and traced using:simulateAn traced execution that satisfies constraints on the choice map can be generated using:generateThe trace contains various information about the execution, including:The arguments to the generative function:get_argsThe return value of the generative function:get_retvalThe map t from addresses of random choices to their values:get_choicesThe log probability that the random choices took the values they did:get_scoreA reference to the generative function that was executed:get_gen_fn"
-},
-
-{
-    "location": "ref/gfi/#Trace-update-methods-1",
-    "page": "Generative Functions",
-    "title": "Trace update methods",
-    "category": "section",
-    "text": "It is often important to update or adjust the trace of a generative function. In Gen, traces are persistent data structures, meaning they can be treated as immutable values. There are several methods that take a trace of a generative function as input and return a new trace of the generative function based on adjustments to the execution history of the function. We will illustrate these methods using the following generative function:@gen function bar()\n    val = @trace(bernoulli(0.3), :a)\n    if @trace(bernoulli(0.4), :b)\n        val = @trace(bernoulli(0.6), :c) && val\n    else\n        val = @trace(bernoulli(0.1), :d) && val\n    end\n    val = @trace(bernoulli(0.7), :e) && val\n    return val\nendSuppose we have a trace (trace) of bar with initial choices:│\n├── :a : false\n│\n├── :b : true\n│\n├── :c : false\n│\n└── :e : trueNote that address :d is not present because the branch in which :d is sampled was not taken because random choice :b had value true."
-},
-
-{
-    "location": "ref/gfi/#Gen.update",
-    "page": "Generative Functions",
-    "title": "Gen.update",
+    "title": "Base.getindex",
     "category": "function",
-    "text": "(new_trace, weight, retdiff, discard) = update(trace, args::Tuple, argdiffs::Tuple,\n                                               constraints::ChoiceMap)\n\nUpdate a trace by changing the arguments and/or providing new values for some existing random choice(s) and values for some newly introduced random choice(s).\n\nGiven a previous trace (x t r) (trace), new arguments x (args), and a map u (constraints), return a new trace (x t r) (new_trace) that is consistent with u.  The values of choices in t are either copied from t or from u (with u taking precedence) or are sampled from the internal proposal distribution.  All choices in u must appear in t.  Also return an assignment v (discard) containing the choices in t that were overwritten by values from u, and any choices in t whose address does not appear in t. Sample t sim q(cdot x t + u), and r sim q(cdot x t), where t + u is the choice map obtained by merging t and u with u taking precedence for overlapping addresses.  Also return a weight (weight):\n\nlog fracp(r t x) q(r x t)p(r t x) q(r x t) q(t x t + u)\n\n\n\n\n\n"
+    "text": "value = trace[addr]\n\nGet the value of the random choice at address addr.\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/gfi/#Update-1",
+    "location": "ref/gfi/#Gen.project",
     "page": "Generative Functions",
-    "title": "Update",
-    "category": "section",
-    "text": "updateExample. Suppose we run update on the example trace, with the following constraints:│\n├── :b : false\n│\n└── :d : trueconstraints = choicemap((:b, false), (:d, true))\n(new_trace, w, _, discard) = update(trace, (), (), constraints)Then get_choices(new_trace) will be:│\n├── :a : false\n│\n├── :b : false\n│\n├── :d : true\n│\n└── :e : trueand discard will be:│\n├── :b : true\n│\n└── :c : falseNote that the discard contains both the previous values of addresses that were overwritten, and the values for addresses that were in the previous trace but are no longer in the new trace. The weight (w) is computed as:p(t x) = 07  04  04  07 = 00784\np(t x) = 07  06  01  07 = 00294\nw = log p(t x)p(t x) = log 0029400784 = log 0375Example. Suppose we run update on the example trace, with the following constraints, which do not contain a value for :d:│\n└── :b : falseconstraints = choicemap((:b, false))\n(new_trace, w, _, discard) = update(trace, (), (), constraints)Then get_choices(new_trace) will be:│\n├── :a : false\n│\n├── :b : false\n│\n├── :d : true\n│\n└── :e : truewith probability 0.1, or:│\n├── :a : false\n│\n├── :b : false\n│\n├── :d : false\n│\n└── :e : truewith probability 0.9. Also, discard will be:│\n├── :b : true\n│\n└── :c : falseIf :d is assigned to 0.1, then the weight (w) is computed as:p(t x) = 07  04  04  07 = 00784\np(t x) = 07  06  01  07 = 00294\nq(t x t + u) = 01\nu = log p(t x)(p(t x) q(t x t + u)) = log 00294(00784 cdot 01) = log (375)"
-},
-
-{
-    "location": "ref/gfi/#Gen.regenerate",
-    "page": "Generative Functions",
-    "title": "Gen.regenerate",
+    "title": "Gen.project",
     "category": "function",
-    "text": "(new_trace, weight, retdiff) = regenerate(trace, args::Tuple, argdiffs::Tuple,\n                                          selection::Selection)\n\nUpdate a trace by changing the arguments and/or randomly sampling new values for selected random choices using the internal proposal distribution family.\n\nGiven a previous trace (x t r) (trace), new arguments x (args), and a set of addresses A (selection), return a new trace (x t) (new_trace) such that t agrees with t on all addresses not in A (t and t may have different sets of addresses).  Let u denote the restriction of t to the complement of A.  Sample t sim Q(cdot u x) and sample r sim Q(cdot x t). Return the new trace (x t r) (new_trace) and the weight (weight):\n\nlog fracp(r t x) q(t u x) q(r x t)p(r t x) q(t u x) q(r x t)\n\nwhere u is the restriction of t to the complement of A.\n\n\n\n\n\n"
+    "text": "weight = project(trace::U, selection::Selection)\n\nEstimate the probability that the selected choices take the values they do in a trace. \n\nGiven a trace (x t r) (trace) and a set of addresses A (selection), let u denote the restriction of t to A. Return the weight (weight):\n\nlog fracp(r t x)q(t u x) q(r x t)\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/gfi/#Regenerate-1",
+    "location": "ref/gfi/#Gen.propose",
     "page": "Generative Functions",
-    "title": "Regenerate",
-    "category": "section",
-    "text": "regenerateExample. Suppose we run regenerate on the example trace, with selection :a and :b:(new_trace, w, _) = regenerate(trace, (), (), select(:a, :b))Then, a new value for :a will be sampled from bernoulli(0.3), and a new value for :b will be sampled from bernoulli(0.4). If the new value for :b is true, then the previous value for :c (false) will be retained. If the new value for :b is false, then a new value for :d will be sampled from bernoulli(0.7). The previous value for :c will always be retained. Suppose the new value for :a is true, and the new value for :b is true. Then get_choices(new_trace) will be:│\n├── :a : true\n│\n├── :b : true \n│\n├── :c : false\n│\n└── :e : trueThe weight (w) is log 1 = 0."
+    "title": "Gen.propose",
+    "category": "function",
+    "text": "(choices, weight, retval) = propose(gen_fn::GenerativeFunction, args::Tuple)\n\nSample an assignment and compute the probability of proposing that assignment.\n\nGiven arguments (args), sample t sim p(cdot x) and r sim p(cdot x t), and return t (choices) and the weight (weight):\n\nlog fracp(r t x)q(r x t)\n\n\n\n\n\n"
 },
 
 {
-    "location": "ref/gfi/#Gen.NoChange",
+    "location": "ref/gfi/#Gen.assess",
     "page": "Generative Functions",
-    "title": "Gen.NoChange",
-    "category": "type",
-    "text": "NoChange\n\nThe value did not change.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/gfi/#Gen.UnknownChange",
-    "page": "Generative Functions",
-    "title": "Gen.UnknownChange",
-    "category": "type",
-    "text": "UnknownChange\n\nNo information is provided about the change to the value.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/gfi/#Argdiffs-1",
-    "page": "Generative Functions",
-    "title": "Argdiffs",
-    "category": "section",
-    "text": "In addition to the input trace, and other arguments that indicate how to adjust the trace, each of these methods also accepts an args argument and an argdiffs argument, both of which are tuples. The args argument contains the new arguments to the generative function, which may differ from the previous arguments to the generative function (which can be retrieved by applying get_args to the previous trace). In many cases, the adjustment to the execution specified by the other arguments to these methods is \'small\' and only affects certain parts of the computation. Therefore, it is often possible to generate the new trace and the appropriate log probability ratios required for these methods without revisiting every state of the computation of the generative function. To enable this, the argdiffs argument provides additional information about the difference between each of the previous arguments to the generative function, and its new argument value. This argdiff information permits the implementation of the update method to avoid inspecting the entire argument data structure to identify which parts were updated. Note that the correctness of the argdiff is in general not verified by Gen–-passing incorrect argdiff information may result in incorrect behavior.The trace update methods for all generative functions above should accept at least the following types of argdiffs:NoChange\nUnknownChangeGenerative functions may also be able to process more specialized diff data types for each of their arguments, that allow more precise information about the different to be supplied."
-},
-
-{
-    "location": "ref/gfi/#Retdiffs-1",
-    "page": "Generative Functions",
-    "title": "Retdiffs",
-    "category": "section",
-    "text": "To enable generative functions that invoke other functions to efficiently make use of incremental computation, the trace update methods of generative functions also return a retdiff value, which provides information about the difference in the return value of the previous trace an the return value of the new trace."
+    "title": "Gen.assess",
+    "category": "function",
+    "text": "(weight, retval) = assess(gen_fn::GenerativeFunction, args::Tuple, choices::ChoiceMap)\n\nReturn the probability of proposing an assignment\n\nGiven arguments x (args) and an assignment t (choices) such that p(t x)  0, sample r sim q(cdot x t) and  return the weight (weight):\n\nlog fracp(r t x)q(r x t)\n\nIt is an error if p(t x) = 0.\n\n\n\n\n\n"
 },
 
 {
@@ -313,155 +377,11 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "ref/gfi/#Differentiable-programming-1",
+    "location": "ref/gfi/#Generative-function-interface-1",
     "page": "Generative Functions",
-    "title": "Differentiable programming",
+    "title": "Generative function interface",
     "category": "section",
-    "text": "Generative functions may support computation of gradients with respect to (i) all or a subset of its arguments, (ii) its trainable parameters, and (iii) the value of certain random choices. The set of elements (either arguments, trainable parameters, or random choices) for which gradients are available is called the gradient source set. A generative function statically reports whether or not it is able to compute gradients with respect to each of its arguments, through the function has_argument_grads. Let x_G denote the set of arguments for which the generative function does support gradient computation. Similarly, a generative function supports gradients with respect the value of random choices made at all or a subset of addresses. If the return value of the function is conditionally independent of each element in the gradient source set given the other elements in the gradient source set and values of all other random choices, for all possible traces of the function, then the generative function requires a return value gradient to compute gradients with respect to elements of the gradient source set. This static property of the generative function is reported by accepts_output_grad.has_argument_grads\naccepts_output_grad\naccumulate_param_gradients!\nchoice_gradients\nget_params"
-},
-
-{
-    "location": "ref/gfi/#Gen.project",
-    "page": "Generative Functions",
-    "title": "Gen.project",
-    "category": "function",
-    "text": "weight = project(trace::U, selection::Selection)\n\nEstimate the probability that the selected choices take the values they do in a trace. \n\nGiven a trace (x t r) (trace) and a set of addresses A (selection), let u denote the restriction of t to A. Return the weight (weight):\n\nlog fracp(r t x)q(t u x) q(r x t)\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/gfi/#Gen.propose",
-    "page": "Generative Functions",
-    "title": "Gen.propose",
-    "category": "function",
-    "text": "(choices, weight, retval) = propose(gen_fn::GenerativeFunction, args::Tuple)\n\nSample an assignment and compute the probability of proposing that assignment.\n\nGiven arguments (args), sample t sim p(cdot x) and r sim p(cdot x t), and return t (choices) and the weight (weight):\n\nlog fracp(r t x)q(r x t)\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/gfi/#Gen.assess",
-    "page": "Generative Functions",
-    "title": "Gen.assess",
-    "category": "function",
-    "text": "(weight, retval) = assess(gen_fn::GenerativeFunction, args::Tuple, choices::ChoiceMap)\n\nReturn the probability of proposing an assignment\n\nGiven arguments x (args) and an assignment t (choices) such that p(t x)  0, sample r sim q(cdot x t) and  return the weight (weight):\n\nlog fracp(r t x)q(r x t)\n\nIt is an error if p(t x) = 0.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/gfi/#Additional-methods-1",
-    "page": "Generative Functions",
-    "title": "Additional methods",
-    "category": "section",
-    "text": "project\npropose\nassess"
-},
-
-{
-    "location": "ref/gfi/#Custom-generative-function-types-1",
-    "page": "Generative Functions",
-    "title": "Custom generative function types",
-    "category": "section",
-    "text": "Most users can just use generative functions written in the Built-in Modeling Language, and can skip this section. However, to develop new modeling DSLs, or optimized implementations of certain probabilistic modeling components, users can also implement custom types of generative functions."
-},
-
-{
-    "location": "ref/gfi/#Gen.CustomDetermGF",
-    "page": "Generative Functions",
-    "title": "Gen.CustomDetermGF",
-    "category": "type",
-    "text": "CustomDetermGF{T,S} <: GenerativeFunction{T,CustomDetermGFTrace{T,S}}\n\nAbstract type for a custom deterministic generative function. \n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/gfi/#Gen.execute_determ",
-    "page": "Generative Functions",
-    "title": "Gen.execute_determ",
-    "category": "function",
-    "text": "retval, state = execute_determ(gen_fn::CustomDetermGF, args)\n\nExecute the generative function and return the return value and the state.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/gfi/#Gen.update_determ",
-    "page": "Generative Functions",
-    "title": "Gen.update_determ",
-    "category": "function",
-    "text": "state, retval, retdiff = update_determ(gen_fn::CustomDetermGF, state, args, argdiffs)\n\nUpdate the arguments to the generative function and return new return value and state.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/gfi/#Gen.gradient_determ",
-    "page": "Generative Functions",
-    "title": "Gen.gradient_determ",
-    "category": "function",
-    "text": "arg_grads = gradient_determ(gen_fn::CustomDetermGF, state, retgrad)\n\nReturn the gradient tuple with respect to the arguments.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/gfi/#Gen.accumulate_param_gradients_determ!",
-    "page": "Generative Functions",
-    "title": "Gen.accumulate_param_gradients_determ!",
-    "category": "function",
-    "text": "arg_grads = accumulate_param_gradients_get!(trace::CustomDefGF, retgrad, scaler)\n\nIncrement gradient accumulators for parameters the gradient with respect to the arguments, optionally scaled, and return the gradient with respect to the arguments (not scaled).\n\nGiven the previous state and a gradient with respect to the return value _y J (retgrad), return the following gradient (arg_grads) with respect to the arguments x:\n\n_x J\n\nAlso increment the gradient accumulators for the trainable parameters Θ of the function by:\n\ns * _Θ J\n\nwhere s is scaler.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/gfi/#Implementing-a-custom-deterministic-generative-function-1",
-    "page": "Generative Functions",
-    "title": "Implementing a custom deterministic generative function",
-    "category": "section",
-    "text": "If your custom generative function is deterministic (one that makes no random choices), you do not need to implement the entire GFI. Instead, implement a new type that is a subtype of:CustomDetermGFwith the following methods:execute_determ\nupdate_determ\ngradient_determ\naccumulate_param_gradients_determ!"
-},
-
-{
-    "location": "ref/gfi/#Implementing-a-general-custom-generative-function-1",
-    "page": "Generative Functions",
-    "title": "Implementing a general custom generative function",
-    "category": "section",
-    "text": "We recommend the following steps for implementing a new type of generative function, and also looking at the implementation for the DynamicDSLFunction type as an example."
-},
-
-{
-    "location": "ref/gfi/#Define-a-trace-data-type-1",
-    "page": "Generative Functions",
-    "title": "Define a trace data type",
-    "category": "section",
-    "text": "struct MyTraceType <: Trace\n    ..\nend"
-},
-
-{
-    "location": "ref/gfi/#Decide-the-return-type-for-the-generative-function-1",
-    "page": "Generative Functions",
-    "title": "Decide the return type for the generative function",
-    "category": "section",
-    "text": "Suppose our return type is Vector{Float64}."
-},
-
-{
-    "location": "ref/gfi/#Define-a-data-type-for-your-generative-function-1",
-    "page": "Generative Functions",
-    "title": "Define a data type for your generative function",
-    "category": "section",
-    "text": "This should be a subtype of GenerativeFunction, with the appropriate type parameters.struct MyGenerativeFunction <: GenerativeFunction{Vector{Float64},MyTraceType}\n..\nendNote that your generative function may not need to have any fields. You can create a constructor for it, e.g.:function MyGenerativeFunction(...)\n..\nend"
-},
-
-{
-    "location": "ref/gfi/#Decide-what-the-arguments-to-a-generative-function-should-be-1",
-    "page": "Generative Functions",
-    "title": "Decide what the arguments to a generative function should be",
-    "category": "section",
-    "text": "For example, our generative functions might take two arguments, a (of type Int) and b (of type Float64). Then, the argument tuple passed to e.g. generate will have two elements.NOTE: Be careful to distinguish between arguments to the generative function itself, and arguments to the constructor of the generative function. For example, if you have a generative function type that is parametrized by, for example, modeling DSL code, this DSL code would be a parameter of the generative function constructor."
-},
-
-{
-    "location": "ref/gfi/#Decide-what-the-traced-random-choices-(if-any)-will-be-1",
-    "page": "Generative Functions",
-    "title": "Decide what the traced random choices (if any) will be",
-    "category": "section",
-    "text": "Remember that each random choice is assigned a unique address in (possibly) hierarchical address space. You are free to design this address space as you wish, although you should document it for users of your generative function type."
-},
-
-{
-    "location": "ref/gfi/#Implement-the-methods-of-the-interface-1",
-    "page": "Generative Functions",
-    "title": "Implement the methods of the interface",
-    "category": "section",
-    "text": "At minimum, you need to implement all methods under the Traces heading (e.g. generate, ..)\nTo support metropolis_hastings or local optimization, or local iterative adjustments to traces, be sure to implement the update and regenerate methods.\nTo support gradients of the log probability density with respect to the arguments and/or random choices made by the function, implement the choice_gradients method.\nGenerative functions can also have trainable parameters (e.g. neural network weights). To support these, implement the accumulate_param_gradients! method.\nTo support use of your generative function in custom proposals (instead of just generative models), implement assess and propose methods."
+    "text": "The complete set of methods in the generative function interface (GFI) is:simulate\ngenerate\nupdate\nregenerate\nget_args\nget_retval\nget_choices\nget_score\nget_gen_fn\nBase.getindex\nproject\npropose\nassess\nhas_argument_grads\naccepts_output_grad\naccumulate_param_gradients!\nchoice_gradients\nget_params"
 },
 
 {
@@ -590,46 +510,6 @@ var documenterSearchIndex = {"docs": [
     "title": "Built-In Distributions",
     "category": "section",
     "text": "bernoulli\nnormal\nmvnormal\ngamma\ninv_gamma\nbeta\ncategorical\nuniform\nuniform_discrete\npoisson\npiecewise_uniform\nbeta_uniform\nexponential"
-},
-
-{
-    "location": "ref/distributions/#Gen.random",
-    "page": "Probability Distributions",
-    "title": "Gen.random",
-    "category": "function",
-    "text": "val::T = random(dist::Distribution{T}, args...)\n\nSample a random choice from the given distribution with the given arguments.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/distributions/#Gen.logpdf",
-    "page": "Probability Distributions",
-    "title": "Gen.logpdf",
-    "category": "function",
-    "text": "lpdf = logpdf(dist::Distribution{T}, value::T, args...)\n\nEvaluate the log probability (density) of the value.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/distributions/#Gen.has_output_grad",
-    "page": "Probability Distributions",
-    "title": "Gen.has_output_grad",
-    "category": "function",
-    "text": "has::Bool = has_output_grad(dist::Distribution)\n\nReturn true of the gradient if the distribution computes the gradient of the logpdf with respect to the value of the random choice.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/distributions/#Gen.logpdf_grad",
-    "page": "Probability Distributions",
-    "title": "Gen.logpdf_grad",
-    "category": "function",
-    "text": "grads::Tuple = logpdf_grad(dist::Distribution{T}, value::T, args...)\n\nCompute the gradient of the logpdf with respect to the value, and each of the arguments.\n\nIf has_output_grad returns false, then the first element of the returned tuple is nothing. Otherwise, the first element of the tuple is the gradient with respect to the value. If the return value of has_argument_grads has a false value for at position i, then the i+1th element of the returned tuple has value nothing. Otherwise, this element contains the gradient with respect to the ith argument.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/distributions/#Defining-New-Distributions-1",
-    "page": "Probability Distributions",
-    "title": "Defining New Distributions",
-    "category": "section",
-    "text": "Probability distributions are singleton types whose supertype is Distribution{T}, where T indicates the data type of the random sample.abstract type Distribution{T} endBy convention, distributions have a global constant lower-case name for the singleton value. For example:struct Bernoulli <: Distribution{Bool} end\nconst bernoulli = Bernoulli()Distributions must implement two methods, random and logpdf.random returns a random sample from the distribution:x::Bool = random(bernoulli, 0.5)\nx::Bool = random(Bernoulli(), 0.5)logpdf returns the log probability (density) of the distribution at a given value:logpdf(bernoulli, false, 0.5)\nlogpdf(Bernoulli(), false, 0.5)Distribution values should also be callable, which is a syntactic sugar with the same behavior of calling random:bernoulli(0.5) # identical to random(bernoulli, 0.5) and random(Bernoulli(), 0.5)A new Distribution type must implement the following methods:random\nlogpdf\nhas_output_grad\nlogpdf_gradA new Distribution type must also implement has_argument_grads."
 },
 
 {
@@ -1350,6 +1230,190 @@ var documenterSearchIndex = {"docs": [
     "title": "Variational Inference",
     "category": "section",
     "text": "black_box_vi!"
+},
+
+{
+    "location": "ref/extending/#",
+    "page": "Extending Gen",
+    "title": "Extending Gen",
+    "category": "page",
+    "text": ""
+},
+
+{
+    "location": "ref/extending/#Extending-Gen-1",
+    "page": "Extending Gen",
+    "title": "Extending Gen",
+    "category": "section",
+    "text": "Gen is designed for extensibility. To implement behaviors that are not directly supported by the existing modeling languages, users can implement `black-box\' generative functions directly, without using built-in modeling language. These generative functions can then be invoked by generative functions defined using the built-in modeling language. This includes several special cases:Extending Gen with custom gradient computations\nExtending Gen with custom incremental computation of return values\nExtending Gen with new modeling languages."
+},
+
+{
+    "location": "ref/extending/#Gen.CustomGradientGF",
+    "page": "Extending Gen",
+    "title": "Gen.CustomGradientGF",
+    "category": "type",
+    "text": "CustomGradientGF{T}\n\nAbstract type for a generative function with a custom gradient computation, and default behaviors for all other generative function interface methods.\n\nT is the type of the return value.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/extending/#Gen.apply",
+    "page": "Extending Gen",
+    "title": "Gen.apply",
+    "category": "function",
+    "text": "retval = apply(gen_fn::CustomGradientGF, args)\n\nApply the function to the arguments.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/extending/#Gen.gradient",
+    "page": "Extending Gen",
+    "title": "Gen.gradient",
+    "category": "function",
+    "text": "arg_grads = gradient(gen_fn::CustomDetermGF, args, retval, retgrad)\n\nReturn the gradient tuple with respect to the arguments, where nothing is for argument(s) whose gradient is not available.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/extending/#Custom-gradients-1",
+    "page": "Extending Gen",
+    "title": "Custom gradients",
+    "category": "section",
+    "text": "To add a custom gradient for a differentiable deterministic computation, define a concrete subtype of CustomGradientGF with the following methods:apply\ngradient\nhas_argument_gradsFor example:struct MyPlus <: CustomGradientGF{Float64} end\n\nGen.apply(::MyPlus, args) = args[1] + args[2]\nGen.gradient(::MyPlus, args, retval, retgrad) = (retgrad, retgrad)\nGen.has_argument_grads(::MyPlus) = (true, true)CustomGradientGF\napply\ngradient"
+},
+
+{
+    "location": "ref/extending/#Gen.CustomUpdateGF",
+    "page": "Extending Gen",
+    "title": "Gen.CustomUpdateGF",
+    "category": "type",
+    "text": "CustomUpdateGF{T,S}\n\nAbstract type for a generative function with a custom update computation, and default behaviors for all other generative function interface methods.\n\nT is the type of the return value and S is the type of state used internally for incremental computation.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/extending/#Gen.apply_with_state",
+    "page": "Extending Gen",
+    "title": "Gen.apply_with_state",
+    "category": "function",
+    "text": "retval, state = apply_with_state(gen_fn::CustomDetermGF, args)\n\nExecute the generative function and return the return value and the state.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/extending/#Gen.update_with_state",
+    "page": "Extending Gen",
+    "title": "Gen.update_with_state",
+    "category": "function",
+    "text": "state, retval, retdiff = update_with_state(gen_fn::CustomDetermGF, state, args, argdiffs)\n\nUpdate the arguments to the generative function and return new return value and state.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/extending/#Custom-incremental-computation-1",
+    "page": "Extending Gen",
+    "title": "Custom incremental computation",
+    "category": "section",
+    "text": "Iterative inference techniques like Markov chain Monte Carlo involve repeatedly updating the execution traces of generative models. In some cases, the output of a deterministic computation within the model can be incrementally computed during each of these updates, instead of being computed from scratch.To add a custom incremental computation for a deterministic computation, define a concrete subtype of CustomUpdateGF with the following methods:apply_with_state\nupdate_with_state\nhas_argument_gradsThe second type parameter of CustomUpdateGF is the type of the state that may be used internally to facilitate incremental computation within update_with_state.For example, we can implement a function for computing the sum of a vector that efficiently computes the new sum when a small fraction of the vector elements change:struct MyState\n    prev_arr::Vector{Float64}\n    sum::Float64\nend\n\nstruct MySum <: CustomUpdateGF{Float64,MyState} end\n\nfunction Gen.apply_with_state(::MySum, args)\n    arr = args[1]\n    s = sum(arr)\n    state = MyState(arr, s)\n    (s, state)\nend\n\nfunction Gen.update_with_state(::MySum, state, args, argdiffs::Tuple{VectorDiff})\n    arr = args[1]\n    prev_sum = state.sum\n    retval = prev_sum\n    for i in keys(argdiffs[1].updated)\n        retval += (arr[i] - state.prev_arr[i])\n    end\n    prev_length = length(state.prev_arr)\n    new_length = length(arr)\n    for i=prev_length+1:new_length\n        retval += arr[i]\n    end\n    for i=new_length+1:prev_length\n        retval -= arr[i]\n    end\n    state = MyState(arr, retval)\n    (state, retval, UnknownChange())\nend\n\nGen.num_args(::MySum) = 1CustomUpdateGF\napply_with_state\nupdate_with_state"
+},
+
+{
+    "location": "ref/extending/#Gen.random",
+    "page": "Extending Gen",
+    "title": "Gen.random",
+    "category": "function",
+    "text": "val::T = random(dist::Distribution{T}, args...)\n\nSample a random choice from the given distribution with the given arguments.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/extending/#Gen.logpdf",
+    "page": "Extending Gen",
+    "title": "Gen.logpdf",
+    "category": "function",
+    "text": "lpdf = logpdf(dist::Distribution{T}, value::T, args...)\n\nEvaluate the log probability (density) of the value.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/extending/#Gen.has_output_grad",
+    "page": "Extending Gen",
+    "title": "Gen.has_output_grad",
+    "category": "function",
+    "text": "has::Bool = has_output_grad(dist::Distribution)\n\nReturn true of the gradient if the distribution computes the gradient of the logpdf with respect to the value of the random choice.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/extending/#Gen.logpdf_grad",
+    "page": "Extending Gen",
+    "title": "Gen.logpdf_grad",
+    "category": "function",
+    "text": "grads::Tuple = logpdf_grad(dist::Distribution{T}, value::T, args...)\n\nCompute the gradient of the logpdf with respect to the value, and each of the arguments.\n\nIf has_output_grad returns false, then the first element of the returned tuple is nothing. Otherwise, the first element of the tuple is the gradient with respect to the value. If the return value of has_argument_grads has a false value for at position i, then the i+1th element of the returned tuple has value nothing. Otherwise, this element contains the gradient with respect to the ith argument.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/extending/#Custom-distributions-1",
+    "page": "Extending Gen",
+    "title": "Custom distributions",
+    "category": "section",
+    "text": "Probability distributions are singleton types whose supertype is Distribution{T}, where T indicates the data type of the random sample.abstract type Distribution{T} endA new Distribution type must implement the following methods:random\nlogpdf\nhas_output_grad\nlogpdf_grad\nhas_argument_gradsBy convention, distributions have a global constant lower-case name for the singleton value. For example:struct Bernoulli <: Distribution{Bool} end\nconst bernoulli = Bernoulli()Distribution values should also be callable, which is a syntactic sugar with the same behavior of calling random:bernoulli(0.5) # identical to random(bernoulli, 0.5) and random(Bernoulli(), 0.5)random\nlogpdf\nhas_output_grad\nlogpdf_grad"
+},
+
+{
+    "location": "ref/extending/#Custom-generative-functions-1",
+    "page": "Extending Gen",
+    "title": "Custom generative functions",
+    "category": "section",
+    "text": "We recommend the following steps for implementing a new type of generative function, and also looking at the implementation for the DynamicDSLFunction type as an example."
+},
+
+{
+    "location": "ref/extending/#Define-a-trace-data-type-1",
+    "page": "Extending Gen",
+    "title": "Define a trace data type",
+    "category": "section",
+    "text": "struct MyTraceType <: Trace\n    ..\nend"
+},
+
+{
+    "location": "ref/extending/#Decide-the-return-type-for-the-generative-function-1",
+    "page": "Extending Gen",
+    "title": "Decide the return type for the generative function",
+    "category": "section",
+    "text": "Suppose our return type is Vector{Float64}."
+},
+
+{
+    "location": "ref/extending/#Define-a-data-type-for-your-generative-function-1",
+    "page": "Extending Gen",
+    "title": "Define a data type for your generative function",
+    "category": "section",
+    "text": "This should be a subtype of GenerativeFunction, with the appropriate type parameters.struct MyGenerativeFunction <: GenerativeFunction{Vector{Float64},MyTraceType}\n..\nendNote that your generative function may not need to have any fields. You can create a constructor for it, e.g.:function MyGenerativeFunction(...)\n..\nend"
+},
+
+{
+    "location": "ref/extending/#Decide-what-the-arguments-to-a-generative-function-should-be-1",
+    "page": "Extending Gen",
+    "title": "Decide what the arguments to a generative function should be",
+    "category": "section",
+    "text": "For example, our generative functions might take two arguments, a (of type Int) and b (of type Float64). Then, the argument tuple passed to e.g. generate will have two elements.NOTE: Be careful to distinguish between arguments to the generative function itself, and arguments to the constructor of the generative function. For example, if you have a generative function type that is parametrized by, for example, modeling DSL code, this DSL code would be a parameter of the generative function constructor."
+},
+
+{
+    "location": "ref/extending/#Decide-what-the-traced-random-choices-(if-any)-will-be-1",
+    "page": "Extending Gen",
+    "title": "Decide what the traced random choices (if any) will be",
+    "category": "section",
+    "text": "Remember that each random choice is assigned a unique address in (possibly) hierarchical address space. You are free to design this address space as you wish, although you should document it for users of your generative function type."
+},
+
+{
+    "location": "ref/extending/#Implement-the-methods-of-the-interface-1",
+    "page": "Extending Gen",
+    "title": "Implement the methods of the interface",
+    "category": "section",
+    "text": "At minimum, you need to implement all methods under the Traces heading (e.g. generate, ..)\nTo support metropolis_hastings or local optimization, or local iterative adjustments to traces, be sure to implement the update and regenerate methods.\nTo support gradients of the log probability density with respect to the arguments and/or random choices made by the function, implement the choice_gradients method.\nGenerative functions can also have trainable parameters (e.g. neural network weights). To support these, implement the accumulate_param_gradients! method.\nTo support use of your generative function in custom proposals (instead of just generative models), implement assess and propose methods."
+},
+
+{
+    "location": "ref/extending/#Custom-modeling-languages-1",
+    "page": "Extending Gen",
+    "title": "Custom modeling languages",
+    "category": "section",
+    "text": "Gen can be extended with new modeling languages by implementing new generative function types, and constructors for these types that take models as input. This typically requires implementing the entire generative function interface, and is advanced usage of Gen."
 },
 
 {
