@@ -22,6 +22,7 @@ Pages = [
     "ref/inference.md",
     "ref/gfi.md",
     "ref/distributions.md"
+    "ref/extending.md",
 ]
 Depth = 2
 ```

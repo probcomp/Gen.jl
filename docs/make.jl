@@ -17,6 +17,7 @@ makedocs(
             "Selections" => "ref/selections.md",
             "Optimizing Trainable Parameters" => "ref/parameter_optimization.md",
             "Inference Library" => "ref/inference.md",
+            "Extending Gen" => "ref/extending.md",
          ],
         "Internals" => [
             "Optimizing Trainable Parameters" => "ref/internals/parameter_optimization.md"

@@ -3,7 +3,7 @@
 ##########
 
 """
-    Trace{T}
+    Trace
 
 Abstract type for a trace of a generative function.
 """
@@ -325,6 +325,7 @@ function choice_gradients(trace, selection::Selection, retgrad)
 end
 
 export GenerativeFunction
+export Trace
 export has_argument_grads
 export accepts_output_grad
 export get_params
