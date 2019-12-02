@@ -1401,11 +1401,11 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "ref/extending/#Implement-the-methods-of-the-interface-1",
+    "location": "ref/extending/#Implement-methods-of-the-Generative-Function-Interface-1",
     "page": "Extending Gen",
-    "title": "Implement the methods of the interface",
+    "title": "Implement methods of the Generative Function Interface",
     "category": "section",
-    "text": "At minimum, you need to implement all methods under the Traces heading (e.g. generate, ..)\nTo support metropolis_hastings or local optimization, or local iterative adjustments to traces, be sure to implement the update and regenerate methods.\nTo support gradients of the log probability density with respect to the arguments and/or random choices made by the function, implement the choice_gradients method.\nGenerative functions can also have trainable parameters (e.g. neural network weights). To support these, implement the accumulate_param_gradients! method.\nTo support use of your generative function in custom proposals (instead of just generative models), implement assess and propose methods."
+    "text": "At minimum, you need to implement the following methods:simulate\nhas_argument_grads\naccepts_output_grad\nget_args\nget_retval\nget_choices\nget_score\nget_gen_fn\nprojectIf you want to use the generative function within models, you should implement:generateIf you want to use MCMC on models that call your generative function, then implement:update\nregenerateIf you want to use gradient-based inference techniques on models that call your generative function, then implement:choice_gradients\nupdateIf your generative function has trainable parameters, then implement:accumulate_param_gradients!"
 },
 
 {
