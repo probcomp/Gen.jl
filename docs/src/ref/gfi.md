@@ -30,12 +30,11 @@ However, generative functions are distinct from Julia functions because they sup
 ## Mathematical definition
 
 Generative functions represent computations that accept some arguments, may use randomness internally, return an output, and cannot mutate externally observable state.
-We represent the randomness used during an execution of a generative function as a map from unique **addresses** to values, denoted ``t : A \to V`` where ``A`` is an address set and ``V`` is a set of possible values that random choices can take.
+We represent the randomness used during an execution of a generative function as a **choice map** from unique **addresses** to values of random choices, denoted ``t : A \to V`` where ``A`` is an address set and ``V`` is a set of possible values that random choices can take.
 In this section, we assume that random choices are discrete to simplify notation.
-We say that two random choice maps ``t`` and ``s`` **agree** if they assign the same value for any address that is in both of their domains.
+We say that two choice maps ``t`` and ``s`` **agree** if they assign the same value for any address that is in both of their domains.
 
 Generative functions may also use **untraced randomness**, which is not included in the map ``t``.
-However, the state of untraced random choices *is* maintained by the trace internally.
 We denote untraced randomness by ``r``.
 Untraced randomness is useful for example, when calling black box Julia code that implements a randomized algorithm.
 
@@ -80,7 +79,6 @@ There is also a family of probability distributions ``q(r; x, t)`` on untraced r
 ```math
 q(r; x, t) > 0 \mbox{ if and only if } p(r; x, t) > 0
 ```
-
 
 ## Traces
 
@@ -300,12 +298,26 @@ To enable generative functions that invoke other functions to efficiently make u
 
 ## Differentiable programming
 
-Generative functions may support computation of gradients with respect to (i) all or a subset of its arguments, (ii) its **trainable parameters**, and (iii) the value of certain random choices.
-The set of elements (either arguments, trainable parameters, or random choices) for which gradients are available is called the *gradient source set*.
+The trace of a generative function may support computation of gradients of its log probability with respect to some subset of (i) its arguments, (ii) values of random choice, and (iii) any of its **trainable parameters** (see below).
+
+To compute gradients with respect to the arguments as well as certain selected random choices, use:
+
+- [`choice_gradients`](@ref)
+
+To compute gradients with respect to the arguments, and to increment a stateful gradient accumulator for the trainable parameters of the generative function, use:
+
+- [`accumulate_param_gradients!`](@ref)
+
 A generative function statically reports whether or not it is able to compute gradients with respect to each of its arguments, through the function [`has_argument_grads`](@ref).
-Let ``x_G`` denote the set of arguments for which the generative function does support gradient computation.
-Similarly, a generative function supports gradients with respect the value of random choices made at all or a subset of addresses.
-If the return value of the function is conditionally independent of each element in the gradient source set given the other elements in the gradient source set and values of all other random choices, for all possible traces of the function, then the generative function requires a *return value gradient* to compute gradients with respect to elements of the gradient source set.
+
+### Trainable parameters
+The **trainable parameters** of a generative function are (unlike arguments and random choices) *state* of the generative function itself, and are not contained in the trace.
+Generative functions that have trainable parameters maintain *gradient accumulators* for these parameters, which get incremented by the gradient induced by the given trace by a call to [`accumulate_param_gradients!`](@ref).
+Users then use these accumulated gradients to update to the values of the trainable parameters.
+
+### Return value gradient
+The set of elements (either arguments, random choices, or trainable parameters) for which gradients are available is called the **gradient source set**.
+If the return value of the function is conditionally dependent on any element in the gradient source set given the arguments and values of all other random choices, for all possible traces of the function, then the generative function requires a *return value gradient* to compute gradients with respect to elements of the gradient source set.
 This static property of the generative function is reported by [`accepts_output_grad`](@ref).
 
 ## Generative function interface
