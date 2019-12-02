@@ -179,17 +179,47 @@ For example, if you have a generative function type that is parametrized by, for
 Remember that each random choice is assigned a unique address in (possibly) hierarchical address space.
 You are free to design this address space as you wish, although you should document it for users of your generative function type.
 
-##### Implement the methods of the interface
+##### Implement methods of the Generative Function Interface
 
-- At minimum, you need to implement all methods under the [`Traces`](@ref) heading (e.g. [`generate`](@ref), ..)
+At minimum, you need to implement the following methods:
 
-- To support [`metropolis_hastings`](@ref) or local optimization, or local iterative adjustments to traces, be sure to implement the [`update`](@ref) and [`regenerate`](@ref) methods.
+- [`simulate`](@ref)
 
-- To support gradients of the log probability density with respect to the arguments and/or random choices made by the function, implement the [`choice_gradients`](@ref) method.
+- [`has_argument_grads`](@ref)
 
-- Generative functions can also have trainable parameters (e.g. neural network weights). To support these, implement the [`accumulate_param_gradients!`](@ref) method.
+- [`accepts_output_grad`](@ref)
 
-- To support use of your generative function in custom proposals (instead of just generative models), implement [`assess`](@ref) and [`propose`](@ref) methods.
+- [`get_args`](@ref)
+
+- [`get_retval`](@ref)
+
+- [`get_choices`](@ref)
+
+- [`get_score`](@ref)
+
+- [`get_gen_fn`](@ref)
+
+- [`project`](@ref)
+
+If you want to use the generative function within models, you should implement:
+
+- [`generate`](@ref)
+
+If you want to use MCMC on models that call your generative function, then implement:
+
+- [`update`](@ref)
+
+- [`regenerate`](@ref)
+
+If you want to use gradient-based inference techniques on models that call your generative function, then implement:
+
+- [`choice_gradients`](@ref)
+
+- [`update`](@ref)
+
+If your generative function has trainable parameters, then implement:
+
+- [`accumulate_param_gradients!`](@ref)
 
 
 ## Custom modeling languages
