@@ -12,6 +12,7 @@ LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 ReverseDiff = "37e2e3b7-166d-5795-8a7a-e32c996b4267"
 SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
+Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"

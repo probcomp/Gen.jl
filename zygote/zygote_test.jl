@@ -119,11 +119,16 @@ function trace_logpdf(gf::GenFunction, trace::Dict, args)
     state.logpdf
 end
 
-function backprop(gf::GenFunction, trace::Dict, args)
+function backprop(gf::GenFunction, trace::Dict, args, retgrad::Nothing)
     lpdf, back = Zygote.pullback(trace_logpdf, gf, trace, args)
-    println(lpdf)
     back(1.)
 end
+
+function backprop(gf::GenFunction, trace::Dict, args, retgrad)
+    lpdf, back = Zygote.pullback(trace_logpdf, gf, trace, args)
+    back(1.)
+end
+
 
 # TODO handle return value grad for compositional AD
 
