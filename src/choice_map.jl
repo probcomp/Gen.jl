@@ -947,8 +947,9 @@ end
 Base.print(io::IO, c::ChoiceMapNestedView) = Base.print(io, c.choice_map)
 
 nested_view(c::ChoiceMap) = ChoiceMapNestedView(c)
-# TODO: Rearrange code so that `Trace` has been declared by this point, and
-# qualify the argument as `trace::Trace`
-nested_view(trace) = ChoiceMapNestedView(get_choices(trace))
+
+# TODO(https://github.com/probcomp/Gen/issues/167): Also allow calling
+# `nested_view(::Trace)`, to get a nested-dict–like view of the choicemap and
+# aux data together.
 
 export nested_view
