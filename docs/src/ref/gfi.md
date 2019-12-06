@@ -103,7 +103,7 @@ Traces contain:
 
 - the arguments to the generative function
 
-- the random choice map 
+- the choice map 
 
 - the return value
 
