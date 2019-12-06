@@ -19,6 +19,7 @@ end
 function random(::UniformDiscrete, low::Integer, high::Integer)
     rand(Distributions.DiscreteUniform(low, high))
 end
+is_discrete(::UniformDiscrete) = true
 
 (::UniformDiscrete)(low, high) = random(UniformDiscrete(), low, high)
 

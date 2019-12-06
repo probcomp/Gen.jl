@@ -94,6 +94,7 @@ function logpdf_grad(::BroadcastedNormal,
 end
 
 random(::Normal, mu::Real, std::Real) = mu + std * randn()
+is_discrete(::Normal) = false
 
 function random(::BroadcastedNormal,
                 mu::Union{AbstractArray{<:Real}, Real},

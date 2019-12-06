@@ -129,6 +129,7 @@ An traced execution that satisfies constraints on the choice map can be generate
 ```julia
 trace, weight = generate(foo, (a, b), choicemap((:z, false)))
 ```
+
 There are various methods for inspecting traces, including:
 
 - [`get_args`](@ref) (returns the arguments to the function)
@@ -318,12 +319,27 @@ To enable generative functions that invoke other functions to efficiently make u
 
 ## Differentiable programming
 
-Generative functions may support computation of gradients with respect to (i) all or a subset of its arguments, (ii) its **trainable parameters**, and (iii) the value of certain random choices.
-The set of elements (either arguments, trainable parameters, or random choices) for which gradients are available is called the *gradient source set*.
+
+The trace of a generative function may support computation of gradients of its log probability with respect to some subset of (i) its arguments, (ii) values of random choice, and (iii) any of its **trainable parameters** (see below).
+
+To compute gradients with respect to the arguments as well as certain selected random choices, use:
+
+- [`choice_gradients`](@ref)
+
+To compute gradients with respect to the arguments, and to increment a stateful gradient accumulator for the trainable parameters of the generative function, use:
+
+- [`accumulate_param_gradients!`](@ref)
+
 A generative function statically reports whether or not it is able to compute gradients with respect to each of its arguments, through the function [`has_argument_grads`](@ref).
-Let ``x_G`` denote the set of arguments for which the generative function does support gradient computation.
-Similarly, a generative function supports gradients with respect the value of random choices made at all or a subset of addresses.
-If the return value of the function is conditionally independent of each element in the gradient source set given the other elements in the gradient source set and values of all other random choices, for all possible traces of the function, then the generative function requires a *return value gradient* to compute gradients with respect to elements of the gradient source set.
+
+### Trainable parameters
+The **trainable parameters** of a generative function are (unlike arguments and random choices) *state* of the generative function itself, and are not contained in the trace.
+Generative functions that have trainable parameters maintain *gradient accumulators* for these parameters, which get incremented by the gradient induced by the given trace by a call to [`accumulate_param_gradients!`](@ref).
+Users then use these accumulated gradients to update to the values of the trainable parameters.
+
+### Return value gradient
+The set of elements (either arguments, random choices, or trainable parameters) for which gradients are available is called the **gradient source set**.
+If the return value of the function is conditionally dependent on any element in the gradient source set given the arguments and values of all other random choices, for all possible traces of the function, then the generative function requires a *return value gradient* to compute gradients with respect to elements of the gradient source set.
 This static property of the generative function is reported by [`accepts_output_grad`](@ref).
 
 ## Generative function interface
@@ -349,74 +365,3 @@ accumulate_param_gradients!
 choice_gradients
 get_params
 ```
-
-## Custom generative function types
-
-Most users can just use generative functions written in the [Built-in Modeling Language](@ref), and can skip this section.
-However, to develop new modeling DSLs, or optimized implementations of certain probabilistic modeling components, users can also implement custom types of generative functions, by implementing the methods in the [Generative function interface](@ref).
-
-### Implementing a custom deterministic generative function
-
-If your custom generative function is deterministic (one that makes no random choices), you do not need to implement the entire GFI.
-Instead, implement a new type that is a subtype of:
-```@docs
-CustomDetermGF
-```
-with the following methods:
-```@docs
-execute_determ
-update_determ
-gradient_determ
-accumulate_param_gradients_determ!
-```
-
-### Implementing a general custom generative function
-We recommend the following steps for implementing a new type of generative function, and also looking at the implementation for the [`DynamicDSLFunction`](@ref) type as an example.
-
-##### Define a trace data type
-```julia
-struct MyTraceType <: Trace
-    ..
-end
-```
-
-##### Decide the return type for the generative function
-Suppose our return type is `Vector{Float64}`.
-
-##### Define a data type for your generative function
-This should be a subtype of [`GenerativeFunction`](@ref), with the appropriate type parameters.
-```julia
-struct MyGenerativeFunction <: GenerativeFunction{Vector{Float64},MyTraceType}
-..
-end
-```
-Note that your generative function may not need to have any fields.
-You can create a constructor for it, e.g.:
-```
-function MyGenerativeFunction(...)
-..
-end
-```
-
-##### Decide what the arguments to a generative function should be
-For example, our generative functions might take two arguments, `a` (of type `Int`) and `b` (of type `Float64`).
-Then, the argument tuple passed to e.g. [`generate`](@ref) will have two elements.
-
-NOTE: Be careful to distinguish between arguments to the generative function itself, and arguments to the constructor of the generative function.
-For example, if you have a generative function type that is parametrized by, for example, modeling DSL code, this DSL code would be a parameter of the generative function constructor.
-
-##### Decide what the traced random choices (if any) will be
-Remember that each random choice is assigned a unique address in (possibly) hierarchical address space.
-You are free to design this address space as you wish, although you should document it for users of your generative function type.
-
-##### Implement the methods of the interface
-
-- At minimum, you need to implement all methods under the [`Traces`](@ref) heading (e.g. [`generate`](@ref), ..)
-
-- To support [`metropolis_hastings`](@ref) or local optimization, or local iterative adjustments to traces, be sure to implement the [`update`](@ref) and [`regenerate`](@ref) methods.
-
-- To support gradients of the log probability density with respect to the arguments and/or random choices made by the function, implement the [`choice_gradients`](@ref) method.
-
-- Generative functions can also have trainable parameters (e.g. neural network weights). To support these, implement the [`accumulate_param_gradients!`](@ref) method.
-
-- To support use of your generative function in custom proposals (instead of just generative models), implement [`assess`](@ref) and [`propose`](@ref) methods.

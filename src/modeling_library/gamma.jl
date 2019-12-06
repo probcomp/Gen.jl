@@ -30,6 +30,8 @@ function random(::Gamma, shape::Real, scale::Real)
     rand(Distributions.Gamma(shape, scale))
 end
 
+is_discrete(::Gamma) = false
+
 (::Gamma)(shape, scale) = random(Gamma(), shape, scale)
 
 has_output_grad(::Gamma) = true

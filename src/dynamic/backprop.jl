@@ -238,34 +238,38 @@ function GFBackpropTraceState(trace, selection, params, tape)
         selection, tracked_choices, value_choices, gradient_choices)
 end
 
-function fill_gradient_map!(gradient_choices::DynamicChoiceMap,
-                             tracked_trie::Trie{Any,Union{TrackedReal,TrackedArray}})
-    for (key, tracked) in get_leaf_nodes(tracked_trie)
-        set_value!(gradient_choices, key, deriv(tracked))
-    end
+function fill_submaps!(
+        map::DynamicChoiceMap,
+        tracked_trie::Trie{Any,Union{TrackedReal,TrackedArray}},
+        mode)
     # NOTE: there should be no address collision between these primitive
     # choices and the gen_fn invocations, as enforced by the visitor
     for (key, subtrie) in get_internal_nodes(tracked_trie)
-        @assert !has_value(gradient_choices, key) && isempty(get_submap(gradient_choices, key))
-        gradient_submap = choicemap()
-        fill_gradient_map!(gradient_submap, subtrie)
-        set_submap!(gradient_choices, key, gradient_submap)
+        @assert !has_value(map, key) && isempty(get_submap(map, key))
+        submap= choicemap()
+        fill_map!(submap, subtrie, mode)
+        set_submap!(map, key, submap)
     end
 end
 
-function fill_value_map!(value_choices::DynamicChoiceMap,
-                          tracked_trie::Trie{Any,Union{TrackedReal,TrackedArray}})
+function fill_map!(
+        map::DynamicChoiceMap,
+        tracked_trie::Trie{Any,Union{TrackedReal,TrackedArray}},
+        mode::Val{:gradient_map})
     for (key, tracked) in get_leaf_nodes(tracked_trie)
-        set_value!(value_choices, key, value(tracked))
+        set_value!(map, key, deriv(tracked))
     end
-    # NOTE: there should be no address collision between these primitive
-    # choices and the gen_fn invocations, as enforced by the visitor
-    for (key, subtrie) in get_internal_nodes(tracked_trie)
-        @assert !has_value(value_choices, key) && !isempty(get_submap(value_choices, key))
-        value_choices_submap = choicemap()
-        fill_value_map!(value_choices_submap, subtrie)
-        set_submap!(value_choices, key, value_choices_submap)
+    fill_submaps!(map, tracked_trie, mode)
+end
+
+function fill_map!(
+        map::DynamicChoiceMap,
+        tracked_trie::Trie{Any,Union{TrackedReal,TrackedArray}},
+        mode::Val{:value_map})
+    for (key, tracked) in get_leaf_nodes(tracked_trie)
+        set_value!(map, key, value(tracked))
     end
+    fill_submaps!(map, tracked_trie, mode)
 end
 
 function traceat(state::GFBackpropTraceState, dist::Distribution{T},
@@ -396,8 +400,8 @@ function choice_gradients(trace::DynamicDSLTrace, selection::Selection, retval_g
     reverse_pass!(tape)
 
     # fill trace gradient with gradients with respect to primitive random choices
-    fill_gradient_map!(state.gradient_choices, state.tracked_choices)
-    fill_value_map!(state.value_choices, state.tracked_choices)
+    fill_map!(state.gradient_choices, state.tracked_choices, Val{:gradient_map}())
+    fill_map!(state.value_choices, state.tracked_choices, Val{:value_map}())
 
     # return gradients with respect to arguments with gradients, or nothing
     # NOTE: if a value isn't tracked the gradient is nothing

@@ -20,6 +20,7 @@ end
 function random(::Categorical, probs::AbstractArray{U,1}) where {U <: Real}
     rand(Distributions.Categorical(probs))
 end
+is_discrete(::Categorical) = true
 
 (::Categorical)(probs) = random(Categorical(), probs)
 

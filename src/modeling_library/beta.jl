@@ -28,6 +28,7 @@ end
 function random(::Beta, alpha::Real, beta::Real)
     rand(Distributions.Beta(alpha, beta))
 end
+is_discrete(::Beta) = false
 
 (::Beta)(alpha, beta) = random(Beta(), alpha, beta)
 
