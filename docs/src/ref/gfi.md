@@ -39,8 +39,8 @@ We represent the randomness used during an execution of a generative function as
 In this section, we assume that random choices are discrete to simplify notation.
 We say that two choice maps ``t`` and ``s`` **agree** if they assign the same value for any address that is in both of their domains.
 
-Generative functions may also use **untraced randomness**, which is not included in the map ``t``.
-We denote untraced randomness by ``r``.
+Generative functions may also use **non-addressable randomness**, which is not included in the map ``t``.
+We denote non-addressable randomness by ``r``.
 Untraced randomness is useful for example, when calling black box Julia code that implements a randomized algorithm.
 
 The observable behavior of every generative function is defined by the following mathematical objects:
@@ -49,7 +49,7 @@ The observable behavior of every generative function is defined by the following
 The set of valid argument tuples to the function, denoted ``X``.
 
 ### Probability distribution family
-A family of probability distributions ``p(t, r; x)`` on maps ``t`` from random choice addresses to their values, and untraced randomness ``r``, indexed by arguments ``x``, for all ``x \in X``.
+A family of probability distributions ``p(t, r; x)`` on maps ``t`` from random choice addresses to their values, and non-addressable randomness ``r``, indexed by arguments ``x``, for all ``x \in X``.
 Note that the distribution must be normalized:
 ```math
 \sum_{t, r} p(t, r; x) = 1 \;\; \mbox{for all} \;\; x \in X
@@ -59,18 +59,18 @@ We use ``p(t; x)`` to denote the marginal distribution on the map ``t``:
 ```math
 p(t; x) := \sum_{r} p(t, r; x)
 ```
-And we denote the conditional distribution on untraced randomness ``r``, given the map ``t``, as:
+And we denote the conditional distribution on non-addressable randomness ``r``, given the map ``t``, as:
 ```math
 p(r; x, t) := p(t, r; x) / p(t; x)
 ```
 
 ### Return value function
 A (deterministic) function ``f`` that maps the tuple ``(x, t)`` of the arguments and the choice map to the return value of the function (which we denote by ``y``).
-Note that the return value cannot depend on the untraced randomness.
+Note that the return value cannot depend on the non-addressable randomness.
 
 ### Auxiliary state
 Generative functions may expose additional **auxiliary state** associated with an execution, besides the choice map and the return value.
-This auxiliary state is a function ``z = h(x, t, r)`` of the arguments, choice map, and untraced randomness.
+This auxiliary state is a function ``z = h(x, t, r)`` of the arguments, choice map, and non-addressable randomness.
 Like the choice map, the auxiliary state is indexed by addresses.
 We require that the addresses of auxiliary state are disjoint from the addresses in the choice map.
 Note that when a generative function is called within a model, the auxiliary state is not available to the caller.
@@ -88,7 +88,7 @@ p(t; x) > 0 \mbox{ if and only if } q(t; x, u) > 0 \mbox{ for all } u \mbox{ whe
 ```math
 q(t; x, u) > 0 \mbox{ implies that } u \mbox{ and } t \mbox{ agree }.
 ```
-There is also a family of probability distributions ``q(r; x, t)`` on untraced randomness, that satisfies:
+There is also a family of probability distributions ``q(r; x, t)`` on non-addressable randomness, that satisfies:
 ```math
 q(r; x, t) > 0 \mbox{ if and only if } p(r; x, t) > 0
 ```
@@ -109,7 +109,10 @@ Traces contain:
 
 - auxiliary state
 
-- other implementation-specific state that is not exposed to the caller or user of the generative function, but is used internally to facilitate e.g. incremental updates to executions.
+- other implementation-specific state that is not exposed to the caller or user of the generative function, but is used internally to facilitate e.g. incremental updates to executions and automatic differentiation
+
+- any necessary record of the non-addressable randomness
+
 
 Different concrete types of generative functions use different data structures and different Julia types for their traces, but traces are subtypes of [`Trace`](@ref).
 ```@docs
