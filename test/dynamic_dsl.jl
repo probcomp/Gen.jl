@@ -466,6 +466,7 @@ end
         @trace(bar(2), :y => :z)
         @trace(normal(0, 1), :u)
         @trace(normal(0, 1), :v => :w)
+        7
     end
 
     constraints = choicemap()
