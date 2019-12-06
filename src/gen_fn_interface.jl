@@ -77,6 +77,14 @@ function Base.getindex(trace::Trace, addr)
     error("Not implemented")
 end
 
+"""
+    retval = getindex(trace::Trace)
+    retval = trace[]
+
+Synonym for [`get_retval`](@ref).
+"""
+Base.getindex(trace::Trace) = get_retval(trace)
+
 export get_args
 export get_retval
 export get_choices
