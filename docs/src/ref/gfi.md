@@ -146,7 +146,7 @@ z = trace[:z]
 
 ## Updating traces
 
-It is often important to adjust the trace of a generative function (e.g. within MCMC, numerical optimization, sequential Monte Carlo, etc.).
+It is often important to incrementally modify the trace of a generative function (e.g. within MCMC, numerical optimization, sequential Monte Carlo, etc.).
 In Gen, traces are **functional data structures**, meaning they can be treated as immutable values.
 There are several methods that take a trace of a generative function as input and return a new trace of the generative function based on adjustments to the execution history of the function.
 We will illustrate these methods using the following generative function:
