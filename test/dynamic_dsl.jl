@@ -485,6 +485,9 @@ end
     # auxiliary state
     @test trace[:x] == 1
     @test trace[:y => :z] == 2
+    
+    # return value
+    @test trace[] == 7
 end
 
 @testset "docstrings" begin
