@@ -35,7 +35,7 @@ However, generative functions are distinct from Julia functions because they sup
 ## Mathematical concepts
 
 Generative functions represent computations that accept some arguments, may use randomness internally, return an output, and cannot mutate externally observable state.
-We represent the randomness used during an execution of a generative function as a **choice map** from unique **addresses** to values of random choices, denoted ``t : A \to V`` where ``A`` is an address set and ``V`` is a set of possible values that random choices can take.
+We represent the randomness used during an execution of a generative function as a **choice map** from unique **addresses** to values of random choices, denoted ``t : A \to V`` where ``A`` is a finite (but not a priori bounded) address set and ``V`` is a set of possible values that random choices can take.
 In this section, we assume that random choices are discrete to simplify notation.
 We say that two choice maps ``t`` and ``s`` **agree** if they assign the same value for any address that is in both of their domains.
 
@@ -417,4 +417,3 @@ You are free to design this address space as you wish, although you should docum
 - Generative functions can also have trainable parameters (e.g. neural network weights). To support these, implement the [`accumulate_param_gradients!`](@ref) method.
 
 - To support use of your generative function in custom proposals (instead of just generative models), implement [`assess`](@ref) and [`propose`](@ref) methods.
-
