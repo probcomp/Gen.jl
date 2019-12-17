@@ -74,7 +74,7 @@ function get_gen_fn end
 Get the value of the random choice, or auxiliary state (e.g. return value of inner function call), at address `addr`.
 """
 function Base.getindex(trace::Trace, addr)
-    error("Not implemented")
+    get_choices(trace)[addr]
 end
 
 """
