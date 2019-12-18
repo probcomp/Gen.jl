@@ -554,4 +554,17 @@ Gen.load_generated_functions()
     @test counter == 1
 end
 
+@testset "regression test for https://github.com/probcomp/Gen/issues/168" begin
+    @gen (static) function model(var)
+        mean = @trace(normal(0, 1), :mean)
+        T = @trace(normal(mean, var), :T)
+        return T
+    end
+    load_generated_functions()
+    selection = StaticSelection(select(:mean))
+    (tr, _) = generate(model, (1,))
+    # At the time the issue was filed, this line produced a crash
+    (tr, ) = mh(tr, selection)
+end
+
 end # @testset "static IR"
