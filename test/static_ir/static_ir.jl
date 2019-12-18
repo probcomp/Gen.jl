@@ -563,7 +563,7 @@ end
     load_generated_functions()
     selection = StaticSelection(select(:mean))
     (tr, _) = generate(model, (1,))
-    # At the time the issue was filed, this line produceda crash
+    # At the time the issue was filed, this line produced a crash
     (tr, ) = mh(tr, selection)
 end
 
