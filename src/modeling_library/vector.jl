@@ -50,6 +50,18 @@ get_args(trace::VectorTrace) = trace.args
 get_score(trace::VectorTrace) = trace.score
 get_gen_fn(trace::VectorTrace) = trace.gen_fn
 
+function Base.getindex(trace::VectorTrace, addr::Pair)
+    (first, rest) = addr
+    subtrace = trace.subtraces[first]
+    subtrace[rest]
+end
+
+function Base.getindex(trace::VectorTrace, addr)
+    # we expose the return values in the auxiliary state
+    trace.retval[addr]
+end
+
+
 function project(trace::VectorTrace, selection::Selection)
     weight = 0.
     for key=1:trace.len

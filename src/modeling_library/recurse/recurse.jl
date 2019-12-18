@@ -56,6 +56,7 @@ struct RecurseTraceChoiceMap <: ChoiceMap
 end
 
 get_choices(trace::RecurseTrace) = RecurseTraceChoiceMap(trace)
+Base.getindex(trace::RecurseTrace, addr) = get_choices(trace)[addr]
 
 function Base.isempty(choices::RecurseTraceChoiceMap)
     choices.trace.num_has_choices == 0

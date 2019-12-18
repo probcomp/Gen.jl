@@ -69,13 +69,21 @@ Return the generative function that produced the given trace.
 function get_gen_fn end
 
 """
-    value = trace[addr]
+    value = getindex(trace::Trace, addr)
 
-Get the value of the random choice at address `addr`.
+Get the value of the random choice, or auxiliary state (e.g. return value of inner function call), at address `addr`.
 """
 function Base.getindex(trace::Trace, addr)
     get_choices(trace)[addr]
 end
+
+"""
+    retval = getindex(trace::Trace)
+    retval = trace[]
+
+Synonym for [`get_retval`](@ref).
+"""
+Base.getindex(trace::Trace) = get_retval(trace)
 
 export get_args
 export get_retval
