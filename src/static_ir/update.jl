@@ -555,16 +555,18 @@ function codegen_regenerate(trace_type::Type{T}, args_type::Type, argdiffs_type:
     Expr(:block, stmts...)
 end
 
-push!(generated_functions, quote
-@generated function $(Expr(:(.), Gen, QuoteNode(:update)))(trace::T, args::Tuple, argdiffs::Tuple,
-                               constraints::$(QuoteNode(ChoiceMap))) where {T<:$(QuoteNode(StaticIRTrace))}
-    $(QuoteNode(codegen_update))(trace, args, argdiffs, constraints)
-end
-end)
+let T = gensym()
+    push!(generated_functions, quote
+    @generated function $(Expr(:(.), Gen, QuoteNode(:update)))(trace::$T, args::Tuple, argdiffs::Tuple,
+                                   constraints::$(QuoteNode(ChoiceMap))) where {$T<:$(QuoteNode(StaticIRTrace))}
+        $(QuoteNode(codegen_update))(trace, args, argdiffs, constraints)
+    end
+    end)
 
-push!(generated_functions, quote
-@generated function $(Expr(:(.), Gen, QuoteNode(:regenerate)))(trace::T, args::Tuple, argdiffs::Tuple,
-                                   selection::$(QuoteNode(Selection))) where {T<:$(QuoteNode(StaticIRTrace))}
-    $(QuoteNode(codegen_regenerate))(trace, args, argdiffs, selection)
+    push!(generated_functions, quote
+    @generated function $(Expr(:(.), Gen, QuoteNode(:regenerate)))(trace::$T, args::Tuple, argdiffs::Tuple,
+                                       selection::$(QuoteNode(Selection))) where {$T<:$(QuoteNode(StaticIRTrace))}
+        $(QuoteNode(codegen_regenerate))(trace, args, argdiffs, selection)
+    end
+    end)
 end
-end)
