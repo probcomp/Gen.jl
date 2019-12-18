@@ -81,6 +81,14 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "ref/gfi/#Generative-Functions-1",
+    "page": "Generative Functions",
+    "title": "Generative Functions",
+    "category": "section",
+    "text": "One of the core abstractions in Gen is the generative function. Generative functions are used to represent a variety of different types of probabilistic computations including generative models, inference models, custom proposal distributions, and variational approximations."
+},
+
+{
     "location": "ref/gfi/#Gen.GenerativeFunction",
     "page": "Generative Functions",
     "title": "Gen.GenerativeFunction",
@@ -89,51 +97,59 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "ref/gfi/#Generative-Functions-1",
+    "location": "ref/gfi/#Introduction-1",
     "page": "Generative Functions",
-    "title": "Generative Functions",
+    "title": "Introduction",
     "category": "section",
-    "text": "One of the core abstractions in Gen is the generative function. Generative functions are used to represent a variety of different types of probabilistic computations including generative models, inference models, custom proposal distributions, and variational approximations.Generative functions are represented by the following abstact type:GenerativeFunctionThere are various kinds of generative functions, which are represented by concrete subtypes of GenerativeFunction. For example, the Built-in Modeling Language allows generative functions to be constructed using Julia function definition syntax:@gen function foo(a, b)\n    if @trace(bernoulli(0.5), :z)\n        return a + b + 1\n    else\n        return a + b\n    end\nendGenerative functions behave like Julia functions in some respects. For example, we can call a generative function foo on arguments and get an output value using regular Julia call syntax:>julia foo(2, 4)\n7However, generative functions are distinct from Julia functions because they support additional behaviors, described in the remainder of this section."
+    "text": "Generative functions are represented by the following abstact type:GenerativeFunctionThere are various kinds of generative functions, which are represented by concrete subtypes of GenerativeFunction. For example, the Built-in Modeling Language allows generative functions to be constructed using Julia function definition syntax:@gen function foo(a, b)\n    if @trace(bernoulli(0.5), :z)\n        return a + b + 1\n    else\n        return a + b\n    end\nendUsers can also extend Gen by implementing their own Custom generative function types, which can be new modeling languages, or just specialized optimized implementations of a fragment of a specific model.Generative functions behave like Julia functions in some respects. For example, we can call a generative function foo on arguments and get an output value using regular Julia call syntax:>julia foo(2, 4)\n7However, generative functions are distinct from Julia functions because they support additional behaviors, described in the remainder of this section."
 },
 
 {
-    "location": "ref/gfi/#Mathematical-definition-1",
+    "location": "ref/gfi/#Mathematical-concepts-1",
     "page": "Generative Functions",
-    "title": "Mathematical definition",
+    "title": "Mathematical concepts",
     "category": "section",
-    "text": "Generative functions represent computations that accept some arguments, may use randomness internally, return an output, and cannot mutate externally observable state. We represent the randomness used during an execution of a generative function as a choice map from unique addresses to values of random choices, denoted t  A to V where A is an address set and V is a set of possible values that random choices can take. In this section, we assume that random choices are discrete to simplify notation. We say that two choice maps t and s agree if they assign the same value for any address that is in both of their domains.Generative functions may also use untraced randomness, which is not included in the map t. We denote untraced randomness by r. Untraced randomness is useful for example, when calling black box Julia code that implements a randomized algorithm.The observable behavior of every generative function is defined by the following mathematical objects:"
+    "text": "Generative functions represent computations that accept some arguments, may use randomness internally, return an output, and cannot mutate externally observable state. We represent the randomness used during an execution of a generative function as a choice map from unique addresses to values of random choices, denoted t  A to V where A is a finite (but not a priori bounded) address set and V is a set of possible values that random choices can take. In this section, we assume that random choices are discrete to simplify notation. We say that two choice maps t and s agree if they assign the same value for any address that is in both of their domains.Generative functions may also use non-addressable randomness, which is not included in the map t. We denote non-addressable randomness by r. Untraced randomness is useful for example, when calling black box Julia code that implements a randomized algorithm.The observable behavior of every generative function is defined by the following mathematical objects:"
 },
 
 {
-    "location": "ref/gfi/#.-Input-type-1",
+    "location": "ref/gfi/#Input-type-1",
     "page": "Generative Functions",
-    "title": "1. Input type",
+    "title": "Input type",
     "category": "section",
     "text": "The set of valid argument tuples to the function, denoted X."
 },
 
 {
-    "location": "ref/gfi/#.-Probability-distribution-family-1",
+    "location": "ref/gfi/#Probability-distribution-family-1",
     "page": "Generative Functions",
-    "title": "2. Probability distribution family",
+    "title": "Probability distribution family",
     "category": "section",
-    "text": "A family of probability distributions p(t r x) on maps t from random choice addresses to their values, and untraced randomness r, indexed by arguments x, for all x in X. Note that the distribution must be normalized:sum_t r p(t r x) = 1  mboxfor all  x in XThis corresponds to a requirement that the function terminate with probabability 1 for all valid arguments. We use p(t x) to denote the marginal distribution on the map t:p(t x) = sum_r p(t r x)And we denote the conditional distribution on untraced randomness r, given the map t, as:p(r x t) = p(t r x)  p(t x)"
+    "text": "A family of probability distributions p(t r x) on maps t from random choice addresses to their values, and non-addressable randomness r, indexed by arguments x, for all x in X. Note that the distribution must be normalized:sum_t r p(t r x) = 1  mboxfor all  x in XThis corresponds to a requirement that the function terminate with probabability 1 for all valid arguments. We use p(t x) to denote the marginal distribution on the map t:p(t x) = sum_r p(t r x)And we denote the conditional distribution on non-addressable randomness r, given the map t, as:p(r x t) = p(t r x)  p(t x)"
 },
 
 {
-    "location": "ref/gfi/#.-Return-value-function-1",
+    "location": "ref/gfi/#Return-value-function-1",
     "page": "Generative Functions",
-    "title": "3. Return value function",
+    "title": "Return value function",
     "category": "section",
-    "text": "A (deterministic) function f that maps the tuple (x t) of the arguments and the random choice map to the return value of the function (which we denote by y). Note that the return value cannot depend on the untraced randomness."
+    "text": "A (deterministic) function f that maps the tuple (x t) of the arguments and the choice map to the return value of the function (which we denote by y). Note that the return value cannot depend on the non-addressable randomness."
 },
 
 {
-    "location": "ref/gfi/#.-Internal-proposal-distribution-family-1",
+    "location": "ref/gfi/#Auxiliary-state-1",
     "page": "Generative Functions",
-    "title": "4. Internal proposal distribution family",
+    "title": "Auxiliary state",
     "category": "section",
-    "text": "A family of probability distributions q(t x u) on maps t from random choice addresses to their values, indexed by tuples (x u) where u is a map from random choice addresses to values, and where x are the arguments to the function. It must satisfy the following conditions:sum_t q(t x u) = 1  mboxfor all  x in X up(t x)  0 mbox if and only if  q(t x u)  0 mbox for all  u mbox where  u mbox and  t mbox agree q(t x u)  0 mbox implies that  u mbox and  t mbox agree There is also a family of probability distributions q(r x t) on untraced randomness, that satisfies:q(r x t)  0 mbox if and only if  p(r x t)  0"
+    "text": "Generative functions may expose additional auxiliary state associated with an execution, besides the choice map and the return value. This auxiliary state is a function z = h(x t r) of the arguments, choice map, and non-addressable randomness. Like the choice map, the auxiliary state is indexed by addresses. We require that the addresses of auxiliary state are disjoint from the addresses in the choice map. Note that when a generative function is called within a model, the auxiliary state is not available to the caller. It is typically used by inference programs, for logging and for caching the results of deterministic computations that would otherwise need to be reconstructed."
+},
+
+{
+    "location": "ref/gfi/#Internal-proposal-distribution-family-1",
+    "page": "Generative Functions",
+    "title": "Internal proposal distribution family",
+    "category": "section",
+    "text": "A family of probability distributions q(t x u) on maps t from random choice addresses to their values, indexed by tuples (x u) where u is a map from random choice addresses to values, and where x are the arguments to the function. It must satisfy the following conditions:sum_t q(t x u) = 1  mboxfor all  x in X up(t x)  0 mbox if and only if  q(t x u)  0 mbox for all  u mbox where  u mbox and  t mbox agree q(t x u)  0 mbox implies that  u mbox and  t mbox agree There is also a family of probability distributions q(r x t) on non-addressable randomness, that satisfies:q(r x t)  0 mbox if and only if  p(r x t)  0"
 },
 
 {
@@ -149,7 +165,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Generative Functions",
     "title": "Traces",
     "category": "section",
-    "text": "An execution trace (or just trace) is a record of an execution of a generative function. Traces are the primary data structures manipulated by Gen inference programs. There are various methods for producing, updating, and inspecting traces. Traces contain:the arguments to the generative function\nthe random choice map \nthe return value\nother implementation-specific state needed to incrementally update an executionDifferent concrete types of generative functions use different data structures and different Julia types for their traces, but traces are subtypes of Trace.TraceThe concrete trace type that a generative function uses is the second type parameter of the GenerativeFunction abstract type. For example, the trace type of DynamicDSLFunction is DynamicDSLTrace.A generative function can be executed to produce a trace of the execution using simulate:trace = simulate(foo, (a, b))An traced execution that satisfies constraints on the choice map can be generated using generate:trace, weight = generate(foo, (a, b), choicemap((:z, false)))There are various methods for inspecting traces, including:get_args (returns the arguments to the function)\nget_retval (returns the return value of the function)\nget_choices (returns the choice map)\nget_score (returns the log probability that the random choices took the values they did)\nget_gen_fn (returns a reference to the generative function)You can also access the values in the choice map using Base.getindex, e.g.:z = trace[:z]"
+    "text": "An execution trace (or just trace) is a record of an execution of a generative function. Traces are the primary data structures manipulated by Gen inference programs. There are various methods for producing, updating, and inspecting traces. Traces contain:the arguments to the generative function\nthe choice map \nthe return value\nauxiliary state\nother implementation-specific state that is not exposed to the caller or user of the generative function, but is used internally to facilitate e.g. incremental updates to executions and automatic differentiation\nany necessary record of the non-addressable randomnessDifferent concrete types of generative functions use different data structures and different Julia types for their traces, but traces are subtypes of Trace.TraceThe concrete trace type that a generative function uses is the second type parameter of the GenerativeFunction abstract type. For example, the trace type of DynamicDSLFunction is DynamicDSLTrace.A generative function can be executed to produce a trace of the execution using simulate:trace = simulate(foo, (a, b))An traced execution that satisfies constraints on the choice map can be generated using generate:trace, weight = generate(foo, (a, b), choicemap((:z, false)))There are various methods for inspecting traces, including:get_args (returns the arguments to the function)\nget_retval (returns the return value of the function)\nget_choices (returns the choice map)\nget_score (returns the log probability that the random choices took the values they did)\nget_gen_fn (returns a reference to the generative function)You can also access the values in the choice map and the auxiliary state of the trace by passing the address to Base.getindex. For example, to retrieve the value of random choice at address :z:z = trace[:z]"
 },
 
 {
@@ -157,7 +173,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Generative Functions",
     "title": "Updating traces",
     "category": "section",
-    "text": "It is often important to adjust the trace of a generative function (e.g. within MCMC, numerical optimization, sequential Monte Carlo, etc.). In Gen, traces are functional data structures, meaning they can be treated as immutable values. There are several methods that take a trace of a generative function as input and return a new trace of the generative function based on adjustments to the execution history of the function. We will illustrate these methods using the following generative function:@gen function bar()\n    val = @trace(bernoulli(0.3), :a)\n    if @trace(bernoulli(0.4), :b)\n        val = @trace(bernoulli(0.6), :c) && val\n    else\n        val = @trace(bernoulli(0.1), :d) && val\n    end\n    val = @trace(bernoulli(0.7), :e) && val\n    return val\nendSuppose we have a trace (trace) of bar with initial choices:│\n├── :a : false\n│\n├── :b : true\n│\n├── :c : false\n│\n└── :e : trueNote that address :d is not present because the branch in which :d is sampled was not taken because random choice :b had value true."
+    "text": "It is often important to incrementally modify the trace of a generative function (e.g. within MCMC, numerical optimization, sequential Monte Carlo, etc.). In Gen, traces are functional data structures, meaning they can be treated as immutable values. There are several methods that take a trace of a generative function as input and return a new trace of the generative function based on adjustments to the execution history of the function. We will illustrate these methods using the following generative function:@gen function bar()\n    val = @trace(bernoulli(0.3), :a)\n    if @trace(bernoulli(0.4), :b)\n        val = @trace(bernoulli(0.6), :c) && val\n    else\n        val = @trace(bernoulli(0.1), :d) && val\n    end\n    val = @trace(bernoulli(0.7), :e) && val\n    return val\nendSuppose we have a trace (trace) of bar with initial choices:│\n├── :a : false\n│\n├── :b : true\n│\n├── :c : false\n│\n└── :e : trueNote that address :d is not present because the branch in which :d is sampled was not taken because random choice :b had value true."
 },
 
 {
@@ -309,7 +325,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Generative Functions",
     "title": "Base.getindex",
     "category": "function",
-    "text": "value = trace[addr]\n\nGet the value of the random choice at address addr.\n\n\n\n\n\n"
+    "text": "value = getindex(trace::Trace, addr)\n\nGet the value of the random choice, or auxiliary state (e.g. return value of inner function call), at address addr.\n\n\n\n\n\nretval = getindex(trace::Trace)\nretval = trace[]\n\nSynonym for get_retval.\n\n\n\n\n\n"
 },
 
 {
