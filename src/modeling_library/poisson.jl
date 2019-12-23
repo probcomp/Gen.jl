@@ -8,7 +8,7 @@ Sample an `Int` from the Poisson distribution with rate `lambda`.
 const poisson = Poisson()
 
 function logpdf(::Poisson, x::Integer, lambda::Real)
-    x * log(lambda) - lambda - lgamma(x+1)
+    x * log(lambda) - lambda - loggamma(x+1)
 end
 
 function logpdf_grad(::Poisson, x::Integer, lambda::Real)
