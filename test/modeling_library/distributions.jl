@@ -68,7 +68,7 @@ end
     x = inv_gamma(1, 1)
     @test 0 < x
     
-    # logpdf_grad not implements
+    # logpdf_grad not implemented
 
 @testset "normal" begin
 
