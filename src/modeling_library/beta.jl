@@ -11,7 +11,7 @@ Sample a `Float64` from a beta distribution.
 const beta = Beta()
 
 function logpdf(::Beta, x::Real, alpha::Real, beta::Real)
-    (alpha - 1) * log(x) + (beta - 1) * log1p(-x) - lbeta(alpha, beta)
+    (alpha - 1) * log(x) + (beta - 1) * log1p(-x) - logbeta(alpha, beta)
 end
 
 function logpdf_grad(::Beta, x::Real, alpha::Real, beta::Real)
