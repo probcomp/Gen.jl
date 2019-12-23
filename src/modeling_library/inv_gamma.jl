@@ -9,7 +9,7 @@ const inv_gamma = InverseGamma()
 
 function logpdf(::InverseGamma, x::Real, shape::Real, scale::Real)
     if x > 0.
-        shape * log(scale) - (shape + 1) * log(x) - lgamma(shape) - (scale / x)
+        shape * log(scale) - (shape + 1) * log(x) - loggamma(shape) - (scale / x)
     else
         -Inf
     end
