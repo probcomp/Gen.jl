@@ -70,6 +70,8 @@ end
     
     # logpdf_grad not implemented
 
+end
+
 @testset "normal" begin
 
     # random
