@@ -386,6 +386,45 @@ load_generated_functions()
 
 end
 
+@testset "getindex(trace)" begin
+    
+@gen (static) function bar(r)
+    a = @trace(normal(0, 1), :a)
+    return r
+end
+@gen (static) function foo()
+    x = @trace(bar(1), :x)
+    yz = @trace(bar(2), :y => :z)
+    u = @trace(normal(0, 1), :u)
+    vw = @trace(normal(0, 1), :v => :w)
+    ret = 7
+    return ret
+end
+
+Gen.load_generated_functions()
+
+constraints = choicemap()
+constraints[:u] = 1.1
+constraints[:v => :w] = 1.2
+constraints[:x => :a] = 1.3
+constraints[:y => :z => :a] = 1.4
+trace, = generate(foo, (), constraints)
+
+# random choices
+@test trace[:u] == 1.1
+@test trace[:v => :w] == 1.2
+@test trace[:x => :a] == 1.3
+@test trace[:y => :z => :a] == 1.4
+
+# auxiliary state
+@test trace[:x] == 1
+@test trace[:y => :z] == 2
+
+# return value
+@test trace[] == 7
+
+end
+
 @testset "docstrings" begin
     io = IOBuffer()
     print(io, @doc model)

@@ -27,6 +27,22 @@ struct CallAtTrace <: Trace
     key::Any
 end
 
+function Base.getindex(trace::CallAtTrace, addr::Pair)
+    first, rest = addr
+    if first == trace.key
+        return trace.subtrace[rest]
+    else
+        error("Address prefix $addr not found.")
+    end
+end
+function Base.getindex(trace::CallAtTrace, addr)
+    if addr == trace.key
+        return trace.subtrace[]
+    else
+        error("Address $addr not found.")
+    end
+end
+
 get_args(trace::CallAtTrace) = (get_args(trace.subtrace)..., trace.key)
 get_retval(trace::CallAtTrace) = get_retval(trace.subtrace)
 get_score(trace::CallAtTrace) = get_score(trace.subtrace)
