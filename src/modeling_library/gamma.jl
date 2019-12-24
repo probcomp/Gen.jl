@@ -9,7 +9,7 @@ const gamma = Gamma()
 
 function logpdf(::Gamma, x::Real, shape::Real, scale::Real)
     if x > 0.
-        (shape - 1.0) * log(x) - (x / scale) - shape * log(scale) - lgamma(shape)
+        (shape - 1.0) * log(x) - (x / scale) - shape * log(scale) - loggamma(shape)
     else
         -Inf
     end

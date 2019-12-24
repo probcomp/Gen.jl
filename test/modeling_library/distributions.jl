@@ -62,6 +62,16 @@ end
     @test isapprox(actual[3], finite_diff(f, args, 3, dx))
 end
 
+@testset "inv_gamma" begin
+    
+    # random
+    x = inv_gamma(1, 1)
+    @test 0 < x
+    
+    # logpdf_grad not implemented
+
+end
+
 @testset "normal" begin
 
     # random

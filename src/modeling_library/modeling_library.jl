@@ -3,7 +3,7 @@
 #############################
 
 import Distributions
-using SpecialFunctions: lgamma, lbeta, digamma
+using SpecialFunctions: loggamma, logbeta, digamma
 
 abstract type Distribution{T} end
 
