@@ -211,7 +211,7 @@ end
 Trainable parameters obey the same scoping rules as Julia local variables defined at the beginning of the function body.
 The value of a trainable parameter is undefined until it is initialized using [`init_param!`](@ref).
 In addition to the current value, each trainable parameter has a current **gradient accumulator** value.
-The gradent accumulator value has the same shape (e.g. array dimension) as the parameter value.
+The gradient accumulator value has the same shape (e.g. array dimension) as the parameter value.
 It is initialized to all zeros, and is incremented by [`accumulate_param_gradients!`](@ref).
 
 The following methods are exported for the trainable parameters of `@gen` functions:
