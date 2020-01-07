@@ -187,6 +187,8 @@ function _getindex(trace::DynamicDSLTrace, trie::Trie, addr::Pair)
         end
     elseif haskey(trie.internal_nodes, first)
         return _getindex(trace, trie.internal_nodes[first], rest)
+    else
+        error("No random choice or generative function call at address $addr")
     end
 end
 

@@ -490,13 +490,17 @@ end
     @test trace[] == 7
 
     # address that does not exist
-    threw = false
-    try
-        x = trace[:absent]
-    catch ex
-        threw = true
+    function test_addr_dne(addr) 
+        threw = false
+        try
+            x = trace[addr]
+        catch ex
+            threw = true
+        end
+        @test threw
     end
-    @test threw
+    test_addr_dne(:absent)
+    test_addr_dne(:absent => :x)
 end
 
 @testset "docstrings" begin
