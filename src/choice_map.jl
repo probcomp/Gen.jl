@@ -69,24 +69,24 @@ function Base.isempty(::ChoiceMap)
     true
 end
 
-get_submap(choices::ChoiceMap, addr) = EmptyChoiceMap()
-has_value(choices::ChoiceMap, addr) = false
-get_value(choices::ChoiceMap, addr) = throw(KeyError(addr))
-Base.getindex(choices::ChoiceMap, addr) = get_value(choices, addr)
+@inline get_submap(choices::ChoiceMap, addr) = EmptyChoiceMap()
+@inline has_value(choices::ChoiceMap, addr) = false
+@inline get_value(choices::ChoiceMap, addr) = throw(KeyError(addr))
+@inline Base.getindex(choices::ChoiceMap, addr) = get_value(choices, addr)
 
-function _has_value(choices::T, addr::Pair) where {T <: ChoiceMap}
+@inline function _has_value(choices::T, addr::Pair) where {T <: ChoiceMap}
     (first, rest) = addr
     submap = get_submap(choices, first)
     has_value(submap, rest)
 end
 
-function _get_value(choices::T, addr::Pair) where {T <: ChoiceMap}
+@inline function _get_value(choices::T, addr::Pair) where {T <: ChoiceMap}
     (first, rest) = addr
     submap = get_submap(choices, first)
     get_value(submap, rest)
 end
 
-function _get_submap(choices::T, addr::Pair) where {T <: ChoiceMap}
+@inline function _get_submap(choices::T, addr::Pair) where {T <: ChoiceMap}
     (first, rest) = addr
     submap = get_submap(choices, first)
     get_submap(submap, rest)
@@ -365,28 +365,28 @@ function get_address_schema(::Type{StaticChoiceMap{R,S,T,U}}) where {R,S,T,U}
     StaticAddressSchema(keys)
 end
 
-function Base.isempty(choices::StaticChoiceMap)
+@inline function Base.isempty(choices::StaticChoiceMap)
     choices.isempty
 end
 
 get_values_shallow(choices::StaticChoiceMap) = pairs(choices.leaf_nodes)
 get_submaps_shallow(choices::StaticChoiceMap) = pairs(choices.internal_nodes)
-has_value(choices::StaticChoiceMap, addr::Pair) = _has_value(choices, addr)
-get_value(choices::StaticChoiceMap, addr::Pair) = _get_value(choices, addr)
-get_submap(choices::StaticChoiceMap, addr::Pair) = _get_submap(choices, addr)
+@inline has_value(choices::StaticChoiceMap, addr::Pair) = _has_value(choices, addr)
+@inline get_value(choices::StaticChoiceMap, addr::Pair) = _get_value(choices, addr)
+@inline get_submap(choices::StaticChoiceMap, addr::Pair) = _get_submap(choices, addr)
 
 # NOTE: there is no static_has_value because this is known from the static
 # address schema
 
 ## has_value ##
 
-function has_value(choices::StaticChoiceMap, key::Symbol)
+@inline function has_value(choices::StaticChoiceMap, key::Symbol)
     haskey(choices.leaf_nodes, key)
 end
 
 ## get_submap ##
 
-function get_submap(choices::StaticChoiceMap, key::Symbol)
+@inline function get_submap(choices::StaticChoiceMap, key::Symbol)
     if haskey(choices.internal_nodes, key)
         choices.internal_nodes[key]
     elseif haskey(choices.leaf_nodes, key)
@@ -396,17 +396,17 @@ function get_submap(choices::StaticChoiceMap, key::Symbol)
     end
 end
 
-function static_get_submap(choices::StaticChoiceMap, ::Val{A}) where {A}
+@inline function static_get_submap(choices::StaticChoiceMap, ::Val{A}) where {A}
     choices.internal_nodes[A]
 end
 
 ## get_value ##
 
-function get_value(choices::StaticChoiceMap, key::Symbol)
+@inline function get_value(choices::StaticChoiceMap, key::Symbol)
     choices.leaf_nodes[key]
 end
 
-function static_get_value(choices::StaticChoiceMap, ::Val{A}) where {A}
+@inline function static_get_value(choices::StaticChoiceMap, ::Val{A}) where {A}
     choices.leaf_nodes[A]
 end
 

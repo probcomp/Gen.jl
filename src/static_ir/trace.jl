@@ -8,27 +8,27 @@ end
 
 function get_schema end
 
-get_address_schema(::Type{StaticIRTraceAssmt{T}}) where {T} = get_schema(T)
+@inline get_address_schema(::Type{StaticIRTraceAssmt{T}}) where {T} = get_schema(T)
 
-Base.isempty(choices::StaticIRTraceAssmt) = isempty(choices.trace)
+@inline Base.isempty(choices::StaticIRTraceAssmt) = isempty(choices.trace)
 
-static_has_value(choices::StaticIRTraceAssmt, key) = false
+@inline static_has_value(choices::StaticIRTraceAssmt, key) = false
 
-function get_value(choices::StaticIRTraceAssmt, key::Symbol)
+@inline function get_value(choices::StaticIRTraceAssmt, key::Symbol)
     static_get_value(choices, Val(key))
 end
 
-function has_value(choices::StaticIRTraceAssmt, key::Symbol)
+@inline function has_value(choices::StaticIRTraceAssmt, key::Symbol)
     static_has_value(choices, Val(key))
 end
 
-function get_submap(choices::StaticIRTraceAssmt, key::Symbol)
+@inline function get_submap(choices::StaticIRTraceAssmt, key::Symbol)
     static_get_submap(choices, Val(key))
 end
 
-get_value(choices::StaticIRTraceAssmt, addr::Pair) = _get_value(choices, addr)
-has_value(choices::StaticIRTraceAssmt, addr::Pair) = _has_value(choices, addr)
-get_submap(choices::StaticIRTraceAssmt, addr::Pair) = _get_submap(choices, addr)
+@inline get_value(choices::StaticIRTraceAssmt, addr::Pair) = _get_value(choices, addr)
+@inline has_value(choices::StaticIRTraceAssmt, addr::Pair) = _has_value(choices, addr)
+@inline get_submap(choices::StaticIRTraceAssmt, addr::Pair) = _get_submap(choices, addr)
 
 #########################
 # trace type generation #
@@ -36,17 +36,17 @@ get_submap(choices::StaticIRTraceAssmt, addr::Pair) = _get_submap(choices, addr)
 
 abstract type StaticIRTrace <: Trace end
 
-function static_get_subtrace(trace::StaticIRTrace, addr)
+@inline function static_get_subtrace(trace::StaticIRTrace, addr)
     error("Not implemented")
 end
 
-static_haskey(trace::StaticIRTrace, ::Val) = false
-Base.haskey(trace::StaticIRTrace, key) = Gen.static_haskey(trace, Val(key))
+@inline static_haskey(trace::StaticIRTrace, ::Val) = false
+ Base.haskey(trace::StaticIRTrace, key) = Gen.static_haskey(trace, Val(key))
 
-function Base.getindex(trace::StaticIRTrace, addr)
+@inline function Base.getindex(trace::StaticIRTrace, addr)
     Gen.static_getindex(trace, Val(addr))
 end
-function Base.getindex(trace::StaticIRTrace, addr::Pair)
+@inline function Base.getindex(trace::StaticIRTrace, addr::Pair)
     first, rest = addr
     return Gen.static_get_subtrace(trace, Val(first))[rest]
 end
