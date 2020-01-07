@@ -125,7 +125,7 @@ A generative function can be executed to produce a trace of the execution using 
 ```julia
 trace = simulate(foo, (a, b))
 ```
-An traced execution that satisfies constraints on the choice map can be generated using [`generate`](@ref):
+A traced execution that satisfies constraints on the choice map can be generated using [`generate`](@ref):
 ```julia
 trace, weight = generate(foo, (a, b), choicemap((:z, false)))
 ```

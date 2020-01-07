@@ -57,7 +57,7 @@ Return:
 \\log \\frac{p(t, r; x)}{q(r; x, t)}
 ```
 
-When there is no non-addressed randomness, this simplifies to the log probability `\$\\log p(t; x)\$.
+When there is no non-addressed randomness, this simplifies to the log probability \$\\log p(t; x)\$.
 """
 function get_score end
 
