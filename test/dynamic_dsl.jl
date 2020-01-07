@@ -488,6 +488,15 @@ end
     
     # return value
     @test trace[] == 7
+
+    # address that does not exist
+    threw = false
+    try
+        x = trace[:absent]
+    catch ex
+        threw = true
+    end
+    @test threw
 end
 
 @testset "docstrings" begin

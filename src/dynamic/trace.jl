@@ -200,7 +200,7 @@ function _getindex(trace::DynamicDSLTrace, trie::Trie, addr)
             # the return value of the generative function call
             return get_retval(choice_or_call.subtrace_or_retval)
         end
-    elseif haskey(trie.internal_nodes, addr)
+    else
         error("No random choice or generative function call at address $addr")
     end
 end
