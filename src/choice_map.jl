@@ -365,28 +365,28 @@ function get_address_schema(::Type{StaticChoiceMap{R,S,T,U}}) where {R,S,T,U}
     StaticAddressSchema(keys)
 end
 
-@inline function Base.isempty(choices::StaticChoiceMap)
+function Base.isempty(choices::StaticChoiceMap)
     choices.isempty
 end
 
 get_values_shallow(choices::StaticChoiceMap) = pairs(choices.leaf_nodes)
 get_submaps_shallow(choices::StaticChoiceMap) = pairs(choices.internal_nodes)
-@inline has_value(choices::StaticChoiceMap, addr::Pair) = _has_value(choices, addr)
-@inline get_value(choices::StaticChoiceMap, addr::Pair) = _get_value(choices, addr)
-@inline get_submap(choices::StaticChoiceMap, addr::Pair) = _get_submap(choices, addr)
+has_value(choices::StaticChoiceMap, addr::Pair) = _has_value(choices, addr)
+get_value(choices::StaticChoiceMap, addr::Pair) = _get_value(choices, addr)
+get_submap(choices::StaticChoiceMap, addr::Pair) = _get_submap(choices, addr)
 
 # NOTE: there is no static_has_value because this is known from the static
 # address schema
 
 ## has_value ##
 
-@inline function has_value(choices::StaticChoiceMap, key::Symbol)
+function has_value(choices::StaticChoiceMap, key::Symbol)
     haskey(choices.leaf_nodes, key)
 end
 
 ## get_submap ##
 
-@inline function get_submap(choices::StaticChoiceMap, key::Symbol)
+function get_submap(choices::StaticChoiceMap, key::Symbol)
     if haskey(choices.internal_nodes, key)
         choices.internal_nodes[key]
     elseif haskey(choices.leaf_nodes, key)
@@ -396,17 +396,17 @@ end
     end
 end
 
-@inline function static_get_submap(choices::StaticChoiceMap, ::Val{A}) where {A}
+function static_get_submap(choices::StaticChoiceMap, ::Val{A}) where {A}
     choices.internal_nodes[A]
 end
 
 ## get_value ##
 
-@inline function get_value(choices::StaticChoiceMap, key::Symbol)
+function get_value(choices::StaticChoiceMap, key::Symbol)
     choices.leaf_nodes[key]
 end
 
-@inline function static_get_value(choices::StaticChoiceMap, ::Val{A}) where {A}
+function static_get_value(choices::StaticChoiceMap, ::Val{A}) where {A}
     choices.leaf_nodes[A]
 end
 
