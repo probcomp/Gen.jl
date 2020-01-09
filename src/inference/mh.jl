@@ -9,10 +9,10 @@ function metropolis_hastings(trace, selection::Selection)
     (new_trace, weight) = regenerate(trace, args, argdiffs, selection)
     if log(rand()) < weight
         # accept
-        return (new_trace, true)
+        return (new_trace, true, weight)
     else
         # reject
-        return (trace, false)
+        return (trace, false, weight)
     end
 end
 
@@ -37,10 +37,10 @@ function metropolis_hastings(trace, proposal::GenerativeFunction, proposal_args:
     alpha = weight - fwd_weight + bwd_weight
     if log(rand()) < alpha
         # accept
-        return (new_trace, true)
+        return (new_trace, true, weight, fwd_weight, bwd_weight)
     else
         # reject
-        return (trace, false)
+        return (trace, false, weight, fwd_weight, bwd_weight)
     end
 end
 
@@ -89,10 +89,10 @@ function metropolis_hastings(trace, proposal::GenerativeFunction,
     end
     if log(rand()) < weight - fwd_score + bwd_score
         # accept
-        (new_trace, true)
+        (new_trace, true, weight, fwd_score, bwd_score)
     else
         # reject
-        (trace, false)
+        (trace, false, weight, fwd_score, bwd_score)
     end
 end
 
