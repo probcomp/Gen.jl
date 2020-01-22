@@ -36,8 +36,19 @@ get_submap(choices::StaticIRTraceAssmt, addr::Pair) = _get_submap(choices, addr)
 
 abstract type StaticIRTrace <: Trace end
 
+function static_get_subtrace(trace::StaticIRTrace, addr)
+    error("Not implemented")
+end
+
+static_haskey(trace::StaticIRTrace, ::Val) = false
+Base.haskey(trace::StaticIRTrace, key) = Gen.static_haskey(trace, Val(key))
+
 function Base.getindex(trace::StaticIRTrace, addr)
-    get_choices(trace)[addr]
+    Gen.static_getindex(trace, Val(addr))
+end
+function Base.getindex(trace::StaticIRTrace, addr::Pair)
+    first, rest = addr
+    return Gen.static_get_subtrace(trace, Val(first))[rest]
 end
 
 const arg_prefix = gensym("arg")
@@ -176,6 +187,43 @@ function generate_get_submaps_shallow(ir::StaticIR, trace_struct_name::Symbol)
         Expr(:block, Expr(:tuple, elements...)))
 end
 
+function generate_getindex(ir::StaticIR, trace_struct_name::Symbol)       
+    get_subtrace_exprs = Expr[]
+    for node in ir.call_nodes
+        push!(get_subtrace_exprs,
+            quote
+                function Gen.static_get_subtrace(trace::$trace_struct_name, ::Val{$(QuoteNode(node.addr))})
+                    return trace.$(get_subtrace_fieldname(node))
+                end
+            end
+        )
+    end
+    
+    call_getindex_exprs = Expr[]
+    for node in ir.call_nodes
+        push!(call_getindex_exprs,
+            quote
+                function Gen.static_getindex(trace::$trace_struct_name, ::Val{$(QuoteNode(node.addr))})
+                    return get_retval(trace.$(get_subtrace_fieldname(node)))
+                end
+            end
+        )
+    end
+    
+    choice_getindex_exprs = Expr[]
+    for node in ir.choice_nodes
+        push!(choice_getindex_exprs,
+            quote
+                function Gen.static_getindex(trace::$trace_struct_name, ::Val{$(QuoteNode(node.addr))})
+                    return trace.$(get_value_fieldname(node))
+                end
+            end
+        )
+    end
+        
+    return [get_subtrace_exprs; call_getindex_exprs; choice_getindex_exprs]
+end
+
 function generate_static_get_value(ir::StaticIR, trace_struct_name::Symbol)
     methods = Expr[]
     for node in ir.choice_nodes
@@ -247,11 +295,13 @@ function generate_trace_type_and_methods(ir::StaticIR, name::Symbol, options::St
     static_get_value_exprs = generate_static_get_value(ir, trace_struct_name)
     static_has_value_exprs = generate_static_has_value(ir, trace_struct_name)
     static_get_submap_exprs = generate_static_get_submap(ir, trace_struct_name)
+    getindex_exprs = generate_getindex(ir, trace_struct_name)
+
     exprs = Expr(:block, trace_struct_expr, isempty_expr, get_score_expr,
                  get_args_expr, get_retval_expr,
                  get_choices_expr, get_schema_expr, get_values_shallow_expr,
                  get_submaps_shallow_expr, static_get_value_exprs...,
-                 static_has_value_exprs..., static_get_submap_exprs...)
+                 static_has_value_exprs..., static_get_submap_exprs..., getindex_exprs...)
     (exprs, trace_struct_name)
 end
 
