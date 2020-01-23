@@ -44,19 +44,19 @@ end
 
 # trace API
 
-get_choices(trace::VectorTrace) = VectorTraceChoiceMap(trace)
-get_retval(trace::VectorTrace) = trace.retval
-get_args(trace::VectorTrace) = trace.args
-get_score(trace::VectorTrace) = trace.score
-get_gen_fn(trace::VectorTrace) = trace.gen_fn
+@inline get_choices(trace::VectorTrace) = VectorTraceChoiceMap(trace)
+@inline get_retval(trace::VectorTrace) = trace.retval
+@inline get_args(trace::VectorTrace) = trace.args
+@inline get_score(trace::VectorTrace) = trace.score
+@inline get_gen_fn(trace::VectorTrace) = trace.gen_fn
 
-function Base.getindex(trace::VectorTrace, addr::Pair)
+@inline function Base.getindex(trace::VectorTrace{GenFnType, T, U}, addr::Pair) where {GenFnType, T, U}
     (first, rest) = addr
     subtrace = trace.subtraces[first]
     subtrace[rest]
 end
 
-function Base.getindex(trace::VectorTrace, addr)
+@inline function Base.getindex(trace::VectorTrace, addr)
     # we expose the return values in the auxiliary state
     trace.retval[addr]
 end
@@ -71,14 +71,14 @@ function project(trace::VectorTrace, selection::Selection)
     weight
 end
 
-struct VectorTraceChoiceMap <: ChoiceMap
-    trace::VectorTrace
+struct VectorTraceChoiceMap{GenFnType, T, U} <: ChoiceMap
+    trace::VectorTrace{GenFnType, T, U}
 end
 
-Base.isempty(assignment::VectorTraceChoiceMap) = assignment.trace.num_nonempty == 0
-get_address_schema(::Type{VectorTraceChoiceMap}) = VectorAddressSchema()
+@inline Base.isempty(assignment::VectorTraceChoiceMap) = assignment.trace.num_nonempty == 0
+@inline get_address_schema(::Type{VectorTraceChoiceMap}) = VectorAddressSchema()
 
-function get_submap(choices::VectorTraceChoiceMap, addr::Int)
+@inline function get_submap(choices::VectorTraceChoiceMap, addr::Int)
     if addr <= choices.trace.len
         get_choices(choices.trace.subtraces[addr])
     else
@@ -86,14 +86,14 @@ function get_submap(choices::VectorTraceChoiceMap, addr::Int)
     end
 end
 
-function get_submaps_shallow(choices::VectorTraceChoiceMap)
+@inline function get_submaps_shallow(choices::VectorTraceChoiceMap)
     ((i, get_choices(choices.trace.subtraces[i])) for i=1:choices.trace.len)
 end
 
-get_submap(choices::VectorTraceChoiceMap, addr::Pair) = _get_submap(choices, addr)
-get_value(choices::VectorTraceChoiceMap, addr::Pair) = _get_value(choices, addr)
-has_value(choices::VectorTraceChoiceMap, addr::Pair) = _has_value(choices, addr)
-get_values_shallow(::VectorTraceChoiceMap) = ()
+@inline get_submap(choices::VectorTraceChoiceMap, addr::Pair) = _get_submap(choices, addr)
+@inline get_value(choices::VectorTraceChoiceMap, addr::Pair) = _get_value(choices, addr)
+@inline has_value(choices::VectorTraceChoiceMap, addr::Pair) = _has_value(choices, addr)
+@inline get_values_shallow(::VectorTraceChoiceMap) = ()
 
 
 ############################################

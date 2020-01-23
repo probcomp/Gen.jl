@@ -69,24 +69,24 @@ function Base.isempty(::ChoiceMap)
     true
 end
 
-get_submap(choices::ChoiceMap, addr) = EmptyChoiceMap()
-has_value(choices::ChoiceMap, addr) = false
-get_value(choices::ChoiceMap, addr) = throw(KeyError(addr))
-Base.getindex(choices::ChoiceMap, addr) = get_value(choices, addr)
+@inline get_submap(choices::ChoiceMap, addr) = EmptyChoiceMap()
+@inline has_value(choices::ChoiceMap, addr) = false
+@inline get_value(choices::ChoiceMap, addr) = throw(KeyError(addr))
+@inline Base.getindex(choices::ChoiceMap, addr) = get_value(choices, addr)
 
-function _has_value(choices::T, addr::Pair) where {T <: ChoiceMap}
+@inline function _has_value(choices::T, addr::Pair) where {T <: ChoiceMap}
     (first, rest) = addr
     submap = get_submap(choices, first)
     has_value(submap, rest)
 end
 
-function _get_value(choices::T, addr::Pair) where {T <: ChoiceMap}
+@inline function _get_value(choices::T, addr::Pair) where {T <: ChoiceMap}
     (first, rest) = addr
     submap = get_submap(choices, first)
     get_value(submap, rest)
 end
 
-function _get_submap(choices::T, addr::Pair) where {T <: ChoiceMap}
+@inline function _get_submap(choices::T, addr::Pair) where {T <: ChoiceMap}
     (first, rest) = addr
     submap = get_submap(choices, first)
     get_submap(submap, rest)
