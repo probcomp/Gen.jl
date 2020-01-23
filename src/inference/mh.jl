@@ -1,5 +1,5 @@
 """
-    (new_trace, accepted) = metropolis_hastings(trace, selection::Selection)
+    (new_trace, accepted, weight) = metropolis_hastings(trace, selection::Selection)
 
 Perform a Metropolis-Hastings update that proposes new values for the selected addresses from the internal proposal (often using ancestral sampling), returning the new trace (which is equal to the previous trace if the move was not accepted) and a Bool indicating whether the move was accepted or not.
 """
@@ -18,7 +18,7 @@ end
 
 
 """
-    (new_trace, accepted) = metropolis_hastings(trace, proposal::GenerativeFunction, proposal_args::Tuple)
+    (new_trace, accepted, weight, fwd_weight, bwd_weight) = metropolis_hastings(trace, proposal::GenerativeFunction, proposal_args::Tuple)
 
 Perform a Metropolis-Hastings update that proposes new values for some subset of random choices in the given trace using the given proposal generative function, returning the new trace (which is equal to the previous trace if the move was not accepted) and a Bool indicating whether the move was accepted or not.
 
@@ -45,7 +45,7 @@ function metropolis_hastings(trace, proposal::GenerativeFunction, proposal_args:
 end
 
 """
-    (new_trace, accepted) = metropolis_hastings(trace, proposal::GenerativeFunction, proposal_args::Tuple, involution::Function)
+    (new_trace, accepted, weight, fwd_score, bwd_score) = metropolis_hastings(trace, proposal::GenerativeFunction, proposal_args::Tuple, involution::Function)
 
 Perform a generalized Metropolis-Hastings update based on an involution (bijection that is its own inverse) on a space of choice maps, returning the new trace (which is equal to the previous trace if the move was not accepted) and a Bool indicating whether the move was accepted or not.
 
@@ -97,9 +97,9 @@ function metropolis_hastings(trace, proposal::GenerativeFunction,
 end
 
 """
-    (new_trace, accepted) = mh(trace, selection::Selection)
-    (new_trace, accepted) = mh(trace, proposal::GenerativeFunction, proposal_args::Tuple)
-    (new_trace, accepted) = mh(trace, proposal::GenerativeFunction, proposal_args::Tuple, involution::Function)
+    (new_trace, accepted, ...) = mh(trace, selection::Selection)
+    (new_trace, accepted, ...) = mh(trace, proposal::GenerativeFunction, proposal_args::Tuple)
+    (new_trace, accepted, ...) = mh(trace, proposal::GenerativeFunction, proposal_args::Tuple, involution::Function)
 
 Alias for [`metropolis_hastings`](@ref). Perform a Metropolis-Hastings update on the given trace.
 """
