@@ -1,6 +1,7 @@
 const STATIC_DSL_GRAD = Symbol("@grad")
 const STATIC_DSL_TRACE = Symbol("@trace")
 const STATIC_DSL_PARAM = Symbol("@param")
+const KNOWN_MACROS = [STATIC_DSL_GRAD, STATIC_DSL_TRACE, STATIC_DSL_PARAM]
 
 function static_dsl_syntax_error(expr, msg="")
     error("Syntax error when parsing static DSL function at $expr. $msg")
@@ -116,7 +117,7 @@ choice_or_call_at(gen_fn::GenerativeFunction, addr_typ) = call_at(gen_fn, addr_t
 choice_or_call_at(dist::Distribution, addr_typ) = choice_at(dist, addr_typ)
 
        # parse_trace_expr!(stmts::Vector{Expr}, bindings, name::Symbol("##XYZ"), line::Epr(not :(=)), typ)
-function parse_trace_expr!(stmts, bindings, name, addr_expr, typ)
+function parse_trace_expr!(stmts, bindings, name, addr_expr, typ, __module__)
     # NOTE: typ is unused
     if !(isa(addr_expr, Expr) && addr_expr.head == :macrocall
         && length(addr_expr.args) >= 4 && addr_expr.args[1] == STATIC_DSL_TRACE)
@@ -124,9 +125,15 @@ function parse_trace_expr!(stmts, bindings, name, addr_expr, typ)
     end
     @assert isa(addr_expr.args[2], LineNumberNode)
     call = addr_expr.args[3]
-    if !isa(call, Expr) || call.head != :call
+    if !isa(call, Expr) || (call.head != :call && call.head != :macrocall)
         return false
     end
+    
+    # eg. a = @trace(@sample_one(T), :T_sample)
+    while call.head == :macrocall && !(call.args[1] in KNOWN_MACROS)
+        call = macroexpand(__module__, call; recursive=false)
+    end
+    
     local addr::Symbol
     gen_fn_or_dist = gensym()
     push!(stmts, :($(esc(gen_fn_or_dist)) = $(esc(call.args[1]))))
@@ -181,28 +188,28 @@ function parse_trainable_param!(stmts::Vector{Expr}, bindings, line::Expr)
     end
 end
 
-function parse_trace_line!(stmts::Vector{Expr}, bindings, line::Expr)
+function parse_trace_line!(stmts::Vector{Expr}, bindings, line::Expr, __module__)
     if line.head == :(=)
         @assert length(line.args) == 2
         (lhs, rhs) = line.args
         (name::Symbol, typ) = parse_lhs(lhs)
-        parse_trace_expr!(stmts, bindings, name, rhs, typ)
+        parse_trace_expr!(stmts, bindings, name, rhs, typ, __module__)
     else
         name = gensym()
         typ = QuoteNode(Any)
-        parse_trace_expr!(stmts, bindings, name, line, typ)
+        parse_trace_expr!(stmts, bindings, name, line, typ, __module__)
     end
 end
 
 # return foo (must be a symbol) or return @trace(..)
-function parse_return!(stmts::Vector{Expr}, bindings, line::Expr)
+function parse_return!(stmts::Vector{Expr}, bindings, line::Expr, __module__)
     if line.head != :return
         return false
     end
     if isa(line.args[1], Expr) && line.args[1].head == :macrocall
         var = gensym()
         typ = QuoteNode(Any)
-        if !parse_trace_expr!(stmts, bindings, var, line.args[1], typ)
+        if !parse_trace_expr!(stmts, bindings, var, line.args[1], typ, __module__)
             return false # the right-hand-side is a macro but not a valid `@trace` expression
         end
     elseif isa(line.args[1], Symbol)
@@ -221,7 +228,7 @@ end
 
 function parse_static_dsl_function_body!(stmts::Vector{Expr},
                                          bindings::Dict{Symbol,Symbol},
-                                         expr)
+                                         expr, __module__)
     # TODO use line number nodes to provide better error messages in generated code
     if !isa(expr, Expr) || expr.head != :block
         static_dsl_syntax_error(expr)
@@ -229,25 +236,32 @@ function parse_static_dsl_function_body!(stmts::Vector{Expr},
     for line in expr.args
         isa(line, LineNumberNode) && continue
         !isa(line, Expr) && static_dsl_syntax_error(line)
+        
+        # if this line is a macrocall, 
+        # eg. @num T = [() -> poisson(5)]
+        # should be macroexpanded before the line is parsed
+        while line.head == :macrocall && !(line.args[1] in KNOWN_MACROS)
+            line = macroexpand(__module__, line; recursive=false)
+        end
 
         # @param name::type
         parse_trainable_param!(stmts, bindings, line) && continue
 
         # lhs = @trace(rhs..) or @trace(rhs)
-        parse_trace_line!(stmts, bindings, line) && continue
+        parse_trace_line!(stmts, bindings, line, __module__) && continue
 
         # lhs = rhs
         # (only run if parsing as choice and call both fail)
         parse_julia_assignment!(stmts, bindings, line) && continue
 
         # return ..
-        parse_return!(stmts, bindings, line) && continue
+        parse_return!(stmts, bindings, line, __module__) && continue
 
         static_dsl_syntax_error(line)
     end
 end
 
-function make_static_gen_function(name, args, body, return_type, annotations)
+function make_static_gen_function(name, args, body, return_type, annotations, __module__)
     # generate code that builds the IR, then generates code from it and evaluates it
     stmts = Expr[]
     push!(stmts, :(bindings = Dict{Symbol, StaticIRNode}()))
@@ -262,7 +276,7 @@ function make_static_gen_function(name, args, body, return_type, annotations)
             compute_grad=$(QuoteNode(DSL_ARG_GRAD_ANNOTATION in arg.annotations)))))
         bindings[arg.name] = node 
     end
-    parse_static_dsl_function_body!(stmts, bindings, body)
+    parse_static_dsl_function_body!(stmts, bindings, body, __module__)
     push!(stmts, :(ir = build_ir(builder)))
     expr = gensym("gen_fn_defn")
     # note: use the eval() for the user's module, not Gen

@@ -53,7 +53,7 @@ end
 include("dynamic.jl")
 include("static.jl")
 
-function parse_gen_function(ast, annotations)
+function parse_gen_function(ast, annotations, __module__)
     if ast.head != :function
         error("syntax error at $ast in $(ast.head)")
     end
@@ -73,7 +73,7 @@ function parse_gen_function(ast, annotations)
     args = map(parse_arg, call_signature.args[2:end])
     static = DSL_STATIC_ANNOTATION in annotations
     if static
-        make_static_gen_function(name, args, body, return_type, annotations)
+        make_static_gen_function(name, args, body, return_type, annotations, __module__)
     else
         make_dynamic_gen_function(name, args, body, return_type, annotations)
     end
@@ -85,9 +85,9 @@ macro gen(annotations_expr, ast)
     annotations = parse_annotations(annotations_expr)
 
     # parse the function definition
-    parse_gen_function(ast, annotations)
+    parse_gen_function(ast, annotations, __module__)
 end
 
 macro gen(ast)
-    parse_gen_function(ast, Set{Symbol}())
+    parse_gen_function(ast, Set{Symbol}(), __module__)
 end

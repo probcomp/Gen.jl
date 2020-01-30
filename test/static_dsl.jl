@@ -61,6 +61,20 @@ end
     ret = @trace(foo(mu), :x => i => :y)
 end
 
+macro generate_line()
+    # a = @trace(poisson(5), :a)
+    Expr(:(=), esc(:a), 
+    Expr(:macrocall, Symbol("@trace"), LineNumberNode(0), :(poisson(5)), QuoteNode(:a)))
+end
+
+@testset "macros" begin
+@gen (static) function get_a()
+    @generate_line
+    return a
+end
+Gen.load_generated_functions()
+end
+
 @testset "static DSL" begin
 
 function get_node_by_name(ir, name::Symbol)
