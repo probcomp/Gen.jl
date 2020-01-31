@@ -61,20 +61,6 @@ end
     ret = @trace(foo(mu), :x => i => :y)
 end
 
-macro generate_line()
-    # a = @trace(poisson(5), :a)
-    Expr(:(=), esc(:a), 
-    Expr(:macrocall, Symbol("@trace"), LineNumberNode(0), :(poisson(5)), QuoteNode(:a)))
-end
-
-@testset "macros" begin
-@gen (static) function get_a()
-    @generate_line
-    return a
-end
-Gen.load_generated_functions()
-end
-
 @testset "static DSL" begin
 
 function get_node_by_name(ir, name::Symbol)
@@ -447,3 +433,59 @@ end
 
 
 end # @testset "static DSL"
+
+macro generate_line()
+    # a = @trace(poisson(5), :a)
+    Expr(:(=), esc(:a), 
+    Expr(:macrocall, Symbol("@trace"), LineNumberNode(0), :(poisson(5)), QuoteNode(:a)))
+end
+
+macro generate_line_custom_addr(addr::Symbol)
+    Expr(:(=), esc(addr), 
+    Expr(:macrocall, Symbol("@trace"), LineNumberNode(0), :(poisson(5)), QuoteNode(addr)))
+end
+
+macro output_bern(p)
+    return :(bernoulli($p))
+end
+
+# introduce a seperate testset since we can't declare the macros
+# within a testset, and I want to keep the code as spatially contained as possible
+@testset "macros in static dsl" begin
+@gen (static) function get_a()
+    @generate_line
+    return a
+end
+@gen (static) function get_b()
+    @generate_line_custom_addr b
+    return b
+end
+@gen (static) function return_true()
+    val = @trace(@output_bern(1.0), :val)
+    return val
+end
+@gen (static) function coinflip()
+    val = @trace(@output_bern(0.5), :val)
+    return val
+end
+
+Gen.load_generated_functions()
+
+tr, _ = generate(get_b, (), choicemap((:b, 5)))
+@test get_score(tr) ≈ -1.7403021806115442
+@test tr[:b] == 5
+
+tr = simulate(return_true, ())
+@test tr[:val] == true
+@test get_score(tr) == 0.0
+
+tr, _ = generate(coinflip, (), choicemap((:val, false)))
+@test tr[:val] == false
+@test get_score(tr) == log(0.5)
+
+# I'm not including any tests here to check that
+# the special `@trace` & `@param` & `@grad` macros
+# are handled properly, since these should be covered
+# by other tests
+
+end
