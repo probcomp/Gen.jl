@@ -405,6 +405,34 @@ The functions must also satisfy the following rules:
 
 - Julia control flow constructs (e.g. `if`, `for`, `while`) cannot be used as top-level statements in the function body. Control flow should be implemented inside Julia functions that are called, generative functions that are called such as generative functions produced using [Generative Function Combinators](@ref).
 
+#### Macros in static DSL
+
+Gen includes several macros with special meanings for use within generative functions (`@trace`, `@param`, and `@grad`).
+In addition to these, user-defined macros may be used within the dynamic DSL.  The static DSL also supports user-defined macros,
+so long as they (non-recursively) `macroexpand` into code which makes the line valid under the restrictions of the
+static DSL.  Macros may be used in the static DSL in any of the following places:
+
+- An entire line may be a macro which (non-recursively) `macroexpand`s to a valid line for the static DSL.  For example:
+```julia
+@generate_line arg1 arg2
+```
+may be used if `macroexpand(__module__, :(@num(arg1, arg2)); recursive=false)` becomes a valid static DSL line.
+
+- A macro may be called USING PARENTHESES as the first argument to an `@trace` expression.
+
+So it is valid to include
+```julia
+a = @trace(@output_distribution(arg1, arg2), :addr)
+```
+
+But it is invalid to include
+
+```julia
+a = @trace(@output_distribution arg1 arg2 , :addr)
+```
+
+(The reason macros cannot be used without parentheses is that then `:addr` is parsed as part of the macro call.)
+
 ### Loading generated functions
 Before a function with a static annotation can be used, the [`load_generated_functions`](@ref) method must be called:
 ```@docs
