@@ -23,6 +23,7 @@ function importance_sampling(model::GenerativeFunction{T,U}, model_args::Tuple,
     traces = Vector{U}(undef, num_samples)
     log_weights = Vector{Float64}(undef, num_samples)
     for i=1:num_samples
+        verbose && println("sample: $i of $num_samples")
         (traces[i], log_weights[i]) = generate(model, model_args, observations)
     end
     log_total_weight = logsumexp(log_weights)
@@ -34,7 +35,7 @@ end
 function importance_sampling(model::GenerativeFunction{T,U}, model_args::Tuple,
                              observations::ChoiceMap,
                              proposal::GenerativeFunction, proposal_args::Tuple,
-                             num_samples::Int) where {T,U}
+                             num_samples::Int, verbose=false) where {T,U}
     traces = Vector{U}(undef, num_samples)
     log_weights = Vector{Float64}(undef, num_samples)
     for i=1:num_samples
