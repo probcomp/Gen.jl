@@ -1,5 +1,30 @@
 using MacroTools
 
+check_is_kernel(::Any) = false
+
+function check_observations(choices::ChoiceMap, observations::ChoiceMap)
+    for (key, value) in get_values_shallow(observations)
+        !has_value(choices, key) && error("Check failed: observed choice at $key not found")
+        choices[key] != value && error("Check failed: value of observed choice at $key changed")
+    end
+    for (key, submap) in get_submaps_shallow(observations)
+        check_observations(get_submap(choices, key), submap)
+    end
+end
+
+macro pkern(ex)
+    check = gensym()
+    @capture(ex, function f_(args__) body_ end) || error("expected a function")
+    quote
+        function $(esc(f))($(args...), $check = false, observations = EmptyChoiceMap())
+            trace = $body
+            $check && check_observations(get_choices(trace), observations)
+            trace
+        end
+        check_is_kernel($(esc(f))) = true
+    end
+end
+
 macro kern(ex)
     check = gensym()
     trace = gensym()
@@ -7,10 +32,12 @@ macro kern(ex)
     @capture(ex, function f_(args__) body_ end) || error("expected a function")
 
     ex = quote
-        function $(esc(f))(@tr(), $(args...), $check = false)
+        function $(esc(f))(@tr(), $(args...), $check = false, observations = EmptyChoiceMap())
             $body
+            $check && check_observations(get_choices(@tr()), observations)
             @tr()
         end
+        check_is_kernel($(esc(f))) = true
     end
 
     # replace @tr() with trace gensym
@@ -71,9 +98,16 @@ macro kern(ex)
     # @app statements
     ex = MacroTools.postwalk(ex) do x
         if @capture(x, @app K_(args__))
-            quote $trace = $(esc(K))($trace, $(args...)) end
+            quote
+                $check && check_is_kernel($(esc(K)))
+                $trace = $(esc(K))($trace, $(args...), $check)
+            end
         else
             x
         end
     end
+
+    ex
 end
+
+export @pkern, @kern
