@@ -13,12 +13,11 @@ function check_observations(choices::ChoiceMap, observations::ChoiceMap)
 end
 
 macro pkern(ex)
-    check = gensym()
     MacroTools.@capture(ex, function f_(args__) body_ end) || error("expected a function")
     quote
-        function $(esc(f))($(args...), $check = false, observations = EmptyChoiceMap())
+        function $(esc(f))($(args...), check = false, observations = EmptyChoiceMap())
             trace = $body
-            $check && check_observations(get_choices(trace), observations)
+            check && check_observations(get_choices(trace), observations)
             trace
         end
         check_is_kernel($(esc(f))) = true
@@ -26,23 +25,21 @@ macro pkern(ex)
 end
 
 macro kern(ex)
-    check = gensym()
-    trace = gensym()
 
     MacroTools.@capture(ex, function f_(args__) body_ end) || error("expected a function")
 
     ex = quote
-        function $(esc(f))(@tr(), $(args...), $check = false, observations = EmptyChoiceMap())
+        function $(esc(f))(trace, $(args...), check = false, observations = EmptyChoiceMap())
             $body
-            $check && check_observations(get_choices(@tr()), observations)
-            @tr()
+            check && check_observations(get_choices(trace), observations)
+            trace
         end
         check_is_kernel($(esc(f))) = true
     end
 
-    # replace @tr() with trace gensym
+    # replace @tr() with trace
     ex = MacroTools.postwalk(ex) do x
-        MacroTools.@capture(x, @tr()) ? trace : x
+        MacroTools.@capture(x, @tr()) ? :trace : x
     end
 
     # for loops
@@ -53,7 +50,7 @@ macro kern(ex)
             for $idx in loop_range
                 $body
             end
-            $check && (loop_range != $range) && error("Check failed in loop")
+            check && (loop_range != $range) && error("Check failed in loop")
         end
     end
 
@@ -65,7 +62,7 @@ macro kern(ex)
             if cond
                 $body
             end
-            $check && (cond != $cond) && error("Check failed in if-end")
+            check && (cond != $cond) && error("Check failed in if-end")
         end
     end
 
@@ -77,7 +74,7 @@ macro kern(ex)
             let $var = rhs
                 $body
             end
-            $check && (rhs != $rhs) && error("Check failed in let")
+            check && (rhs != $rhs) && error("Check failed in let")
         end
     end
 
@@ -90,17 +87,17 @@ macro kern(ex)
             let $idx = dist($(args...))
                 $body
             end
-            $check && (dist != $dist) && error("Check failed in mixture (distribution)")
-            $check && (args != ($(args...),)) && error("Check failed in mixture (arguments)")
+            check && (dist != $dist) && error("Check failed in mixture (distribution)")
+            check && (args != ($(args...),)) && error("Check failed in mixture (arguments)")
         end
     end
 
-    # @app statements
+    # applying a kernel
     ex = MacroTools.postwalk(ex) do x
         if MacroTools.@capture(x, @app K_(args__))
             quote
-                $check && check_is_kernel($(esc(K)))
-                $trace = $(esc(K))($trace, $(args...), $check)
+                check && check_is_kernel($(esc(K)))
+                trace = $(esc(K))(trace, $(args...), check)
             end
         else
             x
