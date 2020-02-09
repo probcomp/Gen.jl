@@ -1,4 +1,4 @@
-using MacroTools
+import MacroTools
 
 check_is_kernel(::Any) = false
 
@@ -14,7 +14,7 @@ end
 
 macro pkern(ex)
     check = gensym()
-    @capture(ex, function f_(args__) body_ end) || error("expected a function")
+    MacroTools.@capture(ex, function f_(args__) body_ end) || error("expected a function")
     quote
         function $(esc(f))($(args...), $check = false, observations = EmptyChoiceMap())
             trace = $body
@@ -29,7 +29,7 @@ macro kern(ex)
     check = gensym()
     trace = gensym()
 
-    @capture(ex, function f_(args__) body_ end) || error("expected a function")
+    MacroTools.@capture(ex, function f_(args__) body_ end) || error("expected a function")
 
     ex = quote
         function $(esc(f))(@tr(), $(args...), $check = false, observations = EmptyChoiceMap())
@@ -42,12 +42,12 @@ macro kern(ex)
 
     # replace @tr() with trace gensym
     ex = MacroTools.postwalk(ex) do x
-        @capture(x, @tr()) ? trace : x
+        MacroTools.@capture(x, @tr()) ? trace : x
     end
 
     # for loops
     ex = MacroTools.postwalk(ex) do x
-        @capture(x, for idx_ in range_ body_ end) || return x
+        MacroTools.@capture(x, for idx_ in range_ body_ end) || return x
         quote
             loop_range = $range
             for $idx in loop_range
@@ -59,7 +59,7 @@ macro kern(ex)
 
     # if .. end
     ex = MacroTools.postwalk(ex) do x
-        @capture(x, if cond_ body_ end) || return x
+        MacroTools.@capture(x, if cond_ body_ end) || return x
         quote
             cond = $cond
             if cond
@@ -71,7 +71,7 @@ macro kern(ex)
 
     # let
     ex = MacroTools.postwalk(ex) do x
-        @capture(x, let var_ = rhs_; body_ end) || return x
+        MacroTools.@capture(x, let var_ = rhs_; body_ end) || return x
         quote
             rhs = $rhs
             let $var = rhs
@@ -83,7 +83,7 @@ macro kern(ex)
 
     # mixture
     ex = MacroTools.postwalk(ex) do x
-        @capture(x, let idx_ ~ dist_(args__); body_ end) || return x
+        MacroTools.@capture(x, let idx_ ~ dist_(args__); body_ end) || return x
         quote
             dist = $dist
             args = ($(args...),)
@@ -97,7 +97,7 @@ macro kern(ex)
 
     # @app statements
     ex = MacroTools.postwalk(ex) do x
-        if @capture(x, @app K_(args__))
+        if MacroTools.@capture(x, @app K_(args__))
             quote
                 $check && check_is_kernel($(esc(K)))
                 $trace = $(esc(K))($trace, $(args...), $check)
