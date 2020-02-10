@@ -93,11 +93,15 @@ println(macroexpand(Main, ex))
 
 eval(ex)
 
+r = reversal(my_kernel)
+println(r)
+
 function do_inference(n::Int, iters::Int, check)
     obs = choicemap((:obs, 10))
     trace, = generate(foo, (), merge(obs, choicemap((:n, n))))
     for i=1:iters
         trace = my_kernel(trace, check, obs)
+        trace = r(trace, check, obs)
     end
 end
 

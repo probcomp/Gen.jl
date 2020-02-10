@@ -38,67 +38,69 @@ function expand_kern_ex(ex)
         check_is_kernel($(esc(f))) = true
     end
 
-    # replace @tr() with trace
     ex = MacroTools.postwalk(ex) do x
-        MacroTools.@capture(x, @tr()) ? :trace : x
-    end
+        if MacroTools.@capture(x, @tr())
 
-    # for loops
-    ex = MacroTools.postwalk(ex) do x
-        MacroTools.@capture(x, for idx_ in range_ body_ end) || return x
-        quote
-            loop_range = $range
-            for $idx in loop_range
-                $body
+            # replace @tr() with trace
+            :trace
+
+        elseif MacroTools.@capture(x, for idx_ in range_ body_ end)
+
+            # for loops
+            quote
+                loop_range = $range
+                for $idx in loop_range
+                    $body
+                end
+                check && (loop_range != $range) && error("Check failed in loop")
             end
-            check && (loop_range != $range) && error("Check failed in loop")
-        end
-    end
 
-    # if .. end
-    ex = MacroTools.postwalk(ex) do x
-        MacroTools.@capture(x, if cond_ body_ end) || return x
-        quote
-            cond = $cond
-            if cond
-                $body
+        elseif MacroTools.@capture(x, if cond_ body_ end)
+
+            # if .. end
+            quote
+                cond = $cond
+                if cond
+                    $body
+                end
+                check && (cond != $cond) && error("Check failed in if-end")
             end
-            check && (cond != $cond) && error("Check failed in if-end")
-        end
-    end
 
-    # let
-    ex = MacroTools.postwalk(ex) do x
-        MacroTools.@capture(x, let var_ = rhs_; body_ end) || return x
-        quote
-            rhs = $rhs
-            let $var = rhs
-                $body
+        elseif MacroTools.@capture(x, let var_ = rhs_; body_ end)
+
+            # let
+            quote
+                rhs = $rhs
+                let $var = rhs
+                    $body
+                end
+                check && (rhs != $rhs) && error("Check failed in let")
             end
-            check && (rhs != $rhs) && error("Check failed in let")
-        end
-    end
 
-    # mixture
-    ex = MacroTools.postwalk(ex) do x
-        MacroTools.@capture(x, let idx_ ~ dist_(args__); body_ end) || return x
-        quote
-            dist = $dist
-            args = ($(args...),)
-            let $idx = dist($(args...))
-                $body
+        elseif MacroTools.@capture(x, let idx_ ~ dist_(args__); body_ end)
+
+            # mixture
+            quote
+                dist = $dist
+                args = ($(args...),)
+                let $idx = dist($(args...))
+                    $body
+                end
+                check && (dist != $dist) && error("Check failed in mixture (distribution)")
+                check && (args != ($(args...),)) && error("Check failed in mixture (arguments)")
             end
-            check && (dist != $dist) && error("Check failed in mixture (distribution)")
-            check && (args != ($(args...),)) && error("Check failed in mixture (arguments)")
-        end
-    end
 
-    # applying a kernel
-    ex = MacroTools.postwalk(ex) do x
-        MacroTools.@capture(x, @app K_(args__)) || return x
-        quote
-            check && check_is_kernel($(esc(K)))
-            trace = $(esc(K))(trace, $(args...), check)
+        elseif MacroTools.@capture(x, @app K_(args__))
+
+            # applying a kernel
+            quote
+                check && check_is_kernel($(esc(K)))
+                trace = $(esc(K))(trace, $(args...), check)
+            end
+
+        else
+            # leave it as is
+            x
         end
     end
 
@@ -132,30 +134,38 @@ function reversal_ex(ex)
         end
     end
 
-    # for loops
     ex = MacroTools.postwalk(ex) do x
-        MacroTools.@capture(x, for idx_ in range_ body_ end) || return x
-        quote
-            for $idx in reverse(loop_range)
-                $body
+        if MacroTools.@capture(x, for idx_ in range_ body_ end)
+
+            # for loops - reverse the order of loop indices
+            quote
+                for $idx in reverse(loop_range)
+                    $body
+                end
             end
+
+        elseif MacroTools.@capture(x, @app K_(args__))
+
+            # applying a kernel - apply the reverse kernel
+            quote
+                #NOTE: replacing @app with @app_ to be fixed in a later alk,
+                # due to unpredictable behavior of postwalk (see below)
+                @app_ reversal($K)($(args...))
+            end
+        else
+
+            # leave it as is
+            x
         end
     end
 
-    # applying a kernel
-    ex = MacroTools.postwalk(ex) do x
-        MacroTools.@capture(x, @app K_(args__)) || return x
-        quote
-            @app_ reversal($K)($(args...))
-        end
-    end
+    # replace @app_ with @app
     ex = MacroTools.postwalk(ex) do x
         MacroTools.@capture(x, @app_ K_(args__)) || return x
         quote
             @app $K($(args...))
         end
     end
-
 
     ex
 end
