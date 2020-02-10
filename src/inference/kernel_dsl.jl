@@ -21,8 +21,8 @@ macro pkern(ex)
             check && check_observations(get_choices(trace), observations)
             trace
         end
-        is_primitive($(esc(f))) = true
-        check_is_kernel($(esc(f))) = true
+        Gen.is_primitive(::typeof($(esc(f)))) = true
+        Gen.check_is_kernel(::typeof($(esc(f)))) = true
     end
 end
 
@@ -35,7 +35,7 @@ function expand_kern_ex(ex)
             check && check_observations(get_choices(trace), observations)
             trace
         end
-        check_is_kernel($(esc(f))) = true
+        Gen.check_is_kernel(::typeof($(esc(f)))) = true
     end
 
     ex = MacroTools.postwalk(ex) do x
@@ -94,7 +94,7 @@ function expand_kern_ex(ex)
 
             # applying a kernel
             quote
-                check && check_is_kernel($(esc(K)))
+                check && Gen.check_is_kernel($(esc(K)))
                 trace = $(esc(K))(trace, $(args...), check)
             end
 
@@ -115,10 +115,10 @@ end
 macro revkern(ex)
     MacroTools.@capture(ex, k_ : l_) || error("expected a pair of functions")
     quote
-        is_primitive($k) || error("first function is not a primitive kernel")
-        is_primitive($l) || error("second function is not a primitive kernel")
-        reversal($k) = $l
-        reversal($l) = $k
+        Gen.is_primitive($(esc(k))) || error("first function is not a primitive kernel")
+        Gen.is_primitive($(esc(l))) || error("second function is not a primitive kernel")
+        Gen.reversal(::typeof($(esc(k)))) = $(esc(l))
+        Gen.reversal(::typeof($(esc(l)))) = $(esc(k))
     end
 end
 
@@ -127,9 +127,11 @@ function reversal_ex(ex)
 
     MacroTools.@capture(ex, function f_(args__) body_ end) || error("expected a function")
 
+    rev = gensym("reverse_kernel")
+
     # change the name
     ex = quote
-        function rev($(args...))
+        function $rev($(args...))
             $body
         end
     end
@@ -139,7 +141,7 @@ function reversal_ex(ex)
 
             # for loops - reverse the order of loop indices
             quote
-                for $idx in reverse(loop_range)
+                for $idx in reverse($range)
                     $body
                 end
             end
@@ -148,9 +150,9 @@ function reversal_ex(ex)
 
             # applying a kernel - apply the reverse kernel
             quote
-                #NOTE: replacing @app with @app_ to be fixed in a later alk,
+                #NOTE: replacing @app with @app_ to be fixed in a later walk,
                 # due to unpredictable behavior of postwalk (see below)
-                @app_ reversal($K)($(args...))
+                @app_ Gen.reversal($K)($(args...))
             end
         else
 
@@ -181,8 +183,8 @@ macro kern(ex)
         $rev_kern_ex
 
         # bind the reversals for both
-        Gen.reversal($(esc(kern))) = $rev_kern
-        Gen.reversal($rev_kern) = $(esc(kern))
+        Gen.reversal(::typeof($(esc(kern)))) = $(esc(rev_kern))
+        Gen.reversal(::typeof($(esc(rev_kern)))) = $(esc(kern))
     end
 end
 
