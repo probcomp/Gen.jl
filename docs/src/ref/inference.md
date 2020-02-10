@@ -1,4 +1,4 @@
-# Inference Library
+# Standard Inference Library
 
 ## Importance Sampling
 ```@docs
