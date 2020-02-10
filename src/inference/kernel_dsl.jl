@@ -27,7 +27,7 @@ macro pkern(ex)
 end
 
 function expand_kern_ex(ex)
-    MacroTools.@capture(ex, function f_(args__) body_ end) || error("expected a function")
+    MacroTools.@capture(ex, function f_((@T), args__) body_ end) || error("expected kernel syntax: function my_kernel((@T), .) .. end")
 
     ex = quote
         function $(esc(f))(trace::Trace, $(args...), check = false, observations = EmptyChoiceMap())
@@ -39,12 +39,7 @@ function expand_kern_ex(ex)
     end
 
     ex = MacroTools.postwalk(ex) do x
-        if MacroTools.@capture(x, @tr())
-
-            # replace @tr() with trace
-            :trace
-
-        elseif MacroTools.@capture(x, for idx_ in range_ body_ end)
+        if MacroTools.@capture(x, for idx_ in range_ body_ end)
 
             # for loops
             quote
@@ -90,16 +85,27 @@ function expand_kern_ex(ex)
                 check && (args != ($(args...),)) && error("Check failed in mixture (arguments)")
             end
 
-        elseif MacroTools.@capture(x, @app K_(args__))
+        elseif MacroTools.@capture(x, (@T) = k_((@T), args__))
 
             # applying a kernel
             quote
-                check && Gen.check_is_kernel($(esc(K)))
-                trace = $(esc(K))(trace, $(args...), check)
+                check && Gen.check_is_kernel($(esc(k)))
+                trace = $(esc(k))(trace, $(args...), check)
             end
 
         else
+
             # leave it as is
+            x
+        end
+    end
+
+    ex = MacroTools.postwalk(ex) do x
+        if MacroTools.@capture(x, (@T))
+
+            # replace (@T) with trace
+            :trace
+        else
             x
         end
     end
@@ -126,17 +132,10 @@ end
 function reversal_ex(ex)
 
     MacroTools.@capture(ex, function f_(args__) body_ end) || error("expected a function")
+    toplevel_args = args
 
-    rev = gensym("reverse_kernel")
-
-    # change the name
-    ex = quote
-        function $rev($(args...))
-            $body
-        end
-    end
-
-    ex = MacroTools.postwalk(ex) do x
+    # modify the body
+    body = MacroTools.postwalk(body) do x
         if MacroTools.@capture(x, for idx_ in range_ body_ end)
 
             # for loops - reverse the order of loop indices
@@ -146,14 +145,20 @@ function reversal_ex(ex)
                 end
             end
 
-        elseif MacroTools.@capture(x, @app K_(args__))
+        elseif MacroTools.@capture(x, (@T) = k_((@T), args__))
 
             # applying a kernel - apply the reverse kernel
             quote
-                #NOTE: replacing @app with @app_ to be fixed in a later walk,
-                # due to unpredictable behavior of postwalk (see below)
-                @app_ Gen.reversal($K)($(args...))
+                # add a @dummy sentinal to prevent unexpected behavior of postwalk..
+                (@T) = @dummy((Gen.reversal($k))((@T), $(args...)))
             end
+
+        elseif isa(x, Expr) && x.head == :block
+
+            # a sequence of things -- reverse the order
+            #Core.println(exprs)
+            Expr(:block, reverse(x.args)...)
+
         else
 
             # leave it as is
@@ -161,15 +166,21 @@ function reversal_ex(ex)
         end
     end
 
-    # replace @app_ with @app
-    ex = MacroTools.postwalk(ex) do x
-        MacroTools.@capture(x, @app_ K_(args__)) || return x
+    # remove the @dummy sentinel
+    body = MacroTools.postwalk(body) do x
+        MacroTools.@capture(x, @dummy(k_(args__))) || return x
         quote
-            @app $K($(args...))
+            $k($(args...))
         end
     end
 
-    ex
+    # change the name
+    rev = gensym("reverse_kernel")
+    quote
+        function $rev($(toplevel_args...))
+            $body
+        end
+    end
 end
 
 macro kern(ex)

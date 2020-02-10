@@ -38,30 +38,36 @@ end
 
 # define a composite stationary kernel
 
-@kern function my_kernel()
+ex = quote
+@kern function my_kernel((@T))
     
     # cycle through each one
-    for i in 1:@tr()[:n]
-        @app k1(i)
+    for i in 1:(@T)[:n]
+        (@T) = k1((@T), i)
+        (@T) = k2((@T), i, i)
     end
 
     # randomly pick one
-    let i ~ uniform_discrete(1, @tr()[:n])
-        @app k1(i)
+    let i ~ uniform_discrete(1, (@T)[:n])
+        (@T) = k1((@T), i)
     end
 
     # randomly pick two
-    if @tr()[:n] > 10
-        let i ~ uniform_discrete(1, @tr()[:n])
-            let j ~ uniform_discrete(1, @tr()[:n])
-                @app k2(i, j)
+    if (@T)[:n] > 10
+        let i ~ uniform_discrete(1, (@T)[:n])
+            let j ~ uniform_discrete(1, (@T)[:n])
+                (@T) = k2((@T), i, j)
             end
         end
     end
 
     # change how many there are
-    @app k3()
+    (@T) = k3((@T))
 end
+end
+
+println(macroexpand(Main, ex))
+eval(ex)
 
 function run_dsl_kernel(n::Int, iters::Int, check)
     obs = choicemap((:obs, 10))
