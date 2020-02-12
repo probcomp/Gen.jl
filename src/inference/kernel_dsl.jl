@@ -13,11 +13,22 @@ function check_observations(choices::ChoiceMap, observations::ChoiceMap)
     end
 end
 
+"""
+    @pkern function k(trace, ..)
+        ..
+        return trace
+    end
+
+Declare a Julia function as a primitive stationary kernel.
+
+The first argument of the function should be a trace, and the return value of the function should be a trace.
+"""
 macro pkern(ex)
     MacroTools.@capture(ex, function f_(args__) body_ end) || error("expected a function")
+    escaped_args = map(esc, args)
     quote
-        function $(esc(f))($(args...), check = false, observations = EmptyChoiceMap())
-            trace::Trace = $body
+        function $(esc(f))($(escaped_args...), check = false, observations = EmptyChoiceMap())
+            trace::Trace = $(esc(body))
             check && check_observations(get_choices(trace), observations)
             trace
         end
@@ -28,69 +39,75 @@ end
 
 function expand_kern_ex(ex)
     MacroTools.@capture(ex, function f_((@T), args__) body_ end) || error("expected kernel syntax: function my_kernel((@T), .) .. end")
+    ex = MacroTools.postwalk(MacroTools.unblock, ex)
 
-    ex = quote
-        function $(esc(f))(trace::Trace, $(args...), check = false, observations = EmptyChoiceMap())
-            $body
-            check && check_observations(get_choices(trace), observations)
+    trace = gensym("trace")
+    ex = MacroTools.postwalk(ex) do x
+        if MacroTools.@capture(x, (@T))
+
+            # replace (@T) with trace
             trace
+        else
+            x
         end
-        Gen.check_is_kernel(::typeof($(esc(f)))) = true
     end
 
-    ex = MacroTools.postwalk(ex) do x
+    MacroTools.@capture(ex, function f_(T_, args__) body_ end)
+    toplevel_args = args
+
+    body = MacroTools.postwalk(body) do x
         if MacroTools.@capture(x, for idx_ in range_ body_ end)
 
             # for loops
             quote
-                loop_range = $range
-                for $idx in loop_range
+                loop_range = $(esc(range))
+                for $(esc(idx)) in loop_range
                     $body
                 end
-                check && (loop_range != $range) && error("Check failed in loop")
+                check && (loop_range != $(esc(range))) && error("Check failed in loop")
             end
 
         elseif MacroTools.@capture(x, if cond_ body_ end)
 
             # if .. end
             quote
-                cond = $cond
+                cond = $(esc(cond))
                 if cond
                     $body
                 end
-                check && (cond != $cond) && error("Check failed in if-end")
+                check && (cond != $(esc(cond))) && error("Check failed in if-end")
             end
 
         elseif MacroTools.@capture(x, let var_ = rhs_; body_ end)
 
             # let
             quote
-                rhs = $rhs
-                let $var = rhs
+                rhs = $(esc(rhs))
+                let $(esc(var)) = rhs
                     $body
                 end
-                check && (rhs != $rhs) && error("Check failed in let")
+                check && (rhs != $(esc(rhs))) && error("Check failed in let")
             end
 
         elseif MacroTools.@capture(x, let idx_ ~ dist_(args__); body_ end)
 
             # mixture
             quote
-                dist = $dist
-                args = ($(args...),)
-                let $idx = dist($(args...))
+                dist = $(esc(dist))
+                args = ($(map(esc, args)...),)
+                let $(esc(idx)) = dist($(map(esc, args)...))
                     $body
                 end
-                check && (dist != $dist) && error("Check failed in mixture (distribution)")
-                check && (args != ($(args...),)) && error("Check failed in mixture (arguments)")
+                check && (dist != $(esc(dist))) && error("Check failed in mixture (distribution)")
+                check && (args != ($(map(esc, args)...),)) && error("Check failed in mixture (arguments)")
             end
 
-        elseif MacroTools.@capture(x, (@T) = k_((@T), args__))
+        elseif MacroTools.@capture(x, T_ ~ k_(T_, args__))
 
             # applying a kernel
             quote
                 check && Gen.check_is_kernel($(esc(k)))
-                trace = $(esc(k))(trace, $(args...), check)
+                $(esc(trace)) = $(esc(k))($(esc(trace)), $(map(esc, args)...), check)
             end
 
         else
@@ -100,25 +117,38 @@ function expand_kern_ex(ex)
         end
     end
 
-    ex = MacroTools.postwalk(ex) do x
-        if MacroTools.@capture(x, (@T))
-
-            # replace (@T) with trace
-            :trace
-        else
-            x
+    ex = quote
+        function $(esc(f))($(esc(trace))::Trace, $(toplevel_args...), check = false, observations = EmptyChoiceMap())
+            $body
+            check && check_observations(get_choices($(esc(trace))), observations)
+            $(esc(trace))
         end
+        Gen.check_is_kernel(::typeof($(esc(f)))) = true
     end
+
+    ex = MacroTools.postwalk(MacroTools.unblock, ex)
 
     ex, f
 end
 
+"""
+    k2 = reversal(k1)
+
+Return the reversal kernel for a given kernel.
+"""
 function reversal(f)
     check_is_kernel(f)
     error("Reversal for kernel $f is not defined")
 end
 
-macro revkern(ex)
+"""
+    @rkern k1 : k2
+
+Declare that two primitive stationary kernels are reversals of one another.
+
+The two kernels must have the same argument type signatures.
+"""
+macro rkern(ex)
     MacroTools.@capture(ex, k_ : l_) || error("expected a pair of functions")
     quote
         Gen.is_primitive($(esc(k))) || error("first function is not a primitive kernel")
@@ -131,12 +161,13 @@ end
 
 function reversal_ex(ex)
 
+    ex = MacroTools.postwalk(MacroTools.unblock, ex)
     MacroTools.@capture(ex, function f_(args__) body_ end) || error("expected a function")
     toplevel_args = args
 
     # modify the body
     body = MacroTools.postwalk(body) do x
-        if MacroTools.@capture(x, for idx_ in range_ body_ end)
+        x = if MacroTools.@capture(x, for idx_ in range_ body_ end)
 
             # for loops - reverse the order of loop indices
             quote
@@ -145,18 +176,16 @@ function reversal_ex(ex)
                 end
             end
 
-        elseif MacroTools.@capture(x, (@T) = k_((@T), args__))
+        elseif MacroTools.@capture(x, (@T) ~ k_((@T), args__))
 
             # applying a kernel - apply the reverse kernel
             quote
-                # add a @dummy sentinal to prevent unexpected behavior of postwalk..
-                (@T) = @dummy((Gen.reversal($k))((@T), $(args...)))
+                (@T) ~ (Gen.reversal($k))((@T), $(args...))
             end
 
         elseif isa(x, Expr) && x.head == :block
 
             # a sequence of things -- reverse the order
-            #Core.println(exprs)
             Expr(:block, reverse(x.args)...)
 
         else
@@ -166,24 +195,27 @@ function reversal_ex(ex)
         end
     end
 
-    # remove the @dummy sentinel
-    body = MacroTools.postwalk(body) do x
-        MacroTools.@capture(x, @dummy(k_(args__))) || return x
-        quote
-            $k($(args...))
-        end
-    end
-
     # change the name
     rev = gensym("reverse_kernel")
-    quote
+    ex = quote
         function $rev($(toplevel_args...))
             $body
         end
     end
+
+    ex = MacroTools.postwalk(MacroTools.unblock, ex)
 end
 
-macro kern(ex)
+"""
+    @ckern function k((@T), ..)
+        ..
+    end
+
+Construct a composite MCMC kernel.
+
+The resulting object is a Julia function that is annotated as a composite MCMC kernel, and can be called as a Julia function or applied within other composite kernels.
+"""
+macro ckern(ex)
     kern_ex, kern = expand_kern_ex(ex)
     rev_kern_ex, rev_kern = expand_kern_ex(reversal_ex(ex))
     quote
@@ -199,4 +231,4 @@ macro kern(ex)
     end
 end
 
-export @pkern, @revkern, @kern, reversal
+export @pkern, @rkern, @ckern, reversal
