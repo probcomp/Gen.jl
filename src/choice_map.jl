@@ -904,6 +904,14 @@ julia> c[:a] == cv[:a]
 true
 julia> c[:b => :c] == cv[:b][:c]
 true
+julia> length(cv)
+2
+julia> length(cv[:b])
+1
+julia> sort(collect(keys(cv)))
+[:a, :b]
+julia> sort(collect(keys(cv[:b])))
+[:c]
 ```
 """
 struct ChoiceMapNestedView
@@ -942,6 +950,20 @@ function Base.iterate(c::ChoiceMapNestedView, state)
     end
     (next_kv, next_inner_state) = r
     (next_kv, (inner_iterator, next_inner_state))
+end
+
+Base.keys(cv::Gen.ChoiceMapNestedView) = (k for (k, v) in cv)
+
+function Base.:(==)(a::ChoiceMapNestedView, b::ChoiceMapNestedView)
+  a.choice_map == b.choice_map
+end
+
+# Length of a `ChoiceMapNestedView` is number of leaf values + number of
+# submaps.  Motivation: This matches what `length` would return for the
+# equivalent nested dict.
+function Base.length(cv::ChoiceMapNestedView)
+  +(get_values_shallow(cv.choice_map) |> collect |> length,
+    get_submaps_shallow(cv.choice_map) |> collect |> length)
 end
 
 Base.print(io::IO, c::ChoiceMapNestedView) = Base.print(io, c.choice_map)
