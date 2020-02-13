@@ -286,7 +286,7 @@ function regenerate(trace, args::Tuple, argdiffs::Tuple, selection::Selection)
 end
 
 """
-    arg_grads = accumulate_param_gradients!(trace, retgrad, scale_factor=1.)
+    arg_grads = accumulate_param_gradients!(trace, retgrad=nothing, scale_factor=1.)
 
 Increment gradient accumulators for parameters by the gradient of the
 log-probability of the trace, optionally scaled, and return the gradient with
@@ -308,11 +308,17 @@ function accumulate_param_gradients!(trace, retgrad, scale_factor)
     error("Not implemented")
 end
 
-accumulate_param_gradients!(trace, retgrad) = accumulate_param_gradients!(trace, retgrad, 1.)
+function accumulate_param_gradients!(trace, retgrad)
+    accumulate_param_gradients!(trace, retgrad, 1.)
+end
+
+function accumulate_param_gradients!(trace)
+    accumulate_param_gradients!(trace, nothing, 1.)
+end
 
 """
-    (arg_grads, choice_values, choice_grads) = choice_gradients(trace, selection::Selection,
-                                                                retgrad)
+    (arg_grads, choice_values, choice_grads) = choice_gradients(
+        trace, selection=EmptySelection(), retgrad=nothing)
 
 Given a previous trace \$(x, t)\$ (`trace`) and a gradient with respect to the
 return value \$∇_y J\$ (`retgrad`), return the following gradient (`arg_grads`)
@@ -330,6 +336,14 @@ Also return the assignment (`choice_values`) that is the restriction of \$t\$ to
 """
 function choice_gradients(trace, selection::Selection, retgrad)
     error("Not implemented")
+end
+
+function choice_gradients(trace, selection::Selection)
+    choice_gradients(trace, selection, nothing)
+end
+
+function choice_gradients(trace)
+    choice_gradients(trace, EmptySelection(), nothing)
 end
 
 export GenerativeFunction

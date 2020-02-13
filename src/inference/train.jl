@@ -39,8 +39,7 @@ function train!(gen_fn::GenerativeFunction, data_generator::Function,
             minibatch_choice_maps = epoch_choice_maps[minibatch_idx]
             for (inputs, constraints) in zip(minibatch_inputs, minibatch_choice_maps)
                 (trace, _) = generate(gen_fn, inputs, constraints)
-                retval_grad = accepts_output_grad(gen_fn) ? zero(get_retval(trace)) : nothing
-                accumulate_param_gradients!(trace, retval_grad)
+                accumulate_param_gradients!(trace)
             end
             apply!(update)
         end
@@ -85,8 +84,7 @@ function lecture!(
     p_trace = simulate(p, p_args)
     q_args = get_q_args(p_trace)
     q_trace, score = generate(q, q_args, get_choices(p_trace)) # NOTE: q won't make all the random choices that p does
-    retval_grad = accepts_output_grad(q) ? zero(get_retval(q_trace)) : nothing
-    accumulate_param_gradients!(q_trace, retval_grad)
+    accumulate_param_gradients!(q_trace)
     score
 end
 
@@ -113,8 +111,7 @@ function lecture_batched!(
     end
     q_args = get_q_args(p_traces)
     q_trace, score = generate(q_batched, q_args, constraints) # NOTE: q won't make all the random choices that p does
-    retval_grad = accepts_output_grad(q_batched) ? zero(get_retval(q_trace)) : nothing
-    accumulate_param_gradients!(q_trace, retval_grad)
+    accumulate_param_gradients!(q_trace)
     score / batch_size
 end
 

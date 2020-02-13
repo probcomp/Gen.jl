@@ -167,6 +167,21 @@ end
     nothing
 end
 
+function set_retval_grad!(gen_fn::DynamicDSLFunction, retval_maybe_tracked, retval_grad)
+    if accepts_output_grad(gen_fn)
+        if istracked(retval_maybe_tracked)
+            deriv!(retval_maybe_tracked, retval_grad)
+        end
+    else
+        error("Return value gradient not supported, but got gradient $retval_grad != nothing")
+    end
+end
+
+function set_retval_grad!(gen_fn::DynamicDSLFunction, retval_maybe_tracked, retval_grad::Nothing)
+    # don't accumulate the gradient for retval_maybe_tracked, if it is tracked
+end
+
+
 function accumulate_param_gradients!(trace::DynamicDSLTrace, retval_grad, scale_factor=1.)
     gen_fn = trace.gen_fn
     tape = new_tape()
@@ -175,23 +190,7 @@ function accumulate_param_gradients!(trace::DynamicDSLTrace, retval_grad, scale_
     args_maybe_tracked = (map(maybe_track,
         args, gen_fn.has_argument_grads, fill(tape, length(args)))...,)
     retval_maybe_tracked = exec(gen_fn, state, args_maybe_tracked)
-
-    # note: code duplication with choice_gradients
-    if accepts_output_grad(gen_fn)
-        if retval_grad == nothing
-            error("Return value gradient required but not provided")
-        end
-        if istracked(retval_maybe_tracked)
-            deriv!(retval_maybe_tracked, retval_grad)
-        end
-        # note: if accepts_output_grad(gen_fn) and
-        # !istracked(retval_maybe_tracked), this means the return value did not
-        # depend on the gradient source elements for this trace. that is okay.
-    else
-        if retval_grad != nothing
-            error("Return value gradient not supported, but got $retval_grad != nothing")
-        end
-    end
+    set_retval_grad!(gen_fn, retval_maybe_tracked, retval_grad)
     seed!(state.score)
     reverse_pass!(tape)
 
@@ -378,24 +377,7 @@ function choice_gradients(trace::DynamicDSLTrace, selection::Selection, retval_g
     args_maybe_tracked = (map(maybe_track,
         args, gen_fn.has_argument_grads, fill(tape, length(args)))...,)
     retval_maybe_tracked = exec(gen_fn, state, args_maybe_tracked)
-
-    # note: code duplication with accumulate_param_gradients!
-    if accepts_output_grad(gen_fn)
-        if retval_grad == nothing
-            error("Return value gradient required but not provided")
-        end
-        if istracked(retval_maybe_tracked)
-            deriv!(retval_maybe_tracked, retval_grad)
-        end
-        # note: if accepts_output_grad(gen_fn) and
-        # !istracked(retval_maybe_tracked), this means the return value did not
-        # depend on the gradient source elements for this trace. that is okay.
-    else
-        if retval_grad != nothing
-            error("Return value gradient not supported, but got $retval_grad != nothing")
-        end
-    end
-
+    set_retval_grad!(gen_fn, retval_maybe_tracked, retval_grad)
     seed!(state.score)
     reverse_pass!(tape)
 

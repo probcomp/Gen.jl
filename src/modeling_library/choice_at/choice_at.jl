@@ -142,9 +142,7 @@ function regenerate(trace::ChoiceAtTrace, args::Tuple, argdiffs::Tuple,
 end
 
 function choice_gradients(trace::ChoiceAtTrace, selection::Selection, retval_grad)
-    if retval_grad == nothing && accepts_output_grad(trace.gen_fn)
-        error("return value gradient required but not provided")
-    elseif retval_grad != nothing && !accepts_output_grad(trace.gen_fn)
+    if retval_grad != nothing && !has_output_grad(trace.gen_fn.dist)
         error("return value gradient not accepted but one was provided")
     end
     kernel_arg_grads = logpdf_grad(trace.gen_fn.dist, trace.value, trace.kernel_args...)
@@ -167,9 +165,7 @@ function choice_gradients(trace::ChoiceAtTrace, selection::Selection, retval_gra
 end
 
 function accumulate_param_gradients!(trace::ChoiceAtTrace, retval_grad)
-    if retval_grad == nothing && accepts_output_grad(trace.gen_fn)
-        error("return value gradient required but not provided")
-    elseif retval_grad != nothing && !accepts_output_grad(trace.gen_fn)
+    if retval_grad != nothing && !has_output_grad(trace.gen_fn.dist)
         error("return value gradient not accepted but one was provided")
     end
     kernel_arg_grads = logpdf_grad(trace.gen_fn.dist, trace.value, trace.kernel_args...)
