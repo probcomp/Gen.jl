@@ -341,10 +341,10 @@ end
     @test Set(keys(cv)) == Set([:a, :b])
     @test Set(keys(cv[:b])) == Set([:c])
     # Base.:(==)
-    c′ = choicemap((:a, 1),
+    c1 = choicemap((:a, 1),
                    (:b => :c, 2))
-    c′′ = choicemap((:a, 4),
+    c2 = choicemap((:a, 4),
                     (:b => :c, 2))
-    @test nested_view(c′) == cv
-    @test nested_view(c′′) != cv
+    @test nested_view(c1) == cv
+    @test nested_view(c2) != cv
 end
