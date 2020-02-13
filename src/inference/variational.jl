@@ -1,91 +1,157 @@
+# black box, uses score function estimator
+function single_sample_gradient_estimate!(
+        var_model::GenerativeFunction, var_model_args::Tuple,
+        model::GenerativeFunction, model_args::Tuple, observations::ChoiceMap,
+        scale_factor=1.)
+
+    # sample from variational approximation
+    trace = simulate(var_model, var_model_args)
+
+    # compute learning signal
+    constraints = merge(observations, get_choices(trace)) # TODO characterize what it means when not all var_model choices are in the model..
+    (model_log_weight, _) = assess(model, model_args, constraints)
+    log_weight = model_log_weight - get_score(trace)
+
+    # accumulate the weighted gradient
+    accumulate_param_gradients!(trace, nothing, log_weight * scale_factor)
+
+    # unbiased estimate of objective function
+    log_weight
+end
+
+function vimco_geometric_baselines(log_weights)
+    num_samples = length(log_weights)
+    s = sum(log_weights)
+    baselines = Vector{Float64}(undef, num_samples)
+    for i=1:num_samples
+        temp = log_weights[i]
+        log_weights[i] = (s - log_weights[i]) / (num_samples - 1)
+        baselines[i] = logsumexp(log_weights) - log(num_samples)
+        log_weights[i] = temp
+    end
+    baselines
+end
+
+function logdiffexp(x, y)
+    m = max(x, y)
+    m + log(exp(x - m) - exp(y - m))
+end
+
+function vimco_arithmetic_baselines(log_weights)
+    num_samples = length(log_weights)
+    log_total_weight = logsumexp(log_weights)
+    baselines = Vector{Float64}(undef, num_samples)
+    for i=1:num_samples
+        log_sum_f_without_i = logdiffexp(log_total_weight, log_weights[i])
+        log_f_hat = log_sum_f_without_i - log(num_samples - 1)
+        baselines[i] = logsumexp(log_sum_f_without_i, log_f_hat) - log(num_samples)
+    end
+    baselines
+end
+
+# black box, VIMCO gradient estimator
+# for use in training models
+function multi_sample_gradient_estimate!(
+        var_model::GenerativeFunction, var_model_args::Tuple,
+        model::GenerativeFunction, model_args::Tuple, observations::ChoiceMap,
+        num_samples::Int, scale_factor=1., geometric=true)
+
+    # sample from variational approximation multiple times
+    traces = Vector{Any}(undef, num_samples)
+    log_weights = Vector{Float64}(undef, num_samples)
+    for i=1:num_samples
+        traces[i] = simulate(var_model, var_model_args)
+        constraints = merge(observations, get_choices(traces[i])) # TODO characterize as above
+        model_weight, = assess(model, model_args, constraints)
+        log_weights[i] = model_weight - get_score(traces[i])
+    end
+
+    # multi-sample log marginal likelihood estimate
+    log_total_weight = logsumexp(log_weights)
+    L = log_total_weight - log(num_samples)
+
+    # baselines
+    if geometric
+        baselines = vimco_geometric_baselines(log_weights)
+    else
+        baselines = vimco_arithmetic_baselines(log_weights)
+    end
+
+    weights_normalized = exp.(log_weights .- log_total_weight)
+    for i=1:num_samples
+        learning_signal = (L - baselines[i]) - weights_normalized[i]
+        accumulate_param_gradients!(traces[i], nothing, learning_signal * scale_factor)
+    end
+
+    # unbiased estimate of objective function
+    L
+end
+
 """
     black_box_vi!(model::GenerativeFunction, args::Tuple,
                   observations::ChoiceMap,
-                  proposal::GenerativeFunction, proposal_args::Tuple,
+                  var_model::GenerativeFunction, var_model_args::Tuple,
                   update::ParamUpdate;
                   iters=1000, samples_per_iter=100, verbose=false)
 
-Fit the parameters of a generative function (`proposal`) to the posterior distribution implied by the given model and observations using stochastic gradient methods.
+Fit the parameters of a generative function (`var_model`) to the posterior distribution implied by the given model and observations using stochastic gradient methods.
 """
-function black_box_vi!(model::GenerativeFunction, args::Tuple,
+function black_box_vi!(model::GenerativeFunction, model_args::Tuple,
                        observations::ChoiceMap,
-                       proposal::GenerativeFunction, proposal_args::Tuple,
+                       var_model::GenerativeFunction, var_model_args::Tuple,
                        update::ParamUpdate;
                        iters=1000, samples_per_iter=100, verbose=false)
     for iter=1:iters
+
+        # compute gradient estimate and objective function estimate
+        est_obj = 0.
         for sample=1:samples_per_iter
-            # sample from the proposal
-            (trace, _) = generate(proposal, proposal_args)
-    
-            # compute constraints on model (we assume all proposal addrs are also in the model)
-            constraints = merge(observations, get_choices(trace))
-    
-            # compute log importance weight
-            (model_log_weight, _) = assess(model, args, constraints)
-            log_weight = model_log_weight - get_score(trace)
-    
-            # accumulate the weighted gradient
-            retval_grad = accepts_output_grad(get_gen_fn(trace)) ? zero(get_retval(trace)) : nothing
-            accumulate_param_gradients!(trace, retval_grad, log_weight)
+            obj = single_sample_gradient_estimate!(
+                var_model, var_model_args,
+                model, model_args, observations, 1/samples_per_iter)
+            est_obj += obj
         end
+        est_obj /= samples_per_iter
+
+        # print it
+        verbose && println("iter $iter; est objective: $est_obj")
 
         # do an update
         apply!(update)
+    end
+end
 
-        # evaluate score with different samples
-        avg_log_weight = 0.
-        for i=1:samples_per_iter
-            (trace, _) = generate(proposal, proposal_args)
-            constraints = merge(observations, get_choices(trace))
-            (model_log_weight, _) = assess(model, args, constraints)
-            log_weight = model_log_weight - get_score(trace)
-            avg_log_weight += log_weight
-        end
-        avg_log_weight /= samples_per_iter
+function black_box_vi!(model::GenerativeFunction, model_args::Tuple,
+                       observations::ChoiceMap,
+                       var_model::GenerativeFunction, var_model_args::Tuple,
+                       update::ParamUpdate, num_samples::Int;
+                       iters=1000, samples_per_iter=100, verbose=false,
+                       geometric=true)
+    for iter=1:iters
 
-        if verbose
-            println("iter $iter avg log weight: $avg_log_weight")
+        # compute gradient estimate and objective function estimate
+        est_obj = 0.
+        for sample=1:samples_per_iter
+            obj = multi_sample_gradient_estimate!(
+                var_model, var_model_args,
+                model, model_args, observations, num_samples,
+                1/samples_per_iter, geometric)
+            est_obj += obj
         end
+        est_obj /= samples_per_iter
+
+        # print it
+        verbose && println("iter $iter; est objective: $est_obj")
+
+        # do an update
+        apply!(update)
     end
 end
 
 export black_box_vi!
 
-#########
-# VIMCO #
-#########
 
-function train_vimco!(data_gen::Function, model::GenerativeFunction,
-    variational_approx::GenerativeFunction;
-    iters=1000, num_samples_per_iter=100)
-
-    for iter=1:iters
-        (model_args, observations) = data_gen()
-        proposal_traces = []
-        model_traces = []
-        for sample=1:num_samples_per_iter
-            # sample from the proposal
-            (proposal_traces[sample], _) = initialize(proposal, proposal_args)
-    
-            # compute constraints on model (we assume all proposal addrs are also in the model)
-            constraints = merge(observations, get_choices(proposal_traces[sample]))
-        
-            # obtain model trace
-            (model_traces[sample], _) = initialize(model, model_args, constraints)
-        end
-        # TODO compute weight vector for model and weight vector for proposal   
-        for sample=1:num_samples_per_iter
-            backprop_params(model_traces[sample], model_weights[sample])
-            backprop_params(proposal_traces[sample], proposal_weights[sample])
-        end
-
-        # TODO PUT UPDATE HERE
-    end
-    
-
-end
-#
-## VIMCO (without model update, just training amortized inference proposal..)
+## VIMCO (without model update, just training amortized inference var_model..)
 ## Q: but why would we do this? wouldn't we just want to train on simulated data from the model?
 ## A: because this way we can train using the actual distribution of the data set
 #
@@ -95,20 +161,20 @@ end
 #
     #for iter=1:iters
         #(model_args, observations) = data_gen()
-        #proposal_traces = []
+        #var_model_traces = []
         #for sample=1:num_samples_per_iter
-            ## sample from the proposal
-            #(proposal_traces[sample], _) = initialize(proposal, proposal_args)
+            ## sample from the var_model
+            #(var_model_traces[sample], _) = initialize(var_model, var_model_args)
     #
-            ## compute constraints on model (we assume all proposal addrs are also in the model)
-            #constraints = merge(observations, get_choices(proposal_traces[sample]))
+            ## compute constraints on model (we assume all var_model addrs are also in the model)
+            #constraints = merge(observations, get_choices(var_model_traces[sample]))
         #
             ## obtain model trace
             #(model_weights[sample], _) = assess(model, model_args, constraints)
         #end
-        ## TODO compute weight vector for proposal   
+        ## TODO compute weight vector for var_model   
         #for sample=1:num_samples_per_iter
-            #backprop_params(proposal_traces[sample], proposal_weights[sample])
+            #backprop_params(var_model_traces[sample], var_model_weights[sample])
         #end
 #
         ## TODO PUT UPDATE HERE
