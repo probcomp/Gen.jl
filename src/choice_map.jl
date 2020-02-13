@@ -952,6 +952,10 @@ function Base.iterate(c::ChoiceMapNestedView, state)
     (next_kv, (inner_iterator, next_inner_state))
 end
 
+# TODO: Allow different implementations of this method depending on the
+# concrete type of the `ChoiceMap`, so that an already-existing data structure
+# with faster key lookup (analogous to `Base.KeySet`) can be exposed if it
+# exists.
 Base.keys(cv::Gen.ChoiceMapNestedView) = (k for (k, v) in cv)
 
 function Base.:(==)(a::ChoiceMapNestedView, b::ChoiceMapNestedView)
