@@ -15,8 +15,8 @@ function single_sample_gradient_estimate!(
     # accumulate the weighted gradient
     accumulate_param_gradients!(trace, nothing, log_weight * scale_factor)
 
-    # unbiased estimate of objective function
-    log_weight
+    # unbiased estimate of objective function, and trace
+    (log_weight, trace)
 end
 
 function vimco_geometric_baselines(log_weights)
@@ -83,8 +83,9 @@ function multi_sample_gradient_estimate!(
         accumulate_param_gradients!(traces[i], nothing, learning_signal * scale_factor)
     end
 
-    # unbiased estimate of objective function
-    L
+    # collection of traces and normalized importance weights, and estimate of
+    # objective function
+    (L, traces, weights_normalized)
 end
 
 """
@@ -101,24 +102,33 @@ function black_box_vi!(model::GenerativeFunction, model_args::Tuple,
                        var_model::GenerativeFunction, var_model_args::Tuple,
                        update::ParamUpdate;
                        iters=1000, samples_per_iter=100, verbose=false)
+
+    traces = Vector{Any}(undef, samples_per_iter)
+    obj_ests = Vector{Float64}(undef, iters)
     for iter=1:iters
 
         # compute gradient estimate and objective function estimate
-        est_obj = 0.
+        obj_est = 0.
+        # TODO multithread
         for sample=1:samples_per_iter
-            obj = single_sample_gradient_estimate!(
+            (trace, obj) = single_sample_gradient_estimate!(
                 var_model, var_model_args,
                 model, model_args, observations, 1/samples_per_iter)
-            est_obj += obj
+            obj_est += obj
+            traces[sample] = trace
         end
-        est_obj /= samples_per_iter
+        obj_est /= samples_per_iter
+        obj_ests[iter] = obj_est
 
         # print it
-        verbose && println("iter $iter; est objective: $est_obj")
+        verbose && println("iter $iter; est objective: $obj_est")
 
         # do an update
         apply!(update)
     end
+    
+    normalized_weights = fill(1/samples_per_iter, samples_per_iter)
+    (obj_est, traces, normalized_weights, obj_ests)
 end
 
 function black_box_vi!(model::GenerativeFunction, model_args::Tuple,
@@ -127,25 +137,30 @@ function black_box_vi!(model::GenerativeFunction, model_args::Tuple,
                        update::ParamUpdate, num_samples::Int;
                        iters=1000, samples_per_iter=100, verbose=false,
                        geometric=true)
+    
+    obj_ests = Vector{Float64}(undef, iters)
     for iter=1:iters
 
         # compute gradient estimate and objective function estimate
-        est_obj = 0.
+        obj_est = 0.
         for sample=1:samples_per_iter
-            obj = multi_sample_gradient_estimate!(
+            (obj, traces, weights) = multi_sample_gradient_estimate!(
                 var_model, var_model_args,
                 model, model_args, observations, num_samples,
                 1/samples_per_iter, geometric)
-            est_obj += obj
+            obj_est += obj
         end
-        est_obj /= samples_per_iter
+        obj_est /= samples_per_iter
+        obj_ests[iter] = obj_est
 
         # print it
-        verbose && println("iter $iter; est objective: $est_obj")
+        verbose && println("iter $iter; est objective: $obj_est")
 
         # do an update
         apply!(update)
     end
+
+    (obj_est, traces, weights, obj_ests)
 end
 
 export black_box_vi!
