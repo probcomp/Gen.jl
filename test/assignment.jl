@@ -344,7 +344,7 @@ end
     c1 = choicemap((:a, 1),
                    (:b => :c, 2))
     c2 = choicemap((:a, 4),
-                    (:b => :c, 2))
+                   (:b => :c, 2))
     @test nested_view(c1) == cv
     @test nested_view(c2) != cv
 end
