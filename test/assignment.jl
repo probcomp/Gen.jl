@@ -334,4 +334,17 @@ end
     cv = nested_view(c)
     @test c[:a] == cv[:a]
     @test c[:b => :c] == cv[:b][:c]
+    # Base.length
+    @test length(cv) == 2
+    @test length(cv[:b]) == 1
+    # Base.keys
+    @test Set(keys(cv)) == Set([:a, :b])
+    @test Set(keys(cv[:b])) == Set([:c])
+    # Base.:(==)
+    c1 = choicemap((:a, 1),
+                   (:b => :c, 2))
+    c2 = choicemap((:a, 4),
+                   (:b => :c, 2))
+    @test nested_view(c1) == cv
+    @test nested_view(c2) != cv
 end
