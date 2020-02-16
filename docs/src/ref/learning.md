@@ -111,12 +111,58 @@ Let's denote the observed variables as `y` and the hidden variables as `z`:
 It is often intractable to evaluate this quantity for specific values of the parameters, let alone maximize it.
 Most techniques for learning models from incomplete data, from the EM algorithm to variational autoencoders address this problem by starting with some initial ``\theta = \theta_0`` and iterating between two steps:
 
-- Doing **inference** about the hidden variables ``z_i`` given the observed variables ``y_i``, for the model with the current values of ``\theta``, which produces some **completions** of the hidden variables ``z_i`` or some representation of the posterior distribution on these hidden variables. This step does not update the parameters ``\theta``.
+- Doing inference about the hidden variables ``z_i`` given the observed variables ``y_i``, for the model with the current values of ``\theta``, which produces some **completions** of the hidden variables ``z_i`` or some representation of the posterior distribution on these hidden variables. This step does not update the parameters ``\theta``.
 
-- Updating the parameters ``\theta`` to maximize the data of the complete log likelihood, as in the setting of complete data. This step does not involve inference about the hidden variables ``z_i``.
+- Optimize the parameters ``\theta`` to maximize the data of the complete log likelihood, as in the setting of complete data. This step does not involve inference about the hidden variables ``z_i``.
 
-In Gen, the results of inference are typically represented as collections of traces.
+Various algorithms can be understood as examples of this general pattern, although they differ in several details including (i) how they represent the results of inferences, (ii) how they perform the inference step, (iii) whether they try to solve each of the inference and parameter-optimization problems incrementally or not, and (iv) their formal theoretical justification and analysis:
+
+- [Expectation maximization (EM) [1], including incremental variants [2]
+
+- Monte Carlo EM [3]
+
+- Variational EM
+
+- The wake-sleep algorithm [5] and reweighted wake-sleep algorithms [6]
+
+- Variational autoencoders [7]
+
+In Gen, the results of inference are typically represented as a collection of traces of the model, which include values for the latent variables.
+The section [Learning from Complete Data](@ref) describes how to perform the parameter update step given a collection of such traces.
+In the remainder of this section, we describe various learning algorithms, organized various approaches obtaining these traces via different forms of probabilistic inference.
+
+### Monte Carlo EM
+
+### Online Monte Carlo EM
+
+https://www.tandfonline.com/doi/pdf/10.1198/106186001317115045?needAccess=true
+
+### Wake-sleep algorithm
+
+The wake-sleep algorithm is an approach to training generative models, in which an *inference network*
+
+### Reweighted wake-sleep algorithm
+
+### Variational infernece
+
+### Amortized variational inference (VAEs)
 
 
 
-Todo: discuss how filling in via generate is always valid, but will be inefficient if the 
+
+
+
+## References
+
+[1] Dempster, Arthur P., Nan M. Laird, and Donald B. Rubin. "Maximum likelihood from incomplete data via the EM algorithm." Journal of the Royal Statistical Society: Series B (Methodological) 39.1 (1977): 1-22. [Link](https://users.fmrib.ox.ac.uk/~jesper/papers/readgroup_070213/DLR_on_EM.pdf)
+
+[2] Neal, Radford M., and Geoffrey E. Hinton. "A view of the EM algorithm that justifies incremental, sparse, and other variants." Learning in graphical models. Springer, Dordrecht, 1998. 355-368. [Link](https://www.cs.toronto.edu/~radford/ftp/emk.pdf)
+
+[3] Wei, Greg CG, and Martin A. Tanner. "A Monte Carlo implementation of the EM algorithm and the poor man's data augmentation algorithms." Journal of the American statistical Association 85.411 (1990): 699-704. [Link](http://www.biostat.jhsph.edu/~rpeng/biostat778/papers/wei-tanner-1990.pdf)
+
+[5] Hinton, Geoffrey E., et al. "The" wake-sleep" algorithm for unsupervised neural networks." Science 268.5214 (1995): 1158-1161. [Link](https://science.sciencemag.org/content/sci/268/5214/1158.full.pdf)
+
+[5] Jorg Bornschein and Yoshua Bengio. Reweighted wake sleep. ICLR 2015. [Link](https://arxiv.org/pdf/1406.2751.pdf)
+
+[7] Diederik P. Kingma, Max Welling:
+Auto-Encoding Variational Bayes. ICLR 2014 [Link](https://arxiv.org/pdf/1312.6114.pdf)

@@ -121,50 +121,50 @@ end
 # in the non-amortized case, get_data just returns the same model_args
 # (so there is one variational approximation we are fitting to all the posteriors)
 
-# TODO we need get_model_args if we are training conditional model
-# TODO abstract out the VI piece?
-function learn_from_incomplete_data!(
-        model::GenerativeFunction, get_data::Function,
-        update_model!::Function, # provide a default
-        stop::Function=(iter, obj_estimates) -> iter > 100)
-        #num_epoch=1, epoch_size=1, num_minibatch=1, minibatch_size=1,
-        #evaluation_size=epoch_size, verbose=false)
-
-    # non-amortized version
-    # if there are lots of data points, they all are in the same choice map
-    #(model_args, observations, var_model_args) = get_data()
-    iter = 1
-    obj_estimates = Float64[]
-    while !stop(iter, obj_estimates)
-        # amortized version
-        #(model_args, observations, var_model_args) = get_data()
-
-        (inference_traces, inference_weights) = do_inference(
-            
-
-        # train the variational approximation to the current posterior
-        # TODO support amortized variational approximation i.e. VAE
-        # TODO is any inference procedure that returns a weighted collection of traces valid here?
-        (elbo_est, var_traces, weights, _) = black_box_vi!(
-            model, model_args, observations,
-            var_model, var_model_args, var_update) # num_samples, iters, samples_per_iter, ..
-
-        # NOTE: the state of BBVI stays around, which is what we want.
-
-        # update the model using a stochastic estimate of the gradient of a
-        # lower bound on the marginal likelhood, using inferred traces
-        for (inference_trace, weight) in zip(inference_traces, weights)
-            constraints = merge(observations, get_choices(var_trace))
-            (model_trace, _) = generate(model, model_args, constraints)
-            accumulate_param_gradients!(model_trace, nothing, weight)
-        end
-        update_model!()
-    end
-    iter += 1
-end
-
-
-
+## TODO we need get_model_args if we are training conditional model
+## TODO abstract out the VI piece?
+#function learn_from_incomplete_data!(
+        #model::GenerativeFunction, get_data::Function,
+        #update_model!::Function, # provide a default
+        #stop::Function=(iter, obj_estimates) -> iter > 100)
+        ##num_epoch=1, epoch_size=1, num_minibatch=1, minibatch_size=1,
+        ##evaluation_size=epoch_size, verbose=false)
+#
+    ## non-amortized version
+    ## if there are lots of data points, they all are in the same choice map
+    ##(model_args, observations, var_model_args) = get_data()
+    #iter = 1
+    #obj_estimates = Float64[]
+    #while !stop(iter, obj_estimates)
+        ## amortized version
+        ##(model_args, observations, var_model_args) = get_data()
+#
+        #(inference_traces, inference_weights) = do_inference(
+            #
+#
+        ## train the variational approximation to the current posterior
+        ## TODO support amortized variational approximation i.e. VAE
+        ## TODO is any inference procedure that returns a weighted collection of traces valid here?
+        #(elbo_est, var_traces, weights, _) = black_box_vi!(
+            #model, model_args, observations,
+            #var_model, var_model_args, var_update) # num_samples, iters, samples_per_iter, ..
+#
+        ## NOTE: the state of BBVI stays around, which is what we want.
+#
+        ## update the model using a stochastic estimate of the gradient of a
+        ## lower bound on the marginal likelhood, using inferred traces
+        #for (inference_trace, weight) in zip(inference_traces, weights)
+            #constraints = merge(observations, get_choices(var_trace))
+            #(model_trace, _) = generate(model, model_args, constraints)
+            #accumulate_param_gradients!(model_trace, nothing, weight)
+        #end
+        #update_model!()
+    #end
+    #iter += 1
+#end
+#
+#
+#
 export train!
 export lecture!
 export lecture_batched!
