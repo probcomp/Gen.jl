@@ -66,14 +66,14 @@ end
 function desugar_tildes(expr)
     MacroTools.postwalk(expr) do e
         if MacroTools.@capture(e, {*} ~ rhs_)
-          :(@trace($rhs))
-      elseif MacroTools.@capture(e, {addr_} ~ rhs_)
-          :(@trace($rhs, $(addr)))
-      elseif MacroTools.@capture(e, lhs_ ~ rhs_)
-          addr_expr = address_from_expression(lhs)
-          :($lhs = @trace($rhs, $(addr_expr)))
+            :(@trace($rhs))
+        elseif MacroTools.@capture(e, {addr_} ~ rhs_)
+            :(@trace($rhs, $(addr)))
+        elseif MacroTools.@capture(e, lhs_ ~ rhs_)
+            addr_expr = address_from_expression(lhs)
+            :($lhs = @trace($rhs, $(addr_expr)))
         else
-          e
+            e
         end
     end
 end
