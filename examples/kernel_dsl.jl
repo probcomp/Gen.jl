@@ -66,18 +66,18 @@ end
 max_n_add_remove = 10 # to test that we have escaped the body of the kern properly
 
 ex = quote
-@kern function my_kernel((@T))
+@kern function my_kernel(trace)
     
     # cycle through the x's and do a random walk update on each one
-    for i in 1:(@T)[:n]
-        (@T) ~ mh((@T), random_walk_proposal, (i,))
+    for i in 1:trace[:n]
+        trace ~ mh(trace, random_walk_proposal, (i,))
     end
 
     # repeatedly pick a random x and do a random walk update on it
-    if (@T)[:n] > 0
+    if trace[:n] > 0
         for rep in 1:10
-            let i ~ uniform_discrete(1, (@T)[:n])
-                (@T) ~ mh((@T), random_walk_proposal, (i,))
+            let i ~ uniform_discrete(1, trace[:n])
+                trace ~ mh(trace, random_walk_proposal, (i,))
             end
         end
     end
@@ -85,16 +85,16 @@ ex = quote
     # remove the last x, or add a new one, a random number of times
     let n_add_remove_reps ~ uniform_discrete(0, max_n_add_remove)
         for rep in 1:n_add_remove_reps
-            (@T) ~ k2((@T))
+            trace ~ k2(trace)
         end
     end
 
     # permute the x's
-    (@T) ~ k3((@T))
+    trace ~ k3(trace)
 end
 end
 
-#println(MacroTools.striplines(macroexpand(Main, MacroTools.postwalk(MacroTools.unblock, ex))))
+println(MacroTools.striplines(macroexpand(Main, MacroTools.postwalk(MacroTools.unblock, ex))))
 eval(ex)
 
 function run_dsl_kernel(n::Int, iters::Int, check)

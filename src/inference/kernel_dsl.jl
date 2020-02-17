@@ -37,21 +37,9 @@ macro pkern(ex)
 end
 
 function expand_kern_ex(ex)
-    MacroTools.@capture(ex, function f_((@T), args__) body_ end) || error("expected kernel syntax: function my_kernel((@T), .) .. end")
     ex = MacroTools.postwalk(MacroTools.unblock, ex)
-
-    trace = gensym("trace")
-    ex = MacroTools.postwalk(ex) do x
-        if MacroTools.@capture(x, (@T))
-
-            # replace (@T) with trace
-            trace
-        else
-            x
-        end
-    end
-
-    MacroTools.@capture(ex, function f_(T_, args__) body_ end)
+    MacroTools.@capture(ex, function f_(T_, args__) body_ end) || error("expected kernel syntax: function my_kernel(trace, .) .. end")
+    trace = T
     toplevel_args = args
 
     body = MacroTools.postwalk(body) do x
@@ -106,8 +94,8 @@ function expand_kern_ex(ex)
             # applying a kernel
             quote
                 check && Gen.check_is_kernel($(esc(k)))
-                $(esc(trace)) = $(esc(k))(
-                    $(esc(trace)), $(map(esc, args)...),
+                $(esc(T)) = $(esc(k))(
+                    $(esc(T)), $(map(esc, args)...),
                     check=check, observations=observations)[1]
             end
 
@@ -180,11 +168,11 @@ function reversal_ex(ex)
                 end
             end
 
-        elseif MacroTools.@capture(x, (@T) ~ k_((@T), args__))
+        elseif MacroTools.@capture(x, T_ ~ k_(T_, args__))
 
             # applying a kernel - apply the reverse kernel
             quote
-                (@T) ~ (Gen.reversal($k))((@T), $(args...))
+                $T ~ (Gen.reversal($k))($T, $(args...))
             end
 
         elseif isa(x, Expr) && x.head == :block
@@ -211,7 +199,7 @@ function reversal_ex(ex)
 end
 
 """
-    @kern function k((@T), ..)
+    @kern function k(trace, ..)
         ..
     end
 

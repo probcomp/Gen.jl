@@ -118,18 +118,18 @@ end
 
 Here is an example composite kernel for MCMC in this model:
 ```julia
-@kern function my_kernel((@T))
+@kern function my_kernel(trace)
     
     # cycle through the x's and do a random walk update on each one
-    for i in 1:(@T)[:n]
-        (@T) ~ mh((@T), random_walk_proposal, (i,))
+    for i in 1:trace[:n]
+        trace ~ mh(trace, random_walk_proposal, (i,))
     end
 
     # repeatedly pick a random x and do a random walk update on it
-    if (@T)[:n] > 0
+    if trace[:n] > 0
         for rep in 1:10
-            let i ~ uniform_discrete(1, (@T)[:n])
-                (@T) ~ mh((@T), random_walk_proposal, (i,))
+            let i ~ uniform_discrete(1, trace[:n])
+                trace ~ mh(trace, random_walk_proposal, (i,))
             end
         end
     end
@@ -137,25 +137,28 @@ Here is an example composite kernel for MCMC in this model:
     # remove the last x, or add a new one, a random number of times
     let n_add_remove_reps ~ uniform_discrete(0, max_n_add_remove)
         for rep in 1:n_add_remove_reps
-            (@T) ~ mh((@T), add_remove_proposal, (), add_remove_involution)
+            trace ~ mh(trace, add_remove_proposal, (), add_remove_involution)
         end
     end
 end
 ```
 
-In the DSL, the expression `(@T)` represents the trace on which the kernel is acting.
-`(@T)` must be the first argument to the composite kernel (the kernel may have additional arguments).
-The code inside the body can read from the trace (e.g. `(@T)[:n]` reads the value of the random choice `:n`).
-Finally, the return value of the composite kernel is automatically set to `(@T)`.
+In the DSL, the first arugment (`trace` in this case) represents the trace on which the kernel is acting.
+the kernel may have additional arguments.
+The code inside the body can read from the trace (e.g. `trace[:n]` reads the value of the random choice `:n`).
+Finally, the return value of the composite kernel is automatically set to the trace.
+NOTE: It is not permitted to assign to the trace variable, except with `~` expressions.
+Also note that stationary kernels, when treated as Julia functions, return a tuple, where the first element is the trace and the remaining arguments are metadata.
+When applying these kernels with `~` syntax within the DSL, it is not necessary to unpack the tuple (the metadata is ignored automatically).
 
 The language constructs supported by this DSL are:
 
 **Applying a stationary kernel.**
-To apply a kernel, the syntax `(@T) ~ k((@T), args..)` is used.
+To apply a kernel, the syntax `trace ~ k(trace, args..)` is used.
 Note that the `check` and `observations` keyword arguments (see [Enabling Dynamic Checks](@ref)) should not be used here; they will be added automatically.
 
 **For loops.**
-The range of the for loop may be a deterministic function of the trace (as in `(@T)[:n]` above).
+The range of the for loop may be a deterministic function of the trace (as in `trace[:n]` above).
 The range must be *invariant* under all possible executions of the body of the for loop.
 For example, the random walk based kernel embedded in the for loop in our example above cannot modify the value of the random choice `:n` in the trace.
 
