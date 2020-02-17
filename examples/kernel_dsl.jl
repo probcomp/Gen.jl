@@ -16,11 +16,6 @@ end
     @trace(normal(trace[(:x, i)], 0.1), (:x, i))
 end
 
-@pkern function k1(trace, i::Int)
-    trace, = mh(trace, random_walk_proposal, (i,))
-    trace
-end
-
 @gen function add_remove_proposal(trace)
     n = trace[:n]
     total = get_retval(trace)
@@ -47,12 +42,15 @@ function add_remove_involution(trace, fwd_choices, ret, args)
     (new_trace, bwd_choices, weight)
 end
 
-@pkern function k2(trace)
-    trace, = mh(trace, add_remove_proposal, (), add_remove_involution, check_round_trip=true)
-    trace
+@pkern function k2(trace; check=false, observations=EmptyChoiceMap())
+    mh(
+        trace, add_remove_proposal, (), add_remove_involution,
+        check=check, observations=observations)
 end
 
-@pkern function k3(trace)
+@rkern k2 : k2
+
+@pkern function k3(trace; check=false, observations=EmptyChoiceMap())
     perm = Random.randperm(trace[:n])
     constraints = choicemap()
     for (i, j) in enumerate(perm)
@@ -60,28 +58,26 @@ end
         constraints[(:x, j)] = trace[(:x, i)]
     end
     trace, = update(trace, (), (), constraints)
-    trace
+    trace, nothing # return trace and metadata..
 end
 
-@rkern k1 : k1
-@rkern k2 : k2
 @rkern k3 : k3
 
-max_n_add_remove = 10 # to test that we have escaped the body of the ckern properly
+max_n_add_remove = 10 # to test that we have escaped the body of the kern properly
 
 ex = quote
-@ckern function my_kernel((@T))
+@kern function my_kernel((@T))
     
     # cycle through the x's and do a random walk update on each one
     for i in 1:(@T)[:n]
-        (@T) ~ k1((@T), i)
+        (@T) ~ mh((@T), random_walk_proposal, (i,))
     end
 
     # repeatedly pick a random x and do a random walk update on it
     if (@T)[:n] > 0
         for rep in 1:10
             let i ~ uniform_discrete(1, (@T)[:n])
-                (@T) ~ k1((@T), i)
+                (@T) ~ mh((@T), random_walk_proposal, (i,))
             end
         end
     end
@@ -105,7 +101,7 @@ function run_dsl_kernel(n::Int, iters::Int, check)
     obs = choicemap((:y, 10))
     trace, = generate(model, (), merge(obs, choicemap((:n, n))))
     for i=1:iters
-        trace = my_kernel(trace, check, obs)
+        trace, = my_kernel(trace, check=check, observations=obs)
     end
 end
 
@@ -113,7 +109,7 @@ function run_reversal_dsl_kernel(n::Int, iters::Int, check)
     obs = choicemap((:y, 10))
     trace, = generate(model, (), merge(obs, choicemap((:n, n))))
     for i=1:iters
-        trace = reversal(my_kernel)(trace, check, obs)
+        trace, = reversal(my_kernel)(trace, check=check, observations=obs)
     end
 end
 

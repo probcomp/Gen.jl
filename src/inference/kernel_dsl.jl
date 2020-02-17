@@ -1,8 +1,5 @@
 import MacroTools
 
-is_primitive(::Function) = false
-check_is_kernel(::Function) = false
-
 function check_observations(choices::ChoiceMap, observations::ChoiceMap)
     for (key, value) in get_values_shallow(observations)
         !has_value(choices, key) && error("Check failed: observed choice at $key not found")
@@ -13,8 +10,11 @@ function check_observations(choices::ChoiceMap, observations::ChoiceMap)
     end
 end
 
+is_custom_primitive_kernel(::Function) = false
+check_is_kernel(::Function) = false
+
 """
-    @pkern function k(trace, ..)
+    @pkern function k(trace, ..; check=false, observations=EmptyChoiceMap())
         ..
         return trace
     end
@@ -22,17 +22,16 @@ end
 Declare a Julia function as a primitive stationary kernel.
 
 The first argument of the function should be a trace, and the return value of the function should be a trace.
+There should be keyword arguments check and observations.
 """
 macro pkern(ex)
     MacroTools.@capture(ex, function f_(args__) body_ end) || error("expected a function")
     escaped_args = map(esc, args)
     quote
-        function $(esc(f))($(escaped_args...), check = false, observations = EmptyChoiceMap())
-            trace::Trace = $(esc(body))
-            check && check_observations(get_choices(trace), observations)
-            trace
+        function $(esc(f))($(escaped_args...))
+            $(esc(body))
         end
-        Gen.is_primitive(::typeof($(esc(f)))) = true
+        Gen.is_custom_primitive_kernel(::typeof($(esc(f)))) = true
         Gen.check_is_kernel(::typeof($(esc(f)))) = true
     end
 end
@@ -107,7 +106,9 @@ function expand_kern_ex(ex)
             # applying a kernel
             quote
                 check && Gen.check_is_kernel($(esc(k)))
-                $(esc(trace)) = $(esc(k))($(esc(trace)), $(map(esc, args)...), check)
+                $(esc(trace)) = $(esc(k))(
+                    $(esc(trace)), $(map(esc, args)...),
+                    check=check, observations=observations)[1]
             end
 
         else
@@ -118,10 +119,13 @@ function expand_kern_ex(ex)
     end
 
     ex = quote
-        function $(esc(f))($(esc(trace))::Trace, $(toplevel_args...), check = false, observations = EmptyChoiceMap())
+        function $(esc(f))(
+                $(esc(trace))::Trace, $(toplevel_args...);
+                check=false, observations=EmptyChoiceMap())
             $body
             check && check_observations(get_choices($(esc(trace))), observations)
-            $(esc(trace))
+            metadata = nothing
+            ($(esc(trace)), metadata)
         end
         Gen.check_is_kernel(::typeof($(esc(f)))) = true
     end
@@ -151,8 +155,8 @@ The two kernels must have the same argument type signatures.
 macro rkern(ex)
     MacroTools.@capture(ex, k_ : l_) || error("expected a pair of functions")
     quote
-        Gen.is_primitive($(esc(k))) || error("first function is not a primitive kernel")
-        Gen.is_primitive($(esc(l))) || error("second function is not a primitive kernel")
+        Gen.is_custom_primitive_kernel($(esc(k))) || error("first function is not a custom primitive kernel")
+        Gen.is_custom_primitive_kernel($(esc(l))) || error("second function is not a custom primitive kernel")
         Gen.reversal(::typeof($(esc(k)))) = $(esc(l))
         Gen.reversal(::typeof($(esc(l)))) = $(esc(k))
     end
@@ -207,7 +211,7 @@ function reversal_ex(ex)
 end
 
 """
-    @ckern function k((@T), ..)
+    @kern function k((@T), ..)
         ..
     end
 
@@ -215,7 +219,7 @@ Construct a composite MCMC kernel.
 
 The resulting object is a Julia function that is annotated as a composite MCMC kernel, and can be called as a Julia function or applied within other composite kernels.
 """
-macro ckern(ex)
+macro kern(ex)
     kern_ex, kern = expand_kern_ex(ex)
     rev_kern_ex, rev_kern = expand_kern_ex(reversal_ex(ex))
     quote
@@ -231,4 +235,4 @@ macro ckern(ex)
     end
 end
 
-export @pkern, @rkern, @ckern, reversal
+export @pkern, @rkern, @kern, reversal
