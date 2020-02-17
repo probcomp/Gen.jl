@@ -64,108 +64,137 @@ end
 
 @testset "update" begin
 
-    @gen function bar()
-        @trace(normal(0, 1), :a)
-    end
+    for notation in [:trace, :tilde]
+        if notation == :trace
+            @gen function bar()
+                @trace(normal(0, 1), :a)
+            end
 
-    @gen function baz()
-        @trace(normal(0, 1), :b)
-    end
+            @gen function baz()
+                @trace(normal(0, 1), :b)
+            end
 
-    @gen function foo()
-        if @trace(bernoulli(0.4), :branch)
-            @trace(normal(0, 1), :x)
-            @trace(bar(), :u)
+            @gen function foo()
+                if @trace(bernoulli(0.4), :branch)
+                    @trace(normal(0, 1), :x)
+                    @trace(bar(), :u)
+                else
+                    @trace(normal(0, 1), :y)
+                    @trace(baz(), :v)
+                end
+            end
         else
-            @trace(normal(0, 1), :y)
-            @trace(baz(), :v)
+            @gen function bar()
+                a ~ normal(0, 1)
+            end
+
+            @gen function baz()
+                b ~ normal(0, 1)
+            end
+
+            @gen function foo()
+                if ({:branch} ~ bernoulli(0.4))
+                    x ~ normal(0, 1)
+                    u ~ bar()
+                else
+                    y ~ normal(0, 1)
+                    v ~ baz()
+                end
+            end
         end
-    end
 
-    # get a trace which follows the first branch
-    constraints = choicemap()
-    constraints[:branch] = true
-    (trace,) = generate(foo, (), constraints)
-    x = get_choices(trace)[:x]
-    a = get_choices(trace)[:u => :a]
+        # get a trace which follows the first branch
+        constraints = choicemap()
+        constraints[:branch] = true
+        (trace,) = generate(foo, (), constraints)
+        x = get_choices(trace)[:x]
+        a = get_choices(trace)[:u => :a]
 
-    # force to follow the second branch
-    y = 1.123
-    b = -2.1
-    constraints = choicemap()
-    constraints[:branch] = false
-    constraints[:y] = y
-    constraints[:v => :b] = b
-    (new_trace, weight, retdiff, discard) = update(trace,
-        (), (), constraints)
+        # force to follow the second branch
+        y = 1.123
+        b = -2.1
+        constraints = choicemap()
+        constraints[:branch] = false
+        constraints[:y] = y
+        constraints[:v => :b] = b
+        (new_trace, weight, retdiff, discard) = update(trace,
+            (), (), constraints)
 
-    # test discard
-    @test get_value(discard, :branch) == true
-    @test get_value(discard, :x) == x
-    @test get_value(discard, :u => :a) == a
-    @test length(collect(get_values_shallow(discard))) == 2
-    @test length(collect(get_submaps_shallow(discard))) == 1
+        # test discard
+        @test get_value(discard, :branch) == true
+        @test get_value(discard, :x) == x
+        @test get_value(discard, :u => :a) == a
+        @test length(collect(get_values_shallow(discard))) == 2
+        @test length(collect(get_submaps_shallow(discard))) == 1
 
-    # test new trace
-    new_assignment = get_choices(new_trace)
-    @test get_value(new_assignment, :branch) == false
-    @test get_value(new_assignment, :y) == y
-    @test get_value(new_assignment, :v => :b) == b
-    @test length(collect(get_values_shallow(new_assignment))) == 2
-    @test length(collect(get_submaps_shallow(new_assignment))) == 1
+        # test new trace
+        new_assignment = get_choices(new_trace)
+        @test get_value(new_assignment, :branch) == false
+        @test get_value(new_assignment, :y) == y
+        @test get_value(new_assignment, :v => :b) == b
+        @test length(collect(get_values_shallow(new_assignment))) == 2
+        @test length(collect(get_submaps_shallow(new_assignment))) == 1
 
-    # test score and weight
-    prev_score = (
-        logpdf(bernoulli, true, 0.4) +
-        logpdf(normal, x, 0, 1) +
-        logpdf(normal, a, 0, 1))
-    expected_new_score = (
-        logpdf(bernoulli, false, 0.4) +
-        logpdf(normal, y, 0, 1) +
-        logpdf(normal, b, 0, 1))
-    expected_weight = expected_new_score - prev_score
-    @test isapprox(expected_new_score, get_score(new_trace))
-    @test isapprox(expected_weight, weight)
+        # test score and weight
+        prev_score = (
+            logpdf(bernoulli, true, 0.4) +
+            logpdf(normal, x, 0, 1) +
+            logpdf(normal, a, 0, 1))
+        expected_new_score = (
+            logpdf(bernoulli, false, 0.4) +
+            logpdf(normal, y, 0, 1) +
+            logpdf(normal, b, 0, 1))
+        expected_weight = expected_new_score - prev_score
+        @test isapprox(expected_new_score, get_score(new_trace))
+        @test isapprox(expected_weight, weight)
 
-    # test retdiff
-    @test retdiff === UnknownChange()
+        # test retdiff
+        @test retdiff === UnknownChange()
 
-    # Addresses under the :data namespace will be visited,
-    # but nothing there will be discarded.
-    @gen function loopy()
-        a = @trace(normal(0, 1), :a)
+        # Addresses under the :data namespace will be visited,
+        # but nothing there will be discarded.
+        if notation == :trace
+            @gen function loopy()
+                a = @trace(normal(0, 1), :a)
+                for i=1:5
+                    @trace(normal(a, 1), :data => i)
+                end
+            end
+        else
+            @gen function loopy()
+                a ~ normal(0, 1)
+                for i=1:5
+                    {:data => i} ~ normal(a, 1)
+                end
+            end
+        end
+
+        # Get an initial trace
+        constraints = choicemap()
+        constraints[:a] = 0
         for i=1:5
-            @trace(normal(a, 1), :data => i)
+            constraints[:data => i] = 0
         end
+        (trace,) = generate(loopy, (), constraints)
+
+        # Update a
+        constraints = choicemap()
+        constraints[:a] = 1
+        (new_trace, weight, retdiff, discard) = update(trace,
+            (), (), constraints)
+
+        # Test discard, score, weight, retdiff
+        @test get_value(discard, :a) == 0
+        prev_score = logpdf(normal, 0, 0, 1) * 6
+        expected_new_score = logpdf(normal, 1, 0, 1) + 5 * logpdf(normal, 0, 1, 1)
+        expected_weight = expected_new_score - prev_score
+        @test isapprox(expected_new_score, get_score(new_trace))
+        @test isapprox(expected_weight, weight)
+        @test retdiff === UnknownChange()
     end
-
-    # Get an initial trace
-    constraints = choicemap()
-    constraints[:a] = 0
-    for i=1:5
-        constraints[:data => i] = 0
-    end
-    (trace,) = generate(loopy, (), constraints)
-
-    # Update a
-    constraints = choicemap()
-    constraints[:a] = 1
-    (new_trace, weight, retdiff, discard) = update(trace,
-        (), (), constraints)
-
-    # Test discard, score, weight, retdiff
-    @test get_value(discard, :a) == 0
-    prev_score = logpdf(normal, 0, 0, 1) * 6
-    expected_new_score = logpdf(normal, 1, 0, 1) + 5 * logpdf(normal, 0, 1, 1)
-    expected_weight = expected_new_score - prev_score
-    @test isapprox(expected_new_score, get_score(new_trace))
-    @test isapprox(expected_weight, weight)
-    @test retdiff === UnknownChange()
-
 end
 
 @testset "regenerate" begin
-
     @gen function bar(mu)
         @trace(normal(mu, 1), :a)
     end
@@ -248,7 +277,7 @@ end
                     logpdf(normal, assignment[:y], prev_mu, 1)
                     + logpdf(normal, assignment[:v => :b], prev_mu, 1))
             end
-        else 
+        else
             expected_weight = 0.
         end
         @test isapprox(expected_weight, weight)
@@ -397,47 +426,60 @@ end
 end
 
 @testset "multi-component addresses" begin
+    for notation in [:trace, :tilde]
+        if notation == :trace
+            @gen function bar()
+                @trace(normal(0, 1), :z)
+            end
 
-    @gen function bar()
-        @trace(normal(0, 1), :z)
+            @gen function foo()
+                @trace(normal(0, 1), :y)
+                @trace(normal(0, 1), :x => 1)
+                @trace(normal(0, 1), :x => 2)
+                @trace(bar(), :x => 3)
+            end
+        else
+            @gen function bar()
+                z ~ normal(0, 1)
+            end
+
+            @gen function foo()
+                y ~ normal(0, 1)
+                {:x => 1} ~ normal(0, 1)
+                {:x => 2} ~ normal(0, 1)
+                {:x => 3} ~ bar()
+            end
+        end
+
+        trace, _ =  generate(foo, (), choicemap((:x => 1, 1), (:x => 2, 2), (:x => 3 => :z, 3)))
+        @test trace[:x => 1] == 1
+        @test trace[:x => 2] == 2
+        @test trace[:x => 3 => :z] == 3
+
+        choices = get_choices(trace)
+        @test choices[:x => 1] == 1
+        @test choices[:x => 2] == 2
+        @test choices[:x => 3 => :z] == 3
+        @test length(collect(get_values_shallow(choices))) == 1 # :y
+        @test length(collect(get_submaps_shallow(choices))) == 1 # :x
+
+        submap = get_submap(choices, :x)
+        @test submap[1] == 1
+        @test submap[2] == 2
+        @test submap[3 => :z] == 3
+        @test length(collect(get_values_shallow(submap))) == 2 # 1, 2
+        @test length(collect(get_submaps_shallow(submap))) == 1 # 3
+
+        bar_submap = get_submap(submap, 3)
+        @test bar_submap[:z] == 3
     end
-
-    @gen function foo()
-        @trace(normal(0, 1), :y)
-        @trace(normal(0, 1), :x => 1)
-        @trace(normal(0, 1), :x => 2)
-        @trace(bar(), :x => 3)
-    end
-
-    trace, _ =  generate(foo, (), choicemap((:x => 1, 1), (:x => 2, 2), (:x => 3 => :z, 3)))
-    @test trace[:x => 1] == 1
-    @test trace[:x => 2] == 2
-    @test trace[:x => 3 => :z] == 3
-
-    choices = get_choices(trace)
-    @test choices[:x => 1] == 1
-    @test choices[:x => 2] == 2
-    @test choices[:x => 3 => :z] == 3
-    @test length(collect(get_values_shallow(choices))) == 1 # :y
-    @test length(collect(get_submaps_shallow(choices))) == 1 # :x
-
-    submap = get_submap(choices, :x)
-    @test submap[1] == 1
-    @test submap[2] == 2
-    @test submap[3 => :z] == 3
-    @test length(collect(get_values_shallow(submap))) == 2 # 1, 2
-    @test length(collect(get_submaps_shallow(submap))) == 1 # 3
-
-    bar_submap = get_submap(submap, 3)
-    @test bar_submap[:z] == 3
 end
 
 @testset "project" begin
-
     @gen function bar()
         @trace(normal(0, 1), :x)
     end
-    
+
     @gen function foo()
         @trace(normal(0, 2), :y)
         @trace(bar(), :z)
@@ -485,12 +527,12 @@ end
     # auxiliary state
     @test trace[:x] == 1
     @test trace[:y => :z] == 2
-    
+
     # return value
     @test trace[] == 7
 
     # address that does not exist
-    function test_addr_dne(addr) 
+    function test_addr_dne(addr)
         threw = false
         try
             x = trace[addr]
