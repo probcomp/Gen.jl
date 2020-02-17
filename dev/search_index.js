@@ -857,11 +857,19 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "ref/choice_maps/#Gen.get_selected",
+    "page": "Choice Maps",
+    "title": "Gen.get_selected",
+    "category": "function",
+    "text": "selected_choices = get_selected(choices::ChoiceMap, selection::Selection)\n\nFilter the choice map to include only choices in the given selection.\n\nReturns a new choice map.\n\n\n\n\n\n"
+},
+
+{
     "location": "ref/choice_maps/#Choice-Maps-1",
     "page": "Choice Maps",
     "title": "Choice Maps",
     "category": "section",
-    "text": "Maps from the addresses of random choices to their values are stored in associative tree-structured data structures that have the following abstract type:ChoiceMapChoice maps are constructed by users to express observations and/or constraints on the traces of generative functions. Choice maps are also returned by certain Gen inference methods, and are used internally by various Gen inference methods.Choice maps provide the following methods:has_value\nget_value\nget_submap\nget_values_shallow\nget_submaps_shallow\nto_array\nfrom_arrayNote that none of these methods mutate the choice map.Choice maps also implement:Base.isempty, which tests of there are no random choices in the choice map\nBase.merge, which takes two choice maps, and returns a new choice map containing all random choices in either choice map. It is an error if the choice maps both have values at the same address, or if one choice map has a value at an address that is the prefix of the address of a value in the other choice map.\n==, which tests if two choice maps have the same addresses and values at those addresses."
+    "text": "Maps from the addresses of random choices to their values are stored in associative tree-structured data structures that have the following abstract type:ChoiceMapChoice maps are constructed by users to express observations and/or constraints on the traces of generative functions. Choice maps are also returned by certain Gen inference methods, and are used internally by various Gen inference methods.Choice maps provide the following methods:has_value\nget_value\nget_submap\nget_values_shallow\nget_submaps_shallow\nto_array\nfrom_array\nget_selectedNote that none of these methods mutate the choice map.Choice maps also implement:Base.isempty, which tests of there are no random choices in the choice map\nBase.merge, which takes two choice maps, and returns a new choice map containing all random choices in either choice map. It is an error if the choice maps both have values at the same address, or if one choice map has a value at an address that is the prefix of the address of a value in the other choice map.\n==, which tests if two choice maps have the same addresses and values at those addresses."
 },
 
 {
@@ -929,43 +937,11 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "ref/selections/#Gen.EmptySelection",
+    "location": "ref/selections/#Gen.complement",
     "page": "Selections",
-    "title": "Gen.EmptySelection",
-    "category": "type",
-    "text": "struct EmptySelection <: Selection end\n\nA singleton type for a selection that is always empty.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/selections/#Gen.AllSelection",
-    "page": "Selections",
-    "title": "Gen.AllSelection",
-    "category": "type",
-    "text": "struct AllSelection <: Selection end\n\nA singleton type for a selection that contains all choices at or under an address.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/selections/#Gen.HierarchicalSelection",
-    "page": "Selections",
-    "title": "Gen.HierarchicalSelection",
-    "category": "type",
-    "text": "abstract type HierarchicalSelection <: Selection end\n\nAbstract type for selections that have a notion of sub-selections.\n\nget_subselections(selection::HierarchicalSelection)\n\nReturn an iterator over pairs of addresses and subselections at associated addresses.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/selections/#Gen.DynamicSelection",
-    "page": "Selections",
-    "title": "Gen.DynamicSelection",
-    "category": "type",
-    "text": "struct DynamicSelection <: HierarchicalSelection .. end\n\nA hierarchical, mutable, selection with arbitrary addresses.\n\nCan be mutated with the following methods:\n\nBase.push!(selection::DynamicSelection, addr)\n\nAdd the address and all of its sub-addresses to the selection.\n\nExample:\n\nselection = select()\n@assert !(:x in selection)\npush!(selection, :x)\n@assert :x in selection\n\nset_subselection!(selection::DynamicSelection, addr, other::Selection)\n\nChange the selection status of the given address and its sub-addresses that defined by other.\n\nExample:\n\nselection = select(:x)\n@assert :x in selection\nsubselection = select(:y)\nset_subselection!(selection, :x, subselection)\n@assert (:x => :y) in selection\n@assert !(:x in selection)\n\nNote that set_subselection! does not copy data in other, so other may be mutated by a later calls to set_subselection! for addresses under addr.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/selections/#Gen.StaticSelection",
-    "page": "Selections",
-    "title": "Gen.StaticSelection",
-    "category": "type",
-    "text": "struct StaticSelection{T,U} <: HierarchicalSelection .. end\n\nA hierarchical selection whose keys are among its type parameters.\n\n\n\n\n\n"
+    "title": "Gen.complement",
+    "category": "function",
+    "text": "comp_selection = complement(selection::Selection)\n\nReturn a selection that is the complement of the given selection.\n\nAn address is in the selection if it is not in the complement selection.\n\n\n\n\n\n"
 },
 
 {
@@ -973,7 +949,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Selections",
     "title": "Selections",
     "category": "section",
-    "text": "A selection represents a set of addresses of random choices. Selections allow users to specify to which subset of the random choices in a trace a given inference operation should apply.An address that is added to a selection indicates that either the random choice at that address should be included in the selection, or that all random choices made by a generative function traced at that address should be included. For example, consider the following selection:selection = select(:x, :y)If we use this selection in the context of a trace of the function baz below, we are selecting two random choices, at addresses :x and :y:@gen function baz()\n    @trace(bernoulli(0.5), :x)\n    @trace(bernoulli(0.5), :y)\nendIf we use this selection in the context of a trace of the function bar below, we are actually selecting three random choices–-the one random choice made by bar at address :x and the two random choices made by foo at addresses :y => :z and :y => :w`:@gen function foo()\n    @trace(normal(0, 1), :z)\n    @trace(normal(0, 1), :w)\nend\nend\n\n@gen function bar()\n    @trace(bernoulli(0.5), :x)\n    @trace(foo(), :y)\nendThere is an abstract type for selections:SelectionThere are various concrete types for selections, each of which is a subtype of Selection. Users can construct selections with the select and selectall methods:select\nselectallThe select method returns a selection with concrete type DynamicSelection. The selectall method returns a selection with concrete type AllSelection. The full list of concrete types of selections is shown below. Most users need not worry about these types. Note that only selections of type DynamicSelection are mutable (using push! and set_subselection!).EmptySelection\nAllSelection\nHierarchicalSelection\nDynamicSelection\nStaticSelection"
+    "text": "A selection represents a set of addresses of random choices. Selections allow users to specify to which subset of the random choices in a trace a given inference operation should apply.An address that is added to a selection indicates that either the random choice at that address should be included in the selection, or that all random choices made by a generative function traced at that address should be included. For example, consider the following selection:selection = select(:x, :y)If we use this selection in the context of a trace of the function baz below, we are selecting two random choices, at addresses :x and :y:@gen function baz()\n    @trace(bernoulli(0.5), :x)\n    @trace(bernoulli(0.5), :y)\nendIf we use this selection in the context of a trace of the function bar below, we are actually selecting three random choices–-the one random choice made by bar at address :x and the two random choices made by foo at addresses :y => :z and :y => :w`:@gen function foo()\n    @trace(normal(0, 1), :z)\n    @trace(normal(0, 1), :w)\nend\nend\n\n@gen function bar()\n    @trace(bernoulli(0.5), :x)\n    @trace(foo(), :y)\nendThere is an abstract type for selections:SelectionThere are various concrete types for selections, each of which is a subtype of Selection. Users can construct selections with the following methods:select\nselectall\ncomplementThe select method returns a selection with concrete type DynamicSelection. The selectall method returns a selection with concrete type AllSelection. The full list of concrete types of selections is shown below. Most users need not worry about these types. Note that only selections of type DynamicSelection are mutable (using push! and set_subselection!).EmptySelection\nAllSelection\nHierarchicalSelection\nDynamicSelection\nStaticSelection\nComplementSelection"
 },
 
 {
