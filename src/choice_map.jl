@@ -954,10 +954,13 @@ nested_view(c::ChoiceMap) = ChoiceMapNestedView(c)
 
 export nested_view
 
-#############################################
-# filtering choice maps based on selections #
-#############################################
+"""
+    selected_choices = get_selected(choices::ChoiceMap, selection::Selection)
 
+Filter the choice map to include only choices in the given selection.
+
+Returns a new choice map.
+"""
 function get_selected(
         choices::ChoiceMap, selection::Selection)
     output = choicemap()

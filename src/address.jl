@@ -112,13 +112,6 @@ export AllSelection
 # complement selection #
 ########################
 
-"""
-    ComplementSelection(complement::Selection)
-
-A selection that is the complement of another selection.
-
-An address is in the selection if it is not in the complement selection.
-"""
 struct ComplementSelection <: Selection
     complement::Selection
 end
@@ -129,7 +122,18 @@ function Base.getindex(selection::ComplementSelection, addr)
     ComplementSelection(selection.complement[addr])
 end
 
-export ComplementSelection
+"""
+    comp_selection = complement(selection::Selection)
+
+Return a selection that is the complement of the given selection.
+
+An address is in the selection if it is not in the complement selection.
+"""
+function complement(selection::Selection)
+    ComplementSelection(selection)
+end
+
+export ComplementSelection, complement
 
 ####################
 # static selection #
