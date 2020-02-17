@@ -37,10 +37,11 @@ Selection
 ```
 
 There are various concrete types for selections, each of which is a subtype of [`Selection`](@ref).
-Users can construct selections with the [`select`](@ref) and [`selectall`](@ref) methods:
+Users can construct selections with the following methods:
 ```@docs
 select
 selectall
+complement
 ```
 
 The [`select`](@ref) method returns a selection with concrete type [`DynamicSelection`](@ref).
@@ -54,4 +55,5 @@ AllSelection
 HierarchicalSelection
 DynamicSelection
 StaticSelection
+ComplementSelection
 ```

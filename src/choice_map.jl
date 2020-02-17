@@ -979,3 +979,27 @@ nested_view(c::ChoiceMap) = ChoiceMapNestedView(c)
 # aux data together.
 
 export nested_view
+
+"""
+    selected_choices = get_selected(choices::ChoiceMap, selection::Selection)
+
+Filter the choice map to include only choices in the given selection.
+
+Returns a new choice map.
+"""
+function get_selected(
+        choices::ChoiceMap, selection::Selection)
+    output = choicemap()
+    for (key, value) in get_values_shallow(choices)
+        if (key in selection)
+            output[key] = value
+        end
+    end
+    for (key, submap) in get_submaps_shallow(choices)
+        subselection = selection[key]
+        set_submap!(output, key, get_selected(submap, subselection))
+    end
+    output
+end
+
+export get_selected
