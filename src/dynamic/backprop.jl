@@ -111,8 +111,10 @@ function accumulate_param_gradients!(trace::DynamicDSLTrace, retval_grad, scaler
     _, back = Zygote.pullback(fn, get_args(trace), dummy_param_store)
     arg_grads, param_store_grad = back((1., retval_grad))
     
-    for ((gen_fn, name), grad) in param_store_grad.params
-        gen_fn.params_grad[name] += grad * scaler
+    if !isnothing(param_store_grad)
+        for ((gen_fn, name), grad) in param_store_grad.params
+            gen_fn.params_grad[name] += grad * scaler
+        end
     end
 
     arg_grads
