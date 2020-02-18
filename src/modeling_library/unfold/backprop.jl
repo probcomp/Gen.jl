@@ -30,8 +30,8 @@ function accumulate_param_gradients!(trace::VectorTrace{UnfoldType,T,U}, retval_
         subtrace = trace.subtraces[key]
         kernel_retval_grad = (retval_grad == nothing) ? nothing : retval_grad[key]
         kernel_arg_grad::Tuple = accumulate_param_gradients!(subtrace, kernel_retval_grad)
-        @assert kernel_arg_grad[1] == nothing
-        @assert kernel_arg_grad[2] == nothing
+        #@assert kernel_arg_grad[1] == nothing
+        #@assert kernel_arg_grad[2] == nothing
         for (i, (grad, has_grad)) in enumerate(zip(kernel_arg_grad[3:end], params_has_grad))
             if has_grad
                 params_grad[i][key] = grad
