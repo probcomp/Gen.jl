@@ -19,15 +19,7 @@ end
     return y
 end
 
-@gen (static) function datum_tilde(x::Float64, (grad)(params::Params))
-    is_outlier = {:z} ~ bernoulli(params.prob_outlier)
-    std = is_outlier ? params.inlier_std : params.outlier_std
-    y ~ normal(x * params.slope + params.intercept, std)
-    return y
-end
-
 data_fn = Map(datum)
-data_fn_tilde = Map(datum_tilde)
 
 """
 my documentation
@@ -43,23 +35,9 @@ my documentation
     return ys
 end
 
-@gen (static) function model_tilde(xs::Vector{Float64})
-    n = length(xs)
-    inlier_std ~ gamma(1, 1)
-    outlier_std ~ gamma(1, 1)
-    slope ~ normal(0, 2)
-    intercept ~ normal(0, 2)
-    params::Params = Params(0.5, inlier_std, outlier_std, slope, intercept)
-    ys = {:data} ~ data_fn_tilde(xs, fill(params, n))
-    return ys
-end
 
 @gen (static) function at_choice_example_1(i::Int)
     ret = @trace(bernoulli(0.5), :x => i)
-end
-
-@gen (static) function at_choice_example_1_tilde(i::Int)
-    ret = {:x => i} ~ bernoulli(0.5)
 end
 
 # @trace(choice_at(bernoulli)(0.5, i), :x)
@@ -68,39 +46,22 @@ end
     ret = @trace(bernoulli(0.5), :x => i => :y)
 end
 
-@gen (static) function at_choice_example_2_tilde(i::Int)
-    ret = {:x => i => :y} ~ bernoulli(0.5)
-end
-
 # @trace(call_at(choice_at(bernoulli))(0.5, i, :y), :x)
 
 @gen function foo(mu)
     @trace(normal(mu, 1), :y)
 end
 
-@gen function foo_tilde(mu)
-    {:y} ~ normal(mu, 1)
-end
 
 @gen (static) function at_call_example_1(i::Int)
     mu = 1.123
     ret = @trace(foo(mu), :x => i)
 end
 
-@gen (static) function at_call_example_1_tilde(i::Int)
-    mu = 1.123
-    ret = {:x => i} ~ foo_tilde(mu)
-end
 
 @gen (static) function at_call_example_2(i::Int)
     mu = 1.123
     ret = @trace(foo(mu), :x => i => :y)
-end
-
-
-@gen (static) function at_call_example_2_tilde(i::Int)
-    mu = 1.123
-    ret = {:x => i => :y} ~ foo_tilde(mu)
 end
 
 @testset "static DSL" begin
@@ -118,7 +79,7 @@ end
 #####################
 
 
-for ir in [Gen.get_ir(typeof(datum)), Gen.get_ir(typeof(datum_tilde))]
+ir = Gen.get_ir(typeof(datum))
 # argument nodes
 @test length(ir.arg_nodes) == 2
 x = ir.arg_nodes[1]
@@ -178,14 +139,12 @@ prob_outlier = is_outlier.inputs[1]
 @test prob_outlier.typ == QuoteNode(Any)
 
 @test ir.return_node === y
-end
 
 #####################
 # check IR of model #
 #####################
 
-for tilde in [true, false]
-ir = tilde ? Gen.get_ir(typeof(model_tilde)) : Gen.get_ir(typeof(model))
+ir = Gen.get_ir(typeof(model))
 @test length(ir.arg_nodes) == 1
 xs = ir.arg_nodes[1]
 @test xs.name == :xs
@@ -233,7 +192,7 @@ ys = ir.call_nodes[1]
 @test ys.name == :ys
 @test ys.addr == :data
 @test ys.typ == QuoteNode(PersistentVector{Float64})
-@test ys.generative_function == (tilde ? data_fn_tilde : data_fn)
+@test ys.generative_function == data_fn
 @test length(ys.inputs) == 2
 @test ys.inputs[1] == xs
 
@@ -268,14 +227,10 @@ in2 = params_vec.inputs[2]
 @test ir.return_node === ys
 end
 
-end
-
-
 @testset "at_choice" begin
 
 # at_choice_example_1
-for tilde in [true, false]
-ir = (tilde ? Gen.get_ir(typeof(at_choice_example_1_tilde)) : Gen.get_ir(typeof(at_choice_example_1)))
+ir = Gen.get_ir(typeof(at_choice_example_1))
 i = get_node_by_name(ir, :i)
 ret = get_node_by_name(ir, :ret)
 @test isa(ret, Gen.GenerativeFunctionCallNode)
@@ -286,11 +241,9 @@ ret = get_node_by_name(ir, :ret)
 at = ret.generative_function
 @test isa(at, Gen.ChoiceAtCombinator)
 @test at.dist == bernoulli
-end
 
 # at_choice_example_2
-for tilde in [true, false]
-ir = tilde ? Gen.get_ir(typeof(at_choice_example_2_tilde)) : Gen.get_ir(typeof(at_choice_example_2))
+ir = Gen.get_ir(typeof(at_choice_example_2))
 i = get_node_by_name(ir, :i)
 ret = get_node_by_name(ir, :ret)
 @test isa(ret, Gen.GenerativeFunctionCallNode)
@@ -305,14 +258,12 @@ at2 = at.kernel
 @test isa(at2, Gen.ChoiceAtCombinator)
 @test at2.dist == bernoulli
 end
-end
 
 
 @testset "at_call" begin
 
 # at_call_example_1
-for tilde in [true, false]
-ir = tilde ? Gen.get_ir(typeof(at_call_example_1_tilde)) : Gen.get_ir(typeof(at_call_example_1))
+ir = Gen.get_ir(typeof(at_call_example_1))
 i = get_node_by_name(ir, :i)
 ret = get_node_by_name(ir, :ret)
 @test isa(ret, Gen.GenerativeFunctionCallNode)
@@ -322,11 +273,10 @@ ret = get_node_by_name(ir, :ret)
 @test ret.inputs[2] === i
 at = ret.generative_function
 @test isa(at, Gen.CallAtCombinator)
-@test at.kernel == (tilde ? foo_tilde : foo)
-end
+@test at.kernel == foo
+
 #at_call_example_2
-for tilde in [true, false]
-ir = tilde ? Gen.get_ir(typeof(at_call_example_2_tilde)) : Gen.get_ir(typeof(at_call_example_2))
+ir = Gen.get_ir(typeof(at_call_example_2))
 i = get_node_by_name(ir, :i)
 ret = get_node_by_name(ir, :ret)
 @test isa(ret, Gen.GenerativeFunctionCallNode)
@@ -340,8 +290,7 @@ at = ret.generative_function
 @test isa(at, Gen.CallAtCombinator)
 at2 = at.kernel
 @test isa(at2, Gen.CallAtCombinator)
-@test at2.kernel == (tilde ? foo_tilde : foo)
-end
+@test at2.kernel == foo
 end
 
 
