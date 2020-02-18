@@ -40,7 +40,7 @@ end
 """
 Compute a numerical partial derivative of `f` with respect to the `i`th argument, a symettric matrix, using finite differences.
 
-Finite differences are applied symettrically to off-diagonal elements of the matrix, ensuring that the modified matrix is still symettric. 
+Finite differences are applied symettrically to off-diagonal elements of the matrix, ensuring that the modified matrix is still symettric.
 
 When applied to off-diagonal elements, the finite difference is scaled by a factor of 1/2.
 
@@ -52,13 +52,13 @@ function finite_diff_mat_sym(f::Function, args::Tuple, i::Int, j::Int, k::Int, d
     pos_args[i][j, k] += dx
     neg_args = Any[deepcopy(args)...]
     neg_args[i][j, k] -= dx
-    
+
     if j!=k
         pos_args[i][k, j] += dx
         neg_args[i][k, j] -= dx
         return (f(pos_args...) - f(neg_args...)) / (4. * dx)
     end
-    
+
     return (f(pos_args...) - f(neg_args...)) / (2. * dx)
 end
 
@@ -71,5 +71,6 @@ include("assignment.jl")
 include("dynamic_dsl.jl")
 include("static_ir/static_ir.jl")
 include("static_dsl.jl")
+include("tilde_sugar.jl")
 include("inference/inference.jl")
 include("modeling_library/modeling_library.jl")

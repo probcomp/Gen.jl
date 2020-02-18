@@ -1,3 +1,5 @@
+import MacroTools
+
 const DSL_STATIC_ANNOTATION = :static
 const DSL_ARG_GRAD_ANNOTATION = :grad
 const DSL_RET_GRAD_ANNOTATION = :grad
@@ -53,6 +55,29 @@ end
 include("dynamic.jl")
 include("static.jl")
 
+function address_from_expression(lhs)
+    if lhs isa Symbol
+        QuoteNode(lhs)
+    else
+        error("Syntax error: Only a variable or an address expression can appear on the lefthand side of a ~. Invalid left-hand side: $(lhs).")
+    end
+end
+
+function desugar_tildes(expr)
+    MacroTools.postwalk(expr) do e
+        if MacroTools.@capture(e, {*} ~ rhs_)
+            :(@trace($rhs))
+        elseif MacroTools.@capture(e, {addr_} ~ rhs_)
+            :(@trace($rhs, $(addr)))
+        elseif MacroTools.@capture(e, lhs_ ~ rhs_)
+            addr_expr = address_from_expression(lhs)
+            :($lhs = @trace($rhs, $(addr_expr)))
+        else
+            e
+        end
+    end
+end
+
 function parse_gen_function(ast, annotations)
     if ast.head != :function
         error("syntax error at $ast in $(ast.head)")
@@ -61,7 +86,7 @@ function parse_gen_function(ast, annotations)
         error("syntax error at $ast in $(ast.args)")
     end
     signature = ast.args[1]
-    body = ast.args[2]
+    body = desugar_tildes(ast.args[2])
     if signature.head == :(::)
         (call_signature, return_type) = signature.args
     elseif signature.head == :call
