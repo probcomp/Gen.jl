@@ -223,40 +223,36 @@ mutable struct GFBackpropTraceState
     score::Float64
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
+    selection::Selection
 end
 
-function GFBackpropTraceState(trace, params)
+function GFBackpropTraceState(trace, params, selection)
     score = 0.
     visitor = AddressVisitor()
-    GFBackpropTraceState(trace, score, visitor, params)
+    GFBackpropTraceState(trace, score, visitor, params, selection)
 end
 
-# TODO use a custom adjoint for Trie
+function get_addr(addr_so_far::Vector, key)
+    push!(addr_so_far, key)
+    addr = foldr(=>, addr_so_far)
+    pop!(addr_so_far)
+    addr
+end
 
 function get_selected(
-        trie::Trie, grad_trie::NamedTuple, selection::Selection, addr_so_far=nothing)
-        #get_addr::Function)
+        trie::Trie, grad_trie::NamedTuple, selection::Selection, addr_so_far)
 
     values = choicemap()
     grads = choicemap()
 
-    for (key, record) in get_leaf_nodes(trie) # may be subtrace
+    for (key, record) in get_leaf_nodes(trie)
         if record.is_choice
-            if (addr_so_far == nothing ? key : addr_so_far => key) in selection
+            if get_addr(addr_so_far, key) in selection
                 values[key] = record.subtrace_or_retval
                 grads[key] = grad_trie.leaf_nodes[key].subtrace_or_retval
             end
-        else
-            subselection = selection[key]
-            if haskey(grad_trie.leaf_nodes, key)
-                retval_grad = grad_trie.leaf_nodes[key].subtrace_or_retval
-            else
-                # TODO every retval needs to have a zero method?
-                # (including nothing?)
-                retval_grad = zero(get_retval(record.subtrace_or_retval))
-            end
-            (_, choice_vals, choice_grads) = choice_gradients(
-                record.subtrace_or_retval, subselection, retval_grad)
+        elseif haskey(grad_trie.leaf_nodes, key)
+            (choice_vals, choice_grads) = grad_trie.leaf_nodes[key].subtrace_or_retval
             set_submap!(values, key, choice_vals)
             set_submap!(grads, key, choice_grads)
         end
@@ -264,9 +260,10 @@ function get_selected(
 
     for (key, subtrie) in get_internal_nodes(trie)
         grad_subtrie = grad_trie.internal_nodes[key]
+        push!(addr_so_far, key)
         values_submap, grads_submap = get_selected(
-                subtrie, grad_subtrie, selection,
-                (addr_so_far == nothing ? key : addr_so_far => key))
+                subtrie, grad_subtrie, selection, addr_so_far)
+        pop!(addr_so_far)
         set_submap!(values, key, values_submap)
         set_submap!(grads, key, grads_submap)
     end
@@ -282,14 +279,14 @@ function traceat(
     retval
 end
 
-pretend_call(subtrace, args) = get_retval(subtrace)
+pretend_call(subtrace, selection, args) = get_retval(subtrace)
 
-Zygote.@adjoint pretend_call(subtrace, args) = begin
-    retval = pretend_call(subtrace, args)
+Zygote.@adjoint pretend_call(subtrace, selection, args) = begin
+    retval = pretend_call(subtrace, selection, args)
     fn = (retval_grad) -> begin
-        (arg_grads, _, _) = choice_gradients(subtrace, select(), retval_grad)
-        # NOTE: we are using the retval_grad as the adjoint for the subtrace
-        (retval_grad, arg_grads)
+        (arg_grads, choice_vals, choice_grads) = choice_gradients(subtrace, selection, retval_grad)
+        # NOTE: we are using (choice_vals, choice_grads) as the adjoint for the subtrace
+        ((choice_vals, choice_grads), nothing, arg_grads)
     end
     (retval, fn)
 end
@@ -300,7 +297,7 @@ function traceat(
     visit!(state.visitor, key)
     subtrace = get_call(state.trace, key).subtrace
     get_gen_fn(subtrace) === gen_fn || gen_fn_changed_error(key)
-    pretend_call(subtrace, args)
+    pretend_call(subtrace, state.selection[key], args)
 end
 
 function splice(
@@ -317,7 +314,7 @@ function choice_gradients(
     gen_fn = trace.gen_fn
 
     fn = (trace) -> begin
-        state = GFBackpropTraceState(trace, gen_fn.params)
+        state = GFBackpropTraceState(trace, gen_fn.params, selection)
         retval = exec(gen_fn, state, get_args(trace))
         (state.score, retval)
     end
@@ -329,7 +326,7 @@ function choice_gradients(
     grad_trie = trace_grad.trie
 
     choice_vals, choice_grads = get_selected(
-        trace.trie, grad_trie, selection, nothing)
+        trace.trie, grad_trie, selection, [])
 
     (input_grads, choice_vals, choice_grads)
 end
