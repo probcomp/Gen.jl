@@ -1521,11 +1521,19 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "ref/vi/#Gen.black_box_vi!",
+    "page": "Variational Inference",
+    "title": "Gen.black_box_vi!",
+    "category": "function",
+    "text": "black_box_vi!(model::GenerativeFunction, args::Tuple,\n              observations::ChoiceMap,\n              proposal::GenerativeFunction, proposal_args::Tuple,\n              update::ParamUpdate;\n              iters=1000, samples_per_iter=100, verbose=false)\n\nFit the parameters of a generative function (proposal) to the posterior distribution implied by the given model and observations using stochastic gradient methods.\n\n\n\n\n\n"
+},
+
+{
     "location": "ref/vi/#Variational-Inference-1",
     "page": "Variational Inference",
     "title": "Variational Inference",
     "category": "section",
-    "text": "```@docs blackboxvi!"
+    "text": "black_box_vi!"
 },
 
 {
