@@ -1,4 +1,11 @@
 # Variational Inference
+
+Variational inference involves optimizing the parameters of a variational family to maximize a lower bound on the marginal likelihood called the ELBO.
+In Gen, variational families are represented as generative functions, and variational inference typically involves optimizing the trainable parameters of generative functions.
+
+## Black box variational inference
+There are two procedures in the inference library for performing black box variational inference.
+
 ```@docs
 black_box_vi!
 black_box_vimco!
