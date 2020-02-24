@@ -121,3 +121,58 @@
     @test get_param(student, :theta4) > 5
     @test get_param(student, :theta5) < -5
 end
+
+
+@testset "lecture!" begin
+    
+    Random.seed!(1)
+
+    # simple p
+    @gen function p()
+        z = @trace(normal(0., 1.), :z)
+        x = @trace(normal(z + 2., 0.3), :x) 
+        return x
+    end
+
+    # simple q
+    @gen function q(x::Float64)
+        @param theta::Float64
+        @param log_std::Float64
+        z = @trace(normal(x + theta, exp(log_std)), :z)
+        return z
+    end
+
+    # train simple q using lecture! to compute gradients
+    init_param!(q, :theta, 0.)
+    init_param!(q, :log_std, 0.)
+    update = ParamUpdate(FixedStepGradientDescent(1e-4), q)
+    score = Inf
+    for iter=1:100
+        score = sum([lecture!(p, (), q, tr -> (tr[:x],)) for _=1:1000]) / 1000
+        apply!(update)
+    end
+    score = sum([lecture!(p, (), q, tr -> (tr[:x],)) for _=1:10000]) / 10000
+    @test isapprox(score, -0.21, atol=5e-2)
+
+    # simple q, batched
+    @gen function q_batched(xs::Vector{Float64})
+        @param theta::Float64
+        @param log_std::Float64
+        means = xs .+ theta
+        for i=1:length(xs)
+            @trace(normal(means[i], exp(log_std)), i => :z)
+        end
+    end
+
+    # train simple q using lecture_batched! to compute gradients
+    init_param!(q_batched, :theta, 0.)
+    init_param!(q_batched, :log_std, 0.)
+    update = ParamUpdate(FixedStepGradientDescent(0.001), q_batched)
+    score = Inf
+    for iter=1:100
+        score = lecture_batched!(p, (), q_batched, trs -> (map(tr -> tr[:x], trs),), 1000)
+        apply!(update)
+    end
+    score = sum([lecture!(p, (), q, tr -> (tr[:x],)) for _=1:10000]) / 10000
+    @test isapprox(score, -0.21, atol=5e-2)
+end

@@ -89,50 +89,52 @@ function multi_sample_gradient_estimate!(
 end
 
 """
-    black_box_vi!(model::GenerativeFunction, args::Tuple,
-                  observations::ChoiceMap,
-                  var_model::GenerativeFunction, var_model_args::Tuple,
-                  update::ParamUpdate;
-                  iters=1000, samples_per_iter=100, verbose=false)
+    (elbo_estimate, traces, elbo_history) = black_box_vi!(
+        model::GenerativeFunction, args::Tuple,
+        observations::ChoiceMap,
+        var_model::GenerativeFunction, var_model_args::Tuple,
+        update::ParamUpdate;
+        iters=1000, samples_per_iter=100, verbose=false)
 
 Fit the parameters of a generative function (`var_model`) to the posterior distribution implied by the given model and observations using stochastic gradient methods.
 """
-function black_box_vi!(model::GenerativeFunction, model_args::Tuple,
-                       observations::ChoiceMap,
-                       var_model::GenerativeFunction, var_model_args::Tuple,
-                       update::ParamUpdate;
-                       iters=1000, samples_per_iter=100, verbose=false)
+function black_box_vi!(
+        model::GenerativeFunction, model_args::Tuple,
+        observations::ChoiceMap,
+        var_model::GenerativeFunction, var_model_args::Tuple,
+        update::ParamUpdate;
+        iters=1000, samples_per_iter=100, verbose=false)
 
     traces = Vector{Any}(undef, samples_per_iter)
-    obj_ests = Vector{Float64}(undef, iters)
+    elbo_history = Vector{Float64}(undef, iters)
     for iter=1:iters
 
         # compute gradient estimate and objective function estimate
-        obj_est = 0.
+        elbo_estimate = 0.
         # TODO multithread
         for sample=1:samples_per_iter
-            (trace, obj) = single_sample_gradient_estimate!(
+            (log_weight, trace) = single_sample_gradient_estimate!(
                 var_model, var_model_args,
                 model, model_args, observations, 1/samples_per_iter)
-            obj_est += obj
+            elbo_estimate += (log_weight / samples_per_iter)
+
+            # record the model trace
             traces[sample] = trace
         end
-        obj_est /= samples_per_iter
-        obj_ests[iter] = obj_est
+        elbo_history[iter] = elbo_estimate
 
         # print it
-        verbose && println("iter $iter; est objective: $obj_est")
+        verbose && println("iter $iter; est objective: $elbo_estimate")
 
         # do an update
         apply!(update)
     end
     
-    normalized_weights = fill(1/samples_per_iter, samples_per_iter)
-    (obj_est, traces, normalized_weights, obj_ests)
+    (elbo_history[end], traces, elbo_history)
 end
 
 """
-    black_box_vimco!(
+    (iwelbo_estimate, traces, iwelbo_history) = black_box_vimco!(
         model::GenerativeFunction, args::Tuple,
         observations::ChoiceMap,
         var_model::GenerativeFunction, var_model_args::Tuple,
@@ -141,36 +143,40 @@ end
 
 Fit the parameters of a generative function (`var_model`) to the posterior distribution implied by the given model and observations using stochastic gradient methods applied to the [Variational Inference with Monte Carlo Objectives](https://arxiv.org/abs/1602.06725) lower bound on the marginal likelihood.
 """
-function black_box_vimco!(model::GenerativeFunction, model_args::Tuple,
-                       observations::ChoiceMap,
-                       var_model::GenerativeFunction, var_model_args::Tuple,
-                       update::ParamUpdate, num_samples::Int;
-                       iters=1000, samples_per_iter=100, verbose=false,
-                       geometric=true)
+function black_box_vimco!(
+        model::GenerativeFunction, model_args::Tuple,
+        observations::ChoiceMap,
+        var_model::GenerativeFunction, var_model_args::Tuple,
+        update::ParamUpdate, num_samples::Int;
+        iters=1000, samples_per_iter=100, verbose=false,
+        geometric=true)
     
-    obj_ests = Vector{Float64}(undef, iters)
+    traces = Vector{Any}(undef, samples_per_iter)
+    iwelbo_history = Vector{Float64}(undef, iters)
     for iter=1:iters
 
         # compute gradient estimate and objective function estimate
-        obj_est = 0.
+        iwelbo_estimate = 0.
         for sample=1:samples_per_iter
-            (obj, traces, weights) = multi_sample_gradient_estimate!(
+            (est, original_traces, weights) = multi_sample_gradient_estimate!(
                 var_model, var_model_args,
                 model, model_args, observations, num_samples,
                 1/samples_per_iter, geometric)
-            obj_est += obj
+            iwelbo_estimate += (est / samples_per_iter)
+
+            # record a model trace obtained by resampling from the weighted collection
+            traces[sample] = original_traces[categorical(weights)]
         end
-        obj_est /= samples_per_iter
-        obj_ests[iter] = obj_est
+        iwelbo_history[iter] = iwelbo_estimate
 
         # print it
-        verbose && println("iter $iter; est objective: $obj_est")
+        verbose && println("iter $iter; est objective: $iwelbo_estimate")
 
         # do an update
         apply!(update)
     end
 
-    (obj_est, traces, weights, obj_ests)
+    (iwelbo_history[end], traces, iwelbo_history)
 end
 
 export black_box_vi!, black_box_vimco!
