@@ -1025,206 +1025,6 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "ref/inference/#",
-    "page": "Inference Library",
-    "title": "Inference Library",
-    "category": "page",
-    "text": ""
-},
-
-{
-    "location": "ref/inference/#Inference-Library-1",
-    "page": "Inference Library",
-    "title": "Inference Library",
-    "category": "section",
-    "text": ""
-},
-
-{
-    "location": "ref/inference/#Gen.importance_sampling",
-    "page": "Inference Library",
-    "title": "Gen.importance_sampling",
-    "category": "function",
-    "text": "(traces, log_norm_weights, lml_est) = importance_sampling(model::GenerativeFunction,\n    model_args::Tuple, observations::ChoiceMap, num_samples::Int, verbose=false)\n\n(traces, log_norm_weights, lml_est) = importance_sampling(model::GenerativeFunction,\n    model_args::Tuple, observations::ChoiceMap,\n    proposal::GenerativeFunction, proposal_args::Tuple,\n    num_samples::Int, verbose=false)\n\nRun importance sampling, returning a vector of traces with associated log weights.\n\nThe log-weights are normalized. Also return the estimate of the marginal likelihood of the observations (lml_est). The observations are addresses that must be sampled by the model in the given model arguments. The first variant uses the internal proposal distribution of the model. The second variant uses a custom proposal distribution defined by the given generative function. All addresses of random choices sampled by the proposal should also be sampled by the model function. Setting verbose=true prints a progress message every sample.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/inference/#Gen.importance_resampling",
-    "page": "Inference Library",
-    "title": "Gen.importance_resampling",
-    "category": "function",
-    "text": "(trace, lml_est) = importance_resampling(model::GenerativeFunction,\n    model_args::Tuple, observations::ChoiceMap, num_samples::Int,\n    verbose=false)\n\n(traces, lml_est) = importance_resampling(model::GenerativeFunction,\n    model_args::Tuple, observations::ChoiceMap,\n    proposal::GenerativeFunction, proposal_args::Tuple,\n    num_samples::Int, verbose=false)\n\nRun sampling importance resampling, returning a single trace.\n\nUnlike importance_sampling, the memory used constant in the number of samples.\n\nSetting verbose=true prints a progress message every sample.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/inference/#Importance-Sampling-1",
-    "page": "Inference Library",
-    "title": "Importance Sampling",
-    "category": "section",
-    "text": "importance_sampling\nimportance_resampling"
-},
-
-{
-    "location": "ref/inference/#Gen.metropolis_hastings",
-    "page": "Inference Library",
-    "title": "Gen.metropolis_hastings",
-    "category": "function",
-    "text": "(new_trace, accepted) = metropolis_hastings(trace, selection::Selection)\n\nPerform a Metropolis-Hastings update that proposes new values for the selected addresses from the internal proposal (often using ancestral sampling), returning the new trace (which is equal to the previous trace if the move was not accepted) and a Bool indicating whether the move was accepted or not.\n\n\n\n\n\n(new_trace, accepted) = metropolis_hastings(trace, proposal::GenerativeFunction, proposal_args::Tuple)\n\nPerform a Metropolis-Hastings update that proposes new values for some subset of random choices in the given trace using the given proposal generative function, returning the new trace (which is equal to the previous trace if the move was not accepted) and a Bool indicating whether the move was accepted or not.\n\nThe proposal generative function should take as its first argument the current trace of the model, and remaining arguments proposal_args. If the proposal modifies addresses that determine the control flow in the model, values must be provided by the proposal for any addresses that are newly sampled by the model.\n\n\n\n\n\n(new_trace, accepted) = metropolis_hastings(trace, proposal::GenerativeFunction, proposal_args::Tuple, involution::Function)\n\nPerform a generalized Metropolis-Hastings update based on an involution (bijection that is its own inverse) on a space of choice maps, returning the new trace (which is equal to the previous trace if the move was not accepted) and a Bool indicating whether the move was accepted or not.\n\nThe involution Julia function has the following signature:\n\n(new_trace, bwd_choices::ChoiceMap, weight) = involution(trace, fwd_choices::ChoiceMap, fwd_ret, proposal_args::Tuple)\n\nThe generative function proposal is executed on arguments (trace, proposal_args...), producing a choice map fwd_choices and return value fwd_ret. For each value of model arguments (contained in trace) and proposal_args, the involution function applies an involution that maps the tuple (get_choices(trace), fwd_choices) to the tuple (get_choices(new_trace), bwd_choices). Note that fwd_ret is a deterministic function of fwd_choices and proposal_args. When only discrete random choices are used, the weight must be equal to get_score(new_trace) - get_score(trace).\n\nIncluding Continuous Random Choices When continuous random choices are used, the weight must include an additive term that is the determinant of the the Jacobian of the bijection on the continuous random choices that is obtained by currying the involution on the discrete random choices.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/inference/#Gen.mh",
-    "page": "Inference Library",
-    "title": "Gen.mh",
-    "category": "function",
-    "text": "(new_trace, accepted) = mh(trace, selection::Selection)\n(new_trace, accepted) = mh(trace, proposal::GenerativeFunction, proposal_args::Tuple)\n(new_trace, accepted) = mh(trace, proposal::GenerativeFunction, proposal_args::Tuple, involution::Function)\n\nAlias for metropolis_hastings. Perform a Metropolis-Hastings update on the given trace.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/inference/#Gen.mala",
-    "page": "Inference Library",
-    "title": "Gen.mala",
-    "category": "function",
-    "text": "(new_trace, accepted) = mala(trace, selection::Selection, tau::Real)\n\nApply a Metropolis-Adjusted Langevin Algorithm (MALA) update.\n\nReference URL\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/inference/#Gen.hmc",
-    "page": "Inference Library",
-    "title": "Gen.hmc",
-    "category": "function",
-    "text": "(new_trace, accepted) = hmc(trace, selection::Selection, L=10, eps=0.1)\n\nApply a Hamiltonian Monte Carlo (HMC) update.\n\nNeal, Radford M. \"MCMC using Hamiltonian dynamics.\" Handbook of Markov Chain Monte Carlo 2.11 (2011): 2.\n\nReference URL\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/inference/#Gen.elliptical_slice",
-    "page": "Inference Library",
-    "title": "Gen.elliptical_slice",
-    "category": "function",
-    "text": "new_trace = elliptical_slice(trace, addr, mu, cov)\n\nApply an elliptical slice sampling update to a given random choice with a multivariate normal prior.\n\nAlso takes the mean vector and covariance matrix of the prior.\n\nReference URL\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/inference/#Markov-Chain-Monte-Carlo-1",
-    "page": "Inference Library",
-    "title": "Markov Chain Monte Carlo",
-    "category": "section",
-    "text": "The following inference library methods take a trace and return a new trace.metropolis_hastings\nmh\nmala\nhmc\nelliptical_slice"
-},
-
-{
-    "location": "ref/inference/#Gen.map_optimize",
-    "page": "Inference Library",
-    "title": "Gen.map_optimize",
-    "category": "function",
-    "text": "new_trace = map_optimize(trace, selection::Selection, \n    max_step_size=0.1, tau=0.5, min_step_size=1e-16, verbose=false)\n\nPerform backtracking gradient ascent to optimize the log probability of the trace over selected continuous choices.\n\nSelected random choices must have support on the entire real line.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/inference/#Optimization-over-Random-Choices-1",
-    "page": "Inference Library",
-    "title": "Optimization over Random Choices",
-    "category": "section",
-    "text": "map_optimize"
-},
-
-{
-    "location": "ref/inference/#Gen.initialize_particle_filter",
-    "page": "Inference Library",
-    "title": "Gen.initialize_particle_filter",
-    "category": "function",
-    "text": "state = initialize_particle_filter(model::GenerativeFunction, model_args::Tuple,\n    observations::ChoiceMap proposal::GenerativeFunction, proposal_args::Tuple,\n    num_particles::Int)\n\nInitialize the state of a particle filter using a custom proposal for the initial latent state.\n\n\n\n\n\nstate = initialize_particle_filter(model::GenerativeFunction, model_args::Tuple,\n    observations::ChoiceMap, num_particles::Int)\n\nInitialize the state of a particle filter, using the default proposal for the initial latent state.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/inference/#Gen.particle_filter_step!",
-    "page": "Inference Library",
-    "title": "Gen.particle_filter_step!",
-    "category": "function",
-    "text": "particle_filter_step!(state::ParticleFilterState, new_args::Tuple, argdiffs,\n    observations::ChoiceMap, proposal::GenerativeFunction, proposal_args::Tuple)\n\nPerform a particle filter update, where the model arguments are adjusted, new observations are added, and some combination of a custom proposal and the model\'s internal proposal is used for proposing new latent state (whatever is not proposed from the custom proposal will be proposed using the model\'s internal proposal).\n\n\n\n\n\nparticle_filter_step!(state::ParticleFilterState, new_args::Tuple, argdiffs,\n    observations::ChoiceMap)\n\nPerform a particle filter update, where the model arguments are adjusted, new observations are added, and the default proposal is used for new latent state.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/inference/#Gen.maybe_resample!",
-    "page": "Inference Library",
-    "title": "Gen.maybe_resample!",
-    "category": "function",
-    "text": "did_resample::Bool = maybe_resample!(state::ParticleFilterState;\n    ess_threshold::Float64=length(state.traces)/2, verbose=false)\n\nDo a resampling step if the effective sample size is below the given threshold.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/inference/#Gen.log_ml_estimate",
-    "page": "Inference Library",
-    "title": "Gen.log_ml_estimate",
-    "category": "function",
-    "text": "estimate = log_ml_estimate(state::ParticleFilterState)\n\nReturn the particle filter\'s current estimate of the log marginal likelihood.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/inference/#Gen.get_traces",
-    "page": "Inference Library",
-    "title": "Gen.get_traces",
-    "category": "function",
-    "text": "traces = get_traces(state::ParticleFilterState)\n\nReturn the vector of traces in the current state, one for each particle.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/inference/#Gen.get_log_weights",
-    "page": "Inference Library",
-    "title": "Gen.get_log_weights",
-    "category": "function",
-    "text": "log_weights = get_log_weights(state::ParticleFilterState)\n\nReturn the vector of log weights for the current state, one for each particle.\n\nThe weights are not normalized, and are in log-space.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/inference/#Gen.sample_unweighted_traces",
-    "page": "Inference Library",
-    "title": "Gen.sample_unweighted_traces",
-    "category": "function",
-    "text": "traces::Vector = sample_unweighted_traces(state::ParticleFilterState, num_samples::Int)\n\nSample a vector of num_samples traces from the weighted collection of traces in the given particle filter state.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/inference/#Particle-Filtering-1",
-    "page": "Inference Library",
-    "title": "Particle Filtering",
-    "category": "section",
-    "text": "initialize_particle_filter\nparticle_filter_step!\nmaybe_resample!\nlog_ml_estimate\nget_traces\nget_log_weights\nsample_unweighted_traces"
-},
-
-{
-    "location": "ref/inference/#Gen.train!",
-    "page": "Inference Library",
-    "title": "Gen.train!",
-    "category": "function",
-    "text": "train!(gen_fn::GenerativeFunction, data_generator::Function,\n       update::ParamUpdate,\n       num_epoch, epoch_size, num_minibatch, minibatch_size; verbose::Bool=false)\n\nTrain the given generative function to maximize the expected conditional log probability (density) that gen_fn generates the assignment constraints given inputs, where the expectation is taken under the output distribution of data_generator.\n\nThe function data_generator is a function of no arguments that returns a tuple (inputs, constraints) where inputs is a Tuple of inputs (arguments) to gen_fn, and constraints is an ChoiceMap. conf configures the optimization algorithm used. param_lists is a map from generative function to lists of its parameters. This is equivalent to minimizing the expected KL divergence from the conditional distribution constraints | inputs of the data generator to the distribution represented by the generative function, where the expectation is taken under the marginal distribution on inputs determined by the data generator.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/inference/#Supervised-Training-1",
-    "page": "Inference Library",
-    "title": "Supervised Training",
-    "category": "section",
-    "text": "train!"
-},
-
-{
-    "location": "ref/inference/#Gen.black_box_vi!",
-    "page": "Inference Library",
-    "title": "Gen.black_box_vi!",
-    "category": "function",
-    "text": "black_box_vi!(model::GenerativeFunction, args::Tuple,\n              observations::ChoiceMap,\n              proposal::GenerativeFunction, proposal_args::Tuple,\n              update::ParamUpdate;\n              iters=1000, samples_per_iter=100, verbose=false)\n\nFit the parameters of a generative function (proposal) to the posterior distribution implied by the given model and observations using stochastic gradient methods.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/inference/#Variational-Inference-1",
-    "page": "Inference Library",
-    "title": "Variational Inference",
-    "category": "section",
-    "text": "black_box_vi!"
-},
-
-{
     "location": "ref/extending/#",
     "page": "Extending Gen",
     "title": "Extending Gen",
@@ -1406,6 +1206,326 @@ var documenterSearchIndex = {"docs": [
     "title": "Custom modeling languages",
     "category": "section",
     "text": "Gen can be extended with new modeling languages by implementing new generative function types, and constructors for these types that take models as input. This typically requires implementing the entire generative function interface, and is advanced usage of Gen."
+},
+
+{
+    "location": "ref/importance/#",
+    "page": "Importance Sampling",
+    "title": "Importance Sampling",
+    "category": "page",
+    "text": ""
+},
+
+{
+    "location": "ref/importance/#Gen.importance_sampling",
+    "page": "Importance Sampling",
+    "title": "Gen.importance_sampling",
+    "category": "function",
+    "text": "(traces, log_norm_weights, lml_est) = importance_sampling(model::GenerativeFunction,\n    model_args::Tuple, observations::ChoiceMap, num_samples::Int, verbose=false)\n\n(traces, log_norm_weights, lml_est) = importance_sampling(model::GenerativeFunction,\n    model_args::Tuple, observations::ChoiceMap,\n    proposal::GenerativeFunction, proposal_args::Tuple,\n    num_samples::Int, verbose=false)\n\nRun importance sampling, returning a vector of traces with associated log weights.\n\nThe log-weights are normalized. Also return the estimate of the marginal likelihood of the observations (lml_est). The observations are addresses that must be sampled by the model in the given model arguments. The first variant uses the internal proposal distribution of the model. The second variant uses a custom proposal distribution defined by the given generative function. All addresses of random choices sampled by the proposal should also be sampled by the model function. Setting verbose=true prints a progress message every sample.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/importance/#Gen.importance_resampling",
+    "page": "Importance Sampling",
+    "title": "Gen.importance_resampling",
+    "category": "function",
+    "text": "(trace, lml_est) = importance_resampling(model::GenerativeFunction,\n    model_args::Tuple, observations::ChoiceMap, num_samples::Int,\n    verbose=false)\n\n(traces, lml_est) = importance_resampling(model::GenerativeFunction,\n    model_args::Tuple, observations::ChoiceMap,\n    proposal::GenerativeFunction, proposal_args::Tuple,\n    num_samples::Int, verbose=false)\n\nRun sampling importance resampling, returning a single trace.\n\nUnlike importance_sampling, the memory used constant in the number of samples.\n\nSetting verbose=true prints a progress message every sample.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/importance/#Importance-Sampling-1",
+    "page": "Importance Sampling",
+    "title": "Importance Sampling",
+    "category": "section",
+    "text": "importance_sampling\nimportance_resampling"
+},
+
+{
+    "location": "ref/mcmc/#",
+    "page": "Markov chain Monte Carlo",
+    "title": "Markov chain Monte Carlo",
+    "category": "page",
+    "text": ""
+},
+
+{
+    "location": "ref/mcmc/#Markov-chain-Monte-Carlo-(MCMC)-1",
+    "page": "Markov chain Monte Carlo",
+    "title": "Markov chain Monte Carlo (MCMC)",
+    "category": "section",
+    "text": "Markov chain Monte Carlo (MCMC) is an approach to inference which involves initializing a hypothesis and then repeatedly sampling a new hypotheses given the previous hypothesis by making a change to the previous hypothesis. The function that samples the new hypothesis given the previous hypothesis is called the MCMC kernel (or `kernel\' for short). If we design the kernel appropriately, then the distribution of the hypotheses will converge to the conditional (i.e. posterior) distribution as we increase the number of times we apply the kernel.Gen includes primitives for constructing MCMC kernels and composing them into MCMC algorithms. Although Gen encourages you to write MCMC algorithms that converge to the conditional distribution, Gen does not enforce this requirement. You may use Gen\'s MCMC primitives in other ways, including for stochastic optimization.For background on MCMC see [1].[1] Andrieu, Christophe, et al. \"An introduction to MCMC for machine learning.\" Machine learning 50.1-2 (2003): 5-43. Link."
+},
+
+{
+    "location": "ref/mcmc/#MCMC-in-Gen-1",
+    "page": "Markov chain Monte Carlo",
+    "title": "MCMC in Gen",
+    "category": "section",
+    "text": "Suppose we are doing inference in the following toy model:@gen function model()\n    x = @trace(bernoulli(0.5), :x) # a latent variable\n    @trace(normal(x ? -1. : 1., 1.), :y) # the variable that will be observed\nendTo do MCMC, we first need to obtain an initial trace of the model. Recall that a trace encodes both the observed data and hypothesized values of latent variables. We can obtain an initial trace that encodes the observed data, and contains a randomly initialized hypothesis, using generate, e.g.:observations = choicemap((:y, 1.23))\ntrace, = generate(model, (), observations)Then, an MCMC algorithm is Gen is implemented simply by writing Julia for loop, which repeatedly applies a kernel, which is a regular Julia function:for i=1:100\n    trace = kernel(trace)\nend"
+},
+
+{
+    "location": "ref/mcmc/#Built-in-Stationary-Kernels-1",
+    "page": "Markov chain Monte Carlo",
+    "title": "Built-in Stationary Kernels",
+    "category": "section",
+    "text": "However, we don\'t expect to be able to use any function for kernel and expect to converge to the conditional distribution. To converge to the conditional distribution, the kernels must satisfy some properties. One of these properties is that the kernel is stationary with respect to the conditional distribution. Gen\'s inference library contains a number of functions for constructing stationary kernels:metropolis_hastings with alias mh, which has three variants with differing tradeoffs between ease-of-use and efficiency. The simplest variant simply requires you to select the set of random choices to be updated, without specifying how. The middle variant allows you to use custom proposals that encode problem-specific heuristics, or custom proposals based on neural networks that are trained via amortized inference. The most sophisticated variant allows you to specify any kernel in the reversible jump MCMC framework.\nmala, which performs a Metropolis Adjusted Langevin algorithm update on a set of selected random choices.\nhmc, which performs a Hamiltonian Monte Carlo update on a set of selected random choices.\nelliptical_slice, which performs an elliptical slice sampling update on a selected multivariate normal random choice.For example, here is an MCMC inference algorithm that uses mh:function do_inference(y, num_iters)\n    trace, = generate(model, (), choicemap((:y, y)))\n    xs = Float64[]\n    for i=1:num_iters\n        trace, = mh(trace, select(:x))\n        push!(xs, trace[:x])\n    end\n    xs\nendNote that each of the kernel functions listed above stationary with respect to the joint distribution on traces of the model, but may not be stationary with respect to the intended conditional distribution, which is determined by the set of addresses that consititute the observed data. If a kernel modifies the values of any of the observed data, then the kernel is not stationary with respect to the conditional distribution. Therefore, you should ensure that your MCMC kernels never propose to the addresses of the observations.Note that stationarity with respect to the conditional distribution alone is not sufficient for a kernel to converge to the posterior with infinite iterations. Other requirements include that the chain is irreducible (it is possible to get from any state to any other state in a finite number of steps), and aperiodicity, which is a more complex requirement that is satisfied when kernels have some probability of staying in the same state, which most of the primitive kernels above satisfy. We refer interested readers to [1] for additional details on MCMC convergence."
+},
+
+{
+    "location": "ref/mcmc/#Enabling-Dynamic-Checks-1",
+    "page": "Markov chain Monte Carlo",
+    "title": "Enabling Dynamic Checks",
+    "category": "section",
+    "text": "Gen does not statically guarantee that kernels (either ones built-in or composed with the Composite Kernel DSL) are stationary. However, you can enable dynamic checks that will detect common bugs that break stationarity. To enable the dynamic checks we pass a keyword argument beyond those of the kernel itself:new_trace = k(trace, 2, check=true)Note that these checks aim to detect when a kernel is not stationary with respect to the model\'s joint distribution. To add an additional dynamic check for violation of stationarity with respect to the conditional distribution (conditioned on observations), we pass in an additional keyword argument containing a choice map with the observations:new_trace = k(traced, 2, check=true, observations=choicemap((:y, 1.2)))If check is set to false, then the observation check is not performed."
+},
+
+{
+    "location": "ref/mcmc/#Composite-Kernel-DSL-1",
+    "page": "Markov chain Monte Carlo",
+    "title": "Composite Kernel DSL",
+    "category": "section",
+    "text": "You can freely compose the primitive kernels listed above into more complex kernels. Common types of composition including e.g. cycling through multiple kernels, randomly choosing a kernel to apply, and choosing which kernel to apply based on the current state. However, not all such compositions of stationary kernels will result in kernels that are themselves stationary.Gen\'s Composite Kernel DSL is an embedded inference DSL that allows for more safe composition of MCMC kernels, by formalizing properties of the compositions that are sufficient for stationarity, encouraging compositions with these properties, and dynamically checking for violation of these properties. Although the DSL does not guarantee stationarity of the composite kernels, its dynamic checks do catch common cases of non-stationary kernels. The dynamic checks can be enabled and disabled as needed (e.g. enabled during testing and prototyping and disabled during deployment for higher performance).The DSL consists of a macro – @kern for composing stationary kernels from primitive stationary kernels and composite stationary kernels, and two additional macros: –- @pkern for declaring Julia functions to be custom primitive stationary kernels, and @rkern for declaring the reversal of a custom primitive kernel (these two macros are advanced features not necessary for standard MCMC algorithms)."
+},
+
+{
+    "location": "ref/mcmc/#Composing-Stationary-Kernels-1",
+    "page": "Markov chain Monte Carlo",
+    "title": "Composing Stationary Kernels",
+    "category": "section",
+    "text": "The @kern macro defines a composite MCMC kernel in a restricted DSL that is based on Julia\'s own function definition syntax.Suppose we are doing inference in the following model:@gen function model()\n    n = @trace(geometric(0.5), :n)\n    total = 0.\n    for i=1:n\n        total += @trace(normal(0, 1), (:x, i))\n    end\n    @trace(normal(total, 1.), :y)\n    total\nendHere is an example composite kernel for MCMC in this model:@kern function my_kernel(trace)\n    \n    # cycle through the x\'s and do a random walk update on each one\n    for i in 1:trace[:n]\n        trace ~ mh(trace, random_walk_proposal, (i,))\n    end\n\n    # repeatedly pick a random x and do a random walk update on it\n    if trace[:n] > 0\n        for rep in 1:10\n            let i ~ uniform_discrete(1, trace[:n])\n                trace ~ mh(trace, random_walk_proposal, (i,))\n            end\n        end\n    end\n\n    # remove the last x, or add a new one, a random number of times\n    let n_add_remove_reps ~ uniform_discrete(0, max_n_add_remove)\n        for rep in 1:n_add_remove_reps\n            trace ~ mh(trace, add_remove_proposal, (), add_remove_involution)\n        end\n    end\nendIn the DSL, the first arugment (trace in this case) represents the trace on which the kernel is acting. the kernel may have additional arguments. The code inside the body can read from the trace (e.g. trace[:n] reads the value of the random choice :n). Finally, the return value of the composite kernel is automatically set to the trace. NOTE: It is not permitted to assign to the trace variable, except with ~ expressions. Also note that stationary kernels, when treated as Julia functions, return a tuple, where the first element is the trace and the remaining arguments are metadata. When applying these kernels with ~ syntax within the DSL, it is not necessary to unpack the tuple (the metadata is ignored automatically).The language constructs supported by this DSL are:Applying a stationary kernel. To apply a kernel, the syntax trace ~ k(trace, args..) is used. Note that the check and observations keyword arguments (see Enabling Dynamic Checks) should not be used here; they will be added automatically.For loops. The range of the for loop may be a deterministic function of the trace (as in trace[:n] above). The range must be invariant under all possible executions of the body of the for loop. For example, the random walk based kernel embedded in the for loop in our example above cannot modify the value of the random choice :n in the trace.If-end expressions The predicate condition may be a deterministic function of the trace, but it also must be invariant (i.e. remain true) under all possible executions of the body.Deterministic let expressions. We can use let x = value .. end to bind values to a variable, but the expression on the right-hand-side must be deterministic function of its free variables, its value must be invariant under all possible executions of the body.Stochastic let expressions. We can use let x ~ dist(args...) .. end to sample a stochastic value and bind to a variable, but the expression on the right-hand-side must be the application of a Gen Distribution to arguments, and the distribution and its arguments must be invariant under all possible executions of the body."
+},
+
+{
+    "location": "ref/mcmc/#Declaring-primitive-kernels-for-use-in-composite-kernels-1",
+    "page": "Markov chain Monte Carlo",
+    "title": "Declaring primitive kernels for use in composite kernels",
+    "category": "section",
+    "text": "Note that all calls to built-in kernels like mh should be stationary, but that users are also free to declare their own arbitrary code as stationary. The @pkern macro declares a Julia function as a stationary MCMC kernel, for use with the MCMC Kernel DSL. The following custom primitive kernel permutes the random variables using random permutation generated from outside of Gen: @pkern function permute_move(trace; check=false, observations=EmptyChoiceMap())\n    perm = Random.randperm(trace[:n])\n    constraints = choicemap()\n    for (i, j) in enumerate(perm)\n        constraints[(:x, i)] = trace[(:x, j)]\n        constraints[(:x, j)] = trace[(:x, i)]\n    end\n    trace, = update(trace, (), (), constraints)\n    metadata = nothing\n    trace, metadata\nendThe first argument to the function should be the trace, and the function must have keyword arguments check and observations (see Enabling Dynamic Checks). The return value should be a tuple where the first element is the new trace (and any remaining elements are optional metadata).Primitive kernels are Julia functions. Note that although we will be invoking these kernels within @kern functions, these kernels can still be called like a regular Julia function.new_trace = permute_move(trace, 2)Indeed, they are just regular Julia functions, but with some extra information attached so that the composite kernel DSL knows they have been declared as stationary kernels."
+},
+
+{
+    "location": "ref/mcmc/#Reverse-Kernels-1",
+    "page": "Markov chain Monte Carlo",
+    "title": "Reverse Kernels",
+    "category": "section",
+    "text": "The reversal of a stationary MCMC kernel with distribution k_1(t t), for model with distribution p(t x), is another MCMC kernel with distribution:k_2(t t) = fracp(t x)p(t x) k_1(t t)For custom primitive kernels declared with @pkern, users can declare the reversal kernel with the @rkern macro:@rkern k1 : k2This also assigns k1 as the reversal of k2. The composite kernel DSL automatically generates the reversal kernel for composite kernels, and built-in stationary kernels like mh. The reversal of a kernel (primitive or composite) can be obtained with reversal."
+},
+
+{
+    "location": "ref/mcmc/#Gen.metropolis_hastings",
+    "page": "Markov chain Monte Carlo",
+    "title": "Gen.metropolis_hastings",
+    "category": "function",
+    "text": "(new_trace, accepted) = metropolis_hastings(\n    trace, selection::Selection;\n    check=false, observations=EmptyChoiceMap())\n\nPerform a Metropolis-Hastings update that proposes new values for the selected addresses from the internal proposal (often using ancestral sampling), returning the new trace (which is equal to the previous trace if the move was not accepted) and a Bool indicating whether the move was accepted or not.\n\n\n\n\n\n(new_trace, accepted) = metropolis_hastings(\n    trace, proposal::GenerativeFunction, proposal_args::Tuple;\n    check=false, observations=EmptyChoiceMap())\n\nPerform a Metropolis-Hastings update that proposes new values for some subset of random choices in the given trace using the given proposal generative function, returning the new trace (which is equal to the previous trace if the move was not accepted) and a Bool indicating whether the move was accepted or not.\n\nThe proposal generative function should take as its first argument the current trace of the model, and remaining arguments proposal_args. If the proposal modifies addresses that determine the control flow in the model, values must be provided by the proposal for any addresses that are newly sampled by the model.\n\n\n\n\n\n(new_trace, accepted) = metropolis_hastings(\n    trace, proposal::GenerativeFunction, proposal_args::Tuple, involution::Function;\n    check=false, observations=EmptyChoiceMap())\n\nPerform a generalized Metropolis-Hastings update based on an involution (bijection that is its own inverse) on a space of choice maps, returning the new trace (which is equal to the previous trace if the move was not accepted) and a Bool indicating whether the move was accepted or not.\n\nThe involution Julia function has the following signature:\n\n(new_trace, bwd_choices::ChoiceMap, weight) = involution(trace, fwd_choices::ChoiceMap, fwd_ret, proposal_args::Tuple)\n\nThe generative function proposal is executed on arguments (trace, proposal_args...), producing a choice map fwd_choices and return value fwd_ret. For each value of model arguments (contained in trace) and proposal_args, the involution function applies an involution that maps the tuple (get_choices(trace), fwd_choices) to the tuple (get_choices(new_trace), bwd_choices). Note that fwd_ret is a deterministic function of fwd_choices and proposal_args. When only discrete random choices are used, the weight must be equal to get_score(new_trace) - get_score(trace).\n\nIncluding Continuous Random Choices When continuous random choices are used, the weight must include an additive term that is the determinant of the the Jacobian of the bijection on the continuous random choices that is obtained by currying the involution on the discrete random choices.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/mcmc/#Gen.mh",
+    "page": "Markov chain Monte Carlo",
+    "title": "Gen.mh",
+    "category": "function",
+    "text": "(new_trace, accepted) = mh(trace, selection::Selection; ..)\n(new_trace, accepted) = mh(trace, proposal::GenerativeFunction, proposal_args::Tuple; ..)\n(new_trace, accepted) = mh(trace, proposal::GenerativeFunction, proposal_args::Tuple, involution::Function; ..)\n\nAlias for metropolis_hastings. Perform a Metropolis-Hastings update on the given trace.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/mcmc/#Gen.mala",
+    "page": "Markov chain Monte Carlo",
+    "title": "Gen.mala",
+    "category": "function",
+    "text": "(new_trace, accepted) = mala(\n    trace, selection::Selection, tau::Real;\n    check=false, observations=EmptyChoiceMap())\n\nApply a Metropolis-Adjusted Langevin Algorithm (MALA) update.\n\nReference URL\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/mcmc/#Gen.hmc",
+    "page": "Markov chain Monte Carlo",
+    "title": "Gen.hmc",
+    "category": "function",
+    "text": "(new_trace, accepted) = hmc(\n    trace, selection::Selection; L=10, eps=0.1,\n    check=false, observations=EmptyChoiceMap())\n\nApply a Hamiltonian Monte Carlo (HMC) update.\n\nNeal, Radford M. \"MCMC using Hamiltonian dynamics.\" Handbook of Markov Chain Monte Carlo 2.11 (2011): 2.\n\nReference URL\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/mcmc/#Gen.elliptical_slice",
+    "page": "Markov chain Monte Carlo",
+    "title": "Gen.elliptical_slice",
+    "category": "function",
+    "text": "new_trace = elliptical_slice(\n    trace, addr, mu, cov;\n    check=false, observations=EmptyChoiceMap())\n\nApply an elliptical slice sampling update to a given random choice with a multivariate normal prior.\n\nAlso takes the mean vector and covariance matrix of the prior.\n\nReference URL\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/mcmc/#Gen.@pkern",
+    "page": "Markov chain Monte Carlo",
+    "title": "Gen.@pkern",
+    "category": "macro",
+    "text": "@pkern function k(trace, ..; check=false, observations=EmptyChoiceMap())\n    ..\n    return trace\nend\n\nDeclare a Julia function as a primitive stationary kernel.\n\nThe first argument of the function should be a trace, and the return value of the function should be a trace. There should be keyword arguments check and observations.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/mcmc/#Gen.@kern",
+    "page": "Markov chain Monte Carlo",
+    "title": "Gen.@kern",
+    "category": "macro",
+    "text": "@kern function k(trace, ..)\n    ..\nend\n\nConstruct a composite MCMC kernel.\n\nThe resulting object is a Julia function that is annotated as a composite MCMC kernel, and can be called as a Julia function or applied within other composite kernels.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/mcmc/#Gen.@rkern",
+    "page": "Markov chain Monte Carlo",
+    "title": "Gen.@rkern",
+    "category": "macro",
+    "text": "@rkern k1 : k2\n\nDeclare that two primitive stationary kernels are reversals of one another.\n\nThe two kernels must have the same argument type signatures.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/mcmc/#Gen.reversal",
+    "page": "Markov chain Monte Carlo",
+    "title": "Gen.reversal",
+    "category": "function",
+    "text": "k2 = reversal(k1)\n\nReturn the reversal kernel for a given kernel.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/mcmc/#API-1",
+    "page": "Markov chain Monte Carlo",
+    "title": "API",
+    "category": "section",
+    "text": "metropolis_hastings\nmh\nmala\nhmc\nelliptical_slice\n@pkern\n@kern\n@rkern\nreversal"
+},
+
+{
+    "location": "ref/map/#",
+    "page": "MAP Optimization",
+    "title": "MAP Optimization",
+    "category": "page",
+    "text": ""
+},
+
+{
+    "location": "ref/map/#Gen.map_optimize",
+    "page": "MAP Optimization",
+    "title": "Gen.map_optimize",
+    "category": "function",
+    "text": "new_trace = map_optimize(trace, selection::Selection, \n    max_step_size=0.1, tau=0.5, min_step_size=1e-16, verbose=false)\n\nPerform backtracking gradient ascent to optimize the log probability of the trace over selected continuous choices.\n\nSelected random choices must have support on the entire real line.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/map/#MAP-Optimization-1",
+    "page": "MAP Optimization",
+    "title": "MAP Optimization",
+    "category": "section",
+    "text": "map_optimize"
+},
+
+{
+    "location": "ref/pf/#",
+    "page": "Particle Filtering",
+    "title": "Particle Filtering",
+    "category": "page",
+    "text": ""
+},
+
+{
+    "location": "ref/pf/#Gen.initialize_particle_filter",
+    "page": "Particle Filtering",
+    "title": "Gen.initialize_particle_filter",
+    "category": "function",
+    "text": "state = initialize_particle_filter(model::GenerativeFunction, model_args::Tuple,\n    observations::ChoiceMap proposal::GenerativeFunction, proposal_args::Tuple,\n    num_particles::Int)\n\nInitialize the state of a particle filter using a custom proposal for the initial latent state.\n\n\n\n\n\nstate = initialize_particle_filter(model::GenerativeFunction, model_args::Tuple,\n    observations::ChoiceMap, num_particles::Int)\n\nInitialize the state of a particle filter, using the default proposal for the initial latent state.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/pf/#Gen.particle_filter_step!",
+    "page": "Particle Filtering",
+    "title": "Gen.particle_filter_step!",
+    "category": "function",
+    "text": "particle_filter_step!(state::ParticleFilterState, new_args::Tuple, argdiffs,\n    observations::ChoiceMap, proposal::GenerativeFunction, proposal_args::Tuple)\n\nPerform a particle filter update, where the model arguments are adjusted, new observations are added, and some combination of a custom proposal and the model\'s internal proposal is used for proposing new latent state (whatever is not proposed from the custom proposal will be proposed using the model\'s internal proposal).\n\n\n\n\n\nparticle_filter_step!(state::ParticleFilterState, new_args::Tuple, argdiffs,\n    observations::ChoiceMap)\n\nPerform a particle filter update, where the model arguments are adjusted, new observations are added, and the default proposal is used for new latent state.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/pf/#Gen.maybe_resample!",
+    "page": "Particle Filtering",
+    "title": "Gen.maybe_resample!",
+    "category": "function",
+    "text": "did_resample::Bool = maybe_resample!(state::ParticleFilterState;\n    ess_threshold::Float64=length(state.traces)/2, verbose=false)\n\nDo a resampling step if the effective sample size is below the given threshold.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/pf/#Gen.log_ml_estimate",
+    "page": "Particle Filtering",
+    "title": "Gen.log_ml_estimate",
+    "category": "function",
+    "text": "estimate = log_ml_estimate(state::ParticleFilterState)\n\nReturn the particle filter\'s current estimate of the log marginal likelihood.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/pf/#Gen.get_traces",
+    "page": "Particle Filtering",
+    "title": "Gen.get_traces",
+    "category": "function",
+    "text": "traces = get_traces(state::ParticleFilterState)\n\nReturn the vector of traces in the current state, one for each particle.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/pf/#Gen.get_log_weights",
+    "page": "Particle Filtering",
+    "title": "Gen.get_log_weights",
+    "category": "function",
+    "text": "log_weights = get_log_weights(state::ParticleFilterState)\n\nReturn the vector of log weights for the current state, one for each particle.\n\nThe weights are not normalized, and are in log-space.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/pf/#Gen.sample_unweighted_traces",
+    "page": "Particle Filtering",
+    "title": "Gen.sample_unweighted_traces",
+    "category": "function",
+    "text": "traces::Vector = sample_unweighted_traces(state::ParticleFilterState, num_samples::Int)\n\nSample a vector of num_samples traces from the weighted collection of traces in the given particle filter state.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/pf/#Particle-Filtering-1",
+    "page": "Particle Filtering",
+    "title": "Particle Filtering",
+    "category": "section",
+    "text": "initialize_particle_filter\nparticle_filter_step!\nmaybe_resample!\nlog_ml_estimate\nget_traces\nget_log_weights\nsample_unweighted_traces"
+},
+
+{
+    "location": "ref/learning/#",
+    "page": "Learning",
+    "title": "Learning",
+    "category": "page",
+    "text": ""
+},
+
+{
+    "location": "ref/learning/#Gen.train!",
+    "page": "Learning",
+    "title": "Gen.train!",
+    "category": "function",
+    "text": "train!(gen_fn::GenerativeFunction, data_generator::Function,\n       update::ParamUpdate,\n       num_epoch, epoch_size, num_minibatch, minibatch_size; verbose::Bool=false)\n\nTrain the given generative function to maximize the expected conditional log probability (density) that gen_fn generates the assignment constraints given inputs, where the expectation is taken under the output distribution of data_generator.\n\nThe function data_generator is a function of no arguments that returns a tuple (inputs, constraints) where inputs is a Tuple of inputs (arguments) to gen_fn, and constraints is an ChoiceMap. conf configures the optimization algorithm used. param_lists is a map from generative function to lists of its parameters. This is equivalent to minimizing the expected KL divergence from the conditional distribution constraints | inputs of the data generator to the distribution represented by the generative function, where the expectation is taken under the marginal distribution on inputs determined by the data generator.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/learning/#Amortized-Inference-1",
+    "page": "Learning",
+    "title": "Amortized Inference",
+    "category": "section",
+    "text": "train!"
+},
+
+{
+    "location": "ref/vi/#",
+    "page": "Variational Inference",
+    "title": "Variational Inference",
+    "category": "page",
+    "text": ""
+},
+
+{
+    "location": "ref/vi/#Variational-Inference-1",
+    "page": "Variational Inference",
+    "title": "Variational Inference",
+    "category": "section",
+    "text": "```@docs blackboxvi!"
 },
 
 {
