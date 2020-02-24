@@ -35,6 +35,7 @@ my documentation
     return ys
 end
 
+
 @gen (static) function at_choice_example_1(i::Int)
     ret = @trace(bernoulli(0.5), :x => i)
 end
@@ -51,10 +52,12 @@ end
     @trace(normal(mu, 1), :y)
 end
 
+
 @gen (static) function at_call_example_1(i::Int)
     mu = 1.123
     ret = @trace(foo(mu), :x => i)
 end
+
 
 @gen (static) function at_call_example_2(i::Int)
     mu = 1.123
@@ -75,8 +78,8 @@ end
 # check IR of datum #
 #####################
 
-ir = Gen.get_ir(typeof(datum))
 
+ir = Gen.get_ir(typeof(datum))
 # argument nodes
 @test length(ir.arg_nodes) == 2
 x = ir.arg_nodes[1]
@@ -160,7 +163,7 @@ inlier_std = ir.choice_nodes[1]
 @test inlier_std.dist == gamma
 @test length(inlier_std.inputs) == 2
 
-# outlier_std 
+# outlier_std
 outlier_std = ir.choice_nodes[2]
 @test outlier_std.name == :outlier_std
 @test outlier_std.addr == :outlier_std
@@ -168,7 +171,7 @@ outlier_std = ir.choice_nodes[2]
 @test outlier_std.dist == gamma
 @test length(outlier_std.inputs) == 2
 
-# slope 
+# slope
 slope = ir.choice_nodes[3]
 @test slope.name == :slope
 @test slope.addr == :slope
@@ -176,7 +179,7 @@ slope = ir.choice_nodes[3]
 @test slope.dist == normal
 @test length(slope.inputs) == 2
 
-# intercept 
+# intercept
 intercept = ir.choice_nodes[4]
 @test intercept.name == :intercept
 @test intercept.addr == :intercept
@@ -208,7 +211,7 @@ params = get_node_by_name(ir, :params)
 n = get_node_by_name(ir, :n)
 @test isa(n, Gen.JuliaNode)
 @test n.name == :n
-@test n.typ == QuoteNode(Any) 
+@test n.typ == QuoteNode(Any)
 @test length(n.inputs) == 1
 @test n.inputs[1] === xs
 
@@ -222,9 +225,7 @@ in2 = params_vec.inputs[2]
 @test (in1 === params && in2 === n) || (in2 === params && in1 === n)
 
 @test ir.return_node === ys
-
 end
-
 
 @testset "at_choice" begin
 
@@ -256,7 +257,6 @@ at = ret.generative_function
 at2 = at.kernel
 @test isa(at2, Gen.ChoiceAtCombinator)
 @test at2.dist == bernoulli
-
 end
 
 
@@ -291,7 +291,6 @@ at = ret.generative_function
 at2 = at.kernel
 @test isa(at2, Gen.CallAtCombinator)
 @test at2.kernel == foo
-
 end
 
 
@@ -387,7 +386,7 @@ load_generated_functions()
 end
 
 @testset "getindex(trace)" begin
-    
+
 @gen (static) function bar(r)
     a = @trace(normal(0, 1), :a)
     return r

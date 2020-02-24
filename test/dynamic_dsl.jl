@@ -63,7 +63,6 @@ end
 end
 
 @testset "update" begin
-
     @gen function bar()
         @trace(normal(0, 1), :a)
     end
@@ -161,11 +160,9 @@ end
     @test isapprox(expected_new_score, get_score(new_trace))
     @test isapprox(expected_weight, weight)
     @test retdiff === UnknownChange()
-
 end
 
 @testset "regenerate" begin
-
     @gen function bar(mu)
         @trace(normal(mu, 1), :a)
     end
@@ -248,7 +245,7 @@ end
                     logpdf(normal, assignment[:y], prev_mu, 1)
                     + logpdf(normal, assignment[:v => :b], prev_mu, 1))
             end
-        else 
+        else
             expected_weight = 0.
         end
         @test isapprox(expected_weight, weight)
@@ -397,7 +394,6 @@ end
 end
 
 @testset "multi-component addresses" begin
-
     @gen function bar()
         @trace(normal(0, 1), :z)
     end
@@ -433,11 +429,10 @@ end
 end
 
 @testset "project" begin
-
     @gen function bar()
         @trace(normal(0, 1), :x)
     end
-    
+
     @gen function foo()
         @trace(normal(0, 2), :y)
         @trace(bar(), :z)
@@ -485,12 +480,12 @@ end
     # auxiliary state
     @test trace[:x] == 1
     @test trace[:y => :z] == 2
-    
+
     # return value
     @test trace[] == 7
 
     # address that does not exist
-    function test_addr_dne(addr) 
+    function test_addr_dne(addr)
         threw = false
         try
             x = trace[addr]
