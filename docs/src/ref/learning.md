@@ -99,7 +99,7 @@ end
 ```
 
 Note that using the same primitives ([`generate`](@ref) and [`accumulate_param_gradients!`](@ref)), you can compose various more sophisticated learning algorithms involving e.g. stochastic gradient descent and minibatches, and more sophisticated stochastic gradient optimizers like [`ADAM`](@ref).
-For example, [`train!`] trains a generative function from complete data with minibatches.
+For example, [`train!`](@ref) trains a generative function from complete data with minibatches.
 
 ## Learning from Incomplete Data
 
