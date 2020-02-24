@@ -35,9 +35,12 @@ sample_unweighted_traces
 ## Supervised Training
 ```@docs
 train!
+lecture!
+lecture_batched!
 ```
 
 ## Variational Inference
 ```@docs
 black_box_vi!
+black_box_vimco!
 ```

@@ -131,7 +131,17 @@ function black_box_vi!(model::GenerativeFunction, model_args::Tuple,
     (obj_est, traces, normalized_weights, obj_ests)
 end
 
-function black_box_vi!(model::GenerativeFunction, model_args::Tuple,
+"""
+    black_box_vimco!(
+        model::GenerativeFunction, args::Tuple,
+        observations::ChoiceMap,
+        var_model::GenerativeFunction, var_model_args::Tuple,
+        update::ParamUpdate, num_samples::Int;
+        iters=1000, samples_per_iter=100, verbose=false)
+
+Fit the parameters of a generative function (`var_model`) to the posterior distribution implied by the given model and observations using stochastic gradient methods applied to the [Variational Inference with Monte Carlo Objectives](https://arxiv.org/abs/1602.06725) lower bound on the marginal likelihood.
+"""
+function black_box_vimco!(model::GenerativeFunction, model_args::Tuple,
                        observations::ChoiceMap,
                        var_model::GenerativeFunction, var_model_args::Tuple,
                        update::ParamUpdate, num_samples::Int;
@@ -163,4 +173,4 @@ function black_box_vi!(model::GenerativeFunction, model_args::Tuple,
     (obj_est, traces, weights, obj_ests)
 end
 
-export black_box_vi!
+export black_box_vi!, black_box_vimco!
