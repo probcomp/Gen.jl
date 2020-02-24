@@ -1,12 +1,23 @@
+function metropolis_hastings end
+
+check_is_kernel(::typeof(metropolis_hastings)) = true
+is_custom_primitive_kernel(::typeof(metropolis_hastings)) = false
+reversal(::typeof(metropolis_hastings)) = metropolis_hastings
+
 """
-    (new_trace, accepted) = metropolis_hastings(trace, selection::Selection)
+    (new_trace, accepted) = metropolis_hastings(
+        trace, selection::Selection;
+        check=false, observations=EmptyChoiceMap())
 
 Perform a Metropolis-Hastings update that proposes new values for the selected addresses from the internal proposal (often using ancestral sampling), returning the new trace (which is equal to the previous trace if the move was not accepted) and a Bool indicating whether the move was accepted or not.
 """
-function metropolis_hastings(trace, selection::Selection)
+function metropolis_hastings(
+        trace, selection::Selection;
+        check=false, observations=EmptyChoiceMap())
     args = get_args(trace)
     argdiffs = map((_) -> NoChange(), args)
     (new_trace, weight) = regenerate(trace, args, argdiffs, selection)
+    check && check_observations(get_choices(new_trace), observations)
     if log(rand()) < weight
         # accept
         return (new_trace, true)
@@ -18,14 +29,18 @@ end
 
 
 """
-    (new_trace, accepted) = metropolis_hastings(trace, proposal::GenerativeFunction, proposal_args::Tuple)
+    (new_trace, accepted) = metropolis_hastings(
+        trace, proposal::GenerativeFunction, proposal_args::Tuple;
+        check=false, observations=EmptyChoiceMap())
 
 Perform a Metropolis-Hastings update that proposes new values for some subset of random choices in the given trace using the given proposal generative function, returning the new trace (which is equal to the previous trace if the move was not accepted) and a Bool indicating whether the move was accepted or not.
 
 The proposal generative function should take as its first argument the current trace of the model, and remaining arguments `proposal_args`.
 If the proposal modifies addresses that determine the control flow in the model, values must be provided by the proposal for any addresses that are newly sampled by the model.
 """
-function metropolis_hastings(trace, proposal::GenerativeFunction, proposal_args::Tuple)
+function metropolis_hastings(
+        trace, proposal::GenerativeFunction, proposal_args::Tuple;
+        check=false, observations=EmptyChoiceMap())
     model_args = get_args(trace)
     argdiffs = map((_) -> NoChange(), model_args)
     proposal_args_forward = (trace, proposal_args...,)
@@ -35,6 +50,7 @@ function metropolis_hastings(trace, proposal::GenerativeFunction, proposal_args:
     proposal_args_backward = (new_trace, proposal_args...,)
     (bwd_weight, _) = assess(proposal, proposal_args_backward, discard)
     alpha = weight - fwd_weight + bwd_weight
+    check && check_observations(get_choices(new_trace), observations)
     if log(rand()) < alpha
         # accept
         return (new_trace, true)
@@ -45,7 +61,9 @@ function metropolis_hastings(trace, proposal::GenerativeFunction, proposal_args:
 end
 
 """
-    (new_trace, accepted) = metropolis_hastings(trace, proposal::GenerativeFunction, proposal_args::Tuple, involution::Function)
+    (new_trace, accepted) = metropolis_hastings(
+        trace, proposal::GenerativeFunction, proposal_args::Tuple, involution::Function;
+        check=false, observations=EmptyChoiceMap())
 
 Perform a generalized Metropolis-Hastings update based on an involution (bijection that is its own inverse) on a space of choice maps, returning the new trace (which is equal to the previous trace if the move was not accepted) and a Bool indicating whether the move was accepted or not.
 
@@ -61,12 +79,15 @@ When only discrete random choices are used, the `weight` must be equal to `get_s
 **Including Continuous Random Choices**
 When continuous random choices are used, the `weight` must include an additive term that is the determinant of the the Jacobian of the bijection on the continuous random choices that is obtained by currying the involution on the discrete random choices.
 """
-function metropolis_hastings(trace, proposal::GenerativeFunction,
-                    proposal_args::Tuple, involution::Function; check_round_trip=false)
+function metropolis_hastings(
+        trace, proposal::GenerativeFunction,
+        proposal_args::Tuple, involution::Function;
+        check=false, observations=EmptyChoiceMap())
     (fwd_choices, fwd_score, fwd_ret) = propose(proposal, (trace, proposal_args...,))
     (new_trace, bwd_choices, weight) = involution(trace, fwd_choices, fwd_ret, proposal_args)
     (bwd_score, bwd_ret) = assess(proposal, (new_trace, proposal_args...), bwd_choices)
-    if check_round_trip
+    check && check_observations(get_choices(new_trace), observations)
+    if check
         (trace_rt, fwd_choices_rt, weight_rt) = involution(new_trace, bwd_choices, bwd_ret, proposal_args)
         if !isapprox(fwd_choices_rt, fwd_choices)
             println("fwd_choices:")
@@ -97,9 +118,9 @@ function metropolis_hastings(trace, proposal::GenerativeFunction,
 end
 
 """
-    (new_trace, accepted) = mh(trace, selection::Selection)
-    (new_trace, accepted) = mh(trace, proposal::GenerativeFunction, proposal_args::Tuple)
-    (new_trace, accepted) = mh(trace, proposal::GenerativeFunction, proposal_args::Tuple, involution::Function)
+    (new_trace, accepted) = mh(trace, selection::Selection; ..)
+    (new_trace, accepted) = mh(trace, proposal::GenerativeFunction, proposal_args::Tuple; ..)
+    (new_trace, accepted) = mh(trace, proposal::GenerativeFunction, proposal_args::Tuple, involution::Function; ..)
 
 Alias for [`metropolis_hastings`](@ref). Perform a Metropolis-Hastings update on the given trace.
 """

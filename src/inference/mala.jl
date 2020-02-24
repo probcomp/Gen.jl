@@ -1,12 +1,16 @@
 
 """
-    (new_trace, accepted) = mala(trace, selection::Selection, tau::Real)
+    (new_trace, accepted) = mala(
+        trace, selection::Selection, tau::Real;
+        check=false, observations=EmptyChoiceMap())
 
 Apply a Metropolis-Adjusted Langevin Algorithm (MALA) update.
 
 [Reference URL](https://en.wikipedia.org/wiki/Metropolis-adjusted_Langevin_algorithm)
 """
-function mala(trace, selection::Selection, tau::Real)
+function mala(
+        trace, selection::Selection, tau::Real;
+        check=false, observations=EmptyChoiceMap())
     args = get_args(trace)
     argdiffs = map((_) -> NoChange(), args)
     std = sqrt(2 * tau)
@@ -28,6 +32,7 @@ function mala(trace, selection::Selection, tau::Real)
     constraints = from_array(values_trie, proposed_values)
     (new_trace, weight, _, discard) = update(trace,
         args, argdiffs, constraints)
+    check && check_observations(get_choices(new_trace), observations)
 
     # backward proposal
     (_, _, backward_gradient_trie) = choice_gradients(new_trace, selection, retval_grad)
@@ -47,5 +52,9 @@ function mala(trace, selection::Selection, tau::Real)
         (trace, false)
     end
 end
+
+check_is_kernel(::typeof(mala)) = true
+is_custom_primitive_kernel(::typeof(mala)) = false
+reversal(::typeof(mala)) = mala
 
 export mala

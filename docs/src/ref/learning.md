@@ -1,0 +1,4 @@
+# Amortized Inference
+```@docs
+train!
+```

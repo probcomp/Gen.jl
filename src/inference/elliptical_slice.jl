@@ -1,6 +1,8 @@
 
 """
-    new_trace = elliptical_slice(trace, addr, mu, cov)
+    new_trace = elliptical_slice(
+        trace, addr, mu, cov;
+        check=false, observations=EmptyChoiceMap())
 
 Apply an elliptical slice sampling update to a given random choice with a multivariate normal prior.
 
@@ -8,7 +10,8 @@ Also takes the mean vector and covariance matrix of the prior.
 
 [Reference URL](http://proceedings.mlr.press/v9/murray10a/murray10a.pdf)
 """
-function elliptical_slice(trace, addr, mu, cov)
+function elliptical_slice(
+        trace, addr, mu, cov; check=false, observations=EmptyChoiceMap())
     args = get_args(trace)
     argdiffs = map((_) -> NoChange(), args)
 
@@ -37,7 +40,12 @@ function elliptical_slice(trace, addr, mu, cov)
         new_f = f * cos(theta) + nu * sin(theta)
         new_trace, weight = update(trace, args, argdiffs, choicemap((addr, new_f .+ mu)))
     end
+    check && check_observations(get_choices(new_trace), observations)
     return new_trace
 end
+
+check_is_kernel(::typeof(elliptical_slice)) = true
+is_custom_primitive_kernel(::typeof(elliptical_slice)) = false
+reversal(::typeof(elliptical_slice)) = elliptical_slice
 
 export elliptical_slice
