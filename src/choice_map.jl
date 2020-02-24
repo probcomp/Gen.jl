@@ -904,6 +904,14 @@ julia> c[:a] == cv[:a]
 true
 julia> c[:b => :c] == cv[:b][:c]
 true
+julia> length(cv)
+2
+julia> length(cv[:b])
+1
+julia> sort(collect(keys(cv)))
+[:a, :b]
+julia> sort(collect(keys(cv[:b])))
+[:c]
 ```
 """
 struct ChoiceMapNestedView
@@ -944,6 +952,24 @@ function Base.iterate(c::ChoiceMapNestedView, state)
     (next_kv, (inner_iterator, next_inner_state))
 end
 
+# TODO: Allow different implementations of this method depending on the
+# concrete type of the `ChoiceMap`, so that an already-existing data structure
+# with faster key lookup (analogous to `Base.KeySet`) can be exposed if it
+# exists.
+Base.keys(cv::Gen.ChoiceMapNestedView) = (k for (k, v) in cv)
+
+function Base.:(==)(a::ChoiceMapNestedView, b::ChoiceMapNestedView)
+  a.choice_map == b.choice_map
+end
+
+# Length of a `ChoiceMapNestedView` is number of leaf values + number of
+# submaps.  Motivation: This matches what `length` would return for the
+# equivalent nested dict.
+function Base.length(cv::ChoiceMapNestedView)
+  +(get_values_shallow(cv.choice_map) |> collect |> length,
+    get_submaps_shallow(cv.choice_map) |> collect |> length)
+end
+
 Base.print(io::IO, c::ChoiceMapNestedView) = Base.print(io, c.choice_map)
 
 nested_view(c::ChoiceMap) = ChoiceMapNestedView(c)
@@ -953,3 +979,27 @@ nested_view(c::ChoiceMap) = ChoiceMapNestedView(c)
 # aux data together.
 
 export nested_view
+
+"""
+    selected_choices = get_selected(choices::ChoiceMap, selection::Selection)
+
+Filter the choice map to include only choices in the given selection.
+
+Returns a new choice map.
+"""
+function get_selected(
+        choices::ChoiceMap, selection::Selection)
+    output = choicemap()
+    for (key, value) in get_values_shallow(choices)
+        if (key in selection)
+            output[key] = value
+        end
+    end
+    for (key, submap) in get_submaps_shallow(choices)
+        subselection = selection[key]
+        set_submap!(output, key, get_selected(submap, subselection))
+    end
+    output
+end
+
+export get_selected

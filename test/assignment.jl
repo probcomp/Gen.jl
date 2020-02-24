@@ -334,4 +334,36 @@ end
     cv = nested_view(c)
     @test c[:a] == cv[:a]
     @test c[:b => :c] == cv[:b][:c]
+    # Base.length
+    @test length(cv) == 2
+    @test length(cv[:b]) == 1
+    # Base.keys
+    @test Set(keys(cv)) == Set([:a, :b])
+    @test Set(keys(cv[:b])) == Set([:c])
+    # Base.:(==)
+    c1 = choicemap((:a, 1),
+                   (:b => :c, 2))
+    c2 = choicemap((:a, 4),
+                   (:b => :c, 2))
+    @test nested_view(c1) == cv
+    @test nested_view(c2) != cv
+end
+
+@testset "filtering choicemaps with selections" begin
+
+    c = choicemap((:a, 1), (:b, 2))
+
+    filtered = get_selected(c, select(:a))    
+    @test filtered[:a] == 1
+    @test !has_value(filtered, :b)
+
+    c = choicemap((:x => :y, 1), (:x => :z, 2))
+
+    filtered = get_selected(c, select(:x))
+    @test filtered[:x => :y] == 1
+    @test filtered[:x => :z] == 2
+
+    filtered = get_selected(c, select(:x => :y))
+    @test filtered[:x => :y] == 1
+    @test !has_value(filtered, :x => :z)
 end

@@ -7,3 +7,9 @@
 - try to limit line width to 80 characters
 
 - use ASCII operators and identifiers whenever possible (e.g. use 'theta' instead of 'θ')
+
+## Building docs locally
+
+```sh
+./docs/build_docs_locally.sh
+```

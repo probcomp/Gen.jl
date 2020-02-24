@@ -11,7 +11,9 @@ function assess_momenta(momenta)
 end
 
 """
-    (new_trace, accepted) = hmc(trace, selection::Selection, L=10, eps=0.1)
+    (new_trace, accepted) = hmc(
+        trace, selection::Selection; L=10, eps=0.1,
+        check=false, observations=EmptyChoiceMap())
 
 Apply a Hamiltonian Monte Carlo (HMC) update.
 
@@ -19,8 +21,9 @@ Neal, Radford M. "MCMC using Hamiltonian dynamics." Handbook of Markov Chain Mon
 
 [Reference URL](http://www.mcmchandbook.net/HandbookChapter5.pdf)
 """
-function hmc(trace::U, selection::Selection;
-             L=10, eps=0.1) where {T,U}
+function hmc(
+        trace::U, selection::Selection; L=10, eps=0.1,
+        check=false, observations=EmptyChoiceMap()) where {T,U}
     prev_model_score = get_score(trace)
     args = get_args(trace)
     retval_grad = accepts_output_grad(get_gen_fn(trace)) ? zero(get_retval(trace)) : nothing
@@ -50,6 +53,7 @@ function hmc(trace::U, selection::Selection;
         # half step on momenta
         momenta += (eps / 2) * gradient
     end
+    check && check_observations(get_choices(new_trace), observations)
 
     # assess new model score (negative potential energy)
     new_model_score = get_score(new_trace)
@@ -65,5 +69,9 @@ function hmc(trace::U, selection::Selection;
         (trace, false)
     end
 end
+
+check_is_kernel(::typeof(hmc)) = true
+is_custom_primitive_kernel(::typeof(hmc)) = false
+reversal(::typeof(hmc)) = hmc
 
 export hmc

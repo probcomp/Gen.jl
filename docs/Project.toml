@@ -1,5 +1,6 @@
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+Gen = "ea4f424c-a589-11e8-07c0-fd5c91b9da4a"
 
 [compat]
 Documenter = "~0.20"

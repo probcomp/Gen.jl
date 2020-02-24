@@ -99,6 +99,7 @@ end
 ```
 
 Note that using the same primitives ([`generate`](@ref) and [`accumulate_param_gradients!`](@ref)), you can compose various more sophisticated learning algorithms involving e.g. stochastic gradient descent and minibatches, and more sophisticated stochastic gradient optimizers like [`ADAM`](@ref).
+For example, [`train!`] trains a generative function from complete data with minibatches.
 
 ## Learning from Incomplete Data
 
@@ -226,3 +227,11 @@ It is possible to perform amortized variational inference using [`black_box_vi`]
 
 [7] Diederik P. Kingma, Max Welling:
 Auto-Encoding Variational Bayes. ICLR 2014 [Link](https://arxiv.org/pdf/1312.6114.pdf)
+
+## API
+
+```@docs
+lecture!
+lecture_batched!
+train!
+```
