@@ -171,6 +171,7 @@ function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked, node:
     # handle case when it is the return node
     if node === ir.return_node && node in fwd_marked
         @assert node in back_marked
+        push!(stmts, :(isnothing(retval_grad) && error("Required return value gradient but got nothing")))
         push!(stmts, :($(gradient_var(node)) += retval_grad))
     end
 

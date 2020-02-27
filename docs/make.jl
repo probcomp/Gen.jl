@@ -23,8 +23,8 @@ makedocs(
             "Markov chain Monte Carlo" => "ref/mcmc.md",
             "MAP Optimization" => "ref/map.md",
             "Particle Filtering" => "ref/pf.md",
-            "Learning" => "ref/learning.md",
-            "Variational Inference" => "ref/vi.md"
+            "Variational Inference" => "ref/vi.md",
+            "Learning Generative Functions" => "ref/learning.md"
         ],
         "Internals" => [
             "Optimizing Trainable Parameters" => "ref/internals/parameter_optimization.md"

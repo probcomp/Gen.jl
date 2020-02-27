@@ -39,8 +39,7 @@ function train!(gen_fn::GenerativeFunction, data_generator::Function,
             minibatch_choice_maps = epoch_choice_maps[minibatch_idx]
             for (inputs, constraints) in zip(minibatch_inputs, minibatch_choice_maps)
                 (trace, _) = generate(gen_fn, inputs, constraints)
-                retval_grad = accepts_output_grad(gen_fn) ? zero(get_retval(trace)) : nothing
-                accumulate_param_gradients!(trace, retval_grad)
+                accumulate_param_gradients!(trace)
             end
             apply!(update)
         end
@@ -66,4 +65,56 @@ function train!(gen_fn::GenerativeFunction, data_generator::Function,
     return history
 end
 
+
+"""
+    score = lecture!(
+        p::GenerativeFunction, p_args::Tuple,
+        q::GenerativeFunction, get_q_args::Function)
+
+Simulate a trace of p representing a training example, and use to update the gradients of the trainable parameters of q.
+
+Used for training q via maximum expected conditional likelihood.
+Random choices will be mapped from p to q based on their address.
+get_q_args maps a trace of p to an argument tuple of q.
+score is the conditional log likelihood (or an unbiased estimate of a lower bound on it, if not all of q's random choices are constrained, or if q uses non-addressable randomness).
+"""
+function lecture!(
+        p::GenerativeFunction, p_args::Tuple,
+        q::GenerativeFunction, get_q_args::Function)
+    p_trace = simulate(p, p_args)
+    q_args = get_q_args(p_trace)
+    q_trace, score = generate(q, q_args, get_choices(p_trace)) # NOTE: q won't make all the random choices that p does
+    accumulate_param_gradients!(q_trace)
+    score
+end
+
+"""
+    score = lecture_batched!(
+        p::GenerativeFunction, p_args::Tuple,
+        q::GenerativeFunction, get_q_args::Function)
+
+Simulate a batch of traces of p representing training samples, and use them to update the gradients of the trainable parameters of q.
+
+Like `lecture!` but q is batched, and must make random choices for training sample i under hierarchical address namespace i::Int (e.g. i => :z).
+get_q_args maps a vector of traces of p to an argument tuple of q.
+"""
+function lecture_batched!(
+        p::GenerativeFunction, p_args::Tuple,
+        q_batched::GenerativeFunction, get_q_args::Function,
+        batch_size::Int)
+    p_traces = Vector{Any}(undef, batch_size)
+    constraints = choicemap()
+    for i=1:batch_size
+        p_trace = simulate(p, p_args)
+        set_submap!(constraints, i, get_choices(p_trace))
+        p_traces[i] = p_trace
+    end
+    q_args = get_q_args(p_traces)
+    q_trace, score = generate(q_batched, q_args, constraints) # NOTE: q won't make all the random choices that p does
+    accumulate_param_gradients!(q_trace)
+    score / batch_size
+end
+
 export train!
+export lecture!
+export lecture_batched!
