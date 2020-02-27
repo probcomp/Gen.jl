@@ -373,7 +373,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Generative Functions",
     "title": "Gen.accumulate_param_gradients!",
     "category": "function",
-    "text": "arg_grads = accumulate_param_gradients!(trace, retgrad, scale_factor=1.)\n\nIncrement gradient accumulators for parameters by the gradient of the log-probability of the trace, optionally scaled, and return the gradient with respect to the arguments (not scaled).\n\nGiven a previous trace (x t) (trace) and a gradient with respect to the return value _y J (retgrad), return the following gradient (arg_grads) with respect to the arguments x:\n\n_x left( log P(t x) + J right)\n\nAlso increment the gradient accumulators for the trainable parameters Θ of the function by:\n\n_Θ left( log P(t x) + J right)\n\n\n\n\n\n"
+    "text": "arg_grads = accumulate_param_gradients!(trace, retgrad=nothing, scale_factor=1.)\n\nIncrement gradient accumulators for parameters by the gradient of the log-probability of the trace, optionally scaled, and return the gradient with respect to the arguments (not scaled).\n\nGiven a previous trace (x t) (trace) and a gradient with respect to the return value _y J (retgrad), return the following gradient (arg_grads) with respect to the arguments x:\n\n_x left( log P(t x) + J right)\n\nAlso increment the gradient accumulators for the trainable parameters Θ of the function by:\n\n_Θ left( log P(t x) + J right)\n\n\n\n\n\n"
 },
 
 {
@@ -381,7 +381,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Generative Functions",
     "title": "Gen.choice_gradients",
     "category": "function",
-    "text": "(arg_grads, choice_values, choice_grads) = choice_gradients(trace, selection::Selection,\n                                                            retgrad)\n\nGiven a previous trace (x t) (trace) and a gradient with respect to the return value _y J (retgrad), return the following gradient (arg_grads) with respect to the arguments x:\n\n_x left( log P(t x) + J right)\n\nAlso given a set of addresses A (selection) that are continuous-valued random choices, return the folowing gradient (choice_grads) with respect to the values of these choices:\n\n_A left( log P(t x) + J right)\n\nAlso return the assignment (choice_values) that is the restriction of t to A.\n\n\n\n\n\n"
+    "text": "(arg_grads, choice_values, choice_grads) = choice_gradients(\n    trace, selection=EmptySelection(), retgrad=nothing)\n\nGiven a previous trace (x t) (trace) and a gradient with respect to the return value _y J (retgrad), return the following gradient (arg_grads) with respect to the arguments x:\n\n_x left( log P(t x) + J right)\n\nAlso given a set of addresses A (selection) that are continuous-valued random choices, return the folowing gradient (choice_grads) with respect to the values of these choices:\n\n_A left( log P(t x) + J right)\n\nAlso return the assignment (choice_values) that is the restriction of t to A.\n\n\n\n\n\n"
 },
 
 {
@@ -1489,30 +1489,6 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "ref/learning/#",
-    "page": "Learning",
-    "title": "Learning",
-    "category": "page",
-    "text": ""
-},
-
-{
-    "location": "ref/learning/#Gen.train!",
-    "page": "Learning",
-    "title": "Gen.train!",
-    "category": "function",
-    "text": "train!(gen_fn::GenerativeFunction, data_generator::Function,\n       update::ParamUpdate,\n       num_epoch, epoch_size, num_minibatch, minibatch_size; verbose::Bool=false)\n\nTrain the given generative function to maximize the expected conditional log probability (density) that gen_fn generates the assignment constraints given inputs, where the expectation is taken under the output distribution of data_generator.\n\nThe function data_generator is a function of no arguments that returns a tuple (inputs, constraints) where inputs is a Tuple of inputs (arguments) to gen_fn, and constraints is an ChoiceMap. conf configures the optimization algorithm used. param_lists is a map from generative function to lists of its parameters. This is equivalent to minimizing the expected KL divergence from the conditional distribution constraints | inputs of the data generator to the distribution represented by the generative function, where the expectation is taken under the marginal distribution on inputs determined by the data generator.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/learning/#Amortized-Inference-1",
-    "page": "Learning",
-    "title": "Amortized Inference",
-    "category": "section",
-    "text": "train!"
-},
-
-{
     "location": "ref/vi/#",
     "page": "Variational Inference",
     "title": "Variational Inference",
@@ -1521,19 +1497,163 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "ref/vi/#Gen.black_box_vi!",
-    "page": "Variational Inference",
-    "title": "Gen.black_box_vi!",
-    "category": "function",
-    "text": "black_box_vi!(model::GenerativeFunction, args::Tuple,\n              observations::ChoiceMap,\n              proposal::GenerativeFunction, proposal_args::Tuple,\n              update::ParamUpdate;\n              iters=1000, samples_per_iter=100, verbose=false)\n\nFit the parameters of a generative function (proposal) to the posterior distribution implied by the given model and observations using stochastic gradient methods.\n\n\n\n\n\n"
-},
-
-{
     "location": "ref/vi/#Variational-Inference-1",
     "page": "Variational Inference",
     "title": "Variational Inference",
     "category": "section",
-    "text": "black_box_vi!"
+    "text": "Variational inference involves optimizing the parameters of a variational family to maximize a lower bound on the marginal likelihood called the ELBO. In Gen, variational families are represented as generative functions, and variational inference typically involves optimizing the trainable parameters of generative functions."
+},
+
+{
+    "location": "ref/vi/#Gen.black_box_vi!",
+    "page": "Variational Inference",
+    "title": "Gen.black_box_vi!",
+    "category": "function",
+    "text": "(elbo_estimate, traces, elbo_history) = black_box_vi!(\n    model::GenerativeFunction, args::Tuple,\n    observations::ChoiceMap,\n    var_model::GenerativeFunction, var_model_args::Tuple,\n    update::ParamUpdate;\n    iters=1000, samples_per_iter=100, verbose=false)\n\nFit the parameters of a generative function (var_model) to the posterior distribution implied by the given model and observations using stochastic gradient methods.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/vi/#Gen.black_box_vimco!",
+    "page": "Variational Inference",
+    "title": "Gen.black_box_vimco!",
+    "category": "function",
+    "text": "(iwelbo_estimate, traces, iwelbo_history) = black_box_vimco!(\n    model::GenerativeFunction, args::Tuple,\n    observations::ChoiceMap,\n    var_model::GenerativeFunction, var_model_args::Tuple,\n    update::ParamUpdate, num_samples::Int;\n    iters=1000, samples_per_iter=100, verbose=false)\n\nFit the parameters of a generative function (var_model) to the posterior distribution implied by the given model and observations using stochastic gradient methods applied to the Variational Inference with Monte Carlo Objectives lower bound on the marginal likelihood.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/vi/#Black-box-variational-inference-1",
+    "page": "Variational Inference",
+    "title": "Black box variational inference",
+    "category": "section",
+    "text": "There are two procedures in the inference library for performing black box variational inference.black_box_vi!\nblack_box_vimco!"
+},
+
+{
+    "location": "ref/vi/#Reparametrization-trick-1",
+    "page": "Variational Inference",
+    "title": "Reparametrization trick",
+    "category": "section",
+    "text": "To use the reparametrization trick to reduce the variance of gradient estimators, users currently need to write two versions of their variational family, one that is reparametrized and one that is not. Gen does not currently include inference library support for this. We plan add add automated support for reparametrization and other variance reduction techniques in the future."
+},
+
+{
+    "location": "ref/learning/#",
+    "page": "Learning Generative Functions",
+    "title": "Learning Generative Functions",
+    "category": "page",
+    "text": ""
+},
+
+{
+    "location": "ref/learning/#Learning-Generative-Functions-1",
+    "page": "Learning Generative Functions",
+    "title": "Learning Generative Functions",
+    "category": "section",
+    "text": "Learning and inference are closely related concepts, and the distinction between the two is not always clear. Often, learning refers to inferring long-lived unobserved quantities that will be reused across many problem instances (like a dynamics model for an entity that we are trying to track), whereas inference refers to inferring shorter-lived quantities (like a specific trajectory of a specific entity). Learning is the way to use data to automatically generate models of the world, or to automatically fill in unknown parameters in hand-coded models. These resulting models are then used in various inference tasks.There are many variants of the learning task–we could be training the weights of a neural network, estimating a handful of parameters in a structured and hand-coded model, or we could be learning the structure or architecture of a model. Also, we could do Bayesian learning in which we seek a probability distribution on possible models, or we could seek just the best model, as measured by e.g. maximum likelihood. This section focuses on maximum likelihood learning of the Trainable parameters of a generative function. These are numerical quantities that are part of the generative function\'s state, with respect to which generative functions are able to report gradients of their (log) probability density function of their density function. Trainable parameters are different from random choices–random choices are per-trace and trainable parameters are a property of the generative function (which is associated with many traces). Also, unlike random choices, trainable parameters do not have a prior distribution.There are two settings in which we might learn these parameters using maximum likelihood. If our observed data contains values for all of the random choices made by the generative function, this is called learning from complete data, and is a relatively straightforward task. If our observed data is missing values for some random choices (either because the value happened to be missing, or because it was too expensive to acquire it, or because it is an inherently unmeasurable quantity), this is called learning from incomplete data, and is a substantially harder task. Gen provides programming primitives and design patterns for both tasks. In both cases, the models we are learning can be either generative or discriminative."
+},
+
+{
+    "location": "ref/learning/#Learning-from-Complete-Data-1",
+    "page": "Learning Generative Functions",
+    "title": "Learning from Complete Data",
+    "category": "section",
+    "text": "This section discusses maximizing the log likelihood of observed data over the space of trainable parameters, when all of the random variables are observed. In Gen, the likelihood of complete data is simply the joint probability (density) of a trace, and maximum likelihood with complete data amounts to maximizing the sum of log joint probabilities of a collection of traces t_i for i = 1ldots N with respect to the trainable parameters of the generative function, which are denoted theta.max_theta sum_i=1^N log p(t_i x theta)For example, here is a simple generative model that we might want to learn:@gen function model()\n    @param x_mu::Float64\n    @param a::Float64\n    @param b::Float64\n    x = @trace(normal(x_mu, 1.), :x)\n    @trace(normal(a * x + b, 1.), :y)\nendThere are three components to theta for this generative function: (x_mu, a, b).Note that maximum likelihood can be used to learn generative and discriminative models, but for discriminative models, the arguments to the generative function will be different for each training example:max_theta sum_i=1^N log p(t_i x_i theta)Here is a minimal discriminative model:@gen function disc_model(x::Float64)\n    @param a::Float64\n    @param b::Float64\n    @trace(normal(a * x + b, 1.), :y)\nendLet\'s suppose we are training the generative model. The first step is to initialize the values of the trainable parameters, which for generative functions constructed using the built-in modeling languages, we do with init_param!:init_param!(model, :a, 0.)\ninit_param!(model, :b, 0.)Each trace in the collection contains the observed data from an independent draw from our model. We can populate each trace with its observed data using generate:traces = []\nfor observations in data\n    trace, = generate(model, model_args, observations)\n    push!(traces, trace)\nendFor the complete data case, we assume that all random choices in the model are constrained by the observations choice map (we will analyze the case when not all random choices are constrained in the next section). We can evaluate the objective function by summing the result of get_score over our collection of traces:objective = sum([get_score(trace) for trace in traces])We can compute the gradient of this objective function with respect to the trainable parameters using accumulate_param_gradients!:for trace in traces\n    accumulate_param_gradients!(trace)\nendFinally, we can construct and gradient-based update with ParamUpdate and apply it with apply!. We can put this all together into a function:function train_model(data::Vector{ChoiceMap})\n    init_param!(model, :theta, 0.1)\n    traces = []\n    for observations in data\n        trace, = generate(model, model_args, observations)\n        push!(traces, trace)\n    end\n    update = ParamUpdate(FixedStepSizeGradientDescent(0.001), model)\n    for iter=1:max_iter\n        objective = sum([get_score(trace) for trace in traces])\n        println(\"objective: $objective\")\n        for trace in traces\n            accumulate_param_gradients!(trace)\n        end\n        apply!(update)\n    end\nendNote that using the same primitives (generate and accumulate_param_gradients!), you can compose various more sophisticated learning algorithms involving e.g. stochastic gradient descent and minibatches, and more sophisticated stochastic gradient optimizers like ADAM. For example, train! trains a generative function from complete data with minibatches."
+},
+
+{
+    "location": "ref/learning/#Learning-from-Incomplete-Data-1",
+    "page": "Learning Generative Functions",
+    "title": "Learning from Incomplete Data",
+    "category": "section",
+    "text": "When there are random variables in our model whose value is not observed in our data set, then doing maximum learning is significantly more difficult. Specifically, maximum likelihood is aiming to maximize the marginal likelihood of the observed data, which is an integral or sum over the values of the unobserved random variables. Let\'s denote the observed variables as y and the hidden variables as z:sum_i=1^N log p(y_i x theta) = sum_i=1^N log left( sum_z_i p(z_i y_i x theta)right)It is often intractable to evaluate this quantity for specific values of the parameters, let alone maximize it. Most techniques for learning models from incomplete data, from the EM algorithm to variational autoencoders address this problem by starting with some initial theta = theta_0 and iterating between two steps:Doing inference about the hidden variables z_i given the observed variables y_i, for the model with the current values of theta, which produces some completions of the hidden variables z_i or some representation of the posterior distribution on these hidden variables. This step does not update the parameters theta.\nOptimize the parameters theta to maximize the data of the complete log likelihood, as in the setting of complete data. This step does not involve inference about the hidden variables z_i.Various algorithms can be understood as examples of this general pattern, although they differ in several details including (i) how they represent the results of inferences, (ii) how they perform the inference step, (iii) whether they try to solve each of the inference and parameter-optimization problems incrementally or not, and (iv) their formal theoretical justification and analysis:[Expectation maximization (EM) [1], including incremental variants [2]\nMonte Carlo EM [3] and online variants [4]\nVariational EM\nThe wake-sleep algorithm [5] and reweighted wake-sleep algorithms [6]\nVariational autoencoders [7]In Gen, the results of inference are typically represented as a collection of traces of the model, which include values for the latent variables. The section Learning from Complete Data describes how to perform the parameter update step given a collection of such traces. In the remainder of this section, we describe various learning algorithms, organized by the inference approach they take to obtain traces."
+},
+
+{
+    "location": "ref/learning/#Monte-Carlo-EM-1",
+    "page": "Learning Generative Functions",
+    "title": "Monte Carlo EM",
+    "category": "section",
+    "text": "Monte Carlo EM is a broad class of algorithms that use Monte Carlo sampling within the inference step to generate the set of traces that is used for the learning step. There are many variants possible, based on which Monte Carlo inference algorithm is used. For example:function train_model(data::Vector{ChoiceMap})\n    init_param!(model, :theta, 0.1)\n    update = ParamUpdate(FixedStepSizeGradientDescent(0.001), model)\n    for iter=1:max_iter\n        traces = do_monte_carlo_inference(data)\n        for trace in traces\n            accumulate_param_gradients!(trace)\n        end\n        apply!(update)\n    end\nend\n\nfunction do_monte_carlo_inference(data)\n    num_traces = 1000\n    (traces, log_weights, _) = importance_sampling(model, (), data, num_samples)\n    weights = exp.(log_weights)\n    [traces[categorical(weights)] for _=1:num_samples]\nendNote that it is also possible to use a weighted collection of traces directly without resampling:function train_model(data::Vector{ChoiceMap})\n    init_param!(model, :theta, 0.1)\n    update = ParamUpdate(FixedStepSizeGradientDescent(0.001), model)\n    for iter=1:max_iter\n        traces, weights = do_monte_carlo_inference_with_weights(data)\n        for (trace, weight) in zip(traces, weights)\n            accumulate_param_gradients!(trace, nothing, weight)\n        end\n        apply!(update)\n    end\nendMCMC and other algorithms can be used for inference as well."
+},
+
+{
+    "location": "ref/learning/#Online-Monte-Carlo-EM-1",
+    "page": "Learning Generative Functions",
+    "title": "Online Monte Carlo EM",
+    "category": "section",
+    "text": "The Monte Carlo EM example performed inference from scratch within each iteration. However, if the change tothe parameters during each iteration is small, it is likely that the traces from the previous iteration can be reused. There are various ways of reusing traces: We can use the traces obtained for the previous traces to initialize MCMC for the new parameters. We can reweight the traces based on the change to their importance weights [4]."
+},
+
+{
+    "location": "ref/learning/#Wake-sleep-algorithm-1",
+    "page": "Learning Generative Functions",
+    "title": "Wake-sleep algorithm",
+    "category": "section",
+    "text": "The wake-sleep algorithm [5] is an approach to training generative models that uses an inference network, a neural network that takes in the values of observed random variables and returns parameters of a probability distribution on latent variables. We call the conditional probability distribution on the latent variables, given the observed variables, the inference model. In Gen, both the generative model and the inference model are represented as generative functions. The wake-sleep algorithm trains the inference model as it trains the generative model. At each iteration, during the wake phase, the generative model is trained on complete traces generated by running the current version of the inference on the observed data. At each iteration, during the sleep phase, the inference model is trained on data generated by simulating from the current generative model. The lecture! or lecture_batched! methods can be used for the sleep phase training."
+},
+
+{
+    "location": "ref/learning/#Reweighted-wake-sleep-algorithm-1",
+    "page": "Learning Generative Functions",
+    "title": "Reweighted wake-sleep algorithm",
+    "category": "section",
+    "text": "The reweighted wake-sleep algorithm [6] is an extension of the wake-sleep algorithm, where during the wake phase, for each observation, a collection of latent completions are taken by simulating from the inference model multiple times. Then, each of these is weighted by an importance weight. This extension can be implemented with importance_sampling."
+},
+
+{
+    "location": "ref/learning/#Variational-inference-1",
+    "page": "Learning Generative Functions",
+    "title": "Variational inference",
+    "category": "section",
+    "text": "Variational inference can be used to for the inference step. Here, the parameters of the variational approximation, represented as a generative function, are fit to the posterior during the inference step. black_box_vi! or black_box_vimco! can be used to fit the variational approximation. Then, the traces of the model can be obtained by simulating from the variational approximation and merging the resulting choice maps with the observed data."
+},
+
+{
+    "location": "ref/learning/#Amortized-variational-inference-(VAEs)-1",
+    "page": "Learning Generative Functions",
+    "title": "Amortized variational inference (VAEs)",
+    "category": "section",
+    "text": "Instead of fitting the variational approximation from scratch for each observation, it is possible to fit an inference model instead, that takes as input the observation, and generates a distribution on latent variables as output (as in the wake sleep algorithm). When we train the variational approximation by minimizing the evidence lower bound (ELBO) this is called amortized variational inference. Variational autencoders are an example. It is possible to perform amortized variational inference using black_box_vi or black_box_vimco!."
+},
+
+{
+    "location": "ref/learning/#References-1",
+    "page": "Learning Generative Functions",
+    "title": "References",
+    "category": "section",
+    "text": "[1] Dempster, Arthur P., Nan M. Laird, and Donald B. Rubin. \"Maximum likelihood from incomplete data via the EM algorithm.\" Journal of the Royal Statistical Society: Series B (Methodological) 39.1 (1977): 1-22. Link[2] Neal, Radford M., and Geoffrey E. Hinton. \"A view of the EM algorithm that justifies incremental, sparse, and other variants.\" Learning in graphical models. Springer, Dordrecht, 1998. 355-368. Link[3] Wei, Greg CG, and Martin A. Tanner. \"A Monte Carlo implementation of the EM algorithm and the poor man\'s data augmentation algorithms.\" Journal of the American statistical Association 85.411 (1990): 699-704. Link[4] Levine, Richard A., and George Casella. \"Implementations of the Monte Carlo EM algorithm.\" Journal of Computational and Graphical Statistics 10.3 (2001): 422-439. Link[5] Hinton, Geoffrey E., et al. \"The\" wake-sleep\" algorithm for unsupervised neural networks.\" Science 268.5214 (1995): 1158-1161. Link[6] Jorg Bornschein and Yoshua Bengio. Reweighted wake sleep. ICLR 2015. Link[7] Diederik P. Kingma, Max Welling: Auto-Encoding Variational Bayes. ICLR 2014 Link"
+},
+
+{
+    "location": "ref/learning/#Gen.lecture!",
+    "page": "Learning Generative Functions",
+    "title": "Gen.lecture!",
+    "category": "function",
+    "text": "score = lecture!(\n    p::GenerativeFunction, p_args::Tuple,\n    q::GenerativeFunction, get_q_args::Function)\n\nSimulate a trace of p representing a training example, and use to update the gradients of the trainable parameters of q.\n\nUsed for training q via maximum expected conditional likelihood. Random choices will be mapped from p to q based on their address. getqargs maps a trace of p to an argument tuple of q. score is the conditional log likelihood (or an unbiased estimate of a lower bound on it, if not all of q\'s random choices are constrained, or if q uses non-addressable randomness).\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/learning/#Gen.lecture_batched!",
+    "page": "Learning Generative Functions",
+    "title": "Gen.lecture_batched!",
+    "category": "function",
+    "text": "score = lecture_batched!(\n    p::GenerativeFunction, p_args::Tuple,\n    q::GenerativeFunction, get_q_args::Function)\n\nSimulate a batch of traces of p representing training samples, and use them to update the gradients of the trainable parameters of q.\n\nLike lecture! but q is batched, and must make random choices for training sample i under hierarchical address namespace i::Int (e.g. i => :z). getqargs maps a vector of traces of p to an argument tuple of q.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/learning/#Gen.train!",
+    "page": "Learning Generative Functions",
+    "title": "Gen.train!",
+    "category": "function",
+    "text": "train!(gen_fn::GenerativeFunction, data_generator::Function,\n       update::ParamUpdate,\n       num_epoch, epoch_size, num_minibatch, minibatch_size; verbose::Bool=false)\n\nTrain the given generative function to maximize the expected conditional log probability (density) that gen_fn generates the assignment constraints given inputs, where the expectation is taken under the output distribution of data_generator.\n\nThe function data_generator is a function of no arguments that returns a tuple (inputs, constraints) where inputs is a Tuple of inputs (arguments) to gen_fn, and constraints is an ChoiceMap. conf configures the optimization algorithm used. param_lists is a map from generative function to lists of its parameters. This is equivalent to minimizing the expected KL divergence from the conditional distribution constraints | inputs of the data generator to the distribution represented by the generative function, where the expectation is taken under the marginal distribution on inputs determined by the data generator.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/learning/#API-1",
+    "page": "Learning Generative Functions",
+    "title": "API",
+    "category": "section",
+    "text": "lecture!\nlecture_batched!\ntrain!"
 },
 
 {
