@@ -12,18 +12,20 @@ struct DynamicDSLFunction{T} <: GenerativeFunction{T,DynamicDSLTrace}
     params_grad::Dict{Symbol,Any}
     params::Dict{Symbol,Any}
     arg_types::Vector{Type}
+    arg_defaults::Vector{Union{Some{Any},Nothing}}
     julia_function::Function
     has_argument_grads::Vector{Bool}
     accepts_output_grad::Bool
 end
 
 function DynamicDSLFunction(arg_types::Vector{Type},
+                     arg_defaults::Vector{Union{Some{Any},Nothing}},
                      julia_function::Function,
                      has_argument_grads, ::Type{T},
                      accepts_output_grad::Bool) where {T}
     params_grad = Dict{Symbol,Any}()
     params = Dict{Symbol,Any}()
-    DynamicDSLFunction{T}(params_grad, params, arg_types,
+    DynamicDSLFunction{T}(params_grad, params, arg_types, arg_defaults,
                 julia_function,
                 has_argument_grads, accepts_output_grad)
 end

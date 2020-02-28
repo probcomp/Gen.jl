@@ -29,7 +29,7 @@ function CallRecord(record::ChoiceOrCallRecord)
     end
     CallRecord(record.subtrace_or_retval, record.score, record.noise)
 end
-    
+
 mutable struct DynamicDSLTrace{T} <: Trace
     gen_fn::T
     trie::Trie{Any,ChoiceOrCallRecord}
@@ -40,6 +40,13 @@ mutable struct DynamicDSLTrace{T} <: Trace
     retval::Any
     function DynamicDSLTrace{T}(gen_fn::T, args) where {T}
         trie = Trie{Any,ChoiceOrCallRecord}()
+        # pad args with default values, if available
+        if (isa(gen_fn, DynamicDSLFunction) &&
+            length(args) < length(gen_fn.arg_defaults))
+            defaults = gen_fn.arg_defaults[length(args)+1:end]
+            defaults = map(x -> something(x), defaults)
+            args = Tuple(vcat(collect(args), defaults))
+        end
         # retval is not known yet
         new(gen_fn, trie, true, 0, 0, args)
     end

@@ -12,6 +12,18 @@ end
     end
 
     @test foo() == 1
+
+    @gen function bar(x=1)
+        return x
+    end
+
+    @test bar() == 1
+
+    @gen function baz(x::Int=1)
+        return x
+    end
+
+    @test baz(5) == 5    
 end
 
 @testset "return type" begin

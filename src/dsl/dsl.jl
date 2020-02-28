@@ -10,9 +10,11 @@ struct Argument
     name::Symbol
     typ::Union{Symbol,Expr}
     annotations::Set{Symbol}
+    default::Union{Some{Any}, Nothing}
 end
 
-Argument(name, typ) = Argument(name, typ, Set{Symbol}())
+Argument(name, typ) = Argument(name, typ, Set{Symbol}(), nothing)
+Argument(name, typ, annotations) = Argument(name, typ, annotations, nothing)
 
 function parse_annotations(annotations_expr)
     annotations = Set{Symbol}()
@@ -39,12 +41,16 @@ function parse_arg(expr)
     elseif isa(expr, Expr) && expr.head == :(::)
         # x::Int
         arg = Argument(expr.args[1], expr.args[2])
+    elseif isa(expr, Expr) && expr.head == :kw
+        sub_arg = parse_arg(expr.args[1])
+        default = Some(expr.args[2])
+        arg = Argument(sub_arg.name, sub_arg.typ, Set{Symbol}(), default)
     elseif isa(expr, Expr) && expr.head == :call
         # (grad,foo)(x::Int)
         annotations_expr = expr.args[1]
         sub_arg = parse_arg(expr.args[2])
         annotations = parse_annotations(annotations_expr)
-        arg = Argument(sub_arg.name, sub_arg.typ, annotations)
+        arg = Argument(sub_arg.name, sub_arg.typ, annotations, sub_arg.default)
     else
         dump(expr)
         error("syntax error in gen function argument at $expr")
