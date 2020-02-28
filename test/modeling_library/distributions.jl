@@ -247,3 +247,17 @@ end
     @test isapprox(actual[1], finite_diff(f, args, 1, dx))
     @test isapprox(actual[2], finite_diff(f, args, 2, dx))
 end
+
+@testset "laplace" begin
+
+    # random
+    x = laplace(1, 1)
+
+    # logpdf_grad
+    f = (x, loc, scale) -> logpdf(laplace, x, loc, scale)
+    args = (0.4, 0.2, 0.3)
+    actual = logpdf_grad(laplace, args...)
+    @test isapprox(actual[1], finite_diff(f, args, 1, dx))
+    @test isapprox(actual[2], finite_diff(f, args, 2, dx))
+    @test isapprox(actual[3], finite_diff(f, args, 3, dx))
+end
