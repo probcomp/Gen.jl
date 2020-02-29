@@ -16,5 +16,6 @@ poisson
 piecewise_uniform
 beta_uniform
 exponential
+laplace
 ```
 
