@@ -521,11 +521,19 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "ref/distributions/#Gen.laplace",
+    "page": "Probability Distributions",
+    "title": "Gen.laplace",
+    "category": "constant",
+    "text": "laplce(loc::Real, scale::Real)\n\nSample a Float64 from a laplace distribution.\n\n\n\n\n\n"
+},
+
+{
     "location": "ref/distributions/#Built-In-Distributions-1",
     "page": "Probability Distributions",
     "title": "Built-In Distributions",
     "category": "section",
-    "text": "bernoulli\nnormal\nmvnormal\ngamma\ninv_gamma\nbeta\ncategorical\nuniform\nuniform_discrete\npoisson\npiecewise_uniform\nbeta_uniform\nexponential"
+    "text": "bernoulli\nnormal\nmvnormal\ngamma\ninv_gamma\nbeta\ncategorical\nuniform\nuniform_discrete\npoisson\npiecewise_uniform\nbeta_uniform\nexponential\nlaplace"
 },
 
 {
