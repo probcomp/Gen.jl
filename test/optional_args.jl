@@ -127,3 +127,92 @@ using Gen
     @test isapprox(w, logpdf(normal, 5, 1, 1))
 
 end
+
+@testset "optional positional args (combinators)" begin
+
+    @gen function foo(t::Int, y_prev::Bool, z1::Float64=0.25, z2::Float64=0.75)
+        y = @trace(bernoulli(y_prev ? z1 : z2), :y)
+    end
+
+    # test call_at
+    at_foo = call_at(foo, Int)
+    addr = 3
+    tr, w = generate(at_foo, (0, true, addr), choicemap((addr => :y) => true))
+    @test tr[addr => :y] == true
+    @test isapprox(w, logpdf(bernoulli, tr[addr => :y], 0.25))
+    tr, w = generate(at_foo, (0, true, 0.5, addr), choicemap((addr => :y) => true))
+    @test tr[addr => :y] == true
+    @test isapprox(w, logpdf(bernoulli, tr[addr => :y], 0.5))
+
+    # test map
+    map_foo = Map(foo)
+    addr = 1
+    tr, w = generate(map_foo,
+        ([1, 2, 3], [false, true, false]),
+        choicemap((addr => :y) => true))
+    @test tr[addr => :y] == true
+    @test isapprox(w, logpdf(bernoulli, tr[addr => :y], 0.75))
+    tr, w = generate(map_foo,
+        ([1, 2, 3], [true, false, true], [0.5, 0.25, 0.0]),
+        choicemap((addr => :y) => true))
+    @test tr[addr => :y] == true
+    @test isapprox(w, logpdf(bernoulli, tr[addr => :y], 0.5))
+
+    # test unfold
+    unfold_foo = Unfold(foo)
+    addr = 1
+    tr, w = generate(unfold_foo, (3, false),
+        choicemap((addr => :y) => true))
+    @test tr[addr => :y] == true
+    @test isapprox(w, logpdf(bernoulli, tr[addr => :y], 0.75))
+    tr, w = generate(unfold_foo, (3, false, 0.05, 0.95),
+        choicemap((addr => :y) => true))
+    @test tr[addr => :y] == true
+    @test isapprox(w, logpdf(bernoulli, tr[addr => :y], 0.95))
+
+    # test recurse
+    @gen function production(depth::Int, branches::Int=1)
+        n_children = @trace(bernoulli(0.5), :branch) ? branches : 0
+        return Production(depth, [depth+1 for i=1:n_children])
+    end
+
+    @gen function aggregation(depth::Int, child_outputs::Vector, combiner=sum)
+        if length(child_outputs) == 0
+            out = depth
+        else
+            out = combiner(child_outputs)
+        end
+    end
+
+    bar1 = Recurse(production, aggregation, 1, Int, Int, Any)
+    constraints = choicemap()
+    constraints[(1, Val(:production)) => :branch] = true
+    constraints[(2, Val(:production)) => :branch] = false
+    tr, w = generate(bar1, (1, 1), constraints)
+    @test get_retval(tr) == 2
+    constraints[(2, Val(:production)) => :branch] = true
+    tr, w = zip([generate(bar1, (1, 1), constraints) for i in 1:100]...)
+    @test all(get_retval.(tr) .>= 2)
+
+    @gen function new_prod(d::Int)
+        @trace(production(d, 2))
+    end
+    @gen function new_aggr(d::Int, cvals::Vector)
+        @trace(aggregation(d, cvals, xs -> join(string.(xs))))
+    end
+    bar2 = Recurse(new_prod, new_aggr, 2, Int, Int, Any)
+    constraints = choicemap()
+    constraints[(1, Val(:production)) => :branch] = true
+    constraints[(Gen.get_child(1, 1, 2), Val(:production)) => :branch] = false
+    constraints[(Gen.get_child(1, 2, 2), Val(:production)) => :branch] = false
+    tr, w = generate(bar2, (1, 1), constraints)
+    @test get_retval(tr) == "22"
+    constraints[(Gen.get_child(1, 1, 2), Val(:production)) => :branch] = true
+    constraints[(Gen.get_child(1, 2, 2), Val(:production)) => :branch] = true
+    constraints[(Gen.get_child(2, 1, 2), Val(:production)) => :branch] = false
+    constraints[(Gen.get_child(2, 2, 2), Val(:production)) => :branch] = false
+    constraints[(Gen.get_child(3, 1, 2), Val(:production)) => :branch] = false
+    constraints[(Gen.get_child(3, 2, 2), Val(:production)) => :branch] = false
+    tr, w = generate(bar2, (1, 1), constraints)
+    @test get_retval(tr) == "3333"
+end
