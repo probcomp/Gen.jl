@@ -6,7 +6,7 @@ The language uses a syntax that extends Julia's syntax for defining regular Juli
 Generative functions in the modeling language are identified using the `@gen` keyword in front of a Julia function definition.
 Here is an example `@gen` function that samples two random choices:
 ```julia
-@gen function foo(prob::Float64)
+@gen function foo(prob::Float64=0.1)
     z1 = @trace(bernoulli(prob), :a)
     z2 = @trace(bernoulli(prob), :b)
     return z1 || z2
@@ -17,6 +17,8 @@ After running this code, `foo` is a Julia value of type [`DynamicDSLFunction`](@
 DynamicDSLFunction
 ```
 
+Note that it is possible to provide default values for trailing positional arguments. However, keyword arguments are currently *not* supported.
+
 We can call the resulting generative function like we would a regular Julia function:
 ```julia
 retval::Bool = foo(0.5)
@@ -24,6 +26,12 @@ retval::Bool = foo(0.5)
 We can also trace its execution:
 ```julia
 (trace, _) = generate(foo, (0.5,))
+```
+Optional arguments can be left out of the above operations, and default values will be filled in automatically:
+```julia
+julia> (trace, _) = generate(foo, (,));
+julia> get_args(trace)
+(0.1,)
 ```
 See [Generative Functions](@ref) for the full set of operations supported by a generative function.
 Note that the built-in modeling language described in this section is only one of many ways of defining a generative function -- generative functions can also be constructed using other embedded languages, or by directly implementing the methods of the generative function interface.
@@ -393,7 +401,9 @@ The trace statement must use a literal Julia symbol for the first component in t
 return z4
 ```
 
-The functions must also satisfy the following rules: 
+The functions must also satisfy the following rules:
+
+- Default argument values are not supported. and will be ignored by the parser if specified.
 
 - `@trace` expressions cannot appear anywhere in the function body except for as the outer-most expression on the right-hand side of a statement.
 

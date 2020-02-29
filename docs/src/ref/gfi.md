@@ -13,7 +13,7 @@ GenerativeFunction
 There are various kinds of generative functions, which are represented by concrete subtypes of [`GenerativeFunction`](@ref).
 For example, the [Built-in Modeling Language](@ref) allows generative functions to be constructed using Julia function definition syntax:
 ```julia
-@gen function foo(a, b)
+@gen function foo(a, b=0)
     if @trace(bernoulli(0.5), :z)
         return a + b + 1
     else
@@ -26,7 +26,7 @@ Users can also extend Gen by implementing their own [Custom generative function 
 Generative functions behave like Julia functions in some respects.
 For example, we can call a generative function `foo` on arguments and get an output value using regular Julia call syntax:
 ```julia-repl
->julia foo(2, 4)
+julia> foo(2, 4)
 7
 ```
 However, generative functions are distinct from Julia functions because they support additional behaviors, described in the remainder of this section.
@@ -103,7 +103,7 @@ Traces contain:
 
 - the arguments to the generative function
 
-- the choice map 
+- the choice map
 
 - the return value
 
@@ -146,6 +146,13 @@ You can also access the values in the choice map and the auxiliary state of the 
 For example, to retrieve the value of random choice at address `:z`:
 ```julia
 z = trace[:z]
+```
+
+When a generative function has default values specified for trailing arguments, those arguments can be left out when calling [`simulate`](@ref), [`generate`](@ref), and other functions provided by the generative function interface. The default values will automatically be filled in:
+```julia
+julia> trace = simulate(foo, (2,));
+julia> get_args(trace)
+(2, 0)
 ```
 
 ## Updating traces
@@ -287,7 +294,7 @@ Then `get_choices(new_trace)` will be:
 │
 ├── :a : true
 │
-├── :b : true 
+├── :b : true
 │
 ├── :c : false
 │
@@ -302,6 +309,7 @@ In addition to the input trace, and other arguments that indicate how to adjust 
 The args argument contains the new arguments to the generative function, which may differ from the previous arguments to the generative function (which can be retrieved by applying [`get_args`](@ref) to the previous trace).
 In many cases, the adjustment to the execution specified by the other arguments to these methods is 'small' and only affects certain parts of the computation.
 Therefore, it is often possible to generate the new trace and the appropriate log probability ratios required for these methods without revisiting every state of the computation of the generative function.
+
 To enable this, the argdiffs argument provides additional information about the *difference* between each of the previous arguments to the generative function, and its new argument value.
 This argdiff information permits the implementation of the update method to avoid inspecting the entire argument data structure to identify which parts were updated.
 Note that the correctness of the argdiff is in general not verified by Gen---passing incorrect argdiff information may result in incorrect behavior.

@@ -26,6 +26,8 @@ The returned generative function accepts the following arguments:
 - The rest of the arguments (not including the state) that will be passed to each kernel application.
 
 The return type of the returned generative function is `FunctionalCollections.PersistentVector{T}` where `T` is the return type of the kernel.
+
+If `kernel` has optional trailing arguments, the corresponding arguments can be omitted from calls to `Unfold(kernel)`.
 """
 struct Unfold{T,U} <: GenerativeFunction{PersistentVector{T},VectorTrace{UnfoldType,T,U}}
     kernel::GenerativeFunction{T,U}
