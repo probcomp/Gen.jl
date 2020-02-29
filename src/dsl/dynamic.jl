@@ -9,6 +9,11 @@ function arg_to_ast(arg::Argument)
     ast
 end
 
+function escape_default(arg)
+    (arg.default == nothing ? nothing :
+        Expr(:call, :Some, esc(something(arg.default))))
+end
+
 function make_dynamic_gen_function(name, args, body, return_type, annotations)
     escaped_args = map(arg_to_ast, args)
     gf_args = [esc(state), escaped_args...]
@@ -18,7 +23,7 @@ function make_dynamic_gen_function(name, args, body, return_type, annotations)
         Expr(:call, esc(julia_fn_name), gf_args...),
         esc(body))
     arg_types = map((arg) -> esc(arg.typ), args)
-    arg_defaults = map((arg) -> esc(arg.default), args)
+    arg_defaults = map(escape_default, args)
     has_argument_grads = map(
         (arg) -> (DSL_ARG_GRAD_ANNOTATION in arg.annotations), args)
     accepts_output_grad = DSL_RET_GRAD_ANNOTATION in annotations

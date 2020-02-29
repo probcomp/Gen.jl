@@ -88,4 +88,42 @@ using Gen
     _, _, z_grad = arg_grads
     @test isapprox(z_grad, finite_diff(foo_lpdf, (2, 2, 3, 5, 6), 3, dx))
 
+    # test nested calls
+    @gen function bar()
+        return @trace(foo(1), :foo)
+    end
+    @test bar() == (1, 2, 3, 6)
+
+    tr, w = generate(bar, (), choicemap((:foo => :a) => 5))
+    @test get_args(tr) == ()
+    sub_tr = Gen.get_call(tr, :foo).subtrace
+    @test get_args(sub_tr) == (1, 2, 3) # args of subtrace should have defaults
+    @test get_score(tr) == get_score(sub_tr)
+    @test isapprox(w, logpdf(normal, 5, 1+2+3, 1))
+
+    # test optional GenerativeFunction arguments
+    @gen function outer(inner::GenerativeFunction=foo)
+        @trace(inner(1), :inner)
+    end
+
+    @test outer() == (1, 2, 3, 6)
+    tr, w = generate(outer, (), choicemap((:inner => :a) => 5))
+    @test get_args(tr) == (foo,)
+    sub_tr = Gen.get_call(tr, :inner).subtrace
+    @test get_args(sub_tr) == (1, 2, 3) # args of subtrace should have defaults
+    @test get_score(tr) == get_score(sub_tr)
+    @test isapprox(w, logpdf(normal, 5, 1+2+3, 1))
+
+    @gen function foo2(x)
+        @trace(normal(x, 1), :a)
+        return x
+    end
+    @test outer(foo2) == 1
+    tr, w = generate(outer, (foo2,), choicemap((:inner => :a) => 5))
+    @test get_args(tr) == (foo2,)
+    sub_tr = Gen.get_call(tr, :inner).subtrace
+    @test get_args(sub_tr) == (1,)
+    @test get_score(tr) == get_score(sub_tr)
+    @test isapprox(w, logpdf(normal, 5, 1, 1))
+
 end
