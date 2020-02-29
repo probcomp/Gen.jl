@@ -12,6 +12,7 @@ struct DynamicDSLFunction{T} <: GenerativeFunction{T,DynamicDSLTrace}
     params_grad::Dict{Symbol,Any}
     params::Dict{Symbol,Any}
     arg_types::Vector{Type}
+    has_defaults::Bool
     arg_defaults::Vector{Union{Some{Any},Nothing}}
     julia_function::Function
     has_argument_grads::Vector{Bool}
@@ -25,9 +26,21 @@ function DynamicDSLFunction(arg_types::Vector{Type},
                      accepts_output_grad::Bool) where {T}
     params_grad = Dict{Symbol,Any}()
     params = Dict{Symbol,Any}()
-    DynamicDSLFunction{T}(params_grad, params, arg_types, arg_defaults,
+    has_defaults = any(arg -> arg != nothing, arg_defaults)
+    DynamicDSLFunction{T}(params_grad, params, arg_types,
+                has_defaults, arg_defaults,
                 julia_function,
                 has_argument_grads, accepts_output_grad)
+end
+
+function DynamicDSLTrace(gen_fn::T, args) where {T<:DynamicDSLFunction}
+    # pad args with default values, if available
+    if gen_fn.has_defaults && length(args) < length(gen_fn.arg_defaults)
+        defaults = gen_fn.arg_defaults[length(args)+1:end]
+        defaults = map(x -> something(x), defaults)
+        args = Tuple(vcat(collect(args), defaults))
+    end
+    DynamicDSLTrace{T}(gen_fn, args)
 end
 
 accepts_output_grad(gen_fn::DynamicDSLFunction) = gen_fn.accepts_output_grad

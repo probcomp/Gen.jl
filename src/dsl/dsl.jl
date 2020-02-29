@@ -42,6 +42,7 @@ function parse_arg(expr)
         # x::Int
         arg = Argument(expr.args[1], expr.args[2])
     elseif isa(expr, Expr) && expr.head == :kw
+        # x::Int=1
         sub_arg = parse_arg(expr.args[1])
         default = Some(expr.args[2])
         arg = Argument(sub_arg.name, sub_arg.typ, Set{Symbol}(), default)
