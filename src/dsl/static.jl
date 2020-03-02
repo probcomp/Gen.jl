@@ -257,7 +257,7 @@ function make_static_gen_function(name, args, body, return_type, annotations)
     bindings = Dict{Symbol,Symbol}() # map from variable name to node name
     for arg in args
         if arg.default != nothing
-            @warn "Ignoring default value $(arg.name)=$(arg.default), unsupported in static DSL."
+            error("Default argument values not supported in the static DSL.")
         end
         node = gensym()
         push!(stmts, :($(esc(node)) = add_argument_node!(

@@ -403,7 +403,7 @@ return z4
 
 The functions must also satisfy the following rules:
 
-- Default argument values are not supported. and will be ignored by the parser if specified.
+- Default argument values are not supported.
 
 - `@trace` expressions cannot appear anywhere in the function body except for as the outer-most expression on the right-hand side of a statement.
 
