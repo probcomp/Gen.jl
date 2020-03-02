@@ -148,7 +148,7 @@ function parse_trace_expr!(stmts, bindings, name, addr_expr, typ)
         args = (call.args[2:end]..., reverse(keys[2:end])...)
     end
     node = gensym()
-    if haskey(bindings, name)   
+    if haskey(bindings, name)
         static_dsl_syntax_error(addr_expr, "Symbol $name already bound")
     end
     bindings[name] = node
@@ -256,11 +256,14 @@ function make_static_gen_function(name, args, body, return_type, annotations)
     push!(stmts, :(set_accepts_output_grad!(builder, $(QuoteNode(accepts_output_grad)))))
     bindings = Dict{Symbol,Symbol}() # map from variable name to node name
     for arg in args
+        if arg.default != nothing
+            error("Default argument values not supported in the static DSL.")
+        end
         node = gensym()
         push!(stmts, :($(esc(node)) = add_argument_node!(
             builder, name=$(QuoteNode(arg.name)), typ=$(QuoteNode(arg.typ)),
             compute_grad=$(QuoteNode(DSL_ARG_GRAD_ANNOTATION in arg.annotations)))))
-        bindings[arg.name] = node 
+        bindings[arg.name] = node
     end
     parse_static_dsl_function_body!(stmts, bindings, body)
     push!(stmts, :(ir = build_ir(builder)))

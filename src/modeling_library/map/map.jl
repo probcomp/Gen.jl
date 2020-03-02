@@ -1,9 +1,9 @@
 ##################
-# map combinator # 
+# map combinator #
 ##################
 
 # used for type dispatch on the VectorTrace type (e.g. we will also have a UnfoldType)
-struct MapType end 
+struct MapType end
 
 """
     gen_fn = Map(kernel::GenerativeFunction)
@@ -15,6 +15,8 @@ The length of each argument, which must be the same for each argument, determine
 Each call to the input function is made under address namespace i for i=1..N.
 The return value of the returned function has type `FunctionalCollections.PersistentVector{Y}` where `Y` is the type of the return value of the input function.
 The map combinator is similar to the 'map' higher order function in functional programming, except that the map combinator returns a new generative function that must then be separately applied.
+
+If `kernel` has optional trailing arguments, the corresponding `Vector` arguments can be omitted from calls to `Map(kernel)`.
 """
 struct Map{T,U} <: GenerativeFunction{PersistentVector{T},VectorTrace{MapType,T,U}}
     kernel::GenerativeFunction{T,U}

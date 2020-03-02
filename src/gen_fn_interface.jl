@@ -141,6 +141,10 @@ Execute the generative function and return the trace.
 
 Given arguments (`args`), sample \$t \\sim p(\\cdot; x)\$ and \$r \\sim p(\\cdot; x,
 t)\$, and return a trace with choice map \$t\$.
+
+If `gen_fn` has optional trailing arguments (i.e., default values are provided),
+the optional arguments can be omitted from the `args` tuple. The generated trace
+ will have default values filled in.
 """
 function simulate(::GenerativeFunction, ::Tuple)
     error("Not implemented")
@@ -158,11 +162,15 @@ Return a trace of a generative function that is consistent with the given
 constraints on the random choices.
 
 Given arguments \$x\$ (`args`) and assignment \$u\$ (`constraints`) (which is empty for the first form), sample \$t \\sim
-q(\\cdot; u, x)\$ and \$r \\sim q(\\cdot; x, t)\$, and return the trace \$(x, t, r)\$ (`trace`). 
+q(\\cdot; u, x)\$ and \$r \\sim q(\\cdot; x, t)\$, and return the trace \$(x, t, r)\$ (`trace`).
 Also return the weight (`weight`):
 ```math
 \\log \\frac{p(t, r; x)}{q(t; u, x) q(r; x, t)}
 ```
+
+If `gen_fn` has optional trailing arguments (i.e., default values are provided),
+the optional arguments can be omitted from the `args` tuple. The generated trace
+ will have default values filled in.
 
 Example without constraints:
 ```julia
@@ -186,7 +194,7 @@ end
     weight = project(trace::U, selection::Selection)
 
 Estimate the probability that the selected choices take the values they do in a
-trace. 
+trace.
 
 Given a trace \$(x, t, r)\$ (`trace`) and a set of addresses \$A\$ (`selection`),
 let \$u\$ denote the restriction of \$t\$ to \$A\$. Return the weight
@@ -223,7 +231,7 @@ end
 Return the probability of proposing an assignment
 
 Given arguments \$x\$ (`args`) and an assignment \$t\$ (`choices`) such that
-\$p(t; x) > 0\$, sample \$r \\sim q(\\cdot; x, t)\$ and 
+\$p(t; x) > 0\$, sample \$r \\sim q(\\cdot; x, t)\$ and
 return the weight (`weight`):
 ```math
 \\log \\frac{p(r, t; x)}{q(r; x, t)}
@@ -256,8 +264,15 @@ return a weight (`weight`):
 ```math
 \\log \\frac{p(r', t'; x') q(r; x, t)}{p(r, t; x) q(r'; x', t') q(t'; x', t + u)}
 ```
+
+Note that `argdiffs` is expected to be the same length as `args`. If the
+function that generated `trace` supports default values for trailing arguments,
+then these arguments can be omitted from `args` and `argdiffs`. Note
+that if the original `trace` was generated using non-default argument values,
+then for each optional argument that is omitted, the old value will be
+over-written by the default argument value in the updated trace.
 """
-function update(trace, ::Tuple, argdiffs::Tuple, ::ChoiceMap)
+function update(trace, args::Tuple, argdiffs::Tuple, ::ChoiceMap)
     error("Not implemented")
 end
 
@@ -280,6 +295,13 @@ Return the new trace \$(x', t', r')\$ (`new_trace`) and the weight
 \\log \\frac{p(r', t'; x') q(t; u', x) q(r; x, t)}{p(r, t; x) q(t'; u, x') q(r'; x', t')}
 ```
 where \$u'\$ is the restriction of \$t'\$ to the complement of \$A\$.
+
+Note that `argdiffs` is expected to be the same length as `args`. If the
+function that generated `trace` supports default values for trailing arguments,
+then these arguments can be omitted from `args` and `argdiffs`. Note
+that if the original `trace` was generated using non-default argument values,
+then for each optional argument that is omitted, the old value will be
+over-written by the default argument value in the regenerated trace.
 """
 function regenerate(trace, args::Tuple, argdiffs::Tuple, selection::Selection)
     error("Not implemented")
@@ -298,6 +320,12 @@ with respect to the arguments \$x\$:
 ```math
 ∇_x \\left( \\log P(t; x) + J \\right)
 ```
+
+The length of `arg_grads` will be equal to the number of arguments to the
+function that generated `trace` (including any optional trailing arguments).
+If an argument is not annotated with `(grad)`, the corresponding value in
+`arg_grads` will be `nothing`.
+
 Also increment the gradient accumulators for the trainable parameters \$Θ\$ of
 the function by:
 ```math
@@ -326,6 +354,12 @@ with respect to the arguments \$x\$:
 ```math
 ∇_x \\left( \\log P(t; x) + J \\right)
 ```
+
+The length of `arg_grads` will be equal to the number of arguments to the
+function that generated `trace` (including any optional trailing arguments).
+If an argument is not annotated with `(grad)`, the corresponding value in
+`arg_grads` will be `nothing`.
+
 Also given a set of addresses \$A\$ (`selection`) that are continuous-valued
 random choices, return the folowing gradient (`choice_grads`) with respect to
 the values of these choices:
