@@ -21,6 +21,7 @@ gamma
 inv_gamma
 beta
 categorical
+geometric
 uniform
 uniform_discrete
 poisson
