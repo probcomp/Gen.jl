@@ -136,8 +136,6 @@ Users may _not_ reassign to arguments (like `x` in the above example), and may
 not apply functions with side effects. Names bound to expressions of type `RND`
 must be used only once. e.g., `let x = normal(0, 1) in x + x` is not allowed.
 
-**TODO:** (Expand on scalar-vs.-vector problems here.)
-
 #### Examples
 
 Let's walk through some examples.
