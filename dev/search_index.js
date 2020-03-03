@@ -473,6 +473,14 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "ref/distributions/#Gen.geometric",
+    "page": "Probability Distributions",
+    "title": "Gen.geometric",
+    "category": "constant",
+    "text": "geometric(p::Real)\n\nSample an Int from the Geometric distribution with parameter p.\n\n\n\n\n\n"
+},
+
+{
     "location": "ref/distributions/#Gen.uniform",
     "page": "Probability Distributions",
     "title": "Gen.uniform",
@@ -533,7 +541,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Probability Distributions",
     "title": "Built-In Distributions",
     "category": "section",
-    "text": "bernoulli\nnormal\nmvnormal\ngamma\ninv_gamma\nbeta\ncategorical\nuniform\nuniform_discrete\npoisson\npiecewise_uniform\nbeta_uniform\nexponential\nlaplace"
+    "text": "bernoulli\nnormal\nmvnormal\ngamma\ninv_gamma\nbeta\ncategorical\ngeometric\nuniform\nuniform_discrete\npoisson\npiecewise_uniform\nbeta_uniform\nexponential\nlaplace"
 },
 
 {
