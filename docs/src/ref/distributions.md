@@ -90,8 +90,6 @@ each expression also belongs to one of three "type spaces." These are:
 **Importantly, Julia control flow constructs generally expect `CONST` values:
 the condition of an `if` or the range of a `for` loop cannot be `ARG` or
 `RND`.**
-_(Developer note: We could change this: it would not be too difficult, e.g., to
-add support for most use cases of `if`.)_
 
 The body expression as a whole must be a `RND` expression, representing a
 random variable. The behavior of the `@dist` definition is then to define a new
