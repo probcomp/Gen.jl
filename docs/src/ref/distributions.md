@@ -70,7 +70,7 @@ the `:n_students` trace address.
 
 ### Permitted means of combination
 
-Of course, it is not possible for `@dist` to work on any arbitrary `body`.  We
+It is not possible for `@dist` to work on any arbitrary `body`.  We
 now describe which constructs are permitted inside the `body` of a `@dist`
 expression.
 
