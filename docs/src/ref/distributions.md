@@ -1,5 +1,3 @@
-## Probability Distributions
-
 ## Built-In Distributions
 
 ```@docs
