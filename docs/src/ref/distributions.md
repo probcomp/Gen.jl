@@ -35,7 +35,7 @@ end
 
 Here `body` is ordinary Julia code, with the constraint that `body` must
 contain exactly one random choice.  The value of the `@dist` expression is then
-a `Gen.distribution` object called `name`, parameterized by `arg1, ..., argN`,
+a `Gen.Distribution` object called `name`, parameterized by `arg1, ..., argN`,
 representing the distribution over _return values_ of `body`.
 
 This DSL is designed to address the issue that sometimes, values stored in the
