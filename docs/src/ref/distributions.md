@@ -1,3 +1,16 @@
+# Probability Distributions
+
+Gen provides a library of built-in probability distributions, and two ways of
+writing custom distributions, both of which are explained below:
+
+1. The `@dist` constructor, for a distribution that can be expressed as a
+   simple deterministic transformation (technically, a
+   [pushforward](https://en.wikipedia.org/wiki/Pushforward_measure)) of an
+   existing distribution.
+
+2. An API for defining arbitrary [custom distributions](@ref
+   custom_distributions) in plain Julia code.
+
 ## Built-In Distributions
 
 ```@docs
@@ -17,12 +30,13 @@ exponential
 laplace
 ```
 
-## Creating New Distributions via the Distributions DSL
+## [Defining New Distributions Inline with the `@dist` DSL](@id dist_dsl)
 
-In addition to using the above built-in distributions, and to defining subtypes
-of `Gen.Distribution` in plain Julia, you may apply deterministic
-transformations to existing distributions and thereby create new ones, using
-the `@dist` DSL.  The syntax for this DSL is
+The `@dist` DSL allows the user to concisely define a distribution, as long as
+that distribution can be expressed as a certain type of deterministic
+transformation of an existing distribution.  The syntax of the `@dist` DSL, as
+well as the class of permitted deterministic transformations, are explained
+below.
 
 ```julia
 @dist name(arg1, arg2, ..., argN) = body
@@ -193,3 +207,12 @@ normal(exp(x), exp(x)) :: RND 				(by rule 3)
 log(normal(exp(x), exp(x))) :: RND 			(by rule 6)
 log(normal(exp(x), exp(x))) + (x * (2 + 3)) :: RND 	(by rule 6)
 ```
+
+## Defining New Distributions From Scratch
+
+For distributions that cannot be expressed in the `@dist` DSL, users can define
+a custom distribution by defining an (ordinary Julia) subtype of
+`Gen.Distribution` and implementing the methods of the [Distribution API](@ref
+custom_distributions).  This method requires more custom code than using the
+`@dist` DSL, but also affords more flexibility: arbitrary user-defined logic
+for sampling, PDF evaluation, etc.

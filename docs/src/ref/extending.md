@@ -98,7 +98,14 @@ update_with_state
 ```
 
 
-## Custom distributions
+## [Custom distributions](@id custom_distributions)
+
+Users can extend Gen with new probability distributions, which can then be used
+to make random choices within generative functions. Simple transformations of
+existing distributions can be created using the [`@dist` DSL](@ref dist_dsl).
+For arbitrary distributions, including distributions that cannot be expressed
+in the `@dist` DSL, users can define a custom distribution by implementing
+Gen's Distribution interface directly, as defined below.
 
 Probability distributions are singleton types whose supertype is `Distribution{T}`, where `T` indicates the data type of the random sample.
 
