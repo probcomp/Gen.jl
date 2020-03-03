@@ -192,28 +192,3 @@ normal(exp(x), exp(x)) :: RND 				(by rule 3)
 log(normal(exp(x), exp(x))) :: RND 			(by rule 6)
 log(normal(exp(x), exp(x))) + (x * (2 + 3)) :: RND 	(by rule 6)
 ```
-
-## A note for the long-term future
-There is a good amount of research on automatically computing densities of
-probabilistic programs (considered as distributions over their return values),
-for example [this very cool
-paper](http://homes.sice.indiana.edu/ccshan/rational/disint2arg.pdf) by the
-Hakaru people. They also rely on invertible (and piecewise invertible)
-functions, change-of-variables, etc., but their approach is significantly more
-sophisticated than what you see here (for one thing, it can handle many random
-samples in the body of the probabilistic program).
-
-Deriving a density calculator for an arbitrary probabilistic program is a sort
-of "holy grail" (and in practice, it seems impossible to achieve -- this would
-amount to computing any marginalization query).   It's nice because it frees
-you (the querier and inference programmer) from reasoning about execution
-traces; you can manually specify your state space (the return value) to be
-parameterized however you want, and write proposals that operate directly on
-that state space.
-
-Adding this "Distribution DSL" to Gen — or really, more general versions that
-incorporate the insights of these "density compilers" down the line — could
-give Gen users the best of both worlds: for the parts of their computation that
-we can automatically compute densities for, they can shove everything into one
-`@trace` statement, and write their model programs and proposal programs as
-distributions. For the rest, they can use generative functions.
