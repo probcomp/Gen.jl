@@ -20,8 +20,9 @@ laplace
 ## Creating New Distributions via the Distributions DSL
 
 In addition to using the above built-in distributions, and to defining subtypes
-of `Gen.Distribution` in plain Julia, you may combine existing distributions to
-create new ones using the `@dist` DSL.  The syntax for this DSL is
+of `Gen.Distribution` in plain Julia, you may apply deterministic
+transformations to existing distributions and thereby create new ones, using
+the `@dist` DSL.  The syntax for this DSL is
 
 ```julia
 @dist name(arg1, arg2, ..., argN) = body
@@ -68,7 +69,7 @@ and think about the more natural random variable `:n_students`.  This leads to
 more natural inference programs, which can constrain and propose directly to
 the `:n_students` trace address.
 
-### Permitted means of combination
+### Permitted constructs for the body of a `@dist`
 
 It is not possible for `@dist` to work on any arbitrary `body`.  We
 now describe which constructs are permitted inside the `body` of a `@dist`
