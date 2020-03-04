@@ -413,7 +413,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Probability Distributions",
     "title": "Probability Distributions",
     "category": "section",
-    "text": ""
+    "text": "Gen provides a library of built-in probability distributions, and two ways of writing custom distributions, both of which are explained below:The @dist constructor, for a distribution that can be expressed as a simple deterministic transformation (technically, a pushforward) of an existing distribution.\nAn API for defining arbitrary custom distributions in plain Julia code."
 },
 
 {
@@ -542,6 +542,46 @@ var documenterSearchIndex = {"docs": [
     "title": "Built-In Distributions",
     "category": "section",
     "text": "bernoulli\nnormal\nmvnormal\ngamma\ninv_gamma\nbeta\ncategorical\ngeometric\nuniform\nuniform_discrete\npoisson\npiecewise_uniform\nbeta_uniform\nexponential\nlaplace"
+},
+
+{
+    "location": "ref/distributions/#dist_dsl-1",
+    "page": "Probability Distributions",
+    "title": "Defining New Distributions Inline with the @dist DSL",
+    "category": "section",
+    "text": "The @dist DSL allows the user to concisely define a distribution, as long as that distribution can be expressed as a certain type of deterministic transformation of an existing distribution.  The syntax of the @dist DSL, as well as the class of permitted deterministic transformations, are explained below.@dist name(arg1, arg2, ..., argN) = bodyor@dist function name(arg1, arg2, ..., argN)\n    body\nendHere body is ordinary Julia code, with the constraint that body must contain exactly one random choice.  The value of the @dist expression is then a Gen.Distribution object called name, parameterized by arg1, ..., argN, representing the distribution over return values of body.This DSL is designed to address the issue that sometimes, values stored in the trace do not correspond to the most natural physical elements of the model state space, making inference programming and querying more taxing than necessary. For example, suppose we have a model of classes at a school, where the number of students is random, with mean 10, but always at least 3. Rather than writing the model as@gen function class_model()\n   n_students = @trace(poisson(7), :n_students_minus_3) + 3\n   ...\nendand thinking about the random variable :n_students_minus_3, you can use the @dist DSL to instead write@dist student_distr(mean, min) = poisson(mean-min) + min\n\n@gen function class_model()\n   n_students = @trace(student_distr(10, 3), :n_students)\n   ...\nendand think about the more natural random variable :n_students.  This leads to more natural inference programs, which can constrain and propose directly to the :n_students trace address."
+},
+
+{
+    "location": "ref/distributions/#Permitted-constructs-for-the-body-of-a-@dist-1",
+    "page": "Probability Distributions",
+    "title": "Permitted constructs for the body of a @dist",
+    "category": "section",
+    "text": "It is not possible for @dist to work on any arbitrary body.  We now describe which constructs are permitted inside the body of a @dist expression.We can think of the body of an @dist function as containing ordinary Julia code, except that in addition to being described by their ordinary Julia types, each expression also belongs to one of three \"type spaces.\" These are:CONST: Constants, whose value is known at the time this @dist expression is evaluated.\nARG: Arguments and (deterministic, differentiable) functions of arguments. All expressions representing non-random values that depend on distribution arguments are ARG expressions.\nRND: Random variables. All expressions whose runtime values may differ across multiple calls to this distribution (with the same arguments) are RND expressions.Importantly, Julia control flow constructs generally expect CONST values: the condition of an if or the range of a for loop cannot be ARG or RND.The body expression as a whole must be a RND expression, representing a random variable. The behavior of the @dist definition is then to define a new distribution (with name name) that samples and evaluates the logpdf of the random variable represented by the body expression.Expressions are typed compositionally, with the following typing rules:Literals and free variables are CONSTs. Literals and symbols that appear free in the @dist body are of type CONST.\nArguments are ARGs. Symbols bound as arguments in the @dist declaration have type ARG in its body.\nDrawing from a distribution gives RND. If d is a distribution, and x_i are of type ARG or CONST, d(x_1, x_2, ...) is of type RND.\nFunctions of CONSTs are CONSTs. If f is a deterministic function and x_i are all of type CONST, f(x_1, x_2, ...) is of type CONST.\nFunctions of CONSTs and ARGs are ARGs. If f is a differentiable function, and each x_i is either a CONST or a scalar ARG (with at least one x_i being an ARG), then f(x_1, x_2, ...) is of type ARG.\nFunctions of CONSTs, ARGs, and RNDs are RNDs. If f is one of a special set of deterministic functions we\'ve defined (+, -, *, /, exp, log, getindex), and exactly one of its arguments x_i is of type RND, then f(x_1, x_2, ...) is of type RND.One way to think about this, without all the rules, is that CONST values are \"contaminated\" by interaction with ARG values (becoming ARGs themselves), and both CONST and ARG are \"contaminated\" by interaction with RND. Thinking of the body as an AST, the journey from leaf node to root node always involves transitions in the direction of CONST -> ARG -> RND, never in reverse. (There are certain similarities here with security types, which also enforce a single direction of information flow – anything that touches classified data is also classified. Also, Tabular v2\'s type system, which similarly separates deterministic and random values in its type system.)"
+},
+
+{
+    "location": "ref/distributions/#Restrictions-1",
+    "page": "Probability Distributions",
+    "title": "Restrictions",
+    "category": "section",
+    "text": "Users may not reassign to arguments (like x in the above example), and may not apply functions with side effects. Names bound to expressions of type RND must be used only once. e.g., let x = normal(0, 1) in x + x is not allowed."
+},
+
+{
+    "location": "ref/distributions/#Examples-1",
+    "page": "Probability Distributions",
+    "title": "Examples",
+    "category": "section",
+    "text": "Let\'s walk through some examples.@dist f(x) = exp(normal(x, 1))We can annotate with types:1 :: CONST		  (by rule 1)\nx :: ARG 		  (by rule 2)\nnormal(x, 1) :: RND 	  (by rule 3)\nexp(normal(x, 1)) :: RND  (by rule 6)Here\'s another:@dist function labeled_cat(labels, probs)\n	index = categorical(probs)\n	labels[index]\nendAnd the types:probs :: ARG 			(by rule 2)\ncategorical(probs) :: RND 	(by rule 3)\nindex :: RND 			(Julia assignment)\nlabels :: ARG 			(by rule 2)\nlabels[index] :: RND 		(by rule 6, f == getindex)Note that getindex is designed to work on anything indexible, not just vectors. So, for example, it also works with Dicts.Another one (not as realistic, but it uses all the rules):@dist function weird(x)\n  log(normal(exp(x), exp(x))) + (x * (2 + 3))\nendAnd the types:2, 3 :: CONST 						(by rule 1)\n2 + 3 :: CONST 						(by rule 4)\nx :: ARG 						(by rule 2)\nx * (2 + 3) :: ARG 					(by rule 5)\nexp(x) :: ARG 						(by rule 5)\nnormal(exp(x), exp(x)) :: RND 				(by rule 3)\nlog(normal(exp(x), exp(x))) :: RND 			(by rule 6)\nlog(normal(exp(x), exp(x))) + (x * (2 + 3)) :: RND 	(by rule 6)"
+},
+
+{
+    "location": "ref/distributions/#Defining-New-Distributions-From-Scratch-1",
+    "page": "Probability Distributions",
+    "title": "Defining New Distributions From Scratch",
+    "category": "section",
+    "text": "For distributions that cannot be expressed in the @dist DSL, users can define a custom distribution by defining an (ordinary Julia) subtype of Gen.Distribution and implementing the methods of the Distribution API.  This method requires more custom code than using the @dist DSL, but also affords more flexibility: arbitrary user-defined logic for sampling, PDF evaluation, etc."
 },
 
 {
@@ -1153,11 +1193,11 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "ref/extending/#Custom-distributions-1",
+    "location": "ref/extending/#custom_distributions-1",
     "page": "Extending Gen",
     "title": "Custom distributions",
     "category": "section",
-    "text": "Probability distributions are singleton types whose supertype is Distribution{T}, where T indicates the data type of the random sample.abstract type Distribution{T} endA new Distribution type must implement the following methods:random\nlogpdf\nhas_output_grad\nlogpdf_grad\nhas_argument_gradsBy convention, distributions have a global constant lower-case name for the singleton value. For example:struct Bernoulli <: Distribution{Bool} end\nconst bernoulli = Bernoulli()Distribution values should also be callable, which is a syntactic sugar with the same behavior of calling random:bernoulli(0.5) # identical to random(bernoulli, 0.5) and random(Bernoulli(), 0.5)random\nlogpdf\nhas_output_grad\nlogpdf_grad"
+    "text": "Users can extend Gen with new probability distributions, which can then be used to make random choices within generative functions. Simple transformations of existing distributions can be created using the @dist DSL. For arbitrary distributions, including distributions that cannot be expressed in the @dist DSL, users can define a custom distribution by implementing Gen\'s Distribution interface directly, as defined below.Probability distributions are singleton types whose supertype is Distribution{T}, where T indicates the data type of the random sample.abstract type Distribution{T} endA new Distribution type must implement the following methods:random\nlogpdf\nhas_output_grad\nlogpdf_grad\nhas_argument_gradsBy convention, distributions have a global constant lower-case name for the singleton value. For example:struct Bernoulli <: Distribution{Bool} end\nconst bernoulli = Bernoulli()Distribution values should also be callable, which is a syntactic sugar with the same behavior of calling random:bernoulli(0.5) # identical to random(bernoulli, 0.5) and random(Bernoulli(), 0.5)random\nlogpdf\nhas_output_grad\nlogpdf_grad"
 },
 
 {
