@@ -169,7 +169,7 @@ exp(normal(x, 1)) :: RND  (by rule 6)
 ```
 
 Here's another:
-```
+```julia
 @dist function labeled_cat(labels, probs)
 	index = categorical(probs)
 	labels[index]
@@ -190,7 +190,7 @@ vectors. So, for example, it also works with Dicts.
 
 Another one (not as realistic, but it uses all the rules):
 
-```
+```julia
 @dist function weird(x)
   log(normal(exp(x), exp(x))) + (x * (2 + 3))
 end
