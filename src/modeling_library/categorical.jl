@@ -8,7 +8,7 @@ Given a vector of probabilities `probs` where `sum(probs) = 1`, sample an `Int` 
 const categorical = Categorical()
 
 function logpdf(::Categorical, x::Int, probs::AbstractArray{U,1}) where {U <: Real}
-    log(probs[x])
+    (x > 0 && x <= length(probs)) ? log(probs[x]) : -Inf
 end
 
 function logpdf_grad(::Categorical, x::Int, probs::AbstractArray{U,1})  where {U <: Real}

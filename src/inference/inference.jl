@@ -2,12 +2,12 @@ import Random
 
 function logsumexp(arr::AbstractArray{T}) where {T <: Real}
     max_arr = maximum(arr)
-    max_arr + log(sum(exp.(arr .- max_arr)))
+    max_arr == -Inf ? -Inf : max_arr + log(sum(exp.(arr .- max_arr)))
 end
 
 function logsumexp(x1::Real, x2::Real)
-    max_arr = max(x1, x2)
-    max_arr + log(exp(x1 - max_arr) + exp(x2 - max_arr))
+    m = max(x1, x2)
+    m == -Inf ? m : m + log(exp(x1 - m) + exp(x2 - m))
 end
 
 export logsumexp

@@ -12,7 +12,7 @@ function logpdf(d::WithLabelArg{T, U}, x::T, collection, base_args...) where {T,
                 push!(logprobs, logpdf(d.base, index, base_args...))
             end
         end
-        logsumexp(logprobs)
+        isempty(logprobs) ? -Inf : logsumexp(logprobs)
     else
         error("Cannot relabel a continuous distribution")
     end
@@ -66,7 +66,7 @@ function logpdf(d::RelabeledDistribution{T, U}, x::T, base_args...) where {T, U}
                 push!(logprobs, logpdf(d.base, index, base_args...))
             end
         end
-        logsumexp(logprobs)
+        isempty(logprobs) ? -Inf : logsumexp(logprobs)
     else
         error("Cannot relabel a continuous distribution")
     end

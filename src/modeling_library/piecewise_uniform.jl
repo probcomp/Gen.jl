@@ -36,9 +36,10 @@ function logpdf(::PiecewiseUniform, x::Real, bounds::AbstractVector{T},
     # |    probs[1]  |  probs[2]         | probs[3]     |
     if x <= bounds[1] || x >= bounds[end]
         -Inf
+    else
+        bin = get_bin(bounds, x)
+        log(probs[bin]) - log(bounds[bin+1] - bounds[bin])
     end
-    bin = get_bin(bounds, x)
-    log(probs[bin]) - log(bounds[bin+1] - bounds[bin])
 end
 
 function random(::PiecewiseUniform, bounds::Vector{T},
