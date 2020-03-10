@@ -8,13 +8,13 @@ Samples a `Vector{Float64}` value from a multivariate normal distribution.
 const mvnormal = MultivariateNormal()
 
 function logpdf(::MultivariateNormal, x::AbstractVector{T}, mu::AbstractVector{U},
-                cov::AbstractMatrix{V}) where {T,U,V}
+                cov::AbstractMatrix{V}) where {T <: Real, U <: Real, V <: Real}
     dist = Distributions.MvNormal(mu, cov)
     Distributions.logpdf(dist, x)
 end
 
 function logpdf_grad(::MultivariateNormal, x::AbstractVector{T}, mu::AbstractVector{U},
-                cov::AbstractMatrix{V}) where {T,U,V}
+                cov::AbstractMatrix{V}) where {T <: Real,U <: Real, V <: Real}
     dist = Distributions.MvNormal(mu, cov)
     inv_cov = Distributions.invcov(dist)
 
@@ -26,7 +26,7 @@ function logpdf_grad(::MultivariateNormal, x::AbstractVector{T}, mu::AbstractVec
 end
 
 function random(::MultivariateNormal, mu::AbstractVector{U},
-                cov::AbstractMatrix{V}) where {T,U,V}
+                cov::AbstractMatrix{V}) where {U <: Real, V <: Real}
     rand(Distributions.MvNormal(mu, cov))
 end
 
