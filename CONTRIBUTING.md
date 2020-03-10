@@ -23,7 +23,7 @@
   + If a reviewer asks for clarification about what the code does or is
     intended to do, this often reveals that some info that future users may
     want to know, is missing.  Rather than just respond to the PR discussion
-    comment, put that information in the docs.
+    comment, consider putting that information in the docs.
 
   + Often, concerns are raised in a PR discussion that lead to a down-scoping
     of the code changes, in order to defer full resolution of the larger issue
