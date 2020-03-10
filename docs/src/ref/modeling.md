@@ -121,7 +121,8 @@ Gen's built in modeling languages require that a address is associated with a fi
 end
 ```
 
-A generative function can be **disciplined** or not. In a disciplined generative function, the support of random choices at each address must be fixed. That is, there exists a set S that is a subset of the sample space such that for all executions of the generative function, if an address appears in the execution, its support must be S. Violating this discipline will cause NaNs, errors, or undefined behavior in certain inference programs. However, there are many inference programs where violating this discipline does not result in undefined behavior and is convenient.
+A generative function can be **disciplined** or not. In a disciplined generative function, the support of random choices at each address must be fixed. That is, for each address `a` there exists a set S that is a subset of the sample space such that for all executions of the generative function, if `a` occurs as the address of a choice in the execution, the support of that choice must be exactly S. Violating this discipline will cause NaNs, errors, or undefined behavior in some inference programs. However, there are many inference programs where violating this discipline does not result in undefined behavior and is convenient.
+Authors of inference programs should document which kinds of undisciplined models their inference algorithms allow or expect to see.
 
 If the support of a random choice needs to change, a disciplined generative function can represent this by using a different address for each distinct value of the support. For example, consider the following generative function:
 ```julia
