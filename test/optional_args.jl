@@ -194,12 +194,11 @@ end
     tr, w = zip([generate(bar1, (1, 1), constraints) for i in 1:100]...)
     @test all(get_retval.(tr) .>= 2)
 
-    @gen function new_prod(d::Int)
+    @gen new_prod(d::Int) =
         @trace(production(d, 2))
-    end
-    @gen function new_aggr(d::Int, cvals::Vector)
+    @gen new_aggr(d::Int, cvals::Vector) =
         @trace(aggregation(d, cvals, xs -> join(string.(xs))))
-    end
+
     bar2 = Recurse(new_prod, new_aggr, 2, Int, Int, Any)
     constraints = choicemap()
     constraints[(1, Val(:production)) => :branch] = true

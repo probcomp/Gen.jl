@@ -430,5 +430,16 @@ end
     @test String(take!(io)) == "my documentation\n"
 end
 
+@testset "one-line definitions" begin
+
+@gen (static) foo(x) = (y = @trace(normal(x, 1), :y); return y)
+
+load_generated_functions()
+
+tr, w = generate(foo, (0,), choicemap(:y => 1))
+@test get_retval(tr) == 1
+@test isapprox(w, logpdf(normal, 1, 0, 1))
+
+end
 
 end # @testset "static DSL"
