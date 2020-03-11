@@ -10,9 +10,13 @@ Samples a `Float64` value from a mixture of a uniform distribution on [0, 1] wit
 const beta_uniform = BetaUniformMixture()
 
 function logpdf(::BetaUniformMixture, x::Real, theta::Real, alpha::Real, beta::Real)
-    lbeta = log(theta) + logpdf(Beta(), x, alpha, beta)
-    luniform = log(1.0 - theta)
-    logsumexp(lbeta, luniform)
+    if x < 0 || x > 1
+        -Inf
+    else
+        lbeta = log(theta) + logpdf(Beta(), x, alpha, beta)
+        luniform = log(1.0 - theta)
+        logsumexp(lbeta, luniform)
+    end
 end
 
 function logpdf_grad(::BetaUniformMixture, x::Real, theta::Real, alpha::Real, beta::Real)

@@ -7,13 +7,12 @@ Sample an `Int` from the Poisson distribution with rate `lambda`.
 """
 const poisson = Poisson()
 
-function logpdf(::Poisson, x::Integer, lambda::Real)
-    x * log(lambda) - lambda - loggamma(x+1)
+function logpdf(::Poisson, x::Int, lambda::Real)
+    x < 0 ? -Inf : x * log(lambda) - lambda - loggamma(x+1)
 end
 
-function logpdf_grad(::Poisson, x::Integer, lambda::Real)
-    error("Not implemented")
-    (nothing, nothing)
+function logpdf_grad(::Poisson, x::Int, lambda::Real)
+    (nothing, x/lambda - 1)
 end
 
 

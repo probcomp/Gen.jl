@@ -1,10 +1,10 @@
 import DataStructures: OrderedDict
 
 @testset "bernoulli" begin
-    
+
     # random
     x = bernoulli(0.5)
-    
+
     # logpdf_grad
     f = (x::Bool, prob::Float64) -> logpdf(bernoulli, x, prob)
     args = (false, 0.3,)
@@ -21,6 +21,9 @@ end
     x = beta(0.5, 0.5)
     @test 0 < x < 1
 
+    # out of support
+    @test logpdf(beta, -1, 0.5, 0.5) == -Inf
+
     # logpdf_grad
     f = (x, alpha, beta_param) -> logpdf(beta, x, alpha, beta_param)
     args = (0.4, 0.2, 0.3)
@@ -35,6 +38,9 @@ end
     # random
     x = categorical([0.2, 0.3, 0.5])
     @test 0 < x < 4
+
+    # out of support
+    @test logpdf(categorical, -1, [0.2, 0.3, 0.5]) == -Inf
 
     # logpdf_grad
     f = (x, probs) -> logpdf(categorical, x, probs)
@@ -53,6 +59,9 @@ end
     x = gamma(1, 1)
     @test 0 < x
 
+    # out of support
+    @test logpdf(gamma, -1, 1, 1) == -Inf
+
     # logpdf_grad
     f = (x, shape, scale) -> logpdf(gamma, x, shape, scale)
     args = (0.4, 0.2, 0.3)
@@ -63,11 +72,14 @@ end
 end
 
 @testset "inv_gamma" begin
-    
+
     # random
     x = inv_gamma(1, 1)
     @test 0 < x
-    
+
+    # out of support
+    @test logpdf(inv_gamma, -1, 1, 1) == -Inf
+
     # logpdf_grad not implemented
 
 end
@@ -188,11 +200,47 @@ end
     @test isapprox(actual[3][2, 2], finite_diff_mat_sym(f, args, 3, 2, 2, dx))
 end
 
+@testset "uniform" begin
+
+    # random
+    x = uniform(-0.5, 0.5)
+    @test -0.5 < x < 0.5
+
+    # out of support
+    @test logpdf(uniform, -1, -0.5, 0.5) == -Inf
+
+    # logpdf_grad
+    f = (x, low, high) -> logpdf(uniform, x, low, high)
+    args = (0.0, -0.5, 0.5)
+    actual = logpdf_grad(uniform, args...)
+    @test isapprox(actual[1], finite_diff(f, args, 1, dx))
+    @test isapprox(actual[2], finite_diff(f, args, 2, dx))
+    @test isapprox(actual[3], finite_diff(f, args, 3, dx))
+end
+
+@testset "uniform_discrete" begin
+
+    # random
+    x = uniform_discrete(10, 20)
+    @test 10 <= x <= 20
+
+    # out of support
+    @test logpdf(uniform_discrete, -1, 10, 20) == -Inf
+
+    # logpdf_grad
+    args = (1, 1, 5)
+    actual = logpdf_grad(uniform_discrete, args...)
+    @test actual == (nothing, nothing, nothing)
+end
+
 @testset "piecewise_uniform" begin
-   
+
     # random
     x = piecewise_uniform([-0.5, 0.5], [1.0])
     @test -0.5 < x < 0.5
+
+    # out of support
+    @test logpdf(piecewise_uniform, -1, [-0.5, 0.5], [1.0]) == -Inf
 
     # logpdf_grad
     f = (x, bounds, probs) -> logpdf(piecewise_uniform, x, bounds, probs)
@@ -211,7 +259,10 @@ end
     # random
     x = beta_uniform(0.5, 0.5, 0.5)
     @test 0 < x < 1
-    
+
+    # out of support
+    @test logpdf(beta_uniform, -1, 0.5, 0.5, 0.5) == -Inf
+
     # logpdf_grad
     f = (x, theta, alpha, beta) -> logpdf(beta_uniform, x, theta, alpha, beta)
     args = (0.5, 0.4, 10., 2.)
@@ -227,6 +278,9 @@ end
     # random
     @test geometric(0.5) >= 0
 
+    # out of support
+    @test logpdf(geometric, -1, 0.5) == -Inf
+
     # logpdf_grad
     f = (x, p) -> logpdf(geometric, x, p)
     args = (4, 0.3)
@@ -240,11 +294,30 @@ end
     # random
     @test exponential(0.5) > 0
 
+    # out of support
+    @test logpdf(exponential, -1, 0.5) == -Inf
+
     # logpdf_grad
     f = (x, rate) -> logpdf(exponential, x, rate)
     args = (1.2, 0.5)
     actual = logpdf_grad(exponential, args...)
     @test isapprox(actual[1], finite_diff(f, args, 1, dx))
+    @test isapprox(actual[2], finite_diff(f, args, 2, dx))
+end
+
+@testset "poisson" begin
+
+    # random
+    @test poisson(1.0) >= 0
+
+    # out of support
+    @test logpdf(poisson, -1, 1.0) == -Inf
+
+    # logpdf_grad
+    f = (x, lambda) -> logpdf(poisson, x, lambda)
+    args = (4, 2.0)
+    actual = logpdf_grad(poisson, args...)
+    @test actual[1] == nothing
     @test isapprox(actual[2], finite_diff(f, args, 2, dx))
 end
 

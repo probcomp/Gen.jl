@@ -97,11 +97,34 @@ val::Bool = @trace(bernoulli(0.5), :z)
 Not all random choices need to be given addresses.
 An address is required if the random choice will be observed, or will be referenced by a custom inference algorithm (e.g. if it will be proposed to by a custom proposal distribution).
 
-### Choices should have constant support
-The support of a random choice at a given address (the set of values with nonzero probability or probability density) must be constant across all possible executions of the `@gen` function.
-Violating this discipline will cause errors in certain cases.
-If the support of a random choice needs to change, use a different address for each distinct value of the support.
-For example, consider the following generative function:
+
+### Sample space and support of random choices
+
+Different probability distributions produce different types of values for their random choices. For example, the [`Bernoulli`](@ref) distribution results in `Bool` values (either `true` or `false`), the [`Normal`](@ref) distribution results in `Real` values that may be positive or negative, and the [`Beta`](@ref) distributions result in `Real` values that are always in the unit interval (0, 1).
+
+Each [`Distribution`](@ref) is associated with two sets of values:
+
+- The **sample space** of the distribution, which does not depend on the arguments.
+
+- The **support** of the distribution, which may depend on the arguments, and is the set of values that has nonzero probability (or probability density). It may be the entire sample space, or it may be a subset of the sample space.
+
+For example, the sample space of [`Bernoulli`](@ref) is `Bool` and its support is either `{true}`, `{false}`, or `{true, false}`. The sample space of [`Normal`](@ref) is `Real` and its support is the set of all values on the real line. The sample space of [`Beta`](@ref) is `Real` and its support is the set of values in the interval (0, 1).
+
+Gen's built in modeling languages require that a address is associated with a fixed sample space. For example, it is not permitted to use a `Bernoulli` distribution to sample at addresss `:a` in one execution, and a `Normal` distribution to sample at address `:a` in a different execution, because their sample spaces differ (`Bool` vs `Real`):
+```julia
+@gen function foo()
+    if @trace(bernoulli(0.5), :branch)
+        @trace(bernoulli(0.5), :x)
+    else
+        @trace(normal(0, 1), :x)
+    end
+end
+```
+
+A generative function can be **disciplined** or not. In a disciplined generative function, the support of random choices at each address must be fixed. That is, for each address `a` there must exist a set S that is a subset of the sample space such that for all executions of the generative function, if `a` occurs as the address of a choice in the execution, then the support of that choice is exactly S. Violating this discipline will cause NaNs, errors, or undefined behavior in some inference programs. However, in many cases it is convenient to write an inference program that operates correctly and efficiently on some specialized class of undisciplined models.
+In these cases, authors who want their inference code to be reusable should consider documenting which kinds of undisciplined models their inference algorithms allow or expect to see.
+
+If the support of a random choice needs to change, a disciplined generative function can represent this by using a different address for each distinct value of the support. For example, consider the following generative function:
 ```julia
 @gen function foo()
     n = @trace(categorical([0.5, 0.5]), :n) + 1
@@ -109,19 +132,12 @@ For example, consider the following generative function:
 end
 ```
 The support of the random choice with address `:x` is either the set ``\{1, 2\}`` or ``\{1, 2, 3\}``.
-Therefore, this random choice does satisfy our condition above.
-This would cause an error with the following, in which the `:n` address is modified, which could result in a change to the domain of the `:x` variable:
+Therefore, this random choice does not have constant support, and the generative function `foo` is not 'disciplined'.
+Specifically, this could result in undefined behavior for the following inference program:
 ```julia
-tr, _ = generate(foo, (), choicemap((:n, 2), (:x, 3)))
-tr, _ = mh(tr, select(:n))
+tr, _ = importance_resampling(foo, (), choicemap((:x, 3)))
 ```
-We can modify the address to satisfy the condition by including the domain in the address:
-```julia
-@gen function foo()
-    n = @trace(categorical([0.5, 0.5]), :n) + 1
-    @trace(categorical(ones(n) / n), (:x, n))
-end
-```
+It is recommended to write disciplined generative functions when possible.
 
 ## Calling generative functions
 
