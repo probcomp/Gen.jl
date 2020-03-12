@@ -23,7 +23,11 @@ end
         return x
     end
 
-    @test baz(5) == 5    
+    @test baz(5) == 5
+
+    @gen (grad) oneliner(x::Float64, (grad)(y::Float64=5)) = x+y
+
+    @test oneliner(5) == 10
 end
 
 @testset "return type" begin

@@ -86,6 +86,7 @@ function desugar_tildes(expr)
 end
 
 function parse_gen_function(ast, annotations)
+    ast = longdef(ast)
     if ast.head != :function
         error("syntax error at $ast in $(ast.head)")
     end
