@@ -18,4 +18,16 @@
   @test enum_cat([0., 1.]) == orange
   @test isapprox(logpdf(enum_cat, orange, [0.5, 0.5]), log(0.5))
   @test logpdf(enum_cat, orange, [1.0]) == -Inf
+
+  @dist symbol_cat(labels::Vector{Symbol}, probs) = labels[categorical(probs)]
+  @test symbol_cat([:a, :b], [0., 1.]) == :b
+  @test_throws MethodError symbol_cat(["a", "b"], [0., 1.])
+  @test logpdf(symbol_cat, :c, [:a, :b], [0.5, 0.5]) == -Inf
+  @test_throws MethodError logpdf(symbol_cat, "c", [:a, :b], [0.5, 0.5])
+
+  @dist int_bounded_uniform(low::Int, high::Int) = uniform(low, high)
+  @test 0.0 <= int_bounded_uniform(0, 1) <= 1
+  @test_throws MethodError int_bounded_uniform(-0.5, 0.5)
+  @test logpdf(int_bounded_uniform, 0.5, 0, 1) == 0
+  @test_throws MethodError logpdf(int_bounded_uniform, 0.0, -0.5, 0.5)
 end
