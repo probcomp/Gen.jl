@@ -151,7 +151,7 @@ macro dist(fnexpr)
   for (i, arg) in enumerate(arguments)
       (argname, argtype, _, _) = splitarg(arg)
       name_to_index[argname] = i
-      name_to_type[argname] = eval(argtype)
+      name_to_type[argname] = __module__.eval(argtype)
   end
 
   function process_node(node)
