@@ -53,7 +53,7 @@ function parse_julia_expr!(stmts, bindings, name::Symbol, expr::Expr,
     input_vars = map((x) -> esc(x[1]), inputs)
     input_nodes = map((x) -> esc(x[2]), inputs)
     fn = Expr(:function, Expr(:tuple, input_vars...), esc(expr))
-    node = gensym()
+    node = gensym(expr.head)
     push!(stmts, :($(esc(node)) = add_julia_node!(
         builder, $fn, inputs=[$(input_nodes...)], name=$(QuoteNode(name)),
         typ=$(QuoteNode(typ)))))
@@ -72,7 +72,7 @@ end
 function parse_julia_expr!(stmts, bindings, name::Symbol, var::QuoteNode,
                            typ::Union{Symbol,Expr,QuoteNode})
     fn = Expr(:function, Expr(:tuple), var)
-    node = gensym()
+    node = gensym(var.value)
     push!(stmts, :($(esc(node)) = add_julia_node!(
         builder, $fn, inputs=[], name=$(QuoteNode(name)),
         typ=$(QuoteNode(typ)))))
@@ -82,7 +82,7 @@ end
 function parse_julia_expr!(stmts, bindings, name::Symbol, value,
                            typ::Union{Symbol,Expr,QuoteNode})
     fn = Expr(:function, Expr(:tuple), QuoteNode(value))
-    node = gensym()
+    node = gensym(repr(value))
     push!(stmts, :($(esc(node)) = add_julia_node!(
         builder, $fn, inputs=[], name=$(QuoteNode(name)),
         typ=$(QuoteNode(typ)))))
@@ -90,13 +90,9 @@ function parse_julia_expr!(stmts, bindings, name::Symbol, value,
 end
 
 function parse_julia_assignment!(stmts, bindings, line::Expr)
-    if line.head != :(=)
-        return false
-    end
-    @assert length(line.args) == 2
-    (lhs, expr) = line.args
+    if !MacroTools.@capture(line, lhs_ = rhs_) return false end
     (name::Symbol, typ) = parse_lhs(lhs)
-    node = parse_julia_expr!(stmts, bindings, name, expr, typ)
+    node = parse_julia_expr!(stmts, bindings, name, rhs, typ)
     bindings[name] = node
     true
 end
@@ -105,38 +101,37 @@ split_addr!(keys, addr_expr::QuoteNode) = push!(keys, addr_expr)
 split_addr!(keys, addr_expr::Symbol) = push!(keys, addr_expr)
 
 function split_addr!(keys, addr_expr::Expr)
-    @assert addr_expr.head == :call
-    @assert length(addr_expr.args) == 3
-    @assert addr_expr.args[1] == :(=>)
-    push!(keys, addr_expr.args[2])
-    split_addr!(keys, addr_expr.args[3])
+    @assert @capture(addr_expr, fst_ => snd_)
+    push!(keys, fst)
+    split_addr!(keys, snd)
 end
 
 choice_or_call_at(gen_fn::GenerativeFunction, addr_typ) = call_at(gen_fn, addr_typ)
 choice_or_call_at(dist::Distribution, addr_typ) = choice_at(dist, addr_typ)
 
+gen_arg_name(arg::Symbol) = gensym(arg)
+gen_arg_name(arg::QuoteNode) = gensym(arg.value)
+gen_arg_name(arg::Expr) = gensym(arg.head)
+gen_arg_name(arg::Any) = gensym(repr(arg))
+
        # parse_trace_expr!(stmts::Vector{Expr}, bindings, name::Symbol("##XYZ"), line::Epr(not :(=)), typ)
 function parse_trace_expr!(stmts, bindings, name, addr_expr, typ)
     # NOTE: typ is unused
-    if !(isa(addr_expr, Expr) && addr_expr.head == :macrocall
-        && length(addr_expr.args) >= 4 && addr_expr.args[1] == STATIC_DSL_TRACE)
-        return false
-    end
-    @assert isa(addr_expr.args[2], LineNumberNode)
-    call = addr_expr.args[3]
+    if !@capture(addr_expr, @macroname_(call_, site_)) return false end
+    if macroname != STATIC_DSL_TRACE return false end
     if !isa(call, Expr) || call.head != :call
         return false
     end
     local addr::Symbol
-    gen_fn_or_dist = gensym()
+    gen_fn_or_dist = gensym(call.args[1])
     push!(stmts, :($(esc(gen_fn_or_dist)) = $(esc(call.args[1]))))
-    if isa(addr_expr.args[4], QuoteNode) && isa(addr_expr.args[4].value, Symbol)
-        addr = addr_expr.args[4].value
+    if isa(site, QuoteNode) && isa(site.value, Symbol)
+        addr = site.value
         args = call.args[2:end]
     else
         # multi-part address syntactic sugar
         keys = []
-        split_addr!(keys, addr_expr.args[4])
+        split_addr!(keys, site)
         if !isa(keys[1], QuoteNode) || !isa(keys[1].value, Symbol)
             return false
         end
@@ -147,14 +142,15 @@ function parse_trace_expr!(stmts, bindings, name, addr_expr, typ)
         end
         args = (call.args[2:end]..., reverse(keys[2:end])...)
     end
-    node = gensym()
+    node = gensym(name)
     if haskey(bindings, name)
         static_dsl_syntax_error(addr_expr, "Symbol $name already bound")
     end
     bindings[name] = node
     inputs = []
     for arg_expr in args
-        push!(inputs, parse_julia_expr!(stmts, bindings, gensym(), arg_expr, QuoteNode(Any)))
+        arg_name = gen_arg_name(arg_expr)
+        push!(inputs, parse_julia_expr!(stmts, bindings, arg_name, arg_expr, QuoteNode(Any)))
     end
     push!(stmts, :($(esc(node)) = add_addr_node!(
         builder, $(esc(gen_fn_or_dist)), inputs=[$(map(esc, inputs)...)], addr=$(QuoteNode(addr)),
@@ -163,15 +159,13 @@ function parse_trace_expr!(stmts, bindings, name, addr_expr, typ)
 end
 
 function parse_trainable_param!(stmts::Vector{Expr}, bindings, line::Expr)
-    if (line.head == :macrocall
-            && line.args[1] == STATIC_DSL_PARAM
-            && length(line.args) == 3
-            && isa(line.args[2], LineNumberNode))
-        (name::Symbol, typ) = parse_lhs(line.args[3])
+    if MacroTools.@capture(line, @macroname_ expr_)
+        if macroname != STATIC_DSL_PARAM return false end
+        (name::Symbol, typ) = parse_lhs(expr)
         if haskey(bindings, name)
             static_dsl_syntax_error(addr_expr, "Symbol $name already bound")
         end
-        node = gensym()
+        node = gensym(name)
         bindings[name] = node
         push!(stmts, :($(esc(node)) = add_trainable_param_node!(
             builder, $(QuoteNode(name)), typ=$(QuoteNode(typ)))))
@@ -182,9 +176,7 @@ function parse_trainable_param!(stmts::Vector{Expr}, bindings, line::Expr)
 end
 
 function parse_trace_line!(stmts::Vector{Expr}, bindings, line::Expr)
-    if line.head == :(=)
-        @assert length(line.args) == 2
-        (lhs, rhs) = line.args
+    if MacroTools.@capture(line, lhs_ = rhs_)
         (name::Symbol, typ) = parse_lhs(lhs)
         parse_trace_expr!(stmts, bindings, name, rhs, typ)
     else
@@ -196,17 +188,15 @@ end
 
 # return foo (must be a symbol) or return @trace(..)
 function parse_return!(stmts::Vector{Expr}, bindings, line::Expr)
-    if line.head != :return
-        return false
-    end
-    if isa(line.args[1], Expr) && line.args[1].head == :macrocall
+    if !MacroTools.@capture(line, return expr_) return false end
+    if isa(expr, Expr) && expr.head == :macrocall
         var = gensym()
         typ = QuoteNode(Any)
-        if !parse_trace_expr!(stmts, bindings, var, line.args[1], typ)
+        if !parse_trace_expr!(stmts, bindings, var, expr, typ)
             return false # the right-hand-side is a macro but not a valid `@trace` expression
         end
-    elseif isa(line.args[1], Symbol)
-        var = line.args[1]
+    elseif isa(expr, Symbol)
+        var = expr
     else
         return false
     end
@@ -259,7 +249,7 @@ function make_static_gen_function(name, args, body, return_type, annotations)
         if arg.default != nothing
             error("Default argument values not supported in the static DSL.")
         end
-        node = gensym()
+        node = gensym(arg.name)
         push!(stmts, :($(esc(node)) = add_argument_node!(
             builder, name=$(QuoteNode(arg.name)), typ=$(QuoteNode(arg.typ)),
             compute_grad=$(QuoteNode(DSL_ARG_GRAD_ANNOTATION in arg.annotations)))))
