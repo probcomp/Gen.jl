@@ -72,6 +72,12 @@ function get_node_by_name(ir, name::Symbol)
     nodes[1]
 end
 
+function get_node_by_addr(ir, addr::Symbol)
+    nodes = filter(n -> hasfield(typeof(n), :addr) && (n.addr==addr), ir.nodes)
+    @assert length(nodes) == 1
+    nodes[1]
+end
+
 @testset "check IR" begin
 
 #####################
@@ -97,7 +103,7 @@ params = ir.arg_nodes[2]
 
 # is_outlier
 is_outlier = ir.choice_nodes[1]
-@test is_outlier.name == :is_outlier
+# @test is_outlier.name == :is_outlier
 @test is_outlier.addr == :z
 @test is_outlier.typ == QuoteNode(Bool)
 @test is_outlier.dist == bernoulli
@@ -115,7 +121,7 @@ in2 = std.inputs[2]
 
 # y
 y = ir.choice_nodes[2]
-@test y.name == :y
+# @test y.name == :y
 @test y.addr == :y
 @test y.typ == QuoteNode(Float64)
 @test y.dist == normal
@@ -157,7 +163,7 @@ xs = ir.arg_nodes[1]
 
 # inlier_std
 inlier_std = ir.choice_nodes[1]
-@test inlier_std.name == :inlier_std
+# @test inlier_std.name == :inlier_std
 @test inlier_std.addr == :inlier_std
 @test inlier_std.typ == QuoteNode(Float64)
 @test inlier_std.dist == gamma
@@ -165,7 +171,7 @@ inlier_std = ir.choice_nodes[1]
 
 # outlier_std
 outlier_std = ir.choice_nodes[2]
-@test outlier_std.name == :outlier_std
+# @test outlier_std.name == :outlier_std
 @test outlier_std.addr == :outlier_std
 @test outlier_std.typ == QuoteNode(Float64)
 @test outlier_std.dist == gamma
@@ -173,7 +179,7 @@ outlier_std = ir.choice_nodes[2]
 
 # slope
 slope = ir.choice_nodes[3]
-@test slope.name == :slope
+# @test slope.name == :slope
 @test slope.addr == :slope
 @test slope.typ == QuoteNode(Float64)
 @test slope.dist == normal
@@ -181,7 +187,7 @@ slope = ir.choice_nodes[3]
 
 # intercept
 intercept = ir.choice_nodes[4]
-@test intercept.name == :intercept
+# @test intercept.name == :intercept
 @test intercept.addr == :intercept
 @test intercept.typ == QuoteNode(Float64)
 @test intercept.dist == normal
@@ -189,7 +195,7 @@ intercept = ir.choice_nodes[4]
 
 # data
 ys = ir.call_nodes[1]
-@test ys.name == :ys
+# @test ys.name == :ys
 @test ys.addr == :data
 @test ys.typ == QuoteNode(PersistentVector{Float64})
 @test ys.generative_function == data_fn
@@ -232,7 +238,7 @@ end
 # at_choice_example_1
 ir = Gen.get_ir(typeof(at_choice_example_1))
 i = get_node_by_name(ir, :i)
-ret = get_node_by_name(ir, :ret)
+ret = get_node_by_addr(ir, :x)
 @test isa(ret, Gen.GenerativeFunctionCallNode)
 @test ret.addr == :x
 @test length(ret.inputs) == 2
@@ -245,7 +251,7 @@ at = ret.generative_function
 # at_choice_example_2
 ir = Gen.get_ir(typeof(at_choice_example_2))
 i = get_node_by_name(ir, :i)
-ret = get_node_by_name(ir, :ret)
+ret = get_node_by_addr(ir, :x)
 @test isa(ret, Gen.GenerativeFunctionCallNode)
 @test ret.addr == :x
 @test length(ret.inputs) == 3
@@ -265,7 +271,7 @@ end
 # at_call_example_1
 ir = Gen.get_ir(typeof(at_call_example_1))
 i = get_node_by_name(ir, :i)
-ret = get_node_by_name(ir, :ret)
+ret = get_node_by_addr(ir, :x)
 @test isa(ret, Gen.GenerativeFunctionCallNode)
 @test ret.addr == :x
 @test length(ret.inputs) == 2
@@ -278,7 +284,7 @@ at = ret.generative_function
 #at_call_example_2
 ir = Gen.get_ir(typeof(at_call_example_2))
 i = get_node_by_name(ir, :i)
-ret = get_node_by_name(ir, :ret)
+ret = get_node_by_addr(ir, :x)
 @test isa(ret, Gen.GenerativeFunctionCallNode)
 @test ret.addr == :x
 @test length(ret.inputs) == 3

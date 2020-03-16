@@ -57,7 +57,7 @@ function parse_julia_expr!(stmts, bindings, name::Symbol, expr::Expr,
     push!(stmts, :($(esc(node)) = add_julia_node!(
         builder, $fn, inputs=[$(input_nodes...)], name=$(QuoteNode(name)),
         typ=$(QuoteNode(typ)))))
-    node
+    return node
 end
 
 function parse_julia_expr!(stmts, bindings, name::Symbol, var::Symbol,
@@ -66,7 +66,7 @@ function parse_julia_expr!(stmts, bindings, name::Symbol, var::Symbol,
         # don't create a new Julia node, just use the existing node
         return bindings[var]
     end
-    parse_julia_expr!(stmts, bindings, name, Expr(:block, var), typ)
+    return parse_julia_expr!(stmts, bindings, name, Expr(:block, var), typ)
 end
 
 function parse_julia_expr!(stmts, bindings, name::Symbol, var::QuoteNode,
@@ -76,7 +76,7 @@ function parse_julia_expr!(stmts, bindings, name::Symbol, var::QuoteNode,
     push!(stmts, :($(esc(node)) = add_julia_node!(
         builder, $fn, inputs=[], name=$(QuoteNode(name)),
         typ=$(QuoteNode(typ)))))
-    node
+    return node
 end
 
 function parse_julia_expr!(stmts, bindings, name::Symbol, value,
@@ -86,15 +86,14 @@ function parse_julia_expr!(stmts, bindings, name::Symbol, value,
     push!(stmts, :($(esc(node)) = add_julia_node!(
         builder, $fn, inputs=[], name=$(QuoteNode(name)),
         typ=$(QuoteNode(typ)))))
-    node
+    return node
 end
 
-function parse_julia_assignment!(stmts, bindings, line::Expr)
-    if !MacroTools.@capture(line, lhs_ = rhs_) return false end
+function parse_julia_assignment!(stmts, bindings, lhs, rhs)
     (name::Symbol, typ) = parse_lhs(lhs)
     node = parse_julia_expr!(stmts, bindings, name, rhs, typ)
     bindings[name] = node
-    true
+    return name
 end
 
 split_addr!(keys, addr_expr::QuoteNode) = push!(keys, addr_expr)
@@ -109,131 +108,104 @@ end
 choice_or_call_at(gen_fn::GenerativeFunction, addr_typ) = call_at(gen_fn, addr_typ)
 choice_or_call_at(dist::Distribution, addr_typ) = choice_at(dist, addr_typ)
 
-gen_arg_name(arg::Symbol) = gensym(arg)
-gen_arg_name(arg::QuoteNode) = gensym(arg.value)
-gen_arg_name(arg::Expr) = gensym(arg.head)
-gen_arg_name(arg::Any) = gensym(repr(arg))
+gen_node_name(arg::Symbol) = gensym(arg)
+gen_node_name(arg::QuoteNode) = gensym(repr(arg.value))
+gen_node_name(arg::Expr) = gensym(arg.head)
+gen_node_name(arg::Any) = gensym(repr(arg))
 
-       # parse_trace_expr!(stmts::Vector{Expr}, bindings, name::Symbol("##XYZ"), line::Epr(not :(=)), typ)
-function parse_trace_expr!(stmts, bindings, name, addr_expr, typ)
-    # NOTE: typ is unused
-    if !@capture(addr_expr, @macroname_(call_, site_)) return false end
-    if macroname != STATIC_DSL_TRACE return false end
-    if !isa(call, Expr) || call.head != :call
-        return false
-    end
-    local addr::Symbol
-    gen_fn_or_dist = gensym(call.args[1])
-    push!(stmts, :($(esc(gen_fn_or_dist)) = $(esc(call.args[1]))))
-    if isa(site, QuoteNode) && isa(site.value, Symbol)
-        addr = site.value
-        args = call.args[2:end]
-    else
-        # multi-part address syntactic sugar
-        keys = []
-        split_addr!(keys, site)
-        if !isa(keys[1], QuoteNode) || !isa(keys[1].value, Symbol)
-            return false
-        end
-        @assert length(keys) > 1
-        addr = keys[1].value
-        for key in keys[2:end]
-            push!(stmts, :($(esc(gen_fn_or_dist)) = choice_or_call_at($(esc(gen_fn_or_dist)), Any)))
-        end
-        args = (call.args[2:end]..., reverse(keys[2:end])...)
-    end
-    node = gensym(name)
-    if haskey(bindings, name)
-        static_dsl_syntax_error(addr_expr, "Symbol $name already bound")
-    end
+function parse_trace_expr!(stmts, bindings, fn, args, addr)
+    name = gen_node_name(addr) # Each @trace node is named after its address
+    node = gen_node_name(addr) # Generate a variable name for the StaticIRNode
     bindings[name] = node
+    if !isa(fn, Symbol)
+        static_dsl_syntax_error("$fn($(args...))", "$fn is not a Symbol")
+    end
+    gen_fn_or_dist = gensym(fn)
+    push!(stmts, :($(esc(gen_fn_or_dist)) = $(esc(fn))))
+
+    keys = []
+    split_addr!(keys, addr) # Split nested addresses
+    if !(isa(keys[1], QuoteNode) && isa(keys[1].value, Symbol))
+        static_dsl_syntax_error(addr, "$(keys[1].value) is not a Symbol")
+    end
+    addr = keys[1].value # Get top level address
+    if length(keys) > 1
+        for key in keys[2:end]
+            # For each nesting level, wrap fn within choice_at / call_at
+            push!(stmts, :($(esc(gen_fn_or_dist)) =
+                choice_or_call_at($(esc(gen_fn_or_dist)), Any)))
+        end
+        # Append the nested addresses as arguments to choice_at / call_at
+        args = (args..., reverse(keys[2:end])...)
+    end
+
     inputs = []
     for arg_expr in args
-        arg_name = gen_arg_name(arg_expr)
-        push!(inputs, parse_julia_expr!(stmts, bindings, arg_name, arg_expr, QuoteNode(Any)))
+        arg_name = gen_node_name(arg_expr)
+        push!(inputs, parse_julia_expr!(stmts, bindings,
+                                        arg_name, arg_expr, QuoteNode(Any)))
     end
     push!(stmts, :($(esc(node)) = add_addr_node!(
-        builder, $(esc(gen_fn_or_dist)), inputs=[$(map(esc, inputs)...)], addr=$(QuoteNode(addr)),
-        name=$(QuoteNode(name)))))
+        builder, $(esc(gen_fn_or_dist)), inputs=[$(map(esc, inputs)...)],
+        addr=$(QuoteNode(addr)), name=$(QuoteNode(name)))))
+
+    # Return the name of the newly assigned variable
+    return name
+end
+
+function parse_trainable_param!(stmts::Vector{Expr}, bindings, expr::Expr)
+    (name::Symbol, typ) = parse_lhs(expr)
+    if haskey(bindings, name)
+        static_dsl_syntax_error(expr, "Symbol $name already bound")
+    end
+    node = gensym(name)
+    bindings[name] = node
+    push!(stmts, :($(esc(node)) = add_trainable_param_node!(
+        builder, $(QuoteNode(name)), typ=$(QuoteNode(typ)))))
     true
 end
 
-function parse_trainable_param!(stmts::Vector{Expr}, bindings, line::Expr)
-    if MacroTools.@capture(line, @macroname_ expr_)
-        if macroname != STATIC_DSL_PARAM return false end
-        (name::Symbol, typ) = parse_lhs(expr)
-        if haskey(bindings, name)
-            static_dsl_syntax_error(addr_expr, "Symbol $name already bound")
+function parse_return!(stmts::Vector{Expr}, bindings, expr)
+    if isa(expr, Symbol)
+        if !haskey(bindings, expr)
+            error("Tried to return $expr, which is not a locally bound variable")
         end
-        node = gensym(name)
+        node = bindings[expr]
+    else
+        name, typ = gensym("return"), QuoteNode(Any)
+        node = parse_julia_expr!(stmts, bindings, name, expr, typ)
         bindings[name] = node
-        push!(stmts, :($(esc(node)) = add_trainable_param_node!(
-            builder, $(QuoteNode(name)), typ=$(QuoteNode(typ)))))
-        true
+    end
+    push!(stmts, :(set_return_node!(builder, $(esc(node)))))
+    return Expr(:return, expr)
+end
+
+function parse_expr!(stmts, bindings, expr)
+    if MacroTools.@capture(expr, @m_(f_(xs__), addr_)) && m == STATIC_DSL_TRACE
+        # Parse "@trace(f(xs...), addr)" and return fresh variable
+        parse_trace_expr!(stmts, bindings, f, xs, addr)
+    elseif MacroTools.@capture(expr, @m_ e_) && m == STATIC_DSL_PARAM
+        # Parse "@param var::T" and return var
+        parse_trainable_param!(stmts, bindings, e)
+    elseif MacroTools.@capture(expr, lhs_ = rhs_)
+        # Parse "lhs = rhs" and return lhs
+        parse_julia_assignment!(stmts, bindings, lhs, rhs)
+    elseif MacroTools.@capture(expr, return e_)
+        # Parse "return expr" and return expr
+        parse_return!(stmts, bindings, e)
     else
-        return false
+        expr
     end
 end
 
-function parse_trace_line!(stmts::Vector{Expr}, bindings, line::Expr)
-    if MacroTools.@capture(line, lhs_ = rhs_)
-        (name::Symbol, typ) = parse_lhs(lhs)
-        parse_trace_expr!(stmts, bindings, name, rhs, typ)
-    else
-        name = gensym()
-        typ = QuoteNode(Any)
-        parse_trace_expr!(stmts, bindings, name, line, typ)
-    end
-end
-
-# return foo (must be a symbol) or return @trace(..)
-function parse_return!(stmts::Vector{Expr}, bindings, line::Expr)
-    if !MacroTools.@capture(line, return expr_) return false end
-    if isa(expr, Expr) && expr.head == :macrocall
-        var = gensym()
-        typ = QuoteNode(Any)
-        if !parse_trace_expr!(stmts, bindings, var, expr, typ)
-            return false # the right-hand-side is a macro but not a valid `@trace` expression
-        end
-    elseif isa(expr, Symbol)
-        var = expr
-    else
-        return false
-    end
-    if haskey(bindings, var)
-        node = bindings[var]
-        push!(stmts, :(set_return_node!(builder, $(esc(node)))))
-        return true
-    else
-        error("Tried to return $var, which is not a locally bound variable")
-    end
-end
-
-function parse_static_dsl_function_body!(stmts::Vector{Expr},
-                                         bindings::Dict{Symbol,Symbol},
-                                         expr)
+function parse_static_dsl_function_body!(
+    stmts::Vector{Expr}, bindings::Dict{Symbol,Symbol}, expr)
     # TODO use line number nodes to provide better error messages in generated code
-    if !isa(expr, Expr) || expr.head != :block
+    if !(isa(expr, Expr) && expr.head == :block)
         static_dsl_syntax_error(expr)
     end
     for line in expr.args
-        isa(line, LineNumberNode) && continue
-        !isa(line, Expr) && static_dsl_syntax_error(line)
-
-        # @param name::type
-        parse_trainable_param!(stmts, bindings, line) && continue
-
-        # lhs = @trace(rhs..) or @trace(rhs)
-        parse_trace_line!(stmts, bindings, line) && continue
-
-        # lhs = rhs
-        # (only run if parsing as choice and call both fail)
-        parse_julia_assignment!(stmts, bindings, line) && continue
-
-        # return ..
-        parse_return!(stmts, bindings, line) && continue
-
-        static_dsl_syntax_error(line)
+        MacroTools.postwalk(e -> parse_expr!(stmts, bindings, e), line)
     end
 end
 
