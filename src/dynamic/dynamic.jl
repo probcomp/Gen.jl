@@ -102,7 +102,7 @@ macro param(expr_or_symbol)
     elseif expr_or_symbol.head == :(::)
         name = expr_or_symbol.args[1]
     else
-        error("Syntax in error in @static at $(expr_or_symbol)")
+        error("Syntax in error in @param at $(expr_or_symbol)")
     end
     Expr(:(=), esc(name), Expr(:call, :read_param, esc(state), QuoteNode(name)))
 end
