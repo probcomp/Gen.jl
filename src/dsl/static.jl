@@ -103,9 +103,10 @@ function parse_assignment!(stmts, bindings, lhs, rhs)
     else
         # Handle single variable assignment (base case)
         (name::Symbol, typ) = parse_typed_var(lhs)
-        # Create new name if variable is already bound
-        if haskey(bindings, name) name = gensym(name) end
-        node = parse_julia_expr!(stmts, bindings, name, rhs, typ)
+        # Generate new node name if name is already bound
+        node_name = haskey(bindings, name) ? gensym(name) : name
+        node = parse_julia_expr!(stmts, bindings, node_name, rhs, typ)
+        # Old bindings are overwritten with new nodes
         bindings[name] = node
     end
     # Return name of node to be processed by parent expressions
