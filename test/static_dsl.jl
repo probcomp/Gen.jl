@@ -14,7 +14,7 @@ end
 
 @gen (static) function datum(x::Float64, (grad)(params::Params))
     is_outlier = @trace(bernoulli(params.prob_outlier), :z)
-    std = is_outlier ? params.inlier_std : params.outlier_std
+    std = is_outlier ? params.outlier_std : params.inlier_std
     y = @trace(normal(x * params.slope + params.intercept, std), :y)
     return y
 end
@@ -30,7 +30,7 @@ my documentation
     outlier_std = @trace(gamma(1, 1), :outlier_std)
     slope = @trace(normal(0, 2), :slope)
     intercept = @trace(normal(0, 2), :intercept)
-    params::Params = Params(0.5, inlier_std, outlier_std, slope, intercept)
+    params::Params = Params(0.5, slope, intercept, inlier_std, outlier_std)
     ys = @trace(data_fn(xs, fill(params, n)), :data)
     return ys
 end
@@ -374,6 +374,103 @@ inputs2 = return_node2.inputs
 @test return_node2.name != return_node1.name
 @test return_node2.addr == return_node1.addr
 @test return_node2.typ === return_node1.typ
+
+end
+
+@testset "@trace within Julia expressions" begin
+
+@gen (static) function circle(r, t, std)
+    pt = (@trace(normal(r*cos(t), std), :x), @trace(normal(r*sin(t), std), :y))
+    return pt
+end
+
+@gen (static) function beta_bernoulli()
+    return @trace(bernoulli(@trace(beta(1, 1), :z)), :x)
+end
+
+load_generated_functions()
+
+x, y = circle(2, pi/2, 0)
+@test isapprox(x, 0.0, atol=1e-8) && isapprox(y, 2.0, atol=1e-8)
+tr, w = generate(circle, (1, 0, 1), choicemap(:x => 1, :y => 1))
+@test isapprox(w, logpdf(normal, 1, 1, 1) + logpdf(normal, 1, 0, 1))
+
+tr, w = generate(beta_bernoulli, (), choicemap(:z => 1.0))
+@test tr[:x] == get_retval(tr) == true
+tr, w = generate(beta_bernoulli, (), choicemap(:z => 0.0))
+@test tr[:x] == get_retval(tr) == false
+tr, w = generate(beta_bernoulli, (), choicemap(:z => 0.5, :x => true))
+@test isapprox(w, logpdf(beta, 0.5, 1, 1) + logpdf(bernoulli, true, 0.5))
+
+end
+
+@testset "repeated assignments" begin
+
+@gen (static) function foo(x)
+    x = x + 1
+    return x
+end
+
+@gen (static) function bar(x)
+    y = x + 1
+    y = y + 1
+    return y + 1
+end
+
+load_generated_functions()
+
+ir = Gen.get_ir(typeof(foo))
+x1 = get_node_by_name(ir, :x)
+x2 = ir.return_node
+@test isa(x1, Gen.ArgumentNode)
+@test isa(x2, Gen.JuliaNode)
+@test x1 !== x2
+@test x2.inputs[1] === x1
+@test foo(0) == 1
+
+ir = Gen.get_ir(typeof(bar))
+y1 = get_node_by_name(ir, :y)
+y2 = ir.return_node.inputs[1]
+@test y1 !== y2
+@test y2.inputs[1] === y1
+@test bar(0) == 3
+
+end
+
+@testset "tuple assignments" begin
+
+@gen (static) function foo(params::Tuple)
+    p, (mu1, sigma1), (mu2, sigma2) = params
+    mu, sigma = @trace(bernoulli(p), :x) ? (mu1, sigma1) : (mu2, sigma2)
+    return @trace(normal(mu, sigma), :y)
+end
+
+ir = Gen.get_ir(typeof(foo))
+params = get_node_by_name(ir, :params)
+p = get_node_by_name(ir, :p)
+mu1 = get_node_by_name(ir, :mu1)
+sigma2 = get_node_by_name(ir, :sigma2)
+@test p.inputs[1] === params
+@test mu1.inputs[1].inputs[1] === params
+@test sigma2.inputs[1].inputs[1] === params
+
+return_node = ir.return_node
+inputs = return_node.inputs
+@test inputs[1] === get_node_by_name(ir, :mu)
+@test inputs[2] === get_node_by_name(ir, :sigma)
+@test inputs[1].fn((:fst, :snd)) == :fst
+@test inputs[2].fn((:fst, :snd)) == :snd
+
+load_generated_functions()
+
+params = (0.5, (0, 1), (1, 2))
+tr, w = generate(foo, (params,), choicemap(:x => true, :y => 1))
+@test get_retval(tr) == 1
+@test isapprox(w, logpdf(bernoulli, true, 0.5) + logpdf(normal, 1, 0, 1))
+
+tr, w = generate(foo, (params,), choicemap(:x => false, :y => 1))
+@test get_retval(tr) == 1
+@test isapprox(w, logpdf(bernoulli, false, 0.5) + logpdf(normal, 1, 1, 2))
 
 end
 
