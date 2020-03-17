@@ -6,13 +6,13 @@ function static_dsl_syntax_error(expr, msg="")
     error("Syntax error when parsing static DSL function at $expr. $msg")
 end
 
-function parse_lhs(lhs)
-    if isa(lhs, Symbol)
-        return (lhs, QuoteNode(Any))
-    elseif isa(lhs, Expr) && lhs.head == :(::)
-        return (lhs.args[1], lhs.args[2])
+function parse_typed_var(expr)
+    if MacroTools.@capture(expr, var_Symbol)
+        return (var, QuoteNode(Any))
+    elseif MacroTools.@capture(expr, var_Symbol::typ_)
+        return (var, typ)
     else
-        static_dsl_syntax_error(lhs)
+        static_dsl_syntax_error(expr)
     end
 end
 
@@ -53,7 +53,7 @@ function parse_julia_expr!(stmts, bindings, name::Symbol, expr::Expr,
     input_vars = map((x) -> esc(x[1]), inputs)
     input_nodes = map((x) -> esc(x[2]), inputs)
     fn = Expr(:function, Expr(:tuple, input_vars...), esc(expr))
-    node = gensym(expr.head)
+    node = gensym(name)
     push!(stmts, :($(esc(node)) = add_julia_node!(
         builder, $fn, inputs=[$(input_nodes...)], name=$(QuoteNode(name)),
         typ=$(QuoteNode(typ)))))
@@ -72,7 +72,7 @@ end
 function parse_julia_expr!(stmts, bindings, name::Symbol, var::QuoteNode,
                            typ::Union{Symbol,Expr,QuoteNode})
     fn = Expr(:function, Expr(:tuple), var)
-    node = gensym(var.value)
+    node = gensym(name)
     push!(stmts, :($(esc(node)) = add_julia_node!(
         builder, $fn, inputs=[], name=$(QuoteNode(name)),
         typ=$(QuoteNode(typ)))))
@@ -82,17 +82,33 @@ end
 function parse_julia_expr!(stmts, bindings, name::Symbol, value,
                            typ::Union{Symbol,Expr,QuoteNode})
     fn = Expr(:function, Expr(:tuple), QuoteNode(value))
-    node = gensym(repr(value))
+    node = gensym(name)
     push!(stmts, :($(esc(node)) = add_julia_node!(
         builder, $fn, inputs=[], name=$(QuoteNode(name)),
         typ=$(QuoteNode(typ)))))
     return node
 end
 
-function parse_julia_assignment!(stmts, bindings, lhs, rhs)
-    (name::Symbol, typ) = parse_lhs(lhs)
-    node = parse_julia_expr!(stmts, bindings, name, rhs, typ)
-    bindings[name] = node
+function parse_assignment!(stmts, bindings, lhs, rhs)
+    if isa(lhs, Expr) && lhs.head == :tuple
+        # Recursively handle tuple assignments
+        name, typ = gen_node_name(rhs), QuoteNode(Any)
+        node = parse_julia_expr!(stmts, bindings, name, rhs, typ)
+        bindings[name] = node
+        for (i, lhs_i) in enumerate(lhs.args)
+            # Assign lhs[i] = rhs[i]
+            rhs_i = :($name[$i])
+            parse_assignment!(stmts, bindings, lhs_i, rhs_i)
+        end
+    else
+        # Handle single variable assignment (base case)
+        (name::Symbol, typ) = parse_typed_var(lhs)
+        # Create new name if variable is already bound
+        if haskey(bindings, name) name = gensym(name) end
+        node = parse_julia_expr!(stmts, bindings, name, rhs, typ)
+        bindings[name] = node
+    end
+    # Return name of node to be processed by parent expressions
     return name
 end
 
@@ -100,7 +116,7 @@ split_addr!(keys, addr_expr::QuoteNode) = push!(keys, addr_expr)
 split_addr!(keys, addr_expr::Symbol) = push!(keys, addr_expr)
 
 function split_addr!(keys, addr_expr::Expr)
-    @assert @capture(addr_expr, fst_ => snd_)
+    @assert MacroTools.@capture(addr_expr, fst_ => snd_)
     push!(keys, fst)
     split_addr!(keys, snd)
 end
@@ -114,11 +130,12 @@ gen_node_name(arg::Expr) = gensym(arg.head)
 gen_node_name(arg::Any) = gensym(repr(arg))
 
 function parse_trace_expr!(stmts, bindings, fn, args, addr)
+    expr_s = "$STATIC_DSL_TRACE($fn($(join(args, ", "))), $addr)"
     name = gen_node_name(addr) # Each @trace node is named after its address
     node = gen_node_name(addr) # Generate a variable name for the StaticIRNode
     bindings[name] = node
     if !isa(fn, Symbol)
-        static_dsl_syntax_error("$fn($(args...))", "$fn is not a Symbol")
+        static_dsl_syntax_error(expr_s, "$fn is not a Symbol")
     end
     gen_fn_or_dist = gensym(fn)
     push!(stmts, :($(esc(gen_fn_or_dist)) = $(esc(fn))))
@@ -136,25 +153,30 @@ function parse_trace_expr!(stmts, bindings, fn, args, addr)
                 choice_or_call_at($(esc(gen_fn_or_dist)), Any)))
         end
         # Append the nested addresses as arguments to choice_at / call_at
-        args = (args..., reverse(keys[2:end])...)
+        args = [args; reverse(keys[2:end])]
     end
 
     inputs = []
     for arg_expr in args
+        if MacroTools.@capture(arg_expr, x_...)
+            static_dsl_syntax_error(expr_s, "Cannot splat in @trace call.")
+        end
+        # Create Julia node for each argument to gen_fn_or_dist
         arg_name = gen_node_name(arg_expr)
         push!(inputs, parse_julia_expr!(stmts, bindings,
                                         arg_name, arg_expr, QuoteNode(Any)))
     end
+
+    # Add addr node
     push!(stmts, :($(esc(node)) = add_addr_node!(
         builder, $(esc(gen_fn_or_dist)), inputs=[$(map(esc, inputs)...)],
         addr=$(QuoteNode(addr)), name=$(QuoteNode(name)))))
-
-    # Return the name of the newly assigned variable
+    # Return the name of the newly created node
     return name
 end
 
 function parse_trainable_param!(stmts::Vector{Expr}, bindings, expr::Expr)
-    (name::Symbol, typ) = parse_lhs(expr)
+    (name::Symbol, typ) = parse_typed_var(expr)
     if haskey(bindings, name)
         static_dsl_syntax_error(expr, "Symbol $name already bound")
     end
@@ -184,12 +206,15 @@ function parse_expr!(stmts, bindings, expr)
     if MacroTools.@capture(expr, @m_(f_(xs__), addr_)) && m == STATIC_DSL_TRACE
         # Parse "@trace(f(xs...), addr)" and return fresh variable
         parse_trace_expr!(stmts, bindings, f, xs, addr)
+    elseif MacroTools.@capture(expr, @m_(f_(xs__))) && m == STATIC_DSL_TRACE
+        # Throw error for @trace expression without address
+        static_dsl_syntax_error(expr, "Address required.")
     elseif MacroTools.@capture(expr, @m_ e_) && m == STATIC_DSL_PARAM
         # Parse "@param var::T" and return var
         parse_trainable_param!(stmts, bindings, e)
     elseif MacroTools.@capture(expr, lhs_ = rhs_)
         # Parse "lhs = rhs" and return lhs
-        parse_julia_assignment!(stmts, bindings, lhs, rhs)
+        parse_assignment!(stmts, bindings, lhs, rhs)
     elseif MacroTools.@capture(expr, return e_)
         # Parse "return expr" and return expr
         parse_return!(stmts, bindings, e)
