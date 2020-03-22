@@ -1,6 +1,7 @@
 import ForwardDiff
 import MacroTools
 using Parameters: @with_kw
+import LinearAlgebra
 
 # TODO do we allow involution functions to call other involution functions (and recursion?)
 
@@ -158,40 +159,94 @@ macro involution(ex)
     MacroTools.@capture(ex, function f_(args__) body_ end) || error("expected syntax: function f(..) .. end")
     MacroTools.@capture(body, (@discrete begin discrete_body_ end; @continuous begin continuous_body_ end))
 
-quote
+    quote
 
     function $f(trace, u)
 
-    constraints = choicemap()
-    u_back = choicemap()
-
-    $discrete_body
-
-    state = InvState(trace=trace, u=u, constraints=constraints, u_back=u_back)
-
-    $(esc(inv_state)) = state
-    $continuous_body
-
-    # add addresses read from t to arr
-    for (addr, v) in state.t_cont_reads
-        if !(addr in state.t_move_reads) # exclude addresses that were moved to another address
-            state.t_key_to_index[addr] = state.next_input_index
-            state.next_input_index += 1
-            push!(state.arr, v)
+        constraints = choicemap()
+        u_back = choicemap()
+    
+        $discrete_body
+    
+        state = InvState(trace=trace, u=u, constraints=constraints, u_back=u_back)
+    
+        $(esc(inv_state)) = state
+        $continuous_body
+    
+        # add addresses read from t to arr
+        for (addr, v) in state.t_cont_reads
+            if !(addr in state.t_move_reads) # exclude addresses that were moved to another address
+                state.t_key_to_index[addr] = state.next_input_index
+                state.next_input_index += 1
+                push!(state.arr, v)
+            end
         end
+    
+        function f_array(input_arr::AbstractArray{T}) where {T <: Real}
+            $(esc(inv_state)) = InvJacState(state, input_arr)
+            $continuous_body
+            $(esc(inv_state)).output_arr
+        end
+    
+        return (constraints, u_back, state.arr, f_array, state.t_key_to_index, state.marked_as_retained)
     end
 
-    function f_array(input_arr::AbstractArray{T}) where {T <: Real}
-        $(esc(inv_state)) = InvJacState(state, input_arr)
-        $array_fn_body
-        $(esc(inv_state)).output_arr
-    end
+    end # quote
 
-    return (constraints, u_back, state.arr, f_array)
-end # quote
 end # macro involution()
 
-@involution function f(a, b)
+function rjmcmc(trace, q, q_args, f)
+
+    # run proposal
+    u, q_fwd_score, = propose(q, (trace, q_args...))
+
+    # run involution
+    (constraints, u_back, arr, f_array, t_key_to_indexm, marked_as_retained) = f(trace, u)
+
+    # update model trace
+    (new_trace, model_weight, _, discard) = update(
+        trace, get_args(trace), map((_) -> NoChange(), get_args(trace)), constraints)
+
+    # check the user's retained assertions (TODO disable this check in fast mode)
+    for addr in marked_as_retained
+        has_value(discard, addr) && error("addr $addr was marked as retained, but was not")
+    end
+
+    # Jacobian of involution
+    # columns are inputs, rows are outputs
+    J = ForwardDiff.Jacobian(h_array, arr)
+    @assert size(J)[2] == length(arr)
+    num_outputs = size(J)[1]
+    
+    # remove columns for inputs from the trace that were retained
+    keep = fill(true, length(arr))
+    for (addr, index) in t_key_to_index
+        if !has_value(constraints, discard)
+            keep[index] = false
+        end
+    end
+    @assert sum(keep) == num_outputs # must be square
+    J = J[:,keep]
+
+    # compute correction
+    correction = LinearAlgebra.logabsdet(J)
+
+    # compute proposal backward score
+    (q_bwd_score, _) = assess(q, (new_trace, q_args...), u_back)
+
+    # accept or reject
+    alpha = weight - q_fwd_score + q_bwd_score - correction # TODO check sign on correction
+    if log(rand()) < alpha
+        # accept
+        return (new_trace, true)
+    else
+        # reject
+        return (trace, false)
+    end
+end
+
+
+expr = MacroTools.prewalk(MacroTools.rmlines, macroexpand(Main, :(@involution function f(a, b)
     @discrete begin
         something = 2
     end
@@ -199,7 +254,9 @@ end # macro involution()
     @continuous begin
         x = 3
     end
-end
+end)))
+
+println(expr)
 
 exit()
 
@@ -447,24 +504,4 @@ for i=1:10
     println(J)
 end
 
-function rjmcmc(trace, q, q_args, h)
-    u, q_fwd_score, = propose(q, (trace, q_args...))
-    (arr, from_array, h_array, disc_constraints, disc_u_back) = h(trace, u) # TODO
-    new_arr = h_array(arr) # TODO we may not need to run it or from_array
-    cont_constraints, cont_u_back = SOMETHING(trace, u) # TODO do this inside h?
-    u_back = merge(cont_u_back, disc_u_back)
-    correction = log(abs(det(ForwardDiff.Jacobian(h_array, arr)))) # TODO
-    (new_trace, model_weight, _, discard) = update(
-        trace, get_args(trace), map((_) -> NoChange(), get_args(trace)),
-        merge(disc_constraints, cont_constraints))
-    (q_bwd_score, _) = assess(q, (new_trace, q_args...), u_back)
-    alpha = weight - q_fwd_score + q_bwd_score - correction # TODO sign on correction
-    if log(rand()) < alpha
-        # accept
-        return (new_trace, true)
-    else
-        # reject
-        return (trace, false)
-    end
-end
 
