@@ -151,7 +151,7 @@ macro involution(ex)
 
     function $(esc(f))($(esc(inv_state))::FwdInvState, $(map(esc, args)...))
 
-        $body
+        $(esc(body))
     
         # add addresses read from t to arr
         state = $(esc(inv_state))
@@ -164,8 +164,9 @@ macro involution(ex)
         end
     
         function f_array(input_arr::AbstractArray{T}) where {T <: Real}
+            # note: we are closing over the arguments
             $(esc(inv_state)) = JacInvState($(esc(inv_state)), input_arr)
-            $body
+            $(esc(body))
             $(esc(inv_state)).output_arr
         end
     
@@ -197,10 +198,16 @@ function log_abs_det_jacobian(f_array, cont_state, discard)
     LinearAlgebra.logabsdet(J)[1]
 end
 
-function involution(f_disc, f_cont!, trace, proposal_args, u, check::Bool)
+# TODO proposal_retval is a way that continuous data can leak unaccounted for..
+# for now, the requirement is that the return value of f_disc cannot depend on
+# continuous addresses in the model or proposal although in the future, we
+# could do AD through its return value as well using choice_gradients() and add
+# these to the Jacobian...?
+
+function involution(f_disc, f_cont!, trace, proposal_args, u, proposal_retval, check::Bool)
 
     # discrete component of involution
-    (disc_constraints, disc_u_back, f_disc_retval) = f_disc(trace, u, proposal_args)
+    (disc_constraints, disc_u_back, f_disc_retval) = f_disc(trace, u, proposal_args, proposal_retval)
 
     # continuous component of involution
     cont_state = FwdInvState(trace=trace, u=u)
@@ -228,14 +235,19 @@ function rjmcmc(trace, q, proposal_args, f_disc, f_cont!;
         check=false, observations=EmptyChoiceMap())
 
     # run proposal
-    u, q_fwd_score, = propose(q, (trace, proposal_args...))
+    u, q_fwd_score, proposal_retval = propose(q, (trace, proposal_args...))
 
-    new_trace, u_back, model_score = involution(f_disc, f_cont!, trace, proposal_args, u, check)
+    new_trace, u_back, model_score = involution(
+        f_disc, f_cont!, trace, proposal_args, u, proposal_retval, check)
     check && Gen.check_observations(get_choices(new_trace), observations)
+
+    # compute proposal backward score
+    (q_bwd_score, proposal_retval_back) = assess(q, (new_trace, proposal_args...), u_back)
 
     # round trip check
     if check
-        trace_rt, u_rt, model_score_rt = involution(f_disc, f_cont!, new_trace, proposal_args, u_back, check)
+        trace_rt, u_rt, model_score_rt = involution(
+            f_disc, f_cont!, new_trace, proposal_args, u_back, proposal_retval_back, check)
         if !isapprox(u_rt, u)
             println("u:")
             println(u)
@@ -256,9 +268,6 @@ function rjmcmc(trace, q, proposal_args, f_disc, f_cont!;
         end
 
     end
-
-    # compute proposal backward score
-    (q_bwd_score, _) = assess(q, (new_trace, proposal_args...), u_back)
 
     # accept or reject
     alpha = model_score - q_fwd_score + q_bwd_score

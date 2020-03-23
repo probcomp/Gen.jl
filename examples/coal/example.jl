@@ -27,8 +27,13 @@ end
     k ~ uniform_discrete(0, 1) # zero or one change point
 
     # rates
-    alpha, beta = 1., 200.
-    rates = Float64[({(:rate, i)} ~ Gen.gamma(alpha, 1. / beta)) for i=1:k+1]
+    rates = Float64[]
+    for i=1:k+1
+        push!(rates, ({(:rate, i)} ~ uniform_continuous(0., 100.)))
+    end
+    
+    ##alpha, beta = 1., 1.
+    #rates = Float64[({(:rate, i)} ~ Gen.gamma(alpha, 1. / beta)) for i=1:k+1]
 
     # poisson process
     if k == 0
@@ -39,24 +44,68 @@ end
     events ~ piecewise_poisson_process(bounds, rates)
 end
 
-@gen function proposal(trace)
+#############
+# rate move #
+#############
+
+@gen function rate_proposal(trace)
     k = trace[:k]
+
     if k == 0
-        u ~ uniform_continuous(0, 1)
+        segment = 1
+    else
+        @assert k == 1
+        # pick a random segment whose rate to change
+        segment ~ uniform_discrete(1, 2)
     end
+
+    # propose new value for the rate
+    cur_rate = trace[(:rate, segment)]
+    new_rate ~ uniform_continuous(cur_rate/2., cur_rate*2.)
+
+    segment
 end
 
-function discrete_involution(trace, u, proposal_args)
+function rate_involution_disc(trace, u, proposal_args, proposal_retval::Int)
+    segment = proposal_retval
+    constraints = choicemap()
+    u_back = choicemap()
+    if trace[:k] == 1
+        u_back[:segment] = segment
+    end
+    (constraints, u_back, segment) # note: the retval cannot depend on continuous parts of the trace or proposal
+end
+
+@involution function rate_involution_cont(model_args, proposal_args, segment::Int)
+    new_rate = @read_from_proposal(:new_rate)
+    @write_to_model((:rate, segment), new_rate)
+    prev_rate = @read_from_model((:rate, segment))
+    @write_to_proposal(:new_rate, prev_rate)
+end
+
+####################
+# split/merge move #
+####################
+
+@gen function split_merge_proposal(trace)
+    k = trace[:k]
+    if k == 0
+        # split
+        u ~ uniform_continuous(0, 1)
+    else
+        # merge
+    end
+    nothing
+end
+
+function split_merge_involution_disc(trace, u, proposal_args, proposal_retval)
     k = trace[:k]
     constraints = choicemap((:k, k == 0 ? 1 : 0))
     u_back = choicemap()
-    retval = k
-    (constraints, u_back, retval)
+    (constraints, u_back, k)
 end
 
-expr = MacroTools.prewalk(MacroTools.rmlines, macroexpand(Main, :(
-@involution function continuous_involution(model_args, proposal_args, f_disc_retval)
-
+@involution function split_merge_involution_cont(model_args, proposal_args, f_disc_retval)
     k = f_disc_retval
 
     if k == 0
@@ -70,6 +119,7 @@ expr = MacroTools.prewalk(MacroTools.rmlines, macroexpand(Main, :(
         @write_to_model((:rate, 2), next_rate)
 
     else
+        @assert k == 1
 
         prev_rate = @read_from_model((:rate, 1))
         next_rate = @read_from_model((:rate, 2))
@@ -79,25 +129,23 @@ expr = MacroTools.prewalk(MacroTools.rmlines, macroexpand(Main, :(
         @write_to_model((:rate, 1), rate)
         @write_to_proposal(:u, u)
     end
-
 end
-)))
-
-println(expr)
-
-eval(expr)
 
 ### experiment 
 
 function do_experiment()
-    events = [0.4, 0.2, 0.3, 0.4, 0.3, 0.2, 0.8]
+    events = rand(50) * 0.5
+    events = vcat(events, rand(25) * 0.5 .+ 0.5)
     obs = choicemap((:events, events))
     (trace, _) = generate(model, (), obs)
-    @time for iter=1:100
+    @time for iter=1:1000
         trace, acc = rjmcmc(
-            trace, proposal, (), discrete_involution, continuous_involution;
+            trace, rate_proposal, (), rate_involution_disc, rate_involution_cont;
             check=true, observations=obs)
-        println("acc: $acc")
+        trace, acc = rjmcmc(
+            trace, split_merge_proposal, (), split_merge_involution_disc, split_merge_involution_cont;
+            check=true, observations=obs)
+        println("k: $(trace[:k]), rates: $([trace[(:rate, segment)] for segment in 1:trace[:k]+1])")
     end
 end
 
