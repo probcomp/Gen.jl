@@ -67,12 +67,12 @@ end
 end
 
 function rate_involution_disc(trace, u, proposal_args, proposal_retval::Int)
-    segment = proposal_retval
-    constraints = choicemap()
-    u_back = choicemap()
-    if trace[:k] == 1
-        u_back[:segment] = segment
-    end
+    #segment = proposal_retval
+    #constraints = choicemap()
+    #u_back = choicemap()
+    #if trace[:k] == 1
+        #u_back[:segment] = segment
+    #end
     (constraints, u_back, segment) # note: the retval cannot depend on continuous parts of the trace or proposal
 end
 
@@ -131,7 +131,9 @@ end
     end
 end
 
-### experiment 
+##############
+# experiment #
+##############
 
 function do_experiment()
     events = rand(50) * 0.5
@@ -150,8 +152,3 @@ function do_experiment()
 end
 
 do_experiment()
-
-
-
-
-

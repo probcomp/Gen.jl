@@ -4,9 +4,13 @@ using Parameters: @with_kw
 import LinearAlgebra
 using Gen
 
-# TODO do we allow involution functions to call other involution functions (and recursion?)
+# TODO switch the order of the args so it matches the old involution order?
 
-# TODO what about moving entire subtrees? -- that should be fine, all the addresses underneath will not be involved in Jacobina.
+# TODO do we allow involution functions to call other involution functions (and
+# recursion?)
+
+# TODO what about moving entire subtrees? -- that should be fine, all the
+# addresses underneath will not be involved in Jacobina.
 
 @with_kw mutable struct FwdInvState
     trace
@@ -204,16 +208,20 @@ end
 # could do AD through its return value as well using choice_gradients() and add
 # these to the Jacobian...?
 
-function involution(f_disc, f_cont!, trace, proposal_args, u, proposal_retval, check::Bool)
+function involution(f_cont!, trace, proposal_args, u, proposal_retval, check::Bool)
+    #f_disc, f_cont!, trace, proposal_args, u, proposal_retval, check::Bool)
 
     # discrete component of involution
-    (disc_constraints, disc_u_back, f_disc_retval) = f_disc(trace, u, proposal_args, proposal_retval)
+    #(disc_constraints, disc_u_back, f_disc_retval) = f_disc(trace, u, proposal_args, proposal_retval)
 
     # continuous component of involution
     cont_state = FwdInvState(trace=trace, u=u)
-    f_array = f_cont!(cont_state, get_args(trace), proposal_args, f_disc_retval)
-    constraints = merge(disc_constraints, cont_state.constraints)
-    u_back = merge(disc_u_back, cont_state.u_back)
+    # TODO proposal_retval cannot depend on continuous random choices in model or proposal (we might be abel to relax this later using choice_gradients)
+    f_array = f_cont!(cont_state, get_args(trace), proposal_retval, proposal_args)#, f_disc_retval)
+    #constraints = merge(disc_constraints, cont_state.constraints)
+    #u_back = merge(disc_u_back, cont_state.u_back)
+    constraints = cont_state.constraints
+    u_back = cont_state.u_back
 
     # update model trace
     (new_trace, model_weight, _, discard) = update(
@@ -231,14 +239,16 @@ function involution(f_disc, f_cont!, trace, proposal_args, u, proposal_retval, c
     (new_trace, u_back, model_weight + correction)
 end
 
-function rjmcmc(trace, q, proposal_args, f_disc, f_cont!;
+#function rjmcmc(trace, q, proposal_args, f_disc, f_cont!;
+function rjmcmc(trace, q, proposal_args, f_cont!;
         check=false, observations=EmptyChoiceMap())
 
     # run proposal
     u, q_fwd_score, proposal_retval = propose(q, (trace, proposal_args...))
 
     new_trace, u_back, model_score = involution(
-        f_disc, f_cont!, trace, proposal_args, u, proposal_retval, check)
+        f_cont!, trace, proposal_args, u, proposal_retval, check)
+        #f_disc, f_cont!, trace, proposal_args, u, proposal_retval, check)
     check && Gen.check_observations(get_choices(new_trace), observations)
 
     # compute proposal backward score
@@ -247,7 +257,8 @@ function rjmcmc(trace, q, proposal_args, f_disc, f_cont!;
     # round trip check
     if check
         trace_rt, u_rt, model_score_rt = involution(
-            f_disc, f_cont!, new_trace, proposal_args, u_back, proposal_retval_back, check)
+            f_cont!, new_trace, proposal_args, u_back, proposal_retval_back, check)
+            #f_disc, f_cont!, new_trace, proposal_args, u_back, proposal_retval_back, check)
         if !isapprox(u_rt, u)
             println("u:")
             println(u)
