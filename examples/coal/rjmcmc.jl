@@ -176,27 +176,7 @@ macro involution(ex)
 
 end # macro involution()
 
-function rjmcmc(trace, q, proposal_args, f_disc, f_cont!)
-
-    # run proposal
-    u, q_fwd_score, = propose(q, (trace, proposal_args...))
-
-    # run discrete involution
-    (disc_constraints, disc_u_back, f_disc_retval) = f_disc(trace, u, proposal_args)
-    
-    # run continuous bijection, and get array function for computing Jacobian
-    cont_state = FwdInvState(trace=trace, u=u)
-    f_array = f_cont!(cont_state, get_args(trace), proposal_args, f_disc_retval)
-
-    # update model trace
-    constraints = merge(disc_constraints, cont_state.constraints)
-    (new_trace, model_weight, _, discard) = update(
-        trace, get_args(trace), map((_) -> NoChange(), get_args(trace)), constraints)
-
-    # check the user's retained assertions (TODO disable this check in fast mode)
-    for addr in cont_state.marked_as_retained
-        has_value(discard, addr) && error("addr $addr was marked as retained, but was not")
-    end
+function log_abs_det_jacobian(f_array, cont_state, discard)
 
     # Jacobian of involution
     # columns are inputs, rows are outputs
@@ -214,15 +194,74 @@ function rjmcmc(trace, q, proposal_args, f_disc, f_cont!)
     @assert sum(keep) == num_outputs # must be square
     J = J[:,keep]
 
-    # compute correction
-    correction = LinearAlgebra.logabsdet(J)[1]
+    LinearAlgebra.logabsdet(J)[1]
+end
+
+function involution(f_disc, f_cont!, trace, proposal_args, u, check::Bool)
+
+    # discrete component of involution
+    (disc_constraints, disc_u_back, f_disc_retval) = f_disc(trace, u, proposal_args)
+
+    # continuous component of involution
+    cont_state = FwdInvState(trace=trace, u=u)
+    f_array = f_cont!(cont_state, get_args(trace), proposal_args, f_disc_retval)
+    constraints = merge(disc_constraints, cont_state.constraints)
+    u_back = merge(disc_u_back, cont_state.u_back)
+
+    # update model trace
+    (new_trace, model_weight, _, discard) = update(
+        trace, get_args(trace), map((_) -> NoChange(), get_args(trace)), constraints)
+
+    # check the user's retained assertions
+    if check
+        for addr in cont_state.marked_as_retained
+            has_value(discard, addr) && error("addr $addr was marked as retained, but was not")
+        end
+    end
+
+    correction = log_abs_det_jacobian(f_array, cont_state, discard)
+
+    (new_trace, u_back, model_weight + correction)
+end
+
+function rjmcmc(trace, q, proposal_args, f_disc, f_cont!;
+        check=false, observations=EmptyChoiceMap())
+
+    # run proposal
+    u, q_fwd_score, = propose(q, (trace, proposal_args...))
+
+    new_trace, u_back, model_score = involution(f_disc, f_cont!, trace, proposal_args, u, check)
+    check && Gen.check_observations(get_choices(new_trace), observations)
+
+    # round trip check
+    if check
+        trace_rt, u_rt, model_score_rt = involution(f_disc, f_cont!, new_trace, proposal_args, u_back, check)
+        if !isapprox(u_rt, u)
+            println("u:")
+            println(u)
+            println("u_rt:")
+            println(u_rt)
+            error("Involution round trip check failed")
+        end
+        if !isapprox(get_choices(trace), get_choices(trace_rt))
+            println("get_choices(trace):")
+            println(get_choices(trace))
+            println("get_choices(trace_rt):")
+            println(get_choices(trace_rt))
+            error("Involution round trip check failed")
+        end
+        if !isapprox(model_score, -model_score_rt)
+            println("model_score: $model_score, -model_score_rt: $(-model_score_rt)")
+            error("Involution round trip check failed")
+        end
+
+    end
 
     # compute proposal backward score
-    u_back = merge(disc_u_back, cont_state.u_back)
     (q_bwd_score, _) = assess(q, (new_trace, proposal_args...), u_back)
 
     # accept or reject
-    alpha = model_weight - q_fwd_score + q_bwd_score - correction # TODO check sign on correction
+    alpha = model_score - q_fwd_score + q_bwd_score
     if log(rand()) < alpha
         # accept
         return (new_trace, true)

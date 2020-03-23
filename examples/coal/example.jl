@@ -93,9 +93,10 @@ function do_experiment()
     events = [0.4, 0.2, 0.3, 0.4, 0.3, 0.2, 0.8]
     obs = choicemap((:events, events))
     (trace, _) = generate(model, (), obs)
-    for iter=1:100
+    @time for iter=1:100
         trace, acc = rjmcmc(
-            trace, proposal, (), discrete_involution, continuous_involution)
+            trace, proposal, (), discrete_involution, continuous_involution;
+            check=true, observations=obs)
         println("acc: $acc")
     end
 end
