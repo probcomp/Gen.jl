@@ -51,6 +51,22 @@ end
 
 const inv_state = gensym("inv_state")
 
+# read discrete from model
+
+# TODO
+
+# write discrete to model
+
+# TODO
+
+# read discrete from proposal
+
+# TODO
+
+# write discrete to proposal
+
+# TODO
+
 # read from proposal
 
 macro read_from_proposal(addr)
@@ -85,10 +101,7 @@ function read_from_model(state::JacInvState, addr)
     state.input_arr[state.t_key_to_index[addr]]
 end
 
-# read from model retained
-
-# * it will not contribute to the Jacobian *
-# TODO add an optional dynamic check for this -- it should not appear in the discard from update
+# read from model retained (optional, for efficiency)
 
 macro read_from_model_retained(addr)
     quote read_from_model_retained($(esc(inv_state)), addr) end
@@ -201,7 +214,7 @@ function rjmcmc(trace, q, q_args, f)
     u, q_fwd_score, = propose(q, (trace, q_args...))
 
     # run involution
-    (constraints, u_back, arr, f_array, t_key_to_indexm, marked_as_retained) = f(trace, u)
+    (constraints, u_back, arr, f_array, t_key_to_index, marked_as_retained) = f(trace, u)
 
     # update model trace
     (new_trace, model_weight, _, discard) = update(
@@ -258,16 +271,7 @@ end)))
 
 println(expr)
 
-exit()
-
-
-# TODO what about the support requirement?
-
-# we could have two DSLs, discrete and continuous
-# discrete would be regular Julia functions (recursion) and would run first?
-# continuous
-# or allow involution code to call itself recursively, and pass the state?
-
+expr = MacroTools.prewalk(MacroTools.rmlines, macroexpand(Main, :(
 @involution function f(model_args, randomness_args)
 
     @discrete begin
@@ -351,6 +355,14 @@ exit()
     
     end
 end
+)))
+
+println(expr)
+
+eval(expr)
+
+
+exit()
 
 function f(t::Dict, u::Dict, args)
 
