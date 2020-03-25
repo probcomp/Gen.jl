@@ -155,7 +155,8 @@ end
 # - swaps choices[(CHANGEPT, i)] with fwd_choices[:new_changept]
 
 @involution function position_involution(model_args, proposal_args, proposal_retval::Int)
-    @copy_proposal_to_proposal(:i, :i)
+    i = @read_discrete_from_proposal(:i)
+    @write_discrete_to_proposal(:i, i)
     @copy_model_to_proposal((CHANGEPT, i), :new_changept)
     @copy_proposal_to_model(:new_changept, (CHANGEPT, i))
 end
@@ -250,6 +251,7 @@ end
     end
     
     # the changepoint to be added or deleted
+    i = @read_discrete_from_proposal(CHOSEN)
     @copy_proposal_to_proposal(CHOSEN, CHOSEN)
 
     if isbirth
@@ -292,93 +294,115 @@ end
 @involution function death(k::Int, i::Int)
     @write_discrete_to_model(K, k-1)
 
+    cp_deleted = @read_continuous_from_model((CHANGEPT, i))
+    cp_prev = (i == 1) ? 0. : @read_continuous_from_model((CHANGEPT, i-1))
+    cp_next = (i == k) ? T : @read_continuous_from_model((CHANGEPT, i+1))
+    @copy_model_to_proposal((CHANGEPT, i), NEW_CHANGEPT)
 
-end
-
-function birth_death_involution(trace, fwd_choices::ChoiceMap, fwd_ret, proposal_args::Tuple)
-    model_args = get_args(trace)
-    T = model_args[1]
-
-    bwd_choices = choicemap()
-
-    # current number of changepoints
-    k = trace[K]
-    
-    # if k == 0, then we can only do a birth move
-    isbirth = (k == 0) || fwd_choices[IS_BIRTH]
-
-    # if we are a birth move, the inverse is a death move
-    if k > 1 || isbirth
-        bwd_choices[IS_BIRTH] = !isbirth
-    end
-    
-    # the changepoint to be added or deleted
-    i = fwd_choices[CHOSEN]
-    bwd_choices[CHOSEN] = i
-
-    # populate constraints
-    constraints = choicemap()
-    if isbirth
-        constraints[K] = k + 1
-
-        cp_new = fwd_choices[NEW_CHANGEPT]
-        cp_prev = (i == 1) ? 0. : trace[(CHANGEPT, i-1)]
-        cp_next = (i == k+1) ? T : trace[(CHANGEPT, i)]
-
-        # set new changepoint
-        constraints[(CHANGEPT, i)] = cp_new
-
-        # shift up changepoints
-        for j=i+1:k+1
-            constraints[(CHANGEPT, j)] = trace[(CHANGEPT, j-1)]
-        end
-
-        # compute new rates
-        h_cur = trace[(RATE, i)]
-        u = fwd_choices[U]
-        (h_prev, h_next) = new_rates([h_cur, u, cp_new, cp_prev, cp_next])
-        J = jacobian(new_rates, [h_cur, u, cp_new, cp_prev, cp_next])[:,1:2]
-
-        # set new rates
-        constraints[(RATE, i)] = h_prev
-        constraints[(RATE, i+1)] = h_next
-
-        # shift up rates
-        for j=i+2:k+2
-            constraints[(RATE, j)] = trace[(RATE, j-1)]
-        end
-    else
-        constraints[K] = k - 1
-
-        cp_deleted = trace[(CHANGEPT, i)]
-        cp_prev = (i == 1) ? 0. : trace[(CHANGEPT, i-1)]
-        cp_next = (i == k) ? T : trace[(CHANGEPT, i+1)]
-        bwd_choices[NEW_CHANGEPT] = cp_deleted 
-
-        # shift down changepoints
-        for j=i:k-1
-            constraints[(CHANGEPT, j)] = trace[(CHANGEPT, j+1)]
-        end
-
-        # compute cur rate and u
-        h_prev = trace[(RATE, i)]
-        h_next = trace[(RATE, i+1)]
-        (h_cur, u) = new_rates_inverse([h_prev, h_next, cp_deleted, cp_prev, cp_next])
-        J = jacobian(new_rates_inverse, [h_prev, h_next, cp_deleted, cp_prev, cp_next])[:,1:2]
-        bwd_choices[U] = u
-
-        # set cur rate
-        constraints[(RATE, i)] = h_cur
-
-        # shift down rates
-        for j=i+1:k
-            constraints[(RATE, j)] = trace[(RATE, j+1)]
-        end
+    # shift down changepoints
+    for j=i:k-1
+        @copy_model_to_model((CHANGEPT, j+1), (CHANGEPT, j))
     end
 
-    (new_trace, weight, _, _) = update(trace, model_args, (NoChange(),), constraints)
-    (new_trace, bwd_choices, weight + log(abs(det(J))))
+    # compute cur rate and u
+    h_prev = @read_continuous_from_model((RATE, i))
+    h_next = @read_continuous_from_model((RATE, i+1))
+    (h_cur, u) = new_rates_inverse(h_prev, h_next, cp_deleted, cp_prev, cp_next)
+    @write_continuous_to_proposal(U, u)
+
+    # set cur rate
+    @write_continuous_to_model((RATE, i), h_cur)
+
+    # shift down rates
+    for j=i+1:k
+        @copy_model_to_model((RATE, j+1), (RATE, j))
+    end
 end
+
+#function birth_death_involution(trace, fwd_choices::ChoiceMap, fwd_ret, proposal_args::Tuple)
+    #model_args = get_args(trace)
+    #T = model_args[1]
+#
+    #bwd_choices = choicemap()
+#
+    ## current number of changepoints
+    #k = trace[K]
+    #
+    ## if k == 0, then we can only do a birth move
+    #isbirth = (k == 0) || fwd_choices[IS_BIRTH]
+#
+    ## if we are a birth move, the inverse is a death move
+    #if k > 1 || isbirth
+        #bwd_choices[IS_BIRTH] = !isbirth
+    #end
+    #
+    ## the changepoint to be added or deleted
+    #i = fwd_choices[CHOSEN]
+    #bwd_choices[CHOSEN] = i
+#
+    ## populate constraints
+    #constraints = choicemap()
+    #if isbirth
+        #constraints[K] = k + 1
+#
+        #cp_new = fwd_choices[NEW_CHANGEPT]
+        #cp_prev = (i == 1) ? 0. : trace[(CHANGEPT, i-1)]
+        #cp_next = (i == k+1) ? T : trace[(CHANGEPT, i)]
+#
+        ## set new changepoint
+        #constraints[(CHANGEPT, i)] = cp_new
+#
+        ## shift up changepoints
+        #for j=i+1:k+1
+            #constraints[(CHANGEPT, j)] = trace[(CHANGEPT, j-1)]
+        #end
+#
+        ## compute new rates
+        #h_cur = trace[(RATE, i)]
+        #u = fwd_choices[U]
+        #(h_prev, h_next) = new_rates([h_cur, u, cp_new, cp_prev, cp_next])
+        #J = jacobian(new_rates, [h_cur, u, cp_new, cp_prev, cp_next])[:,1:2]
+#
+        ## set new rates
+        #constraints[(RATE, i)] = h_prev
+        #constraints[(RATE, i+1)] = h_next
+#
+        ## shift up rates
+        #for j=i+2:k+2
+            #constraints[(RATE, j)] = trace[(RATE, j-1)]
+        #end
+    #else
+        #constraints[K] = k - 1
+#
+        #cp_deleted = trace[(CHANGEPT, i)]
+        #cp_prev = (i == 1) ? 0. : trace[(CHANGEPT, i-1)]
+        #cp_next = (i == k) ? T : trace[(CHANGEPT, i+1)]
+        #bwd_choices[NEW_CHANGEPT] = cp_deleted 
+#
+        ## shift down changepoints
+        #for j=i:k-1
+            #constraints[(CHANGEPT, j)] = trace[(CHANGEPT, j+1)]
+        #end
+#
+        ## compute cur rate and u
+        #h_prev = trace[(RATE, i)]
+        #h_next = trace[(RATE, i+1)]
+        #(h_cur, u) = new_rates_inverse([h_prev, h_next, cp_deleted, cp_prev, cp_next])
+        #J = jacobian(new_rates_inverse, [h_prev, h_next, cp_deleted, cp_prev, cp_next])[:,1:2]
+        #bwd_choices[U] = u
+#
+        ## set cur rate
+        #constraints[(RATE, i)] = h_cur
+#
+        ## shift down rates
+        #for j=i+1:k
+            #constraints[(RATE, j)] = trace[(RATE, j+1)]
+        #end
+    #end
+#
+    #(new_trace, weight, _, _) = update(trace, model_args, (NoChange(),), constraints)
+    #(new_trace, bwd_choices, weight + log(abs(det(J))))
+#end
 
 birth_death_move(trace) = metropolis_hastings(trace, birth_death_proposal, (), birth_death_involution, check=true)
 
@@ -574,68 +598,3 @@ plot_posterior_mean_rate()
 
 println("making trace plot...")
 plot_trace_plot()
-
-# new 
-
-expr = MacroTools.prewalk(MacroTools.rmlines, macroexpand(Main, :(
-@involution function f(model_args, q_args, f_disc_retval)
-
-    (k, isbirth, chosen) = f_disc_retval
-
-    if isbirth
-
-        cp_new = @read_from_proposal(NEW_CHANGEPT)
-        cp_prev = (i == 1) ? 0. : @read_from_model((CHANGEPT, i-1))
-        cp_next = (i == k+1) ? T : @read_from_model((CHANGEPT, i))
-
-        # set new changepoint
-        @write_to_model((CHANGEPT, i), cp_new)
-
-        # shift up changepoints
-        for j=i+1:k+1
-            @move_model((CHANGEPT, j-1), (CHANGEPT, j))
-        end
-
-        # compute new rates
-        h_cur = @read_from_model((RATE, i))
-        u = @read_from_proposal(U)
-        (h_prev, h_next) = new_rates([h_cur, u, cp_new, cp_prev, cp_next])
-
-        # set new rates
-        @write_to_model((RATE, i), h_prev)
-        @write_to_model((RATE, i+1), h_next)
-
-        # shift up rates
-        for j=i+2:k+2
-            @move_model((RATE, j-1), (RATE, j))
-        end
-    else
-
-        cp_deleted = @read_from_model((CHANGEPT, i))
-        cp_prev = (i == 1) ? 0. : @read_from_model((CHANGEPT, i-1))
-        cp_next = (i == k) ? T : @read_from_model((CHANGEPT, i+1))
-        @write_to_proposal(NEW_CHANGEPT, cp_deleted)
-
-        # shift down changepoints
-        for j=i:k-1
-            @move_model((CHANGEPT, j+1), (CHANGEPT, j))
-        end
-
-        # compute cur rate and u
-        h_prev = @read_from_model((RATE, i))
-        h_next = @read_from_model((RATE, i+1))
-        (h_cur, u) = new_rates_inverse([h_prev, h_next, cp_deleted, cp_prev, cp_next])
-        @write_to_proposal(U, u)
-
-        # set cur rate
-        @write_to_model((RATE, i), h_cur)
-
-        # shift down rates
-        for j=i+1:k
-            @move_model((RATE, j+1), (RATE, j))
-        end
-    end
-end
-)))
-
-

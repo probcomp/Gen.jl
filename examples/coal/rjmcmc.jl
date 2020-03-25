@@ -135,7 +135,11 @@ function read_continuous_from_proposal(state::FirstPassState, addr)
 end
 
 function read_continuous_from_proposal(state::JacobianPassState, addr)
-    state.input_arr[state.u_key_to_index[addr]]
+    if haskey(state.u_key_to_index, addr)
+        state.input_arr[state.u_key_to_index[addr]]
+    else
+        state.u[addr]
+    end
 end
 
 # read continuous from model
@@ -150,7 +154,11 @@ function read_continuous_from_model(state::FirstPassState, addr)
 end
 
 function read_continuous_from_model(state::JacobianPassState, addr)
-    state.input_arr[state.t_key_to_index[addr]]
+    if haskey(state.t_key_to_index, addr)
+        state.input_arr[state.t_key_to_index[addr]]
+    else
+        state.trace[addr]
+    end
 end
 
 # read continuous from model retained (optional, for efficiency)
