@@ -7,18 +7,36 @@ using Gen
 # TODO allow providing a pair of address namespaces, one for the model and one
 # for the proposal, when calling another involution function with callinv
 
-@with_kw mutable struct ForwardPassState
+# TODO proposal_retval is a way that continuous data can leak unaccounted for..
+# for now, the requirement is that the return value of f_disc cannot depend on
+# continuous addresses in the model or proposal although in the future, we
+# could do AD through its return value as well using choice_gradients() and add
+# these to the Jacobian...?
+
+struct Involution
+    fn!::Function
+end
+
+struct FirstPassState
     trace
     u::ChoiceMap
-    constraints = choicemap()
-    u_back = choicemap()
-    t_cont_reads = Dict()
-    u_cont_reads = Dict()
-    t_cont_writes = Dict()
-    u_cont_writes = Dict()
-    t_move_reads = DynamicSelection()
-    u_move_reads = DynamicSelection()
-    marked_as_retained = Set()
+    constraints::ChoiceMap
+    u_back::ChoiceMap
+    t_cont_reads::Dict
+    u_cont_reads::Dict
+    t_cont_writes::Dict
+    u_cont_writes::Dict
+    t_move_reads::DynamicSelection
+    u_move_reads::DynamicSelection
+    marked_as_retained::Set
+end
+
+function FirstPassState(trace, u::ChoiceMap)
+    FirstPassState(
+        trace, u, choicemap(), choicemap(),
+        Dict(), Dict(), Dict(), Dict(),
+        DynamicSelection(), DynamicSelection(),
+        Set())
 end
 
 struct JacobianPassState{T}
@@ -34,13 +52,32 @@ end
 
 const inv_state = gensym("inv_state")
 
+macro involution(ex)
+    MacroTools.@capture(ex, function f_(args__) body_ end) || error("expected syntax: function f(..) .. end")
+
+    fn! = gensym("$(esc(f))_fn!")
+
+    quote
+
+    # mutates the state
+    function $fn!($(esc(inv_state))::Union{FirstPassState,JacobianPassState}, $(map(esc, args)...))
+        $(esc(body))
+        nothing
+    end
+
+    $(esc(f)) = Involution($fn!)
+
+    end # quote
+
+end # macro involution()
+
 # read discrete from model
 
 macro read_discrete_from_model(addr)
     quote read_discrete_from_model($(esc(inv_state)), $(esc(addr))) end
 end
 
-function read_discrete_from_model(state::Union{ForwardPassState,JacobianPassState}, addr)
+function read_discrete_from_model(state::Union{FirstPassState,JacobianPassState}, addr)
     state.trace[addr]
 end
 
@@ -50,7 +87,7 @@ macro read_discrete_from_proposal(addr)
     quote read_discrete_from_proposal($(esc(inv_state)), $(esc(addr))) end
 end
 
-function read_discrete_from_proposal(state::Union{ForwardPassState,JacobianPassState}, addr)
+function read_discrete_from_proposal(state::Union{FirstPassState,JacobianPassState}, addr)
     state.u[addr]
 end
 
@@ -60,7 +97,7 @@ macro write_discrete_to_proposal(addr, value)
     quote write_discrete_to_proposal($(esc(inv_state)), $(esc(addr)), $(esc(value))) end
 end
 
-function write_discrete_to_proposal(state::ForwardPassState, addr, value)
+function write_discrete_to_proposal(state::FirstPassState, addr, value)
     state.u_back[addr] = value
     value
 end
@@ -75,7 +112,7 @@ macro write_discrete_to_model(addr, value)
     quote write_discrete_to_model($(esc(inv_state)), $(esc(addr)), $(esc(value))) end
 end
 
-function write_discrete_to_model(state::ForwardPassState, addr, value)
+function write_discrete_to_model(state::FirstPassState, addr, value)
     state.constraints[addr] = value
     value
 end
@@ -90,7 +127,7 @@ macro read_continuous_from_proposal(addr)
     quote read_continuous_from_proposal($(esc(inv_state)), $(esc(addr))) end
 end
 
-function read_continuous_from_proposal(state::ForwardPassState, addr)
+function read_continuous_from_proposal(state::FirstPassState, addr)
     state.u_cont_reads[addr] = state.u[addr]
     state.u[addr]
 end
@@ -105,7 +142,7 @@ macro read_continuous_from_model(addr)
     quote read_continuous_from_model($(esc(inv_state)), $(esc(addr))) end
 end
 
-function read_continuous_from_model(state::ForwardPassState, addr)
+function read_continuous_from_model(state::FirstPassState, addr)
     state.t_cont_reads[addr] = state.trace[addr]
     state.trace[addr]
 end
@@ -120,7 +157,7 @@ macro read_continuous_from_model_retained(addr)
     quote read_continuous_from_model_retained($(esc(inv_state)), $(esc(addr))) end
 end
 
-function read_continuous_from_model_retained(state::ForwardPassState, addr)
+function read_continuous_from_model_retained(state::FirstPassState, addr)
     push!(state.marked_as_retained, addr)
     state.trace[addr]
 end
@@ -135,12 +172,10 @@ macro write_continuous_to_proposal(addr, value)
     quote write_continuous_to_proposal($(esc(inv_state)), $(esc(addr)), $(esc(value))) end
 end
 
-function write_continuous_to_proposal(state::ForwardPassState, addr, value)
+function write_continuous_to_proposal(state::FirstPassState, addr, value)
     haskey(state.u_back, addr) && error("Proposal address $addr already written to")
     state.u_back[addr] = value
     state.u_cont_writes[addr] = value
-    #state.cont_u_back_key_to_index[addr] = state.next_output_index
-    #state.next_output_index += 1
     value
 end
 
@@ -154,12 +189,10 @@ macro write_continuous_to_model(addr, value)
     quote write_continuous_to_model($(esc(inv_state)), $(esc(addr)), $(esc(value))) end
 end
 
-function write_continuous_to_model(state::ForwardPassState, addr, value)
+function write_continuous_to_model(state::FirstPassState, addr, value)
     haskey(state.constraints, addr) && error("Model address $addr already written to")
     state.constraints[addr] = value
     state.t_cont_writes[addr] = value
-    #state.cont_constraints_key_to_index[addr] = state.next_output_index
-    #state.next_output_index += 1
     value
 end
 
@@ -173,7 +206,7 @@ macro move_model_to_model(from_addr, to_addr)
     quote move_model_to_model($(esc(inv_state)), $(esc(from_addr)), $(esc(to_addr))) end
 end
 
-function move_model_to_model(state::ForwardPassState, from_addr, to_addr)
+function move_model_to_model(state::FirstPassState, from_addr, to_addr)
     trace_choices = get_choices(state.trace)
     push!(state.t_move_reads, from_addr)
     if has_value(trace_choices, from_addr)
@@ -194,7 +227,7 @@ macro move_model_to_proposal(from_addr, to_addr)
     quote move_model_to_proposal($(esc(inv_state)), $(esc(from_addr)), $(esc(to_addr))) end
 end
 
-function move_model_to_proposal(state::ForwardPassState, from_addr, to_addr)
+function move_model_to_proposal(state::FirstPassState, from_addr, to_addr)
     trace_choices = get_choices(state.trace)
     push!(state.t_move_reads, from_addr)
     if has_value(trace_choices, from_addr)
@@ -215,7 +248,7 @@ macro move_proposal_to_proposal(from_addr, to_addr)
     quote move_proposal_to_proposal($(esc(inv_state)), $(esc(from_addr)), $(esc(to_addr))) end
 end
 
-function move_proposal_to_proposal(state::ForwardPassState, from_addr, to_addr)
+function move_proposal_to_proposal(state::FirstPassState, from_addr, to_addr)
     push!(state.u_move_reads, from_addr)
     if has_value(state.u, from_addr)
         state.u_back[to_addr] = state.u[from_addr]
@@ -235,7 +268,7 @@ macro move_proposal_to_model(from_addr, to_addr)
     quote move_proposal_to_model($(esc(inv_state)), $(esc(from_addr)), $(esc(to_addr))) end
 end
 
-function move_proposal_to_model(state::ForwardPassState, from_addr, to_addr)
+function move_proposal_to_model(state::FirstPassState, from_addr, to_addr)
     push!(state.u_move_reads, from_addr)
     if has_value(state.u, from_addr)
         state.constraints[to_addr] = state.u[from_addr]
@@ -253,7 +286,7 @@ end
 
 macro callinv(ex)
     MacroTools.@capture(ex, f_(args__)) || error("expected syntax: f(..)")
-    quote $(esc(f))($(esc(inv_state)), $(map(esc, args)...)) end
+    quote $(esc(f)).fn!($(esc(inv_state)), $(map(esc, args)...)) end
 end
 
 # apply 
@@ -314,12 +347,12 @@ function apply_involution(involution::Involution, trace, u, proposal_args, propo
 
         jacobian_pass_state = JacobianPassState(
             trace, u, input_arr, output_arr, 
-            output_arr, t_key_to_index, u_key_to_index,
+            t_key_to_index, u_key_to_index,
             cont_constraints_key_to_index,
             cont_u_back_key_to_index)
 
         # mutates the state
-        involution.jacobian_pass!(
+        involution.fn!(
             jacobian_pass_state, get_args(trace), proposal_args, proposal_retval)
 
         # return the output array
@@ -330,36 +363,9 @@ function apply_involution(involution::Involution, trace, u, proposal_args, propo
     # or proposal (we might be abel to relax this later using choice_gradients) XXX
 
     (first_pass_state.constraints, first_pass_state.u_back,
-     first_pass_state.marked_as_retained, first_pass_state.t_key_to_index,
-     input_arr, f_array)
+     first_pass_state.marked_as_retained,
+     t_key_to_index, input_arr, f_array)
 end
-
-struct Involution
-    fn!::Function
-end
-
-macro involution(ex)
-    MacroTools.@capture(ex, function f_(args__) body_ end) || error("expected syntax: function f(..) .. end")
-
-    quote
-
-    # mutates the state
-    function $fn!($(esc(inv_state))::Union{ForwardPassState,JacobianPassState}, $(map(esc, args)...))
-        $(esc(body))
-        nothing
-    end
-
-    $(esc(f)) = Involution(fn!)
-
-    end # quote
-
-end # macro involution()
-
-# TODO proposal_retval is a way that continuous data can leak unaccounted for..
-# for now, the requirement is that the return value of f_disc cannot depend on
-# continuous addresses in the model or proposal although in the future, we
-# could do AD through its return value as well using choice_gradients() and add
-# these to the Jacobian...?
 
 function apply_involution_with_corrected_model_weight(
         involution::Involution, trace, proposal_args::Tuple,
@@ -424,7 +430,7 @@ function rjmcmc(trace, q, proposal_args, involution::Involution;
 
     # round trip check
     if check
-        trace_rt, u_rt, model_score_rt = apply_involution(
+        trace_rt, u_rt, model_score_rt = apply_involution_with_corrected_model_weight(
             involution, new_trace, proposal_args, u_back, proposal_retval_back, check)
         if !isapprox(u_rt, u)
             println("u:")
