@@ -3,25 +3,6 @@ using Gen
 include("rjmcmc.jl")
 include("poisson_process.jl")
 
-function split_rates(rate, u)
-    log_rate = log(rate)
-    log_ratio = log(1 - u) - log(u)
-    prev_rate = exp(log_rate - 0.5 * log_ratio)
-    next_rate = exp(log_rate + 0.5 * log_ratio)
-    @assert prev_rate > 0.
-    @assert next_rate > 0.
-    (prev_rate, next_rate)
-end
-
-function merge_rate(prev_rate, next_rate)
-    log_prev_rate = log(prev_rate)
-    log_next_rate = log(next_rate)
-    rate = exp(0.5 * log_prev_rate + 0.5 * log_next_rate)
-    u = prev_rate / (prev_rate + next_rate)
-    @assert rate > 0.
-    (rate, u)
-end
-
 @gen function model()
 
     k ~ uniform_discrete(0, 1) # zero or one change point
@@ -66,8 +47,6 @@ end
     segment
 end
 
-# NOTE: the first two arguments are now implicit
-# TODO allow ability to depend on model retval - and aux data? - also (using choice_gradients?)
 @involution function rate_involution(model_args, proposal_args, proposal_retval::Int)
 
     segment = proposal_retval
@@ -95,6 +74,25 @@ end
         # merge
     end
     nothing
+end
+
+function split_rates(rate, u)
+    log_rate = log(rate)
+    log_ratio = log(1 - u) - log(u)
+    prev_rate = exp(log_rate - 0.5 * log_ratio)
+    next_rate = exp(log_rate + 0.5 * log_ratio)
+    @assert prev_rate > 0.
+    @assert next_rate > 0.
+    (prev_rate, next_rate)
+end
+
+function merge_rate(prev_rate, next_rate)
+    log_prev_rate = log(prev_rate)
+    log_next_rate = log(next_rate)
+    rate = exp(0.5 * log_prev_rate + 0.5 * log_next_rate)
+    u = prev_rate / (prev_rate + next_rate)
+    @assert rate > 0.
+    (rate, u)
 end
 
 @involution function split_merge_involution(model_args, proposal_args, proposal_retval::Nothing)
@@ -135,10 +133,10 @@ function do_experiment()
     obs = choicemap((:events, events))
     (trace, _) = generate(model, (), obs)
     @time for iter=1:1000
-        trace, acc = rjmcmc(
+        trace, acc = metropolis_hastings(
             trace, rate_proposal, (), rate_involution;
             check=true, observations=obs)
-        trace, acc = rjmcmc(
+        trace, acc = metropolis_hastings(
             trace, split_merge_proposal, (), split_merge_involution;
             check=true, observations=obs)
         println("k: $(trace[:k]), rates: $([trace[(:rate, segment)] for segment in 1:trace[:k]+1])")

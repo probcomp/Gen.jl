@@ -13,6 +13,8 @@ using Gen
 # could do AD through its return value as well using choice_gradients() and add
 # these to the Jacobian...?
 
+# TODO add more checks that we don't visit the same address twice (these can be only enabled in 'check' mode)
+
 struct Involution
     fn!::Function
 end
@@ -413,7 +415,7 @@ function apply_involution_with_corrected_model_weight(
     (new_trace, u_back, model_weight + correction)
 end
 
-function rjmcmc(trace, q, proposal_args, involution::Involution;
+function Gen.metropolis_hastings(trace, q, proposal_args, involution::Involution;
         check=false, observations=EmptyChoiceMap())
 
     # run proposal

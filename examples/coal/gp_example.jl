@@ -153,7 +153,7 @@ end
     @call(walk_new_subtree(subtree_idx))
 end
 
-replace_subtree_move(trace) = rjmcmc(trace, subtree_proposal, (), subtree_involution; check=true)[1]
+replace_subtree_move(trace) = metropolis_hastings(trace, subtree_proposal, (), subtree_involution; check=true)[1]
 
 
 #####################
