@@ -1,15 +1,11 @@
 using PyPlot
-using ReverseDiff: jacobian
-using LinearAlgebra: det
-
 using Gen
+
+include("rjmcmc.jl")
+include("poisson_process.jl")
 
 # Example from Section 4 of Reversible jump Markov chain Monte Carlo
 # computation and Bayesian model determination 
-
-########################
-# custom distributions #
-########################
 
 # minimum of k draws from uniform_continuous(lower, upper)
 
@@ -36,76 +32,6 @@ function Gen.random(::MinUniformContinuous, lower::T, upper::U, k::Int) where {T
     p = rand()
     upper - (upper - lower) * (1. - p)^(1. / k)
 end
-
-
-# piecewise homogenous Poisson process 
-
-# n intervals - n + 1 bounds
-# (b_1, b_2]
-# (b_2, b_3]
-# ..
-# (b_n, b_{n+1}]
-
-function compute_total(bounds, rates)
-    num_intervals = length(rates)
-    if length(bounds) != num_intervals + 1
-        error("Number of bounds does not match number of rates")
-    end
-    total = 0.
-    bounds_ascending = true
-    for i=1:num_intervals
-        lower = bounds[i]
-        upper = bounds[i+1]
-        rate = rates[i]
-        len = upper - lower
-        if len <= 0
-            bounds_ascending = false
-        end
-        total += len * rate
-    end
-    (total, bounds_ascending)
-end
-
-struct PiecewiseHomogenousPoissonProcess <: Distribution{Vector{Float64}} end
-const piecewise_poisson_process = PiecewiseHomogenousPoissonProcess()
-
-function Gen.logpdf(::PiecewiseHomogenousPoissonProcess, x::Vector{Float64}, bounds::Vector{Float64}, rates::Vector{Float64})
-    cur = 1
-    upper = bounds[cur+1]
-    lpdf = 0.
-    for xi in sort(x)
-        if xi < bounds[1] || xi > bounds[end]
-            error("x ($xi) lies outside of interval")
-        end
-        while xi > upper 
-            cur += 1
-            upper = bounds[cur+1]
-        end
-        lpdf += log(rates[cur])
-    end
-    (total, bounds_ascending) = compute_total(bounds, rates)
-    if bounds_ascending
-        lpdf - total
-    else
-        -Inf
-    end
-end
-
-function Gen.random(::PiecewiseHomogenousPoissonProcess, bounds::Vector{Float64}, rates::Vector{Float64})
-    x = Vector{Float64}()
-    num_intervals = length(rates)
-    for i=1:num_intervals
-        lower = bounds[i]
-        upper = bounds[i+1]
-        rate = (upper - lower) * rates[i]
-        n = random(poisson, rate)
-        for j=1:n
-            push!(x, random(uniform_continuous, lower, upper))
-        end
-    end
-    x
-end
-
 
 #########
 # model #
@@ -187,26 +113,24 @@ end
     # propose new value for the rate
     cur_rate = trace[(RATE, i)]
     @trace(uniform_continuous(cur_rate/2., cur_rate*2.), :new_rate)
+
+    nothing
 end
 
 # it is an involution because it:
 # - maintains i = fwd_choices[:i] constant
 # - swaps choices[(RATE, i)] with fwd_choices[:new_rate]
 
-function rate_involution(trace, fwd_choices::ChoiceMap, fwd_ret, proposal_args::Tuple)
-    model_args = get_args(trace)
-    bwd_choices = choicemap()
-    constraints = choicemap()
-    i = fwd_choices[:i]
-    bwd_choices[:i] = i
-    constraints[(RATE, i)] = fwd_choices[:new_rate]
-    bwd_choices[:new_rate] = trace[(RATE, i)]
-    (new_trace, weight, _, _) = update(trace, model_args, (NoChange(),), constraints)
-    (new_trace, bwd_choices, weight)
+@involution function rate_involution(model_args, proposal_args, proposal_retval)
+    i = @read_discrete_from_proposal(:i)
+    @write_discrete_to_proposal(:i, i)
+    new_rate = @read_continuous_from_proposal(:new_rate)
+    @write_continuous_to_model((RATE, i), new_rate)
+    prev_rate = @read_continuous_from_model((RATE, i))
+    @write_continuous_to_proposal(:new_rate, prev_rate)
 end
 
 rate_move(trace) = metropolis_hastings(trace, rate_proposal, (), rate_involution, check=true)
-
 
 #################
 # position move #
@@ -222,22 +146,18 @@ rate_move(trace) = metropolis_hastings(trace, rate_proposal, (), rate_involution
     lower = (i == 1) ? 0. : trace[(CHANGEPT, i-1)]
     upper = (i == k) ? T : trace[(CHANGEPT, i+1)]
     @trace(uniform_continuous(lower, upper), :new_changept)
+
+    i
 end
 
 # it is an involution because it:
 # - maintains i = fwd_choices[:i] constant
 # - swaps choices[(CHANGEPT, i)] with fwd_choices[:new_changept]
 
-function position_involution(trace, fwd_choices::ChoiceMap, fwd_ret, proposal_args::Tuple)
-    model_args = get_args(trace)
-    bwd_choices = choicemap()
-    constraints = choicemap()
-    i = fwd_choices[:i]
-    bwd_choices[:i] = i
-    constraints[(CHANGEPT, i)] = fwd_choices[:new_changept]
-    bwd_choices[:new_changept] = trace[(CHANGEPT, i)]
-    (new_trace, weight, _, _) = update(trace, model_args, (NoChange(),), constraints)
-    (new_trace, bwd_choices, weight)
+@involution function position_involution(model_args, proposal_args, proposal_retval::Int)
+    @copy_proposal_to_proposal(:i, :i)
+    @copy_model_to_proposal((CHANGEPT, i), :new_changept)
+    @copy_proposal_to_model(:new_changept, (CHANGEPT, i))
 end
 
 position_move(trace) = metropolis_hastings(trace, position_proposal, (), position_involution, check=true)
@@ -277,10 +197,10 @@ const U = :u
         # changepoints after move:      | 1     2    3 |
         @trace(uniform_discrete(1, k), CHOSEN)
     end
+    nothing
 end
 
-function new_rates(arr)
-    (cur_rate, u, cur_cp, prev_cp, next_cp) = arr
+function new_rates(cur_rate, u, cur_cp, prev_cp, next_cp)
     d_prev = cur_cp - prev_cp
     d_next = next_cp - cur_cp
     @assert d_prev > 0
@@ -292,11 +212,10 @@ function new_rates(arr)
     next_rate = exp(log_cur_rate + (d_prev / d_total) * log_ratio)
     @assert prev_rate > 0.
     @assert next_rate > 0.
-    [prev_rate, next_rate]
+    (prev_rate, next_rate)
 end
 
-function new_rates_inverse(arr)
-    (prev_rate, next_rate, cur_cp, prev_cp, next_cp) = arr
+function new_rates_inverse(prev_rate, next_rate, cur_cp, prev_cp, next_cp)
     d_prev = cur_cp - prev_cp
     d_next = next_cp - cur_cp
     @assert d_prev > 0
@@ -307,7 +226,7 @@ function new_rates_inverse(arr)
     cur_rate = exp((d_prev / d_total) * log_prev_rate + (d_next / d_total) * log_next_rate)
     u = prev_rate / (prev_rate + next_rate)
     @assert cur_rate > 0.
-    [cur_rate, u]
+    (cur_rate, u)
 end
 
 # it is an involution because:
@@ -315,6 +234,66 @@ end
 # - it maintains fwd_choices[CHOSEN] constant (applying it twice will first insert a new
 #   changepoint and then remove that same changepoint)
 # - new_rates, curried on cp_new, cp_prev, and cp_next, is the inverse of new_rates_inverse.
+
+@involution function birth_death_involution(model_args, proposal_args, proposal_retval::Nothing)
+    T = model_args[1]
+
+    # current number of changepoints
+    k = @read_discrete_from_model(K)
+    
+    # if k == 0, then we can only do a birth move
+    isbirth = (k == 0) || @read_discrete_from_proposal(IS_BIRTH)
+
+    # if we are a birth move, the inverse is a death move
+    if k > 1 || isbirth
+        @write_discrete_to_proposal(IS_BIRTH, !isbirth)
+    end
+    
+    # the changepoint to be added or deleted
+    @copy_proposal_to_proposal(CHOSEN, CHOSEN)
+
+    if isbirth
+        @call(birth(k, i))
+    else
+        @call(death(k, i))
+    end
+end
+
+@involution function birth(k::Int, i::Int)
+    @write_discrete_to_model(K, k+1)
+
+    cp_new = @read_continuous_from_proposal(NEW_CHANGEPT)
+    cp_prev = (i == 1) ? 0. : @read_continuous_from_model((CHANGEPT, i-1))
+    cp_next = (i == k+1) ? T : @read_continuous_from_model((CHANGEPT, i))
+
+    # set new changepoint
+    @copy_proposal_to_model(NEW_CHANGEPT, (CHANGEPT, i))
+
+    # shift up changepoints
+    for j=i+1:k+1
+        @copy_model_to_model((CHANGEPT, j-1), (CHANGEPT, j))
+    end
+
+    # compute new rates
+    h_cur = @read_continuous_from_model((RATE, i))
+    u = @read_continuous_from_proposal(U)
+    (h_prev, h_next) = new_rates(h_cur, u, cp_new, cp_prev, cp_next)
+
+    # set new rates
+    @write_continuous_to_model((RATE, i), h_prev)
+    @write_continuous_to_model((RATE, i+1), h_next)
+
+    # shift up rates
+    for j=i+2:k+2
+        @copy_model_to_model((RATE, j-1), (RATE, j))
+    end
+end
+
+@involution function death(k::Int, i::Int)
+    @write_discrete_to_model(K, k-1)
+
+
+end
 
 function birth_death_involution(trace, fwd_choices::ChoiceMap, fwd_ret, proposal_args::Tuple)
     model_args = get_args(trace)
@@ -595,3 +574,68 @@ plot_posterior_mean_rate()
 
 println("making trace plot...")
 plot_trace_plot()
+
+# new 
+
+expr = MacroTools.prewalk(MacroTools.rmlines, macroexpand(Main, :(
+@involution function f(model_args, q_args, f_disc_retval)
+
+    (k, isbirth, chosen) = f_disc_retval
+
+    if isbirth
+
+        cp_new = @read_from_proposal(NEW_CHANGEPT)
+        cp_prev = (i == 1) ? 0. : @read_from_model((CHANGEPT, i-1))
+        cp_next = (i == k+1) ? T : @read_from_model((CHANGEPT, i))
+
+        # set new changepoint
+        @write_to_model((CHANGEPT, i), cp_new)
+
+        # shift up changepoints
+        for j=i+1:k+1
+            @move_model((CHANGEPT, j-1), (CHANGEPT, j))
+        end
+
+        # compute new rates
+        h_cur = @read_from_model((RATE, i))
+        u = @read_from_proposal(U)
+        (h_prev, h_next) = new_rates([h_cur, u, cp_new, cp_prev, cp_next])
+
+        # set new rates
+        @write_to_model((RATE, i), h_prev)
+        @write_to_model((RATE, i+1), h_next)
+
+        # shift up rates
+        for j=i+2:k+2
+            @move_model((RATE, j-1), (RATE, j))
+        end
+    else
+
+        cp_deleted = @read_from_model((CHANGEPT, i))
+        cp_prev = (i == 1) ? 0. : @read_from_model((CHANGEPT, i-1))
+        cp_next = (i == k) ? T : @read_from_model((CHANGEPT, i+1))
+        @write_to_proposal(NEW_CHANGEPT, cp_deleted)
+
+        # shift down changepoints
+        for j=i:k-1
+            @move_model((CHANGEPT, j+1), (CHANGEPT, j))
+        end
+
+        # compute cur rate and u
+        h_prev = @read_from_model((RATE, i))
+        h_next = @read_from_model((RATE, i+1))
+        (h_cur, u) = new_rates_inverse([h_prev, h_next, cp_deleted, cp_prev, cp_next])
+        @write_to_proposal(U, u)
+
+        # set cur rate
+        @write_to_model((RATE, i), h_cur)
+
+        # shift down rates
+        for j=i+1:k
+            @move_model((RATE, j+1), (RATE, j))
+        end
+    end
+end
+)))
+
+
