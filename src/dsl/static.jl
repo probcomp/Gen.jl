@@ -56,10 +56,10 @@ choice_or_call_at(gen_fn::GenerativeFunction, addr_typ) = call_at(gen_fn, addr_t
 choice_or_call_at(dist::Distribution, addr_typ) = choice_at(dist, addr_typ)
 
 "Generate informative node name for a Julia expression."
-gen_node_name(arg::Any) = gensym(repr(arg))
+gen_node_name(arg::Any) = gensym(string(arg))
 gen_node_name(arg::Expr) = gensym(arg.head)
 gen_node_name(arg::Symbol) = gensym(arg)
-gen_node_name(arg::QuoteNode) = gensym(repr(arg.value))
+gen_node_name(arg::QuoteNode) = gensym(string(arg.value))
 
 "Parse @trace expression and add corresponding node to IR."
 function parse_trace_expr!(stmts, bindings, fn, args, addr)
@@ -68,7 +68,7 @@ function parse_trace_expr!(stmts, bindings, fn, args, addr)
     node = gen_node_name(addr) # Generate a variable name for the StaticIRNode
     bindings[name] = node
     # Add statement that creates reference to the gen_fn / dist
-    gen_fn_or_dist = gensym(fn)
+    gen_fn_or_dist = gensym(string(fn))
     push!(stmts, :($(esc(gen_fn_or_dist)) = $(esc(fn))))
     # Handle the trace address
     keys = []
