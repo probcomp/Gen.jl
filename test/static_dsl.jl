@@ -103,7 +103,6 @@ params = ir.arg_nodes[2]
 
 # is_outlier
 is_outlier = ir.choice_nodes[1]
-# @test is_outlier.name == :is_outlier
 @test is_outlier.addr == :z
 @test is_outlier.typ == QuoteNode(Bool)
 @test is_outlier.dist == bernoulli
@@ -121,7 +120,6 @@ in2 = std.inputs[2]
 
 # y
 y = ir.choice_nodes[2]
-# @test y.name == :y
 @test y.addr == :y
 @test y.typ == QuoteNode(Float64)
 @test y.dist == normal
@@ -163,7 +161,6 @@ xs = ir.arg_nodes[1]
 
 # inlier_std
 inlier_std = ir.choice_nodes[1]
-# @test inlier_std.name == :inlier_std
 @test inlier_std.addr == :inlier_std
 @test inlier_std.typ == QuoteNode(Float64)
 @test inlier_std.dist == gamma
@@ -171,7 +168,6 @@ inlier_std = ir.choice_nodes[1]
 
 # outlier_std
 outlier_std = ir.choice_nodes[2]
-# @test outlier_std.name == :outlier_std
 @test outlier_std.addr == :outlier_std
 @test outlier_std.typ == QuoteNode(Float64)
 @test outlier_std.dist == gamma
@@ -179,7 +175,6 @@ outlier_std = ir.choice_nodes[2]
 
 # slope
 slope = ir.choice_nodes[3]
-# @test slope.name == :slope
 @test slope.addr == :slope
 @test slope.typ == QuoteNode(Float64)
 @test slope.dist == normal
@@ -187,7 +182,6 @@ slope = ir.choice_nodes[3]
 
 # intercept
 intercept = ir.choice_nodes[4]
-# @test intercept.name == :intercept
 @test intercept.addr == :intercept
 @test intercept.typ == QuoteNode(Float64)
 @test intercept.dist == normal
@@ -195,7 +189,6 @@ intercept = ir.choice_nodes[4]
 
 # data
 ys = ir.call_nodes[1]
-# @test ys.name == :ys
 @test ys.addr == :data
 @test ys.typ == QuoteNode(PersistentVector{Float64})
 @test ys.generative_function == data_fn
