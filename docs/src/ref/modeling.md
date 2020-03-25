@@ -378,8 +378,8 @@ For the function `foo` above, the static graph looks like:
 ```
 In this graph, oval nodes represent random choices, square nodes represent Julia computations, and diamond nodes represent arguments.
 The light blue shaded node is the return value of the function.
-Having access to the static graph allows Gen to generate specialized code for [Trace update operations](@ref) that skips unecessary parts of the computation.
-Specifically, when applying an update operation, a the graph is analyzed, and each value in the graph identified as having possibly changed, or not.
+Having access to the static graph allows Gen to generate specialized code for [Updating traces](@ref) that skips unecessary parts of the computation.
+Specifically, when applying an update operation, the graph is analyzed, and each value in the graph identified as having possibly changed, or not.
 Nodes in the graph do not need to be re-executed if none of their input values could have possibly changed.
 Also, even if some inputs to a generative function node may have changed, knowledge that some of the inputs have not changed often allows the generative function being called to more efficiently perform its update operation.
 This is the case for functions produced by [Generative Function Combinators](@ref).
@@ -398,38 +398,57 @@ This will produce a file `test.pdf` in the current working directory containing 
 In order to be able to construct the static graph, Gen restricts the permitted syntax that can be used in functions annotated with `static`.
 In particular, each statement in the body must be one of the following:
 
-- A pure functional Julia expression on the right-hand side, and a symbol on the left-hand side, e.g.:
+- A `@param` statement specifying any [Trainable parameters](@ref), e.g.:
 
 ```julia
-z4 = !z3
+@param theta::Float64
 ```
 
-- A `@trace` expression on the right-hand side, and a symbol on the left-hand side, e.g.:
+- An assignment, with a symbol or tuple of symbols on the left-hand side, and a Julia expression on the right-hand side, which may include `@trace` expressions, e.g.:
 
 ```julia
-z2 = @trace(bernoulli(prob), :b)
+mu, sigma = @trace(bernoulli(p), :x) ? (mu1, sigma1) : (mu2, sigma2)
 ```
-The trace statement must use a literal Julia symbol for the first component in the address. Unlike the full built-in modeling-language, the address is not optional.
 
-- A `return` statement, with a literal Julia symbol on the right-hand side, e.g.:
+- A top-level `@trace` expression, e.g.:
 
 ```julia
-return z4
+@trace(bernoulli(1-prob_tails), :flip)
+```
+All `@trace` expressions must use a literal Julia symbol for the first component in the address. Unlike the full built-in modeling-language, the address is not optional.
+
+- A `return` statement, with a Julia expression on the right-hand side, e.g.:
+
+```julia
+return @trace(geometric(prob), :n_flips) + 1
 ```
 
-The functions must also satisfy the following rules:
+The functions are also subject to the following restrictions:
 
 - Default argument values are not supported.
 
-- `@trace` expressions cannot appear anywhere in the function body except for as the outer-most expression on the right-hand side of a statement.
+- Julia closures are not allowed.
 
-- Each literal symbol used in the left-hand side of a statement must be unique (e.g. you cannot re-assign to a variable).
+- List comprehensions with internal `@trace` calls are not allowed.
 
-- Julia closures and list comprehensions are not allowed.
+- Splatting within `@trace` calls is not supported
+
+- Generative functions that are passed in as arguments cannot be traced.
 
 - For composite addresses (e.g. `:a => 2 => :c`) the first component of the address must be a literal symbol, and there may only be one statement in the function body that uses this symbol for the first component of its address.
 
-- Julia control flow constructs (e.g. `if`, `for`, `while`) cannot be used as top-level statements in the function body. Control flow should be implemented inside Julia functions that are called, generative functions that are called such as generative functions produced using [Generative Function Combinators](@ref).
+- Julia control flow constructs (e.g. `if`, `for`, `while`) cannot be used as top-level statements in the function body. Control flow should be implemented inside either Julia functions that are called, or other generative functions.
+
+Certain loop constructs can be implemented using [Generative Function Combinators](@ref) instead. For example, the following loop:
+```julia
+for (i, prob) in enumerate(probs)
+    @trace(foo(prob), :foo => i)
+end
+```
+can instead be implemented as:
+```julia
+@trace(Map(foo)(probs), :foo)
+```
 
 ### Loading generated functions
 Before a function with a static annotation can be used, the [`load_generated_functions`](@ref) method must be called:
@@ -456,6 +475,6 @@ This permits a more optimized trace data structure to be generated for the gener
 
 ### Caching Julia values
 
-By default, the values of Julia computations (all calls that are not random choices or calls to generative functions) are cached as part of the trace, so that [Trace update operations](@ref) can avoid unecessary re-execution of Julia code.
+By default, the values of Julia computations (all calls that are not random choices or calls to generative functions) are cached as part of the trace, so that [Updating traces](@ref) can avoid unecessary re-execution of Julia code.
 However, this cache may grow the memory footprint of a trace.
 To disable caching of Julia values, use the function annotation `nojuliacache` (this annotation is ignored unless the `static` function annotation is also used).
