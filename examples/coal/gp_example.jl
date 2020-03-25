@@ -153,7 +153,8 @@ end
     @call(walk_new_subtree(subtree_idx))
 end
 
-replace_subtree_move(trace) = metropolis_hastings(trace, subtree_proposal, (), subtree_involution; check=true)[1]
+replace_subtree_move(trace) = metropolis_hastings(
+    trace, subtree_proposal, (), subtree_involution; check=true)[1]
 
 
 #####################
@@ -176,7 +177,7 @@ function inference(xs::Vector{Float64}, ys::Vector{Float64}, num_iters::Int, cal
 
         covariance_fn = get_retval(trace)
         noise = trace[:noise]
-        callback(covariance_fn, noise)
+        #callback(covariance_fn, noise)
 
         # do MH move on the subtree
         trace = replace_subtree_move(trace)

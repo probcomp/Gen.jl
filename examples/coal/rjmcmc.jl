@@ -402,6 +402,7 @@ function apply_involution_with_corrected_model_weight(
     J = ForwardDiff.jacobian(f_array, input_arr)
     @assert size(J)[2] == length(input_arr)
     num_outputs = size(J)[1]
+    #println("num_outputs: $num_outputs")
 
     # remove columns for inputs from the trace that were retained
     # NOTE: these columns did not have to be computed in the first place, if
