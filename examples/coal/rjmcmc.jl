@@ -5,7 +5,7 @@ import LinearAlgebra
 using Gen
 
 # TODO allow providing a pair of address namespaces, one for the model and one
-# for the proposal, when calling another involution function with callinv
+# for the proposal, when calling another involution function with call
 
 # TODO proposal_retval is a way that continuous data can leak unaccounted for..
 # for now, the requirement is that the return value of f_disc cannot depend on
@@ -26,8 +26,8 @@ struct FirstPassState
     u_cont_reads::Dict
     t_cont_writes::Dict
     u_cont_writes::Dict
-    t_move_reads::DynamicSelection
-    u_move_reads::DynamicSelection
+    t_copy_reads::DynamicSelection
+    u_copy_reads::DynamicSelection
     marked_as_retained::Set
 end
 
@@ -173,7 +173,7 @@ macro write_continuous_to_proposal(addr, value)
 end
 
 function write_continuous_to_proposal(state::FirstPassState, addr, value)
-    haskey(state.u_back, addr) && error("Proposal address $addr already written to")
+    has_value(state.u_back, addr) && error("Proposal address $addr already written to")
     state.u_back[addr] = value
     state.u_cont_writes[addr] = value
     value
@@ -190,7 +190,7 @@ macro write_continuous_to_model(addr, value)
 end
 
 function write_continuous_to_model(state::FirstPassState, addr, value)
-    haskey(state.constraints, addr) && error("Model address $addr already written to")
+    has_value(state.constraints, addr) && error("Model address $addr already written to")
     state.constraints[addr] = value
     state.t_cont_writes[addr] = value
     value
@@ -200,15 +200,15 @@ function write_continuous_to_model(state::JacobianPassState, addr, value)
     state.output_arr[state.cont_constraints_key_to_index[addr]] = value
 end
 
-# move_model_to_model
+# copy_model_to_model
 
-macro move_model_to_model(from_addr, to_addr)
-    quote move_model_to_model($(esc(inv_state)), $(esc(from_addr)), $(esc(to_addr))) end
+macro copy_model_to_model(from_addr, to_addr)
+    quote copy_model_to_model($(esc(inv_state)), $(esc(from_addr)), $(esc(to_addr))) end
 end
 
-function move_model_to_model(state::FirstPassState, from_addr, to_addr)
+function copy_model_to_model(state::FirstPassState, from_addr, to_addr)
     trace_choices = get_choices(state.trace)
-    push!(state.t_move_reads, from_addr)
+    push!(state.t_copy_reads, from_addr)
     if has_value(trace_choices, from_addr)
         state.constraints[to_addr] = state.trace[from_addr]
     else
@@ -217,19 +217,19 @@ function move_model_to_model(state::FirstPassState, from_addr, to_addr)
     nothing
 end
 
-function move_model_to_model(state::JacobianPassState, from_addr, to_addr)
+function copy_model_to_model(state::JacobianPassState, from_addr, to_addr)
     nothing
 end
 
-# move_model_to_proposal
+# copy_model_to_proposal
 
-macro move_model_to_proposal(from_addr, to_addr)
-    quote move_model_to_proposal($(esc(inv_state)), $(esc(from_addr)), $(esc(to_addr))) end
+macro copy_model_to_proposal(from_addr, to_addr)
+    quote copy_model_to_proposal($(esc(inv_state)), $(esc(from_addr)), $(esc(to_addr))) end
 end
 
-function move_model_to_proposal(state::FirstPassState, from_addr, to_addr)
+function copy_model_to_proposal(state::FirstPassState, from_addr, to_addr)
     trace_choices = get_choices(state.trace)
-    push!(state.t_move_reads, from_addr)
+    push!(state.t_copy_reads, from_addr)
     if has_value(trace_choices, from_addr)
         state.u_back[to_addr] = state.trace[from_addr]
     else
@@ -238,18 +238,18 @@ function move_model_to_proposal(state::FirstPassState, from_addr, to_addr)
     nothing
 end
 
-function move_model_to_proposal(state::JacobianPassState, from_addr, to_addr)
+function copy_model_to_proposal(state::JacobianPassState, from_addr, to_addr)
     nothing
 end
 
-# move_proposal_to_proposal
+# copy_proposal_to_proposal
 
-macro move_proposal_to_proposal(from_addr, to_addr)
-    quote move_proposal_to_proposal($(esc(inv_state)), $(esc(from_addr)), $(esc(to_addr))) end
+macro copy_proposal_to_proposal(from_addr, to_addr)
+    quote copy_proposal_to_proposal($(esc(inv_state)), $(esc(from_addr)), $(esc(to_addr))) end
 end
 
-function move_proposal_to_proposal(state::FirstPassState, from_addr, to_addr)
-    push!(state.u_move_reads, from_addr)
+function copy_proposal_to_proposal(state::FirstPassState, from_addr, to_addr)
+    push!(state.u_copy_reads, from_addr)
     if has_value(state.u, from_addr)
         state.u_back[to_addr] = state.u[from_addr]
     else
@@ -258,18 +258,18 @@ function move_proposal_to_proposal(state::FirstPassState, from_addr, to_addr)
     nothing
 end
 
-function move_proposal_to_proposal(state::JacobianPassState, from_addr, to_addr)
+function copy_proposal_to_proposal(state::JacobianPassState, from_addr, to_addr)
     nothing
 end
 
-# move_proposal_to_model
+# copy_proposal_to_model
 
-macro move_proposal_to_model(from_addr, to_addr)
-    quote move_proposal_to_model($(esc(inv_state)), $(esc(from_addr)), $(esc(to_addr))) end
+macro copy_proposal_to_model(from_addr, to_addr)
+    quote copy_proposal_to_model($(esc(inv_state)), $(esc(from_addr)), $(esc(to_addr))) end
 end
 
-function move_proposal_to_model(state::FirstPassState, from_addr, to_addr)
-    push!(state.u_move_reads, from_addr)
+function copy_proposal_to_model(state::FirstPassState, from_addr, to_addr)
+    push!(state.u_copy_reads, from_addr)
     if has_value(state.u, from_addr)
         state.constraints[to_addr] = state.u[from_addr]
     else
@@ -278,13 +278,13 @@ function move_proposal_to_model(state::FirstPassState, from_addr, to_addr)
     nothing
 end
 
-function move_proposal_to_model(state::JacobianPassState, from_addr, to_addr)
+function copy_proposal_to_model(state::JacobianPassState, from_addr, to_addr)
     nothing
 end
 
-# call 
+# call another involution function (NOTE: only the top-level function is actually technically an involution)
 
-macro callinv(ex)
+macro call(ex)
     MacroTools.@capture(ex, f_(args__)) || error("expected syntax: f(..)")
     quote $(esc(f)).fn!($(esc(inv_state)), $(map(esc, args)...)) end
 end
@@ -304,7 +304,7 @@ function apply_involution(involution::Involution, trace, u, proposal_args, propo
 
     t_key_to_index = Dict()
     for (addr, v) in first_pass_state.t_cont_reads
-        if !(addr in first_pass_state.t_move_reads)
+        if !(addr in first_pass_state.t_copy_reads)
             t_key_to_index[addr] = next_input_index
             next_input_index += 1
             push!(input_arr, v)
@@ -313,7 +313,7 @@ function apply_involution(involution::Involution, trace, u, proposal_args, propo
 
     u_key_to_index = Dict()
     for (addr, v) in first_pass_state.u_cont_reads
-        if !(addr in first_pass_state.u_move_reads) 
+        if !(addr in first_pass_state.u_copy_reads) 
             u_key_to_index[addr] = next_input_index
             next_input_index += 1
             push!(input_arr, v)
@@ -450,8 +450,6 @@ function rjmcmc(trace, q, proposal_args, involution::Involution;
             println("model_score: $model_score, -model_score_rt: $(-model_score_rt)")
             error("Involution round trip check failed")
         end
-        println("checks done..")
-
     end
 
     # accept or reject

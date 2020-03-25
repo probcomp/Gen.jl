@@ -131,7 +131,7 @@ end
 
 function do_experiment()
     events = rand(50) * 0.5
-    events = vcat(events, rand(50) * 0.5 .+ 0.5)
+    #events = vcat(events, rand(50) * 0.5 .+ 0.5)
     obs = choicemap((:events, events))
     (trace, _) = generate(model, (), obs)
     @time for iter=1:1000
@@ -145,4 +145,5 @@ function do_experiment()
     end
 end
 
-do_experiment()
+@time do_experiment()
+@time do_experiment()
