@@ -66,21 +66,20 @@ end
     segment
 end
 
-function rate_involution_disc(trace, u, proposal_args, proposal_retval::Int)
-    #segment = proposal_retval
-    #constraints = choicemap()
-    #u_back = choicemap()
-    #if trace[:k] == 1
-        #u_back[:segment] = segment
-    #end
-    (constraints, u_back, segment) # note: the retval cannot depend on continuous parts of the trace or proposal
-end
+# NOTE: the first two arguments are now implicit
+# TODO allow ability to depend on model retval - and aux data? - also (using choice_gradients?)
+@involution function rate_involution(model_args, proposal_args, proposal_retval::Int)
 
-@involution function rate_involution_cont(model_args, proposal_args, segment::Int)
-    new_rate = @read_from_proposal(:new_rate)
-    @write_to_model((:rate, segment), new_rate)
-    prev_rate = @read_from_model((:rate, segment))
-    @write_to_proposal(:new_rate, prev_rate)
+    segment = proposal_retval
+
+    if @read_discrete_from_model(:k) == 1
+        @write_discrete_to_proposal(:segment, segment)
+    end
+
+    new_rate = @read_continuous_from_proposal(:new_rate)
+    @write_continuous_to_model((:rate, segment), new_rate)
+    prev_rate = @read_continuous_from_model((:rate, segment))
+    @write_continuous_to_proposal(:new_rate, prev_rate)
 end
 
 ####################
@@ -98,36 +97,31 @@ end
     nothing
 end
 
-function split_merge_involution_disc(trace, u, proposal_args, proposal_retval)
-    k = trace[:k]
-    constraints = choicemap((:k, k == 0 ? 1 : 0))
-    u_back = choicemap()
-    (constraints, u_back, k)
-end
+@involution function split_merge_involution(model_args, proposal_args, proposal_retval::Nothing)
 
-@involution function split_merge_involution_cont(model_args, proposal_args, f_disc_retval)
-    k = f_disc_retval
+    k = @read_discrete_from_model(:k)
+    @write_discrete_to_model(:k, k == 0 ? 1 : 0)
 
     if k == 0
 
-        rate = @read_from_model((:rate, 1))
-        u = @read_from_proposal(:u)
+        rate = @read_continuous_from_model((:rate, 1))
+        u = @read_continuous_from_proposal(:u)
 
         prev_rate, next_rate = split_rates(rate, u)
 
-        @write_to_model((:rate, 1), prev_rate)
-        @write_to_model((:rate, 2), next_rate)
+        @write_continuous_to_model((:rate, 1), prev_rate)
+        @write_continuous_to_model((:rate, 2), next_rate)
 
     else
         @assert k == 1
 
-        prev_rate = @read_from_model((:rate, 1))
-        next_rate = @read_from_model((:rate, 2))
+        prev_rate = @read_continuous_from_model((:rate, 1))
+        next_rate = @read_continuous_from_model((:rate, 2))
 
         rate, u = merge_rate(prev_rate, next_rate)
 
-        @write_to_model((:rate, 1), rate)
-        @write_to_proposal(:u, u)
+        @write_continuous_to_model((:rate, 1), rate)
+        @write_continuous_to_proposal(:u, u)
     end
 end
 
@@ -137,15 +131,15 @@ end
 
 function do_experiment()
     events = rand(50) * 0.5
-    events = vcat(events, rand(25) * 0.5 .+ 0.5)
+    events = vcat(events, rand(50) * 0.5 .+ 0.5)
     obs = choicemap((:events, events))
     (trace, _) = generate(model, (), obs)
     @time for iter=1:1000
         trace, acc = rjmcmc(
-            trace, rate_proposal, (), rate_involution_disc, rate_involution_cont;
+            trace, rate_proposal, (), rate_involution;
             check=true, observations=obs)
         trace, acc = rjmcmc(
-            trace, split_merge_proposal, (), split_merge_involution_disc, split_merge_involution_cont;
+            trace, split_merge_proposal, (), split_merge_involution;
             check=true, observations=obs)
         println("k: $(trace[:k]), rates: $([trace[(:rate, segment)] for segment in 1:trace[:k]+1])")
     end

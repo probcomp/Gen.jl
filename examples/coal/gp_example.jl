@@ -1,4 +1,7 @@
-include("../gp/shared.jl")
+using Gen
+
+include("rjmcmc.jl")
+include("../gp_structure/shared.jl")
 
 @gen function covariance_prior(cur::Int)
     node_type = @trace(categorical(node_dist), (cur, :type))
@@ -86,51 +89,75 @@ noise_move(trace) = metropolis_hastings(trace, noise_proposal, ())[1]
     (subtree_idx, depth, new_subtree_node)
 end
 
-@involution function subtree_involution(trace, fwd_choices::ChoiceMap, proposal_args::Tuple, fwd_ret::Tuple)
+@involution function walk_previous_subtree(cur::Int)
+    @move_model_to_proposal(:tree => (cur, :type), :subtree => (cur, :type))
+    node_type = @read_discrete_from_model(:tree => (cur, :type))
+    if node_type == CONSTANT
+        @move_model_to_proposal(:tree => (cur, :param), :subtree => (cur, :param))
+    elseif node_type == LINEAR
+        @move_model_to_proposal(:tree => (cur, :param), :subtree => (cur, :param))
+    elseif node_type == SQUARED_EXP
+        @move_model_to_proposal(:tree => (cur, :length_scale), :subtree => (cur, :length_scale))
+    elseif node_type == PERIODIC
+        @move_model_to_proposal(:tree => (cur, :scale), :subtree => (cur, :scale))
+        @move_model_to_proposal(:tree => (cur, :period), :subtree => (cur, :period))
+    elseif (node_type == PLUS) || (node_type == TIMES)
+        child1 = get_child(cur, 1, max_branch)
+        child2 = get_child(cur, 2, max_branch)
+        @callinv(walk_previous_subtree(child1)) # use same namespace
+        @callinv(walk_previous_subtree(child2))
+    else
+        error("Unknown node type: $node_type")
+    end
+end
+
+@involution function walk_new_subtree(cur::Int)
+    @move_proposal_to_model(:subtree => (cur, :type), :tree => (cur, :type))
+    node_type = @read_discrete_from_proposal(:subtree => (cur, :type))
+    if node_type == CONSTANT
+        @move_proposal_to_model(:subtree => (cur, :param), :tree => (cur, :param))
+    elseif node_type == LINEAR
+        @move_proposal_to_model(:subtree => (cur, :param), :tree => (cur, :param))
+    elseif node_type == SQUARED_EXP
+        @move_proposal_to_model(:subtree => (cur, :length_scale), :tree => (cur, :length_scale))
+    elseif node_type == PERIODIC
+        @move_proposal_to_model(:subtree => (cur, :scale), :tree => (cur, :scale))
+        @move_proposal_to_model(:subtree => (cur, :period), :tree => (cur, :period))
+    elseif (node_type == PLUS) || (node_type == TIMES)
+        child1 = get_child(cur, 1, max_branch)
+        child2 = get_child(cur, 2, max_branch)
+        @callinv(walk_new_subtree(child1)) # use same namespace
+        @callinv(walk_new_subtree(child2))
+    else
+        error("Unknown node type: $node_type")
+    end
+end
+
+@involution function subtree_involution(model_args::Tuple, proposal_args::Tuple, fwd_ret::Tuple)
+    # TODO fwd_ret --- this gets passed into the involution ..
+    # NOTE: it cannot depend on the continuous random variables in the trace or fwd_choices
 
     (subtree_idx, subtree_depth, new_subtree_node) = fwd_ret
-    model_args = get_args(trace)
 
     # populate backward assignment with choice of root
-    bwd_choices = choicemap()
-    set_submap!(bwd_choices, :choose_subtree_root => :recurse_left,
-        get_submap(fwd_choices, :choose_subtree_root => :recurse_left))
+    @move_proposal_to_proposal(:choose_subtree_root => :recurse_left, :choose_subtree_root => :recurse_left)
     for depth=0:subtree_depth-1
-        bwd_choices[:choose_subtree_root => :done => depth] = false
+        @write_discrete_to_proposal(:choose_subtree_root => :done => depth, false)
     end
     if !isa(new_subtree_node, LeafNode)
-        bwd_choices[:choose_subtree_root => :done => subtree_depth] = true
+        @write_discrete_to_proposal(:choose_subtree_root => :done => subtree_depth, true)
     end
 
     # populate constraints with proposed subtree
-    # NO..
-    # TODO this combines structural choices and others..
-    # do we need to walk the tree and separate them?
-    # TODO use @move_submap_from_proposal_to_model()
-    constraints = choicemap()
-    set_submap!(constraints, :tree, get_submap(fwd_choices, :subtree)) 
+    # TODO could take in two namespaces, one for the model one for the proposal
+    @callinv(walk_previous_subtree(subtree_idx))
 
     # populate backward assignment with the previous subtree
-    # NO..
-    # TODO use @move_model_to_
-    # TODO but we could filter by discarded??
-    set_submap!(bwd_choices, :subtree, get_submap(discard, :tree)) # TODO ???? we don't have the discard any more..
-
-    # TODO retval --- this gets passed onto the continuous involution ..
-    # NOTE: it cannot depend on the continuous random variables in the trace or fwd_choices
-
-    (constraints, bwd_choices, retval)
+    @callinv(walk_new_subtree(subtree_idx))
 end
 
-@involution function subtree_involution_cont(model_args, proposal_args, involution_disc_retval)
-    new_rate = @read_from_proposal(:new_rate)
-    @write_to_model((:rate, segment), new_rate)
-    prev_rate = @read_from_model((:rate, segment))
-    @write_to_proposal(:new_rate, prev_rate)
-end
+replace_subtree_move(trace) = rjmcmc(trace, subtree_proposal, (), subtree_involution; check=true)[1]
 
-
-replace_subtree_move(trace) = metropolis_hastings(trace, subtree_proposal, (), subtree_involution)[1]
 
 #####################
 # inference program #
