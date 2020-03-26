@@ -8,9 +8,6 @@
 
 - use ASCII operators and identifiers whenever possible (e.g. use 'theta' instead of 'θ')
 
-## Building docs locally
-
-
 ## Submitting Pull Requests (PRs)
 
 - Include documentation in the same PR as the code.
