@@ -1,0 +1,205 @@
+\documentclass{article}
+\usepackage{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{url}
+
+\newcommand{\reals}{\mathbb{R}}
+\newcommand{\normal}{\mathcal{N}}
+\newcommand{\pathx}{x}
+\newcommand{\pathy}{y}
+\newcommand{\measx}{\tilde{x}}
+\newcommand{\measy}{\tilde{y}}
+
+\newtheorem{prop}{Proposition}
+
+\title{Efficient Automated Calculation of the Jacobian Determinant for Involution MCMC in Gen}
+\author{Marco Cusumano-Towner}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+\section{Example}
+
+Let $n \in \{1, 2, \ldots, \}$ denote the number of segments, so that the number of changepoints is $n-1 \in \{0, 1, 2, \ldots\}$.
+Let $x_i$ denote changepoint $i$, for $i=1,\ldots,n-1$.
+Then, segment $1$ has range $[0, x_1)$, segment $d$ has range $[x_{n-1}, x_{max}]$ and segment $i$ has range $[x_{i-1}, x_i)$ for $i=2,\ldots,n-1$.
+Let $r_i \in (0, \infty)$ denote the rate for segment $i$ for $i=1,\ldots,n$.
+%There is some likelihood function $l_{\mathcal{D}}(n, \mathbf{x}, \mathbf{r})$ where $\mathcal{D}$ denotes some observed data.
+
+Suppose we are performing a birth-death move in which we either insert a new changepoint or remove an existing changepoint, and adjust the rates.
+Let $t = (n, \mathbf{r}, \mathbf{x})$ denote the previous trace.
+Note that we can omit the observations $\mathcal{D}$ from the trace for to simplify notation because they are held fixed.
+The proposal generates the following random choices, dependent on the given trace.
+If $n = 1$, then only a birth move is possible, because there are no changepoints to remove.
+If $n > 1$, then either a birth or death move is possible and we randomly pick sample $b \in \{0, 1\}$, where $b = 1$ indicates a birth move, from a Bernooulli distribution.
+If a birth move is chosen, then the proposal samples an existing segment $i \in \{1, \ldots, n\}$ that will be split into two by the new changepoint from a discrete distribution.
+The proposal then samples the value $x_i' \in (x_{i-1}, x_i)$ for the changepoint from a uniform continuous distribution (where $x_{i-1}$ and $x_i$ are the bounds of segment $i$ in the previous trace).
+Finally, the proposal samples a value $u \in (0, 1)$ that will be used to determine the new rates $r_{i}'$ and $r_{i+1}'$ from the previous rate $r_i$, the previous changepoints $x_{i-1}$ and $x_i$, and the new changepoint $x_i'$, according to a function $f_{birth}: \mathbb{R}^5 \to \mathbb{R}^2$ where $(r_i', r_{i+1}') = f_{birth}(r_i, x_{i-1}, x_i, x_i', u)$.
+If a death move is chosen, then the proposal samples an existing changepoint $i \in \{1, \ldots, n-1$ to remove.
+
+
+Suppose the current trace contains $n > 1$ segments, and we are performing a birth-death move.
+proposing a birth move that is a transition from $n$ segments to $n+1$ segments.
+Then, $\mathbf{r} \in \mathbb{R}^n$ and $\mathbf{r}' \in \mathbb{R}^{n+1}$, and $\mathbf{x} \in \mathbb{R}^{n-1}$ and $\mathbf{x} \in \mathbb{R}^n$.
+Specificaly, suppose that $n = 3$ and that $i = 3$ (so we are splitting the last segment).
+Then, the Jacobian (where columns are inputs and rows are outputs) is:
+\[
+\begin{array}{c|ccccccc}
+&       x_1 & x_2 & r_1 &   r_2 &   r_3 &   u_1 &   u_2 \\
+\hline
+x_1'  & 1   &     &     &       &       &       &       \\
+x_2'  &     & 1   &     &       &       &       &       \\
+x_3'  &     &     &     &       &       &       &   1   \\
+r_1'  &     &     & 1   &       &       &       &       \\
+r_2'  &     &     &     &   1   &       &       &       \\
+r_3'  &     & ?   &     &   ?   &   ?   &   ?   &   ?   \\
+r_4'  &     & ?   &     &   ?   &   ?   &   ?   &   ?   
+\end{array}
+\]
+Note that the following rows have a single 1 and all other entries 0: $x_1', x_2', x_3', r_1', r_2'$.
+Therefore, by cofactor expansion, the absolute value of the determinant of this matrix is equivalent to the absolute value of the determinant of the following submatrix:
+\[
+\begin{array}{c|ccccccc}
+&       u_1 &   u_2 \\
+\hline
+r_3'  & ?   &   ?   \\
+r_4'  & ?   &   ?   
+\end{array}
+\]
+
+\section{Exploiting the Sparse Jacobian Structure}
+
+Let $t \in \mathbb{R}^K$ denote the vector of values of continuous random choices in the previous model trace.
+Let $u \in \mathbb{R}^L$ denote the vector of values of continuous random choices in the proposal trace.
+Similarly, let $t' \in \mathbb{R}^{K'}$ and $u' \in \mathbb{R}^{L'}$ denote the vector of values of continuous random choices in the new model trace, and new proposal trace.
+We assume that $K + L = K' + L'$ (this is the \emph{dimension matching} requirement), and that we are given a bijection $h : \mathbb{R}^{K + L} \to \mathbb{R}^{K + L}$ that is differentiable and whose Jacobian has nonzero determinant everwhere.\footnote{It may be possible to generalize and allow functions that are not differentiable at a measure zero set of points.}
+This section discusses how to efficiently compute the absolute value of the determinant of the Jacobian of $h$, which we denote by $J \in \mathbb{R}^{K + L \times K + L}$.
+
+$J$ is often sparse due to the fact that often a large fraction of the entries in $(t', u')$ are obtained by \emph{copying} the value of some entry in $(t, u)$.
+We denote the subvector of entries of $t'$ that are produced by copying as $t'_c$ and similarly for $u'$ (subvector of copies is denoted $u'_c$).
+We denote the subvectors containing other entries of $t'$ and $u'$ by $t'_w$ and $u'_w$ respectively (where $w$ stands for `write').
+Let $t_c$ and $u_c$ denote the subvectors of $t$ and $u$ respectively such that each entry is copied to at least one entry in $(t', u')$.
+We denote the subvectors containing the remaining entries of $t$ and $u$ as $t_r$ and $u_r$ (where $r$ stands for `read').
+The Jacobian of $h$ (up to reordering of rows and columns, which does not change the absolute value of the determinant) then has the following block structure, where white space indicates a zero submatrix (and where sets of rows and columns are labeled on right):
+\[
+J = \left[
+\begin{array}{cccc}
+J_{11}  &   J_{12}  &     &   \\
+J_{21}  &   J_{22}  &     &   \\
+J_{31}  &   J_{32}  &   J_{33}  &   J_{34}\\
+J_{41}  &   J_{42}  &   J_{43} &   J_{44}
+\end{array}
+\right]
+\;\;\;\;\;
+\begin{array}{c|cccc}
+&       t_c    &   u_c &   t_r &   u_r\\
+\hline
+t'_c  &  J_{11}  &   J_{12}  &     &   \\
+u'_c  &  J_{21}  &   J_{22}  &     &   \\
+t'_w  &  J_{31}  &   J_{32}  &   J_{33}  &   J_{34}\\
+u'_w  &  J_{41}  &   J_{42}  &   J_{43} &   J_{44}
+\end{array}
+\]
+
+We will show that the absolute value of the determinant of this matrix is the same as the absolute value of the determinant of the following submatrix (which we will show is square), which much smaller than $J$ in the common case when a reversible jump move only modifies a subset of the random choices in a model:
+\[
+\left[
+\begin{array}{cc}
+J_{33}  &   J_{34}\\
+J_{43} &   J_{44}
+\end{array}
+\right]
+\]
+
+\begin{prop}
+The submatrix $[J_{11} \; J_{12}; J_{21} \; J_{22}]$ is square.
+\end{prop}
+\begin{proof}
+Each row of $[J_{11} \; J_{12}; J_{21} \; J_{22}]$ contains exactly one $1$ and all other entries are $0$, by the definition of $t_c'$ and $u_c'$.
+Each column of $[J_{11} \; J_{12}; J_{21} \; J_{22}]$ contains at least one $1$, by the definition of $t_c$ and $u_c$.
+Therefore, the number of rows must be greater than or equal to the number of columns.
+Since we assume that $J$ has nonzero determinant, all its rows must be linearly independent.
+Together with the block structure of $J$ shown above, this implies that rows of $[J_{11} \; J_{12}; J_{21} \; J_{22}]$ are linearly independent, and in particular that no two rows are identical.
+Since each row of $[J_{11} \; J_{12}; J_{21} \; J_{22}]$ contains exactly one $1$, the number of columns in $[J_{11} \; J_{12}; J_{21} \; J_{22}]$ must be greater than or equal to the number of rows.
+\end{proof}
+
+\begin{prop}
+The submatrix $[J_{33} \; J_{34}; J_{43} \; J_{44}]$ is square.
+\end{prop}
+\begin{proof}
+$J$ is square and $[J_{11} \; J_{12}; J_{21} \; J_{22}]$ is square.
+\end{proof}
+
+
+
+ 
+
+\section{Discrete Random Choices Only}
+This section shows that Gen's \texttt{general\_mh} operator satisfies detailed balance, given that its requirements are satisfied, and given that only discrete random choices are made.
+
+\paragraph{Requirements for \texttt{general\_mh}}
+Let $p(t; x)$ denote the distribution on assignments $t$ of the model generative function, parametrized by arguments $x \in X$.
+Let $q(u; t, x, y)$ denote the distribution on assignments $u$ of the proposal generative function, parametrized by a model assignment $t$, model arguments $x$, and proposal arguments $y \in Y$.
+A proposal distribution must be defined for all $(x, y, t)$ such that $x \in X$, $y \in Y$, and $p(t; x) > 0$.
+For some $x \in X$ and $y \in Y$, let $Z_{x,y} = \{(t, u) : p(t; x) > 0, q(u; t, x, y) > 0\}$.
+We also require a bijection $f_{x,y} : Z_{x,y} \to Z_{x,y}$ such that $f^{-1}_{x,y} = f_{x,y}$ (i.e. $f_{x,y}$ is its own inverse or an `involution').
+Let $f_{x,y}(t, u) = (f^T_{x,y}(t, u), f^U_{x,y}(t, u))$.
+
+\paragraph{The \texttt{general\_mh} procedure}
+The \texttt{general\_mh} operator takes a $x \in X$, $y \in Y$, and $t$ such that $p(t; x) > 0$, and samples $u \sim q(\cdot; t, x, y)$.
+Then, it applies the bijection to obtain $(t', u') = f_{x,y}(t, u)$.
+Then, it computes the following acceptance probability:
+\[
+\alpha(x, y, t, u) = \min\left\{ 1, \frac{p(t'; x) q(u'; t', x, y)}{p(t; x) q(u; t, x, y)} \right\}
+\]
+With probability $\alpha(x, y, t, u)$ it returns a trace containing the new assignment $t'$ and otherwise it returns a trace containing the original assignment $t$.
+Let $k(t'; t, x, y)$ denote the distribution on return value assignments of the procedure given inputs $x, y, t$, given by:
+\begin{align}
+    k(t'; t, x, y)
+    &= \sum_{u} q(u; t, x, y) \left( \delta(f^T_{x,y}(t, u), t') \alpha(x, y, t, u) + (1 - \alpha(x, y, t, u)) \delta(t, t') \right)\\
+    &= \sum_{u : f^T_{x,y}(t, u) = t'} q(u; t, x, y) \alpha(x, y, t, u) + \delta(t, t') \sum_u q(u; t, x, y) (1 - \alpha(x, y, t, u))
+\end{align}
+where $\delta$ is the Kronecker delta.
+
+\paragraph{Detailed balance}
+We now show that for all $x \in X$ and $y \in Y$, and for all $t$ such that $p(t; x) > 0$ and all $t'$ such that $p(t'; x) > 0$:
+\begin{equation} \label{eq:db}
+p(t; x) k(t'; t, x, y) = p(t'; x) k(t;, t', x, y)
+\end{equation}
+First, consider the terms on both sides of Equation~(\ref{eq:db}) that are associated with acceptance:
+\begin{align}
+p(t; x) \sum_{u : f^T_{x,y}(t, u) = t'} q(u; t, x, y) \alpha(x, y, t, u) &= p(t'; x) \sum_{u' : f^T_{x,y}(t', u') = t} q(u'; t', x, y) \alpha(x, y, t', u')
+\end{align}
+To show equality, establish a one-to-one correspondence between the sets $\{u : f^T_{x,y}(t, u) = t'\}$ and $\{u' : f^T_{x,y}(t', u') = t\}$ that index the sums, given by $u' = g_{x,y,t,t'}(u) = f^U_{x,y}(t, u)$, and $g_{x,y,t,t'}^{-1}(u') = f_{x,y}^U(t', u')$.
+That $g_{x,y,t,t'}$ is a bijection follows from the fact that $f_{x,y}$ is a bijection.
+For each such pair $(u, u')$, it suffices to show:
+\begin{align}
+p(t; x) q(u; t, x, y) \alpha(x, y, t, u) &= p(t'; x) q(u'; t', x, y) \alpha(x, y, t', u')
+\end{align}
+It suffices to show that:
+\begin{align}
+    \frac{\alpha(x, y, t, u)}{\alpha(x, y, t', u')} = \frac{p(t'; x) q(u'; t', x, y)}{p(t; x) q(u; t, x, y)}
+\end{align}
+This can be shown by considering two cases: Either $\alpha(x, y, t, u) \ge 1$ in which case $\alpha(x, y, t', u') \le 1$, or $\alpha(x, y, t', u') > 1$ in which case $\alpha(x, y, t', u') < 1$.
+Next, consider the terms on both sides of Equation~(\ref{eq:db}) that are associated with rejection:
+\begin{align}
+    \delta(t, t') \sum_u q(u; t, x, y) (1 - \alpha(x, y, t, u)) = \delta(t', t) \sum_{u'} q(u'; t', x, y) (1 - \alpha(x, y, t', u'))
+\end{align}
+If $t \ne t'$ then we have $\delta(t, t') = \delta(t', t) = 0$ and we are done.
+If $t = t'$ then renaming $u'$ to $u$ on the right-hand side gives the equivalance.
+
+\section{Including Continuous Random Choices}
+To extend \texttt{general\_mh} to handle continuous random choices, we need to require further structure on the involution $f_{x,y}$.
+In particular, we require that $f_{x,y}$ can be decomposed into (i) an involution $f_{x,y,\mathrm{disc}} = f_{x,y,\mathrm{disc}}^{-1}$ on the discrete random choices, and (ii) a family of diffeomorphisms on the continuous random choices, indexed by assignments to the discrete random choices.
+For any value $d$ of the discrete random choices, we require a bijection $f_{x,y,\mathrm{cont},d}$ on the such that $f^{-1}_{x,y,\mathrm{cont},d}$ = $f_{x,y,\mathrm{cont},f_{x,y,\mathrm{disc}}(d)}$.
+Then, the involution $(d', r') = f_{x,y}(d, r)$ where $d, d'$ are the previous and new assignments to the discrete-valued choices, and $r, r'$ are the previous and new assignments to the continuous random choices, is constructed by first evaluating $d' = f_{x,y,\mathrm{disc}}(d)$ and then by evaluating $r' = f_{x,y,\mathrm{cont},d}(r)$.
+The log-determinant of the Jacobian matrix of $f_{x,y,\mathrm{cont},d}$ is evaluated at $r$ and added to the log acceptance ratio.
+
+\end{document}
