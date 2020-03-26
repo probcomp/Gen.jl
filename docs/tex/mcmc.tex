@@ -3,6 +3,7 @@
 \usepackage[utf8]{inputenc}
 \usepackage{amssymb}
 \usepackage{amsmath}
+\usepackage{amsthm}
 \usepackage{url}
 
 \newcommand{\reals}{\mathbb{R}}
@@ -12,12 +13,133 @@
 \newcommand{\measx}{\tilde{x}}
 \newcommand{\measy}{\tilde{y}}
 
-\title{Detailed balance for Gen's \texttt{general\_mh} operator}
+\newtheorem{prop}{Proposition}
+
+\title{Efficient Automated Calculation of the Jacobian Determinant for Involution MCMC in Gen}
 \author{Marco Cusumano-Towner}
+\date{}
 
 \begin{document}
 
 \maketitle
+
+\section{Introduction}
+
+\section{Example}
+
+Let $n \in \{1, 2, \ldots, \}$ denote the number of segments, so that the number of changepoints is $n-1 \in \{0, 1, 2, \ldots\}$.
+Let $x_i$ denote changepoint $i$, for $i=1,\ldots,n-1$.
+Then, segment $1$ has range $[0, x_1)$, segment $d$ has range $[x_{n-1}, x_{max}]$ and segment $i$ has range $[x_{i-1}, x_i)$ for $i=2,\ldots,n-1$.
+Let $r_i \in (0, \infty)$ denote the rate for segment $i$ for $i=1,\ldots,n$.
+%There is some likelihood function $l_{\mathcal{D}}(n, \mathbf{x}, \mathbf{r})$ where $\mathcal{D}$ denotes some observed data.
+
+Suppose we are performing a birth-death move in which we either insert a new changepoint or remove an existing changepoint, and adjust the rates.
+Let $t = (n, \mathbf{r}, \mathbf{x})$ denote the previous trace.
+Note that we can omit the observations $\mathcal{D}$ from the trace for to simplify notation because they are held fixed.
+The proposal generates the following random choices, dependent on the given trace.
+If $n = 1$, then only a birth move is possible, because there are no changepoints to remove.
+If $n > 1$, then either a birth or death move is possible and we randomly pick sample $b \in \{0, 1\}$, where $b = 1$ indicates a birth move, from a Bernooulli distribution.
+If a birth move is chosen, then the proposal samples an existing segment $i \in \{1, \ldots, n\}$ that will be split into two by the new changepoint from a discrete distribution.
+The proposal then samples the value $x_i' \in (x_{i-1}, x_i)$ for the changepoint from a uniform continuous distribution (where $x_{i-1}$ and $x_i$ are the bounds of segment $i$ in the previous trace).
+Finally, the proposal samples a value $u \in (0, 1)$ that will be used to determine the new rates $r_{i}'$ and $r_{i+1}'$ from the previous rate $r_i$, the previous changepoints $x_{i-1}$ and $x_i$, and the new changepoint $x_i'$, according to a function $f_{birth}: \mathbb{R}^5 \to \mathbb{R}^2$ where $(r_i', r_{i+1}') = f_{birth}(r_i, x_{i-1}, x_i, x_i', u)$.
+If a death move is chosen, then the proposal samples an existing changepoint $i \in \{1, \ldots, n-1$ to remove.
+
+
+Suppose the current trace contains $n > 1$ segments, and we are performing a birth-death move.
+proposing a birth move that is a transition from $n$ segments to $n+1$ segments.
+Then, $\mathbf{r} \in \mathbb{R}^n$ and $\mathbf{r}' \in \mathbb{R}^{n+1}$, and $\mathbf{x} \in \mathbb{R}^{n-1}$ and $\mathbf{x} \in \mathbb{R}^n$.
+Specificaly, suppose that $n = 3$ and that $i = 3$ (so we are splitting the last segment).
+Then, the Jacobian (where columns are inputs and rows are outputs) is:
+\[
+\begin{array}{c|ccccccc}
+&       x_1 & x_2 & r_1 &   r_2 &   r_3 &   u_1 &   u_2 \\
+\hline
+x_1'  & 1   &     &     &       &       &       &       \\
+x_2'  &     & 1   &     &       &       &       &       \\
+x_3'  &     &     &     &       &       &       &   1   \\
+r_1'  &     &     & 1   &       &       &       &       \\
+r_2'  &     &     &     &   1   &       &       &       \\
+r_3'  &     & ?   &     &   ?   &   ?   &   ?   &   ?   \\
+r_4'  &     & ?   &     &   ?   &   ?   &   ?   &   ?   
+\end{array}
+\]
+Note that the following rows have a single 1 and all other entries 0: $x_1', x_2', x_3', r_1', r_2'$.
+Therefore, by cofactor expansion, the absolute value of the determinant of this matrix is equivalent to the absolute value of the determinant of the following submatrix:
+\[
+\begin{array}{c|ccccccc}
+&       u_1 &   u_2 \\
+\hline
+r_3'  & ?   &   ?   \\
+r_4'  & ?   &   ?   
+\end{array}
+\]
+
+\section{Exploiting the Sparse Jacobian Structure}
+
+Let $t \in \mathbb{R}^K$ denote the vector of values of continuous random choices in the previous model trace.
+Let $u \in \mathbb{R}^L$ denote the vector of values of continuous random choices in the proposal trace.
+Similarly, let $t' \in \mathbb{R}^{K'}$ and $u' \in \mathbb{R}^{L'}$ denote the vector of values of continuous random choices in the new model trace, and new proposal trace.
+We assume that $K + L = K' + L'$ (this is the \emph{dimension matching} requirement), and that we are given a bijection $h : \mathbb{R}^{K + L} \to \mathbb{R}^{K + L}$ that is differentiable and whose Jacobian has nonzero determinant everwhere.\footnote{It may be possible to generalize and allow functions that are not differentiable at a measure zero set of points.}
+This section discusses how to efficiently compute the absolute value of the determinant of the Jacobian of $h$, which we denote by $J \in \mathbb{R}^{K + L \times K + L}$.
+
+$J$ is often sparse due to the fact that often a large fraction of the entries in $(t', u')$ are obtained by \emph{copying} the value of some entry in $(t, u)$.
+We denote the subvector of entries of $t'$ that are produced by copying as $t'_c$ and similarly for $u'$ (subvector of copies is denoted $u'_c$).
+We denote the subvectors containing other entries of $t'$ and $u'$ by $t'_w$ and $u'_w$ respectively (where $w$ stands for `write').
+Let $t_c$ and $u_c$ denote the subvectors of $t$ and $u$ respectively such that each entry is copied to at least one entry in $(t', u')$.
+We denote the subvectors containing the remaining entries of $t$ and $u$ as $t_r$ and $u_r$ (where $r$ stands for `read').
+The Jacobian of $h$ (up to reordering of rows and columns, which does not change the absolute value of the determinant) then has the following block structure, where white space indicates a zero submatrix (and where sets of rows and columns are labeled on right):
+\[
+J = \left[
+\begin{array}{cccc}
+J_{11}  &   J_{12}  &     &   \\
+J_{21}  &   J_{22}  &     &   \\
+J_{31}  &   J_{32}  &   J_{33}  &   J_{34}\\
+J_{41}  &   J_{42}  &   J_{43} &   J_{44}
+\end{array}
+\right]
+\;\;\;\;\;
+\begin{array}{c|cccc}
+&       t_c    &   u_c &   t_r &   u_r\\
+\hline
+t'_c  &  J_{11}  &   J_{12}  &     &   \\
+u'_c  &  J_{21}  &   J_{22}  &     &   \\
+t'_w  &  J_{31}  &   J_{32}  &   J_{33}  &   J_{34}\\
+u'_w  &  J_{41}  &   J_{42}  &   J_{43} &   J_{44}
+\end{array}
+\]
+
+We will show that the absolute value of the determinant of this matrix is the same as the absolute value of the determinant of the following submatrix (which we will show is square), which much smaller than $J$ in the common case when a reversible jump move only modifies a subset of the random choices in a model:
+\[
+\left[
+\begin{array}{cc}
+J_{33}  &   J_{34}\\
+J_{43} &   J_{44}
+\end{array}
+\right]
+\]
+
+\begin{prop}
+The submatrix $[J_{11} \; J_{12}; J_{21} \; J_{22}]$ is square.
+\end{prop}
+\begin{proof}
+Each row of $[J_{11} \; J_{12}; J_{21} \; J_{22}]$ contains exactly one $1$ and all other entries are $0$, by the definition of $t_c'$ and $u_c'$.
+Each column of $[J_{11} \; J_{12}; J_{21} \; J_{22}]$ contains at least one $1$, by the definition of $t_c$ and $u_c$.
+Therefore, the number of rows must be greater than or equal to the number of columns.
+Since we assume that $J$ has nonzero determinant, all its rows must be linearly independent.
+Together with the block structure of $J$ shown above, this implies that rows of $[J_{11} \; J_{12}; J_{21} \; J_{22}]$ are linearly independent, and in particular that no two rows are identical.
+Since each row of $[J_{11} \; J_{12}; J_{21} \; J_{22}]$ contains exactly one $1$, the number of columns in $[J_{11} \; J_{12}; J_{21} \; J_{22}]$ must be greater than or equal to the number of rows.
+\end{proof}
+
+\begin{prop}
+The submatrix $[J_{33} \; J_{34}; J_{43} \; J_{44}]$ is square.
+\end{prop}
+\begin{proof}
+$J$ is square and $[J_{11} \; J_{12}; J_{21} \; J_{22}]$ is square.
+\end{proof}
+
+
+
+ 
 
 \section{Discrete Random Choices Only}
 This section shows that Gen's \texttt{general\_mh} operator satisfies detailed balance, given that its requirements are satisfied, and given that only discrete random choices are made.
