@@ -6,6 +6,10 @@
 \usepackage{amsthm}
 \usepackage{url}
 
+% bibliography
+\PassOptionsToPackage{numbers, compress}{natbib}
+\usepackage{natbib}
+
 \newcommand{\reals}{\mathbb{R}}
 \newcommand{\normal}{\mathcal{N}}
 \newcommand{\pathx}{x}
@@ -15,7 +19,7 @@
 
 \newtheorem{prop}{Proposition}
 
-\title{Efficient Automated Calculation of the Jacobian Determinant for Involution MCMC in Gen}
+\title{Efficient Automated Calculation of the Jacobian Determinant for Reversible Jump MCMC}
 \author{Marco Cusumano-Towner}
 \date{}
 
@@ -24,58 +28,93 @@
 \maketitle
 
 \section{Introduction}
+Reversible jump MCMC~\citep{green1995reversible} (RJMCMC) is a general framework for constructing Markov chain Monte Carlo kernels that satisfy detailed balance, while permitting transdimensional and/or deterministic moves.
+Some generic transdimensional MCMC kernels that are implemented by various probabilistic programming systems, including `single-site resimulation Metropolis-Hastings' ~\citep{goodman2008church,wingate2011lightweight} can be justified as instances of RJMCMC.
+However, it is possible to construct much more efficient MCMC kernels that are specialized to a model using the RJMCMC framework.
+The Gen~\citep{cusumano2019gen} probabilistic programming system allows users to program their own custom RJMCMC kernels that are specialized to the model, by specifying an auxiliary generative function called a \emph{proposal} and an \emph{involution} (a function that is its own inverse) that maps tuples of the form $(t, u)$ to tuples of the form $(t', u')$ where $t$ and $t'$ are traces of the model generative function, and $u$ and $u'$ are traces of the proposal generative function.
+In general, both $t$ and $u$ (and by necessity $t'$ and $u'$) may contain the values of continuous random choices, in which case the involution must be constructed from a family of differentiable bijections on the values of these continuous random choices.
+When applying a particular RJMCMC kernel, the determinant of the Jacobian of one of these bijections is required for the acceptance probability calculation.
+This document describes how to implement this Jacobian determinant computation efficiently using automatic differentiation, while exploiting the sparsity of the Jacobian.
+The approach uses a domain-specific language (DSL) for specifying families of bijections that makes the sparsity structure of the Jacobian explicit.
 
 \section{Example}
 
+We consider a variant of the changepoint model that was used to introduce RJMCMC in~\citep{green1995reversible}.
+Briefly, we put a prior on a class of piecewise constant functions on an interval $[0, x_{max}]$ where the number of segments is random and Poisson distributed.
 Let $n \in \{1, 2, \ldots, \}$ denote the number of segments, so that the number of changepoints is $n-1 \in \{0, 1, 2, \ldots\}$.
 Let $x_i$ denote changepoint $i$, for $i=1,\ldots,n-1$.
 Then, segment $1$ has range $[0, x_1)$, segment $d$ has range $[x_{n-1}, x_{max}]$ and segment $i$ has range $[x_{i-1}, x_i)$ for $i=2,\ldots,n-1$.
 Let $r_i \in (0, \infty)$ denote the rate for segment $i$ for $i=1,\ldots,n$.
 %There is some likelihood function $l_{\mathcal{D}}(n, \mathbf{x}, \mathbf{r})$ where $\mathcal{D}$ denotes some observed data.
 
-Suppose we are performing a birth-death move in which we either insert a new changepoint or remove an existing changepoint, and adjust the rates.
-Let $t = (n, \mathbf{r}, \mathbf{x})$ denote the previous trace.
-Note that we can omit the observations $\mathcal{D}$ from the trace for to simplify notation because they are held fixed.
+Suppose we are performing a birth-death move as described in~\citep{green1995reversible}, in which we either insert a new changepoint or remove an existing changepoint, and adjust the rates.
+Let $(n, \mathbf{r}, \mathbf{x})$ denote the the previous hypothesis (corresponding to the previous \emph{trace} of the generative function representing the model; we can omit the observations $\mathcal{D}$ from the trace for to simplify notation because they are held fixed).
 The proposal generates the following random choices, dependent on the given trace.
 If $n = 1$, then only a birth move is possible, because there are no changepoints to remove.
 If $n > 1$, then either a birth or death move is possible and we randomly pick sample $b \in \{0, 1\}$, where $b = 1$ indicates a birth move, from a Bernooulli distribution.
 If a birth move is chosen, then the proposal samples an existing segment $i \in \{1, \ldots, n\}$ that will be split into two by the new changepoint from a discrete distribution.
-The proposal then samples the value $x_i' \in (x_{i-1}, x_i)$ for the changepoint from a uniform continuous distribution (where $x_{i-1}$ and $x_i$ are the bounds of segment $i$ in the previous trace).
-Finally, the proposal samples a value $u \in (0, 1)$ that will be used to determine the new rates $r_{i}'$ and $r_{i+1}'$ from the previous rate $r_i$, the previous changepoints $x_{i-1}$ and $x_i$, and the new changepoint $x_i'$, according to a function $f_{birth}: \mathbb{R}^5 \to \mathbb{R}^2$ where $(r_i', r_{i+1}') = f_{birth}(r_i, x_{i-1}, x_i, x_i', u)$.
-If a death move is chosen, then the proposal samples an existing changepoint $i \in \{1, \ldots, n-1$ to remove.
+The proposal then samples a value $u_1 \in (x_{i-1}, x_i)$ for the changepoint from a uniform continuous distribution (where $x_{i-1}$ and $x_i$ are the bounds of segment $i$ in the previous trace); this variable represents the locaion of the newly proposed changepoint.
+The proposal also samples a value $u_2 \in (0, 1)$ that will be used to determine the new rates $r_{i}'$ and $r_{i+1}'$ from the previous rate $r_i$ and $x_i$ and $u_1$ and $x_{i+1}$ (as described in~\citep{green1995reversible} the new rates are determined such that their harmonic mean, weighted by the size of the segment, is equal to the previous rate).
+If a death move is chosen, then the proposal samples an existing changepoint $i \in \{1, \ldots, n-1\}$ to remove.
 
-
-Suppose the current trace contains $n > 1$ segments, and we are performing a birth-death move.
-proposing a birth move that is a transition from $n$ segments to $n+1$ segments.
-Then, $\mathbf{r} \in \mathbb{R}^n$ and $\mathbf{r}' \in \mathbb{R}^{n+1}$, and $\mathbf{x} \in \mathbb{R}^{n-1}$ and $\mathbf{x} \in \mathbb{R}^n$.
-Specificaly, suppose that $n = 3$ and that $i = 3$ (so we are splitting the last segment).
-Then, the Jacobian (where columns are inputs and rows are outputs) is:
+Suppose the current trace contains $n > 1$ segments, and we are proposing a birth move that is a transition from $n$ segments to $n+1$ segments.
+Then, $\mathbf{r} \in \mathbb{R}^n$ and $\mathbf{r}' \in \mathbb{R}^{n+1}$, and $\mathbf{x} \in \mathbb{R}^{n-1}$ and $\mathbf{x'} \in \mathbb{R}^n$.
+Specificaly, suppose that $n = 3$ and that $i = 2$ (so we are splitting the middle of three segments).
+Then, the differentiable bijection from $(\mathbf{r}, \mathbf{x}, u_1, u_2) \in \mathbb{R}^{7}$ to $(\mathbf{r}', \mathbf{x}') \in \mathbb{R}^{7}$ is:
+\[
+\begin{array}{rl}
+x_1' &= x_1 \\
+x_2' &= u_1 \\
+x_3' &= x_2 \\
+r_1' &= r_1 \\
+r_2' &= f_1(r_2, x_1, u_1, x_2, u_2) \\
+r_3' &= f_2(r_2, x_1, u_1, x_2, u_2)\\
+r_4' &= r_3
+\end{array}
+\]
+for some functions $f_1$ and $f_2$ whose details will not concern us here.
+Then, the Jacobian (where columns are inputs and rows are outputs) is as follows, where rows and columns are labeled:
 \[
 \begin{array}{c|ccccccc}
 &       x_1 & x_2 & r_1 &   r_2 &   r_3 &   u_1 &   u_2 \\
 \hline
-x_1'  & 1   &     &     &       &       &       &       \\
-x_2'  &     & 1   &     &       &       &       &       \\
-x_3'  &     &     &     &       &       &       &   1   \\
-r_1'  &     &     & 1   &       &       &       &       \\
-r_2'  &     &     &     &   1   &       &       &       \\
-r_3'  &     & ?   &     &   ?   &   ?   &   ?   &   ?   \\
-r_4'  &     & ?   &     &   ?   &   ?   &   ?   &   ?   
+x_1'  & 1   & 0   & 0   &   0   &   0   &   0   &   0   \\
+x_2'  & 0   & 0   & 0   &   0   &   0   &   1   &   0   \\
+x_3'  & 0   & 1   & 0   &   0   &   0   &   0   &   0   \\
+r_1'  & 0   & 0   & 1   &   0   &   0   &   0   &   0   \\
+r_2'  & {\scriptstyle \partial f_1 / \partial x_1}
+      & {\scriptstyle \partial f_1 / \partial x_2}
+      & 0
+      & {\scriptstyle \partial f_1 / \partial r_2}
+      & 0
+      & {\scriptstyle \partial f_1 / \partial u_1}
+      & {\scriptstyle \partial f_1 / \partial u_2}   \\
+r_3'  & {\scriptstyle \partial f_2 / \partial x_1}
+      & {\scriptstyle \partial f_2 / \partial x_2}
+      & 0
+      & {\scriptstyle \partial f_2 / \partial r_2}
+      & 0
+      & {\scriptstyle \partial f_2 / \partial u_1}
+      & {\scriptstyle \partial f_2 / \partial u_2}   \\
+r_4'  & 0   & 0   & 0   &   0   &   1   &   0   &   0
 \end{array}
 \]
-Note that the following rows have a single 1 and all other entries 0: $x_1', x_2', x_3', r_1', r_2'$.
-Therefore, by cofactor expansion, the absolute value of the determinant of this matrix is equivalent to the absolute value of the determinant of the following submatrix:
+Note that the following rows have a single 1 and all other entries 0: $x_1', x_2', x_3', r_1', r_4'$.
+Therefore, by cofactor expansion, the absolute value of the determinant of this matrix is equivalent to the absolute value of the determinant of the following submatrix of the Jacobian:
 \[
 \begin{array}{c|ccccccc}
-&       u_1 &   u_2 \\
+&       r_2 &   u_2 \\
 \hline
-r_3'  & ?   &   ?   \\
-r_4'  & ?   &   ?   
+r_2'  & {\scriptstyle \partial f_1 / \partial r_2}   &   {\scriptstyle \partial f_1 / \partial u_2}   \\
+r_3'  & {\scriptstyle \partial f_2 / \partial r_2}   &   {\scriptstyle \partial f_2 / \partial u_2}   \\
 \end{array}
 \]
+To compute the Jacobian determinant, it turns out that we only need to compute $4$ of the $49$ elements of the Jacobian.
+Also, somewhat surprisingly, we do not need to compute all elements that are not $0$ or $1$.
 
-\section{Exploiting the Sparse Jacobian Structure}
+\section{Automatically Exploiting the Sparse Jacobian Structure}
 
+This section describes how to automatically perform the optimization recognized above in a general setting for arbitrary generative models and RJMCMC kernels, while using automatic differentiation.
 Let $t \in \mathbb{R}^K$ denote the vector of values of continuous random choices in the previous model trace.
 Let $u \in \mathbb{R}^L$ denote the vector of values of continuous random choices in the proposal trace.
 Similarly, let $t' \in \mathbb{R}^{K'}$ and $u' \in \mathbb{R}^{L'}$ denote the vector of values of continuous random choices in the new model trace, and new proposal trace.
@@ -159,5 +198,11 @@ If the same address is also not written to in $t'$, and the user assertion is tr
 This is optional -- not tagging a read operation as retained when it is results in unecessary computation.
 \end{enumerate}
 Automatic differentiation is used to compute the entries of $[J_{33} \; J_{34}; J_{43} \; J_{44}]$.
+Finally, note that specification of the involution on discrete random choices may or may not be separated from the specification of the family of bijections $h$ on the continuous random choices.
+In the current Gen implementation, a single unified DSL is used to specify the entire involution and the approach described in this document is used for Jacobian determinant correction computation.
+
+\bibliographystyle{unsrt}
+\bibliography{references} 
+
 
 \end{document}
