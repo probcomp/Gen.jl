@@ -12,9 +12,6 @@ include("poisson_process.jl")
     for i=1:k+1
         push!(rates, ({(:rate, i)} ~ uniform_continuous(0., 100.)))
     end
-    
-    ##alpha, beta = 1., 1.
-    #rates = Float64[({(:rate, i)} ~ Gen.gamma(alpha, 1. / beta)) for i=1:k+1]
 
     # poisson process
     if k == 0
