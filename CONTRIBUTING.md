@@ -10,9 +10,7 @@
 
 ## Building docs locally
 
-```sh
-./docs/build_docs_locally.sh
-```
+
 ## Submitting Pull Requests (PRs)
 
 - Include documentation in the same PR as the code.
@@ -30,3 +28,16 @@
     to a later time.  Before merging a PR, make sure any unresolved discussions
     in the PR conversation get moved to new issues.  This way, the unresolved
     discussions do not get lost after the code is merged in.
+
+## Documentation Guidelines
+
+- Write separate introductory material section(s) and an API listing section (titled 'API').
+
+- Write docstrings for API functions. These should be kept short, because more expository material should be included in the introduction section(s) of the documentation, not the API listing.
+
+- In the introduction section(s), provide at least a few sentences of high-level description of the feature, to orient the user. Include external links and internal links. Then, include some short code snippets showing a minimal example of the feature being used. If relevant, include some simple Tex math.
+
+- Build the docs locally to test that it builds and looks right:
+```sh
+./docs/build_docs_locally.sh
+```
