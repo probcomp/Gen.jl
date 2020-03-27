@@ -14,7 +14,7 @@ import LinearAlgebra
 # TODO add more checks that we don't visit the same address twice (these can be
 # only enabled in 'check' mode)
 
-struct Involution
+struct InvolutionDSLProgram
     fn!::Function
 end
 
@@ -53,6 +53,13 @@ end
 
 const inv_state = gensym("inv_state")
 
+"""
+    @involution function f(...)
+        ..
+    end
+
+Write a program in the [Involution DSL](@ref).
+"""
 macro involution(ex)
     MacroTools.@capture(ex, function f_(args__) body_ end) || error("expected syntax: function f(..) .. end")
 
@@ -66,7 +73,7 @@ macro involution(ex)
         nothing
     end
 
-    $(esc(f)) = Involution($fn!)
+    $(esc(f)) = InvolutionDSLProgram($fn!)
 
     end # quote
 
@@ -300,7 +307,7 @@ end
 
 # apply 
 
-function apply_involution(involution::Involution, trace, u, proposal_args, proposal_retval)
+function apply_involution(involution::InvolutionDSLProgram, trace, u, proposal_args, proposal_retval)
 
     # take the first pass through the involution, mutating first_pass_state
     first_pass_state = FirstPassState(trace, u)
@@ -376,9 +383,9 @@ function apply_involution(involution::Involution, trace, u, proposal_args, propo
      t_key_to_index, input_arr, f_array)
 end
 
-function apply_involution_with_corrected_model_weight(
-        involution::Involution, trace, proposal_args::Tuple,
-        u::ChoiceMap, proposal_retval, check::Bool)
+# callable
+
+function (involution::InvolutionDSLProgram)(trace, u::ChoiceMap, proposal_retval, proposal_args; check=false)
 
     # apply the involution, and get metadata back about it, including the
     # function f_array from arrays to arrays, that is the restriction of the
@@ -421,56 +428,6 @@ function apply_involution_with_corrected_model_weight(
     correction = LinearAlgebra.logabsdet(J)[1]
 
     (new_trace, u_back, model_weight + correction)
-end
-
-function metropolis_hastings(trace, q, proposal_args, involution::Involution;
-        check=false, observations=EmptyChoiceMap())
-
-    # run proposal
-    u, q_fwd_score, proposal_retval = propose(q, (trace, proposal_args...))
-
-    # apply the involution
-    new_trace, u_back, model_score = apply_involution_with_corrected_model_weight(
-        involution, trace, proposal_args, u, proposal_retval, check)
-
-    check && check_observations(get_choices(new_trace), observations)
-
-    # compute proposal backward score
-    (q_bwd_score, proposal_retval_back) = assess(q, (new_trace, proposal_args...), u_back)
-
-    # round trip check
-    if check
-        trace_rt, u_rt, model_score_rt = apply_involution_with_corrected_model_weight(
-            involution, new_trace, proposal_args, u_back, proposal_retval_back, check)
-        if !isapprox(u_rt, u)
-            println("u:")
-            println(u)
-            println("u_rt:")
-            println(u_rt)
-            error("Involution round trip check failed")
-        end
-        if !isapprox(get_choices(trace), get_choices(trace_rt))
-            println("get_choices(trace):")
-            println(get_choices(trace))
-            println("get_choices(trace_rt):")
-            println(get_choices(trace_rt))
-            error("Involution round trip check failed")
-        end
-        if !isapprox(model_score, -model_score_rt)
-            println("model_score: $model_score, -model_score_rt: $(-model_score_rt)")
-            error("Involution round trip check failed")
-        end
-    end
-
-    # accept or reject
-    alpha = model_score - q_fwd_score + q_bwd_score
-    if log(rand()) < alpha
-        # accept
-        return (new_trace, true)
-    else
-        # reject
-        return (trace, false)
-    end
 end
 
 export @involution

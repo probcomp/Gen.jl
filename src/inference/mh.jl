@@ -62,26 +62,26 @@ end
 
 """
     (new_trace, accepted) = metropolis_hastings(
-        trace, proposal::GenerativeFunction, proposal_args::Tuple, involution::Function;
+        trace, proposal::GenerativeFunction, proposal_args::Tuple, involution;
         check=false, observations=EmptyChoiceMap())
 
-Perform a generalized Metropolis-Hastings update based on an involution (bijection that is its own inverse) on a space of choice maps, returning the new trace (which is equal to the previous trace if the move was not accepted) and a Bool indicating whether the move was accepted or not.
+Perform a generalized (reversible jump) Metropolis-Hastings update based on an involution (bijection that is its own inverse) on a space of choice maps, returning the new trace (which is equal to the previous trace if the move was not accepted) and a Bool indicating whether the move was accepted or not.
 
-The `involution` Julia function has the following signature:
+The `involution` is a callable value that has the following signature:
 
     (new_trace, bwd_choices::ChoiceMap, weight) = involution(trace, fwd_choices::ChoiceMap, fwd_ret, proposal_args::Tuple)
+
+Most users will want to construct `involution` using the [Involution DSL](@ref) with the [`@involution`](@ref) macro, but is also possible to provide a Julia function for `involution`.
 
 The generative function `proposal` is executed on arguments `(trace, proposal_args...)`, producing a choice map `fwd_choices` and return value `fwd_ret`.
 For each value of model arguments (contained in `trace`) and `proposal_args`, the `involution` function applies an involution that maps the tuple `(get_choices(trace), fwd_choices)` to the tuple `(get_choices(new_trace), bwd_choices)`.
 Note that `fwd_ret` is a deterministic function of `fwd_choices` and `proposal_args`.
 When only discrete random choices are used, the `weight` must be equal to `get_score(new_trace) - get_score(trace)`.
-
-**Including Continuous Random Choices**
-When continuous random choices are used, the `weight` must include an additive term that is the determinant of the the Jacobian of the bijection on the continuous random choices that is obtained by currying the involution on the discrete random choices.
+When continuous random choices are used, the `weight` returned by the involution must include an additive term that is the determinant of the the Jacobian of the bijection on the continuous random choices that is obtained by currying the involution on the discrete random choices.
 """
 function metropolis_hastings(
         trace, proposal::GenerativeFunction,
-        proposal_args::Tuple, involution::Function;
+        proposal_args::Tuple, involution;
         check=false, observations=EmptyChoiceMap())
     (fwd_choices, fwd_score, fwd_ret) = propose(proposal, (trace, proposal_args...,))
     (new_trace, bwd_choices, weight) = involution(trace, fwd_choices, fwd_ret, proposal_args)

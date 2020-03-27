@@ -214,6 +214,10 @@ This also assigns `k1` as the reversal of `k2`.
 The composite kernel DSL automatically generates the reversal kernel for composite kernels, and built-in stationary kernels like [`mh`](@ref).
 The reversal of a kernel (primitive or composite) can be obtained with [`reversal`](@ref).
 
+## Involution DSL
+
+
+
 ## API
 ```@docs
 metropolis_hastings
@@ -225,5 +229,6 @@ elliptical_slice
 @kern
 @rkern
 reversal
+@involution
 ```
 
