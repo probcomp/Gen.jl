@@ -36,7 +36,7 @@ function process_retained!(gen_fn::Unfold{T,U}, params::Tuple,
     state.weight += weight
     set_submap!(state.discard, key, discard)
     state.score += (get_score(subtrace) - get_score(prev_subtrace))
-    state.noise += (project(subtrace, EmptySelection()) - project(subtrace, EmptySelection()))
+    state.noise += (project(subtrace, EmptySelection()) - project(prev_subtrace, EmptySelection()))
     state.subtraces = assoc(state.subtraces, key, subtrace)
     new_state = get_retval(subtrace)
     state.retval = assoc(state.retval, key, new_state)

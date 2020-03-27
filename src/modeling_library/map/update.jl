@@ -33,7 +33,7 @@ function process_retained!(gen_fn::Map{T,U}, args::Tuple,
     state.weight += weight
     set_submap!(state.discard, key, discard)
     state.score += (get_score(subtrace) - get_score(prev_subtrace))
-    state.noise += (project(subtrace, EmptySelection()) - project(subtrace, EmptySelection()))
+    state.noise += (project(subtrace, EmptySelection()) - project(prev_subtrace, EmptySelection()))
     state.subtraces = assoc(state.subtraces, key, subtrace)
     retval = get_retval(subtrace)
     state.retval = assoc(state.retval, key, retval)
