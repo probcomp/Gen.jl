@@ -69,7 +69,7 @@ Perform a generalized (reversible jump) Metropolis-Hastings update based on an i
 
 The `involution` is a callable value that has the following signature:
 
-    (new_trace, bwd_choices::ChoiceMap, weight) = involution(trace, fwd_choices::ChoiceMap, fwd_ret, proposal_args::Tuple)
+    (new_trace, bwd_choices::ChoiceMap, weight) = involution(trace, fwd_choices::ChoiceMap, fwd_ret, proposal_args::Tuple; check::Bool=false)
 
 Most users will want to construct `involution` using the [Involution DSL](@ref) with the [`@involution`](@ref) macro, but is also possible to provide a Julia function for `involution`.
 
@@ -78,6 +78,7 @@ For each value of model arguments (contained in `trace`) and `proposal_args`, th
 Note that `fwd_ret` is a deterministic function of `fwd_choices` and `proposal_args`.
 When only discrete random choices are used, the `weight` must be equal to `get_score(new_trace) - get_score(trace)`.
 When continuous random choices are used, the `weight` returned by the involution must include an additive term that is the determinant of the the Jacobian of the bijection on the continuous random choices that is obtained by currying the involution on the discrete random choices.
+The `check` keyword argument to the involution can be used to enable or disable any dynamic correctness checks that the involution performs; for successful executions, `check` does not alter the return value.
 """
 function metropolis_hastings(
         trace, proposal::GenerativeFunction,
@@ -88,7 +89,7 @@ function metropolis_hastings(
     (bwd_score, bwd_ret) = assess(proposal, (new_trace, proposal_args...), bwd_choices)
     check && check_observations(get_choices(new_trace), observations)
     if check
-        (trace_rt, fwd_choices_rt, weight_rt) = involution(new_trace, bwd_choices, bwd_ret, proposal_args)
+        (trace_rt, fwd_choices_rt, weight_rt) = involution(new_trace, bwd_choices, bwd_ret, proposal_args; check=check)
         if !isapprox(fwd_choices_rt, fwd_choices)
             println("fwd_choices:")
             println(fwd_choices)
@@ -120,7 +121,7 @@ end
 """
     (new_trace, accepted) = mh(trace, selection::Selection; ..)
     (new_trace, accepted) = mh(trace, proposal::GenerativeFunction, proposal_args::Tuple; ..)
-    (new_trace, accepted) = mh(trace, proposal::GenerativeFunction, proposal_args::Tuple, involution::Function; ..)
+    (new_trace, accepted) = mh(trace, proposal::GenerativeFunction, proposal_args::Tuple, involution; ..)
 
 Alias for [`metropolis_hastings`](@ref). Perform a Metropolis-Hastings update on the given trace.
 """
