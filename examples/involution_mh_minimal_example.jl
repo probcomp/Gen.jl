@@ -1,5 +1,4 @@
 using Gen
-using PyPlot
 import Random
 
 @gen function model()
@@ -100,40 +99,49 @@ function do_inference_rjmcmc(y1, y2)
     (zs, m, m1, m2)
 end
 
-Random.seed!(2)
-
-figure(figsize=(6, 3))
-
-subplot(2, 2, 1)
 y1, y2 = (1.0, 1.3)
 (zs, m, m1, m2) = do_inference_rjmcmc(y1, y2)
-plot(m, label="m")
-plot(m1, label="m1")
-plot(m2, label="m2")
-title("Involution MH (RJMCMC)")
-legend(loc="lower right")
-gca().set_ylim(0.5, 1.5)
+println(zs)
 
-subplot(2, 2, 3)
-plot(zs, label="z", color="black")
-legend(loc="center right")
-gca().set_yticks([0, 1])
-gca().set_ylim(-0.1, 1.1)
+function plots()
+    Random.seed!(2)
+    
+    figure(figsize=(6, 3))
+    
+    subplot(2, 2, 1)
+    y1, y2 = (1.0, 1.3)
+    (zs, m, m1, m2) = do_inference_rjmcmc(y1, y2)
+    plot(m, label="m")
+    plot(m1, label="m1")
+    plot(m2, label="m2")
+    title("Involution MH (RJMCMC)")
+    legend(loc="lower right")
+    gca().set_ylim(0.5, 1.5)
+    
+    subplot(2, 2, 3)
+    plot(zs, label="z", color="black")
+    legend(loc="center right")
+    gca().set_yticks([0, 1])
+    gca().set_ylim(-0.1, 1.1)
+    
+    subplot(2, 2, 2)
+    y1, y2 = (1.0, 1.3)
+    (zs, m, m1, m2) = do_inference_simple(y1, y2)
+    plot(m, label="m")
+    plot(m1, label="m1")
+    plot(m2, label="m2")
+    title("Selection MH")
+    legend(loc="lower right")
+    gca().set_ylim(0.5, 1.5)
+    
+    subplot(2, 2, 4)
+    plot(zs, label="z", color="black")
+    legend(loc="center right")
+    gca().set_yticks([0, 1])
+    gca().set_ylim(-0.1, 1.1)
+    
+    savefig("rjmcmc.png")
+end
 
-subplot(2, 2, 2)
-y1, y2 = (1.0, 1.3)
-(zs, m, m1, m2) = do_inference_simple(y1, y2)
-plot(m, label="m")
-plot(m1, label="m1")
-plot(m2, label="m2")
-title("Selection MH")
-legend(loc="lower right")
-gca().set_ylim(0.5, 1.5)
-
-subplot(2, 2, 4)
-plot(zs, label="z", color="black")
-legend(loc="center right")
-gca().set_yticks([0, 1])
-gca().set_ylim(-0.1, 1.1)
-
-savefig("rjmcmc.png")
+#using PyPlot
+#plots()

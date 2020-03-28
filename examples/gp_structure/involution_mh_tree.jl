@@ -1,6 +1,5 @@
 using Gen
 
-include("rjmcmc.jl")
 include("../gp_structure/shared.jl")
 
 @gen function covariance_prior()

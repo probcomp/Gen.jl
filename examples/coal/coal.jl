@@ -1,7 +1,6 @@
 using PyPlot
 using Gen
 
-#include("rjmcmc.jl")
 include("poisson_process.jl")
 
 # Example from Section 4 of Reversible jump Markov chain Monte Carlo
