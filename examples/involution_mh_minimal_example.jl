@@ -32,20 +32,16 @@ end
     end
 end
 
-function split_mean(m, u)
-    log_m = log(m)
-    log_ratio = log(1 - u) - log(u)
-    m1 = exp(log_m - 0.5 * log_ratio)
-    m2 = exp(log_m + 0.5 * log_ratio)
-    (m1, m2)
-end
-
 function merge_mean(m1, m2)
-    log_m1 = log(m1)
-    log_m2 = log(m2)
-    m = exp(0.5 * log_m1 + 0.5 * log_m2)
+    m = sqrt(m1 * m2)
     u = m1 / (m1 + m2)
     (m, u)
+end
+
+function split_mean(m, u)
+    m1 = m * sqrt((u / (1 - u)))
+    m2 = m * sqrt(((1 - u) / u))
+    (m1, m2)
 end
 
 @involution function split_merge_involution(
@@ -75,7 +71,7 @@ function do_inference_simple(y1, y2)
     m = Float64[]
     m1 = Float64[]
     m2 = Float64[]
-    for iter=1:200
+    for iter=1:100
         trace, = mh(trace, select(:z))
         trace, = mh(trace, mean_random_walk_proposal, ())
         push!(zs, trace[:z])
@@ -87,12 +83,12 @@ function do_inference_simple(y1, y2)
 end
 
 function do_inference_rjmcmc(y1, y2)
-    trace, = generate(model, (), choicemap((:y1, y1), (:y2, y2), (:z, false), (:m, 1.)))
+    trace, = generate(model, (), choicemap((:y1, y1), (:y2, y2), (:z, false), (:m, 1.2)))
     zs = Bool[]
     m = Float64[]
     m1 = Float64[]
     m2 = Float64[]
-    for iter=1:200
+    for iter=1:100
         trace, = mh(
             trace, split_merge_proposal, (), split_merge_involution; check=true)
         trace, = mh(trace, mean_random_walk_proposal, ())
@@ -106,46 +102,38 @@ end
 
 Random.seed!(2)
 
-figure()
+figure(figsize=(6, 3))
 
-y1, y2 = (1.0, 1.3)
-(zs, m, m1, m2) = do_inference_rjmcmc(y1, y2)
 subplot(2, 2, 1)
-plot(zs, label="z")
+y1, y2 = (1.0, 1.3)
+(zs, m, m1, m2) = do_inference_rjmcmc(y1, y2)
 plot(m, label="m")
 plot(m1, label="m1")
 plot(m2, label="m2")
-title("(y1, y2) = ($y1, $y2), rjmcmc")
+title("Involution MH (RJMCMC)")
 legend(loc="lower right")
+gca().set_ylim(0.5, 1.5)
 
+subplot(2, 2, 3)
+plot(zs, label="z", color="black")
+legend(loc="center right")
+gca().set_yticks([0, 1])
+gca().set_ylim(-0.1, 1.1)
+
+subplot(2, 2, 2)
 y1, y2 = (1.0, 1.3)
 (zs, m, m1, m2) = do_inference_simple(y1, y2)
-subplot(2, 2, 2)
-plot(zs, label="z")
 plot(m, label="m")
 plot(m1, label="m1")
 plot(m2, label="m2")
-title("(y1, y2) = ($y1, $y2); simple")
+title("Selection MH")
 legend(loc="lower right")
+gca().set_ylim(0.5, 1.5)
 
-y1, y2 = (1.0, 3.0)
-(zs, m, m1, m2) = do_inference_rjmcmc(y1, y2)
-subplot(2, 2, 3)
-plot(zs, label="z")
-plot(m, label="m")
-plot(m1, label="m1")
-plot(m2, label="m2")
-title("(y1, y2) = ($y1, $y2); rjmcmc")
-legend(loc="lower right")
-
-y1, y2 = (1.0, 3.0)
-(zs, m, m1, m2) = do_inference_simple(y1, y2)
 subplot(2, 2, 4)
-plot(zs, label="z")
-plot(m, label="m")
-plot(m1, label="m1")
-plot(m2, label="m2")
-title("(y1, y2) = ($y1, $y2); simple")
-legend(loc="lower right")
+plot(zs, label="z", color="black")
+legend(loc="center right")
+gca().set_yticks([0, 1])
+gca().set_ylim(-0.1, 1.1)
 
 savefig("rjmcmc.png")
