@@ -201,19 +201,6 @@ new_trace = permute_move(trace, 2)
 Indeed, they are just regular Julia functions, but with some extra information attached so that the composite kernel DSL knows they have been declared as stationary kernels.
 
 
-## Reverse Kernels
-The **reversal** of a stationary MCMC kernel with distribution ``k_1(t'; t)``, for model with distribution ``p(t; x)``, is another MCMC kernel with distribution:
-```math
-k_2(t; t') := \frac{p(t; x)}{p(t'; x)} k_1(t'; t)
-```
-For custom primitive kernels declared with [`@pkern`](@ref), users can declare the reversal kernel with the [`@rkern`](@ref) macro:
-```julia
-@rkern k1 : k2
-```
-This also assigns `k1` as the reversal of `k2`.
-The composite kernel DSL automatically generates the reversal kernel for composite kernels, and built-in stationary kernels like [`mh`](@ref).
-The reversal of a kernel (primitive or composite) can be obtained with [`reversal`](@ref).
-
 ## Involution MCMC
 
 Gen's most flexible variant of [`metropolis_hastings`](@ref), called **involution MCMC**, allows users to specify any MCMC kernel in the reversible jump MCMC (RJMCMC) framework [2].
@@ -413,6 +400,21 @@ Finally, When reading a continuous value from the input model choice map that is
 - `@read_continuous_from_model_retained(addr)`: Like `@read_continuous_from_model`, but provide a hint to the system that the address being read is going to be retained (i.e. implicitly copied to the same address in the output model choice map), which permits the system to better optimize its implementation.
 
 Note that it is possible to write functions in the involution DSL that are not actually involutions -- Gen does not statically check whether the function is an involution or not, but it is possible to turn on a dynamic check that can detect invalid involutions using a keyword argument `check=true` to [`metropolis_hastings`](@ref).
+
+
+## Reverse Kernels
+The **reversal** of a stationary MCMC kernel with distribution ``k_1(t'; t)``, for model with distribution ``p(t; x)``, is another MCMC kernel with distribution:
+```math
+k_2(t; t') := \frac{p(t; x)}{p(t'; x)} k_1(t'; t)
+```
+For custom primitive kernels declared with [`@pkern`](@ref), users can declare the reversal kernel with the [`@rkern`](@ref) macro:
+```julia
+@rkern k1 : k2
+```
+This also assigns `k1` as the reversal of `k2`.
+The composite kernel DSL automatically generates the reversal kernel for composite kernels, and built-in stationary kernels like [`mh`](@ref).
+The reversal of a kernel (primitive or composite) can be obtained with [`reversal`](@ref).
+
 
 ## API
 ```@docs
