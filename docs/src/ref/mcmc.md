@@ -271,13 +271,13 @@ The same is true when proposing a structure change in the opposite direction.
 That means it will take many more steps to get an accurate estimate of the posterior probability distribution on the two structures.
 
 We would like to use inferred values for `:m1` and `:m2` to inform our proposal for the value of `:m`.
-For example, we could take the harmonic mean:
+For example, we could take the geometric mean:
 ```julia
 m = sqrt(m1 * m2)
 ```
-However, there are many combinations of `m1` and `m2` that have the same harmonic mean.
-In other words, the harmonic mean is not *invertible*.
-However, if we return the additional degree of freedom alongside the harmonic mean (`dof`), then we do have an invertible function:
+However, there are many combinations of `m1` and `m2` that have the same geometric mean.
+In other words, the geometric mean is not *invertible*.
+However, if we return the additional degree of freedom alongside the geometric mean (`dof`), then we do have an invertible function:
 ```julia
 function merge_means(m1, m2)
     m = sqrt(m1 * m2)
