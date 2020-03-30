@@ -55,7 +55,13 @@ function codegen_project(trace_type::Type, selection_type::Type)
 end
 
 push!(generated_functions, quote
+
 @generated function $(Expr(:(.), Gen, QuoteNode(:project)))(trace::T, selection::$(QuoteNode(Selection))) where {T <: $(QuoteNode(StaticIRTrace))}
     $(QuoteNode(codegen_project))(trace, selection)
 end
+
+function $(Expr(:(.), Gen, QuoteNode(:project)))(trace::T, selection::$(QuoteNode(EmptySelection))) where {T <: $(QuoteNode(StaticIRTrace))}
+    trace.$total_noise_fieldname
+end
+
 end)
