@@ -72,13 +72,17 @@ end
 
 function desugar_tildes(expr)
     MacroTools.postwalk(expr) do e
+        # Expand the `@trace` macro as defined in this module (even if the caller
+        # doesn't have an analogous macro in their module), and leave the
+        # remaining macros to be expanded in the caller's scope.
         if MacroTools.@capture(e, {*} ~ rhs_)
-            :(trace($rhs))
+            macroexpand(@__MODULE__, :(@trace($rhs)), recursive=false)
         elseif MacroTools.@capture(e, {addr_} ~ rhs_)
-            :(trace($rhs, $(addr)))
+            macroexpand(@__MODULE__, :(@trace($rhs, $(addr))), recursive=false)
         elseif MacroTools.@capture(e, lhs_ ~ rhs_)
             addr_expr = address_from_expression(lhs)
-            :($lhs = trace($rhs, $(addr_expr)))
+            macroexpand(@__MODULE__, :($lhs = @trace($rhs, $(addr_expr))),
+                        recursive=false)
         else
             e
         end
