@@ -109,11 +109,11 @@ end
 # ACTUAL DSL
 
 # A function call within a @dist body
-function dist_call(d::Distribution{T}, args) where T
+function dist_call(d::Distribution{T}, args, __module__) where T
     DistWithArgs{T}(d, args)
 end
 
-function dist_call(f, args)
+function dist_call(f, args, __module__)
     if any(x -> (typeof(x) <: DistWithArgs), args)
         f(args...)
     elseif any(x -> (typeof(x) <: Arg), args)
@@ -131,7 +131,8 @@ function dist_call(f, args)
                 push!(actual_arg_exprs, Meta.quot(x))
             end
         end
-        arg_passer = eval(:((f, $(new_f_arg_names...)) -> f($(actual_arg_exprs...))))
+        arg_passer = __module__.eval(
+            :((f, $(new_f_arg_names...)) -> f($(actual_arg_exprs...))))
         TransformedArg{Any}(f_args, f, arg_passer)
     else
         f(args...)
@@ -159,7 +160,7 @@ macro dist(fnexpr)
           return :($(SimpleArg{name_to_type[node]}(name_to_index[node])))
       end
       if @capture(node, f_(xs__)) && f != :dist_call
-          return :(Gen.dist_call($(f), ($(xs...),)))
+          return :(Gen.dist_call($(f), ($(xs...),), $(__module__)))
       end
       node
   end
