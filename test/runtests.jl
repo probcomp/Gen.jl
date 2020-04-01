@@ -1,5 +1,4 @@
-include("../src/Gen.jl")
-using .Gen
+using Gen
 using Test
 import Random
 
@@ -67,12 +66,12 @@ const dx = 1e-6
 
 include("autodiff.jl")
 include("diff.jl")
-# include("selection.jl")
-# include("assignment.jl")
-# include("dynamic_dsl.jl")
-# include("optional_args.jl")
-# include("static_ir/static_ir.jl")
-# include("static_dsl.jl")
-# include("tilde_sugar.jl")
-# include("inference/inference.jl")
+include("selection.jl")
+include("assignment.jl")
+include("dynamic_dsl.jl")
+include("optional_args.jl")
+include("static_ir/static_ir.jl")
+include("static_dsl.jl")
+include("tilde_sugar.jl")
+include("inference/inference.jl")
 include("modeling_library/modeling_library.jl")
