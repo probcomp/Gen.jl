@@ -70,6 +70,7 @@ function project(trace::VectorTrace, selection::Selection)
     end
     weight
 end
+project(trace::VectorTrace, ::EmptySelection) = trace.noise
 
 struct VectorTraceChoiceMap{GenFnType, T, U} <: ChoiceMap
     trace::VectorTrace{GenFnType, T, U}
