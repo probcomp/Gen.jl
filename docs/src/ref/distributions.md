@@ -29,6 +29,7 @@ piecewise_uniform
 beta_uniform
 exponential
 laplace
+dirichlet
 ```
 
 ## [Defining New Distributions Inline with the `@dist` DSL](@id dist_dsl)

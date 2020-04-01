@@ -334,3 +334,12 @@ end
     @test isapprox(actual[2], finite_diff(f, args, 2, dx))
     @test isapprox(actual[3], finite_diff(f, args, 3, dx))
 end
+
+
+@testset "dirichlet" begin
+    # random
+    alpha = [1.0, 1.0, 1.0]
+    x = dirichlet(alpha)
+    f = (x, alpha) -> logpdf(dirichlet, x, alpha)
+    # test not implemented yet
+end

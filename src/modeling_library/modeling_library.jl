@@ -68,6 +68,7 @@ include("beta_uniform.jl")
 include("geometric.jl")
 include("exponential.jl")
 include("laplace.jl")
+include("dirichlet.jl")
 include("dist/dist_dsl.jl")
 
 ###############
