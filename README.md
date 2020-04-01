@@ -8,7 +8,7 @@ Gen: A General-Purpose Probabilistic Programming System with Programmable Infere
 
 *Warning: This is rapidly evolving research software.*
 
-See [https://probcomp.github.io/Gen/](https://probcomp.github.com/Gen/) for introduction, documentation, and tutorials.
+See [https://gen.dev](https://gen.dev/) for introduction, documentation, and tutorials.
 
 The Gen PLDI 2019 paper is publicly available [here](https://dl.acm.org/citation.cfm?id=3314642).
 
