@@ -11,8 +11,10 @@ import LinearAlgebra
 # could do AD through its return value as well using choice_gradients() and add
 # these to the Jacobian...?
 
-# TODO add more checks that we don't visit the same address twice (these can be
-# only enabled in 'check' mode)
+# TODO add more checks that we don't write to, or copy to, the same address
+# twice (these can be only enabled in 'check' mode). Also, because it creates
+# noninvertible Jacobian, it is invalid to copy from the same address twice and
+# we could check for that to.
 
 struct InvolutionDSLProgram
     fn!::Function
@@ -31,15 +33,13 @@ struct FirstPassState
     u_cont_writes::Dict
     t_copy_reads::DynamicSelection
     u_copy_reads::DynamicSelection
-    marked_as_retained::Set
 end
 
 function FirstPassState(trace, u::ChoiceMap)
     FirstPassState(
         trace, u, choicemap(), choicemap(),
         Dict(), Dict(), Dict(), Dict(),
-        DynamicSelection(), DynamicSelection(),
-        Set())
+        DynamicSelection(), DynamicSelection())
 end
 
 struct JacobianPassState{T<:Real}
@@ -167,21 +167,6 @@ function read_continuous_from_model(state::JacobianPassState, addr)
     else
         state.trace[addr]
     end
-end
-
-# read continuous from model retained (optional, for efficiency)
-
-macro read_continuous_from_model_retained(addr)
-    quote read_continuous_from_model_retained($(esc(inv_state)), $(esc(addr))) end
-end
-
-function read_continuous_from_model_retained(state::FirstPassState, addr)
-    push!(state.marked_as_retained, addr)
-    state.trace[addr]
-end
-
-function read_continuous_from_model_retained(state::JacobianPassState, addr)
-    state.trace[addr] # read directly from the trace, instead of the array
 end
 
 # write_continuous_to_proposal
@@ -315,6 +300,10 @@ function apply_involution(involution::InvolutionDSLProgram, trace, u, proposal_a
     first_pass_state = FirstPassState(trace, u)
     involution.fn!(first_pass_state, get_args(trace), proposal_args, proposal_retval)
 
+    # update model trace
+    (new_trace, model_weight, _, discard) = update(
+        trace, get_args(trace), map((_) -> NoChange(), get_args(trace)), first_pass_state.constraints)
+
     # create input array and mappings input addresses that are needed for Jacobian
     # exclude addresses that were moved to another address
     input_arr = Vector{Float64}()
@@ -322,20 +311,25 @@ function apply_involution(involution::InvolutionDSLProgram, trace, u, proposal_a
 
     t_key_to_index = Dict()
     for (addr, v) in first_pass_state.t_cont_reads
-        if !(addr in first_pass_state.t_copy_reads)
-            t_key_to_index[addr] = next_input_index
-            next_input_index += 1
-            push!(input_arr, v)
+        if addr in first_pass_state.t_copy_reads
+            continue
         end
+        if !has_value(discard, addr)
+            continue
+        end
+        t_key_to_index[addr] = next_input_index
+        next_input_index += 1
+        push!(input_arr, v)
     end
 
     u_key_to_index = Dict()
     for (addr, v) in first_pass_state.u_cont_reads
-        if !(addr in first_pass_state.u_copy_reads) 
-            u_key_to_index[addr] = next_input_index
-            next_input_index += 1
-            push!(input_arr, v)
+        if addr in first_pass_state.u_copy_reads
+            continue
         end
+        u_key_to_index[addr] = next_input_index
+        next_input_index += 1
+        push!(input_arr, v)
     end
 
     # create mappings for output addresses that are needed for Jacobian
@@ -380,12 +374,7 @@ function apply_involution(involution::InvolutionDSLProgram, trace, u, proposal_a
         output_arr
     end
 
-    # TODO XXX proposal_retval cannot depend on continuous random choices in model
-    # or proposal (we might be abel to relax this later using choice_gradients) XXX
-
-    (first_pass_state.constraints, first_pass_state.u_back,
-     first_pass_state.marked_as_retained,
-     t_key_to_index, input_arr, f_array)
+    (new_trace, model_weight, first_pass_state.u_back, input_arr, f_array)
 end
 
 # callable
@@ -395,36 +384,13 @@ function (involution::InvolutionDSLProgram)(trace, u::ChoiceMap, proposal_retval
     # apply the involution, and get metadata back about it, including the
     # function f_array from arrays to arrays, that is the restriction of the
     # involution to just a subset of the relevant continuous random choices
-    (constraints, u_back, marked_as_retained, t_key_to_index, input_arr, f_array) = apply_involution(
+    (new_trace, model_weight, u_back, input_arr, f_array) = apply_involution(
         involution, trace, u, proposal_args, proposal_retval)
-
-    # update model trace
-    (new_trace, model_weight, _, discard) = update(
-        trace, get_args(trace), map((_) -> NoChange(), get_args(trace)), constraints)
-
-    # check the user's retained assertions
-    if check
-        for addr in marked_as_retained
-            has_value(discard, addr) && error("Address $addr was marked as retained, but was not")
-        end
-    end
 
     # compute Jacobian matrix of f_array, where columns are inputs, rows are outputs
     J = ForwardDiff.jacobian(f_array, input_arr)
     @assert size(J)[2] == length(input_arr)
     num_outputs = size(J)[1]
-    #println("num_outputs: $num_outputs")
-
-    # remove columns for inputs from the trace that were retained
-    # NOTE: these columns did not have to be computed in the first place, if
-    # the user had marked the associated random choices as retained
-    keep = fill(true, length(input_arr))
-    for (addr, index) in t_key_to_index
-        if !has_value(discard, addr)
-            keep[index] = false
-        end
-    end
-    J = J[:,keep]
     if size(J) != (num_outputs, num_outputs)
         error("Jacobian was not square (size was $(size(J)); the function may not be an involution")
     end
@@ -438,7 +404,7 @@ end
 export @involution
 export @read_discrete_from_proposal, @read_discrete_from_model
 export @write_discrete_to_proposal, @write_discrete_to_model
-export @read_continuous_from_proposal, @read_continuous_from_model, @read_continuous_from_model_retained
+export @read_continuous_from_proposal, @read_continuous_from_model
 export @write_continuous_to_proposal, @write_continuous_to_model
 export @copy_model_to_model, @copy_model_to_proposal
 export @copy_proposal_to_proposal, @copy_proposal_to_model
