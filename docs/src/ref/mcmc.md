@@ -397,6 +397,23 @@ These values will be copied automatically by the system.
 
 Note that it is possible to write functions in the involution DSL that are not actually involutions -- Gen does not statically check whether the function is an involution or not, but it is possible to turn on a dynamic check that can detect invalid involutions using a keyword argument `check=true` to [`metropolis_hastings`](@ref).
 
+It is also possible to call one `@involution` function from another, using the `@invcall` macro.
+For example, below `bar` is the top-level `@involution` function, that calls the `@involution` function `foo`:
+```julia
+@involution foo(x)
+    ..
+end
+
+@involution bar(model_args, proposal_args, proposal_retval)
+    ..
+    x = ..
+    ..
+    @invcall(foo(x))
+end
+```
+Note that when constructing involutions that call other `@involution` functions, the function being called (`bar` in this case) need not be mathematically speaking, an involution itself, for `foo` to be mathematically be an involution.
+Also, the top-level function must take three arguments (`model_args`, `proposal_args`, and `proposal_retval`), but any other `@involution` function may have an argument signature of the user's choosing.
+
 
 ## Reverse Kernels
 The **reversal** of a stationary MCMC kernel with distribution ``k_1(t'; t)``, for model with distribution ``p(t; x)``, is another MCMC kernel with distribution:

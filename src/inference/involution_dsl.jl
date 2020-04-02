@@ -273,7 +273,7 @@ end
 
 # call another involution function (NOTE: only the top-level function is actually technically an involution)
 
-macro call(ex)
+macro invcall(ex)
     MacroTools.@capture(ex, f_(args__)) || error("expected syntax: f(..)")
     quote $(esc(f)).fn!($(esc(inv_state)), $(map(esc, args)...)) end
 end
@@ -397,4 +397,4 @@ export @read_continuous_from_proposal, @read_continuous_from_model
 export @write_continuous_to_proposal, @write_continuous_to_model
 export @copy_model_to_model, @copy_model_to_proposal
 export @copy_proposal_to_proposal, @copy_proposal_to_model
-export @call
+export @invcall

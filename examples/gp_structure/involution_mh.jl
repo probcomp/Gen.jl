@@ -103,8 +103,8 @@ end
     elseif (node_type == PLUS) || (node_type == TIMES)
         child1 = get_child(cur, 1, max_branch)
         child2 = get_child(cur, 2, max_branch)
-        @call(walk_previous_subtree(child1)) # use same namespace
-        @call(walk_previous_subtree(child2))
+        @invcall(walk_previous_subtree(child1)) # use same namespace
+        @invcall(walk_previous_subtree(child2))
     else
         error("Unknown node type: $node_type")
     end
@@ -125,8 +125,8 @@ end
     elseif (node_type == PLUS) || (node_type == TIMES)
         child1 = get_child(cur, 1, max_branch)
         child2 = get_child(cur, 2, max_branch)
-        @call(walk_new_subtree(child1)) # use same namespace
-        @call(walk_new_subtree(child2))
+        @invcall(walk_new_subtree(child1)) # use same namespace
+        @invcall(walk_new_subtree(child2))
     else
         error("Unknown node type: $node_type")
     end
@@ -146,10 +146,10 @@ end
     end
 
     # populate constraints with proposed subtree
-    @call(walk_previous_subtree(subtree_idx))
+    @invcall(walk_previous_subtree(subtree_idx))
 
     # populate backward assignment with the previous subtree
-    @call(walk_new_subtree(subtree_idx))
+    @invcall(walk_new_subtree(subtree_idx))
 end
 
 replace_subtree_move(trace) = metropolis_hastings(

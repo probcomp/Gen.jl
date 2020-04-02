@@ -254,9 +254,9 @@ end
     @copy_proposal_to_proposal(CHOSEN, CHOSEN)
 
     if isbirth
-        @call(birth(k, i))
+        @invcall(birth(k, i))
     else
-        @call(death(k, i))
+        @invcall(death(k, i))
     end
 end
 
