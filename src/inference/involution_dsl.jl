@@ -353,6 +353,9 @@ function apply_involution(involution::InvolutionDSLProgram, trace, u, proposal_a
         next_output_index += 1
     end
 
+    # this function is the partial application of the continuous part of the
+    # involution, with inputs corresponding to a particular superset of the
+    # columns of the reduced Jacobian matrix
     function f_array(input_arr::AbstractArray{T}) where {T <: Real}
 
         # closing over:
