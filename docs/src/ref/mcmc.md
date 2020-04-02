@@ -395,7 +395,7 @@ In these cases, the implementation will be more efficient if explicit 'copy' com
 It is not necessary to explicitly copy values from the previous model choice map (``t``) to the new model choice map (``t'``) at the same address.
 These values will be copied automatically by the system.
 
-Finally, When reading a continuous value from the input model choice map that is expected to be implicitly copied by the system, the system will be more efficient if the following command is used instead of `@read_continuous_from_model`:
+Finally, when reading a continuous value from the input model choice map that is expected to be implicitly copied by the system, the system will be more efficient if the following command is used instead of `@read_continuous_from_model`:
 
 - `@read_continuous_from_model_retained(addr)`: Like `@read_continuous_from_model`, but provide a hint to the system that the address being read is going to be retained (i.e. implicitly copied to the same address in the output model choice map), which permits the system to better optimize its implementation.
 
@@ -429,4 +429,3 @@ elliptical_slice
 reversal
 @involution
 ```
-
