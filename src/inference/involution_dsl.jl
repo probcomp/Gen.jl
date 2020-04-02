@@ -20,6 +20,7 @@ end
 
 struct FirstPassState
     trace
+    """Choicemap of the proposal."""
     u::ChoiceMap
     constraints::ChoiceMap
     u_back::ChoiceMap
