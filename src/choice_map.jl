@@ -973,7 +973,7 @@ function Base.length(cv::ChoiceMapNestedView)
 end
 
 function Base.show(io::IO, ::MIME"text/plain", c::ChoiceMapNestedView)
-  Base.show(io, MIME"text/plain"(), c.choice_map)
+    Base.show(io, MIME"text/plain"(), c.choice_map)
 end
 
 nested_view(c::ChoiceMap) = ChoiceMapNestedView(c)
