@@ -2,20 +2,6 @@ import ForwardDiff
 import MacroTools
 import LinearAlgebra
 
-# TODO allow providing a pair of address namespaces, one for the model and one
-# for the proposal, when calling another involution function with call
-
-# TODO proposal_retval is a way that continuous data can leak unaccounted for..
-# for now, the requirement is that the return value of f_disc cannot depend on
-# continuous addresses in the model or proposal although in the future, we
-# could do AD through its return value as well using choice_gradients() and add
-# these to the Jacobian...?
-
-# TODO add more checks that we don't write to, or copy to, the same address
-# twice (these can be only enabled in 'check' mode). Also, because it creates
-# noninvertible Jacobian, it is invalid to copy from the same address twice and
-# we could check for that to.
-
 struct InvolutionDSLProgram
     fn!::Function
 end
