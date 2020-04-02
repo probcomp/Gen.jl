@@ -383,6 +383,9 @@ function (involution::InvolutionDSLProgram)(trace, u::ChoiceMap, proposal_retval
 
     # log absolute value of Jacobian determinant
     correction = LinearAlgebra.logabsdet(J)[1]
+    if isinf(correction)
+        @error "Weight correction is infinite; the function may not be an involution"
+    end
 
     (new_trace, u_back, model_weight + correction)
 end
