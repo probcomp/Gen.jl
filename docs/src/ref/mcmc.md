@@ -394,6 +394,7 @@ In these cases, the implementation will be more efficient if explicit 'copy' com
 
 It is not necessary to explicitly copy values from the previous model choice map (``t``) to the new model choice map (``t'``) at the same address.
 These values will be copied automatically by the system.
+Specifically, if using the proposed constraints, the model visits an address that was not explicitly copied or written to, the old value will automatically be copied.
 
 Note that it is possible to write functions in the involution DSL that are not actually involutions -- Gen does not statically check whether the function is an involution or not, but it is possible to turn on a dynamic check that can detect invalid involutions using a keyword argument `check=true` to [`metropolis_hastings`](@ref).
 
