@@ -92,7 +92,7 @@ end
     get_submap(submap, rest)
 end
 
-function _print(io::IO, choices::ChoiceMap, pre, vert_bars::Tuple)
+function _show_pretty(io::IO, choices::ChoiceMap, pre, vert_bars::Tuple)
     VERT = '\u2502'
     PLUS = '\u251C'
     HORZ = '\u2500'
@@ -115,20 +115,20 @@ function _print(io::IO, choices::ChoiceMap, pre, vert_bars::Tuple)
     n = length(key_and_values) + length(key_and_submaps)
     cur = 1
     for (key, value) in key_and_values
-        print(io, indent_vert_str)
-        print(io, (cur == n ? indent_last_str : indent_str) * "$(repr(key)) : $value\n")
+        show(io, indent_vert_str)
+        show(io, (cur == n ? indent_last_str : indent_str) * "$(repr(key)) : $value\n")
         cur += 1
     end
     for (key, submap) in key_and_submaps
-        print(io, indent_vert_str)
-        print(io, (cur == n ? indent_last_str : indent_str) * "$(repr(key))\n")
-        _print(io, submap, pre + 4, cur == n ? (vert_bars...,) : (vert_bars..., pre+1))
+        show(io, indent_vert_str)
+        show(io, (cur == n ? indent_last_str : indent_str) * "$(repr(key))\n")
+        _show_pretty(io, submap, pre + 4, cur == n ? (vert_bars...,) : (vert_bars..., pre+1))
         cur += 1
     end
 end
 
-function Base.print(io::IO, choices::ChoiceMap)
-    _print(io, choices, 0, ())
+function Base.show(io::IO, ::MIME"text/plain", choices::ChoiceMap)
+    _show_pretty(io, choices, 0, ())
 end
 
 # assignments that have static address schemas should also support faster
@@ -970,7 +970,9 @@ function Base.length(cv::ChoiceMapNestedView)
     get_submaps_shallow(cv.choice_map) |> collect |> length)
 end
 
-Base.print(io::IO, c::ChoiceMapNestedView) = Base.print(io, c.choice_map)
+function Base.show(io::IO, ::MIME"text/plain", c::ChoiceMapNestedView)
+  Base.show(io, MIME"text/plain"(), c.choice_map)
+end
 
 nested_view(c::ChoiceMap) = ChoiceMapNestedView(c)
 
