@@ -6,13 +6,23 @@ struct InvolutionDSLProgram
     fn!::Function
 end
 
-# See docs/tex/mcmc.pdf
+# See this math writeup for an understanding of how this code works:
+# docs/tex/mcmc.pdf
 
 struct FirstPassState
+
+    "trace containing the input model choice map ``t``"
     trace
+
+    "the input proposal choice map ``u``"
     u::ChoiceMap
+
+    "subset of the output model choice map ``t'``"
     constraints::ChoiceMap
+
+    "output proposal choice map ``u'``"
     u_back::ChoiceMap
+
     t_cont_reads::Dict
     u_cont_reads::Dict
     t_cont_writes::Dict
