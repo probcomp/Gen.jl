@@ -49,6 +49,7 @@ const inv_state = gensym("inv_state")
 Write a program in the [Involution DSL](@ref).
 """
 macro involution(ex)
+    ex = MacroTools.longdef(ex)
     MacroTools.@capture(ex, function f_(args__) body_ end) || error("expected syntax: function f(..) .. end")
 
     fn! = gensym("$(esc(f))_fn!")
