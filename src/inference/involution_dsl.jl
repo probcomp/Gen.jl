@@ -75,7 +75,7 @@ macro involution(ex)
         nothing
     end
 
-    $(esc(f)) = InvolutionDSLProgram($fn!)
+    Core.@__doc__ $(esc(f)) = InvolutionDSLProgram($fn!)
 
     end # quote
 
