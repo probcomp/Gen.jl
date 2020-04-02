@@ -90,21 +90,17 @@ function metropolis_hastings(
     if check
         (trace_rt, fwd_choices_rt, weight_rt) = involution(new_trace, bwd_choices, bwd_ret, proposal_args)
         if !isapprox(fwd_choices_rt, fwd_choices)
-            println("fwd_choices:")
-            println(fwd_choices)
-            println("fwd_choices_rt:")
-            println(fwd_choices_rt)
+            @error "fwd_choices: $(sprint(show, "text/plain", fwd_choices))"
+            @error "fwd_choices_rt: $(sprint(show, "text/plain", fwd_choices_rt))"
             error("Involution round trip check failed")
         end
         if !isapprox(get_choices(trace), get_choices(trace_rt))
-            println("get_choices(trace):")
-            println(get_choices(trace))
-            println("get_choices(trace_rt):")
-            println(get_choices(trace_rt))
+            @error "get_choices(trace): $(sprint(show, "text/plain", get_choices(trace)))"
+            @error "get_choices(trace_rt): $(sprint(show, "text/plain", get_choices(trace_rt)))"
             error("Involution round trip check failed")
         end
         if !isapprox(weight, -weight_rt)
-            println("weight: $weight, -weight_rt: $(-weight_rt)")
+            @error "weight: $weight, -weight_rt: $(-weight_rt)"
             error("Involution round trip check failed")
         end
     end
