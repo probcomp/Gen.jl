@@ -40,7 +40,7 @@ The approach uses a domain-specific language (DSL) for specifying families of bi
 \section{Example}
 
 We consider a variant of the changepoint model that was used to introduce RJMCMC in~\citep{green1995reversible}.
-Briefly, we put a prior on a class of piecewise constant functions on an interval $[0, x_{max}]$ where the number of segments is random and Poisson distributed.
+Briefly, we put a prior on a class of piecewise constant functions on an interval $[0, x_{max}]$ where the number of changepoints is random and Poisson distributed.
 Let $n \in \{1, 2, \ldots, \}$ denote the number of segments, so that the number of changepoints is $n-1 \in \{0, 1, 2, \ldots\}$.
 Let $x_i$ denote changepoint $i$, for $i=1,\ldots,n-1$.
 Then, segment $1$ has range $[0, x_1)$, segment $d$ has range $[x_{n-1}, x_{max}]$ and segment $i$ has range $[x_{i-1}, x_i)$ for $i=2,\ldots,n-1$.
