@@ -120,8 +120,9 @@ function plots()
     
     subplot(2, 2, 3)
     plot(zs, label="z", color="black")
+    xlabel("\\# MCMC moves")
     legend(loc="center right")
-    gca().set_yticks([0, 1])
+    yticks(ticks=[0, 1], labels=["F", "T"])
     gca().set_ylim(-0.1, 1.1)
     
     subplot(2, 2, 2)
@@ -136,12 +137,14 @@ function plots()
     
     subplot(2, 2, 4)
     plot(zs, label="z", color="black")
+    xlabel("\\# MCMC moves")
     legend(loc="center right")
-    gca().set_yticks([0, 1])
+    yticks(ticks=[0, 1], labels=["F", "T"])
     gca().set_ylim(-0.1, 1.1)
     
+    tight_layout()
     savefig("rjmcmc.png")
 end
 
-#using PyPlot
-#plots()
+using PyPlot
+plots()
