@@ -115,13 +115,15 @@ function _show_pretty(io::IO, choices::ChoiceMap, pre, vert_bars::Tuple)
     n = length(key_and_values) + length(key_and_submaps)
     cur = 1
     for (key, value) in key_and_values
-        show(io, indent_vert_str)
-        show(io, (cur == n ? indent_last_str : indent_str) * "$(repr(key)) : $value\n")
+        # For strings, `print` is what we want; `Base.show` includes quote marks.
+        # https://docs.julialang.org/en/v1/base/io-network/#Base.print
+        print(io, indent_vert_str)
+        print(io, (cur == n ? indent_last_str : indent_str) * "$(repr(key)) : $value\n")
         cur += 1
     end
     for (key, submap) in key_and_submaps
-        show(io, indent_vert_str)
-        show(io, (cur == n ? indent_last_str : indent_str) * "$(repr(key))\n")
+        print(io, indent_vert_str)
+        print(io, (cur == n ? indent_last_str : indent_str) * "$(repr(key))\n")
         _show_pretty(io, submap, pre + 4, cur == n ? (vert_bars...,) : (vert_bars..., pre+1))
         cur += 1
     end
