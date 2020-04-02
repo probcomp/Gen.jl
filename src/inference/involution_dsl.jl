@@ -42,7 +42,7 @@ function FirstPassState(trace, u::ChoiceMap)
         Set())
 end
 
-struct JacobianPassState{T}
+struct JacobianPassState{T<:Real}
     trace
     u::ChoiceMap
     input_arr::AbstractArray{T}
