@@ -414,6 +414,12 @@ end
 Note that when constructing involutions that call other `@involution` functions, the function being called (`bar` in this case) need not be mathematically speaking, an involution itself, for `foo` to be mathematically be an involution.
 Also, the top-level function must take three arguments (`model_args`, `proposal_args`, and `proposal_retval`), but any other `@involution` function may have an argument signature of the user's choosing.
 
+Some additional tips for defining valid involutions:
+
+- If you find yourself copying the same source address to multiple locations, it probably means your involution is not valid (the Jacobian matrix will have rows that are identical, and so the Jacobian determinant will be nonzero).
+
+- You can gain some confidence that your involution is valid by enabling dynamic checks (`check=true`) in [`metropolis_hastings`](@ref), which applies the involution to its output and checks that the original input is recovered.
+
 
 ## Reverse Kernels
 The **reversal** of a stationary MCMC kernel with distribution ``k_1(t'; t)``, for model with distribution ``p(t; x)``, is another MCMC kernel with distribution:

@@ -77,7 +77,9 @@ The generative function `proposal` is executed on arguments `(trace, proposal_ar
 For each value of model arguments (contained in `trace`) and `proposal_args`, the `involution` function applies an involution that maps the tuple `(get_choices(trace), fwd_choices)` to the tuple `(get_choices(new_trace), bwd_choices)`.
 Note that `fwd_ret` is a deterministic function of `fwd_choices` and `proposal_args`.
 When only discrete random choices are used, the `weight` must be equal to `get_score(new_trace) - get_score(trace)`.
+
 When continuous random choices are used, the `weight` returned by the involution must include an additive correction term that is the determinant of the the Jacobian of the bijection on the continuous random choices that is obtained by currying the involution on the discrete random choices (this correction term is automatically computed if the involution is constructed using the [Involution DSL](@ref)).
+NOTE: The Jacobian matrix of the bijection on the continuous random choices must be full-rank (i.e. nonzero determinant).
 The `check` keyword argument to the involution can be used to enable or disable any dynamic correctness checks that the involution performs; for successful executions, `check` does not alter the return value.
 """
 function metropolis_hastings(
