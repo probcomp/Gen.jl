@@ -119,7 +119,7 @@ Let $t \in \mathbb{R}^K$ denote the vector of values of continuous random choice
 Let $u \in \mathbb{R}^L$ denote the vector of values of continuous random choices in the proposal trace.
 Similarly, let $t' \in \mathbb{R}^{K'}$ and $u' \in \mathbb{R}^{L'}$ denote the vector of values of continuous random choices in the new model trace, and new proposal trace.
 We assume that $K + L = K' + L'$ (this is the \emph{dimension matching} requirement), and that we are given a bijection $h : \mathbb{R}^{K + L} \to \mathbb{R}^{K + L}$ that is differentiable and whose Jacobian has nonzero determinant everwhere.\footnote{It may be possible to generalize and allow functions that are not differentiable at a measure zero set of points.}
-This section discusses how to efficiently compute the absolute value of the determinant of the Jacobian of $h$, which we denote by $J \in \mathbb{R}^{K + L \times K + L}$.
+This section discusses how to efficiently compute the absolute value of the determinant of the Jacobian of $h$, which we denote by $J \in \mathbb{R}^{(K + L) \times (K + L)}$.
 
 $J$ is often sparse due to the fact that often a large fraction of the entries in $(t', u')$ are obtained by \emph{copying} the value of some entry in $(t, u)$.
 We denote the subvector of entries of $t'$ that are produced by copying as $t'_c$ and similarly for $u'$ (subvector of copies is denoted $u'_c$).
