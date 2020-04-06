@@ -396,7 +396,12 @@ It is not necessary to explicitly copy values from the previous model choice map
 These values will be copied automatically by the system.
 Specifically, if using the proposed constraints, the model visits an address that was not explicitly copied or written to, the old value will automatically be copied.
 
-Note that it is possible to write functions in the involution DSL that are not actually involutions -- Gen does not statically check whether the function is an involution or not, but it is possible to turn on a dynamic check that can detect invalid involutions using a keyword argument `check=true` to [`metropolis_hastings`](@ref).
+Caveats:
+
+- It is possible to write functions in the involution DSL that are not actually involutions -- Gen does not statically check whether the function is an involution or not, but it is possible to turn on a dynamic check that can detect invalid involutions using a keyword argument `check=true` to [`metropolis_hastings`](@ref).
+
+- To avoid unecessary recomputation within the involution of values that are already computed and available in the return value of the model or the proposal, it is possible to depend on these values through the proposal return value (the third argument to the involution).
+However, it is possible to introduce a dependence on the value of continuous random choices in the input model choice map and the input proposal choice map through the proposal return value, and this dependence is not tracked by the automatic differentiation that is used to compute the Jacobian correction of the acceptance probability. Therefore, you should only only the proposal return value if you are sure you are not depending on the value of continuous choices (conditioned on the values of discrete choices).
 
 It is also possible to call one `@involution` function from another, using the `@invcall` macro.
 For example, below `bar` is the top-level `@involution` function, that calls the `@involution` function `foo`:
@@ -417,7 +422,7 @@ Also, the top-level function must take three arguments (`model_args`, `proposal_
 
 Some additional tips for defining valid involutions:
 
-- If you find yourself copying the same source address to multiple locations, it probably means your involution is not valid (the Jacobian matrix will have rows that are identical, and so the Jacobian determinant will be nonzero).
+- If you find yourself copying the same continuous source address to multiple locations, it probably means your involution is not valid (the Jacobian matrix will have rows that are identical, and so the Jacobian determinant will be nonzero).
 
 - You can gain some confidence that your involution is valid by enabling dynamic checks (`check=true`) in [`metropolis_hastings`](@ref), which applies the involution to its output and checks that the original input is recovered.
 
