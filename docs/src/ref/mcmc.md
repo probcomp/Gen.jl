@@ -201,6 +201,231 @@ new_trace = permute_move(trace, 2)
 Indeed, they are just regular Julia functions, but with some extra information attached so that the composite kernel DSL knows they have been declared as stationary kernels.
 
 
+## Involution MCMC
+
+Gen's most flexible variant of [`metropolis_hastings`](@ref), called **involution MCMC**, allows users to specify any MCMC kernel in the reversible jump MCMC (RJMCMC) framework [2].
+Involution MCMC allows you to express a broad class of custom MCMC kernels that are not expressible using the other, simpler variants of Metropolis-Hastings supported by Gen.
+These kernels are particularly useful for inferring the structure (e.g. control flow) of a model.
+
+[2] Green, Peter J. "Reversible jump Markov chain Monte Carlo computation and Bayesian model determination." Biometrika 82.4 (1995): 711-732. [Link](https://academic.oup.com/biomet/article-abstract/82/4/711/252058)
+
+An involution MCMC kernel in Gen takes as input a previous trace of the model (whose choice map we will denote by ``t``), and performs three phases to obtain a new trace of the model:
+
+- First, it traces the execution of a **proposal**, which is a generative function that takes the previous trace of the model as its first argument. Mathematically, we will denote the choice map associated with the trace of the proposal by ``u``. The proposal can of course be defined using the [Built-In Modeling Languages](@ref), just like the model itself. However, unlike many other uses of proposals in Gen, these proposals *can make random choices at addresses that the model does not*.
+
+- Next, it takes the tuple ``(t, u)`` and passes it into an **involution** (denoted mathematically by ``h``), which is a function that returns a new tuple ``(t', u')``, where ``t'`` is the choice map for a new proposed trace of the model, and ``u'`` are random choices for a new trace of the proposal. The defining property of the involution is that *it is invertible*, and *it is its own inverse*; i.e. ``(t, u) = h(h(t, u))``. Intuitively, ``u'`` is a description of a way that the proposal could be reversed, taking ``t'`` to ``t``.
+
+- Finally, it computes an acceptance probability, which involves computing certain derivatives associated with the involution, and stochastically accepts or rejects the proposed model trace according to this probability. If the involution is defined using a the **Involution DSL** described later in this section, then the acceptance probability calculation is fully automated. (You can also implement involutions directly as Julia functions, but then you need to compute the Jacobian correction to the acceptance probability yourself).
+ 
+### Example
+Consider the following generative model of two pieces of observed data, at addresses `:y1` and `:y2`.
+```julia
+@gen function model()
+    if ({:z} ~ bernoulli(0.5))
+        m1 = ({:m1} ~ gamma(1, 1))
+        m2 = ({:m2} ~ gamma(1, 1))
+    else
+        m = ({:m} ~ gamma(1, 1))
+        (m1, m2) = (m, m)
+    end
+    {:y1} ~ normal(m1, 0.1)
+    {:y2} ~ normal(m2, 0.1)
+end
+```
+Because this model has stochastic control flow, it represents two distinct structural hypotheses about how the observed data could have been generated:
+If `:z` is `true` then we enter the first branch, and we hypothesize that the two data points were generated from separate means, sampled at addresses `:m1` and `:m2`.
+If `:z` is `false` then we enter the second branch, and we hypohesize that there is a single mean that explains both data points, sampled at address `:m`.
+
+We want to construct an MCMC kernel that is able to transition between these two distinct structural hypotheses.
+We could construct such a kernel with the simpler 'selection' variant of Metropolis-Hastings, by selecting the address `:z`, e.g.:
+```julia
+select_mh_structure_kernel(trace) = mh(trace, select(:z))[1]
+```
+Sometimes, this kernel would propose to change the value of `:z`.
+We could interleave this kernel with another kernel that does inference over the mean random choices, without changing the structure, e.g.:
+```julia
+@gen function fixed_structure_proposal(trace)
+    if trace[:z]
+        {:m1} ~ normal(trace[:m1], 0.1)
+        {:m2} ~ normal(trace[:m2], 0.1)
+    else
+        {:m} ~ normal(trace[:m], 0.1)
+    end
+end
+
+fixed_structure_kernel(trace) = mh(trace, fixed_structure_proposal, ())[1]
+```
+Combining these together, and applying to particular data and with a specific initial hypotheses:
+```julia
+(y1, y2) = (1.0, 1.3)
+trace, = generate(model, (), choicemap((:y1, y1), (:y2, y2), (:z, false), (:m, 1.2)))
+for iter=1:100
+    trace = select_mh_structure_kernel(trace)
+    trace = fixed_structure_kernel(trace)
+end
+```
+However, this algorithm will not be very efficient, because the internal proposal used by the selection variant of MH is not specialized to the model.
+In particular, when switching from the model with a single mean to the model with two means, the values of the new addresses `:m1` and `:m2` will be proposed from the prior distribution.
+This is wasteful, since if we have inferred an accurate value for `:m`, we expect the values for `:m1` and `:m2` to be near this value.
+The same is true when proposing a structure change in the opposite direction.
+That means it will take many more steps to get an accurate estimate of the posterior probability distribution on the two structures.
+
+We would like to use inferred values for `:m1` and `:m2` to inform our proposal for the value of `:m`.
+For example, we could take the geometric mean:
+```julia
+m = sqrt(m1 * m2)
+```
+However, there are many combinations of `m1` and `m2` that have the same geometric mean.
+In other words, the geometric mean is not *invertible*.
+However, if we return the additional degree of freedom alongside the geometric mean (`dof`), then we do have an invertible function:
+```julia
+function merge_means(m1, m2)
+    m = sqrt(m1 * m2)
+    dof = m1 / (m1 + m2)
+    (m, dof)
+end
+```
+The inverse function is:
+```julia
+function split_mean(m, dof)
+    m1 = m * sqrt((dof / (1 - dof)))
+    m2 = m * sqrt(((1 - dof) / dof))
+    (m1, m2)
+end
+```
+We use these two functions to construct an involution, and we use this involution with [`metropolis_hastings`](@ref) to construct an MCMC kernel that we call a 'split/merge' kernel, because it either splits a parameter value, or merges two parameter values.
+The proposal is responsible for generating the extra degree of freedom when splitting:
+```julia
+@gen function split_merge_proposal(trace)
+    if trace[:z]
+        # currently two segments, switch to one
+    else
+        # currently one segment, switch to two
+        {:dof} ~ uniform_continuous(0, 1)
+    end
+end
+```
+Finally, we write the involution itself, using the involution DSL:
+```julia
+@involution function split_merge_involution(model_args, proposal_args, proposal_retval)
+
+    if @read_discrete_from_model(:z)
+
+        # currently two segments, switch to one
+        @write_discrete_to_model(:z, false)
+        m1 = @read_continuous_from_model(:m1)
+        m2 = @read_continuous_from_model(:m2)
+        (m, dof) = merge_means(m1, m2)
+        @write_continuous_to_model(:m, m)
+        @write_continuous_to_proposal(:dof, dof)
+
+    else
+
+        # currently one segments, switch to two
+        @write_discrete_to_model(:z, true)
+        m = @read_continuous_from_model(:m)
+        dof = @read_continuous_from_proposal(:dof)
+        (m1, m2) = split_mean(m, dof)
+        @write_continuous_to_model(:m1, m1)
+        @write_continuous_to_model(:m2, m2)
+    end
+end
+```
+The body of this function reads values from ``(t, u)`` at specific addresses and writes values to ``(t', u')`` at specific addresses, where ``t`` and ``t'`` are called 'model' choice maps, and ``u`` and ``u'`` are called 'proposal' choice maps.
+Note that the inputs and outputs of this function are **not** represented in the same way as arguments or return values of regular Julia functions --- they are implicit and can only be read from and written to, respectively, using a set of special macros (listed below).
+You should convince yourself that this function is invertible and its own inverse.
+
+Finally, we compose a structure-changing MCMC kernel using this involution:
+```julia
+split_merge_kernel(trace) = mh(trace, split_merge_proposal, (), split_merge_involution)
+```
+We then compose this move with the fixed structure move, and run it on the observed data:
+```julia
+(y1, y2) = (1.0, 1.3)
+trace, = generate(model, (), choicemap((:y1, y1), (:y2, y2), (:z, false), (:m, 1.)))
+for iter=1:100
+    trace = split_merge_kernel(trace)
+    trace = fixed_structure_kernel(trace)
+end
+```
+We can then compare the results to the results from the Markov chain that used the selection-based structure-changing kernel:
+
+![rjmcmc plot](images/rjmcmc.png)
+
+We see that if we initialize the Markov chains from the same state with a single mean (`:z` is `false`) then the selection-based kernel fails to accept any moves to the two-mean structure within 100 iterations, whereas the split-merge kernel transitions back and forth many times,
+If we repeated the selection-based kernel for enough iterations, it would eventually transition back and forth at the same rate as the split-merge.
+The split-merge kernel gives a much more efficient inference algorithm for estimating the posterior probability on the two structures.
+
+### Involution DSL
+
+To define an involution using the involution DSL, use the [`@involution`](@ref) macro in front of a Julia function definition.
+The function must take three arguments, representing the arguments to the model, the arguments to the proposal (not including the trace), and the return value of the proposal.
+Note that these are not the inputs to the involution itself, they simply parametrize a family of involutions, which are maps between pairs of choice maps ``(t, u)`` and ``(t', u')`` where ``t`` and ``t'`` are choice maps of model traces and ``u`` and ``u'`` are choice map of proposal traces.
+The body of the function can contain almost arbitrary Julia code.
+However, reads from ``(t, u)`` and writes to ``(t', u')`` use specific macros.
+Some of these macros can only be used with either discrete or continuous random choices, respectively:
+
+- `@read_discrete_from_model(addr)`: Read the discrete value from the input model choice map (``t``) at the given address.
+
+- `@write_discrete_to_model(addr, value)`: Write a discrete value to the output model choice map (``t'``) at the given address.
+
+- `@read_discrete_from_proposal(addr)`: Read the discrete value from the input proposal choice map (``u``) at the given address.
+
+- `@write_discrete_to_proposal(addr, value)`: Write a discrete value to the output proposal choice map (``u'``) at the given address.
+
+- `@read_continuous_from_model(addr)`: Read the continuous value from the input model choice map (``t``) at the given address.
+
+- `@write_continuous_to_model(addr, value)`: Write a continuous value to the output model choice map (``t'``) at the given address.
+
+- `@read_continuous_from_proposal(addr)`: Read the continuous value from the input proposal choice map (``u``) at the given address.
+
+- `@write_continuous_to_proposal(addr, value)`: Write a continuous value to the output proposal choice map (``u'``) at the given address.
+
+Often involutions directly copy the value from one address in the input ``(t, u)`` to the output ``(t', u')``.
+In these cases, the implementation will be more efficient if explicit 'copy' commands are used instead:
+
+- `@copy_model_to_model(from_addr, to_addr)`: Copy the value (discrete or continuous) or an entire sub-map of choices under an address namespace from the input model choice map (``t``) to the output model choice map (``t'``).
+
+- `@copy_model_to_proposal(from_addr, to_addr)`: Copy the value (discrete or continuous) or an entire sub-map of choices under an address namespace from the input model choice map (``t``) to the output proposal choice map (``u'``).
+
+- `@copy_proposal_to_proposal(from_addr, to_addr)`: Copy the value (discrete or continuous) or an entire sub-map of choices under an address namespace from the input proposal choice map (``u``) to the output proposal choice map (``u'``).
+
+- `@copy_proposal_to_model(from_addr, to_addr)`: Copy the value (discrete or continuous) or an entire sub-map of choices under an address namespace from the input proposal choice map (``u``) to the output model choice map (``t'``).
+
+It is not necessary to explicitly copy values from the previous model choice map (``t``) to the new model choice map (``t'``) at the same address.
+These values will be copied automatically by the system.
+Specifically, if using the proposed constraints, the model visits an address that was not explicitly copied or written to, the old value will automatically be copied.
+
+Caveats:
+
+- It is possible to write functions in the involution DSL that are not actually involutions -- Gen does not statically check whether the function is an involution or not, but it is possible to turn on a dynamic check that can detect invalid involutions using a keyword argument `check=true` to [`metropolis_hastings`](@ref).
+
+- To avoid unecessary recomputation within the involution of values that are already computed and available in the return value of the model or the proposal, it is possible to depend on these values through the proposal return value (the third argument to the involution). However, it is possible to introduce a dependence on the value of continuous random choices in the input model choice map and the input proposal choice map through the proposal return value, and this dependence is not tracked by the automatic differentiation that is used to compute the Jacobian correction of the acceptance probability. Therefore, you should only only the proposal return value if you are sure you are not depending on the value of continuous choices (conditioned on the values of discrete choices).
+
+It is also possible to call one `@involution` function from another, using the `@invcall` macro.
+For example, below `bar` is the top-level `@involution` function, that calls the `@involution` function `foo`:
+```julia
+@involution foo(x)
+    ..
+end
+
+@involution bar(model_args, proposal_args, proposal_retval)
+    ..
+    x = ..
+    ..
+    @invcall(foo(x))
+end
+```
+Note that when constructing involutions that call other `@involution` functions, the function being called (`bar` in this case) need not be mathematically speaking, an involution itself, for `foo` to be mathematically be an involution.
+Also, the top-level function must take three arguments (`model_args`, `proposal_args`, and `proposal_retval`), but any other `@involution` function may have an argument signature of the user's choosing.
+
+Some additional tips for defining valid involutions:
+
+- If you find yourself copying the same continuous source address to multiple locations, it probably means your involution is not valid (the Jacobian matrix will have rows that are identical, and so the Jacobian determinant will be nonzero).
+
+- You can gain some confidence that your involution is valid by enabling dynamic checks (`check=true`) in [`metropolis_hastings`](@ref), which applies the involution to its output and checks that the original input is recovered.
+
+
 ## Reverse Kernels
 The **reversal** of a stationary MCMC kernel with distribution ``k_1(t'; t)``, for model with distribution ``p(t; x)``, is another MCMC kernel with distribution:
 ```math
@@ -214,6 +439,7 @@ This also assigns `k1` as the reversal of `k2`.
 The composite kernel DSL automatically generates the reversal kernel for composite kernels, and built-in stationary kernels like [`mh`](@ref).
 The reversal of a kernel (primitive or composite) can be obtained with [`reversal`](@ref).
 
+
 ## API
 ```@docs
 metropolis_hastings
@@ -225,5 +451,5 @@ elliptical_slice
 @kern
 @rkern
 reversal
+@involution
 ```
-
