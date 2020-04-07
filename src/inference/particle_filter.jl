@@ -111,7 +111,17 @@ end
     particle_filter_step!(state::ParticleFilterState, new_args::Tuple, argdiffs,
         observations::ChoiceMap, proposal::GenerativeFunction, proposal_args::Tuple)
 
-Perform a particle filter update, where the model arguments are adjusted, new observations are added, and some combination of a custom proposal and the model's internal proposal is used for proposing new latent state (whatever is not proposed from the custom proposal will be proposed using the model's internal proposal).
+Perform a particle filter update, where the model arguments are adjusted, new
+observations are added, and some combination of a custom proposal and the
+model's internal proposal is used for proposing new latent state.  That is, for
+each particle, the value of a random choice at address `a` in the new trace for
+that particle is chosen by the following rule:
+
+* If the proposal's choicemap has a random choice at address `a`, use that
+  value.
+* Otherwise, if the choicemap of the particle's previous trace has a random
+  choice at address `a`, use that value.
+* Otherwise, sample the value from the model's internal proposal.
 """
 function particle_filter_step!(state::ParticleFilterState{U}, new_args::Tuple, argdiffs::Tuple,
         observations::ChoiceMap, proposal::GenerativeFunction, proposal_args::Tuple) where {U}
