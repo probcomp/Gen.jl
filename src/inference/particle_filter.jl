@@ -116,11 +116,10 @@ observations are added, and some combination of a custom proposal and the
 model's internal proposal is used for proposing new latent state.  That is, for
 each particle, the value of a random choice at address `a` in the new trace for
 that particle is chosen by the following rule:
-
+* The particle's previous trace must not have a random choice at address `a`:
+  overwriting old state is not allowed.
 * If the proposal's choicemap has a random choice at address `a`, use that
   value.
-* Otherwise, if the choicemap of the particle's previous trace has a random
-  choice at address `a`, use that value.
 * Otherwise, sample the value from the model's internal proposal.
 """
 function particle_filter_step!(state::ParticleFilterState{U}, new_args::Tuple, argdiffs::Tuple,
