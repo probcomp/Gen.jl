@@ -451,22 +451,34 @@ can instead be implemented as:
 ```
 
 ### Loading generated functions
-Before a function with a static annotation can be used, the [`load_generated_functions`](@ref) method must be called:
+Before a function with a static annotation can be used, the [`@load_generated_functions`](@ref) macro must be called:
 ```@docs
-load_generated_functions
+@load_generated_functions
 ```
 Typically, one call to this function, at the top level of a script, separates the definition of generative functions from the execution of inference code, e.g.:
 ```julia
-using Gen: load_generated_functions
+using Gen: @load_generated_functions
 
 # define generative functions and inference code
 ..
 
 # allow static generative functions defined above to be used
-load_generated_functions()
+@load_generated_functions
 
 # run inference code
 ..
+```
+
+When static generative functions are defined in a Julia module, [`@load_generated_functions`](@ref) should be called after all static functions are defined:
+
+```julia
+module MyModule
+using Gen
+# Include code that defines static generative functions
+include("my_static_gen_functions.jl")
+# Load generated functions defined in this module
+Gen.@load_generated_functions
+end
 ```
 
 ### Performance tips
