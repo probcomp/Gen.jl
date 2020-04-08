@@ -477,9 +477,11 @@ using Gen
 # Include code that defines static generative functions
 include("my_static_gen_functions.jl")
 # Load generated functions defined in this module
-Gen.@load_generated_functions
+@load_generated_functions
 end
 ```
+
+Any script that imports or uses `MyModule` will then no longer need to call `@load_generated_functions`, unless they also define their own static generative functions.
 
 ### Performance tips
 For better performance when the arguments are simple data types like `Float64`, annotate the arguments with the concrete type.
