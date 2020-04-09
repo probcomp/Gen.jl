@@ -463,7 +463,7 @@ using Gen: @load_generated_functions
 ..
 
 # allow static generative functions defined above to be used
-@load_generated_functions
+@load_generated_functions()
 
 # run inference code
 ..
@@ -477,11 +477,17 @@ using Gen
 # Include code that defines static generative functions
 include("my_static_gen_functions.jl")
 # Load generated functions defined in this module
-@load_generated_functions
+@load_generated_functions()
 end
 ```
 
-Any script that imports or uses `MyModule` will then no longer need to call `@load_generated_functions`, unless they also define their own static generative functions.
+Any script that imports or uses `MyModule` will then no longer need to call `@load_generated_functions` in order to use the static generative functions defined in that module:
+
+```julia
+using Gen
+using MyModule: my_static_gen_fn
+trace = simulate(my_static_gen_fn, ())
+```
 
 ### Performance tips
 For better performance when the arguments are simple data types like `Float64`, annotate the arguments with the concrete type.
