@@ -14,9 +14,9 @@ using Statistics: mean
 #########################
 
 function get_airline_dataset()
-    df = CSV.read("$(@__DIR__)/airline.csv")
-    xs = df[1]
-    ys = df[2]
+    df = CSV.read("$(@__DIR__)/airline.csv", header=["time", "price"])
+    xs = Vector{Float64}(df.time)
+    ys = Vector{Float64}(df.price)
     xs .-= minimum(xs) # set x minimum to 0.
     xs /= maximum(xs) # scale x so that maximum is at 1.
     ys .-= mean(ys) # set y mean to 0.
