@@ -753,11 +753,11 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "ref/modeling/#Gen.load_generated_functions",
+    "location": "ref/modeling/#Gen.@load_generated_functions",
     "page": "Built-in Modeling Language",
-    "title": "Gen.load_generated_functions",
-    "category": "function",
-    "text": "load_generated_functions()\n\nPermit use of generative functions written in the static modeling language up to this point.\n\n\n\n\n\n"
+    "title": "Gen.@load_generated_functions",
+    "category": "macro",
+    "text": "@load_generated_functions\n\nPermit use of generative functions written in the static modeling language up to this point. Functions are loaded into the calling module.\n\n\n\n\n\n"
 },
 
 {
@@ -765,7 +765,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Built-in Modeling Language",
     "title": "Loading generated functions",
     "category": "section",
-    "text": "Before a function with a static annotation can be used, the load_generated_functions method must be called:load_generated_functionsTypically, one call to this function, at the top level of a script, separates the definition of generative functions from the execution of inference code, e.g.:using Gen: load_generated_functions\n\n# define generative functions and inference code\n..\n\n# allow static generative functions defined above to be used\nload_generated_functions()\n\n# run inference code\n.."
+    "text": "Before a function with a static annotation can be used, the @load_generated_functions macro must be called:@load_generated_functionsTypically, one call to this function, at the top level of a script, separates the definition of generative functions from the execution of inference code, e.g.:using Gen: @load_generated_functions\n\n# define generative functions and inference code\n..\n\n# allow static generative functions defined above to be used\n@load_generated_functions()\n\n# run inference code\n..When static generative functions are defined in a Julia module, @load_generated_functions should be called after all static functions are defined:module MyModule\nusing Gen\n# Include code that defines static generative functions\ninclude(\"my_static_gen_functions.jl\")\n# Load generated functions defined in this module\n@load_generated_functions()\nendAny script that imports or uses MyModule will then no longer need to call @load_generated_functions in order to use the static generative functions defined in that module:using Gen\nusing MyModule: my_static_gen_fn\ntrace = simulate(my_static_gen_fn, ())"
 },
 
 {
