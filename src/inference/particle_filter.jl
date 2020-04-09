@@ -117,8 +117,9 @@ model's internal proposal is used for proposing new latent state.  That is, for
 each particle,
 
 * The proposal function `proposal` is evaluated with arguments `Tuple(t_old,
-  proposal_args...)`, and produces a trace (call it `proposal_trace`); and
-* The old trace (call it `t_old`) is replaced by a new trace (call it `t_new`).
+  proposal_args...)` (where `t_old` is the old model trace), and produces its
+  own trace (call it `proposal_trace`); and
+* The old model trace is replaced by a new model trace (call it `t_new`).
 
 The choicemap of `t_new` satisfies the following conditions:
 
