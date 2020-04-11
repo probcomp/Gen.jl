@@ -25,9 +25,7 @@ function hmc(
         trace::U, selection::Selection; L=10, eps=0.1,
         check=false, observations=EmptyChoiceMap()) where {T,U}
     prev_model_score = get_score(trace)
-    args = get_args(trace)
     retval_grad = accepts_output_grad(get_gen_fn(trace)) ? zero(get_retval(trace)) : nothing
-    argdiffs = map((_) -> NoChange(), args)
 
     # run leapfrog dynamics
     new_trace = trace
@@ -46,7 +44,7 @@ function hmc(
 
         # get new gradient
         values_trie = from_array(values_trie, values)
-        (new_trace, _, _) = update(new_trace, args, argdiffs, values_trie)
+        (new_trace, _, _) = update(new_trace; constraints=values_trie)
         (_, _, gradient_trie) = choice_gradients(new_trace, selection, retval_grad)
         gradient = to_array(gradient_trie, Float64)
 

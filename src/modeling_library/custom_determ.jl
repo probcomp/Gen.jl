@@ -117,7 +117,7 @@ function update(trace::CustomDetermGFTrace{T,S}, args::Tuple, argdiffs::Tuple, c
 end
 
 function regenerate(trace::CustomDetermGFTrace, args::Tuple, argdiffs::Tuple, selection::Selection)
-    update(trace, args, argdiffs, EmptyChoiceMap())
+    update(trace; args=args, argdiffs=argdiffs, constraints=EmptyChoiceMap())
 end
 
 function choice_gradients(trace::CustomDetermGFTrace, selection::Selection, retgrad)

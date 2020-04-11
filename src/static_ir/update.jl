@@ -323,7 +323,7 @@ function process_codegen!(stmts, fwd::ForwardPassState, back::BackwardPassState,
             push!(stmts, :($call_constraints = $qn_empty_choice_map))
         end
         push!(stmts, :(($subtrace, $call_weight, $(calldiff_var(node)), $(call_discard_var(node))) = 
-            $qn_update($prev_subtrace, $(Expr(:tuple, arg_values...)), $(Expr(:tuple, arg_diffs...)), $call_constraints)))
+            $qn_update($prev_subtrace; args=$(Expr(:tuple, arg_values...)), argdiffs=$(Expr(:tuple, arg_diffs...)), constraints=$call_constraints)))
         push!(stmts, :($weight += $call_weight))
         push!(stmts, :($total_score_fieldname += $qn_get_score($subtrace) - $qn_get_score($prev_subtrace)))
         push!(stmts, :($total_noise_fieldname += $qn_project($subtrace, $qn_empty_selection) - $qn_project($prev_subtrace, $qn_empty_selection)))
@@ -471,7 +471,7 @@ function codegen_update(trace_type::Type{T}, args_type::Type, argdiffs_type::Typ
 
     # convert the constraints to a static assignment if it is not already one
     if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
-        return quote $qn_update(trace, args, argdiffs, $(QuoteNode(StaticChoiceMap))(constraints)) end
+        return quote $qn_update(trace; args=args, argdiffs=argdiffs, constraints=$(QuoteNode(StaticChoiceMap))(constraints)) end
     end
 
     ir = get_ir(gen_fn_type)

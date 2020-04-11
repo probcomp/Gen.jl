@@ -142,7 +142,8 @@ function particle_filter_step!(state::ParticleFilterState{U}, new_args::Tuple, a
     for i=1:num_particles
         (prop_choices, prop_weight, _) = propose(proposal, (state.traces[i], proposal_args...))
         constraints = merge(observations, prop_choices)
-        (state.new_traces[i], up_weight, _, disc) = update(state.traces[i], new_args, argdiffs, constraints)
+        (state.new_traces[i], up_weight, _, disc) = update(
+            state.traces[i]; args=new_args, argdiffs=argdiffs, constraints=constraints)
         @assert isempty(disc)
         state.log_weights[i] += up_weight - prop_weight
     end
@@ -166,7 +167,7 @@ function particle_filter_step!(state::ParticleFilterState{U}, new_args::Tuple, a
     num_particles = length(state.traces)
     for i=1:num_particles
         (state.new_traces[i], increment, _, discard) = update(
-            state.traces[i], new_args, argdiffs, observations)
+            state.traces[i]; args=new_args, argdiffs=argdiffs, constraints=observations)
         if !isempty(discard)
             error("Choices were updated or deleted inside particle filter step: $discard")
         end
