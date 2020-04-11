@@ -22,7 +22,7 @@ function process_retained!(gen_fn::Map{T,U}, args::Tuple,
     # get new subtrace with recursive call to update()
     prev_subtrace = state.subtraces[key]
     (subtrace, weight, retdiff, discard) = update(
-        prev_subtrace; args=kernel_args, argdiffs=kernel_argdiffs, constraints=submap)
+        prev_subtrace, kernel_args, kernel_argdiffs, submap)
 
     # retrieve retdiff
     if retdiff != NoChange()

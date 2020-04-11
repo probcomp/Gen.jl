@@ -245,10 +245,7 @@ end
 
 """
     (new_trace, weight, retdiff, discard) = update(
-        trace;
-        args=get_args(trace),
-        argdiffs=map((_) -> NoChange(), args),
-        constraints=EmptyChoiceMap())
+        trace, args::Tuple, argdiffs::Tuple, constraints::ChoiceMap)
 
 Update a trace by changing the arguments and/or providing new values for some
 existing random choice(s) and values for some newly introduced random choice(s).
@@ -275,10 +272,22 @@ that if the original `trace` was generated using non-default argument values,
 then for each optional argument that is omitted, the old value will be
 over-written by the default argument value in the updated trace.
 """
+function update(trace, args::Tuple, argdiffs::Tuple, constraints::ChoiceMap)
+    error("Not implemented")
+end
+
+"""
+    update(trace;
+        args::Tuple=get_args(trace),
+        argdiffs::Tuple=map((_) -> NoChange(), args),
+        constraints::ChoiceMap=EmptyChoiceMap())
+
+Form of `update` with keyword arguments providing common defaults.
+"""
 function update(trace;
-        args=get_args(trace),
-        argdiffs=map((_) -> NoChange(), args),
-        constraints=EmptyChoiceMap())
+        args::Tuple=get_args(trace),
+        argdiffs::Tuple=map((_) -> NoChange(), args),
+        constraints::ChoiceMap=EmptyChoiceMap())
     update(trace, args, argdiffs, constraints)
 end
 

@@ -504,7 +504,7 @@ function update(trace::RecurseTrace{S,T,U,V,W,X,Y},
             # call update on production kernel
             prev_subtrace = production_traces[cur]
             (subtrace, subweight, subretdiff, subdiscard) = update(
-                prev_subtrace; args=input, argdiffs=(subargdiff,), constraints=subconstraints)
+                prev_subtrace, input, (subargdiff,), subconstraints)
             prev_num_children = get_num_children(production_traces[cur])
             new_num_children = length(get_retval(subtrace).children)
             idx_to_prev_num_children[cur] = prev_num_children
@@ -622,7 +622,7 @@ function update(trace::RecurseTrace{S,T,U,V,W,X,Y},
             # call update on aggregation kernel
             prev_subtrace = aggregation_traces[cur]
             (subtrace, subweight, subretdiff, subdiscard) = update(
-                prev_subtrace; args=input, argdiffs=subargdiffs, constraints=subconstraints)
+                prev_subtrace, input, subargdiffs, subconstraints)
 
             # update trace, weight, and score, and discard
             aggregation_traces = assoc(aggregation_traces, cur, subtrace)

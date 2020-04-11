@@ -115,7 +115,7 @@ function update(trace::CallAtTrace, args::Tuple, argdiffs::Tuple,
         retdiff = UnknownChange()
     else
         (subtrace, weight, retdiff, subdiscard) = update(
-            trace.subtrace; args=kernel_args, argdiffs=argdiffs[1:end-1], constraints=submap)
+            trace.subtrace, kernel_args, argdiffs[1:end-1], submap)
         discard = CallAtChoiceMap(key, subdiscard)
     end
     new_trace = CallAtTrace(trace.gen_fn, subtrace, key)
