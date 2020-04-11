@@ -323,6 +323,22 @@ function regenerate(trace, args::Tuple, argdiffs::Tuple, selection::Selection)
 end
 
 """
+    regenerate(trace;
+        args::Tuple=get_args(trace),
+        argdiffs::Tuple=map((_) -> NoChange(), args),
+        selection::Selection=EmptySelection())
+
+Form of `regenerate` with keyword arguments providing common defaults.
+"""
+function regenerate(trace;
+        args::Tuple=get_args(trace),
+        argdiffs::Tuple=map((_) -> NoChange(), args),
+        selection::Selection=EmptySelection())
+    regenerate(trace, args, argdiffs, selection)
+end
+
+
+"""
     arg_grads = accumulate_param_gradients!(trace, retgrad=nothing, scale_factor=1.)
 
 Increment gradient accumulators for parameters by the gradient of the
