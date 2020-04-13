@@ -1421,7 +1421,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Markov chain Monte Carlo",
     "title": "Gen.hmc",
     "category": "function",
-    "text": "(new_trace, accepted) = hmc(\n    trace, selection::Selection; L=10, eps=0.1,\n    check=false, observations=EmptyChoiceMap())\n\nApply a Hamiltonian Monte Carlo (HMC) update.\n\nNeal, Radford M. \"MCMC using Hamiltonian dynamics.\" Handbook of Markov Chain Monte Carlo 2.11 (2011): 2.\n\nReference URL\n\n\n\n\n\n"
+    "text": "(new_trace, accepted) = hmc(\n    trace, selection::Selection; L=10, eps=0.1,\n    check=false, observations=EmptyChoiceMap())\n\nApply a Hamiltonian Monte Carlo (HMC) update that proposes new values for the selected addresses, returning the new trace (which is equal to the previous trace if the move was not accepted) and a Bool indicating whether the move was accepted or not.\n\nHamilton\'s equations are numerically integrated using leapfrog integration with step size eps for L steps. See equations (5.18)-(5.20) of Neal (2011).\n\nReferences\n\nNeal, Radford M. (2011), \"MCMC Using Hamiltonian Dynamics\", Handbook of Markov Chain Monte Carlo, pp. 113-162. URL: http://www.mcmchandbook.net/HandbookChapter5.pdf\n\n\n\n\n\n"
 },
 
 {
