@@ -15,11 +15,12 @@ end
         trace, selection::Selection; L=10, eps=0.1,
         check=false, observations=EmptyChoiceMap())
 
-Apply a Hamiltonian Monte Carlo (HMC) update.
+Apply a Hamiltonian Monte Carlo (HMC) update that proposes new values for the selected addresses, returning the new trace (which is equal to the previous trace if the move was not accepted) and a `Bool` indicating whether the move was accepted or not.
 
-Neal, Radford M. "MCMC using Hamiltonian dynamics." Handbook of Markov Chain Monte Carlo 2.11 (2011): 2.
+Hamilton's equations are numerically integrated using leapfrog integration with step size `eps` for `L` steps. See equations (5.18)-(5.20) of Neal (2011).
 
-[Reference URL](http://www.mcmchandbook.net/HandbookChapter5.pdf)
+# References
+Neal, Radford M. (2011), "MCMC Using Hamiltonian Dynamics", Handbook of Markov Chain Monte Carlo, pp. 113-162. URL: http://www.mcmchandbook.net/HandbookChapter5.pdf
 """
 function hmc(
         trace::U, selection::Selection; L=10, eps=0.1,
