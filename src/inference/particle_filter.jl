@@ -21,6 +21,7 @@ mutable struct ParticleFilterState{U}
     log_weights::Vector{Float64}
     log_ml_est::Float64
     parents::Vector{Int}
+    observations::ChoiceMap
 end
 
 """
@@ -29,8 +30,16 @@ end
 Return the vector of traces in the current state, one for each particle.
 """
 function get_traces(state::ParticleFilterState)
-    state.traces
+    return state.traces
+end
 
+"""
+    observations = get_observations(state::ParticleFilterState)
+
+Return the choicemap of observations provided to the particle filter thus far.
+"""
+function get_observations(state::ParticleFilterState)
+    return state.observations
 end
 
 """
@@ -41,7 +50,26 @@ Return the vector of log weights for the current state, one for each particle.
 The weights are not normalized, and are in log-space.
 """
 function get_log_weights(state::ParticleFilterState)
-    state.log_weights
+    return state.log_weights
+end
+
+"""
+    log_norm_weights = get_log_norm_weights(state::ParticleFilterState)
+
+Return the vector of log normalized weights for the current state.
+"""
+function get_log_norm_weights(state::ParticleFilterState)
+    _, weights = normalize_weights(state.log_weights)
+    return weights
+end
+
+"""
+    ess = get_effective_sample_size(state::ParticleFilterState)
+
+Return the effective sample size for the current state.
+"""
+function get_effective_sample_size(state::ParticleFilterState)
+    return effective_sample_size(get_log_norm_weights(state))
 end
 
 """
@@ -87,7 +115,7 @@ function initialize_particle_filter(model::GenerativeFunction{T,U}, model_args::
         log_weights[i] = model_weight - prop_weight
     end
     ParticleFilterState{U}(traces, Vector{U}(undef, num_particles),
-        log_weights, 0., collect(1:num_particles))
+        log_weights, 0., collect(1:num_particles), observations)
 end
 
 """
@@ -104,7 +132,7 @@ function initialize_particle_filter(model::GenerativeFunction{T,U}, model_args::
         (traces[i], log_weights[i]) = generate(model, model_args, observations)
     end
     ParticleFilterState{U}(traces, Vector{U}(undef, num_particles),
-        log_weights, 0., collect(1:num_particles))
+        log_weights, 0., collect(1:num_particles), observations)
 end
 
 """
@@ -146,12 +174,11 @@ function particle_filter_step!(state::ParticleFilterState{U}, new_args::Tuple, a
         @assert isempty(disc)
         state.log_weights[i] += up_weight - prop_weight
     end
-    
+    state.observations = merge(state.observations, observations)
     # swap references
     tmp = state.traces
     state.traces = state.new_traces
     state.new_traces = tmp
-    
     return nothing
 end
 
@@ -172,12 +199,11 @@ function particle_filter_step!(state::ParticleFilterState{U}, new_args::Tuple, a
         end
         state.log_weights[i] += increment
     end
-    
+    state.observations = merge(state.observations, observations)
     # swap references
     tmp = state.traces
     state.traces = state.new_traces
     state.new_traces = tmp
-    
     return nothing
 end
 
@@ -204,7 +230,7 @@ function maybe_resample!(state::ParticleFilterState{U};
             state.new_traces[i] = state.traces[state.parents[i]]
             state.log_weights[i] = 0.
         end
-        
+
         # swap references
         tmp = state.traces
         state.traces = state.new_traces
@@ -214,4 +240,5 @@ function maybe_resample!(state::ParticleFilterState{U};
 end
 
 export initialize_particle_filter, particle_filter_step!, maybe_resample!
-export get_traces, get_log_weights, log_ml_estimate, sample_unweighted_traces
+export get_traces, get_observations, get_log_weights, get_log_norm_weights
+export get_effective_sample_size, log_ml_estimate, sample_unweighted_traces
