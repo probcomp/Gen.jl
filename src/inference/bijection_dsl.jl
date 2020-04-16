@@ -2,7 +2,7 @@ import ForwardDiff
 import MacroTools
 import LinearAlgebra
 
-struct InvolutionDSLProgram
+struct BijectionDSLProgram
     fn!::Function
 end
 
@@ -52,13 +52,13 @@ end
 const inv_state = gensym("inv_state")
 
 """
-    @involution function f(...)
+    @bijection function f(...)
         ..
     end
 
 Write a program in the [Involution DSL](@ref).
 """
-macro involution(ex)
+macro bijection(ex)
     ex = MacroTools.longdef(ex)
     MacroTools.@capture(ex, function f_(args__) body_ end) || error("expected syntax: function f(..) .. end")
 
@@ -72,11 +72,11 @@ macro involution(ex)
         nothing
     end
 
-    Core.@__doc__ $(esc(f)) = InvolutionDSLProgram($fn!)
+    Core.@__doc__ $(esc(f)) = BijectionDSLProgram($fn!)
 
     end # quote
 
-end # macro involution()
+end # macro bijection()
 
 # read discrete from model
 
@@ -282,46 +282,43 @@ function copy_proposal_to_model(state::JacobianPassState, from_addr, to_addr)
     nothing
 end
 
-# call another involution function (NOTE: only the top-level function is actually technically an involution)
+# call another bijection function
 
-macro invcall(ex)
+macro bijcall(ex)
     MacroTools.@capture(ex, f_(args__)) || error("expected syntax: f(..)")
     quote $(esc(f)).fn!($(esc(inv_state)), $(map(esc, args)...)) end
 end
 
 # apply 
 
-function apply_involution(involution::InvolutionDSLProgram, trace, u, proposal_args, proposal_retval)
+discard_skip_read_addr(addr, discard::ChoiceMap) = !has_value(discard, addr)
+discard_skip_read_addr(addr, discard::Nothing) = false
 
-    # take the first pass through the involution, mutating first_pass_state
-    first_pass_state = FirstPassState(trace, u)
-    involution.fn!(first_pass_state, get_args(trace), proposal_args, proposal_retval)
+function assemble_input_array_and_maps(
+        t_cont_reads, t_copy_reads, u_cont_reads, u_copy_reads, discard::Union{ChoiceMap,Nothing})
 
-    # update model trace
-    (new_trace, model_weight, _, discard) = update(
-        trace, get_args(trace), map((_) -> NoChange(), get_args(trace)), first_pass_state.constraints)
-
-    # create input array and mappings input addresses that are needed for Jacobian
-    # exclude addresses that were moved to another address
     input_arr = Vector{Float64}()
     next_input_index = 1
 
     t_key_to_index = Dict()
-    for (addr, v) in first_pass_state.t_cont_reads
-        if addr in first_pass_state.t_copy_reads
+    for (addr, v) in t_cont_reads
+        if addr in t_copy_reads
             continue
         end
-        if !has_value(discard, addr)
+
+        if discard_skip_read_addr(addr, discard)
+            # only used by involutions with update
             continue
         end
+
         t_key_to_index[addr] = next_input_index
         next_input_index += 1
         push!(input_arr, v)
     end
 
     u_key_to_index = Dict()
-    for (addr, v) in first_pass_state.u_cont_reads
-        if addr in first_pass_state.u_copy_reads
+    for (addr, v) in u_cont_reads
+        if addr in u_copy_reads
             continue
         end
         u_key_to_index[addr] = next_input_index
@@ -329,23 +326,80 @@ function apply_involution(involution::InvolutionDSLProgram, trace, u, proposal_a
         push!(input_arr, v)
     end
 
-    # create mappings for output addresses that are needed for Jacobian
+    (t_key_to_index, u_key_to_index, input_arr)
+end
+
+function assemble_output_maps(t_cont_writes, u_cont_writes)
     next_output_index = 1
 
     cont_constraints_key_to_index = Dict()
-    for (addr, v) in first_pass_state.t_cont_writes
+    for (addr, v) in t_cont_writes
         cont_constraints_key_to_index[addr] = next_output_index
         next_output_index += 1
     end
 
     cont_u_back_key_to_index = Dict()
-    for (addr, v) in first_pass_state.u_cont_writes
+    for (addr, v) in u_cont_writes
         cont_u_back_key_to_index[addr] = next_output_index
         next_output_index += 1
     end
 
+    (cont_constraints_key_to_index, cont_u_back_key_to_index)
+end
+
+function apply_bijection(
+        bijection::BijectionDSLProgram, prev_model_trace, proposal_trace,
+        new_model::Union{GenerativeFunction,Nothing}, new_model_args::Union{Tuple,Nothing},
+        new_observations::Union{ChoiceMap,Nothing})
+
+    # take the first pass through the bijection, mutating first_pass_state
+    first_pass_state = FirstPassState(prev_model_trace, get_choices(proposal_trace))
+    bijection.fn!(first_pass_state, get_args(prev_model_trace), get_args(proposal_trace), get_retval(proposal_trace))
+
+    if isnothing(new_model)
+        @assert isnothing(new_model_args)
+        @assert isnothing(new_observations)
+
+        # involution and use update to incrementally obtain new trace
+        (new_model_trace, model_weight, _, discard) = update(
+            prev_model_trace,
+            get_args(prev_model_trace),
+            map((_) -> NoChange(), get_args(prev_model_trace)),
+            first_pass_state.constraints)
+
+    else
+        @assert !isnothing(new_model_args)
+        @assert !isnothing(new_observations)
+
+        # get score for previous model trace
+        prev_model_score = get_score(prev_model_trace)
+
+        # obtain new model trace
+        new_model_trace, new_model_score = generate(
+            new_model, new_model_args,
+            merge(first_pass_state.constraints, new_observations))
+
+        # model weight
+        model_weight = new_model_score - prev_model_score
+
+        discard = nothing
+    end
+
+    # create input array and mappings input addresses that are needed for Jacobian
+    # exclude addresses that were copied explicitly to another address
+    (t_key_to_index, u_key_to_index, input_arr) = assemble_input_array_and_maps(
+        first_pass_state.t_cont_reads,
+        first_pass_state.t_copy_reads,
+        first_pass_state.u_cont_reads,
+        first_pass_state.u_copy_reads, discard)
+    
+    # create mappings for output addresses that are needed for Jacobian
+    (cont_constraints_key_to_index, cont_u_back_key_to_index) = assemble_output_maps(
+        first_pass_state.t_cont_writes,
+        first_pass_state.u_cont_writes)
+
     # this function is the partial application of the continuous part of the
-    # involution, with inputs corresponding to a particular superset of the
+    # bijection, with inputs corresponding to a particular superset of the
     # columns of the reduced Jacobian matrix
     function f_array(input_arr::AbstractArray{T}) where {T <: Real}
 
@@ -358,54 +412,63 @@ function apply_involution(involution::InvolutionDSLProgram, trace, u, proposal_a
         output_arr = Vector{T}(undef, n_output)
 
         jacobian_pass_state = JacobianPassState(
-            trace, u, input_arr, output_arr, 
+            prev_model_trace, get_choices(proposal_trace), input_arr, output_arr, 
             t_key_to_index, u_key_to_index,
             cont_constraints_key_to_index,
             cont_u_back_key_to_index)
 
         # mutates the state
-        involution.fn!(
-            jacobian_pass_state, get_args(trace), proposal_args, proposal_retval)
+        bijection.fn!(
+            jacobian_pass_state, get_args(prev_model_trace), get_args(proposal_trace), get_retval(proposal_trace))
 
         # return the output array
         output_arr
     end
 
-    (new_trace, model_weight, first_pass_state.u_back, input_arr, f_array)
+    (new_model_trace, model_weight, first_pass_state.u_back, input_arr, f_array)
 end
 
 # callable
 
-function (involution::InvolutionDSLProgram)(trace, u::ChoiceMap, proposal_retval, proposal_args; check=false)
+"""
+    (bijection::BijectionDSLProgram)(
+        prev_model_trace::Trace, proposal_trace::Trace,
+        new_model::GenerativeFunction, new_model_args::Tuple,
+        new_constraints::ChoiceMap)
+"""
+function (bijection::BijectionDSLProgram)(
+        prev_model_trace::Trace, proposal_trace::Trace,
+        new_model=nothing, new_model_args=nothing,
+        new_observations=nothing; check=false)
 
-    # apply the involution, and get metadata back about it, including the
+    # apply the bijection, and get metadata back about it, including the
     # function f_array from arrays to arrays, that is the restriction of the
-    # involution to just a subset of the relevant continuous random choices
-    (new_trace, model_weight, u_back, input_arr, f_array) = apply_involution(
-        involution, trace, u, proposal_args, proposal_retval)
+    # bijection to just a subset of the relevant continuous random choices
+    (new_model_trace, model_weight, u_back, input_arr, f_array) = apply_bijection(
+        bijection, prev_model_trace, proposal_trace, new_model, new_model_args, new_observations)
 
     # compute Jacobian matrix of f_array, where columns are inputs, rows are outputs
     J = ForwardDiff.jacobian(f_array, input_arr)
     @assert size(J)[2] == length(input_arr)
     num_outputs = size(J)[1]
     if size(J) != (num_outputs, num_outputs)
-        error("Jacobian was not square (size was $(size(J)); the function may not be an involution")
+        error("Jacobian was not square (size was $(size(J)); the function may not be an bijection")
     end
 
     # log absolute value of Jacobian determinant
     correction = LinearAlgebra.logabsdet(J)[1]
     if isinf(correction)
-        @error "Weight correction is infinite; the function may not be an involution"
+        @error "Weight correction is infinite; the function may not be an bijection"
     end
 
-    (new_trace, u_back, model_weight + correction)
+    (new_model_trace, u_back, model_weight + correction)
 end
 
-export @involution
+export @bijection
 export @read_discrete_from_proposal, @read_discrete_from_model
 export @write_discrete_to_proposal, @write_discrete_to_model
 export @read_continuous_from_proposal, @read_continuous_from_model
 export @write_continuous_to_proposal, @write_continuous_to_model
 export @copy_model_to_model, @copy_model_to_proposal
 export @copy_proposal_to_proposal, @copy_proposal_to_model
-export @invcall
+export @bijcall

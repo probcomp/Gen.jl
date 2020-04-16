@@ -98,7 +98,7 @@ end
     (path, new_subtree_node)
 end
 
-@involution function subtree_involution(model_args::Tuple, proposal_args::Tuple, fwd_ret::Tuple)
+@bijection function subtree_involution(model_args::Tuple, proposal_args::Tuple, fwd_ret::Tuple)
 
     (path::Vector{Symbol}, new_subtree_node) = fwd_ret
 

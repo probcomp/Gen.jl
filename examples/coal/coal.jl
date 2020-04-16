@@ -120,7 +120,7 @@ end
 # - maintains i = fwd_choices[:i] constant
 # - swaps choices[(RATE, i)] with fwd_choices[:new_rate]
 
-@involution function rate_involution(model_args, proposal_args, proposal_retval)
+@bijection function rate_involution(model_args, proposal_args, proposal_retval)
     i = @read_discrete_from_proposal(:i)
     @write_discrete_to_proposal(:i, i)
     new_rate = @read_continuous_from_proposal(:new_rate)
@@ -153,7 +153,7 @@ end
 # - maintains i = fwd_choices[:i] constant
 # - swaps choices[(CHANGEPT, i)] with fwd_choices[:new_changept]
 
-@involution function position_involution(model_args, proposal_args, proposal_retval::Int)
+@bijection function position_involution(model_args, proposal_args, proposal_retval::Int)
     i = @read_discrete_from_proposal(:i)
     @write_discrete_to_proposal(:i, i)
     @copy_model_to_proposal((CHANGEPT, i), :new_changept)
@@ -235,7 +235,7 @@ end
 #   changepoint and then remove that same changepoint)
 # - new_rates, curried on cp_new, cp_prev, and cp_next, is the inverse of new_rates_inverse.
 
-@involution function birth_death_involution(model_args, proposal_args, proposal_retval::Nothing)
+@bijection function birth_death_involution(model_args, proposal_args, proposal_retval::Nothing)
     T = model_args[1]
 
     # current number of changepoints
@@ -254,13 +254,13 @@ end
     @copy_proposal_to_proposal(CHOSEN, CHOSEN)
 
     if isbirth
-        @invcall(birth(k, i))
+        @bijcall(birth(k, i))
     else
-        @invcall(death(k, i))
+        @bijcall(death(k, i))
     end
 end
 
-@involution function birth(k::Int, i::Int)
+@bijection function birth(k::Int, i::Int)
     @write_discrete_to_model(K, k+1)
 
     cp_new = @read_continuous_from_proposal(NEW_CHANGEPT)
@@ -290,7 +290,7 @@ end
     end
 end
 
-@involution function death(k::Int, i::Int)
+@bijection function death(k::Int, i::Int)
     @write_discrete_to_model(K, k-1)
 
     cp_deleted = @read_continuous_from_model((CHANGEPT, i))

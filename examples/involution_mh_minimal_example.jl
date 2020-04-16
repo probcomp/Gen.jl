@@ -43,7 +43,7 @@ function split_mean(m, u)
     (m1, m2)
 end
 
-@involution function split_merge_involution(
+@bijection function split_merge_involution(
         model_args, proposal_args, proposal_retval)
     if @read_discrete_from_model(:z)
         # currently two means, switch to one

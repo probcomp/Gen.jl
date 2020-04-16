@@ -18,7 +18,7 @@ include("mh.jl")
 include("hmc.jl")
 include("mala.jl")
 include("elliptical_slice.jl")
-include("involution_dsl.jl")
+include("bijection_dsl.jl")
 
 include("importance.jl")
 include("particle_filter.jl")

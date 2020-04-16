@@ -88,7 +88,7 @@ noise_move(trace) = metropolis_hastings(trace, noise_proposal, ())[1]
     (subtree_idx, depth, new_subtree_node)
 end
 
-@involution function walk_previous_subtree(cur::Int)
+@bijection function walk_previous_subtree(cur::Int)
     @copy_model_to_proposal(:tree => (cur, :type), :subtree => (cur, :type))
     node_type = @read_discrete_from_model(:tree => (cur, :type))
     if node_type == CONSTANT
@@ -103,14 +103,14 @@ end
     elseif (node_type == PLUS) || (node_type == TIMES)
         child1 = get_child(cur, 1, max_branch)
         child2 = get_child(cur, 2, max_branch)
-        @invcall(walk_previous_subtree(child1)) # use same namespace
-        @invcall(walk_previous_subtree(child2))
+        @bijcall(walk_previous_subtree(child1)) # use same namespace
+        @bijcall(walk_previous_subtree(child2))
     else
         error("Unknown node type: $node_type")
     end
 end
 
-@involution function walk_new_subtree(cur::Int)
+@bijection function walk_new_subtree(cur::Int)
     @copy_proposal_to_model(:subtree => (cur, :type), :tree => (cur, :type))
     node_type = @read_discrete_from_proposal(:subtree => (cur, :type))
     if node_type == CONSTANT
@@ -125,14 +125,14 @@ end
     elseif (node_type == PLUS) || (node_type == TIMES)
         child1 = get_child(cur, 1, max_branch)
         child2 = get_child(cur, 2, max_branch)
-        @invcall(walk_new_subtree(child1)) # use same namespace
-        @invcall(walk_new_subtree(child2))
+        @bijcall(walk_new_subtree(child1)) # use same namespace
+        @bijcall(walk_new_subtree(child2))
     else
         error("Unknown node type: $node_type")
     end
 end
 
-@involution function subtree_involution(model_args::Tuple, proposal_args::Tuple, fwd_ret::Tuple)
+@bijection function subtree_involution(model_args::Tuple, proposal_args::Tuple, fwd_ret::Tuple)
 
     (subtree_idx, subtree_depth, new_subtree_node) = fwd_ret
 
@@ -146,10 +146,10 @@ end
     end
 
     # populate constraints with proposed subtree
-    @invcall(walk_previous_subtree(subtree_idx))
+    @bijcall(walk_previous_subtree(subtree_idx))
 
     # populate backward assignment with the previous subtree
-    @invcall(walk_new_subtree(subtree_idx))
+    @bijcall(walk_new_subtree(subtree_idx))
 end
 
 replace_subtree_move(trace) = metropolis_hastings(
