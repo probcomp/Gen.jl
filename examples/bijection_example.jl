@@ -17,9 +17,7 @@ end
 @gen function q()
 end
 
-@bijection function h(
-    prev_model_trace, 
-    proposal_args, proposal_retval)
+@bijection function h(model_args, proposal_args, proposal_retval)
 
     x = @read_continuous_from_model(:x)
     y = @read_continuous_from_model(:y)
@@ -31,9 +29,7 @@ end
     @write_continuous_to_model(:theta, theta)
 end
 
-@bijection function h_inv(
-    prev_model_trace, 
-    proposal_args, proposal_retval)
+@bijection function h_inv(model_args, proposal_args, proposal_retval)
 
     r = @read_continuous_from_model(:r)
     theta = @read_continuous_from_model(:theta)
