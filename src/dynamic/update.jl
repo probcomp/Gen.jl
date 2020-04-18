@@ -87,8 +87,7 @@ function traceat(state::GFUpdateState, gen_fn::GenerativeFunction{T,U},
         prev_call = get_call(state.prev_trace, key)
         prev_subtrace = prev_call.subtrace
         get_gen_fn(prev_subtrace) === gen_fn || gen_fn_changed_error(key)
-        (subtrace, weight, _, discard) = update(prev_subtrace,
-            args, map((_) -> UnknownChange(), args), constraints)
+        (subtrace, weight, _, discard) = update(prev_subtrace, args, constraints)
     else
         (subtrace, weight) = generate(gen_fn, args, constraints)
     end
