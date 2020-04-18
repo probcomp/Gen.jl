@@ -27,7 +27,7 @@ function elliptical_slice(
     f = trace[addr] .- mu
 
     new_f = f * cos(theta) + nu * sin(theta)
-    new_trace, weight = update(trace; constraints=choicemap((addr, new_f .+ mu)))
+    new_trace, weight = update(trace, choicemap((addr, new_f .+ mu)))
     while weight <= log(u)
         if theta < 0
             theta_min = theta
@@ -36,7 +36,7 @@ function elliptical_slice(
         end
         theta = uniform(theta_min, theta_max)
         new_f = f * cos(theta) + nu * sin(theta)
-        new_trace, weight = update(trace; constraints=choicemap((addr, new_f .+ mu)))
+        new_trace, weight = update(trace, choicemap((addr, new_f .+ mu)))
     end
     check && check_observations(get_choices(new_trace), observations)
     return new_trace

@@ -14,7 +14,7 @@ Perform a Metropolis-Hastings update that proposes new values for the selected a
 function metropolis_hastings(
         trace, selection::Selection;
         check=false, observations=EmptyChoiceMap())
-    (new_trace, weight) = regenerate(trace; selection=selection)
+    (new_trace, weight) = regenerate(trace, selection)
     check && check_observations(get_choices(new_trace), observations)
     if log(rand()) < weight
         # accept
@@ -41,7 +41,7 @@ function metropolis_hastings(
         check=false, observations=EmptyChoiceMap())
     proposal_args_forward = (trace, proposal_args...,)
     (fwd_choices, fwd_weight, _) = propose(proposal, proposal_args_forward)
-    (new_trace, weight, _, discard) = update(trace; constraints=fwd_choices)
+    (new_trace, weight, _, discard) = update(trace, fwd_choices)
     proposal_args_backward = (new_trace, proposal_args...,)
     (bwd_weight, _) = assess(proposal, proposal_args_backward, discard)
     alpha = weight - fwd_weight + bwd_weight

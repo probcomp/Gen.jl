@@ -19,7 +19,7 @@ function map_optimize(trace, selection::Selection;
         new_values_vec = values_vec + gradient_vec * step_size
         values = from_array(values, new_values_vec)
         # TODO discard and weight are not actually needed, there should be a more specialized variant
-        (new_trace, _, _, discard) = update(trace; constraints=values)
+        (new_trace, _, _, discard) = update(trace, values)
         new_score = get_score(new_trace)
         change = new_score - score
         if verbose

@@ -299,7 +299,7 @@ function apply_involution(involution::InvolutionDSLProgram, trace, u, proposal_a
 
     # update model trace
     (new_trace, model_weight, _, discard) = update(
-        trace; constraints=first_pass_state.constraints)
+        trace, first_pass_state.constraints)
 
     # create input array and mappings input addresses that are needed for Jacobian
     # exclude addresses that were moved to another address

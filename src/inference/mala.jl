@@ -28,7 +28,7 @@ function mala(
 
     # evaluate model weight
     constraints = from_array(values_trie, proposed_values)
-    (new_trace, weight, _, discard) = update(trace; constraints=constraints)
+    (new_trace, weight, _, discard) = update(trace, constraints)
     check && check_observations(get_choices(new_trace), observations)
 
     # backward proposal

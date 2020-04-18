@@ -44,7 +44,7 @@ function hmc(
 
         # get new gradient
         values_trie = from_array(values_trie, values)
-        (new_trace, _, _) = update(new_trace; constraints=values_trie)
+        (new_trace, _, _) = update(new_trace, values_trie)
         (_, _, gradient_trie) = choice_gradients(new_trace, selection, retval_grad)
         gradient = to_array(gradient_trie, Float64)
 

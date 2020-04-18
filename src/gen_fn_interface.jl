@@ -246,9 +246,7 @@ end
 """
 
     (new_trace, weight, retdiff, discard) = update(
-        trace, args::Tuple;
-        argdiffs::Tuple=map((_) -> UnknownChange(), args),
-        constraints::ChoiceMap=EmptyChoiceMap())
+        trace, args::Tuple, argdiffs::Tuple, constraints::ChoiceMap)
 
 Update a trace by changing the arguments and/or providing new values for some
 existing random choice(s) and values for some newly introduced random choice(s).
@@ -281,25 +279,22 @@ end
 
 """
     (new_trace, weight, retdiff, discard) = update(
-        trace, args::Tuple;
-        argdiffs::Tuple=map((_) -> UnknownChange(), args),
-        constraints::ChoiceMap=EmptyChoiceMap())
+        trace, constraints::ChoiceMap, args::Tuple;
+        argdiffs::Tuple=map((_) -> UnknownChange(), args))
 
 Convenience form of `update` with keyword arguments for argdiffs and constraints.
 """
-function update(trace, args;
-        argdiffs::Tuple=map((_) -> UnknownChange(), args),
-        constraints::ChoiceMap=EmptyChoiceMap())
+function update(trace, constraints::ChoiceMap, args::Tuple;
+        argdiffs::Tuple=map((_) -> UnknownChange(), args))
     update(trace, args, argdiffs, constraints)
 end
 
 """
-    (new_trace, weight, retdiff, discard) = update(
-        trace; constraints::ChoiceMap=EmptyChoiceMap())
+    (new_trace, weight, retdiff, discard) = update(trace, constraints::ChoiceMap)
 
 Convenience form of `update` when there is no change to arguments.
 """
-function update(trace; constraints::ChoiceMap=EmptyChoiceMap())
+function update(trace, constraints::ChoiceMap)
     args = get_args(trace)
     argdiffs = map((_) -> NoChange(), args)
     update(trace, args, argdiffs, constraints)
@@ -338,17 +333,24 @@ function regenerate(trace, args::Tuple, argdiffs::Tuple, selection::Selection)
 end
 
 """
-    regenerate(trace;
-        args::Tuple=get_args(trace),
-        argdiffs::Tuple=map((_) -> NoChange(), args),
-        selection::Selection=EmptySelection())
+    regenerate(trace, selection::Selection)
 
-Form of `regenerate` with keyword arguments providing common defaults.
+Convenience form of `regenerate` when there is no change to arguments.
 """
-function regenerate(trace;
-        args::Tuple=get_args(trace),
-        argdiffs::Tuple=map((_) -> NoChange(), args),
-        selection::Selection=EmptySelection())
+function regenerate(trace, selection::Selection)
+    args = get_args(trace)
+    argdiffs = map((_) -> NoChange(), args)
+    regenerate(trace, args, argdiffs, selection)
+end
+
+"""
+    regenerate(trace, selection::Selection, args::Tuple=get_args(trace);
+        argdiffs::Tuple=map((_) -> UnknownChange(), args),
+
+Convenience form of `regenerate` with keyword arguments for argdiffs and constraints.
+"""
+function regenerate(trace, selection::Selection, args::Tuple;
+        argdiffs::Tuple=map((_) -> UnknownChange(), args))
     regenerate(trace, args, argdiffs, selection)
 end
 
