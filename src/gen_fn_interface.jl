@@ -278,7 +278,7 @@ function update(trace, args::Tuple, argdiffs::Tuple, constraints::ChoiceMap)
 end
 
 """
-    (new_trace, weight, retdiff, discard) = update(
+    update(
         trace, constraints::ChoiceMap, args::Tuple;
         argdiffs::Tuple=map((_) -> UnknownChange(), args))
 
@@ -290,7 +290,7 @@ function update(trace, constraints::ChoiceMap, args::Tuple;
 end
 
 """
-    (new_trace, weight, retdiff, discard) = update(trace, constraints::ChoiceMap)
+    update(trace, constraints::ChoiceMap)
 
 Convenience form of `update` when there is no change to arguments.
 """
@@ -302,8 +302,8 @@ end
 
 
 """
-    (new_trace, weight, retdiff) = regenerate(trace, args::Tuple, argdiffs::Tuple,
-                                              selection::Selection)
+    (new_trace, weight, retdiff) = regenerate(
+        trace, args::Tuple, argdiffs::Tuple, selection::Selection)
 
 Update a trace by changing the arguments and/or randomly sampling new values
 for selected random choices using the internal proposal distribution family.
@@ -333,7 +333,8 @@ function regenerate(trace, args::Tuple, argdiffs::Tuple, selection::Selection)
 end
 
 """
-    regenerate(trace, selection::Selection, args::Tuple=get_args(trace);
+    regenerate(
+        trace, selection::Selection, args::Tuple;
         argdiffs::Tuple=map((_) -> UnknownChange(), args),
 
 Convenience form of `regenerate` with keyword arguments for argdiffs.
