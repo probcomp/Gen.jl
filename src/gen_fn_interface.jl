@@ -244,8 +244,11 @@ function assess(gen_fn::GenerativeFunction, args::Tuple, choices::ChoiceMap)
 end
 
 """
+
     (new_trace, weight, retdiff, discard) = update(
-        trace, args::Tuple, argdiffs::Tuple, constraints::ChoiceMap)
+        trace, args::Tuple;
+        argdiffs::Tuple=map((_) -> UnknownChange(), args),
+        constraints::ChoiceMap=EmptyChoiceMap())
 
 Update a trace by changing the arguments and/or providing new values for some
 existing random choice(s) and values for some newly introduced random choice(s).
@@ -277,19 +280,31 @@ function update(trace, args::Tuple, argdiffs::Tuple, constraints::ChoiceMap)
 end
 
 """
-    update(trace;
-        args::Tuple=get_args(trace),
-        argdiffs::Tuple=map((_) -> NoChange(), args),
+    (new_trace, weight, retdiff, discard) = update(
+        trace, args::Tuple;
+        argdiffs::Tuple=map((_) -> UnknownChange(), args),
         constraints::ChoiceMap=EmptyChoiceMap())
 
-Form of `update` with keyword arguments providing common defaults.
+Convenience form of `update` with keyword arguments for argdiffs and constraints.
 """
-function update(trace;
-        args::Tuple=get_args(trace),
-        argdiffs::Tuple=map((_) -> NoChange(), args),
+function update(trace, args;
+        argdiffs::Tuple=map((_) -> UnknownChange(), args),
         constraints::ChoiceMap=EmptyChoiceMap())
     update(trace, args, argdiffs, constraints)
 end
+
+"""
+    (new_trace, weight, retdiff, discard) = update(
+        trace; constraints::ChoiceMap=EmptyChoiceMap())
+
+Convenience form of `update` when there is no change to arguments.
+"""
+function update(trace; constraints::ChoiceMap=EmptyChoiceMap())
+    args = get_args(trace)
+    argdiffs = map((_) -> NoChange(), args)
+    update(trace, args, argdiffs, constraints)
+end
+
 
 """
     (new_trace, weight, retdiff) = regenerate(trace, args::Tuple, argdiffs::Tuple,
