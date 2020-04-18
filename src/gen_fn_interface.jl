@@ -282,7 +282,7 @@ end
         trace, constraints::ChoiceMap, args::Tuple;
         argdiffs::Tuple=map((_) -> UnknownChange(), args))
 
-Convenience form of `update` with keyword arguments for argdiffs and constraints.
+Convenience form of `update` with keyword argument for argdiffs.
 """
 function update(trace, constraints::ChoiceMap, args::Tuple;
         argdiffs::Tuple=map((_) -> UnknownChange(), args))
@@ -333,6 +333,17 @@ function regenerate(trace, args::Tuple, argdiffs::Tuple, selection::Selection)
 end
 
 """
+    regenerate(trace, selection::Selection, args::Tuple=get_args(trace);
+        argdiffs::Tuple=map((_) -> UnknownChange(), args),
+
+Convenience form of `regenerate` with keyword arguments for argdiffs.
+"""
+function regenerate(trace, selection::Selection, args::Tuple;
+        argdiffs::Tuple=map((_) -> UnknownChange(), args))
+    regenerate(trace, args, argdiffs, selection)
+end
+
+"""
     regenerate(trace, selection::Selection)
 
 Convenience form of `regenerate` when there is no change to arguments.
@@ -343,16 +354,6 @@ function regenerate(trace, selection::Selection)
     regenerate(trace, args, argdiffs, selection)
 end
 
-"""
-    regenerate(trace, selection::Selection, args::Tuple=get_args(trace);
-        argdiffs::Tuple=map((_) -> UnknownChange(), args),
-
-Convenience form of `regenerate` with keyword arguments for argdiffs and constraints.
-"""
-function regenerate(trace, selection::Selection, args::Tuple;
-        argdiffs::Tuple=map((_) -> UnknownChange(), args))
-    regenerate(trace, args, argdiffs, selection)
-end
 
 
 """
