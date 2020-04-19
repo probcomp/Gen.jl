@@ -2,12 +2,99 @@ import ForwardDiff
 import MacroTools
 import LinearAlgebra
 
+# See this math writeup for an understanding of how this code works:
+# docs/tex/mcmc.pdf
+
 struct BijectionDSLProgram
     fn!::Function
 end
 
-# See this math writeup for an understanding of how this code works:
-# docs/tex/mcmc.pdf
+const bij_state = gensym("bij_state")
+
+"""
+    @bijection function f(...)
+        ..
+    end
+
+Write a program in the [Involution DSL](@ref).
+"""
+macro bijection(ex)
+    ex = MacroTools.longdef(ex)
+    MacroTools.@capture(ex, function f_(args__) body_ end) || error("expected syntax: function f(..) .. end")
+
+    fn! = gensym("$(esc(f))_fn!")
+
+    return quote
+
+        # mutates the state
+        function $fn!($(esc(bij_state))::Union{FirstPassState,JacobianPassState}, $(map(esc, args)...))
+            $(esc(body))
+            return nothing
+        end
+
+        Core.@__doc__ $(esc(f)) = BijectionDSLProgram($fn!)
+
+    end
+
+end
+
+macro bijcall(ex)
+    MacroTools.@capture(ex, f_(args__)) || error("expected syntax: f(..)")
+    return quote $(esc(f)).fn!($(esc(bij_state)), $(map(esc, args)...)) end
+end
+
+macro read_discrete_from_model(addr)
+    return quote read_discrete_from_model($(esc(bij_state)), $(esc(addr))) end
+end
+
+macro read_discrete_from_proposal(addr)
+    return quote read_discrete_from_proposal($(esc(bij_state)), $(esc(addr))) end
+end
+
+macro write_discrete_to_proposal(addr, value)
+    return quote write_discrete_to_proposal($(esc(bij_state)), $(esc(addr)), $(esc(value))) end
+end
+
+macro write_discrete_to_model(addr, value)
+    return quote write_discrete_to_model($(esc(bij_state)), $(esc(addr)), $(esc(value))) end
+end
+
+macro read_continuous_from_proposal(addr)
+    return quote read_continuous_from_proposal($(esc(bij_state)), $(esc(addr))) end
+end
+
+macro read_continuous_from_model(addr)
+    return quote read_continuous_from_model($(esc(bij_state)), $(esc(addr))) end
+end
+
+macro write_continuous_to_proposal(addr, value)
+    return quote write_continuous_to_proposal($(esc(bij_state)), $(esc(addr)), $(esc(value))) end
+end
+
+macro write_continuous_to_model(addr, value)
+    return quote write_continuous_to_model($(esc(bij_state)), $(esc(addr)), $(esc(value))) end
+end
+
+macro copy_model_to_model(from_addr, to_addr)
+    return quote copy_model_to_model($(esc(bij_state)), $(esc(from_addr)), $(esc(to_addr))) end
+end
+
+macro copy_model_to_proposal(from_addr, to_addr)
+    return quote copy_model_to_proposal($(esc(bij_state)), $(esc(from_addr)), $(esc(to_addr))) end
+end
+
+macro copy_proposal_to_proposal(from_addr, to_addr)
+    return quote copy_proposal_to_proposal($(esc(bij_state)), $(esc(from_addr)), $(esc(to_addr))) end
+end
+
+macro copy_proposal_to_model(from_addr, to_addr)
+    return quote copy_proposal_to_model($(esc(bij_state)), $(esc(from_addr)), $(esc(to_addr))) end
+end
+
+
+################################
+# first pass through bijection #
+################################
 
 struct FirstPassResults
 
@@ -44,7 +131,7 @@ struct FirstPassState
 end
 
 function FirstPassState(trace, u::ChoiceMap)
-    FirstPassState(trace, u, FirstPassResults())
+    return FirstPassState(trace, u, FirstPassResults())
 end
 
 function run_first_pass(bijection::BijectionDSLProgram, prev_model_trace, proposal_trace)
@@ -52,6 +139,94 @@ function run_first_pass(bijection::BijectionDSLProgram, prev_model_trace, propos
     bijection.fn!(state, get_args(prev_model_trace), get_args(proposal_trace)[2:end], get_retval(proposal_trace))
     return state.results
 end
+
+function read_discrete_from_model(state::FirstPassState, addr)
+    return state.trace[addr]
+end
+
+function read_discrete_from_proposal(state::FirstPassState, addr)
+    return state.u[addr]
+end
+
+function write_discrete_to_proposal(state::FirstPassState, addr, value)
+    state.results.u_back[addr] = value
+    return value
+end
+
+function write_discrete_to_model(state::FirstPassState, addr, value)
+    state.results.constraints[addr] = value
+    return value
+end
+
+function read_continuous_from_proposal(state::FirstPassState, addr)
+    state.results.u_cont_reads[addr] = state.u[addr]
+    return state.u[addr]
+end
+
+function read_continuous_from_model(state::FirstPassState, addr)
+    state.results.t_cont_reads[addr] = state.trace[addr]
+    return state.trace[addr]
+end
+
+function write_continuous_to_proposal(state::FirstPassState, addr, value)
+    has_value(state.results.u_back, addr) && error("Proposal address $addr already written to")
+    state.results.u_back[addr] = value
+    state.results.u_cont_writes[addr] = value
+    return value
+end
+
+function write_continuous_to_model(state::FirstPassState, addr, value)
+    has_value(state.results.constraints, addr) && error("Model address $addr already written to")
+    state.results.constraints[addr] = value
+    state.results.t_cont_writes[addr] = value
+    return value
+end
+
+function copy_model_to_model(state::FirstPassState, from_addr, to_addr)
+    trace_choices = get_choices(state.trace)
+    push!(state.results.t_copy_reads, from_addr)
+    if has_value(trace_choices, from_addr)
+        state.results.constraints[to_addr] = state.trace[from_addr]
+    else
+        set_submap!(state.results.constraints, to_addr, get_submap(trace_choices, from_addr))
+    end
+    return nothing
+end
+
+function copy_model_to_proposal(state::FirstPassState, from_addr, to_addr)
+    trace_choices = get_choices(state.trace)
+    push!(state.results.t_copy_reads, from_addr)
+    if has_value(trace_choices, from_addr)
+        state.results.u_back[to_addr] = state.trace[from_addr]
+    else
+        set_submap!(state.results.u_back, to_addr, get_submap(trace_choices, from_addr))
+    end
+    return nothing
+end
+
+function copy_proposal_to_proposal(state::FirstPassState, from_addr, to_addr)
+    push!(state.results.u_copy_reads, from_addr)
+    if has_value(state.u, from_addr)
+        state.results.u_back[to_addr] = state.u[from_addr]
+    else
+        set_submap!(state.results.u_back, to_addr, get_submap(state.u, from_addr))
+    end
+    return nothing
+end
+
+function copy_proposal_to_model(state::FirstPassState, from_addr, to_addr)
+    push!(state.results.u_copy_reads, from_addr)
+    if has_value(state.u, from_addr)
+        state.results.constraints[to_addr] = state.u[from_addr]
+    else
+        set_submap!(state.results.constraints, to_addr, get_submap(state.u, from_addr))
+    end
+    return nothing
+end
+
+#####################################################################
+# second pass through bijection (gets automatically differentiated) #
+#####################################################################
 
 struct JacobianPassState{T<:Real}
     trace
@@ -64,245 +239,63 @@ struct JacobianPassState{T<:Real}
     cont_u_back_key_to_index::Dict
 end
 
-const inv_state = gensym("inv_state")
 
-"""
-    @bijection function f(...)
-        ..
-    end
-
-Write a program in the [Involution DSL](@ref).
-"""
-macro bijection(ex)
-    ex = MacroTools.longdef(ex)
-    MacroTools.@capture(ex, function f_(args__) body_ end) || error("expected syntax: function f(..) .. end")
-
-    fn! = gensym("$(esc(f))_fn!")
-
-    quote
-
-    # mutates the state
-    function $fn!($(esc(inv_state))::Union{FirstPassState,JacobianPassState}, $(map(esc, args)...))
-        $(esc(body))
-        nothing
-    end
-
-    Core.@__doc__ $(esc(f)) = BijectionDSLProgram($fn!)
-
-    end # quote
-
-end # macro bijection()
-
-# read discrete from model
-
-macro read_discrete_from_model(addr)
-    quote read_discrete_from_model($(esc(inv_state)), $(esc(addr))) end
+function read_discrete_from_model(state::JacobianPassState, addr)
+    return state.trace[addr]
 end
 
-function read_discrete_from_model(state::Union{FirstPassState,JacobianPassState}, addr)
-    state.trace[addr]
-end
-
-# read discrete from proposal
-
-macro read_discrete_from_proposal(addr)
-    quote read_discrete_from_proposal($(esc(inv_state)), $(esc(addr))) end
-end
-
-function read_discrete_from_proposal(state::Union{FirstPassState,JacobianPassState}, addr)
-    state.u[addr]
-end
-
-# write_discrete_to_proposal
-
-macro write_discrete_to_proposal(addr, value)
-    quote write_discrete_to_proposal($(esc(inv_state)), $(esc(addr)), $(esc(value))) end
-end
-
-function write_discrete_to_proposal(state::FirstPassState, addr, value)
-    state.u_back[addr] = value
-    value
+function read_discrete_from_proposal(state::JacobianPassState, addr)
+    return state.u[addr]
 end
 
 function write_discrete_to_proposal(state::JacobianPassState, addr, value)
-    value
-end
-
-# write_discrete_to_model
-
-macro write_discrete_to_model(addr, value)
-    quote write_discrete_to_model($(esc(inv_state)), $(esc(addr)), $(esc(value))) end
-end
-
-function write_discrete_to_model(state::FirstPassState, addr, value)
-    state.constraints[addr] = value
-    value
+    return value
 end
 
 function write_discrete_to_model(state::JacobianPassState, addr, value)
-    value
-end
-
-# read continuous from proposal
-
-macro read_continuous_from_proposal(addr)
-    quote read_continuous_from_proposal($(esc(inv_state)), $(esc(addr))) end
-end
-
-function read_continuous_from_proposal(state::FirstPassState, addr)
-    state.u_cont_reads[addr] = state.u[addr]
-    state.u[addr]
+    return value
 end
 
 function read_continuous_from_proposal(state::JacobianPassState, addr)
     if haskey(state.u_key_to_index, addr)
-        state.input_arr[state.u_key_to_index[addr]]
+        return state.input_arr[state.u_key_to_index[addr]]
     else
-        state.u[addr]
+        return state.u[addr]
     end
-end
-
-# read continuous from model
-
-macro read_continuous_from_model(addr)
-    quote read_continuous_from_model($(esc(inv_state)), $(esc(addr))) end
-end
-
-function read_continuous_from_model(state::FirstPassState, addr)
-    state.t_cont_reads[addr] = state.trace[addr]
-    state.trace[addr]
 end
 
 function read_continuous_from_model(state::JacobianPassState, addr)
     if haskey(state.t_key_to_index, addr)
-        state.input_arr[state.t_key_to_index[addr]]
+        return state.input_arr[state.t_key_to_index[addr]]
     else
-        state.trace[addr]
+        return state.trace[addr]
     end
-end
-
-# write_continuous_to_proposal
-
-macro write_continuous_to_proposal(addr, value)
-    quote write_continuous_to_proposal($(esc(inv_state)), $(esc(addr)), $(esc(value))) end
-end
-
-function write_continuous_to_proposal(state::FirstPassState, addr, value)
-    has_value(state.u_back, addr) && error("Proposal address $addr already written to")
-    state.u_back[addr] = value
-    state.u_cont_writes[addr] = value
-    value
 end
 
 function write_continuous_to_proposal(state::JacobianPassState, addr, value)
-    state.output_arr[state.cont_u_back_key_to_index[addr]] = value
-end
-
-# write_continuous_to_model
-
-macro write_continuous_to_model(addr, value)
-    quote write_continuous_to_model($(esc(inv_state)), $(esc(addr)), $(esc(value))) end
-end
-
-function write_continuous_to_model(state::FirstPassState, addr, value)
-    has_value(state.constraints, addr) && error("Model address $addr already written to")
-    state.constraints[addr] = value
-    state.t_cont_writes[addr] = value
-    value
+    return state.output_arr[state.cont_u_back_key_to_index[addr]] = value
 end
 
 function write_continuous_to_model(state::JacobianPassState, addr, value)
-    state.output_arr[state.cont_constraints_key_to_index[addr]] = value
-end
-
-# copy_model_to_model
-
-macro copy_model_to_model(from_addr, to_addr)
-    quote copy_model_to_model($(esc(inv_state)), $(esc(from_addr)), $(esc(to_addr))) end
-end
-
-function copy_model_to_model(state::FirstPassState, from_addr, to_addr)
-    trace_choices = get_choices(state.trace)
-    push!(state.t_copy_reads, from_addr)
-    if has_value(trace_choices, from_addr)
-        state.constraints[to_addr] = state.trace[from_addr]
-    else
-        set_submap!(state.constraints, to_addr, get_submap(trace_choices, from_addr))
-    end
-    nothing
+    return state.output_arr[state.results.cont_constraints_key_to_index[addr]] = value
 end
 
 function copy_model_to_model(state::JacobianPassState, from_addr, to_addr)
-    nothing
-end
-
-# copy_model_to_proposal
-
-macro copy_model_to_proposal(from_addr, to_addr)
-    quote copy_model_to_proposal($(esc(inv_state)), $(esc(from_addr)), $(esc(to_addr))) end
-end
-
-function copy_model_to_proposal(state::FirstPassState, from_addr, to_addr)
-    trace_choices = get_choices(state.trace)
-    push!(state.t_copy_reads, from_addr)
-    if has_value(trace_choices, from_addr)
-        state.u_back[to_addr] = state.trace[from_addr]
-    else
-        set_submap!(state.u_back, to_addr, get_submap(trace_choices, from_addr))
-    end
-    nothing
+    return nothing
 end
 
 function copy_model_to_proposal(state::JacobianPassState, from_addr, to_addr)
-    nothing
-end
-
-# copy_proposal_to_proposal
-
-macro copy_proposal_to_proposal(from_addr, to_addr)
-    quote copy_proposal_to_proposal($(esc(inv_state)), $(esc(from_addr)), $(esc(to_addr))) end
-end
-
-function copy_proposal_to_proposal(state::FirstPassState, from_addr, to_addr)
-    push!(state.u_copy_reads, from_addr)
-    if has_value(state.u, from_addr)
-        state.u_back[to_addr] = state.u[from_addr]
-    else
-        set_submap!(state.u_back, to_addr, get_submap(state.u, from_addr))
-    end
-    nothing
+    return nothing
 end
 
 function copy_proposal_to_proposal(state::JacobianPassState, from_addr, to_addr)
-    nothing
-end
-
-# copy_proposal_to_model
-
-macro copy_proposal_to_model(from_addr, to_addr)
-    quote copy_proposal_to_model($(esc(inv_state)), $(esc(from_addr)), $(esc(to_addr))) end
-end
-
-function copy_proposal_to_model(state::FirstPassState, from_addr, to_addr)
-    push!(state.u_copy_reads, from_addr)
-    if has_value(state.u, from_addr)
-        state.constraints[to_addr] = state.u[from_addr]
-    else
-        set_submap!(state.constraints, to_addr, get_submap(state.u, from_addr))
-    end
-    nothing
+    return nothing
 end
 
 function copy_proposal_to_model(state::JacobianPassState, from_addr, to_addr)
-    nothing
+    return nothing
 end
 
-# call another bijection function
-
-macro bijcall(ex)
-    MacroTools.@capture(ex, f_(args__)) || error("expected syntax: f(..)")
-    quote $(esc(f)).fn!($(esc(inv_state)), $(map(esc, args)...)) end
-end
 
 #################################
 # computing jacobian correction #
@@ -343,7 +336,7 @@ function assemble_input_array_and_maps(
         push!(input_arr, v)
     end
 
-    (t_key_to_index, u_key_to_index, input_arr)
+    return (t_key_to_index, u_key_to_index, input_arr)
 end
 
 function assemble_output_maps(t_cont_writes, u_cont_writes)
@@ -361,23 +354,23 @@ function assemble_output_maps(t_cont_writes, u_cont_writes)
         next_output_index += 1
     end
 
-    (cont_constraints_key_to_index, cont_u_back_key_to_index)
+    return (cont_constraints_key_to_index, cont_u_back_key_to_index)
 end
 
-function jacobian_correction(prev_model_trace, proposal_trace, first_pass_state, discard)
+function jacobian_correction(prev_model_trace, proposal_trace, first_pass_results, discard)
 
     # create input array and mappings input addresses that are needed for Jacobian
     # exclude addresses that were copied explicitly to another address
     (t_key_to_index, u_key_to_index, input_arr) = assemble_input_array_and_maps(
-        first_pass_state.t_cont_reads,
-        first_pass_state.t_copy_reads,
-        first_pass_state.u_cont_reads,
-        first_pass_state.u_copy_reads, discard)
+        first_pass_results.t_cont_reads,
+        first_pass_results.t_copy_reads,
+        first_pass_results.u_cont_reads,
+        first_pass_results.u_copy_reads, discard)
     
     # create mappings for output addresses that are needed for Jacobian
     (cont_constraints_key_to_index, cont_u_back_key_to_index) = assemble_output_maps(
-        first_pass_state.t_cont_writes,
-        first_pass_state.u_cont_writes)
+        first_pass_results.t_cont_writes,
+        first_pass_results.u_cont_writes)
 
     # this function is the partial application of the continuous part of the
     # bijection, with inputs corresponding to a particular superset of the
@@ -449,7 +442,7 @@ function (bijection::BijectionDSLProgram)(
     # construct new trace and get model weight
     new_model_trace, new_model_score = generate(
         new_model, new_model_args,
-        merge(first_pass_state.constraints, new_observations))
+        merge(first_pass_results.constraints, new_observations))
     prev_model_score = get_score(prev_model_trace)
     model_weight = new_model_score - prev_model_score
 
