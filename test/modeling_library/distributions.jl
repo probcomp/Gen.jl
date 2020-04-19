@@ -289,6 +289,40 @@ end
     @test isapprox(actual[2], finite_diff(f, args, 2, dx))
 end
 
+@testset "binom" begin
+
+    # random
+    @test binom(5, 0.3) >= 0
+
+    # out of support
+    @test logpdf(binom, -1, 5, 0.3) == -Inf
+
+    # logpdf_grad
+    f = (x, n, p) -> logpdf(binom, x, n, p)
+    args = (2, 5, 0.3)
+    actual = logpdf_grad(binom, args...)
+    @test actual[1] == nothing
+    @test actual[2] == nothing
+    @test isapprox(actual[3], finite_diff(f, args, 3, dx))
+end
+
+@testset "neg_binom" begin
+
+    # random
+    @test neg_binom(5, 0.3) >= 0
+
+    # out of support
+    @test logpdf(neg_binom, -1, 5, 0.3) == -Inf
+
+    # logpdf_grad
+    f = (x, r, p) -> logpdf(neg_binom, x, r, p)
+    args = (2, 5, 0.3)
+    actual = logpdf_grad(neg_binom, args...)
+    @test actual[1] == nothing
+    @test isapprox(actual[2], finite_diff(f, args, 2, dx))
+    @test isapprox(actual[3], finite_diff(f, args, 3, dx))
+end
+
 @testset "exponential" begin
 
     # random
