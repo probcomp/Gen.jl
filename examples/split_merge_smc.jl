@@ -32,12 +32,18 @@ end
 # we can do mcmc inference for some number k
 # (this can be hand-computed Gibbs moves on the assignments, and gradient-based parameter moves..)
 
+@gen function random_walk(trace, addr)
+    {addr} ~ normal(trace[addr], 0.1)
+end
+
 function do_mcmc(trace, n_iters)
     n, k = get_args(trace)
     for iter in 1:n_iters
         for i in 1:k
             #trace, = mh(trace, select((:noise, i)))
             trace, = mh(trace, select((:mu_x, i), (:mu_y, i)))
+            trace, mh(trace, random_walk, ((:mu_x, i),))
+            trace, mh(trace, random_walk, ((:mu_y, i),))
         end
         for i in 1:n
             trace, = mh(trace, select((:z, i)))
@@ -71,6 +77,13 @@ end
     # sample degrees of freedom for the split to the parameters
     dx ~ normal(0, 1)
     dy ~ normal(0, 1)
+
+    # for each data point in the cluster to be split, sample a biased bernoulli
+    for i in 1:n
+        if trace[(:z, i)] == cluster_to_split
+            {(:cluster_choice, i)} ~ bernoulli(0.9)
+        end
+    end
 end
 
 @gen function q_merge(trace, data::Vector{Tuple{Float64,Float64}})
@@ -81,6 +94,9 @@ end
 end
 
 using LinearAlgebra: norm
+
+# TODO use the first principle component to determine the splitting direction, and choose random separation?
+# but i'm not sure about the invertibility of this, ...
 
 # TODO use update, and with change to args..
 # (so we don't need to write every new value...)
@@ -118,9 +134,7 @@ using LinearAlgebra: norm
         #@copy_model_to_model((:noise, i), (:noise, i))
     end
 
-    # deterministically move each data point to the cluster they are closest to
-    # TODO PROBLEM: it does not cover the entire range..
-    # I think that that is okay..
+    # move data points into clusters using Gibbs sampling
     for i in 1:n
         cluster = @read_discrete_from_model((:z, i))
         if cluster != cluster_to_split
@@ -130,7 +144,9 @@ using LinearAlgebra: norm
         (x, y) = data[i]
         dist_1 = norm([x, y] - [new_mu_x_1, new_mu_y_1])
         dist_2 = norm([x, y] - [new_mu_x_2, new_mu_y_2])
-        if dist_1 < dist_2
+        choice = @read_discrete_from_proposal((:cluster_choice, i)) # biased to be true
+        closer_to_1 = (dist_1 < dist_2)
+        if (closer_to_1 && choice) || (!closer_to_1 && !choice)
             # stay in this cluster
             @write_discrete_to_model((:z, i), cluster)
         else
@@ -178,6 +194,13 @@ end
         cluster = @read_discrete_from_model((:z, i))
         if (cluster == cluster_to_merge) || (cluster == k)
             @write_discrete_to_model((:z, i), cluster_to_merge)
+            (x, y) = data[i]
+            dist_1 = norm([x, y] - [mu_x_1, mu_y_1])
+            dist_2 = norm([x, y] - [mu_x_2, mu_y_2])
+            closer_to_1 = (dist_1 < dist_2)
+            @write_discrete_to_proposal(
+                (:cluster_choice, i),
+                closer_to_1 == (cluster == cluster_to_merge))
         else
             @write_discrete_to_model((:z, i), cluster)
         end
@@ -191,7 +214,7 @@ function split_smc_step(trace, data, obs)
         trace, q_split_trace, model, (n, k+1), obs)
     q_merge_trace, = generate(q_merge, (new_trace, data), q_merge_choices)
     weight = model_weight + get_score(q_merge_trace) - get_score(q_split_trace)
-    return (new_trace, weight)
+    return (new_trace, weight, q_split_trace)
 end
 
 function run_smc(data, k_max::Int, num_mcmc::Int)
@@ -203,6 +226,7 @@ function run_smc(data, k_max::Int, num_mcmc::Int)
 
     # start with a single cluster
     traces = []
+    q_split_traces = []
     trace, weight = generate(model, (n, 1), obs)
 
     for k=1:k_max-1
@@ -216,9 +240,10 @@ function run_smc(data, k_max::Int, num_mcmc::Int)
         push!(traces, trace)
 
         # increment the number of clusters with a split
-        trace, incr_weight = split_smc_step(trace, data, obs)
+        trace, incr_weight, q_split_trace = split_smc_step(trace, data, obs)
         weight += incr_weight
         @assert get_args(trace)[2] == k+1
+        push!(q_split_traces, q_split_trace)
     end
 
     # record trace before mcmc
@@ -230,7 +255,7 @@ function run_smc(data, k_max::Int, num_mcmc::Int)
     # record trace after mcmc
     push!(traces, trace)
 
-    return (trace, weight, traces)
+    return (trace, weight, traces, q_split_traces)
 end
 
 # generate data with four clusters and 50 data points
@@ -281,8 +306,8 @@ function do_experiment()
     end
     
     k_max = 4
-    num_mcmc = 100
-    trace, weight, traces = run_smc(data, k_max, num_mcmc)
+    num_mcmc = 1000
+    trace, weight, traces, q_split_traces = run_smc(data, k_max, num_mcmc)
     #display(get_choices(trace))
 
     figure(figsize=(16,16))
@@ -302,11 +327,23 @@ function do_experiment()
     # iterations..
     for k=1:k_max
 
+
         # before mcmc
         subplot(nrows, ncols, 1 + cur)
         title("trace before mcmc")
         trace = traces[cur]; cur += 1
         scatter(xs, ys, c=colors(trace))
+        if k > 1
+            qtr = q_split_traces[k-1]
+            #dx, dy = qtr[:dx], qtr[:dy]
+            cluster_to_split = qtr[:cluster_to_split]
+            mu_x_1, mu_y_1 = (trace[(:mu_x, cluster_to_split)], trace[(:mu_y, cluster_to_split)])
+            mu_x_2, mu_y_2 = (trace[(:mu_x, k)], trace[(:mu_y, k)])
+            mu_x = (mu_x_1 + mu_x_2) / 2
+            mu_y = (mu_y_1 + mu_y_2) / 2
+            plot([mu_x_1, mu_x_2], [mu_y_1, mu_y_2], color="black", linestyle="--")
+            scatter([mu_x], [mu_y], color=all_colors[k-1], marker="x", s=100)
+        end
         show_params(trace)
         set_xlim_ylim()
 
@@ -317,6 +354,7 @@ function do_experiment()
         scatter(xs, ys, c=colors(trace))
         show_params(trace)
         set_xlim_ylim()
+
     end
 
     @assert length(traces) == cur - 1
