@@ -528,14 +528,14 @@ Apply bijection with no change to the model, but a change to the model arguments
 Appropriate for use in sequential Monte Carlo (SMC) kernels.
 """
 function (bijection::BijectionDSLProgram)(
-        prev_model_trace::Trace, proposal_trace::Trace,
+        prev_model_trace::Trace, forward_proposal_trace::Trace,
         backward_proposal::GenerativeFunction, backward_proposal_args::Tuple,
         new_model_args::Tuple, observations::ChoiceMap;
         argdiffs=map((_) -> UnknownChange(), new_model_args), check=false,
         prev_observations=EmptyChoiceMap())
 
     # run the partial bijection forward
-    first_pass_results = run_first_pass(bijection, prev_model_trace, proposal_trace)
+    first_pass_results = run_first_pass(bijection, prev_model_trace, forward_proposal_trace)
 
     # finish running the bijection via update
     (new_model_trace, model_weight, _, discard) = update(
@@ -543,7 +543,7 @@ function (bijection::BijectionDSLProgram)(
         merge(first_pass_results.constraints, observations))
 
     # jacobian correction
-    model_weight += jacobian_correction(bijection, prev_model_trace, proposal_trace, first_pass_results, discard)
+    model_weight += jacobian_correction(bijection, prev_model_trace, forward_proposal_trace, first_pass_results, discard)
 
     # get backward proposal trace
     # TODO check that proposal is fully constrained in the backward direction
