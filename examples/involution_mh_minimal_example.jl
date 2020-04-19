@@ -64,6 +64,8 @@ end
     end
 end
 
+is_involution!(split_merge_involution)
+
 function do_inference_simple(y1, y2)
     trace, = generate(model, (), choicemap((:y1, y1), (:y2, y2), (:z, false), (:m, 1.2)))
     zs = Bool[]

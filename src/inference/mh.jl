@@ -41,6 +41,7 @@ If the proposal modifies addresses that determine the control flow in the model,
 function metropolis_hastings(
         trace, proposal::GenerativeFunction, proposal_args::Tuple;
         check=false, observations=EmptyChoiceMap())
+    # TODO add a round trip check
     model_args = get_args(trace)
     argdiffs = map((_) -> NoChange(), model_args)
     proposal_args_forward = (trace, proposal_args...,)
@@ -87,28 +88,8 @@ function metropolis_hastings(
         proposal_args::Tuple, involution;
         check=false, observations=EmptyChoiceMap())
     fwd_trace = simulate(proposal, (trace, proposal_args...,))
-    (new_trace, bwd_choices, weight) = involution(trace, fwd_trace; check=check)
-    # TODO check that proposal is fully constrained in the backward direction
-    bwd_trace, = generate(proposal, (new_trace, proposal_args...), bwd_choices) 
+    (new_trace, bwd_trace, weight) = involution(trace, fwd_trace; check=check)
     check && check_observations(get_choices(new_trace), observations)
-    if check
-        fwd_choices = get_choices(fwd_trace)
-        (trace_rt, fwd_choices_rt, weight_rt) = involution(new_trace, bwd_trace; check=check)
-        if !isapprox(fwd_choices_rt, fwd_choices)
-            @error "fwd_choices: $(sprint(show, "text/plain", fwd_choices))"
-            @error "fwd_choices_rt: $(sprint(show, "text/plain", fwd_choices_rt))"
-            error("Involution round trip check failed")
-        end
-        if !isapprox(get_choices(trace), get_choices(trace_rt))
-            @error "get_choices(trace): $(sprint(show, "text/plain", get_choices(trace)))"
-            @error "get_choices(trace_rt): $(sprint(show, "text/plain", get_choices(trace_rt)))"
-            error("Involution round trip check failed")
-        end
-        if !isapprox(weight, -weight_rt)
-            @error "weight: $weight, -weight_rt: $(-weight_rt)"
-            error("Involution round trip check failed")
-        end
-    end
     fwd_score = get_score(fwd_trace)
     bwd_score = get_score(bwd_trace)
     if log(rand()) < weight - fwd_score + bwd_score

@@ -1,6 +1,7 @@
 using Gen
 using PyPlot
 using Random: seed!
+using ForwardDiff
 
 @gen function model(n:Int, k::Int)
     # n is number of data points
@@ -90,35 +91,31 @@ end
     n, k = get_args(trace)
 
     # pick random cluster to merge with last cluster (k)
-    cluster_to_split ~ uniform_discrete(1, k-1)
+    # TODO would it be better to pick a cluster whose data is near the data of cluster k?
+    # (or, just deterministically pick the nearest cluster?)
+    cluster_to_merge ~ uniform_discrete(1, k-1)
 end
 
 using LinearAlgebra: norm
 
-# TODO use the first principle component to determine the splitting direction, and choose random separation?
-# but i'm not sure about the invertibility of this, ...
-
 # TODO use update, and with change to args..
 # (so we don't need to write every new value...)
 
-# TODO let us run the backwards part of the bijection for checking purposes..
-
-# TODO figure out what range need to be..., udpate the math to reflect this..
-# (the range does not need to be everything, or does it?)
-# it there an additional requirement for the MCMC case?
-
 @bijection function h_split(model_args, proposal_args, proposal_retval)
+    println("\n**h_merge**")
     n, k = model_args
-    data = proposal_args[2] # TODO proposal_args should not include the model trace here; call it 'extra proposal args'?
+    data, = proposal_args
 
     cluster_to_split = @read_discrete_from_proposal(:cluster_to_split)
     @write_discrete_to_proposal(:cluster_to_merge, cluster_to_split)
     prev_mu_x = @read_continuous_from_model((:mu_x, cluster_to_split))
     prev_mu_y = @read_continuous_from_model((:mu_y, cluster_to_split))
+    println("prev_mu_x, prev_mu_y: $((ForwardDiff.value(prev_mu_x), ForwardDiff.value(prev_mu_y)))")
     dx = @read_continuous_from_proposal(:dx)
     dy = @read_continuous_from_proposal(:dy)
-    (new_mu_x_1, new_mu_y_1) = (prev_mu_x + dx/2, prev_mu_y + dy/2)
-    (new_mu_x_2, new_mu_y_2) = (prev_mu_x - dx/2, prev_mu_y - dy/2)
+    println("dx, dy: $((ForwardDiff.value(dx), ForwardDiff.value(dy)))")
+    (new_mu_x_1, new_mu_y_1) = (prev_mu_x - dx/2, prev_mu_y - dy/2)
+    (new_mu_x_2, new_mu_y_2) = (prev_mu_x + dx/2, prev_mu_y + dy/2)
     @write_continuous_to_model((:mu_x, cluster_to_split), new_mu_x_1)
     @write_continuous_to_model((:mu_y, cluster_to_split), new_mu_y_1)
     @write_continuous_to_model((:mu_x, k+1), new_mu_x_2)
@@ -157,10 +154,13 @@ using LinearAlgebra: norm
 end
 
 @bijection function h_merge(model_args, proposal_args, proposal_retval)
+    println("\n**h_merge**")
     n, k = model_args
+    data, = proposal_args
 
     # the cluster to merge with cluster k
     cluster_to_merge = @read_discrete_from_proposal(:cluster_to_merge)
+    @assert cluster_to_merge < k
     @write_discrete_to_proposal(:cluster_to_split, cluster_to_merge)
 
     # now, we have two cluster parameters..
@@ -168,16 +168,21 @@ end
     mu_y_1 = @read_continuous_from_model((:mu_y, cluster_to_merge))
     mu_x_2 = @read_continuous_from_model((:mu_x, k))
     mu_y_2 = @read_continuous_from_model((:mu_y, k))
+    println("mu_x_1, mu_y_1: $((ForwardDiff.value(mu_x_1), ForwardDiff.value(mu_y_1)))")
+    println("mu_x_2, mu_y_2: $((ForwardDiff.value(mu_x_2), ForwardDiff.value(mu_y_2)))")
 
     # and we need to produce (i) one cluster parameter, and dx
     prev_mu_x = (mu_x_1 + mu_x_2) / 2
     prev_mu_y = (mu_y_1 + mu_y_2) / 2
+    println("prev_mu_x, prev_mu_y: $((ForwardDiff.value(prev_mu_x), ForwardDiff.value(prev_mu_y)))")
+    println("mu_x_2, mu_y_2: $((ForwardDiff.value(mu_x_2), ForwardDiff.value(mu_y_2)))")
     dx = mu_x_2 - mu_x_1
     dy = mu_y_2 - mu_y_1
+    println("dx, dy: $((ForwardDiff.value(dx), ForwardDiff.value(dy)))")
     @write_continuous_to_model((:mu_x, cluster_to_merge), prev_mu_x)
     @write_continuous_to_model((:mu_y, cluster_to_merge), prev_mu_y)
-    @write_continuous_to_model(:dx, dx)
-    @write_continuous_to_model(:dy, dy)
+    @write_continuous_to_proposal(:dx, dx)
+    @write_continuous_to_proposal(:dy, dy)
 
     # copy over unchanged clusters
     for i in 1:k-1
@@ -207,12 +212,17 @@ end
     end
 end
 
-function split_smc_step(trace, data, obs)
+pair_bijections!(h_split, h_merge)
+
+function split_smc_step(trace, data, obs; check=false)
     n, k = get_args(trace)
     q_split_trace = simulate(q_split, (trace, data))
-    (new_trace, q_merge_choices, model_weight) = h_split(
-        trace, q_split_trace, model, (n, k+1), obs)
-    q_merge_trace, = generate(q_merge, (new_trace, data), q_merge_choices)
+
+    # TODO don't pass in model, so that update is used.. (and provide argdiffs, and prev_obs.)
+    (new_trace, q_merge_trace, model_weight) = h_split(
+        trace, q_split_trace, 
+        q_merge, (data,),
+        model, (n, k+1), obs; check=check, prev_observations=obs)
     weight = model_weight + get_score(q_merge_trace) - get_score(q_split_trace)
     return (new_trace, weight, q_split_trace)
 end
@@ -240,7 +250,7 @@ function run_smc(data, k_max::Int, num_mcmc::Int)
         push!(traces, trace)
 
         # increment the number of clusters with a split
-        trace, incr_weight, q_split_trace = split_smc_step(trace, data, obs)
+        trace, incr_weight, q_split_trace = split_smc_step(trace, data, obs; check=true)
         weight += incr_weight
         @assert get_args(trace)[2] == k+1
         push!(q_split_traces, q_split_trace)
@@ -261,7 +271,7 @@ end
 # generate data with four clusters and 50 data points
 function do_experiment()
     seed!(1)
-    n = 50
+    n = 5
     ground_truth_trace, = generate(model, (n, 4), choicemap(
     
         # cluster centers

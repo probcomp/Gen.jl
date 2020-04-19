@@ -5,8 +5,27 @@ import LinearAlgebra
 # See this math writeup for an understanding of how this code works:
 # docs/tex/mcmc.pdf
 
-struct BijectionDSLProgram
+mutable struct BijectionDSLProgram
     fn!::Function
+    inverse::Union{Nothing,BijectionDSLProgram}
+end
+
+function pair_bijections!(f1::BijectionDSLProgram, f2::BijectionDSLProgram)
+    f1.inverse = f2
+    f2.inverse = f1
+    return nothing
+end
+
+function is_involution!(f::BijectionDSLProgram)
+    f.inverse = f
+    return nothing
+end
+
+function inverse(bijection::BijectionDSLProgram)
+    if isnothing(bijection.inverse)
+        error("inverse bijection was not defined")
+    end
+    return bijection.inverse
 end
 
 const bij_state = gensym("bij_state")
@@ -32,10 +51,9 @@ macro bijection(ex)
             return nothing
         end
 
-        Core.@__doc__ $(esc(f)) = BijectionDSLProgram($fn!)
+        Core.@__doc__ $(esc(f)) = BijectionDSLProgram($fn!, nothing)
 
     end
-
 end
 
 macro bijcall(ex)
@@ -277,7 +295,7 @@ function write_continuous_to_proposal(state::JacobianPassState, addr, value)
 end
 
 function write_continuous_to_model(state::JacobianPassState, addr, value)
-    return state.output_arr[state.results.cont_constraints_key_to_index[addr]] = value
+    return state.output_arr[state.cont_constraints_key_to_index[addr]] = value
 end
 
 function copy_model_to_model(state::JacobianPassState, from_addr, to_addr)
@@ -317,7 +335,7 @@ function assemble_input_array_and_maps(
         end
 
         if discard_skip_read_addr(addr, discard)
-            # only used by involutions with update
+            # note: only happens when the model is unchanged
             continue
         end
 
@@ -357,7 +375,7 @@ function assemble_output_maps(t_cont_writes, u_cont_writes)
     return (cont_constraints_key_to_index, cont_u_back_key_to_index)
 end
 
-function jacobian_correction(prev_model_trace, proposal_trace, first_pass_results, discard)
+function jacobian_correction(bijection::BijectionDSLProgram, prev_model_trace, proposal_trace, first_pass_results, discard)
 
     # create input array and mappings input addresses that are needed for Jacobian
     # exclude addresses that were copied explicitly to another address
@@ -421,6 +439,33 @@ end
 # different forms of calling bijection #
 ########################################
 
+function check_round_trip(
+            prev_model_trace, prev_model_trace_rt,
+            forward_proposal_trace, forward_proposal_trace_rt,
+            model_weight, model_weight_inv)
+
+    forward_proposal_choices = get_choices(forward_proposal_trace)
+    forward_proposal_choices_rt = get_choices(forward_proposal_trace_rt)
+    prev_model_choices = get_choices(prev_model_trace)
+    prev_model_choices_rt = get_choices(prev_model_trace_rt)
+    if !isapprox(forward_proposal_choices, forward_proposal_choices_rt)
+        @error("forward proposal choices: $(sprint(show, "text/plain", forward_proposal_choices))")
+        @error("forward proposal choices after round trip: $(sprint(show, "text/plain", forward_proposal_choices_rt))")
+        error("bijection round trip check failed")
+    end
+    if !isapprox(prev_model_choices, prev_model_choices_rt)
+        @error "previous model choices: $(sprint(show, "text/plain", prev_model_choices))"
+        @error "previous model choices after round trip: $(sprint(show, "text/plain", prev_model_choices_rt))"
+        error("bijection round trip check failed")
+    end
+    if !isapprox(model_weight, -model_weight_inv)
+        @error "model weight: $model_weight, inverse model weight: $model_weight_inv"
+        error("bijection round trip check failed")
+    end
+    return nothing
+end
+
+
 """
     (bijection::BijectionDSLProgram)(
         prev_model_trace::Trace, proposal_trace::Trace,
@@ -432,12 +477,14 @@ Apply bijection with a change to the model
 Appropriate for use in sequential Monte Carlo (SMC) kernels.
 """
 function (bijection::BijectionDSLProgram)(
-        prev_model_trace::Trace, proposal_trace::Trace,
+        prev_model_trace::Trace, forward_proposal_trace::Trace,
+        backward_proposal::GenerativeFunction, backward_proposal_args::Tuple,
         new_model::GenerativeFunction, new_model_args::Tuple,
-        observations::ChoiceMap; check=false)
+        new_observations::ChoiceMap;
+        check=false, prev_observations=EmptyChoiceMap())
 
     # run the bijection forward
-    first_pass_results = run_first_pass(bijection, prev_model_trace, proposal_trace)
+    first_pass_results = run_first_pass(bijection, prev_model_trace, forward_proposal_trace)
     
     # construct new trace and get model weight
     new_model_trace, new_model_score = generate(
@@ -448,9 +495,27 @@ function (bijection::BijectionDSLProgram)(
 
     # jacobian correction
     discard = nothing
-    correction = jacobian_correction(prev_model_trace, proposal_trace, first_pass_results, discard)
+    model_weight += jacobian_correction(bijection, prev_model_trace, forward_proposal_trace, first_pass_results, discard)
 
-    return (new_model_trace, u_back, model_weight + correction)
+    # get backward proposal trace
+    # TODO check that proposal is fully constrained in the backward direction
+    backward_proposal_trace, = generate(backward_proposal, (new_model_trace, backward_proposal_args...), first_pass_results.u_back)
+
+    if check
+        forward_proposal_choices = get_choices(forward_proposal_trace)
+        bijection_inv = inverse(bijection)
+        (prev_model_trace_rt, forward_proposal_trace_rt, inv_model_weight) = bijection_inv(
+            new_model_trace, backward_proposal_trace,
+            get_gen_fn(forward_proposal_trace), get_args(forward_proposal_trace)[2:end],
+            get_gen_fn(prev_model_trace), get_args(prev_model_trace),
+            prev_observations; check=false)
+        check_round_trip(
+            prev_model_trace, prev_model_trace_rt,
+            forward_proposal_trace, forward_proposal_trace_rt,
+            model_weight, inv_model_weight)
+    end
+
+    return (new_model_trace, backward_proposal_trace, model_weight)
 end
 
 """
@@ -463,21 +528,41 @@ Apply bijection with no change to the model, but a change to the model arguments
 Appropriate for use in sequential Monte Carlo (SMC) kernels.
 """
 function (bijection::BijectionDSLProgram)(
-        prev_model_trace::Trace, proposal_trace::Trace, new_args::Tuple, observations::ChoiceMap;
-        argdiffs=map((_) -> UnknownChange(), new_args), check=false)
+        prev_model_trace::Trace, proposal_trace::Trace,
+        backward_proposal::GenerativeFunction, backward_proposal_args::Tuple,
+        new_model_args::Tuple, observations::ChoiceMap;
+        argdiffs=map((_) -> UnknownChange(), new_model_args), check=false,
+        prev_observations=EmptyChoiceMap())
 
     # run the partial bijection forward
     first_pass_results = run_first_pass(bijection, prev_model_trace, proposal_trace)
 
     # finish running the bijection via update
     (new_model_trace, model_weight, _, discard) = update(
-        prev_model_trace, new_args, argdiffs,
+        prev_model_trace, new_model_args, argdiffs,
         merge(first_pass_results.constraints, observations))
 
     # jacobian correction
-    correction = jacobian_correction(prev_model_trace, proposal_trace, first_pass_results, discard)
+    model_weight += jacobian_correction(bijection, prev_model_trace, proposal_trace, first_pass_results, discard)
 
-    return (new_model_trace, u_back, model_weight + correction)
+    # get backward proposal trace
+    # TODO check that proposal is fully constrained in the backward direction
+    backward_proposal_trace, = generate(backward_proposal, (new_model_trace, backward_proposal_args...), first_pass_results.u_back)
+
+    if check
+        forward_proposal_choices = get_choices(forward_proposal_trace)
+        bijection_inv = inverse(bijection)
+        (prev_model_trace_rt, forward_proposal_trace_rt, inv_model_weight) = bijection_inv(
+            new_model_trace, backward_proposal_trace,
+            get_gen_fn(forward_proposal_trace), get_args(forward_proposal_trace)[2:end],
+            get_args(prev_model_trace), prev_observations; check=false)
+        check_round_trip(
+            prev_model_trace, prev_model_trace_rt,
+            forward_proposal_trace, forward_proposal_trace_rt,
+            model_weight, inv_model_weight)
+    end
+
+    return (new_model_trace, backward_proposal_trace, model_weight)
 end
 
 """
@@ -489,10 +574,10 @@ Apply bijection with no change to model or the model arguments.
 Appropriate for use in Markov chain Monte Carlo (MCMC) kernels.
 """
 function (bijection::BijectionDSLProgram)(
-        prev_model_trace::Trace, proposal_trace::Trace; check=false)
+        prev_model_trace::Trace, forward_proposal_trace::Trace; check=false)
 
     # run the partial bijection forward
-    first_pass_results = run_first_pass(bijection, prev_model_trace, proposal_trace)
+    first_pass_results = run_first_pass(bijection, prev_model_trace, forward_proposal_trace)
 
     # finish running the bijection via update
     (new_model_trace, model_weight, _, discard) = update(
@@ -501,11 +586,27 @@ function (bijection::BijectionDSLProgram)(
         first_pass_results.constraints)
 
     # jacobian correction
-    correction = jacobian_correction(prev_model_trace, proposal_trace, first_pass_results, discard)
+    model_weight += jacobian_correction(bijection, prev_model_trace, forward_proposal_trace, first_pass_results, discard)
 
-    return (new_model_trace, u_back, model_weight + correction)
+    # get backward proposal trace
+    # TODO check that proposal is fully constrained in the backward direction
+    proposal = get_gen_fn(forward_proposal_trace)
+    proposal_args = get_args(forward_proposal_trace)[2:end]
+    backward_proposal_trace, = generate(proposal, (new_model_trace, proposal_args...), first_pass_results.u_back)
+
+    if check
+        forward_proposal_choices = get_choices(forward_proposal_trace)
+        bijection_inv = inverse(bijection)
+        (prev_model_trace_rt, forward_proposal_trace_rt, inv_model_weight) = bijection_inv(
+            new_model_trace, backward_proposal_trace; check=false)
+        check_round_trip(
+            prev_model_trace, prev_model_trace_rt,
+            forward_proposal_trace, forward_proposal_trace_rt,
+            model_weight, inv_model_weight)
+    end
+
+    return (new_model_trace, backward_proposal_trace, model_weight)
 end
-
 
 export @bijection
 export @read_discrete_from_proposal, @read_discrete_from_model
@@ -515,3 +616,4 @@ export @write_continuous_to_proposal, @write_continuous_to_model
 export @copy_model_to_model, @copy_model_to_proposal
 export @copy_proposal_to_proposal, @copy_proposal_to_model
 export @bijcall
+export pair_bijections!, is_involution!, inverse

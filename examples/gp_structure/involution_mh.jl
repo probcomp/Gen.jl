@@ -152,6 +152,8 @@ end
     @bijcall(walk_new_subtree(subtree_idx))
 end
 
+is_involution!(subtree_involution)
+
 replace_subtree_move(trace) = metropolis_hastings(
     trace, subtree_proposal, (), subtree_involution; check=true)[1]
 
