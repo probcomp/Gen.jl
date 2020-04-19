@@ -9,20 +9,14 @@ end
 # See this math writeup for an understanding of how this code works:
 # docs/tex/mcmc.pdf
 
-struct FirstPassState
-
-    "trace containing the input model choice map ``t``"
-    trace
-
-    "the input proposal choice map ``u``"
-    u::ChoiceMap
+struct FirstPassResults
 
     "subset of the output model choice map ``t'``"
     constraints::ChoiceMap
 
     "output proposal choice map ``u'``"
     u_back::ChoiceMap
-
+    
     t_cont_reads::Dict
     u_cont_reads::Dict
     t_cont_writes::Dict
@@ -31,11 +25,32 @@ struct FirstPassState
     u_copy_reads::DynamicSelection
 end
 
-function FirstPassState(trace, u::ChoiceMap)
-    FirstPassState(
-        trace, u, choicemap(), choicemap(),
+function FirstPassResults()
+    return FirstPassResults(
+        choicemap(), choicemap(),
         Dict(), Dict(), Dict(), Dict(),
         DynamicSelection(), DynamicSelection())
+end
+
+struct FirstPassState
+
+    "trace containing the input model choice map ``t``"
+    trace
+
+    "the input proposal choice map ``u``"
+    u::ChoiceMap
+
+    results::FirstPassResults
+end
+
+function FirstPassState(trace, u::ChoiceMap)
+    FirstPassState(trace, u, FirstPassResults())
+end
+
+function run_first_pass(bijection::BijectionDSLProgram, prev_model_trace, proposal_trace)
+    state = FirstPassState(prev_model_trace, get_choices(proposal_trace))
+    bijection.fn!(state, get_args(prev_model_trace), get_args(proposal_trace)[2:end], get_retval(proposal_trace))
+    return state.results
 end
 
 struct JacobianPassState{T<:Real}
@@ -289,7 +304,9 @@ macro bijcall(ex)
     quote $(esc(f)).fn!($(esc(inv_state)), $(map(esc, args)...)) end
 end
 
-# apply 
+#################################
+# computing jacobian correction #
+#################################
 
 discard_skip_read_addr(addr, discard::ChoiceMap) = !has_value(discard, addr)
 discard_skip_read_addr(addr, discard::Nothing) = false
@@ -347,43 +364,7 @@ function assemble_output_maps(t_cont_writes, u_cont_writes)
     (cont_constraints_key_to_index, cont_u_back_key_to_index)
 end
 
-function apply_bijection(
-        bijection::BijectionDSLProgram, prev_model_trace, proposal_trace,
-        new_model::Union{GenerativeFunction,Nothing}, new_model_args::Union{Tuple,Nothing},
-        new_observations::Union{ChoiceMap,Nothing})
-
-    # take the first pass through the bijection, mutating first_pass_state
-    first_pass_state = FirstPassState(prev_model_trace, get_choices(proposal_trace))
-    bijection.fn!(first_pass_state, get_args(prev_model_trace), get_args(proposal_trace), get_retval(proposal_trace))
-
-    if isnothing(new_model)
-        @assert isnothing(new_model_args)
-        @assert isnothing(new_observations)
-
-        # involution and use update to incrementally obtain new trace
-        (new_model_trace, model_weight, _, discard) = update(
-            prev_model_trace,
-            get_args(prev_model_trace),
-            map((_) -> NoChange(), get_args(prev_model_trace)),
-            first_pass_state.constraints)
-
-    else
-        @assert !isnothing(new_model_args)
-        @assert !isnothing(new_observations)
-
-        # get score for previous model trace
-        prev_model_score = get_score(prev_model_trace)
-
-        # obtain new model trace
-        new_model_trace, new_model_score = generate(
-            new_model, new_model_args,
-            merge(first_pass_state.constraints, new_observations))
-
-        # model weight
-        model_weight = new_model_score - prev_model_score
-
-        discard = nothing
-    end
+function jacobian_correction(prev_model_trace, proposal_trace, first_pass_state, discard)
 
     # create input array and mappings input addresses that are needed for Jacobian
     # exclude addresses that were copied explicitly to another address
@@ -419,33 +400,11 @@ function apply_bijection(
 
         # mutates the state
         bijection.fn!(
-            jacobian_pass_state, get_args(prev_model_trace), get_args(proposal_trace), get_retval(proposal_trace))
+            jacobian_pass_state, get_args(prev_model_trace), get_args(proposal_trace)[2:end], get_retval(proposal_trace))
 
         # return the output array
         output_arr
     end
-
-    (new_model_trace, model_weight, first_pass_state.u_back, input_arr, f_array)
-end
-
-# callable
-
-"""
-    (bijection::BijectionDSLProgram)(
-        prev_model_trace::Trace, proposal_trace::Trace,
-        new_model::GenerativeFunction, new_model_args::Tuple,
-        new_constraints::ChoiceMap)
-"""
-function (bijection::BijectionDSLProgram)(
-        prev_model_trace::Trace, proposal_trace::Trace,
-        new_model=nothing, new_model_args=nothing,
-        new_observations=nothing; check=false)
-
-    # apply the bijection, and get metadata back about it, including the
-    # function f_array from arrays to arrays, that is the restriction of the
-    # bijection to just a subset of the relevant continuous random choices
-    (new_model_trace, model_weight, u_back, input_arr, f_array) = apply_bijection(
-        bijection, prev_model_trace, proposal_trace, new_model, new_model_args, new_observations)
 
     # compute Jacobian matrix of f_array, where columns are inputs, rows are outputs
     J = ForwardDiff.jacobian(f_array, input_arr)
@@ -460,9 +419,100 @@ function (bijection::BijectionDSLProgram)(
     if isinf(correction)
         @error "Weight correction is infinite; the function may not be an bijection"
     end
-
-    (new_model_trace, u_back, model_weight + correction)
+    
+    return correction
 end
+
+
+########################################
+# different forms of calling bijection #
+########################################
+
+"""
+    (bijection::BijectionDSLProgram)(
+        prev_model_trace::Trace, proposal_trace::Trace,
+        new_model::GenerativeFunction, new_model_args::Tuple,
+        new_constraints::ChoiceMap)
+
+Apply bijection with a change to the model
+
+Appropriate for use in sequential Monte Carlo (SMC) kernels.
+"""
+function (bijection::BijectionDSLProgram)(
+        prev_model_trace::Trace, proposal_trace::Trace,
+        new_model::GenerativeFunction, new_model_args::Tuple,
+        observations::ChoiceMap; check=false)
+
+    # run the bijection forward
+    first_pass_results = run_first_pass(bijection, prev_model_trace, proposal_trace)
+    
+    # construct new trace and get model weight
+    new_model_trace, new_model_score = generate(
+        new_model, new_model_args,
+        merge(first_pass_state.constraints, new_observations))
+    prev_model_score = get_score(prev_model_trace)
+    model_weight = new_model_score - prev_model_score
+
+    # jacobian correction
+    discard = nothing
+    correction = jacobian_correction(prev_model_trace, proposal_trace, first_pass_results, discard)
+
+    return (new_model_trace, u_back, model_weight + correction)
+end
+
+"""
+    (bijection::BijectionDSLProgram)(
+        prev_model_trace::Trace, proposal_trace::Trace, new_args::Tuple;
+        argdiffs=map((_) -> UnknownChange(), new_args), check=false)
+
+Apply bijection with no change to the model, but a change to the model arguments.
+
+Appropriate for use in sequential Monte Carlo (SMC) kernels.
+"""
+function (bijection::BijectionDSLProgram)(
+        prev_model_trace::Trace, proposal_trace::Trace, new_args::Tuple, observations::ChoiceMap;
+        argdiffs=map((_) -> UnknownChange(), new_args), check=false)
+
+    # run the partial bijection forward
+    first_pass_results = run_first_pass(bijection, prev_model_trace, proposal_trace)
+
+    # finish running the bijection via update
+    (new_model_trace, model_weight, _, discard) = update(
+        prev_model_trace, new_args, argdiffs,
+        merge(first_pass_results.constraints, observations))
+
+    # jacobian correction
+    correction = jacobian_correction(prev_model_trace, proposal_trace, first_pass_results, discard)
+
+    return (new_model_trace, u_back, model_weight + correction)
+end
+
+"""
+    (bijection::BijectionDSLProgram)(
+        prev_model_trace::Trace, proposal_trace::Trace; check=false)
+
+Apply bijection with no change to model or the model arguments.
+
+Appropriate for use in Markov chain Monte Carlo (MCMC) kernels.
+"""
+function (bijection::BijectionDSLProgram)(
+        prev_model_trace::Trace, proposal_trace::Trace; check=false)
+
+    # run the partial bijection forward
+    first_pass_results = run_first_pass(bijection, prev_model_trace, proposal_trace)
+
+    # finish running the bijection via update
+    (new_model_trace, model_weight, _, discard) = update(
+        prev_model_trace, get_args(prev_model_trace),
+        map((_) -> NoChange(), get_args(prev_model_trace)),
+        first_pass_results.constraints)
+
+    # jacobian correction
+    correction = jacobian_correction(prev_model_trace, proposal_trace, first_pass_results, discard)
+
+    return (new_model_trace, u_back, model_weight + correction)
+end
+
 
 export @bijection
 export @read_discrete_from_proposal, @read_discrete_from_model
