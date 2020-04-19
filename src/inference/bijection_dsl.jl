@@ -274,9 +274,19 @@ function write_discrete_to_model(state::JacobianPassState, addr, value)
     return value
 end
 
+function _read_continuous(input_arr, addr_info::Int)
+    return input_arr[addr_info]
+end
+
+function _read_continuous(input_arr, addr_info::Tuple{Int,Int})
+    # TODO to handle things other than vectors, store shape in addr info and reshape?
+    (start_idx, len) = addr_info
+    return input_arr[start_idx:start_idx+len]
+ end
+
 function read_continuous_from_proposal(state::JacobianPassState, addr)
     if haskey(state.u_key_to_index, addr)
-        return state.input_arr[state.u_key_to_index[addr]]
+        return _read_continuous(state.input_arr, state.u_key_to_index[addr])
     else
         return state.u[addr]
     end
@@ -284,18 +294,27 @@ end
 
 function read_continuous_from_model(state::JacobianPassState, addr)
     if haskey(state.t_key_to_index, addr)
-        return state.input_arr[state.t_key_to_index[addr]]
+        return _read_continuous(state.input_arr, state.t_key_to_index[addr])
     else
         return state.trace[addr]
     end
 end
 
+function _write_continuous(output_arr, addr_info::Int, value)
+    return output_arr[addr_info] = value
+end
+
+function _write_continuous(output_arr, addr_info::Tuple{Int,Int}, value)
+    (start_idx, len) = addr_info
+    return output_arr[start_idx:start_idx+len] = value
+end
+
 function write_continuous_to_proposal(state::JacobianPassState, addr, value)
-    return state.output_arr[state.cont_u_back_key_to_index[addr]] = value
+    return _write_continuous(state.output_arr, state.cont_u_back_key_to_index[addr], value)
 end
 
 function write_continuous_to_model(state::JacobianPassState, addr, value)
-    return state.output_arr[state.cont_constraints_key_to_index[addr]] = value
+    return _write_continuous(state.output_arr, state.cont_constraints_key_to_index[addr], value)
 end
 
 function copy_model_to_model(state::JacobianPassState, from_addr, to_addr)
@@ -322,6 +341,17 @@ end
 discard_skip_read_addr(addr, discard::ChoiceMap) = !has_value(discard, addr)
 discard_skip_read_addr(addr, discard::Nothing) = false
 
+function store_addr_info!(dict::Dict, addr, value::Real, next_index::Int)
+    dict[addr] = next_index 
+    return 1 # number of elements of array
+end
+
+function store_addr_info!(dict::Dict, addr, value::AbstractArray{<:Real}, next_index::Int)
+    len = length(value)
+    dict[addr] = (next_index, len)
+    return len # number of elements of array
+end
+
 function assemble_input_array_and_maps(
         t_cont_reads, t_copy_reads, u_cont_reads, u_copy_reads, discard::Union{ChoiceMap,Nothing})
 
@@ -333,15 +363,12 @@ function assemble_input_array_and_maps(
         if addr in t_copy_reads
             continue
         end
-
         if discard_skip_read_addr(addr, discard)
             # note: only happens when the model is unchanged
             continue
         end
-
-        t_key_to_index[addr] = next_input_index
-        next_input_index += 1
-        push!(input_arr, v)
+        next_input_index += store_addr_info!(t_key_to_index, addr, v, next_input_index)
+        append!(input_arr, v)
     end
 
     u_key_to_index = Dict()
@@ -349,9 +376,8 @@ function assemble_input_array_and_maps(
         if addr in u_copy_reads
             continue
         end
-        u_key_to_index[addr] = next_input_index
-        next_input_index += 1
-        push!(input_arr, v)
+        next_input_index += store_addr_info!(u_key_to_index, addr, v, next_input_index)
+        append!(input_arr, v)
     end
 
     return (t_key_to_index, u_key_to_index, input_arr)
@@ -362,14 +388,12 @@ function assemble_output_maps(t_cont_writes, u_cont_writes)
 
     cont_constraints_key_to_index = Dict()
     for (addr, v) in t_cont_writes
-        cont_constraints_key_to_index[addr] = next_output_index
-        next_output_index += 1
+        next_output_index += store_addr_info!(cont_constraints_key_to_index, addr, v, next_output_index)
     end
 
     cont_u_back_key_to_index = Dict()
     for (addr, v) in u_cont_writes
-        cont_u_back_key_to_index[addr] = next_output_index
-        next_output_index += 1
+        next_output_index += store_addr_info!(cont_u_back_key_to_index, addr, v, next_output_index)
     end
 
     return (cont_constraints_key_to_index, cont_u_back_key_to_index)
