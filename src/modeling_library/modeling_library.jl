@@ -53,22 +53,11 @@ export logpdf_grad
 export has_output_grad
 export is_discrete
 
-include("bernoulli.jl")
-include("normal.jl")
-include("mvnormal.jl")
-include("gamma.jl")
-include("inv_gamma.jl")
-include("beta.jl")
-include("categorical.jl")
-include("uniform_discrete.jl")
-include("uniform_continuous.jl")
-include("poisson.jl")
-include("piecewise_uniform.jl")
-include("beta_uniform.jl")
-include("geometric.jl")
-include("exponential.jl")
-include("laplace.jl")
-include("dist/dist_dsl.jl")
+# built-in distributions
+include("distributions/distributions.jl")
+
+# @dist DSL
+include("dist_dsl/dist_dsl.jl")
 
 ###############
 # combinators #
