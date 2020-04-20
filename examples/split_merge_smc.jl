@@ -28,8 +28,8 @@ end
     for i=1:k
         mu_x = ({(:mu_x, i)} ~ normal(0, 10))
         mu_y = ({(:mu_y, i)} ~ normal(0, 10))
-        var_x = ({(:var_x, i)} ~ inv_gamma(1, 1)) # was 0.1
-        var_y = ({(:var_y, i)} ~ inv_gamma(1, 1)) # was 0.1
+        var_x = ({(:var_x, i)} ~ inv_gamma(1, 1))
+        var_y = ({(:var_y, i)} ~ inv_gamma(1, 1))
         params[i] = ClusterParams(mu_x, mu_y, var_x, var_y)
     end
 
@@ -86,13 +86,55 @@ function mixture_weight_1d_move(trace)
     return mh(trace, mixture_weight_1d_proposal, (), mixture_weight_1d_inv; check=true)
 end
 
-#@gen function mixture_weight_random_walk(trace)
-    #@assert all(trace[:mixture_weights] .> 0)
-    #new_mixture_weights = ({:mixture_weights} ~ dirichlet(trace[:mixture_weights] * 10 .+ 1e-2))
-    #if !all(new_mixture_weights .> 0)
-        #@assert false
-    #end
-#end
+########################
+# gibbs moves on means #
+########################
+
+function posterior(n::Int, total::Float64, prior_mean::Float64, prior_var, data_var::Float64)
+    sigma2_n = data_var * prior_var / (n * prior_var + data_var)
+    mu_n = sigma2_n * (prior_mean / prior_var + total / data_var)
+    post_mean = mu_n
+    (post_mean, sigma2_n)
+end
+
+function means_conditional_dists(trace)
+    n, k = get_args(trace)
+    prior_var_x, prior_var_y = 10.0^2, 10.0^2
+    totals = zeros(2, k)
+    counts = zeros(Int, k)
+    for i in 1:n
+        z = trace[(:z, i)]
+        counts[z] += 1
+        x = trace[(:x, i)]
+        y = trace[(:y, i)]
+        totals[1,z] += x
+        totals[2,z] += y
+    end
+    posterior_vars = Matrix{Float64}(undef, 2, k)
+    posterior_means = Matrix{Float64}(undef, 2, k)
+    for z in 1:k
+        var_x = trace[(:var_x, z)]
+        var_y = trace[(:var_y, z)]
+        posterior_means[1,z], posterior_vars[1,z] = posterior(counts[z], totals[1,z], 0.0, prior_var_x, var_x)
+        posterior_means[2,z], posterior_vars[2,z] = posterior(counts[z], totals[2,z], 0.0, prior_var_y, var_y)
+    end
+    return (posterior_means, posterior_vars)
+end
+
+@gen function means_conditional_proposal(trace)
+    n, k = get_args(trace)
+    posterior_means, posterior_vars = means_conditional_dists(trace)
+    for i in 1:k
+        {(:mu_x, i)} ~ normal(posterior_means[1,i], sqrt(posterior_vars[1,i]))
+        {(:mu_y, i)} ~ normal(posterior_means[2,i], sqrt(posterior_vars[2,i]))
+    end
+end
+
+function means_gibbs_move(trace)
+    trace, acc = mh(trace, means_conditional_proposal, ())
+    @assert acc
+    return trace
+end
 
 ###########################
 # gibbs move on variances #
@@ -152,18 +194,22 @@ function assignment_conditional_dist(
     return probs / sum(probs)
 end
 
-@gen function assignment_conditional_proposal(trace, i::Int)
-    x = trace[(:x, i)]
-    y = trace[(:y, i)]
+@gen function assignments_conditional_proposal(trace)
     mixture_weights = trace[:mixture_weights]
     params = get_retval(trace)
-    probs = assignment_conditional_dist([x, y], mixture_weights, params)
-    {(:z, i)} ~ categorical(probs)
+    n, k = get_args(trace)
+    for i in 1:n
+        x = trace[(:x, i)]
+        y = trace[(:y, i)]
+        probs = assignment_conditional_dist([x, y], mixture_weights, params)
+        {(:z, i)} ~ categorical(probs)
+    end
     return nothing
 end
 
-function assignment_gibbs_move(trace, i::Int)
-    trace, acc = mh(trace, assignment_conditional_proposal, (i,))
+function assignment_gibbs_move(trace)
+    trace, acc = mh(trace, assignments_conditional_proposal, ())
+    @assert acc
     return trace
 end
 
@@ -177,22 +223,11 @@ function do_mcmc(trace, n_iters)
     @assert all(trace[:mixture_weights] .> 0)
     n, k = get_args(trace)
     for iter in 1:n_iters
-        for i in 1:k
-            trace, = mh(trace, select((:mu_x, i), (:mu_y, i)))
-            trace, = mh(trace, random_walk, ((:mu_x, i),))
-            trace, = mh(trace, random_walk, ((:mu_y, i),))
-
-            trace, = mh(trace, select((:var_x, i), (:var_y, i)))
-            trace, = mh(trace, random_walk, ((:var_x, i),))
-            trace, = mh(trace, random_walk, ((:var_y, i),))
-
-            trace, = mh(trace, select(:mixture_weights))
-            #trace, = mh(trace, mixture_weight_random_walk, ())
-            trace, = mixture_weight_1d_move(trace)
-        end
+        trace = means_gibbs_move(trace)
         trace = variance_gibbs_move(trace)
-        for i in 1:n
-            trace = assignment_gibbs_move(trace, i)
+        trace = assignment_gibbs_move(trace)
+        for i=1:20
+            trace, acc = mixture_weight_1d_move(trace)
         end
     end
     return trace
@@ -308,7 +343,7 @@ end
 
 @bijection function h_split(model_args, proposal_args, proposal_retval)
     n, k = model_args
-    println("k: $k")
+    #println("k: $k")
 
     cluster_to_split = @read_discrete_from_proposal(:cluster_to_split)
     @write_discrete_to_proposal(:cluster_to_merge, cluster_to_split)
@@ -423,7 +458,7 @@ function split_smc_step(trace, data, obs; check=false)
     return (new_trace, weight, q_split_trace)
 end
 
-function run_smc(data, k_max::Int, num_mcmc::Int)
+function run_smc_single_particle(data, k_max::Int, num_mcmc::Int)
     n = length(data)
     obs = choicemap()
     for i in 1:n
@@ -447,7 +482,6 @@ function run_smc(data, k_max::Int, num_mcmc::Int)
 
         # increment the number of clusters with a split
         trace, incr_weight, q_split_trace = split_smc_step(trace, data, obs; check=true)
-        println(trace[:mixture_weights])
         @assert all(trace[:mixture_weights] .> 0)
         weight += incr_weight
         @assert get_args(trace)[2] == k+1
@@ -466,8 +500,94 @@ function run_smc(data, k_max::Int, num_mcmc::Int)
     return (trace, weight, traces, q_split_traces)
 end
 
+function run_smc(data, k_max::Int, num_mcmc::Int, num_particles::Int)
+    n = length(data)
+    obs = choicemap()
+    for i in 1:n
+        obs[(:x, i)], obs[(:y, i)] = data[i]
+    end
+
+    traces = Vector{Any}(undef, num_particles)
+    new_traces = Vector{Any}(undef, num_particles)
+    log_weights = Vector{Float64}(undef, num_particles)
+    parents = collect(1:num_particles)
+    log_ml_est = 0.0
+
+    # start with a single cluster
+    for i in 1:num_particles
+        traces[i], log_weights[i] = generate(model, (n, 1), obs)
+    end
+
+    # steps of SMC
+    for k=1:k_max-1
+
+        # do resampling
+        (log_total_weight, log_normalized_weights) = Gen.normalize_weights(log_weights)
+        ess = Gen.effective_sample_size(log_normalized_weights)
+        println("effective sample size: $ess")
+        weights = exp.(log_normalized_weights)
+        Distributions.rand!(Distributions.Categorical(weights / sum(weights)), parents)
+        log_ml_est += log_total_weight - log(num_particles)
+        for i=1:num_particles
+            new_traces[i] = traces[parents[i]]
+            log_weights[i] = 0.0
+        end
+        tmp = traces
+        traces = new_traces
+        new_traces = tmp
+
+        # do some inference for current number of clusters
+        Threads.@threads for i in 1:num_particles
+            println(i)
+            traces[i] = do_mcmc(traces[i], num_mcmc)
+            @assert get_args(traces[i])[2] == k
+
+            # increment the number of clusters with a split
+            traces[i], incr_weight, _ = split_smc_step(traces[i], data, obs; check=true)
+            @assert all(traces[i][:mixture_weights] .> 0)
+            @assert get_args(traces[i])[2] == k+1
+        
+            log_weights[i] += incr_weight
+        end
+    end
+
+    # do some inference for current number of clusters
+    #Threads.@threads for i in 1:num_particles
+        #traces[i] = do_mcmc(traces[i], num_mcmc)
+        #@assert get_args(traces[i])[2] == k_max
+    #end
+
+    #(log_total_weight, _) = Gen.normalize_weights(log_weights)
+    return (traces, log_weights, NaN)
+end
+
+all_colors = ["red", "green", "blue", "orange"]
+point_size = 10
+point_alpha = 0.5
+cluster_center_size = 200
+
+function colors(trace)
+    n, k = get_args(trace)
+    @assert k <= length(all_colors)
+    zs = [trace[(:z, i)] for i=1:n]
+    all_colors[zs]
+end
+
+function show_params(trace)
+    n, k = get_args(trace)
+    for i=1:k
+        mu_x = trace[(:mu_x, i)]
+        mu_y = trace[(:mu_y, i)]
+        var_x = trace[(:var_x, i)]
+        var_y = trace[(:var_y, i)]
+        scatter([mu_x], [mu_y], c=all_colors[i], s=cluster_center_size, marker="x")
+        ellipse = matplotlib.patches.Ellipse((mu_x, mu_y), sqrt(var_x), sqrt(var_y), fill=false, edgecolor=all_colors[i])
+        gca().add_artist(ellipse)
+    end
+end
+
 # generate data with four clusters and 50 data points
-function do_experiment()
+function do_single_particle_experiment()
     seed!(3)
     n = 50
     var = 0.1^2
@@ -483,39 +603,14 @@ function do_experiment()
         gca().set_ylim((-2, 2))
     end
 
-    all_colors = ["red", "green", "blue", "orange"]
-    point_size = 10
-    point_alpha = 0.5
-    cluster_center_size = 200
-
-    function colors(trace)
-        n, k = get_args(trace)
-        @assert k <= length(all_colors)
-        zs = [trace[(:z, i)] for i=1:n]
-        all_colors[zs]
-    end
-
-    function show_params(trace)
-        n, k = get_args(trace)
-        for i=1:k
-            mu_x = trace[(:mu_x, i)]
-            mu_y = trace[(:mu_y, i)]
-            var_x = trace[(:var_x, i)]
-            var_y = trace[(:var_y, i)]
-            scatter([mu_x], [mu_y], c=all_colors[i], s=cluster_center_size, marker="x")
-            ellipse = matplotlib.patches.Ellipse((mu_x, mu_y), sqrt(var_x), sqrt(var_y), fill=false, edgecolor=all_colors[i])
-            gca().add_artist(ellipse)
-        end
-    end
-    
     data = Vector{Tuple{Float64,Float64}}(undef, n)
     for i in 1:n
         data[i] = (ground_truth_trace[(:x, i)], ground_truth_trace[(:y, i)])
     end
     
     k_max = 4
-    num_mcmc = 200
-    trace, weight, traces, q_split_traces = run_smc(data, k_max, num_mcmc)
+    num_mcmc = 1000
+    trace, weight, traces, q_split_traces = run_smc_single_particle(data, k_max, num_mcmc)
     #display(get_choices(trace))
 
     figure(figsize=(9,9))
@@ -570,4 +665,57 @@ function do_experiment()
 
 end
 
-do_experiment()
+#do_single_particle_experiment()
+
+# generate data with four clusters and 50 data points
+function do_multiple_particle_experiment()
+    seed!(3)
+    n = 50
+    var = 0.1^2
+    ground_truth_trace, = generate(model, (n, 4), choicemap(
+        (:mixture_weights, 0.25 * ones(4)),
+        ((:mu_x, 1), 1), ((:mu_y, 1), 1), ((:var_x, 1), var), ((:var_y, 1), var),
+        ((:mu_x, 2), -1), ((:mu_y, 2), 1), ((:var_x, 2), var), ((:var_y, 2), var),
+        ((:mu_x, 3), -1), ((:mu_y, 3), -1), ((:var_x, 3), var), ((:var_y, 3), var),
+        ((:mu_x, 4), 1), ((:mu_y, 4), -1), ((:var_x, 4), var), ((:var_y, 4), var)))
+    
+    function set_xlim_ylim()
+        gca().set_xlim((-2, 2))
+        gca().set_ylim((-2, 2))
+    end
+    
+    data = Vector{Tuple{Float64,Float64}}(undef, n)
+    for i in 1:n
+        data[i] = (ground_truth_trace[(:x, i)], ground_truth_trace[(:y, i)])
+    end
+    
+    k_max = 4
+    #num_mcmc = 100
+    num_mcmc = 10
+    #num_particles = 256
+    num_particles = 1024
+    traces, log_normalized_weights, log_ml_est = run_smc(data, k_max, num_mcmc, num_particles)
+    println("log_ml_est: $log_ml_est")
+
+    figure(figsize=(9,9))
+    nrows, ncols = 6, 6
+    xs = [d[1] for d in data]
+    ys = [d[2] for d in data]
+
+    # in the second row, show the traces after switching from k=1 to k=2, and the log weight
+    # we should see higher log weights for better traces
+    for i in 1:(nrows*ncols)
+        subplot(nrows, ncols, i)
+        title("$(log_normalized_weights[i])")
+        trace = traces[i]
+        scatter(xs, ys, c=colors(trace), s=point_size, alpha=point_alpha)
+        show_params(trace)
+        set_xlim_ylim()
+    end
+
+    tight_layout()
+    savefig("smc-diagnostic.pdf")
+
+end
+
+do_multiple_particle_experiment()
