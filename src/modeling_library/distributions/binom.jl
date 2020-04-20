@@ -8,9 +8,7 @@ trials) and `p` (probability of success in each trial).
 const binom = Binomial()
 
 function logpdf(::Binomial, x::Integer, n::Integer, p::Real)
-	if x < 0 return -Inf end
-	coefficient = loggamma(n + 1) - loggamma(n + 1 - x) - loggamma(x + 1)
-	return coefficient + x * log(p) + (n - x) * log(1 - p)
+    Distributions.logpdf(Distributions.Binomial(n, p), x)
 end
 
 function logpdf_grad(::Binomial, x::Integer, n::Integer, p::Real)
