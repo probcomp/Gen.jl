@@ -9,6 +9,13 @@ include("dirichlet.jl")
 # model #
 #########
 
+struct ClusterParams{T}
+    mu_x::T
+    mu_y::T
+    var_x::T
+    var_y::T
+end
+
 @gen function model(n:Int, k::Int)
     # n is number of data points
     # k is the number of clusters
@@ -17,21 +24,20 @@ include("dirichlet.jl")
     mixture_weights ~ dirichlet(4 * ones(k))
 
     # sample cluster parameters
-    params = Vector{Tuple{Float64,Float64,Float64,Float64}}(undef, k)
+    params = Vector{ClusterParams{Float64}}(undef, k)
     for i=1:k
         mu_x = ({(:mu_x, i)} ~ normal(0, 10))
         mu_y = ({(:mu_y, i)} ~ normal(0, 10))
         var_x = ({(:var_x, i)} ~ inv_gamma(1, 1)) # was 0.1
         var_y = ({(:var_y, i)} ~ inv_gamma(1, 1)) # was 0.1
-        params[i] = (mu_x, mu_y, var_x, var_y)
+        params[i] = ClusterParams(mu_x, mu_y, var_x, var_y)
     end
 
     # sample assignments and data
     for i=1:n
         z = ({(:z, i)} ~ categorical(mixture_weights))
-        mu_x, mu_y, var_x, var_y = params[z]
-        {(:x, i)} ~ normal(mu_x, sqrt(max(1e-10, var_x)))
-        {(:y, i)} ~ normal(mu_y, sqrt(max(1e-10, var_y)))
+        {(:x, i)} ~ normal(params[z].mu_x, sqrt(max(1e-10, params[z].var_x)))
+        {(:y, i)} ~ normal(params[z].mu_y, sqrt(max(1e-10, params[z].var_y)))
     end
     return params
 end
@@ -40,48 +46,105 @@ end
 # MCMC move on mixture weights #
 ################################
 
-#@gen function mixture_weight_prop(trace)
-    #n, k = get_args(trace)
-    ## pick two clusters whose weight should change
-    #i ~ uniform_discrete(1, k)
-    #j ~ uniform_discrete(1, k)
-    #if i != j
-        #u ~ uniform_continous(0, 1)
+@gen function mixture_weight_1d_proposal(trace)
+    n, k = get_args(trace)
+    # pick two clusters whose weight should change
+    i ~ uniform_discrete(1, k)
+    j ~ uniform_discrete(1, k)
+    if i != j
+        u ~ uniform_continuous(0, 1)
+    end
+    return nothing
+end
+
+# TODO make these tree arguments optional..
+@bijection function mixture_weight_1d_inv(model_args, proposal_args, proposal_retval)
+    n, k = model_args
+    i = @read_discrete_from_proposal(:i)
+    j = @read_discrete_from_proposal(:j)
+    @copy_proposal_to_proposal(:i, :i)
+    @copy_proposal_to_proposal(:j, :j)
+    if i == j
+        return nothing
+    end
+    prev_mixture_weights = @read_continuous_from_model(:mixture_weights)
+    prev_i_weight = prev_mixture_weights[i]
+    prev_j_weight = prev_mixture_weights[j]
+    total = prev_i_weight + prev_j_weight
+    @write_continuous_to_proposal(:u, prev_i_weight / total)
+    new_mixture_weights = copy(prev_mixture_weights)
+    u = @read_continuous_from_proposal(:u)
+    new_mixture_weights[i] = u * total
+    new_mixture_weights[j] = (1 - u) * total
+    @write_continuous_to_model(:mixture_weights, new_mixture_weights)
+    return nothing
+end
+
+is_involution!(mixture_weight_1d_inv)
+
+function mixture_weight_1d_move(trace)
+    return mh(trace, mixture_weight_1d_proposal, (), mixture_weight_1d_inv; check=true)
+end
+
+#@gen function mixture_weight_random_walk(trace)
+    #@assert all(trace[:mixture_weights] .> 0)
+    #new_mixture_weights = ({:mixture_weights} ~ dirichlet(trace[:mixture_weights] * 10 .+ 1e-2))
+    #if !all(new_mixture_weights .> 0)
+        #@assert false
     #end
-    #return nothing
-#end
-#
-## TODO make these tree arguments optional..
-#@bijection function mixture_weight_inv(model_args, proposal_args, proposal_retval)
-    #i = @read_discrete_from_proposal(:i)
-    #j = @read_discrete_from_proposal(:j)
-    #@copy_proposal_to_proposal(:i, :i)
-    #@copy_proposal_to_proposal(:j, :j)
-    #if i == j
-        #return nothing
-    #end
-    ## TODO
-    #return nothing
 #end
 
-@gen function mixture_weight_random_walk(trace)
-    @assert all(trace[:mixture_weights] .> 0)
-    new_mixture_weights = ({:mixture_weights} ~ dirichlet(trace[:mixture_weights] * 10 .+ 1e-2))
-    if !all(new_mixture_weights .> 0)
-        println(new_mixture_weights)
-        @assert false
+###########################
+# gibbs move on variances #
+###########################
+
+function variance_conditional_dists(trace)
+    n, k = get_args(trace)
+    cond_a = ones(2, k)
+    cond_b = ones(2, k)
+    for i in 1:n
+        z = trace[(:z, i)]
+        mu_x = trace[(:mu_x, z)]
+        mu_y = trace[(:mu_y, z)]
+        mu = [mu_x, mu_y]
+        datum = [trace[(:x, i)], trace[(:y, i)]]
+        cond_a[:,z] = cond_a[:,z] .+ 0.5
+        cond_b[:,z] = cond_b[:,z] .+ 0.5 * (datum .- mu).^2
+    end
+    return (cond_a, cond_b)
+end
+
+@gen function variance_conditional_proposal(trace)
+    n, k = get_args(trace)
+    cond_a, cond_b = variance_conditional_dists(trace)
+    for i in 1:k
+        {(:var_x, i)} ~ inv_gamma(cond_a[1,i], cond_b[1,i])
+        {(:var_y, i)} ~ inv_gamma(cond_a[2,i], cond_b[2,i])
     end
 end
 
-# conditional distribution on assignment
+function variance_gibbs_move(trace)
+    trace, acc = mh(trace, variance_conditional_proposal, ())
+    @assert acc
+    return trace
+end
 
-function assignment_conditional_dist(datum::Tuple{Float64,Float64},mixture_weights::Vector{Float64},params::Vector)
+############################
+# gibbs move on assignment #
+############################
+
+function assignment_conditional_dist(
+        datum::Vector{Float64}, mixture_weights::Vector{Float64}, params::Vector{ClusterParams{Float64}})
     x, y = datum
-    log_likelihoods = Float64[]
-    for (mu_x, mu_y, var_x, var_y) in params
-        l = logpdf(normal, x, mu_x, sqrt(max(1e-10, var_x)))
-        l += logpdf(normal, y, mu_y, sqrt(max(1e-10, var_y)))
-        push!(log_likelihoods, l)
+    k = length(mixture_weights)
+    @assert length(params) == k
+    log_likelihoods = Vector{Float64}(undef, k)
+    for (i, p) in enumerate(params)
+        #l = logpdf(normal, x, p.mu_x, sqrt(max(1e-10, p.var_x)))
+        #l += logpdf(normal, y, p.mu_y, sqrt(max(1e-10, p.var_y)))
+        l = logpdf(normal, x, p.mu_x, sqrt(p.var_x))
+        l += logpdf(normal, y, p.mu_y, sqrt(p.var_y))
+        log_likelihoods[i] = l
     end
     log_probs = log.(mixture_weights) .+ log_likelihoods
     probs = exp.(log_probs .- logsumexp(log_probs))
@@ -94,8 +157,9 @@ end
     y = trace[(:y, i)]
     mixture_weights = trace[:mixture_weights]
     params = get_retval(trace)
-    probs = assignment_conditional_dist((x, y), mixture_weights, params)
+    probs = assignment_conditional_dist([x, y], mixture_weights, params)
     {(:z, i)} ~ categorical(probs)
+    return nothing
 end
 
 function assignment_gibbs_move(trace, i::Int)
@@ -122,37 +186,34 @@ function do_mcmc(trace, n_iters)
             trace, = mh(trace, random_walk, ((:var_x, i),))
             trace, = mh(trace, random_walk, ((:var_y, i),))
 
-            @assert all(trace[:mixture_weights] .> 0)
             trace, = mh(trace, select(:mixture_weights))
-            @assert all(trace[:mixture_weights] .> 0)
-            trace, = mh(trace, mixture_weight_random_walk, ())
+            #trace, = mh(trace, mixture_weight_random_walk, ())
+            trace, = mixture_weight_1d_move(trace)
         end
+        trace = variance_gibbs_move(trace)
         for i in 1:n
-            # TODO replace these with gibbs moves
-            #trace, = mh(trace, select((:z, i)))
             trace = assignment_gibbs_move(trace, i)
         end
     end
-    trace
+    return trace
 end
 
-function split_variances(relative_weight_1, relative_weight_2, var, mu_1, mu_2, var_dof)
-    @assert isapprox(relative_weight_1 + relative_weight_2, 1)
+function split_variances(relative_weight_1, var, mu_1, mu_2, var_dof)
     @assert var > 0
     @assert 0 < var_dof < 1
-    C = dispersion_term(relative_weight_1, relative_weight_2, mu_1, mu_2)
-    denom = relative_weight_1 * var_dof + relative_weight_2 * (1 - var_dof)
-    println("var - C: $(var - C)")
-    var_1 = (var - C) * var_dof / denom
-    var_2 = (var - C) * (1 - var_dof) / denom
+    #C = dispersion_term(relative_weight_1, (1 - relative_weight_1) , mu_1, mu_2)
+    denom = relative_weight_1 * var_dof + (1 - relative_weight_1) * (1 - var_dof)
+    #println("var - C: $(var - C)")
+    var_1 = var * var_dof / denom
+    var_2 = var * (1 - var_dof) / denom
     @assert var_1 > 0
     @assert var_2 > 0
     return (var_1, var_2)
 end
 
-function merge_variances(var_1, var_2, relative_weight_1, relative_weight_2, mu_1, mu_2)
-    C = dispersion_term(relative_weight_1, relative_weight_2, mu_1, mu_2)
-    var = relative_weight_1 * var_1 + relative_weight_2 * var_2 + C
+function merge_variances(var_1, var_2, relative_weight_1, mu_1, mu_2)
+    #C = dispersion_term(relative_weight_1, (1 - relative_weight_1), mu_1, mu_2)
+    var = relative_weight_1 * var_1 + (1 - relative_weight_1) * var_2#+ C
     dof = var_1 / (var_1 + var_2)
     @assert var > 0
     @assert 0 < dof < 1
@@ -173,27 +234,31 @@ function new_mixture_weights(prev_mixture_weights::Vector{T}, cluster_to_split::
     return arr
 end
 
-function new_means(relative_weight_1, relative_weight_2, prev_mu, dx, dy)
-    mu_1 = prev_mu .- relative_weight_2 * [dx, dy]
-    mu_2 = prev_mu .+ relative_weight_1 * [dx, dy]
-    return (mu_1, mu_2)
+function new_means(relative_weight_1, prev_mu, dx, dy)
+    (mu1_x, mu1_y) = prev_mu .- (1 - relative_weight_1) * [dx, dy]
+    (mu2_x, mu2_y) = prev_mu .+ relative_weight_1 * [dx, dy]
+    return (mu1_x, mu1_y, mu2_x, mu2_y)
 end
 
-function new_params(prev_mu, relative_weight_1, dx, dy, var_x, var_y, var_x_dof, var_y_dof)
-    (mu_1, mu_2) = new_means(relative_weight_1, 1 - relative_weight_1, prev_mu, dx, dy)
+function new_params(prev_mu::AbstractVector{T}, relative_weight_1::T, dx::T, dy::T, var_x::T, var_y::T, var_x_dof::T, var_y_dof::T) where {T<:Real}
+    (mu1_x, mu1_y, mu2_x, mu2_y) = new_means(relative_weight_1, prev_mu, dx, dy)
     # see https://stats.stackexchange.com/questions/16608/what-is-the-variance-of-the-weighted-mixture-of-two-gaussians/16609#16609
-    var_x_1, var_x_2 = split_variances(relative_weight_1, 1 - relative_weight_1, var_x, mu_1[1], mu_2[1], var_x_dof)
-    var_y_1, var_y_2 = split_variances(relative_weight_1, 1 - relative_weight_1, var_y, mu_1[2], mu_2[2], var_y_dof)
-    return ((mu_1, var_x_1, var_y_1), (mu_2, var_x_2, var_y_2))
+    var1_x, var2_x = split_variances(relative_weight_1, var_x, mu1_x, mu2_x, var_x_dof)
+    var1_y, var2_y = split_variances(relative_weight_1, var_y, mu1_y, mu2_y, var_y_dof)
+    params1 = ClusterParams(mu1_x, mu1_y, var1_x, var1_y)
+    params2 = ClusterParams(mu2_x, mu2_y, var2_x, var2_y)
+    return (params1, params2)
 end
 
-@gen function q_split(trace, data::Vector{Tuple{Float64,Float64}})
+@gen function q_split(trace)
     n, k = get_args(trace)
 
     # pick random cluster to split
     cluster_to_split ~ uniform_discrete(1, k)
 
     # sample degree of freedom for the mixture weights
+    # the fraction of the weight for cluster_to_split that will be kept by cluster_to_split
+    # (the rest of the weight of cluster_to_split will be placed on the new cluster)
     relative_weight_1 ~ beta(10, 10)
 
     # sample degrees of freedom for the means
@@ -204,24 +269,22 @@ end
     var_x_dof ~ beta(2, 2)
     var_y_dof ~ beta(2, 2)
 
-    # for each data point in the cluster to be split, sample a biased bernoulli
+    # for each data point in the cluster to be split, sample assignment conditially between the two new clusters
     prev_mu = [trace[(:mu_x, cluster_to_split)], trace[(:mu_y, cluster_to_split)]]
     var_x, var_y = (trace[(:var_x, cluster_to_split)], trace[(:var_y, cluster_to_split)])
-    (((mu1_x, mu1_y), var_x_1, var_y_1), ((mu2_x, mu2_y), var_x_2, var_y_2)) = new_params(prev_mu, relative_weight_1, dx, dy, var_x, var_y, var_x_dof, var_y_dof)
-    params1 = (mu1_x, mu1_y, var_x_1, var_y_1)
-    params2 = (mu2_x, mu2_y, var_x_2, var_y_2)
+    params1, params2  = new_params(prev_mu, relative_weight_1, dx, dy, var_x, var_y, var_x_dof, var_y_dof)
     for i in 1:n
         if trace[(:z, i)] == cluster_to_split
             (x, y) = (trace[(:x, i)], trace[(:y, i)])
-            cond_prob = assignment_conditional_dist((x, y), [relative_weight_1, 1-relative_weight_1], [params1, params2])[1]
-            {(:choose1, i)} ~ bernoulli(cond_prob)
+            cond_prob = assignment_conditional_dist([x, y], [relative_weight_1, 1-relative_weight_1], [params1, params2])[2]
+            {(:join_new_cluster, i)} ~ bernoulli(cond_prob)
         end
     end
 
     return nothing
 end
 
-@gen function q_merge(trace, data::Vector{Tuple{Float64,Float64}})
+@gen function q_merge(trace)
     n, k = get_args(trace)
 
     # pick random cluster to merge with last cluster (k)
@@ -245,7 +308,6 @@ end
 
 @bijection function h_split(model_args, proposal_args, proposal_retval)
     n, k = model_args
-    data, = proposal_args
     println("k: $k")
 
     cluster_to_split = @read_discrete_from_proposal(:cluster_to_split)
@@ -268,15 +330,15 @@ end
     var_y = @read_continuous_from_model((:var_y, cluster_to_split))
     var_x_dof = @read_continuous_from_proposal(:var_x_dof)
     var_y_dof = @read_continuous_from_proposal(:var_y_dof)
-    ((mu1, var_x_1, var_y_1), (mu2, var_x_2, var_y_2)) = new_params(prev_mu, relative_weight_1, dx, dy, var_x, var_y, var_x_dof, var_y_dof)
-    @write_continuous_to_model((:mu_x, cluster_to_split), mu1[1])
-    @write_continuous_to_model((:mu_y, cluster_to_split), mu1[2])
-    @write_continuous_to_model((:mu_x, k+1), mu2[1])
-    @write_continuous_to_model((:mu_y, k+1), mu2[2])
-    @write_continuous_to_model((:var_x, cluster_to_split), var_x_1)
-    @write_continuous_to_model((:var_y, cluster_to_split), var_y_1)
-    @write_continuous_to_model((:var_x, k+1), var_x_2)
-    @write_continuous_to_model((:var_y, k+1), var_y_2)
+    params1, params2 = new_params(prev_mu, relative_weight_1, dx, dy, var_x, var_y, var_x_dof, var_y_dof)
+    @write_continuous_to_model((:mu_x, cluster_to_split), params1.mu_x)
+    @write_continuous_to_model((:mu_y, cluster_to_split), params1.mu_y)
+    @write_continuous_to_model((:var_x, cluster_to_split), params1.var_x)
+    @write_continuous_to_model((:var_y, cluster_to_split), params1.var_y)
+    @write_continuous_to_model((:mu_x, k+1), params2.mu_x)
+    @write_continuous_to_model((:mu_y, k+1), params2.mu_y)
+    @write_continuous_to_model((:var_x, k+1), params2.var_x)
+    @write_continuous_to_model((:var_y, k+1), params2.var_y)
 
     # move data points into clusters using Gibbs sampling
     for i in 1:n
@@ -284,18 +346,16 @@ end
         if cluster != cluster_to_split
             continue
         end
-        choose1 = @read_discrete_from_proposal((:choose1, i)) # biased to be true
-        if choose1
-            @write_discrete_to_model((:z, i), cluster)
-        else
+        if @read_discrete_from_proposal((:join_new_cluster, i))
             @write_discrete_to_model((:z, i), k+1)
+        else
+            @write_discrete_to_model((:z, i), cluster)
         end
     end
 end
 
 @bijection function h_merge(model_args, proposal_args, proposal_retval)
     n, k = model_args
-    data, = proposal_args
 
     # the cluster to merge with cluster k
     cluster_to_merge = @read_discrete_from_proposal(:cluster_to_merge)
@@ -332,8 +392,8 @@ end
     var_y_1 = @read_continuous_from_model((:var_y, cluster_to_merge))
     var_x_2 = @read_continuous_from_model((:var_x, k))
     var_y_2 = @read_continuous_from_model((:var_y, k))
-    var_x, var_x_dof = merge_variances(var_x_1, var_x_2, relative_weight_1, relative_weight_2, mu_x_1, mu_x_2)
-    var_y, var_y_dof = merge_variances(var_y_1, var_y_2, relative_weight_1, relative_weight_2, mu_y_1, mu_y_2)
+    var_x, var_x_dof = merge_variances(var_x_1, var_x_2, relative_weight_1, mu_x_1, mu_x_2)
+    var_y, var_y_dof = merge_variances(var_y_1, var_y_2, relative_weight_1, mu_y_1, mu_y_2)
     @write_continuous_to_proposal(:var_x_dof, var_x_dof)
     @write_continuous_to_proposal(:var_y_dof, var_y_dof)
     @write_continuous_to_model((:var_x, cluster_to_merge), var_x)
@@ -344,8 +404,7 @@ end
         cluster = @read_discrete_from_model((:z, i))
         if (cluster == cluster_to_merge) || (cluster == k)
             @write_discrete_to_model((:z, i), cluster_to_merge)
-            @write_discrete_to_proposal(
-                (:choose1, i), cluster == cluster_to_merge)
+            @write_discrete_to_proposal((:join_new_cluster, i), cluster == k)
         end
     end
 end
@@ -354,11 +413,11 @@ pair_bijections!(h_split, h_merge)
 
 function split_smc_step(trace, data, obs; check=false)
     n, k = get_args(trace)
-    q_split_trace = simulate(q_split, (trace, data))
+    q_split_trace = simulate(q_split, (trace,))
 
     (new_trace, q_merge_trace, model_weight) = h_split(
         trace, q_split_trace, 
-        q_merge, (data,),
+        q_merge, (),
         (n, k+1), obs; check=check, prev_observations=obs)
     weight = model_weight + get_score(q_merge_trace) - get_score(q_split_trace)
     return (new_trace, weight, q_split_trace)
@@ -409,7 +468,7 @@ end
 
 # generate data with four clusters and 50 data points
 function do_experiment()
-    seed!(2)
+    seed!(3)
     n = 50
     var = 0.1^2
     ground_truth_trace, = generate(model, (n, 4), choicemap(
@@ -444,8 +503,6 @@ function do_experiment()
             var_x = trace[(:var_x, i)]
             var_y = trace[(:var_y, i)]
             scatter([mu_x], [mu_y], c=all_colors[i], s=cluster_center_size, marker="x")
-            #circle = matplotlib.patches.Circle((mu_x, mu_y), radius=var, fill=false, edgecolor=all_colors[i])
-            #gca().add_artist(circle)
             ellipse = matplotlib.patches.Ellipse((mu_x, mu_y), sqrt(var_x), sqrt(var_y), fill=false, edgecolor=all_colors[i])
             gca().add_artist(ellipse)
         end
