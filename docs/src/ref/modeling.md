@@ -100,17 +100,17 @@ An address is required if the random choice will be observed, or will be referen
 
 ### Sample space and support of random choices
 
-Different probability distributions produce different types of values for their random choices. For example, the [`Bernoulli`](@ref) distribution results in `Bool` values (either `true` or `false`), the [`Normal`](@ref) distribution results in `Real` values that may be positive or negative, and the [`Beta`](@ref) distributions result in `Real` values that are always in the unit interval (0, 1).
+Different probability distributions produce different types of values for their random choices. For example, the [`bernoulli`](@ref) distribution results in `Bool` values (either `true` or `false`), the [`normal`](@ref) distribution results in `Real` values that may be positive or negative, and the [`beta`](@ref) distribution result in `Real` values that are always in the unit interval (0, 1).
 
-Each [`Distribution`](@ref) is associated with two sets of values:
+Each `Distribution` is associated with two sets of values:
 
 - The **sample space** of the distribution, which does not depend on the arguments.
 
 - The **support** of the distribution, which may depend on the arguments, and is the set of values that has nonzero probability (or probability density). It may be the entire sample space, or it may be a subset of the sample space.
 
-For example, the sample space of [`Bernoulli`](@ref) is `Bool` and its support is either `{true}`, `{false}`, or `{true, false}`. The sample space of [`Normal`](@ref) is `Real` and its support is the set of all values on the real line. The sample space of [`Beta`](@ref) is `Real` and its support is the set of values in the interval (0, 1).
+For example, the sample space of [`bernoulli`](@ref) is `Bool` and its support is either `{true}`, `{false}`, or `{true, false}`. The sample space of [`normal`](@ref) is `Real` and its support is the set of all values on the real line. The sample space of [`beta`](@ref) is `Real` and its support is the set of values in the interval (0, 1).
 
-Gen's built in modeling languages require that a address is associated with a fixed sample space. For example, it is not permitted to use a `Bernoulli` distribution to sample at addresss `:a` in one execution, and a `Normal` distribution to sample at address `:a` in a different execution, because their sample spaces differ (`Bool` vs `Real`):
+Gen's built in modeling languages require that a address is associated with a fixed sample space. For example, it is not permitted to use a `bernoulli` distribution to sample at addresss `:a` in one execution, and a `normal` distribution to sample at address `:a` in a different execution, because their sample spaces differ (`Bool` vs `Real`):
 ```julia
 @gen function foo()
     if @trace(bernoulli(0.5), :branch)

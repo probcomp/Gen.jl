@@ -15,20 +15,22 @@ writing custom distributions, both of which are explained below:
 
 ```@docs
 bernoulli
-normal
-mvnormal
-gamma
-inv_gamma
 beta
+beta_uniform
+binom
 categorical
+exponential
+gamma
 geometric
+inv_gamma
+laplace
+mvnormal
+neg_binom
+normal
+piecewise_uniform
+poisson
 uniform
 uniform_discrete
-poisson
-piecewise_uniform
-beta_uniform
-exponential
-laplace
 ```
 
 ## [Defining New Distributions Inline with the `@dist` DSL](@id dist_dsl)
@@ -141,11 +143,7 @@ One way to think about this, without all the rules, is that `CONST` values are
 and both `CONST` and `ARG` are "contaminated" by interaction with `RND`.
 Thinking of the body as an AST, the journey from leaf node to root node always
 involves transitions in the direction of `CONST -> ARG -> RND`, never in
-reverse. (There are certain similarities here with [security
-types](https://en.wikipedia.org/wiki/Security_type_system), which also enforce
-a single direction of information flow -- anything that touches classified data
-is also classified. Also, Tabular v2's type system, which similarly separates
-deterministic and random values in its type system.)
+reverse.
 
 #### Restrictions
 Users may _not_ reassign to arguments (like `x` in the above example), and may
