@@ -425,43 +425,27 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "ref/distributions/#Gen.normal",
-    "page": "Probability Distributions",
-    "title": "Gen.normal",
-    "category": "constant",
-    "text": "normal(mu::Real, std::Real)\n\nSamples a Float64 value from a normal distribution.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/distributions/#Gen.mvnormal",
-    "page": "Probability Distributions",
-    "title": "Gen.mvnormal",
-    "category": "constant",
-    "text": "mvnormal(mu::AbstractVector{T}, cov::AbstractMatrix{U}} where {T<:Real,U<:Real}\n\nSamples a Vector{Float64} value from a multivariate normal distribution.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/distributions/#Gen.gamma",
-    "page": "Probability Distributions",
-    "title": "Gen.gamma",
-    "category": "constant",
-    "text": "gamma(shape::Real, scale::Real)\n\nSample a Float64 from a gamma distribution.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/distributions/#Gen.inv_gamma",
-    "page": "Probability Distributions",
-    "title": "Gen.inv_gamma",
-    "category": "constant",
-    "text": "inv_gamma(shape::Real, scale::Real)\n\nSample a Float64 from a inverse gamma distribution.\n\n\n\n\n\n"
-},
-
-{
     "location": "ref/distributions/#Gen.beta",
     "page": "Probability Distributions",
     "title": "Gen.beta",
     "category": "constant",
     "text": "beta(alpha::Real, beta::Real)\n\nSample a Float64 from a beta distribution.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/distributions/#Gen.beta_uniform",
+    "page": "Probability Distributions",
+    "title": "Gen.beta_uniform",
+    "category": "constant",
+    "text": "beta_uniform(theta::Real, alpha::Real, beta::Real)\n\nSamples a Float64 value from a mixture of a uniform distribution on [0, 1] with probability 1-theta and a beta distribution with parameters alpha and beta with probability theta.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/distributions/#Gen.binom",
+    "page": "Probability Distributions",
+    "title": "Gen.binom",
+    "category": "constant",
+    "text": "binom(n::Integer, p::Real)\n\nSample an Int from the Binomial distribution with parameters n (number of trials) and p (probability of success in each trial).\n\n\n\n\n\n"
 },
 
 {
@@ -473,11 +457,83 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "ref/distributions/#Gen.exponential",
+    "page": "Probability Distributions",
+    "title": "Gen.exponential",
+    "category": "constant",
+    "text": "exponential(rate::Real)\n\nSample a Float64 from the exponential distribution with rate parameter rate.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/distributions/#Gen.gamma",
+    "page": "Probability Distributions",
+    "title": "Gen.gamma",
+    "category": "constant",
+    "text": "gamma(shape::Real, scale::Real)\n\nSample a Float64 from a gamma distribution.\n\n\n\n\n\n"
+},
+
+{
     "location": "ref/distributions/#Gen.geometric",
     "page": "Probability Distributions",
     "title": "Gen.geometric",
     "category": "constant",
     "text": "geometric(p::Real)\n\nSample an Int from the Geometric distribution with parameter p.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/distributions/#Gen.inv_gamma",
+    "page": "Probability Distributions",
+    "title": "Gen.inv_gamma",
+    "category": "constant",
+    "text": "inv_gamma(shape::Real, scale::Real)\n\nSample a Float64 from a inverse gamma distribution.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/distributions/#Gen.laplace",
+    "page": "Probability Distributions",
+    "title": "Gen.laplace",
+    "category": "constant",
+    "text": "laplce(loc::Real, scale::Real)\n\nSample a Float64 from a laplace distribution.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/distributions/#Gen.mvnormal",
+    "page": "Probability Distributions",
+    "title": "Gen.mvnormal",
+    "category": "constant",
+    "text": "mvnormal(mu::AbstractVector{T}, cov::AbstractMatrix{U}} where {T<:Real,U<:Real}\n\nSamples a Vector{Float64} value from a multivariate normal distribution.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/distributions/#Gen.neg_binom",
+    "page": "Probability Distributions",
+    "title": "Gen.neg_binom",
+    "category": "constant",
+    "text": "neg_binom(r::Real, p::Real)\n\nSample an Int from a Negative Binomial distribution. Returns the number of failures before the rth success in a sequence of independent Bernoulli trials. r is the number of successes (which may be fractional) and p is the probability of success per trial.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/distributions/#Gen.normal",
+    "page": "Probability Distributions",
+    "title": "Gen.normal",
+    "category": "constant",
+    "text": "normal(mu::Real, std::Real)\n\nSamples a Float64 value from a normal distribution.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/distributions/#Gen.piecewise_uniform",
+    "page": "Probability Distributions",
+    "title": "Gen.piecewise_uniform",
+    "category": "constant",
+    "text": "piecewise_uniform(bounds, probs)\n\nSamples a Float64 value from a piecewise uniform continuous distribution.\n\nThere are n bins where n = length(probs) and n + 1 = length(bounds). Bounds must satisfy bounds[i] < bounds[i+1] for all i. The probability density at x is zero if x <= bounds[1] or x >= bounds[end] and is otherwise probs[bin] / (bounds[bin] - bounds[bin+1]) where bounds[bin] < x <= bounds[bin+1].\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/distributions/#Gen.poisson",
+    "page": "Probability Distributions",
+    "title": "Gen.poisson",
+    "category": "constant",
+    "text": "poisson(lambda::Real)\n\nSample an Int from the Poisson distribution with rate lambda.\n\n\n\n\n\n"
 },
 
 {
@@ -497,51 +553,11 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
-    "location": "ref/distributions/#Gen.poisson",
-    "page": "Probability Distributions",
-    "title": "Gen.poisson",
-    "category": "constant",
-    "text": "poisson(lambda::Real)\n\nSample an Int from the Poisson distribution with rate lambda.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/distributions/#Gen.piecewise_uniform",
-    "page": "Probability Distributions",
-    "title": "Gen.piecewise_uniform",
-    "category": "constant",
-    "text": "piecewise_uniform(bounds, probs)\n\nSamples a Float64 value from a piecewise uniform continuous distribution.\n\nThere are n bins where n = length(probs) and n + 1 = length(bounds). Bounds must satisfy bounds[i] < bounds[i+1] for all i. The probability density at x is zero if x <= bounds[1] or x >= bounds[end] and is otherwise probs[bin] / (bounds[bin] - bounds[bin+1]) where bounds[bin] < x <= bounds[bin+1].\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/distributions/#Gen.beta_uniform",
-    "page": "Probability Distributions",
-    "title": "Gen.beta_uniform",
-    "category": "constant",
-    "text": "beta_uniform(theta::Real, alpha::Real, beta::Real)\n\nSamples a Float64 value from a mixture of a uniform distribution on [0, 1] with probability 1-theta and a beta distribution with parameters alpha and beta with probability theta.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/distributions/#Gen.exponential",
-    "page": "Probability Distributions",
-    "title": "Gen.exponential",
-    "category": "constant",
-    "text": "exponential(rate::Real)\n\nSample a Float64 from the exponential distribution with rate parameter rate.\n\n\n\n\n\n"
-},
-
-{
-    "location": "ref/distributions/#Gen.laplace",
-    "page": "Probability Distributions",
-    "title": "Gen.laplace",
-    "category": "constant",
-    "text": "laplce(loc::Real, scale::Real)\n\nSample a Float64 from a laplace distribution.\n\n\n\n\n\n"
-},
-
-{
     "location": "ref/distributions/#Built-In-Distributions-1",
     "page": "Probability Distributions",
     "title": "Built-In Distributions",
     "category": "section",
-    "text": "bernoulli\nnormal\nmvnormal\ngamma\ninv_gamma\nbeta\ncategorical\ngeometric\nuniform\nuniform_discrete\npoisson\npiecewise_uniform\nbeta_uniform\nexponential\nlaplace"
+    "text": "bernoulli\nbeta\nbeta_uniform\nbinom\ncategorical\nexponential\ngamma\ngeometric\ninv_gamma\nlaplace\nmvnormal\nneg_binom\nnormal\npiecewise_uniform\npoisson\nuniform\nuniform_discrete"
 },
 
 {
@@ -557,7 +573,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Probability Distributions",
     "title": "Permitted constructs for the body of a @dist",
     "category": "section",
-    "text": "It is not possible for @dist to work on any arbitrary body.  We now describe which constructs are permitted inside the body of a @dist expression.We can think of the body of an @dist function as containing ordinary Julia code, except that in addition to being described by their ordinary Julia types, each expression also belongs to one of three \"type spaces.\" These are:CONST: Constants, whose value is known at the time this @dist expression is evaluated.\nARG: Arguments and (deterministic, differentiable) functions of arguments. All expressions representing non-random values that depend on distribution arguments are ARG expressions.\nRND: Random variables. All expressions whose runtime values may differ across multiple calls to this distribution (with the same arguments) are RND expressions.Importantly, Julia control flow constructs generally expect CONST values: the condition of an if or the range of a for loop cannot be ARG or RND.The body expression as a whole must be a RND expression, representing a random variable. The behavior of the @dist definition is then to define a new distribution (with name name) that samples and evaluates the logpdf of the random variable represented by the body expression.Expressions are typed compositionally, with the following typing rules:Literals and free variables are CONSTs. Literals and symbols that appear free in the @dist body are of type CONST.\nArguments are ARGs. Symbols bound as arguments in the @dist declaration have type ARG in its body.\nDrawing from a distribution gives RND. If d is a distribution, and x_i are of type ARG or CONST, d(x_1, x_2, ...) is of type RND.\nFunctions of CONSTs are CONSTs. If f is a deterministic function and x_i are all of type CONST, f(x_1, x_2, ...) is of type CONST.\nFunctions of CONSTs and ARGs are ARGs. If f is a differentiable function, and each x_i is either a CONST or a scalar ARG (with at least one x_i being an ARG), then f(x_1, x_2, ...) is of type ARG.\nFunctions of CONSTs, ARGs, and RNDs are RNDs. If f is one of a special set of deterministic functions we\'ve defined (+, -, *, /, exp, log, getindex), and exactly one of its arguments x_i is of type RND, then f(x_1, x_2, ...) is of type RND.One way to think about this, without all the rules, is that CONST values are \"contaminated\" by interaction with ARG values (becoming ARGs themselves), and both CONST and ARG are \"contaminated\" by interaction with RND. Thinking of the body as an AST, the journey from leaf node to root node always involves transitions in the direction of CONST -> ARG -> RND, never in reverse. (There are certain similarities here with security types, which also enforce a single direction of information flow – anything that touches classified data is also classified. Also, Tabular v2\'s type system, which similarly separates deterministic and random values in its type system.)"
+    "text": "It is not possible for @dist to work on any arbitrary body.  We now describe which constructs are permitted inside the body of a @dist expression.We can think of the body of an @dist function as containing ordinary Julia code, except that in addition to being described by their ordinary Julia types, each expression also belongs to one of three \"type spaces.\" These are:CONST: Constants, whose value is known at the time this @dist expression is evaluated.\nARG: Arguments and (deterministic, differentiable) functions of arguments. All expressions representing non-random values that depend on distribution arguments are ARG expressions.\nRND: Random variables. All expressions whose runtime values may differ across multiple calls to this distribution (with the same arguments) are RND expressions.Importantly, Julia control flow constructs generally expect CONST values: the condition of an if or the range of a for loop cannot be ARG or RND.The body expression as a whole must be a RND expression, representing a random variable. The behavior of the @dist definition is then to define a new distribution (with name name) that samples and evaluates the logpdf of the random variable represented by the body expression.Expressions are typed compositionally, with the following typing rules:Literals and free variables are CONSTs. Literals and symbols that appear free in the @dist body are of type CONST.\nArguments are ARGs. Symbols bound as arguments in the @dist declaration have type ARG in its body.\nDrawing from a distribution gives RND. If d is a distribution, and x_i are of type ARG or CONST, d(x_1, x_2, ...) is of type RND.\nFunctions of CONSTs are CONSTs. If f is a deterministic function and x_i are all of type CONST, f(x_1, x_2, ...) is of type CONST.\nFunctions of CONSTs and ARGs are ARGs. If f is a differentiable function, and each x_i is either a CONST or a scalar ARG (with at least one x_i being an ARG), then f(x_1, x_2, ...) is of type ARG.\nFunctions of CONSTs, ARGs, and RNDs are RNDs. If f is one of a special set of deterministic functions we\'ve defined (+, -, *, /, exp, log, getindex), and exactly one of its arguments x_i is of type RND, then f(x_1, x_2, ...) is of type RND.One way to think about this, without all the rules, is that CONST values are \"contaminated\" by interaction with ARG values (becoming ARGs themselves), and both CONST and ARG are \"contaminated\" by interaction with RND. Thinking of the body as an AST, the journey from leaf node to root node always involves transitions in the direction of CONST -> ARG -> RND, never in reverse."
 },
 
 {
@@ -629,7 +645,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Built-in Modeling Language",
     "title": "Sample space and support of random choices",
     "category": "section",
-    "text": "Different probability distributions produce different types of values for their random choices. For example, the Bernoulli distribution results in Bool values (either true or false), the Normal distribution results in Real values that may be positive or negative, and the Beta distributions result in Real values that are always in the unit interval (0, 1).Each Distribution is associated with two sets of values:The sample space of the distribution, which does not depend on the arguments.\nThe support of the distribution, which may depend on the arguments, and is the set of values that has nonzero probability (or probability density). It may be the entire sample space, or it may be a subset of the sample space.For example, the sample space of Bernoulli is Bool and its support is either {true}, {false}, or {true, false}. The sample space of Normal is Real and its support is the set of all values on the real line. The sample space of Beta is Real and its support is the set of values in the interval (0, 1).Gen\'s built in modeling languages require that a address is associated with a fixed sample space. For example, it is not permitted to use a Bernoulli distribution to sample at addresss :a in one execution, and a Normal distribution to sample at address :a in a different execution, because their sample spaces differ (Bool vs Real):@gen function foo()\n    if @trace(bernoulli(0.5), :branch)\n        @trace(bernoulli(0.5), :x)\n    else\n        @trace(normal(0, 1), :x)\n    end\nendA generative function can be disciplined or not. In a disciplined generative function, the support of random choices at each address must be fixed. That is, for each address a there must exist a set S that is a subset of the sample space such that for all executions of the generative function, if a occurs as the address of a choice in the execution, then the support of that choice is exactly S. Violating this discipline will cause NaNs, errors, or undefined behavior in some inference programs. However, in many cases it is convenient to write an inference program that operates correctly and efficiently on some specialized class of undisciplined models. In these cases, authors who want their inference code to be reusable should consider documenting which kinds of undisciplined models their inference algorithms allow or expect to see.If the support of a random choice needs to change, a disciplined generative function can represent this by using a different address for each distinct value of the support. For example, consider the following generative function:@gen function foo()\n    n = @trace(categorical([0.5, 0.5]), :n) + 1\n    @trace(categorical(ones(n) / n), :x)\nendThe support of the random choice with address :x is either the set 1 2 or 1 2 3. Therefore, this random choice does not have constant support, and the generative function foo is not \'disciplined\'. Specifically, this could result in undefined behavior for the following inference program:tr, _ = importance_resampling(foo, (), choicemap((:x, 3)))It is recommended to write disciplined generative functions when possible."
+    "text": "Different probability distributions produce different types of values for their random choices. For example, the bernoulli distribution results in Bool values (either true or false), the normal distribution results in Real values that may be positive or negative, and the beta distribution result in Real values that are always in the unit interval (0, 1).Each Distribution is associated with two sets of values:The sample space of the distribution, which does not depend on the arguments.\nThe support of the distribution, which may depend on the arguments, and is the set of values that has nonzero probability (or probability density). It may be the entire sample space, or it may be a subset of the sample space.For example, the sample space of bernoulli is Bool and its support is either {true}, {false}, or {true, false}. The sample space of normal is Real and its support is the set of all values on the real line. The sample space of beta is Real and its support is the set of values in the interval (0, 1).Gen\'s built in modeling languages require that a address is associated with a fixed sample space. For example, it is not permitted to use a bernoulli distribution to sample at addresss :a in one execution, and a normal distribution to sample at address :a in a different execution, because their sample spaces differ (Bool vs Real):@gen function foo()\n    if @trace(bernoulli(0.5), :branch)\n        @trace(bernoulli(0.5), :x)\n    else\n        @trace(normal(0, 1), :x)\n    end\nendA generative function can be disciplined or not. In a disciplined generative function, the support of random choices at each address must be fixed. That is, for each address a there must exist a set S that is a subset of the sample space such that for all executions of the generative function, if a occurs as the address of a choice in the execution, then the support of that choice is exactly S. Violating this discipline will cause NaNs, errors, or undefined behavior in some inference programs. However, in many cases it is convenient to write an inference program that operates correctly and efficiently on some specialized class of undisciplined models. In these cases, authors who want their inference code to be reusable should consider documenting which kinds of undisciplined models their inference algorithms allow or expect to see.If the support of a random choice needs to change, a disciplined generative function can represent this by using a different address for each distinct value of the support. For example, consider the following generative function:@gen function foo()\n    n = @trace(categorical([0.5, 0.5]), :n) + 1\n    @trace(categorical(ones(n) / n), :x)\nendThe support of the random choice with address :x is either the set 1 2 or 1 2 3. Therefore, this random choice does not have constant support, and the generative function foo is not \'disciplined\'. Specifically, this could result in undefined behavior for the following inference program:tr, _ = importance_resampling(foo, (), choicemap((:x, 3)))It is recommended to write disciplined generative functions when possible."
 },
 
 {
