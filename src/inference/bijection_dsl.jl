@@ -281,7 +281,7 @@ end
 function _read_continuous(input_arr, addr_info::Tuple{Int,Int})
     # TODO to handle things other than vectors, store shape in addr info and reshape?
     (start_idx, len) = addr_info
-    return input_arr[start_idx:start_idx+len]
+    return input_arr[start_idx:start_idx+len-1]
  end
 
 function read_continuous_from_proposal(state::JacobianPassState, addr)
@@ -306,7 +306,7 @@ end
 
 function _write_continuous(output_arr, addr_info::Tuple{Int,Int}, value)
     (start_idx, len) = addr_info
-    return output_arr[start_idx:start_idx+len] = value
+    return output_arr[start_idx:start_idx+len-1] = value
 end
 
 function write_continuous_to_proposal(state::JacobianPassState, addr, value)
@@ -396,7 +396,7 @@ function assemble_output_maps(t_cont_writes, u_cont_writes)
         next_output_index += store_addr_info!(cont_u_back_key_to_index, addr, v, next_output_index)
     end
 
-    return (cont_constraints_key_to_index, cont_u_back_key_to_index)
+    return (cont_constraints_key_to_index, cont_u_back_key_to_index, next_output_index-1)
 end
 
 function jacobian_correction(bijection::BijectionDSLProgram, prev_model_trace, proposal_trace, first_pass_results, discard)
@@ -410,7 +410,7 @@ function jacobian_correction(bijection::BijectionDSLProgram, prev_model_trace, p
         first_pass_results.u_copy_reads, discard)
     
     # create mappings for output addresses that are needed for Jacobian
-    (cont_constraints_key_to_index, cont_u_back_key_to_index) = assemble_output_maps(
+    (cont_constraints_key_to_index, cont_u_back_key_to_index, n_output) = assemble_output_maps(
         first_pass_results.t_cont_writes,
         first_pass_results.u_cont_writes)
 
@@ -424,7 +424,6 @@ function jacobian_correction(bijection::BijectionDSLProgram, prev_model_trace, p
         # - u_key_to_index, t_key_to_index, cont_constraints_key_to_index, cont_u_back_key_to_index
         # - proposal_args, proposal_retval
 
-        n_output = length(cont_constraints_key_to_index) + length(cont_u_back_key_to_index)
         output_arr = Vector{T}(undef, n_output)
 
         jacobian_pass_state = JacobianPassState(
