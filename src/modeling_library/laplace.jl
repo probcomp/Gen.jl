@@ -7,6 +7,7 @@ Sample a `Float64` from a laplace distribution.
 """
 const laplace = Laplace()
 
+
 function logpdf(::Laplace, x::Real, loc::Real, scale::Real)
     diff = abs(x - loc)
     -diff / scale - log(2.0 * scale)
