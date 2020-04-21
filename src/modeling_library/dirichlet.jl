@@ -36,7 +36,7 @@ end
 is_discrete(::Dirichlet) = false
 (::Dirichlet)(alpha) = random(Dirichlet(), alpha)
 
-has_output_grad(::Dirichlet) = false, false
+has_output_grad(::Dirichlet) = true
 # has_argument_grads(::Dirichlet) = (true, true)
 
 export dirichlet
