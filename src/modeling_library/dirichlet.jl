@@ -19,7 +19,6 @@ end
 
 function logpdf_grad(::Dirichlet, x::AbstractArray{T}, alpha::AbstractArray{U}) where {T <: Real, U <: Real}
     if (isapprox(sum(x),1) & all(x .>= 0) & all(x .<= 1))
-        println()
         deriv_x = sum((alpha.-1) ./ x)
         deriv_alpha = log.(x) .+ digamma(sum(alpha)) .- digamma.(alpha)
     else
