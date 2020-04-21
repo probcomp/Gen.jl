@@ -64,6 +64,25 @@ end
     ret = @trace(foo(mu), :x => i => :y)
 end
 
+# Modules to test load_generated_functions
+module MyModuleA
+using Gen
+@gen (static) function foo(mu)
+    y = @trace(normal(mu, 1), :y)
+    return y
+end
+load_generated_functions(@__MODULE__)
+end
+
+module MyModuleB
+using Gen
+@gen (static) function foo(mu)
+    y = @trace(normal(mu, 1), :y)
+    return y
+end
+@load_generated_functions
+end
+
 @testset "static DSL" begin
 
 function get_node_by_name(ir, name::Symbol)
@@ -533,6 +552,18 @@ end
 load_generated_functions()
 
 tr, w = generate(foo, (0,), choicemap(:y => 1))
+@test get_retval(tr) == 1
+@test isapprox(w, logpdf(normal, 1, 0, 1))
+
+end
+
+@testset "module-defined static functions" begin
+
+tr, w = generate(MyModuleA.foo, (0,), choicemap(:y => 1))
+@test get_retval(tr) == 1
+@test isapprox(w, logpdf(normal, 1, 0, 1))
+
+tr, w = generate(MyModuleB.foo, (0,), choicemap(:y => 1))
 @test get_retval(tr) == 1
 @test isapprox(w, logpdf(normal, 1, 0, 1))
 

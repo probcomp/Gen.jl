@@ -5,17 +5,30 @@ module Gen
 const generated_functions = []
 
 """
-    load_generated_functions()
+    load_generated_functions(__module__=Main)
 
-Permit use of generative functions written in the static modeling language up to this point.
+Permit use of generative functions written in the static modeling language up
+to this point. Functions are loaded into Main by default.
 """
-function load_generated_functions()
+function load_generated_functions(__module__::Module=Main)
     for function_defn in generated_functions
-    Core.eval(Main, function_defn)
+        Core.eval(__module__, function_defn)
     end
 end
 
-export load_generated_functions
+"""
+    @load_generated_functions
+
+Permit use of generative functions written in the static modeling language up
+to this point. Functions are loaded into the calling module.
+"""
+macro load_generated_functions()
+    for function_defn in generated_functions
+        Core.eval(__module__, function_defn)
+    end
+end
+
+export load_generated_functions, @load_generated_functions
 
 # built-in extensions to the reverse mode AD
 include("backprop.jl")

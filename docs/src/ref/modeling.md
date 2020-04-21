@@ -100,17 +100,17 @@ An address is required if the random choice will be observed, or will be referen
 
 ### Sample space and support of random choices
 
-Different probability distributions produce different types of values for their random choices. For example, the [`Bernoulli`](@ref) distribution results in `Bool` values (either `true` or `false`), the [`Normal`](@ref) distribution results in `Real` values that may be positive or negative, and the [`Beta`](@ref) distributions result in `Real` values that are always in the unit interval (0, 1).
+Different probability distributions produce different types of values for their random choices. For example, the [`bernoulli`](@ref) distribution results in `Bool` values (either `true` or `false`), the [`normal`](@ref) distribution results in `Real` values that may be positive or negative, and the [`beta`](@ref) distribution result in `Real` values that are always in the unit interval (0, 1).
 
-Each [`Distribution`](@ref) is associated with two sets of values:
+Each `Distribution` is associated with two sets of values:
 
 - The **sample space** of the distribution, which does not depend on the arguments.
 
 - The **support** of the distribution, which may depend on the arguments, and is the set of values that has nonzero probability (or probability density). It may be the entire sample space, or it may be a subset of the sample space.
 
-For example, the sample space of [`Bernoulli`](@ref) is `Bool` and its support is either `{true}`, `{false}`, or `{true, false}`. The sample space of [`Normal`](@ref) is `Real` and its support is the set of all values on the real line. The sample space of [`Beta`](@ref) is `Real` and its support is the set of values in the interval (0, 1).
+For example, the sample space of [`bernoulli`](@ref) is `Bool` and its support is either `{true}`, `{false}`, or `{true, false}`. The sample space of [`normal`](@ref) is `Real` and its support is the set of all values on the real line. The sample space of [`beta`](@ref) is `Real` and its support is the set of values in the interval (0, 1).
 
-Gen's built in modeling languages require that a address is associated with a fixed sample space. For example, it is not permitted to use a `Bernoulli` distribution to sample at addresss `:a` in one execution, and a `Normal` distribution to sample at address `:a` in a different execution, because their sample spaces differ (`Bool` vs `Real`):
+Gen's built in modeling languages require that a address is associated with a fixed sample space. For example, it is not permitted to use a `bernoulli` distribution to sample at addresss `:a` in one execution, and a `normal` distribution to sample at address `:a` in a different execution, because their sample spaces differ (`Bool` vs `Real`):
 ```julia
 @gen function foo()
     if @trace(bernoulli(0.5), :branch)
@@ -451,22 +451,42 @@ can instead be implemented as:
 ```
 
 ### Loading generated functions
-Before a function with a static annotation can be used, the [`load_generated_functions`](@ref) method must be called:
+Before a function with a static annotation can be used, the [`@load_generated_functions`](@ref) macro must be called:
 ```@docs
-load_generated_functions
+@load_generated_functions
 ```
 Typically, one call to this function, at the top level of a script, separates the definition of generative functions from the execution of inference code, e.g.:
 ```julia
-using Gen: load_generated_functions
+using Gen: @load_generated_functions
 
 # define generative functions and inference code
 ..
 
 # allow static generative functions defined above to be used
-load_generated_functions()
+@load_generated_functions()
 
 # run inference code
 ..
+```
+
+When static generative functions are defined in a Julia module, [`@load_generated_functions`](@ref) should be called after all static functions are defined:
+
+```julia
+module MyModule
+using Gen
+# Include code that defines static generative functions
+include("my_static_gen_functions.jl")
+# Load generated functions defined in this module
+@load_generated_functions()
+end
+```
+
+Any script that imports or uses `MyModule` will then no longer need to call `@load_generated_functions` in order to use the static generative functions defined in that module:
+
+```julia
+using Gen
+using MyModule: my_static_gen_fn
+trace = simulate(my_static_gen_fn, ())
 ```
 
 ### Performance tips
