@@ -11,7 +11,7 @@ function logpdf(::Dirichlet, x::AbstractArray{T}, alpha::AbstractArray{U}) where
     if !(isapprox(sum(x),1) & all(x .>= 0) & all(x .<= 1))
         -Inf
     elseif all(alpha .> 0.)
-        sum((alpha.-1).*log.(x)) - (sum(loggamma.(alpha))-loggamma(sum(alpha)))
+        Distributions.logpdf(Distributions.Dirichlet(alpha), x)
     else
         -Inf
     end

@@ -9,8 +9,7 @@ const laplace = Laplace()
 
 
 function logpdf(::Laplace, x::Real, loc::Real, scale::Real)
-    diff = abs(x - loc)
-    -diff / scale - log(2.0 * scale)
+    Distributions.logpdf(Distributions.Laplace(loc, scale), x)
 end
 
 function logpdf_grad(::Laplace, x::Real, loc::Real, scale::Real)
