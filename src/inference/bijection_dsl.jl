@@ -492,6 +492,7 @@ end
 """
     (bijection::BijectionDSLProgram)(
         prev_model_trace::Trace, proposal_trace::Trace,
+        backward_proposal::GenerativeFunction, backward_proposal_args::Tuple,
         new_model::GenerativeFunction, new_model_args::Tuple,
         new_constraints::ChoiceMap)
 

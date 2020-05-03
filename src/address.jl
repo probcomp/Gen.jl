@@ -116,7 +116,7 @@ struct ComplementSelection <: Selection
     complement::Selection
 end
 get_address_schema(::Type{ComplementSelection}) = DynamicAddressSchema()
-Base.isempty(::ComplementSelection) = false # it is not guaranteed to be empty
+Base.isempty(sel::ComplementSelection) = (sel.complement == AllSelection())
 Base.in(addr, selection::ComplementSelection) = !(addr in selection.complement)
 function Base.getindex(selection::ComplementSelection, addr)
     ComplementSelection(selection.complement[addr])

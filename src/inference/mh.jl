@@ -94,10 +94,10 @@ function metropolis_hastings(
     bwd_score = get_score(bwd_trace)
     if log(rand()) < weight - fwd_score + bwd_score
         # accept
-        (new_trace, true)
+        (new_trace, true, (fwd_score, bwd_score, weight))
     else
         # reject
-        (trace, false)
+        (trace, false, (fwd_score, bwd_score, weight))
     end
 end
 
