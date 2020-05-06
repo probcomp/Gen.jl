@@ -183,7 +183,7 @@ Base.:-(b::DistWithArgs{T}, a::Real) where T <: Real = b + (-1 * a)
 Base.:-(b::DistWithArgs{T}, a::Arg) where T <: Real =
     DistWithArgs(TransformedDistribution{T, T}(b.base, 1, -, +, (x, a) -> (1.0, 1.0)), (a, b.arglist...))
 Base.:-(a::Real, b::DistWithArgs{T}) where T <: Real =
-    DistWithArgs(TransformedDistribution{T, T}(b.base, 1, x -> a - x, x -> a - x, x -> (-1.0,)), b.arglist)
+    DistWithArgs(TransformedDistribution{T, T}(b.base, 0, x -> a - x, x -> a - x, x -> (-1.0,)), b.arglist)
 Base.:-(a::Arg, b::DistWithArgs{T}) where T <: Real =
     DistWithArgs(TransformedDistribution{T, T}(b.base, 1, (x, a) -> a - x, (x, a) -> a - x, (x, a) -> (-1.0, 1.0)), (a, b.arglist...))
 
