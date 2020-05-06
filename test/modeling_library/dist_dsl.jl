@@ -23,7 +23,7 @@
   @test isapprox(logpdf(enum_cat, orange, [0.5, 0.5]), log(0.5))
   @test logpdf(enum_cat, orange, [1.0]) == -Inf
 
-  # Regression test for Issue #253
+  # Regression test for https://github.com/probcomp/Gen/issues/253
   @dist real_minus_uniform(a, b) = 1 - Gen.uniform(a, b)
   @test real_minus_uniform(1, 2) < 0
   @test logpdf(real_minus_uniform, -0.5, 1, 2) == 0.0
