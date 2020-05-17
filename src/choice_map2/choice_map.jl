@@ -60,6 +60,13 @@ get_value(::ChoiceMap) = throw(KeyError(nothing))
 get_value(c::ChoiceMap, addr) = get_value(get_submap(c, addr))
 @inline Base.getindex(choices::ChoiceMap, addr...) = get_value(choices, addr...)
 
+"""
+schema = get_address_schema(::Type{T}) where {T <: ChoiceMap}
+
+Return the (top-level) address schema for the given choice map.
+"""
+function get_address_schema end
+
 # get_values_shallow and get_nonvalue_submaps_shallow are just filters on get_submaps_shallow
 """
     get_values_shallow(choices::ChoiceMap)
@@ -108,6 +115,7 @@ struct EmptyChoiceMap <: ChoiceMap end
 @inline get_submap(::EmptyChoiceMap, addr) = EmptyChoiceMap()
 @inline Base.isempty(::EmptyChoiceMap) = true
 @inline get_submaps_shallow(::EmptyChoiceMap) = ()
+@inline get_address_schema(::Type{EmptyChoiceMap}) = EmptyAddressSchema()
 
 """
     ValueChoiceMap
@@ -124,6 +132,7 @@ end
 @inline get_submaps_shallow(choices::ValueChoiceMap) = ()
 Base.:(==)(a::ValueChoiceMap, b::ValueChoiceMap) = a.val == b.val
 Base.isapprox(a::ValueChoiceMap, b::ValueChoiceMap) = isapprox(a.val, b.val)
+@inline get_address_schema(::Type{<:ValueChoiceMap}) = EmptyAddressSchema()
 
 """
     choices = Base.merge(choices1::ChoiceMap, choices2::ChoiceMap)

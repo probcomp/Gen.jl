@@ -126,6 +126,10 @@ end
     end
 end
 
+function get_address_schema(::Type{StaticChoiceMap{Addrs, SubmapTypes}}) where {Addrs, SubmapTypes}
+    StaticAddressSchema(set(Addrs))
+end
+
 export StaticChoiceMap
 export pair, unpair
 export static_get_submap, static_get_value

@@ -147,6 +147,8 @@ function _from_array(proto_choices::DynamicChoiceMap, arr::Vector{T}, start_idx:
     (idx - start_idx, choices)
 end
 
+get_address_schema(::Type{DynamicChoiceMap}) = DynamicAddressSchema()
+
 export DynamicChoiceMap
 export choicemap
 export set_value!
