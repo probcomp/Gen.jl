@@ -30,7 +30,7 @@ Note that none of these methods mutate the choice map.
 
 Choice maps also implement:
 
-- `Base.isempty`, which tests of there are no random choices in the choice map
+- `Base.isempty`, which returns `false` if the choicemap contains no value or submaps, and `true` otherwise.
 
 - `Base.merge`, which takes two choice maps, and returns a new choice map containing all random choices in either choice map. It is an error if the choice maps both have values at the same address, or if one choice map has a value at an address that is the prefix of the address of a value in the other choice map.
 

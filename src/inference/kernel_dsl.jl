@@ -1,12 +1,13 @@
 import MacroTools
 
 function check_observations(choices::ChoiceMap, observations::ChoiceMap)
-    for (key, value) in get_values_shallow(observations)
-        !has_value(choices, key) && error("Check failed: observed choice at $key not found")
-        choices[key] != value && error("Check failed: value of observed choice at $key changed")
-    end
     for (key, submap) in get_submaps_shallow(observations)
-        check_observations(get_submap(choices, key), submap)
+        if has_value(submap)
+            !has_value(choices, key) && error("Check failed: observed choice at $key not found")
+            choices[key] != value && error("Check failed: value of observed choice at $key changed")
+        else
+            check_observations(get_submap(choices, key), submap)
+        end
     end
 end
 

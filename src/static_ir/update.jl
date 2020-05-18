@@ -454,9 +454,10 @@ function generate_discard!(stmts::Vector{Expr},
     end
     leaf_keys = map((key::Symbol) -> QuoteNode(key), leaf_keys)
     internal_keys = map((key::Symbol) -> QuoteNode(key), internal_keys)
-    expr = :($(QuoteNode(StaticChoiceMap))(
-            $(QuoteNode(NamedTuple)){($(leaf_keys...),)}(($(leaf_nodes...),)),
-            $(QuoteNode(NamedTuple)){($(internal_keys...),)}(($(internal_nodes...),))))
+    all_keys = (leaf_keys..., internal_keys...)
+    all_nodes = ([:($(QuoteNode(ValueChoiceMap))($node)) for node in leaf_nodes]..., internal_nodes...)
+    expr = quote $(QuoteNode(StaticChoiceMap))(
+            $(QuoteNode(NamedTuple)){($(all_keys...),)}(($(all_nodes...),))) end
     push!(stmts, :($discard = $expr))
 end
 

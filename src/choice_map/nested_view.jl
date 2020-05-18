@@ -33,7 +33,7 @@ ChoiceMapNestedView(cm::ValueChoiceMap) = get_value(cm)
 ChoiceMapNestedView(::EmptyChoiceMap) = error("Can't convert an emptychoicemap to nested view.")
 
 function Base.getindex(choices::ChoiceMapNestedView, addr)
-    ChoiceMapNestedView(get_submap(choices, addr))
+    ChoiceMapNestedView(get_submap(choices.choice_map, addr))
 end
 
 function Base.iterate(c::ChoiceMapNestedView)
@@ -62,9 +62,8 @@ end
 # exists.
 Base.keys(cv::ChoiceMapNestedView) = (k for (k, v) in cv)
 
-function Base.:(==)(a::ChoiceMapNestedView, b::ChoiceMapNestedView)
-    a.choice_map = b.choice_map
-end
+Base.:(==)(a::ChoiceMapNestedView, b::ChoiceMapNestedView) = a.choice_map == b.choice_map
+
 function Base.length(cv::ChoiceMapNestedView)
     length(collect(get_submaps_shallow(cv.choice_map)))
 end

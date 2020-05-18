@@ -1,4 +1,6 @@
 using Gen: generate_generative_function
+using Test
+using Gen
 
 @testset "static IR" begin
 
@@ -362,12 +364,12 @@ end
     @test get_value(value_trie, :out) == out
     @test get_value(value_trie, :bar => :z) == z
     @test !has_value(value_trie, :b) # was not selected
-    @test length(get_submaps_shallow(value_trie)) == 1
-    @test length(get_values_shallow(value_trie)) == 2
+    @test length(collect(get_nonvalue_submaps_shallow(value_trie))) == 1
+    @test length(collect(get_values_shallow(value_trie))) == 2
 
     # check gradient trie
-    @test length(get_submaps_shallow(gradient_trie)) == 1
-    @test length(get_values_shallow(gradient_trie)) == 2
+    @test length(collect(get_nonvalue_submaps_shallow(gradient_trie))) == 1
+    @test length(collect(get_values_shallow(gradient_trie))) == 2
     @test !has_value(gradient_trie, :b) # was not selected
     @test isapprox(get_value(gradient_trie, :a), finite_diff(f, (mu_a, theta, a, b, z, out), 3, dx))
     @test isapprox(get_value(gradient_trie, :out), finite_diff(f, (mu_a, theta, a, b, z, out), 6, dx))

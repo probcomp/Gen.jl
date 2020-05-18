@@ -84,17 +84,7 @@ function get_submap(choices::RecurseTraceChoiceMap,
     end
 end
 
-function get_submap(choices::RecurseTraceChoiceMap, addr::Pair)
-    _get_submap(choices, addr)
-end
-
-function has_value(choices::RecurseTraceChoiceMap, addr::Pair)
-    _has_value(choices, addr)
-end
-
-function get_value(choices::RecurseTraceChoiceMap, addr::Pair)
-    _get_value(choices, addr)
-end
+get_submap(choices::RecurseTraceChoiceMap, addr::Pair) = _get_submap(choices, addr)
 
 get_values_shallow(choices::RecurseTraceChoiceMap) = ()
 
@@ -333,6 +323,9 @@ function recurse_unpack_constraints(constraints::ChoiceMap)
     production_constraints = Dict{Int, Any}()
     aggregation_constraints = Dict{Int, Any}()
     for (addr, node) in get_submaps_shallow(constraints)
+        if has_value(node)
+            error("Unknown address: $(addr)")
+        end
         idx::Int = addr[1]
         if addr[2] == Val(:production)
             production_constraints[idx] = node
@@ -341,9 +334,6 @@ function recurse_unpack_constraints(constraints::ChoiceMap)
         else
             error("Unknown address: $addr")
         end
-    end
-    if length(get_values_shallow(constraints)) > 0
-        error("Unknown address: $(first(get_values_shallow(constraints))[1])")
     end
     return (production_constraints, aggregation_constraints)
 end

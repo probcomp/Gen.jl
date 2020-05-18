@@ -2,10 +2,6 @@
 # dynamic assignment #
 #######################
 
-struct DynamicChoiceMap <: ChoiceMap
-    submaps::Dict{Any, <:ChoiceMap}
-end
-
 """
     struct DynamicChoiceMap <: ChoiceMap .. end
 
@@ -19,8 +15,11 @@ Construct an empty map.
 
 Construct a map containing each of the given (addr, value) tuples.
 """
-function DynamicChoiceMap()
-    DynamicChoiceMap(Dict())
+struct DynamicChoiceMap <: ChoiceMap
+    submaps::Dict{Any, ChoiceMap}
+    function DynamicChoiceMap()
+        new(Dict())
+    end
 end
 
 function DynamicChoiceMap(tuples...)
@@ -39,12 +38,13 @@ Copy a choice map, returning a mutable choice map.
 function DynamicChoiceMap(other::ChoiceMap)
     choices = DynamicChoiceMap()
     for (addr, submap) in get_submaps_shallow(other)
-        if choices isa ValueChoiceMap
+        if submap isa ValueChoiceMap
             set_submap!(choices, addr, submap)
         else
             set_submap!(choices, addr, DynamicChoiceMap(submap))
         end
     end
+    choices
 end
 
 DynamicChoiceMap(other::ValueChoiceMap) = error("Cannot convert a ValueChoiceMap to a DynamicChoiceMap")
@@ -116,14 +116,14 @@ Set the given value for the given address.
 Will cause any previous value or sub-assignment at the given address to be deleted.
 It is an error if there is already a value present at some prefix of address.
 """
-function set_submap!(choices::DynamicChoiceMap, addr, new_node)
+function set_submap!(choices::DynamicChoiceMap, addr, new_node::ChoiceMap)
     delete!(choices.submaps, addr)
     if !isempty(new_node)
         choices.submaps[addr] = new_node
     end
 end
 
-function set_submap!(choices::DynamicChoiceMap, addr::Pair, new_node)
+function set_submap!(choices::DynamicChoiceMap, addr::Pair, new_node::ChoiceMap)
     (first, rest) = addr
     if !haskey(choices.submaps, first)
         choices.submaps[first] = DynamicChoiceMap()
@@ -137,7 +137,7 @@ Base.setindex!(choices::DynamicChoiceMap, value, addr) = set_value!(choices, add
 
 function _from_array(proto_choices::DynamicChoiceMap, arr::Vector{T}, start_idx::Int) where {T}
     choices = DynamicChoiceMap()
-    keys_sorted = sort(collect(keys(choices.submaps)))
+    keys_sorted = sort(collect(keys(proto_choices.submaps)))
     idx = start_idx
     for key in keys_sorted
         (n_read, submap) = _from_array(proto_choices.submaps[key], arr, idx)

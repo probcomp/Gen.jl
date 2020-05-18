@@ -15,7 +15,7 @@
         @test isapprox(weight, value ? log(0.4) : log(0.6))
         @test choices[3] == value
         @test length(collect(get_values_shallow(choices))) == 1
-        @test length(collect(get_submaps_shallow(choices))) == 0
+        @test length(collect(get_nonvalue_submaps_shallow(choices))) == 0
     end
 
     @testset "generate" begin
@@ -27,7 +27,7 @@
         choices = get_choices(trace)
         @test choices[3] == value
         @test length(collect(get_values_shallow(choices))) == 1
-        @test length(collect(get_submaps_shallow(choices))) == 0
+        @test length(collect(get_nonvalue_submaps_shallow(choices))) == 0
 
         # with constraints
         constraints = choicemap()
@@ -39,7 +39,7 @@
         choices = get_choices(trace)
         @test choices[3] == value
         @test length(collect(get_values_shallow(choices))) == 1
-        @test length(collect(get_submaps_shallow(choices))) == 0
+        @test length(collect(get_nonvalue_submaps_shallow(choices))) == 0
     end
 
     function get_trace()
@@ -65,7 +65,7 @@
         choices = get_choices(new_trace)
         @test choices[3] == true
         @test length(collect(get_values_shallow(choices))) == 1
-        @test length(collect(get_submaps_shallow(choices))) == 0
+        @test length(collect(get_nonvalue_submaps_shallow(choices))) == 0
         @test isapprox(weight, log(0.2) - log(0.4))
         @test get_retval(new_trace) == true
         @test isempty(discard)
@@ -78,12 +78,12 @@
         choices = get_choices(new_trace)
         @test choices[3] == false
         @test length(collect(get_values_shallow(choices))) == 1
-        @test length(collect(get_submaps_shallow(choices))) == 0
+        @test length(collect(get_nonvalue_submaps_shallow(choices))) == 0
         @test isapprox(weight, log(1 - 0.2) - log(0.4))
         @test get_retval(new_trace) == false
         @test discard[3] == true
         @test length(collect(get_values_shallow(discard))) == 1
-        @test length(collect(get_submaps_shallow(discard))) == 0
+        @test length(collect(get_nonvalue_submaps_shallow(discard))) == 0
 
         # change kernel_args, different key, with constraint
         constraints = choicemap()
@@ -93,12 +93,12 @@
         choices = get_choices(new_trace)
         @test choices[4] == false
         @test length(collect(get_values_shallow(choices))) == 1
-        @test length(collect(get_submaps_shallow(choices))) == 0
+        @test length(collect(get_nonvalue_submaps_shallow(choices))) == 0
         @test isapprox(weight, log(1 - 0.2) - log(0.4))
         @test get_retval(new_trace) == false
         @test discard[3] == true
         @test length(collect(get_values_shallow(discard))) == 1
-        @test length(collect(get_submaps_shallow(discard))) == 0
+        @test length(collect(get_nonvalue_submaps_shallow(discard))) == 0
     end
 
     @testset "regenerate" begin
@@ -110,7 +110,7 @@
         choices = get_choices(new_trace)
         @test choices[3] == true
         @test length(collect(get_values_shallow(choices))) == 1
-        @test length(collect(get_submaps_shallow(choices))) == 0
+        @test length(collect(get_nonvalue_submaps_shallow(choices))) == 0
         @test isapprox(weight, log(0.2) - log(0.4))
         @test get_retval(new_trace) == true
         @test isapprox(get_score(new_trace), log(0.2))
@@ -122,7 +122,7 @@
         choices = get_choices(new_trace)
         value = choices[3]
         @test length(collect(get_values_shallow(choices))) == 1
-        @test length(collect(get_submaps_shallow(choices))) == 0
+        @test length(collect(get_nonvalue_submaps_shallow(choices))) == 0
         @test weight == 0.
         @test get_retval(new_trace) == value
         @test isapprox(get_score(new_trace), log(value ? 0.2 : 1 - 0.2))
@@ -133,7 +133,7 @@
         choices = get_choices(new_trace)
         value = choices[4]
         @test length(collect(get_values_shallow(choices))) == 1
-        @test length(collect(get_submaps_shallow(choices))) == 0
+        @test length(collect(get_nonvalue_submaps_shallow(choices))) == 0
         @test weight == 0.
         @test get_retval(new_trace) == value
         @test isapprox(get_score(new_trace), log(value ? 0.2 : 1 - 0.2))
@@ -163,9 +163,9 @@
         @test choices[3] == y
         @test isapprox(gradients[3], logpdf_grad(normal, y, 0.0, 1.0)[1] + retval_grad)
         @test length(collect(get_values_shallow(gradients))) == 1
-        @test length(collect(get_submaps_shallow(gradients))) == 0
+        @test length(collect(get_nonvalue_submaps_shallow(gradients))) == 0
         @test length(collect(get_values_shallow(choices))) == 1
-        @test length(collect(get_submaps_shallow(choices))) == 0
+        @test length(collect(get_nonvalue_submaps_shallow(choices))) == 0
         @test length(input_grads) == 3
         @test isapprox(input_grads[1], logpdf_grad(normal, y, 0.0, 1.0)[2])
         @test isapprox(input_grads[2], logpdf_grad(normal, y, 0.0, 1.0)[3])

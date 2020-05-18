@@ -4,13 +4,21 @@
 
 struct StaticChoiceMap{Addrs, SubmapTypes} <: ChoiceMap
     submaps::NamedTuple{Addrs, SubmapTypes}
+    function StaticChoiceMap(submaps::NamedTuple{Addrs, SubmapTypes}) where {Addrs, SubmapTypes <: NTuple{n, ChoiceMap} where n}
+        new{Addrs, SubmapTypes}(submaps)
+    end
+end
+
+function StaticChoiceMap(;addrs_to_vals_and_maps...)
+    addrs = Tuple(addr for (addr, val_or_map) in addrs_to_vals_and_maps)
+    maps = Tuple(val_or_map isa ChoiceMap ? val_or_map : ValueChoiceMap(val_or_map) for (addr, val_or_map) in addrs_to_vals_and_maps)
+    StaticChoiceMap(NamedTuple{addrs}(maps))
 end
 
 @inline get_submaps_shallow(choices::StaticChoiceMap) = pairs(choices.submaps)
 @inline get_submap(choices::StaticChoiceMap, addr::Pair) = _get_submap(choices, addr)
 @inline get_submap(choices::StaticChoiceMap, addr::Symbol) = static_get_submap(choices, Val(addr))
 
-# TODO: profiling!
 @generated function static_get_submap(choices::StaticChoiceMap{Addrs, SubmapTypes}, ::Val{A}) where {A, Addrs, SubmapTypes}
     if A in Addrs
         quote choices.submaps[A] end
@@ -18,17 +26,25 @@ end
         quote EmptyChoiceMap() end
     end
 end
+static_get_submap(::EmptyChoiceMap, ::Val) = EmptyChoiceMap()
 
 static_get_value(choices::StaticChoiceMap, v::Val) = get_value(static_get_submap(choices, v))
+static_get_value(::EmptyChoiceMap, ::Val) = throw(ChoiceMapGetValueError())
 
 # convert a nonvalue choicemap all of whose top-level-addresses 
 # are symbols into a staticchoicemap at the top level
 function StaticChoiceMap(other::ChoiceMap)
-    keys_and_nodes = get_submaps_shallow(other)
-    (addrs::NTuple{n, Symbol} where {n}, submaps) = collect(zip(keys_and_nodes...))
+    keys_and_nodes = collect(get_submaps_shallow(other))
+    if length(keys_and_nodes) > 0
+        (addrs::NTuple{n, Symbol} where {n}, submaps) = collect(zip(keys_and_nodes...))
+    else
+        addrs = ()
+        submaps = ()
+    end
     StaticChoiceMap(NamedTuple{addrs}(submaps))
 end
 StaticChoiceMap(other::ValueChoiceMap) = error("Cannot convert a ValueChoiceMap to a StaticChoiceMap")
+StaticChoiceMap(::NamedTuple{(),Tuple{}}) = EmptyChoiceMap()
 
 # TODO: deep conversion to static choicemap
 
@@ -58,9 +74,9 @@ end
 
 @generated function Base.merge(choices1::StaticChoiceMap{Addrs1, SubmapTypes1},
     choices2::StaticChoiceMap{Addrs2, SubmapTypes2}) where {Addrs1, Addrs2, SubmapTypes1, SubmapTypes2}
-
-    addr_to_type1 = Dict{Symbol, ::Type{<:ChoiceMap}}()
-    addr_to_type2 = Dict{Symbol, ::Type{<:ChoiceMap}}()
+    
+    addr_to_type1 = Dict{Symbol, Type{<:ChoiceMap}}()
+    addr_to_type2 = Dict{Symbol, Type{<:ChoiceMap}}()
     for (i, addr) in enumerate(Addrs1)
         addr_to_type1[addr] = SubmapTypes1.parameters[i]
     end
@@ -78,30 +94,30 @@ end
             || (type2 <: ValueChoiceMap && type1 != EmptyChoiceMap))
            error( "One choicemap has a value at address $addr; the other is nonempty at $addr.  Cannot merge.")
         end
-        if type1 <: ValueChoiceMap
+        if type1 <: EmptyChoiceMap
             push!(submap_exprs, 
-                quote choices1.submaps[$addr] end
+                quote choices2.submaps.$addr end
             )
-        elseif type2 <: ValueChoiceMap
+        elseif type2 <: EmptyChoiceMap
             push!(submap_exprs,
-                quote choices2.submaps[$addr] end
+                quote choices1.submaps.$addr end
             )
         else
             push!(submap_exprs,
-                quote merge(choices1.submaps[$addr], choices2.submaps[$addr]) end
+                quote merge(choices1.submaps.$addr, choices2.submaps.$addr) end
             )
         end
     end
 
     quote
-        StaticChoiceMap{$merged_addrs}(submap_exprs...)
+        StaticChoiceMap(NamedTuple{$merged_addrs}(($(submap_exprs...),)))
     end
 end
 
-@generated function _from_array!(proto_choices::StaticChoiceMap{Addrs, SubmapTypes},
+@generated function _from_array(proto_choices::StaticChoiceMap{Addrs, SubmapTypes},
     arr::Vector{T}, start_idx::Int) where {T, Addrs, SubmapTypes}
 
-    perm = sortperm(Addrs)
+    perm = sortperm(collect(Addrs))
     sorted_addrs = Addrs[perm]
     submap_var_names = Vector{Symbol}(undef, length(sorted_addrs))
 
@@ -112,7 +128,7 @@ end
         submap_var_names[idx] = submap_var_name
         push!(exprs,
             quote
-                (n_read, submap_var_name = _from_array(proto_choices.submaps[$addr], arr, idx)
+                (n_read, $submap_var_name) = _from_array(proto_choices.submaps.$addr, arr, idx)
                 idx += n_read
             end
         )
@@ -120,14 +136,14 @@ end
 
     quote
         $(exprs...)
-        submaps = NamedTuple{Addrs}(( $(submap_var_names...) ))
-        choices = StaticChoiceMap{Addrs, SubmapTypes}(submaps)
+        submaps = NamedTuple{Addrs}(( $(submap_var_names...), ))
+        choices = StaticChoiceMap(submaps)
         (idx - start_idx, choices)
     end
 end
 
 function get_address_schema(::Type{StaticChoiceMap{Addrs, SubmapTypes}}) where {Addrs, SubmapTypes}
-    StaticAddressSchema(set(Addrs))
+    StaticAddressSchema(Set(Addrs))
 end
 
 export StaticChoiceMap

@@ -35,7 +35,7 @@ function traceat(state::GFUpdateState, dist::Distribution{T},
 
     # check for constraints at this key
     constrained = has_value(state.constraints, key)
-    !constrained && check_no_submap(state.constraints, key)
+    !constrained && check_is_empty(state.constraints, key)
 
     # record the previous value as discarded if it is replaced
     if constrained && has_previous
@@ -149,32 +149,22 @@ end
 function add_unvisited_to_discard!(discard::DynamicChoiceMap,
                                    visited::DynamicSelection,
                                    prev_choices::ChoiceMap)
-    for (key, value) in get_values_shallow(prev_choices)
-        if !(key in visited)
-            @assert !has_value(discard, key)
-            @assert isempty(get_submap(discard, key))
-            set_value!(discard, key, value)
-        end
-    end
     for (key, submap) in get_submaps_shallow(prev_choices)
-        @assert !has_value(discard, key)
-        if key in visited
-            # the recursive call to update already handled the discard
-            # for this entire submap
-            continue
-        else 
+        # if key IS in visited, 
+        # the recursive call to update already handled the discard
+        # for this entire submap; else we need to handle it
+        if !(key in visited)
+            @assert isempty(get_submap(discard, key))
             subvisited = visited[key]
             if isempty(subvisited)
                 # none of this submap was visited, so we discard the whole thing
-                @assert isempty(get_submap(discard, key))
                 set_submap!(discard, key, submap)
             else
                 subdiscard = get_submap(discard, key)
-                add_unvisited_to_discard!(
-                    isempty(subdiscard) ? choicemap() : subdiscard,
-                    subvisited, submap)
+                subdiscard = isempty(subdiscard) ? choicemap() : subdiscard
+                add_unvisited_to_discard!(subdiscard, subvisited, submap)
                 set_submap!(discard, key, subdiscard)
-            end
+            end 
         end
     end
 end

@@ -3,6 +3,22 @@
 #########################
 
 """
+    ChoiceMapGetValueError
+
+The error returned when a user attempts to call `get_value`
+on an choicemap for an address which does not contain a value in that choicemap.
+"""
+struct ChoiceMapGetValueError <: Exception end
+showerror(io::IO, ex::ChoiceMapGetValueError) = (print(io, "ChoiceMapGetValueError: no value was found for the `get_value` call."))
+
+"""
+    abstract type ChoiceMap end
+
+Abstract type for maps from hierarchical addresses to values.
+"""
+abstract type ChoiceMap end
+
+"""
     get_submaps_shallow(choices::ChoiceMap)
 
 Returns an iterable collection of tuples `(address, submap)`
@@ -26,7 +42,6 @@ function get_submap end
     submap = get_submap(choices, first)
     get_submap(submap, rest)
 end
-@inline get_submap(choices::ChoiceMap, addr::Pair) = _get_submap(choices, addr)
 
 """
     has_value(choices::ChoiceMap)
@@ -45,18 +60,18 @@ function has_value end
     get_value(choices::ChoiceMap)
 
 Returns the value stored on `choices` is `choices` is a `ValueChoiceMap`;
-throws a `KeyError` if `choices` is not a `ValueChoiceMap`.
+throws a `ChoiceMapGetValueError` if `choices` is not a `ValueChoiceMap`.
 
     get_value(choices::ChoiceMap, addr)
 Returns the value stored in the submap with address `addr` or throws
-a `KeyError` if no value exists at this address.
+a `ChoiceMapGetValueError` if no value exists at this address.
 
 A syntactic sugar is `Base.getindex`:
     
     value = choices[addr]
 """
 function get_value end
-get_value(::ChoiceMap) = throw(KeyError(nothing))
+get_value(::ChoiceMap) = throw(ChoiceMapGetValueError())
 get_value(c::ChoiceMap, addr) = get_value(get_submap(c, addr))
 @inline Base.getindex(choices::ChoiceMap, addr...) = get_value(choices, addr...)
 
@@ -73,6 +88,8 @@ function get_address_schema end
 
 Returns an iterable collection of tuples `(address, value)`
 for each value stored at a top-level address in `choices`.
+(Works by applying a filter to `get_submaps_shallow`,
+so this internally requires iterating over every submap.)
 """
 function get_values_shallow(choices::ChoiceMap)
     (
@@ -88,20 +105,15 @@ end
 Returns an iterable collection of tuples `(address, submap)`
 for every top-level submap stored in `choices` which is
 not a `ValueChoiceMap`.
+(Works by applying a filter to `get_submaps_shallow`,
+so this internally requires iterating over every submap.)
 """
 function get_nonvalue_submaps_shallow(choices::ChoiceMap)
-    filter(! ∘ has_value, get_submaps_shallow(choices))
+    (addr_to_submap for addr_to_submap in get_submaps_shallow(choices) if !has_value(addr_to_submap[2]))
 end
 
 # a choicemap is empty if it has no submaps and no value
-Base.isempty(c::ChoiceMap) = isempty(get_submaps_shallow(c)) && !has_value(c)
-
-"""
-    abstract type ChoiceMap end
-
-Abstract type for maps from hierarchical addresses to values.
-"""
-abstract type ChoiceMap end
+Base.isempty(c::ChoiceMap) = all(((addr, submap),) -> isempty(submap), get_submaps_shallow(c)) && !has_value(c)
 
 """
     EmptyChoiceMap
@@ -111,11 +123,14 @@ A choicemap with no submaps or values.
 struct EmptyChoiceMap <: ChoiceMap end
 
 @inline has_value(::EmptyChoiceMap, addr...) = false
-@inline get_value(::EmptyChoiceMap) = throw(KeyError(nothing))
+@inline get_value(::EmptyChoiceMap) = throw(ChoiceMapGetValueError())
 @inline get_submap(::EmptyChoiceMap, addr) = EmptyChoiceMap()
 @inline Base.isempty(::EmptyChoiceMap) = true
 @inline get_submaps_shallow(::EmptyChoiceMap) = ()
 @inline get_address_schema(::Type{EmptyChoiceMap}) = EmptyAddressSchema()
+@inline Base.:(==)(::EmptyChoiceMap, ::EmptyChoiceMap) = true
+@inline Base.:(==)(::ChoiceMap, ::EmptyChoiceMap) = false
+@inline Base.:(==)(::EmptyChoiceMap, ::ChoiceMap) = false
 
 """
     ValueChoiceMap
@@ -148,6 +163,11 @@ function Base.merge(choices1::ChoiceMap, choices2::ChoiceMap)
     for (key, submap) in get_submaps_shallow(choices1)
         set_submap!(choices, key, merge(submap, get_submap(choices2, key)))
     end
+    for (key, submap) in get_submaps_shallow(choices2)
+        if isempty(get_submap(choices1, key))
+            set_submap!(choices, key, submap)
+        end
+    end
     choices
 end
 Base.merge(c::ChoiceMap, ::EmptyChoiceMap) = c
@@ -167,6 +187,11 @@ end
 function Base.:(==)(a::ChoiceMap, b::ChoiceMap)
     for (addr, submap) in get_submaps_shallow(a)
         if get_submap(b, addr) != submap
+            return false
+        end
+    end
+    for (addr, submap) in get_submaps_shallow(b)
+        if get_submap(a, addr) != submap
             return false
         end
     end
@@ -246,9 +271,11 @@ function Base.show(io::IO, ::MIME"text/plain", choices::ChoiceMap)
 end
 
 export ChoiceMap, ValueChoiceMap, EmptyChoiceMap
-export get_submap, get_submaps_shallow
+export _get_submap, get_submap, get_submaps_shallow
 export get_value, has_value
 export get_values_shallow, get_nonvalue_submaps_shallow
+export get_address_schema, get_selected
+export ChoiceMapGetValueError
 
 include("array_interface.jl")
 include("dynamic_choice_map.jl")

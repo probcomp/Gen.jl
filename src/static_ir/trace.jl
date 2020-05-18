@@ -9,25 +9,8 @@ end
 function get_schema end
 
 @inline get_address_schema(::Type{StaticIRTraceAssmt{T}}) where {T} = get_schema(T)
-
 @inline Base.isempty(choices::StaticIRTraceAssmt) = isempty(choices.trace)
-
-@inline static_has_value(choices::StaticIRTraceAssmt, key) = false
-
-@inline function get_value(choices::StaticIRTraceAssmt, key::Symbol)
-    static_get_value(choices, Val(key))
-end
-
-@inline function has_value(choices::StaticIRTraceAssmt, key::Symbol)
-    static_has_value(choices, Val(key))
-end
-
-@inline function get_submap(choices::StaticIRTraceAssmt, key::Symbol)
-    static_get_submap(choices, Val(key))
-end
-
-@inline get_value(choices::StaticIRTraceAssmt, addr::Pair) = _get_value(choices, addr)
-@inline has_value(choices::StaticIRTraceAssmt, addr::Pair) = _has_value(choices, addr)
+@inline get_submap(choices::StaticIRTraceAssmt, key::Symbol) = static_get_submap(choices, Val(key))
 @inline get_submap(choices::StaticIRTraceAssmt, addr::Pair) = _get_submap(choices, addr)
 
 #########################
@@ -36,16 +19,13 @@ end
 
 abstract type StaticIRTrace <: Trace end
 
-@inline function static_get_subtrace(trace::StaticIRTrace, addr)
-    error("Not implemented")
-end
+@inline static_get_subtrace(trace::StaticIRTrace, addr) = error("Not implemented")
+@inline static_get_value(trace::StaticIRTrace, v::Val) = get_value(static_get_submap(trace, v))
 
 @inline static_haskey(trace::StaticIRTrace, ::Val) = false
  Base.haskey(trace::StaticIRTrace, key) = Gen.static_haskey(trace, Val(key))
 
-@inline function Base.getindex(trace::StaticIRTrace, addr)
-    Gen.static_getindex(trace, Val(addr))
-end
+@inline Base.getindex(trace::StaticIRTrace, addr) = Gen.static_getindex(trace, Val(addr))
 @inline function Base.getindex(trace::StaticIRTrace, addr::Pair)
     first, rest = addr
     return Gen.static_get_subtrace(trace, Val(first))[rest]
@@ -161,21 +141,13 @@ function generate_get_choices(trace_struct_name::Symbol)
             :($(QuoteNode(EmptyChoiceMap))())))
 end
 
-function generate_get_values_shallow(ir::StaticIR, trace_struct_name::Symbol)
+function generate_get_submaps_shallow(ir::StaticIR, trace_struct_name::Symbol)
     elements = []
     for node in ir.choice_nodes
         addr = node.addr
         value = :(choices.trace.$(get_value_fieldname(node)))
-        push!(elements, :(($(QuoteNode(addr)), $value)))
+        push!(elements, :(($(QuoteNode(addr)), ValueChoiceMap($value))))
     end
-    Expr(:function, 
-        Expr(:call, Expr(:(.), Gen, QuoteNode(:get_values_shallow)),
-                    :(choices::$(QuoteNode(StaticIRTraceAssmt)){$trace_struct_name})),
-        Expr(:block, Expr(:tuple, elements...)))
-end
-
-function generate_get_submaps_shallow(ir::StaticIR, trace_struct_name::Symbol)
-    elements = []
     for node in ir.call_nodes
         addr = node.addr
         subtrace = :(choices.trace.$(get_subtrace_fieldname(node)))
@@ -224,30 +196,6 @@ function generate_getindex(ir::StaticIR, trace_struct_name::Symbol)
     return [get_subtrace_exprs; call_getindex_exprs; choice_getindex_exprs]
 end
 
-function generate_static_get_value(ir::StaticIR, trace_struct_name::Symbol)
-    methods = Expr[]
-    for node in ir.choice_nodes
-        push!(methods, Expr(:function,
-            Expr(:call, Expr(:(.), Gen, QuoteNode(:static_get_value)),
-                        :(choices::$(QuoteNode(StaticIRTraceAssmt)){$trace_struct_name}),
-                        :(::Val{$(QuoteNode(node.addr))})),
-            Expr(:block, :(choices.trace.$(get_value_fieldname(node))))))
-    end
-    methods
-end
-
-function generate_static_has_value(ir::StaticIR, trace_struct_name::Symbol)
-    methods = Expr[]
-    for node in ir.choice_nodes
-        push!(methods, Expr(:function,
-            Expr(:call, Expr(:(.), Gen, QuoteNode(:static_has_value)),
-                        :(choices::$(QuoteNode(StaticIRTraceAssmt)){$trace_struct_name}),
-                        :(::Val{$(QuoteNode(node.addr))})),
-            Expr(:block, :(true))))
-    end
-    methods
-end
-
 function generate_static_get_submap(ir::StaticIR, trace_struct_name::Symbol)
     methods = Expr[]
     for node in ir.call_nodes
@@ -259,13 +207,13 @@ function generate_static_get_submap(ir::StaticIR, trace_struct_name::Symbol)
                 :(get_choices(choices.trace.$(get_subtrace_fieldname(node)))))))
     end
 
-    # throw a KeyError if get_submap is run on an address containing a value
+    # return a ValueChoiceMap if get_submap is run on an address containing a value
     for node in ir.choice_nodes
          push!(methods, Expr(:function,
             Expr(:call, Expr(:(.), Gen, QuoteNode(:static_get_submap)),
                         :(choices::$(QuoteNode(StaticIRTraceAssmt)){$trace_struct_name}),
                         :(::Val{$(QuoteNode(node.addr))})),
-            Expr(:block, :(throw(KeyError($(QuoteNode(node.addr))))))))
+            Expr(:block, :(ValueChoiceMap(choices.trace.$(get_value_fieldname(node)))))))
     end
     methods
 end
@@ -290,18 +238,13 @@ function generate_trace_type_and_methods(ir::StaticIR, name::Symbol, options::St
     get_retval_expr = generate_get_retval(ir, trace_struct_name)
     get_choices_expr = generate_get_choices(trace_struct_name)
     get_schema_expr = generate_get_schema(ir, trace_struct_name)
-    get_values_shallow_expr = generate_get_values_shallow(ir, trace_struct_name)
     get_submaps_shallow_expr = generate_get_submaps_shallow(ir, trace_struct_name)
-    static_get_value_exprs = generate_static_get_value(ir, trace_struct_name)
-    static_has_value_exprs = generate_static_has_value(ir, trace_struct_name)
     static_get_submap_exprs = generate_static_get_submap(ir, trace_struct_name)
     getindex_exprs = generate_getindex(ir, trace_struct_name)
 
     exprs = Expr(:block, trace_struct_expr, isempty_expr, get_score_expr,
                  get_args_expr, get_retval_expr,
-                 get_choices_expr, get_schema_expr, get_values_shallow_expr,
-                 get_submaps_shallow_expr, static_get_value_exprs...,
-                 static_has_value_exprs..., static_get_submap_exprs..., getindex_exprs...)
+                 get_choices_expr, get_schema_expr, get_submaps_shallow_expr, static_get_submap_exprs..., getindex_exprs...)
     (exprs, trace_struct_name)
 end
 

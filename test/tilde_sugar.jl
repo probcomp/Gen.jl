@@ -1,4 +1,4 @@
-using Gen
+using .Gen
 import MacroTools
 
 normalize(ex) = MacroTools.prewalk(MacroTools.rmlines, ex)
