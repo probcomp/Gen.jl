@@ -23,13 +23,15 @@ abstract type StaticIRTrace <: Trace end
 @inline static_get_value(trace::StaticIRTrace, v::Val) = get_value(static_get_submap(trace, v))
 
 @inline static_haskey(trace::StaticIRTrace, ::Val) = false
- Base.haskey(trace::StaticIRTrace, key) = Gen.static_haskey(trace, Val(key))
+@inline Base.haskey(trace::StaticIRTrace, key) = Gen.static_haskey(trace, Val(key))
 
 @inline Base.getindex(trace::StaticIRTrace, addr) = Gen.static_getindex(trace, Val(addr))
 @inline function Base.getindex(trace::StaticIRTrace, addr::Pair)
     first, rest = addr
     return Gen.static_get_subtrace(trace, Val(first))[rest]
 end
+
+@inline get_choices(trace::T) where {T <: StaticIRTrace} = StaticIRTraceAssmt{T}(trace)
 
 const arg_prefix = gensym("arg")
 const choice_value_prefix = gensym("choice_value")
@@ -133,14 +135,6 @@ function generate_get_retval(ir::StaticIR, trace_struct_name::Symbol)
         Expr(:block, :(trace.$return_value_fieldname)))
 end
 
-function generate_get_choices(trace_struct_name::Symbol)
-    Expr(:function,
-        Expr(:call, Expr(:(.), Gen, QuoteNode(:get_choices)), :(trace::$trace_struct_name)),
-        Expr(:if, :(!isempty(trace)),
-            :($(QuoteNode(StaticIRTraceAssmt))(trace)),
-            :($(QuoteNode(EmptyChoiceMap))())))
-end
-
 function generate_get_submaps_shallow(ir::StaticIR, trace_struct_name::Symbol)
     elements = []
     for node in ir.choice_nodes
@@ -236,7 +230,6 @@ function generate_trace_type_and_methods(ir::StaticIR, name::Symbol, options::St
     get_score_expr = generate_get_score(trace_struct_name)
     get_args_expr = generate_get_args(ir, trace_struct_name)
     get_retval_expr = generate_get_retval(ir, trace_struct_name)
-    get_choices_expr = generate_get_choices(trace_struct_name)
     get_schema_expr = generate_get_schema(ir, trace_struct_name)
     get_submaps_shallow_expr = generate_get_submaps_shallow(ir, trace_struct_name)
     static_get_submap_exprs = generate_static_get_submap(ir, trace_struct_name)
@@ -244,7 +237,7 @@ function generate_trace_type_and_methods(ir::StaticIR, name::Symbol, options::St
 
     exprs = Expr(:block, trace_struct_expr, isempty_expr, get_score_expr,
                  get_args_expr, get_retval_expr,
-                 get_choices_expr, get_schema_expr, get_submaps_shallow_expr, static_get_submap_exprs..., getindex_exprs...)
+                 get_schema_expr, get_submaps_shallow_expr, static_get_submap_exprs..., getindex_exprs...)
     (exprs, trace_struct_name)
 end
 

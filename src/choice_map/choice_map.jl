@@ -71,8 +71,8 @@ A syntactic sugar is `Base.getindex`:
     value = choices[addr]
 """
 function get_value end
-get_value(::ChoiceMap) = throw(ChoiceMapGetValueError())
-get_value(c::ChoiceMap, addr) = get_value(get_submap(c, addr))
+@inline get_value(::ChoiceMap) = throw(ChoiceMapGetValueError())
+@inline get_value(c::ChoiceMap, addr) = get_value(get_submap(c, addr))
 @inline Base.getindex(choices::ChoiceMap, addr...) = get_value(choices, addr...)
 
 """
@@ -145,8 +145,8 @@ end
 @inline get_value(choices::ValueChoiceMap) = choices.val
 @inline get_submap(choices::ValueChoiceMap, addr) = EmptyChoiceMap()
 @inline get_submaps_shallow(choices::ValueChoiceMap) = ()
-Base.:(==)(a::ValueChoiceMap, b::ValueChoiceMap) = a.val == b.val
-Base.isapprox(a::ValueChoiceMap, b::ValueChoiceMap) = isapprox(a.val, b.val)
+@inline Base.:(==)(a::ValueChoiceMap, b::ValueChoiceMap) = a.val == b.val
+@inline Base.isapprox(a::ValueChoiceMap, b::ValueChoiceMap) = isapprox(a.val, b.val)
 @inline get_address_schema(::Type{<:ValueChoiceMap}) = EmptyAddressSchema()
 
 """

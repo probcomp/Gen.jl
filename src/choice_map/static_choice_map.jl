@@ -26,10 +26,10 @@ end
         quote EmptyChoiceMap() end
     end
 end
-static_get_submap(::EmptyChoiceMap, ::Val) = EmptyChoiceMap()
+@inline static_get_submap(::EmptyChoiceMap, ::Val) = EmptyChoiceMap()
 
-static_get_value(choices::StaticChoiceMap, v::Val) = get_value(static_get_submap(choices, v))
-static_get_value(::EmptyChoiceMap, ::Val) = throw(ChoiceMapGetValueError())
+@inline static_get_value(choices::StaticChoiceMap, v::Val) = get_value(static_get_submap(choices, v))
+@inline static_get_value(::EmptyChoiceMap, ::Val) = throw(ChoiceMapGetValueError())
 
 # convert a nonvalue choicemap all of whose top-level-addresses 
 # are symbols into a staticchoicemap at the top level
