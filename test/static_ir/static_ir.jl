@@ -1,6 +1,4 @@
 using Gen: generate_generative_function
-using Test
-using Gen
 
 @testset "static IR" begin
 

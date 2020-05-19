@@ -1,4 +1,4 @@
-#using Gen
+using Gen
 
 @testset "optional positional args (calling + GFI)" begin
 
