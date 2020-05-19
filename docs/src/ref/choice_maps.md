@@ -14,6 +14,42 @@ for sub-choicemaps.  Leaf nodes have type:
 ValueChoiceMap
 ```
 
+### Example Usage Overview
+
+Choicemaps store values nested in a tree where each node posesses an address for each subtree.
+A leaf-node choicemap simply contains a value, and has it's value looked up via:
+```julia
+value = choicemap[]
+```
+If a choicemap has a value choicemap at address `:a`, it is looked up via:
+```julia
+value = choicemap[:a]
+```
+And a choicemap may also have a non-value choicemap stored at a value. For instance,
+if a choicemap has another choicemap stored at address `:a`, and this internal choicemap
+has a valuechoicemap stored at address `:b` and another at `:c`, we could perform the following lookups:
+```julia
+value1 = choicemap[:a => :b]
+value2 = choicemap[:a => :c]
+```
+Nesting can be arbitrarily deep, and the keys can be arbitrary values; for instance
+choicemaps can be constructed with values at the following nested addresses:
+```julia
+value = choicemap[:a => :b => :c => 4 => 1.63 => :e]
+value = choicemap[:a => :b => :a => 2 => "alphabet" => :e]
+```
+To get a sub-choicemap, use `get_submap`:
+```julia
+value1 = choicemap[:a => :b]
+submap = get_submap(choicemap, :a)
+value1 == submap[:b] # is true
+
+value_submap = get_submap(choicemap, :a => :b)
+value_submap[] == value1 # is true
+```
+
+### Interface
+
 Choice maps provide the following methods:
 ```@docs
 get_submap
@@ -58,7 +94,7 @@ set_value!
 set_submap!
 ```
 
-## Implementing custom choicemap types
+### Implementing custom choicemap types
 
 To implement a custom choicemap, one must implement
 `get_submap` and `get_submaps_shallow`.
