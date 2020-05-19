@@ -5,6 +5,8 @@
     @test vcm1 isa ValueChoiceMap{Int}
     @test vcm2 isa ValueChoiceMap{Float64}
     @test vcm3 isa ValueChoiceMap{Vector{Int}}
+    @test vcm1[] == 2
+    @test vcm1[] == get_value(vcm1)
 
     @test !isempty(vcm1)
     @test has_value(vcm1)
