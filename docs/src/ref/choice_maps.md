@@ -47,6 +47,8 @@ value1 == submap[:b] # is true
 value_submap = get_submap(choicemap, :a => :b)
 value_submap[] == value1 # is true
 ```
+One can think of `ValueChoiceMap`s at storing being a choicemap which has a value at "nesting level zero",
+while other choicemaps have values at "nesting level" one or higher.
 
 ### Interface
 
