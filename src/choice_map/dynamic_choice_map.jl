@@ -67,16 +67,10 @@ function choicemap(tuples...)
     DynamicChoiceMap(tuples...)
 end
 
-get_submaps_shallow(choices::DynamicChoiceMap) = choices.submaps
-function get_submap(choices::DynamicChoiceMap, addr)
-    if haskey(choices.submaps, addr)
-        choices.submaps[addr]
-    else
-        EmptyChoiceMap()
-    end
-end
-get_submap(choices::DynamicChoiceMap, addr::Pair) = _get_submap(choices, addr)
-Base.isempty(choices::DynamicChoiceMap) = isempty(choices.submaps)
+@inline get_submaps_shallow(choices::DynamicChoiceMap) = choices.submaps
+@inline get_submap(choices::DynamicChoiceMap, addr) = get(choices.submaps, addr, EmptyChoiceMap())
+@inline get_submap(choices::DynamicChoiceMap, addr::Pair) = _get_submap(choices, addr)
+@inline Base.isempty(choices::DynamicChoiceMap) = isempty(choices.submaps)
 
 # mutation (not part of the assignment interface)
 
