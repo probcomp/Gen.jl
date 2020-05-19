@@ -17,15 +17,15 @@ ValueChoiceMap
 ### Example Usage Overview
 
 Choicemaps store values nested in a tree where each node posesses an address for each subtree.
-A leaf-node choicemap simply contains a value, and has it's value looked up via:
+A leaf-node choicemap simply contains a value, and has its value looked up via:
 ```julia
 value = choicemap[]
 ```
-If a choicemap has a value choicemap at address `:a`, it is looked up via:
+If a choicemap has a value choicemap at address `:a`, the value it stores is looked up via:
 ```julia
 value = choicemap[:a]
 ```
-And a choicemap may also have a non-value choicemap stored at a value. For instance,
+A choicemap may also have a non-value choicemap stored at an address. For instance,
 if a choicemap has another choicemap stored at address `:a`, and this internal choicemap
 has a valuechoicemap stored at address `:b` and another at `:c`, we could perform the following lookups:
 ```julia
