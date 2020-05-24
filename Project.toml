@@ -18,7 +18,7 @@ SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
 [compat]
 DataStructures = "0.15, 0.16, 0.17"
 Distributions = "0.21, 0.22, 0.23"
-ForwardDiff = "0.10, >= 0.10.10"
+ForwardDiff = "0.10.10"
 FunctionalCollections = "0.5"
 JSON = "0.20, 0.21"
 MacroTools = "0.5"
