@@ -1,7 +1,7 @@
 name = "Gen"
 uuid = "ea4f424c-a589-11e8-07c0-fd5c91b9da4a"
 authors = ["Marco Cusumano-Towner <imarcoam@gmail.com>"]
-version = "0.3.4"
+version = "0.3.5"
 
 [deps]
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
