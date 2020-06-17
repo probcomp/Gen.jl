@@ -9,22 +9,6 @@ function GFAssessState(choices, params::Dict{Symbol,Any})
     GFAssessState(choices, 0., AddressVisitor(), params)
 end
 
-function traceat(state::GFAssessState, dist::Distribution{T},
-              args, key) where {T}
-    local retval::T
-
-    # check that key was not already visited, and mark it as visited
-    visit!(state.visitor, key)
-
-    # get return value
-    retval = get_value(state.choices, key)
-
-    # update weight
-    state.weight += logpdf(dist, retval, args...)
-
-    retval
-end
-
 function traceat(state::GFAssessState, gen_fn::GenerativeFunction{T,U},
               args, key) where {T,U}
     local retval::T

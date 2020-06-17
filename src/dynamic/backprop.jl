@@ -74,7 +74,7 @@ function traceat(state::GFBackpropParamsState, dist::Distribution{T},
               args_maybe_tracked, key) where {T}
     local retval::T
     visit!(state.visitor, key)
-    retval = get_choice(state.trace, key).retval
+    retval = get_retval(get_call(state.trace, key).subtrace)
     args = map(value, args_maybe_tracked)
     score_tracked = track(logpdf(dist, retval, args...), state.tape)
     record!(state.tape, ReverseDiff.SpecialInstruction, dist,
@@ -275,7 +275,7 @@ function traceat(state::GFBackpropTraceState, dist::Distribution{T},
               args_maybe_tracked, key) where {T}
     local retval::T
     visit!(state.visitor, key)
-    retval = get_choice(state.trace, key).retval
+    retval = get_retval(get_call(state.trace, key).subtrace)
     args = map(value, args_maybe_tracked)
     score_tracked = track(logpdf(dist, retval, args...), state.tape)
     if key in state.selection

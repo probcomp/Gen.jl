@@ -154,12 +154,6 @@ function check_is_empty(constraints::ChoiceMap, addr)
     end
 end
 
-function check_no_value(constraints::ChoiceMap, addr)
-    if has_value(constraints, addr)
-        error("Expected a sub-assignment at address $addr but found a value")
-    end
-end
-
 function gen_fn_changed_error(addr)
     error("Generative function changed at address: $addr")
 end

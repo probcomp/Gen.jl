@@ -16,57 +16,6 @@ function GFUpdateState(gen_fn, args, prev_trace, constraints, params)
         0., visitor, params, discard)
 end
 
-function traceat(state::GFUpdateState, dist::Distribution{T}, 
-                 args::Tuple, key) where {T}
-
-    local prev_retval::T
-    local retval::T
-
-    # check that key was not already visited, and mark it as visited
-    visit!(state.visitor, key)
-
-    # check for previous choice at this key
-    has_previous = has_choice(state.prev_trace, key)
-    if has_previous
-        prev_choice = get_choice(state.prev_trace, key)
-        prev_retval = prev_choice.retval
-        prev_score = prev_choice.score 
-    end
-
-    # check for constraints at this key
-    constrained = has_value(state.constraints, key)
-    !constrained && check_is_empty(state.constraints, key)
-
-    # record the previous value as discarded if it is replaced
-    if constrained && has_previous
-        set_value!(state.discard, key, prev_retval)
-    end
-    
-    # get return value
-    if constrained
-        retval = get_value(state.constraints, key)
-    elseif has_previous
-        retval = prev_retval
-    else
-        retval = random(dist, args...)
-    end
-
-    # compute logpdf
-    score = logpdf(dist, retval, args...)
-
-    # update the weight
-    if has_previous
-        state.weight += score - prev_score
-    elseif constrained
-        state.weight += score
-    end
-
-    # add to the trace
-    add_choice!(state.trace, key, retval, score)
-
-    retval
-end
-
 function traceat(state::GFUpdateState, gen_fn::GenerativeFunction{T,U},
                  args::Tuple, key) where {T,U}
 
@@ -78,7 +27,6 @@ function traceat(state::GFUpdateState, gen_fn::GenerativeFunction{T,U},
     visit!(state.visitor, key)
 
     # check for constraints at this key
-    check_no_value(state.constraints, key)
     constraints = get_submap(state.constraints, key)
 
     # get subtrace
@@ -119,11 +67,11 @@ function splice(state::GFUpdateState, gen_fn::DynamicDSLFunction,
     retval
 end
 
-function update_delete_recurse(prev_trie::Trie{Any,ChoiceOrCallRecord},
+function update_delete_recurse(prev_trie::Trie{Any,CallRecord},
                                visited::EmptySelection)
     score = 0.
-    for (key, choice_or_call) in get_leaf_nodes(prev_trie)
-        score += choice_or_call.score
+    for (key, call) in get_leaf_nodes(prev_trie)
+        score += call.score
     end
     for (key, subtrie) in get_internal_nodes(prev_trie)
         score += update_delete_recurse(subtrie, EmptySelection())
@@ -131,12 +79,12 @@ function update_delete_recurse(prev_trie::Trie{Any,ChoiceOrCallRecord},
     score
 end
 
-function update_delete_recurse(prev_trie::Trie{Any,ChoiceOrCallRecord},
+function update_delete_recurse(prev_trie::Trie{Any,CallRecord},
                                visited::DynamicSelection)
     score = 0.
-    for (key, choice_or_call) in get_leaf_nodes(prev_trie)
+    for (key, call) in get_leaf_nodes(prev_trie)
         if !(key in visited)
-            score += choice_or_call.score
+            score += call.score
         end
     end
     for (key, subtrie) in get_internal_nodes(prev_trie)

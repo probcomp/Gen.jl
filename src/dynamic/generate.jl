@@ -11,38 +11,6 @@ function GFGenerateState(gen_fn, args, constraints, params)
     GFGenerateState(trace, constraints, 0., AddressVisitor(), params)
 end
 
-function traceat(state::GFGenerateState, dist::Distribution{T},
-              args, key) where {T}
-    local retval::T
-
-    # check that key was not already visited, and mark it as visited
-    visit!(state.visitor, key)
-
-    # check for constraints at this key
-    constrained = has_value(state.constraints, key)
-    !constrained && check_is_empty(state.constraints, key)
-
-    # get return value
-    if constrained
-        retval = get_value(state.constraints, key)
-    else
-        retval = random(dist, args...)
-    end
-
-    # compute logpdf
-    score = logpdf(dist, retval, args...)
-
-    # add to the trace
-    add_choice!(state.trace, key, retval, score)
-
-    # increment weight
-    if constrained
-        state.weight += score
-    end
-
-    retval
-end
-
 function traceat(state::GFGenerateState, gen_fn::GenerativeFunction{T,U},
               args, key) where {T,U}
     local subtrace::U

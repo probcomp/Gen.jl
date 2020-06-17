@@ -9,25 +9,6 @@ function GFProposeState(params::Dict{Symbol,Any})
     GFProposeState(choicemap(), 0., AddressVisitor(), params)
 end
 
-function traceat(state::GFProposeState, dist::Distribution{T},
-              args, key) where {T}
-    local retval::T
-
-    # check that key was not already visited, and mark it as visited
-    visit!(state.visitor, key)
-
-    # sample return value
-    retval = random(dist, args...)
-
-    # update assignment
-    set_value!(state.choices, key, retval)
-
-    # update weight 
-    state.weight += logpdf(dist, retval, args...)
-    
-    retval
-end
-
 function traceat(state::GFProposeState, gen_fn::GenerativeFunction{T,U},
               args, key) where {T,U}
     local retval::T
