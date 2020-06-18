@@ -85,24 +85,24 @@ The `check` keyword argument to the involution can be used to enable or disable 
 function metropolis_hastings(
         trace, proposal::GenerativeFunction,
         proposal_args::Tuple, involution;
-        check=false, observations=EmptyChoiceMap())
+        check=false, observations=EmptyChoiceMap(), isapprox_kwargs=Dict())
     (fwd_choices, fwd_score, fwd_ret) = propose(proposal, (trace, proposal_args...,))
     (new_trace, bwd_choices, weight) = involution(trace, fwd_choices, fwd_ret, proposal_args)
     (bwd_score, bwd_ret) = assess(proposal, (new_trace, proposal_args...), bwd_choices)
     check && check_observations(get_choices(new_trace), observations)
     if check
         (trace_rt, fwd_choices_rt, weight_rt) = involution(new_trace, bwd_choices, bwd_ret, proposal_args; check=check)
-        if !isapprox(fwd_choices_rt, fwd_choices)
+        if !isapprox(fwd_choices_rt, fwd_choices; isapprox_kwargs...)
             @error "fwd_choices: $(sprint(show, "text/plain", fwd_choices))"
             @error "fwd_choices_rt: $(sprint(show, "text/plain", fwd_choices_rt))"
             error("Involution round trip check failed")
         end
-        if !isapprox(get_choices(trace), get_choices(trace_rt))
+        if !isapprox(get_choices(trace), get_choices(trace_rt); isapprox_kwargs...)
             @error "get_choices(trace): $(sprint(show, "text/plain", get_choices(trace)))"
             @error "get_choices(trace_rt): $(sprint(show, "text/plain", get_choices(trace_rt)))"
             error("Involution round trip check failed")
         end
-        if !isapprox(weight, -weight_rt)
+        if !isapprox(weight, -weight_rt; isapprox_kwargs...)
             @error "weight: $weight, -weight_rt: $(-weight_rt)"
             error("Involution round trip check failed")
         end
