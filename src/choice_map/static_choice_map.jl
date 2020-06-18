@@ -34,9 +34,10 @@ end
 # convert a nonvalue choicemap all of whose top-level-addresses 
 # are symbols into a staticchoicemap at the top level
 function StaticChoiceMap(other::ChoiceMap)
-    keys_and_nodes = collect(get_submaps_shallow(other))
+    keys_and_nodes = get_submaps_shallow(other)
     if length(keys_and_nodes) > 0
-        (addrs::NTuple{n, Symbol} where {n}, submaps) = zip(keys_and_nodes...)
+        addrs = Tuple(key for (key, _) in keys_and_nodes)
+        submaps = Tuple(submap for (_, submap) in keys_and_nodes)
     else
         addrs = ()
         submaps = ()
