@@ -27,8 +27,8 @@
     @test !has_value(vcm1, :addr)
     @test isapprox(vcm2, ValueChoiceMap(prevfloat(2.)))
     @test isapprox(vcm1, ValueChoiceMap(prevfloat(2.)))
-    @test get_address_schema(typeof(vcm1)) == EmptyAddressSchema()
-    @test get_address_schema(ValueChoiceMap) == EmptyAddressSchema()
+    @test get_address_schema(typeof(vcm1)) == AllAddressSchema()
+    @test get_address_schema(ValueChoiceMap) == AllAddressSchema()
     @test nested_view(vcm1) == 2
 end
 
