@@ -36,7 +36,7 @@ end
 function StaticChoiceMap(other::ChoiceMap)
     keys_and_nodes = collect(get_submaps_shallow(other))
     if length(keys_and_nodes) > 0
-        (addrs::NTuple{n, Symbol} where {n}, submaps) = collect(zip(keys_and_nodes...))
+        (addrs::NTuple{n, Symbol} where {n}, submaps) = zip(keys_and_nodes...)
     else
         addrs = ()
         submaps = ()
