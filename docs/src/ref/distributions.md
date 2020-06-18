@@ -1,5 +1,11 @@
 # Probability Distributions
 
+In Gen, a probability distribution is a generative function which makes a single random choice
+and returns the value of this choice.  The choicemap for a probability distribution
+is always a [`ValueChoiceMap`](@ref).  In addition to supporting the regular `GFI` methods,
+every distribution supports the methods [`random`](@ref) and [`logpdf`](@ref), described 
+in the [Distribution API](@ref custom_distributions).
+
 Gen provides a library of built-in probability distributions, and two ways of
 writing custom distributions, both of which are explained below:
 
