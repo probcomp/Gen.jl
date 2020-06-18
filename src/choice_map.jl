@@ -296,24 +296,24 @@ function Base.:(==)(a::ChoiceMap, b::ChoiceMap)
     return true
 end
 
-function Base.isapprox(a::ChoiceMap, b::ChoiceMap)
+function Base.isapprox(a::ChoiceMap, b::ChoiceMap; kwargs...)
     for (addr, value) in get_values_shallow(a)
-        if !has_value(b, addr) || !isapprox(get_value(b, addr), value)
+        if !has_value(b, addr) || !isapprox(get_value(b, addr), value; kwargs...)
             return false
         end
     end
     for (addr, value) in get_values_shallow(b)
-        if !has_value(a, addr) || !isapprox(get_value(a, addr), value)
+        if !has_value(a, addr) || !isapprox(get_value(a, addr), value; kwargs...)
             return false
         end
     end
     for (addr, submap) in get_submaps_shallow(a)
-        if !isapprox(submap, get_submap(b, addr))
+        if !isapprox(submap, get_submap(b, addr); kwargs...)
             return false
         end
     end
     for (addr, submap) in get_submaps_shallow(b)
-        if !isapprox(submap, get_submap(a, addr))
+        if !isapprox(submap, get_submap(a, addr); kwargs...)
             return false
         end
     end
