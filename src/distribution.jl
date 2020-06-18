@@ -5,13 +5,15 @@
 struct DistributionTrace{T, Dist} <: Trace
     val::T
     args
-    dist::Dist
+    score::Float64
 end
+@inline dist(::DistributionTrace{T, Dist}) where {T, Dist} = Dist()
 
 abstract type Distribution{T} <: GenerativeFunction{T, DistributionTrace{T}} end
+@inline DistributionTrace(val::T, args::Tuple, dist::Dist) where {T, Dist <: Distribution} = DistributionTrace{T, Dist}(val, args, logpdf(dist, val, args...))
 
 function Base.convert(::Type{DistributionTrace{U, <:Any}}, tr::DistributionTrace{<:Any, Dist}) where {U, Dist}
-    DistributionTrace{U, Dist}(convert(U, tr.val), tr.args, tr.dist)
+    DistributionTrace{U, Dist}(convert(U, tr.val), tr.args, dist(tr))
 end
 
 """
@@ -62,10 +64,8 @@ get_return_type(::Distribution{T}) where {T} = T
 @inline Gen.get_args(trace::DistributionTrace) = trace.args
 @inline Gen.get_choices(trace::DistributionTrace) = ValueChoiceMap(trace.val) # should be able to get type of val
 @inline Gen.get_retval(trace::DistributionTrace) = trace.val
-@inline Gen.get_gen_fn(trace::DistributionTrace) = trace.dist
-
-# TODO: for performance would it be better to store the score in the trace?
-@inline Gen.get_score(trace::DistributionTrace) = logpdf(trace.dist, trace.val, trace.args...)
+@inline Gen.get_gen_fn(trace::DistributionTrace) = dist(trace)
+@inline Gen.get_score(trace::DistributionTrace) = trace.score
 @inline Gen.project(trace::DistributionTrace, ::EmptySelection) = 0.
 @inline Gen.project(trace::DistributionTrace, ::AllSelection) = get_score(trace)
 
@@ -80,28 +80,26 @@ end
     (tr, weight)
 end
 @inline function Gen.update(tr::DistributionTrace, args::Tuple, argdiffs::Tuple, constraints::ValueChoiceMap)
-    new_tr = DistributionTrace(get_value(constraints), args, tr.dist)
+    new_tr = DistributionTrace(get_value(constraints), args, dist(tr))
     weight = get_score(new_tr) - get_score(tr)
     (new_tr, weight, UnknownChange(), get_choices(tr))
 end
 @inline function Gen.update(tr::DistributionTrace, args::Tuple, argdiffs::Tuple, constraints::EmptyChoiceMap)
-    new_tr = DistributionTrace(tr.val, args, tr.dist)
+    new_tr = DistributionTrace(tr.val, args, dist(tr))
     weight = get_score(new_tr) - get_score(tr)
     (new_tr, weight, NoChange(), EmptyChoiceMap())
 end
+@inline Gen.update(tr::DistributionTrace, args::Tuple, argdiffs::NTuple{n, NoChange}, constraints::EmptyChoiceMap) where {n} = (tr, 0., NoChange())
 # TODO: do I need an update method to handle empty choicemaps which are not `EmptyChoiceMap`s?
 @inline Gen.regenerate(tr::DistributionTrace, args::Tuple, argdiffs::NTuple{n, NoChange}, selection::EmptySelection) where {n} = (tr, 0., NoChange())
-# TODO: this next regenerate method is here because StaticSelections can have this sort of empty leaf node; choicemaps
-# cannot right now and only have empty ones; we should try to fix this if possible.
-#@inline Gen.regenerate(tr::DistributionTrace, args::Tuple, argdiffs::NTuple{n, NoChange}, ::StaticSelection{(), Tuple{}}) where {n} = (tr, 0., NoChange())
 @inline function Gen.regenerate(tr::DistributionTrace, args::Tuple, argdiffs::Tuple, selection::EmptySelection)
-    new_tr = DistributionTrace(tr.val, args, tr.dist)
+    new_tr = DistributionTrace(tr.val, args, dist(tr))
     weight = get_score(new_tr) - get_score(tr)
     (new_tr, weight, NoChange())
 end
 @inline function Gen.regenerate(tr::DistributionTrace, args::Tuple, argdiffs::Tuple, selection::AllSelection)
-    new_val = random(tr.dist, args...)
-    new_tr = DistributionTrace(new_val, args, tr.dist)
+    new_val = random(dist(tr), args...)
+    new_tr = DistributionTrace(new_val, args, dist(tr))
     (new_tr, 0., UnknownChange())
 end
 @inline function Gen.propose(dist::Distribution, args::Tuple)
@@ -110,7 +108,7 @@ end
     (ValueChoiceMap(val), score, val)
 end
 @inline function Gen.assess(dist::Distribution, args::Tuple, choices::ValueChoiceMap)
-    weight = logpdf(dist, choices.val, args...)
+    weight = logpdf(dist, get_value(choices), args...)
     (weight, choices.val)
 end
 
