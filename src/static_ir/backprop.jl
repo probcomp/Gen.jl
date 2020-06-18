@@ -36,15 +36,15 @@ function fwd_pass!(selected_choices, selected_calls, fwd_marked, node::JuliaNode
     end
 end
 
-function fwd_pass!(selected_choices, selected_calls, fwd_marked, node::RandomChoiceNode)
-    if node in selected_choices
-        push!(fwd_marked, node)
-    end
-end
-
 function fwd_pass!(selected_choices, selected_calls, fwd_marked, node::GenerativeFunctionCallNode)
-    if node in selected_calls || any(input_node in fwd_marked for input_node in node.inputs)
-        push!(fwd_marked, node)
+    if node.generative_function isa Distribution
+        if node in selected_choices
+            push!(fwd_marked, node)
+        end    
+    else
+        if node in selected_calls || any(input_node in fwd_marked for input_node in node.inputs)
+            push!(fwd_marked, node)
+        end
     end
 end
 
@@ -60,19 +60,14 @@ function back_pass!(back_marked, node::JuliaNode)
     end
 end
 
-function back_pass!(back_marked, node::RandomChoiceNode)
-    # the logpdf of every random choice is a SINK
-    for input_node in node.inputs
-        push!(back_marked, input_node)
-    end
-    # the value of every random choice is in back_marked, since it affects its logpdf
-    push!(back_marked, node) 
-end
-
 function back_pass!(back_marked, node::GenerativeFunctionCallNode)
     # the logpdf of every generative function call is a SINK
     for input_node in node.inputs
         push!(back_marked, input_node)
+    end
+    if node.generative_function isa Distribution
+        # the value of every random choice is in back_marked, since it affects its logpdf
+        push!(back_marked, node)
     end
 end
 
@@ -134,35 +129,35 @@ function fwd_codegen!(stmts, fwd_marked, back_marked, node::JuliaNode)
     end
 end
 
-function fwd_codegen!(stmts, fwd_marked, back_marked, node::RandomChoiceNode)
-    # for reference by other nodes during back_codegen!
-    # could performance optimize this away
-    push!(stmts, :($(node.name) = trace.$(get_value_fieldname(node))))
-
-    # every random choice is in back_marked, since it affects it logpdf, but
-    # also possibly due to other downstream usage of the value
-    @assert node in back_marked 
-
-    if node in fwd_marked
-        # the only way we are fwd_marked is if this choice was selected
-
-        # initialize gradient with respect to the value of the random choice to zero
-        # it will be a runtime error, thrown here, if there is no zero() method
-        push!(stmts, :($(gradient_var(node)) = zero($(node.name))))
-    end
-end
-
 function fwd_codegen!(stmts, fwd_marked, back_marked, node::GenerativeFunctionCallNode)
-    # for reference by other nodes during back_codegen!
-    # could performance optimize this away
-    subtrace_fieldname = get_subtrace_fieldname(node)
-    push!(stmts, :($(node.name) = get_retval(trace.$subtrace_fieldname)))
+    if node.generative_function isa Distribution
+        # for reference by other nodes during back_codegen!
+        # could performance optimize this away
+        push!(stmts, :($(node.name) = get_retval(trace.$(get_subtrace_fieldname(node)))))
 
-    # NOTE: we will still potentially run choice_gradients recursively on the generative function,
-    # we just might not use its return value gradient.
-    if node in fwd_marked && node in back_marked
-        # we are fwd_marked if an input was fwd_marked, or if we were selected internally
-        push!(stmts, :($(gradient_var(node)) = zero($(node.name))))
+        # every random choice is in back_marked, since it affects it logpdf, but
+        # also possibly due to other downstream usage of the value
+        @assert node in back_marked 
+
+        if node in fwd_marked
+            # the only way we are fwd_marked is if this choice was selected
+
+            # initialize gradient with respect to the value of the random choice to zero
+            # it will be a runtime error, thrown here, if there is no zero() method
+            push!(stmts, :($(gradient_var(node)) = zero($(node.name))))
+        end
+    else
+        # for reference by other nodes during back_codegen!
+        # could performance optimize this away
+        subtrace_fieldname = get_subtrace_fieldname(node)
+        push!(stmts, :($(node.name) = get_retval(trace.$subtrace_fieldname)))
+
+        # NOTE: we will still potentially run choice_gradients recursively on the generative function,
+        # we just might not use its return value gradient.
+        if node in fwd_marked && node in back_marked
+            # we are fwd_marked if an input was fwd_marked, or if we were selected internally
+            push!(stmts, :($(gradient_var(node)) = zero($(node.name))))
+        end
     end
 end
 
@@ -217,19 +212,19 @@ function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked, node:
 end
 
 function back_codegen_random_choice_to_inputs!(stmts, ir, fwd_marked, back_marked,
-                                               node::RandomChoiceNode, logpdf_grad::Symbol)
+                                               node::GenerativeFunctionCallNode, logpdf_grad::Symbol)
     # only evaluate the gradient of the logpdf if we need to
     if any(input_node in fwd_marked for input_node in node.inputs) || node in fwd_marked
         args = map((input_node) -> input_node.name, node.inputs)
-        push!(stmts, :($logpdf_grad = logpdf_grad($(node.dist), $(node.name), $(args...))))
+        push!(stmts, :($logpdf_grad = logpdf_grad($(node.generative_function), $(node.name), $(args...))))
     end
 
     # increment gradients of input nodes that are in fwd_marked
     for (i, input_node) in enumerate(node.inputs)
         if input_node in fwd_marked
             @assert input_node in back_marked # this ensured its gradient will have been initialized
-            if !has_argument_grads(node.dist)[i]
-                error("Distribution $(node.dist) does not have logpdf gradient for argument $i")
+            if !has_argument_grads(node.generative_function)[i]
+                error("Distribution $(node.generative_function) does not have logpdf gradient for argument $i")
             end
             push!(stmts, :($(gradient_var(input_node)) += $logpdf_grad[$(QuoteNode(i+1))]))
         end
@@ -243,94 +238,91 @@ function back_codegen_random_choice_to_inputs!(stmts, ir, fwd_marked, back_marke
 end
 
 function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
-                       node::RandomChoiceNode, ::BackpropTraceMode)
-    logpdf_grad = gensym("logpdf_grad")
- 
-    # backpropagate to the inputs
-    back_codegen_random_choice_to_inputs!(stmts, ir, fwd_marked, back_marked, node, logpdf_grad)
-
-    # backpropagate to the value (if it was selected)
-    if node in fwd_marked
-        if !has_output_grad(node.dist)
-            error("Distribution $dist does not logpdf gradient for its output value")
-        end
-        push!(stmts, :($(gradient_var(node)) += $logpdf_grad[1]))
-    end
-end
-
-function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
-                       node::RandomChoiceNode, ::BackpropParamsMode)
-    logpdf_grad = gensym("logpdf_grad")
-    back_codegen_random_choice_to_inputs!(stmts, ir, fwd_marked, back_marked, node, logpdf_grad)
-end
-
-function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
                        node::GenerativeFunctionCallNode, mode::BackpropTraceMode)
+    if node.generative_function isa Distribution
+        logpdf_grad = gensym("logpdf_grad")
+ 
+        # backpropagate to the inputs
+        back_codegen_random_choice_to_inputs!(stmts, ir, fwd_marked, back_marked, node, logpdf_grad)
 
-    # handle case when it is the return node
-    if node === ir.return_node && node in fwd_marked
-        @assert node in back_marked
-        push!(stmts, :($(gradient_var(node)) += retval_grad))
-    end
-
-    if node in fwd_marked
-        input_grads = gensym("call_input_grads")
-        value_trie = value_trie_var(node)
-        gradient_trie = gradient_trie_var(node)
-        subtrace_fieldname = get_subtrace_fieldname(node)
-        call_selection = gensym("call_selection")
-        if node in selected_calls
-            push!(stmts, :($call_selection = $qn_static_getindex(selection, $(QuoteNode(Val(node.addr))))))
-        else
-            push!(stmts, :($call_selection = EmptySelection()))
+        # backpropagate to the value (if it was selected)
+        if node in fwd_marked
+            if !has_output_grad(node.generative_function)
+                error("Distribution $(node.generative_function) does not logpdf gradient for its output value")
+            end
+            push!(stmts, :($(gradient_var(node)) += $logpdf_grad[1]))
         end
-        retval_grad = node in back_marked ? gradient_var(node) : :(nothing)
-        push!(stmts, :(($input_grads, $value_trie, $gradient_trie) = choice_gradients(
-            trace.$subtrace_fieldname, $call_selection, $retval_grad)))
-    end
-
-    # increment gradients of input nodes that are in fwd_marked
-    for (i, input_node) in enumerate(node.inputs)
-        if input_node in fwd_marked
-            @assert input_node in back_marked # this ensured its gradient will have been initialized
-            push!(stmts, :($(gradient_var(input_node)) += $input_grads[$(QuoteNode(i))]))
+    else
+        # handle case when it is the return node
+        if node === ir.return_node && node in fwd_marked
+            @assert node in back_marked
+            push!(stmts, :($(gradient_var(node)) += retval_grad))
         end
-    end
 
-    # NOTE: the value_trie and gradient_trie are dealt with later
+        if node in fwd_marked
+            input_grads = gensym("call_input_grads")
+            value_trie = value_trie_var(node)
+            gradient_trie = gradient_trie_var(node)
+            subtrace_fieldname = get_subtrace_fieldname(node)
+            call_selection = gensym("call_selection")
+            if node in selected_calls
+                push!(stmts, :($call_selection = $qn_static_getindex(selection, $(QuoteNode(Val(node.addr))))))
+            else
+                push!(stmts, :($call_selection = EmptySelection()))
+            end
+            retval_grad = node in back_marked ? gradient_var(node) : :(nothing)
+            push!(stmts, :(($input_grads, $value_trie, $gradient_trie) = choice_gradients(
+                trace.$subtrace_fieldname, $call_selection, $retval_grad)))
+        end
+
+        # increment gradients of input nodes that are in fwd_marked
+        for (i, input_node) in enumerate(node.inputs)
+            if input_node in fwd_marked
+                @assert input_node in back_marked # this ensured its gradient will have been initialized
+                push!(stmts, :($(gradient_var(input_node)) += $input_grads[$(QuoteNode(i))]))
+            end
+        end
+
+        # NOTE: the value_trie and gradient_trie are dealt with later
+    end
 end
 
 function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
                        node::GenerativeFunctionCallNode, mode::BackpropParamsMode)
 
-    # handle case when it is the return node
-    if node === ir.return_node && node in fwd_marked
-        @assert node in back_marked
-        push!(stmts, :($(gradient_var(node)) += retval_grad))
-    end
+    if node.generative_function isa Distribution
+        logpdf_grad = gensym("logpdf_grad")
+        back_codegen_random_choice_to_inputs!(stmts, ir, fwd_marked, back_marked, node, logpdf_grad)
+    else
+        # handle case when it is the return node
+        if node === ir.return_node && node in fwd_marked
+            @assert node in back_marked
+            push!(stmts, :($(gradient_var(node)) += retval_grad))
+        end
 
-    if node in fwd_marked
-        input_grads = gensym("call_input_grads")
-        subtrace_fieldname = get_subtrace_fieldname(node)
-        retval_grad = node in back_marked ? gradient_var(node) : :(nothing)
-        push!(stmts, :($input_grads = accumulate_param_gradients!(trace.$subtrace_fieldname, $retval_grad)))
-    end
+        if node in fwd_marked
+            input_grads = gensym("call_input_grads")
+            subtrace_fieldname = get_subtrace_fieldname(node)
+            retval_grad = node in back_marked ? gradient_var(node) : :(nothing)
+            push!(stmts, :($input_grads = accumulate_param_gradients!(trace.$subtrace_fieldname, $retval_grad)))
+        end
 
-    # increment gradients of input nodes that are in fwd_marked
-    for (i, input_node) in enumerate(node.inputs)
-        if input_node in fwd_marked
-            @assert input_node in back_marked # this ensured its gradient will have been initialized
-            push!(stmts, :($(gradient_var(input_node)) += $input_grads[$(QuoteNode(i))]))
+        # increment gradients of input nodes that are in fwd_marked
+        for (i, input_node) in enumerate(node.inputs)
+            if input_node in fwd_marked
+                @assert input_node in back_marked # this ensured its gradient will have been initialized
+                push!(stmts, :($(gradient_var(input_node)) += $input_grads[$(QuoteNode(i))]))
+            end
         end
     end
 end
 
-function generate_value_gradient_trie(selected_choices::Set{RandomChoiceNode},
+function generate_value_gradient_trie(selected_choices::Set{GenerativeFunctionCallNode},
                                       selected_calls::Set{GenerativeFunctionCallNode},
                                       value_trie::Symbol, gradient_trie::Symbol)
     selected_choices_vec = collect(selected_choices)
     quoted_leaf_keys = map((node) -> QuoteNode(node.addr), selected_choices_vec)
-    leaf_value_choicemaps = map((node) -> :(ValueChoiceMap(trace.$(get_value_fieldname(node)))), selected_choices_vec)
+    leaf_value_choicemaps = map((node) -> :(ValueChoiceMap(get_retval(trace.$(get_subtrace_fieldname(node))))), selected_choices_vec)
     leaf_gradient_choicemaps = map((node) -> :(ValueChoiceMap($(gradient_var(node)))), selected_choices_vec)
 
     selected_calls_vec = collect(selected_calls)
@@ -350,18 +342,18 @@ function generate_value_gradient_trie(selected_choices::Set{RandomChoiceNode},
 end
 
 function get_selected_choices(::EmptyAddressSchema, ::StaticIR)
-    Set{RandomChoiceNode}()
+    Set{GenerativeFunctionCallNode}()
 end
 
 function get_selected_choices(::AllAddressSchema, ir::StaticIR)
-    Set{RandomChoiceNodes}(ir.choice_nodes)
+    Set{GenerativeFunctionCallNode}([node for node in ir.call_nodes if node.generative_function isa Distribution]...)
 end
 
 function get_selected_choices(schema::StaticAddressSchema, ir::StaticIR)
     selected_choice_addrs = Set(keys(schema))
-    selected_choices = Set{RandomChoiceNode}()
-    for node in ir.choice_nodes
-        if node.addr in selected_choice_addrs
+    selected_choices = Set{GenerativeFunctionCallNode}()
+    for node in ir.call_nodes
+        if node.generative_function isa Distribution && node.addr in selected_choice_addrs
             push!(selected_choices, node)
         end
     end
@@ -373,14 +365,14 @@ function get_selected_calls(::EmptyAddressSchema, ::StaticIR)
 end
 
 function get_selected_calls(::AllAddressSchema, ir::StaticIR)
-    Set{GenerativeFunctionCallNode}(ir.call_nodes)
+    Set{GenerativeFunctionCallNode}([node for node in ir.call_nodes if !(node.generative_function isa Distribution)]...)
 end
 
 function get_selected_calls(schema::StaticAddressSchema, ir::StaticIR)
     selected_call_addrs = Set(keys(schema))
     selected_calls = Set{GenerativeFunctionCallNode}()
     for node in ir.call_nodes
-        if node.addr in selected_call_addrs
+        if !(node.generative_function isa Distribution) && node.addr in selected_call_addrs
             push!(selected_calls, node)
         end
     end
@@ -452,7 +444,7 @@ function codegen_accumulate_param_gradients!(trace_type::Type{T},
     ir = get_ir(gen_fn_type)
 
     # unlike choice_gradients we don't take gradients w.r.t. the value of random choices
-    selected_choices = Set{RandomChoiceNode}()
+    selected_choices = Set{GenerativeFunctionCallNode}()
 
     # we need to guarantee that we visit every generative function call,
     # because we need to backpropagate to its trainable parameters

@@ -151,6 +151,7 @@ A hierarchical selection whose keys are among its type parameters.
 struct StaticSelection{T,U} <: HierarchicalSelection
     subselections::NamedTuple{T,U}
 end
+StaticSelection(::NamedTuple{(), Tuple{}}) = EmptySelection()
 
 function Base.isempty(selection::StaticSelection{T,U}) where {T,U}
     length(R) == 0 && all(isempty(node) for node in selection.subselections)
@@ -208,7 +209,7 @@ function StaticSelection(other::HierarchicalSelection)
         (keys, subselections) = ((), ())
     end
     types = map(typeof, subselections)
-    StaticSelection{keys,Tuple{types...}}(NamedTuple{keys}(subselections))
+    StaticSelection(NamedTuple{keys}(subselections))
 end
 
 export StaticSelection

@@ -43,16 +43,8 @@ function get_value_fieldname(node::ArgumentNode)
     Symbol("$(arg_prefix)_$(node.name)")
 end
 
-function get_value_fieldname(node::RandomChoiceNode)
-    Symbol("$(choice_value_prefix)_$(node.addr)")
-end
-
 function get_value_fieldname(node::JuliaNode)
     Symbol("$(julia_prefix)_$(node.name)")
-end
-
-function get_score_fieldname(node::RandomChoiceNode)
-    Symbol("$(choice_score_prefix)_$(node.addr)")
 end
 
 function get_subtrace_fieldname(node::GenerativeFunctionCallNode)
@@ -74,12 +66,6 @@ function get_trace_fields(ir::StaticIR, options::StaticIRGenerativeFunctionOptio
     for node in ir.arg_nodes
         fieldname = get_value_fieldname(node)
         push!(fields, TraceField(fieldname, node.typ))
-    end
-    for node in ir.choice_nodes
-        value_fieldname = get_value_fieldname(node)
-        push!(fields, TraceField(value_fieldname, node.typ))
-        score_fieldname = get_score_fieldname(node)
-        push!(fields, TraceField(score_fieldname, QuoteNode(Float64)))
     end
     for node in ir.call_nodes
         subtrace_fieldname = get_subtrace_fieldname(node)
@@ -137,11 +123,6 @@ end
 
 function generate_get_submaps_shallow(ir::StaticIR, trace_struct_name::Symbol)
     elements = []
-    for node in ir.choice_nodes
-        addr = node.addr
-        value = :(choices.trace.$(get_value_fieldname(node)))
-        push!(elements, :(($(QuoteNode(addr)), ValueChoiceMap($value))))
-    end
     for node in ir.call_nodes
         addr = node.addr
         subtrace = :(choices.trace.$(get_subtrace_fieldname(node)))
@@ -175,19 +156,8 @@ function generate_getindex(ir::StaticIR, trace_struct_name::Symbol)
             end
         )
     end
-    
-    choice_getindex_exprs = Expr[]
-    for node in ir.choice_nodes
-        push!(choice_getindex_exprs,
-            quote
-                function Gen.static_getindex(trace::$trace_struct_name, ::Val{$(QuoteNode(node.addr))})
-                    return trace.$(get_value_fieldname(node))
-                end
-            end
-        )
-    end
         
-    return [get_subtrace_exprs; call_getindex_exprs; choice_getindex_exprs]
+    return [get_subtrace_exprs; call_getindex_exprs]
 end
 
 function generate_static_get_submap(ir::StaticIR, trace_struct_name::Symbol)
@@ -201,21 +171,11 @@ function generate_static_get_submap(ir::StaticIR, trace_struct_name::Symbol)
                 :(get_choices(choices.trace.$(get_subtrace_fieldname(node)))))))
     end
 
-    # return a ValueChoiceMap if get_submap is run on an address containing a value
-    for node in ir.choice_nodes
-         push!(methods, Expr(:function,
-            Expr(:call, Expr(:(.), Gen, QuoteNode(:static_get_submap)),
-                        :(choices::$(QuoteNode(StaticIRTraceAssmt)){$trace_struct_name}),
-                        :(::Val{$(QuoteNode(node.addr))})),
-            Expr(:block, :(ValueChoiceMap(choices.trace.$(get_value_fieldname(node)))))))
-    end
     methods
 end
 
 function generate_get_schema(ir::StaticIR, trace_struct_name::Symbol)
-    choice_addrs = [QuoteNode(node.addr) for node in ir.choice_nodes]
-    call_addrs = [QuoteNode(node.addr) for node in ir.call_nodes]
-    addrs = vcat(choice_addrs, call_addrs)
+    addrs = [QuoteNode(node.addr) for node in ir.call_nodes]
     Expr(:function,
         Expr(:call, Expr(:(.), Gen, QuoteNode(:get_schema)), :(::Type{$trace_struct_name})),
         Expr(:block,

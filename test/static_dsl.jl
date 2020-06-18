@@ -117,14 +117,13 @@ params = ir.arg_nodes[2]
 @test params.compute_grad
 
 # choice nodes and call nodes
-@test length(ir.choice_nodes) == 2
-@test length(ir.call_nodes) == 0
+@test length(ir.call_nodes) == 2
 
 # is_outlier
-is_outlier = ir.choice_nodes[1]
+is_outlier = ir.call_nodes[1]
 @test is_outlier.addr == :z
 @test is_outlier.typ == QuoteNode(Bool)
-@test is_outlier.dist == bernoulli
+@test is_outlier.generative_function == bernoulli
 @test length(is_outlier.inputs) == 1
 
 # std
@@ -138,10 +137,10 @@ in2 = std.inputs[2]
 @test (in1 === is_outlier && in2 === params) || (in2 === is_outlier && in1 === params)
 
 # y
-y = ir.choice_nodes[2]
+y = ir.call_nodes[2]
 @test y.addr == :y
 @test y.typ == QuoteNode(Float64)
-@test y.dist == normal
+@test y.generative_function == normal
 @test length(y.inputs) == 2
 @test y.inputs[2] === std
 
@@ -174,40 +173,39 @@ xs = ir.arg_nodes[1]
 @test xs.typ == :(Vector{Float64})
 @test !xs.compute_grad
 
-# choice nodes and call nodes
-@test length(ir.choice_nodes) == 4
-@test length(ir.call_nodes) == 1
+# call nodes
+@test length(ir.call_nodes) == 5
 
 # inlier_std
-inlier_std = ir.choice_nodes[1]
+inlier_std = ir.call_nodes[1]
 @test inlier_std.addr == :inlier_std
 @test inlier_std.typ == QuoteNode(Float64)
-@test inlier_std.dist == gamma
+@test inlier_std.generative_function == gamma
 @test length(inlier_std.inputs) == 2
 
 # outlier_std
-outlier_std = ir.choice_nodes[2]
+outlier_std = ir.call_nodes[2]
 @test outlier_std.addr == :outlier_std
 @test outlier_std.typ == QuoteNode(Float64)
-@test outlier_std.dist == gamma
+@test outlier_std.generative_function == gamma
 @test length(outlier_std.inputs) == 2
 
 # slope
-slope = ir.choice_nodes[3]
+slope = ir.call_nodes[3]
 @test slope.addr == :slope
 @test slope.typ == QuoteNode(Float64)
-@test slope.dist == normal
+@test slope.generative_function == normal
 @test length(slope.inputs) == 2
 
 # intercept
-intercept = ir.choice_nodes[4]
+intercept = ir.call_nodes[4]
 @test intercept.addr == :intercept
 @test intercept.typ == QuoteNode(Float64)
-@test intercept.dist == normal
+@test intercept.generative_function == normal
 @test length(intercept.inputs) == 2
 
 # data
-ys = ir.call_nodes[1]
+ys = ir.call_nodes[5]
 @test ys.addr == :data
 @test ys.typ == QuoteNode(PersistentVector{Float64})
 @test ys.generative_function == data_fn
@@ -376,7 +374,7 @@ ir2 = Gen.get_ir(typeof(f2))
 return_node1 = ir1.return_node
 return_node2 = ir2.return_node
 @test isa(return_node2, typeof(return_node1))
-@test return_node2.dist == return_node1.dist
+@test return_node2.generative_function == return_node1.generative_function
 
 inputs1 = return_node1.inputs
 inputs2 = return_node2.inputs

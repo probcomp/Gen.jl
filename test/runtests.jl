@@ -64,12 +64,12 @@ end
 
 const dx = 1e-6
 
-include("autodiff.jl")
-include("diff.jl")
-include("selection.jl")
-include("assignment.jl")
-include("dynamic_dsl.jl")
-include("optional_args.jl")
+# include("autodiff.jl")
+# include("diff.jl")
+# include("selection.jl")
+# include("assignment.jl")
+# include("dynamic_dsl.jl")
+# include("optional_args.jl")
 include("static_ir/static_ir.jl")
 include("static_dsl.jl")
 include("tilde_sugar.jl")

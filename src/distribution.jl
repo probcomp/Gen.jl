@@ -91,6 +91,9 @@ end
 end
 # TODO: do I need an update method to handle empty choicemaps which are not `EmptyChoiceMap`s?
 @inline Gen.regenerate(tr::DistributionTrace, args::Tuple, argdiffs::NTuple{n, NoChange}, selection::EmptySelection) where {n} = (tr, 0., NoChange())
+# TODO: this next regenerate method is here because StaticSelections can have this sort of empty leaf node; choicemaps
+# cannot right now and only have empty ones; we should try to fix this if possible.
+#@inline Gen.regenerate(tr::DistributionTrace, args::Tuple, argdiffs::NTuple{n, NoChange}, ::StaticSelection{(), Tuple{}}) where {n} = (tr, 0., NoChange())
 @inline function Gen.regenerate(tr::DistributionTrace, args::Tuple, argdiffs::Tuple, selection::EmptySelection)
     new_tr = DistributionTrace(tr.val, args, tr.dist)
     weight = get_score(new_tr) - get_score(tr)

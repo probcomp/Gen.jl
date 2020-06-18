@@ -147,7 +147,7 @@ end
 @inline get_submaps_shallow(choices::ValueChoiceMap) = ()
 @inline Base.:(==)(a::ValueChoiceMap, b::ValueChoiceMap) = a.val == b.val
 @inline Base.isapprox(a::ValueChoiceMap, b::ValueChoiceMap) = isapprox(a.val, b.val)
-@inline get_address_schema(::Type{<:ValueChoiceMap}) = EmptyAddressSchema()
+@inline get_address_schema(::Type{<:ValueChoiceMap}) = AllAddressSchema()
 
 """
     choices = Base.merge(choices1::ChoiceMap, choices2::ChoiceMap)

@@ -5,14 +5,6 @@ end
 
 function process!(state::StaticIRProjectState, node) end
 
-function process!(state::StaticIRProjectState, node::RandomChoiceNode)
-    schema = state.schema
-    @assert isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema) || isa(schema, AllAddressSchema)
-    if isa(schema, AllAddressSchema) || (isa(schema, StaticAddressSchema) && (node.addr in keys(schema)))
-        push!(state.stmts, :($weight += trace.$(get_score_fieldname(node))))
-    end
-end
-
 function process!(state::StaticIRProjectState, node::GenerativeFunctionCallNode)
     schema = state.schema
     addr = QuoteNode(node.addr)
