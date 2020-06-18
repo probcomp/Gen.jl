@@ -71,18 +71,19 @@ function address_from_expression(lhs)
 end
 
 function desugar_tildes(expr)
+    trace_ref = GlobalRef(@__MODULE__, Symbol("@trace"))
+    line_num = LineNumberNode(1, :none)
     MacroTools.postwalk(expr) do e
         # Expand the `@trace` macro as defined in this module (even if the caller
         # doesn't have an analogous macro in their module), and leave the
         # remaining macros to be expanded in the caller's scope.
         if MacroTools.@capture(e, {*} ~ rhs_)
-            macroexpand(@__MODULE__, :(@trace($rhs)), recursive=false)
+            Expr(:macrocall, trace_ref, line_num, rhs)
         elseif MacroTools.@capture(e, {addr_} ~ rhs_)
-            macroexpand(@__MODULE__, :(@trace($rhs, $(addr))), recursive=false)
+            Expr(:macrocall, trace_ref, line_num, rhs, addr)
         elseif MacroTools.@capture(e, lhs_ ~ rhs_)
-            addr_expr = address_from_expression(lhs)
-            macroexpand(@__MODULE__, :($lhs = @trace($rhs, $(addr_expr))),
-                        recursive=false)
+            addr = address_from_expression(lhs)
+            Expr(:(=), lhs, Expr(:macrocall, trace_ref, line_num, rhs, addr))
         else
             e
         end
