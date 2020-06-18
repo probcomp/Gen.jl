@@ -20,6 +20,7 @@ function get_schema end
 abstract type StaticIRTrace <: Trace end
 
 @inline static_get_subtrace(trace::StaticIRTrace, addr) = error("Not implemented")
+@inline static_get_submap(::StaticIRTraceAssmt, ::Val) = EmptyChoiceMap()
 @inline static_get_value(trace::StaticIRTrace, v::Val) = get_value(static_get_submap(trace, v))
 
 @inline static_haskey(trace::StaticIRTrace, ::Val) = false
