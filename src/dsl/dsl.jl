@@ -5,6 +5,7 @@ const DSL_ARG_GRAD_ANNOTATION = :grad
 const DSL_RET_GRAD_ANNOTATION = :grad
 const DSL_TRACK_DIFFS_ANNOTATION = :diffs
 const DSL_NO_JULIA_CACHE_ANNOTATION = :nojuliacache
+const DSL_MACROS = Set([Symbol("@trace"), Symbol("@param")])
 
 struct Argument
     name::Symbol
@@ -74,9 +75,7 @@ function desugar_tildes(expr)
     trace_ref = GlobalRef(@__MODULE__, Symbol("@trace"))
     line_num = LineNumberNode(1, :none)
     MacroTools.postwalk(expr) do e
-        # Expand the `@trace` macro as defined in this module (even if the caller
-        # doesn't have an analogous macro in their module), and leave the
-        # remaining macros to be expanded in the caller's scope.
+        # Replace with globally referenced macrocalls
         if MacroTools.@capture(e, {*} ~ rhs_)
             Expr(:macrocall, trace_ref, line_num, rhs)
         elseif MacroTools.@capture(e, {addr_} ~ rhs_)
@@ -90,7 +89,32 @@ function desugar_tildes(expr)
     end
 end
 
-function parse_gen_function(ast, annotations)
+function resolve_gen_macros(expr, __module__)
+    MacroTools.postwalk(expr) do e
+        # Resolve Gen macros to globally referenced macrocalls
+        if (MacroTools.@capture(e, @namespace_.m_(args__)) &&
+            m in DSL_MACROS && __module__.eval(namespace) == @__MODULE__)
+            macro_ref = GlobalRef(@__MODULE__, m)
+            line_num = e.args[2]
+            Expr(:macrocall, macro_ref, line_num, args...)
+        elseif (MacroTools.@capture(e, @m_(args__)) &&
+                m in DSL_MACROS && __module__ == @__MODULE__)
+            macro_ref = GlobalRef(@__MODULE__, m)
+            line_num = e.args[2]
+            Expr(:macrocall, macro_ref, line_num, args...)
+        else
+            e
+        end
+    end
+end
+
+function preprocess_body(expr, __module__)
+    expr = desugar_tildes(expr)
+    expr = resolve_gen_macros(expr, __module__)
+    return expr
+end
+
+function parse_gen_function(ast, annotations, __module__)
     ast = MacroTools.longdef(ast)
     if ast.head != :function
         error("syntax error at $ast in $(ast.head)")
@@ -99,7 +123,6 @@ function parse_gen_function(ast, annotations)
         error("syntax error at $ast in $(ast.args)")
     end
     signature = ast.args[1]
-    body = desugar_tildes(ast.args[2])
     if signature.head == :(::)
         (call_signature, return_type) = signature.args
     elseif signature.head == :call
@@ -107,6 +130,7 @@ function parse_gen_function(ast, annotations)
     else
         error("syntax error at $(signature)")
     end
+    body = preprocess_body(ast.args[2], __module__)
     name = call_signature.args[1]
     args = map(parse_arg, call_signature.args[2:end])
     static = DSL_STATIC_ANNOTATION in annotations
@@ -117,15 +141,13 @@ function parse_gen_function(ast, annotations)
     end
 end
 
-macro gen(annotations_expr, ast)
-
+macro gen(annotations_expr, ast::Expr)
     # parse the annotations
     annotations = parse_annotations(annotations_expr)
-
     # parse the function definition
-    parse_gen_function(ast, annotations)
+    parse_gen_function(ast, annotations, __module__)
 end
 
-macro gen(ast)
-    parse_gen_function(ast, Set{Symbol}())
+macro gen(ast::Expr)
+    parse_gen_function(ast, Set{Symbol}(), __module__)
 end
