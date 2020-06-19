@@ -98,7 +98,8 @@ function resolve_gen_macros(expr, __module__)
             line_num = e.args[2]
             Expr(:macrocall, macro_ref, line_num, args...)
         elseif (MacroTools.@capture(e, @m_(args__)) &&
-                m in DSL_MACROS && __module__ == @__MODULE__)
+                m in DSL_MACROS && isdefined(__module__, m) &&
+                getfield(__module__, m) == getfield(@__MODULE__, m))
             macro_ref = GlobalRef(@__MODULE__, m)
             line_num = e.args[2]
             Expr(:macrocall, macro_ref, line_num, args...)
