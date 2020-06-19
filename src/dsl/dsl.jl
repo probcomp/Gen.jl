@@ -135,9 +135,13 @@ function insert_quoted_exprs(expr, quoted_exprs)
 end
 
 function preprocess_body(expr, __module__)
+    # Protect quoted expressions from pre-processing by extracting them
     expr, quoted_exprs = extract_quoted_exprs(expr)
+    # Desugar tilde calls to globally referenced @trace calls
     expr = desugar_tildes(expr)
+    # Also resolve Gen macros to GlobalRefs for consistent downstream parsing 
     expr = resolve_gen_macros(expr, __module__)
+    # Reinsert quoted expressions after pre-processing
     expr = insert_quoted_exprs(expr, quoted_exprs)
     return expr
 end
