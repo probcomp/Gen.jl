@@ -108,9 +108,36 @@ function resolve_gen_macros(expr, __module__)
     end
 end
 
+function extract_quoted_exprs(expr)
+    quoted_exprs = []
+    expr = MacroTools.prewalk(expr) do e
+        if MacroTools.@capture(e, :(quoted_))
+            push!(quoted_exprs, e)
+            Expr(:placeholder, length(quoted_exprs))
+        else
+            e
+        end
+    end
+    return expr, quoted_exprs
+end
+
+function insert_quoted_exprs(expr, quoted_exprs)
+    expr = MacroTools.prewalk(expr) do e
+        if MacroTools.@capture(e, p_placeholder)
+            idx = p.args[1]
+            quoted_exprs[idx]
+        else
+            e
+        end
+    end
+    return expr
+end
+
 function preprocess_body(expr, __module__)
+    expr, quoted_exprs = extract_quoted_exprs(expr)
     expr = desugar_tildes(expr)
     expr = resolve_gen_macros(expr, __module__)
+    expr = insert_quoted_exprs(expr, quoted_exprs)
     return expr
 end
 
