@@ -206,10 +206,12 @@ end
 
 "Parse and rewrite expression if it matches an @trace call."
 function parse_and_rewrite_trace!(stmts, bindings, expr)
-    if MacroTools.@capture(expr, @m_(f_(xs__), addr_)) && m == STATIC_DSL_TRACE
+    if (MacroTools.@capture(expr, @m_(f_(xs__), addr_)) && isa(m, GlobalRef) &&
+        m.name == STATIC_DSL_TRACE && m.mod == @__MODULE__)
         # Parse "@trace(f(xs...), addr)" and return fresh variable
         parse_trace_expr!(stmts, bindings, f, xs, addr)
-    elseif MacroTools.@capture(expr, @m_(f_(xs__))) && m == STATIC_DSL_TRACE
+    elseif (MacroTools.@capture(expr, @m_(f_(xs__))) && isa(m, GlobalRef) &&
+            m.name == STATIC_DSL_TRACE && m.mod == @__MODULE__)
         # Throw error for @trace expression without address
         static_dsl_syntax_error(expr, "Address required.")
     else
@@ -223,12 +225,14 @@ function parse_static_dsl_line!(stmts, bindings, line)
     rewritten = MacroTools.postwalk(
         e -> parse_and_rewrite_trace!(stmts, bindings, e), line)
     # If line is a top-level @trace call, we are done
-    if MacroTools.@capture(line, @m_(f_(x__), a_)) && m == STATIC_DSL_TRACE
+    if (MacroTools.@capture(line, @m_(f_(x__), a_)) && isa(m, GlobalRef) &&
+        m.name == STATIC_DSL_TRACE && m.mod == @__MODULE__)
         return
     end
     # Match and parse any other top-level expressions
     line = rewritten
-    if MacroTools.@capture(line, @m_ expr_) && m == STATIC_DSL_PARAM
+    if (MacroTools.@capture(line, @m_(expr_)) && isa(m, GlobalRef) &&
+        m.name == STATIC_DSL_PARAM && m.mod == @__MODULE__)
         # Parse "@param var::T"
         parse_param_line!(stmts, bindings, expr)
     elseif MacroTools.@capture(line, lhs_ = rhs_)

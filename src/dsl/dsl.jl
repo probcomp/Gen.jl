@@ -5,6 +5,7 @@ const DSL_ARG_GRAD_ANNOTATION = :grad
 const DSL_RET_GRAD_ANNOTATION = :grad
 const DSL_TRACK_DIFFS_ANNOTATION = :diffs
 const DSL_NO_JULIA_CACHE_ANNOTATION = :nojuliacache
+const DSL_MACROS = Set([Symbol("@trace"), Symbol("@param")])
 
 struct Argument
     name::Symbol
@@ -71,21 +72,81 @@ function address_from_expression(lhs)
 end
 
 function desugar_tildes(expr)
+    trace_ref = GlobalRef(@__MODULE__, Symbol("@trace"))
+    line_num = LineNumberNode(1, :none)
     MacroTools.postwalk(expr) do e
+        # Replace with globally referenced macrocalls
         if MacroTools.@capture(e, {*} ~ rhs_)
-            :(@trace($rhs))
+            Expr(:macrocall, trace_ref, line_num, rhs)
         elseif MacroTools.@capture(e, {addr_} ~ rhs_)
-            :(@trace($rhs, $(addr)))
+            Expr(:macrocall, trace_ref, line_num, rhs, addr)
         elseif MacroTools.@capture(e, lhs_ ~ rhs_)
-            addr_expr = address_from_expression(lhs)
-            :($lhs = @trace($rhs, $(addr_expr)))
+            addr = address_from_expression(lhs)
+            Expr(:(=), lhs, Expr(:macrocall, trace_ref, line_num, rhs, addr))
         else
             e
         end
     end
 end
 
-function parse_gen_function(ast, annotations)
+function resolve_gen_macros(expr, __module__)
+    MacroTools.postwalk(expr) do e
+        # Resolve Gen macros to globally referenced macrocalls
+        if (MacroTools.@capture(e, @namespace_.m_(args__)) &&
+            m in DSL_MACROS && __module__.eval(namespace) == @__MODULE__)
+            macro_ref = GlobalRef(@__MODULE__, m)
+            line_num = e.args[2]
+            Expr(:macrocall, macro_ref, line_num, args...)
+        elseif (MacroTools.@capture(e, @m_(args__)) &&
+                m in DSL_MACROS && isdefined(__module__, m) &&
+                getfield(__module__, m) == getfield(@__MODULE__, m))
+            macro_ref = GlobalRef(@__MODULE__, m)
+            line_num = e.args[2]
+            Expr(:macrocall, macro_ref, line_num, args...)
+        else
+            e
+        end
+    end
+end
+
+function extract_quoted_exprs(expr)
+    quoted_exprs = []
+    expr = MacroTools.prewalk(expr) do e
+        if MacroTools.@capture(e, :(quoted_))
+            push!(quoted_exprs, e)
+            Expr(:placeholder, length(quoted_exprs))
+        else
+            e
+        end
+    end
+    return expr, quoted_exprs
+end
+
+function insert_quoted_exprs(expr, quoted_exprs)
+    expr = MacroTools.prewalk(expr) do e
+        if MacroTools.@capture(e, p_placeholder)
+            idx = p.args[1]
+            quoted_exprs[idx]
+        else
+            e
+        end
+    end
+    return expr
+end
+
+function preprocess_body(expr, __module__)
+    # Protect quoted expressions from pre-processing by extracting them
+    expr, quoted_exprs = extract_quoted_exprs(expr)
+    # Desugar tilde calls to globally referenced @trace calls
+    expr = desugar_tildes(expr)
+    # Also resolve Gen macros to GlobalRefs for consistent downstream parsing 
+    expr = resolve_gen_macros(expr, __module__)
+    # Reinsert quoted expressions after pre-processing
+    expr = insert_quoted_exprs(expr, quoted_exprs)
+    return expr
+end
+
+function parse_gen_function(ast, annotations, __module__)
     ast = MacroTools.longdef(ast)
     if ast.head != :function
         error("syntax error at $ast in $(ast.head)")
@@ -94,7 +155,6 @@ function parse_gen_function(ast, annotations)
         error("syntax error at $ast in $(ast.args)")
     end
     signature = ast.args[1]
-    body = desugar_tildes(ast.args[2])
     if signature.head == :(::)
         (call_signature, return_type) = signature.args
     elseif signature.head == :call
@@ -102,6 +162,7 @@ function parse_gen_function(ast, annotations)
     else
         error("syntax error at $(signature)")
     end
+    body = preprocess_body(ast.args[2], __module__)
     name = call_signature.args[1]
     args = map(parse_arg, call_signature.args[2:end])
     static = DSL_STATIC_ANNOTATION in annotations
@@ -112,15 +173,13 @@ function parse_gen_function(ast, annotations)
     end
 end
 
-macro gen(annotations_expr, ast)
-
+macro gen(annotations_expr, ast::Expr)
     # parse the annotations
     annotations = parse_annotations(annotations_expr)
-
     # parse the function definition
-    parse_gen_function(ast, annotations)
+    parse_gen_function(ast, annotations, __module__)
 end
 
-macro gen(ast)
-    parse_gen_function(ast, Set{Symbol}())
+macro gen(ast::Expr)
+    parse_gen_function(ast, Set{Symbol}(), __module__)
 end
