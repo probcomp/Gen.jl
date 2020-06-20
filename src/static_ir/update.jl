@@ -52,29 +52,39 @@ function process_forward!(::Type{<:Union{ChoiceMap, Selection}}, state::ForwardP
     end
 end
 
-function process_forward!(constraint_type::Type{<:Union{<:ChoiceMap, Selection}}, state::ForwardPassState,
+function cannot_statically_guarantee_nochange_retdiff(constraint_type, node, state)
+    update_fn = constraint_type <: ChoiceMap ? Gen.update : Gen.regenerate
+
+    trace_type = get_trace_type(node.generative_function)
+    argdiff_types = map(input_node -> input_node in state.value_changed ? UnknownChange : NoChange, node.inputs)
+    argdiff_type = Tuple{argdiff_types...}
+    # TODO: can we know the arg type statically?
+    update_rettype = Core.Compiler.return_type(
+        update_fn,
+        Tuple{trace_type, Tuple, argdiff_type, constraint_type}
+    )
+    has_static_retdiff = update_rettype <: Tuple && update_rettype != Union{} && length(update_rettype.parameters) > 3
+    guaranteed_returns_nochange = has_static_retdiff && update_rettype.parameters[3] == NoChange
+
+    return !guaranteed_returns_nochange
+end
+
+function process_forward!(constraint_type::Type{<:Union{<:ChoiceMap, <:Selection}}, state::ForwardPassState,
                           node::GenerativeFunctionCallNode)
     schema = get_address_schema(constraint_type)
+    will_run_update = false
     @assert isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema) || isa(schema, AllAddressSchema)
     if isa(schema, AllAddressSchema) || (isa(schema, StaticAddressSchema) && (node.addr in keys(schema)))
         push!(state.constrained_or_selected_calls, node)
-        push!(state.value_changed, node)
-        push!(state.discard_calls, node)
+        will_run_update = true
     end
     if any(input_node in state.value_changed for input_node in node.inputs)
         push!(state.input_changed, node)
+        will_run_update = true
+    end
+    if will_run_update
         push!(state.discard_calls, node)
-
-        ## check if we can statically guarantee that this generative function has a `NoChange` diff ##
-        update_fn = constraint_type <: ChoiceMap ? Gen.update : Gen.regenerate
-
-        trace_type = get_trace_type(node.generative_function)
-        update_rettype = Core.Compiler.return_type(
-            update_fn,
-            Tuple{trace_type, Tuple, Tuple, constraint_type}
-        )
-        guaranteed_returns_nochange =  update_rettype <: Tuple && update_rettype != Union{} && update_rettype.parameters[3] == NoChange
-        if !guaranteed_returns_nochange
+        if cannot_statically_guarantee_nochange_retdiff(constraint_type, node, state)
             push!(state.value_changed, node)
         end
     end
