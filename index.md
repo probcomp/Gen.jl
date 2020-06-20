@@ -1,7 +1,8 @@
 ---
 ---
 
-# Introduction
+# What is Gen?
+
 Probabilistic modeling and inference are core tools in diverse fields including statistics, machine learning, computer vision, cognitive science, robotics, natural language processing, and artificial intelligence.
 To meet the functional requirements of applications, practitioners use a broad range of modeling techniques and approximate inference algorithms.
 However, implementing inference algorithms is often difficult and error prone.
@@ -15,6 +16,67 @@ Gen's flexible modeling and inference programming capabilities unify symbolic, n
 
 Gen is a package for the [Julia](https://julialang.org/) programming language.
 Gen consists of multiple modeling languages that are implemented as DSLs in Julia and a Julia library for inference programming.
+
+# What can Gen be used for?
+
+<div class="row">
+  <div class="col-md-6">
+  <img class="image-fluid" src="assets/homepage_goals.png">
+  </div>
+  <div class="col-md-6">
+<p><b>Interpreting and predicting human behavior</b></p>
+Inferring the goals and predicting future trajectories of a human walking around a floor-plan from noisy locations measurements. A theory-of-mind generative model of the humans' motion posits an unbounded number of events. Inference is based on sequential Monte Carlo inference using rejuvenation MCMC moves based on a cycle of a custom reversible jump scheme, coarse-to-fine inference, and data-driven proposals.
+  </div>
+</div>
+
+<hr>
+
+<div class="row">
+  <div class="col-md-6">
+<b>Tracking the pose of a camera from depth data.</b>
+The pose of a depth camera is tracked via a neural network and a hybrid approach combining a neural network and model-based reasoning. The pure neural network inference algorithm is inaccurate on out-of-distribution data, while the hybrid inference algorithm remains accurate.
+  </div>
+  <div class="col-md-6">
+  <img class="image-fluid" src="assets/homepage_depth.png">
+  <img class="image-fluid" src="assets/homepage_pitch.png">
+  </div>
+</div>
+
+<hr>
+
+<div class="row">
+  <div class="col-md-6">
+  <img class="image-fluid" src="assets/homepage_synthesis.png">
+  </div>
+  <div class="col-md-6">
+<b>Program synthesis.</b>
+Given input-output examples, infer a program that maps inputs to outputs via Bayesian inference over the space of possible programs. The inference algorithm is based on sequential Monte Carlo.
+  </div>
+</div>
+
+<hr>
+
+<div class="row">
+  <div class="col-md-6">
+<b>Changepoint modeling of time series.</b>
+Reversible-jump MCMC inference in a piecewise-homogeneous poisson process model of coal mining disaster events, with an unknown number of changepoints.
+  </div>
+  <div class="col-md-6">
+  <img class="image-fluid" src="assets/homepage_changepoint.png">
+  </div>
+</div>
+
+<hr>
+
+<div class="row">
+  <div class="col-md-6">
+<b>GP structure learning.</b>
+Bayesian inference over a compositional space of Gaussian process covariance functions expressed in a domain-specific symbolic expression langugae.
+  </div>
+  <div class="col-md-6">
+  <img class="image-fluid" src="assets/homepage_gpstructure.png">
+  </div>
+</div>
 
 # Getting Started
 
