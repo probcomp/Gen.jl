@@ -197,9 +197,9 @@ end
     @test choices[(4, Val(:production)) => :rule] == 4
     @test choices[(4, Val(:aggregation)) => :prefix] == false
     @test discard[(3, Val(:aggregation)) => :prefix] == true
-    @test length(collect(get_submaps_shallow(discard))) == 1
+    @test length(collect(get_nonvalue_submaps_shallow(discard))) == 1
     @test length(collect(get_values_shallow(discard))) == 0
-    @test length(collect(get_submaps_shallow(get_submap(discard,(3, Val(:aggregation)))))) == 0
+    @test length(collect(get_nonvalue_submaps_shallow(get_submap(discard,(3, Val(:aggregation)))))) == 0
     @test length(collect(get_values_shallow(get_submap(discard,(3, Val(:aggregation)))))) == 1
     @test retdiff == UnknownChange()
 

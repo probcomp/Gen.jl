@@ -124,42 +124,33 @@ function visit!(visitor::AddressVisitor, addr)
     push!(visitor.visited, addr)
 end
 
+all_visited(::Selection, ::ValueChoiceMap) = false
+all_visited(::AllSelection, ::ValueChoiceMap) = true
 function all_visited(visited::Selection, choices::ChoiceMap)
-    allvisited = true
-    for (key, _) in get_values_shallow(choices)
-        allvisited = allvisited && (key in visited)
-    end
     for (key, submap) in get_submaps_shallow(choices)
-        if !(key in visited)
-            subvisited = visited[key]
-            allvisited = allvisited && all_visited(subvisited, submap)
+        if !all_visited(visited[key], submap)
+            return false
         end
     end
-    allvisited
+    return true
 end
 
+get_unvisited(::Selection, v::ValueChoiceMap) = v
+get_unvisited(::AllSelection, v::ValueChoiceMap) = EmptyChoiceMap()
 function get_unvisited(visited::Selection, choices::ChoiceMap)
     unvisited = choicemap()
-    for (key, _) in get_values_shallow(choices)
-        if !(key in visited)
-            set_value!(unvisited, key, get_value(choices, key))
-        end
-    end
     for (key, submap) in get_submaps_shallow(choices)
-        if !(key in visited)
-            subvisited = visited[key]
-            sub_unvisited = get_unvisited(subvisited, submap)
-            set_submap!(unvisited, key, sub_unvisited)
-        end
+        sub_unvisited = get_unvisited(visited[key], submap)
+        set_submap!(unvisited, key, sub_unvisited)
     end
     unvisited
 end
 
 get_visited(visitor) = visitor.visited
 
-function check_no_submap(constraints::ChoiceMap, addr)
+function check_is_empty(constraints::ChoiceMap, addr)
     if !isempty(get_submap(constraints, addr))
-        error("Expected a value at address $addr but found a sub-assignment")
+        error("Expected a value or EmptyChoiceMap at address $addr but found a sub-assignment")
     end
 end
 

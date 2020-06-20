@@ -20,7 +20,7 @@ function traceat(state::GFGenerateState, dist::Distribution{T},
 
     # check for constraints at this key
     constrained = has_value(state.constraints, key)
-    !constrained && check_no_submap(state.constraints, key)
+    !constrained && check_is_empty(state.constraints, key)
 
     # get return value
     if constrained

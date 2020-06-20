@@ -14,10 +14,7 @@ function get_submap(choices::CallAtChoiceMap{K,T}, addr::K) where {K,T}
 end
 
 get_submap(choices::CallAtChoiceMap, addr::Pair) = _get_submap(choices, addr)
-get_value(choices::CallAtChoiceMap, addr::Pair) = _get_value(choices, addr)
-has_value(choices::CallAtChoiceMap, addr::Pair) = _has_value(choices, addr)
 get_submaps_shallow(choices::CallAtChoiceMap) = ((choices.key, choices.submap),)
-get_values_shallow(::CallAtChoiceMap) = ()
 
 # TODO optimize CallAtTrace using type parameters
 
@@ -69,7 +66,7 @@ unpack_call_at_args(args) = (args[end], args[1:end-1])
 
 function assess(gen_fn::CallAtCombinator, args::Tuple, choices::ChoiceMap)
     (key, kernel_args) = unpack_call_at_args(args)
-    if length(get_submaps_shallow(choices)) > 1 || length(get_values_shallow(choices)) > 0
+    if length(get_submaps_shallow(choices)) > 1
         error("Not all constraints were consumed")
     end
     submap = get_submap(choices, key)

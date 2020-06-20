@@ -330,21 +330,22 @@ function generate_value_gradient_trie(selected_choices::Set{RandomChoiceNode},
                                       value_trie::Symbol, gradient_trie::Symbol)
     selected_choices_vec = collect(selected_choices)
     quoted_leaf_keys = map((node) -> QuoteNode(node.addr), selected_choices_vec)
-    leaf_values = map((node) -> :(trace.$(get_value_fieldname(node))), selected_choices_vec)
-    leaf_gradients = map((node) -> gradient_var(node), selected_choices_vec)
+    leaf_value_choicemaps = map((node) -> :(ValueChoiceMap(trace.$(get_value_fieldname(node)))), selected_choices_vec)
+    leaf_gradient_choicemaps = map((node) -> :(ValueChoiceMap($(gradient_var(node)))), selected_choices_vec)
 
     selected_calls_vec = collect(selected_calls)
     quoted_internal_keys = map((node) -> QuoteNode(node.addr), selected_calls_vec)
-    internal_values = map((node) -> :(get_choices(trace.$(get_subtrace_fieldname(node)))),
+    internal_value_choicemaps = map((node) -> :(get_choices(trace.$(get_subtrace_fieldname(node)))),
                           selected_calls_vec)
-    internal_gradients = map((node) -> gradient_trie_var(node), selected_calls_vec)
+    internal_gradient_choicemaps = map((node) -> gradient_trie_var(node), selected_calls_vec)
+
+    quoted_all_keys = Iterators.flatten((quoted_leaf_keys, quoted_internal_keys))
+    all_value_choicemaps = Iterators.flatten((leaf_value_choicemaps, internal_value_choicemaps))
+    all_gradient_choicemaps = Iterators.flatten((leaf_gradient_choicemaps, internal_gradient_choicemaps))
+
     quote
-        $value_trie = StaticChoiceMap(
-            NamedTuple{($(quoted_leaf_keys...),)}(($(leaf_values...),)),
-            NamedTuple{($(quoted_internal_keys...),)}(($(internal_values...),)))
-        $gradient_trie = StaticChoiceMap(
-            NamedTuple{($(quoted_leaf_keys...),)}(($(leaf_gradients...),)),
-            NamedTuple{($(quoted_internal_keys...),)}(($(internal_gradients...),)))
+        $value_trie = StaticChoiceMap(NamedTuple{($(quoted_all_keys...),)}(($(all_value_choicemaps...),)))
+        $gradient_trie = StaticChoiceMap(NamedTuple{($(quoted_all_keys...),)}(($(all_gradient_choicemaps...),)))
     end
 end
 

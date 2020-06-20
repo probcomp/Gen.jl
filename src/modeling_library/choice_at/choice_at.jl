@@ -25,10 +25,12 @@ function get_address_schema(::Type{T}) where {T<:ChoiceAtChoiceMap}
 end
 get_value(choices::ChoiceAtChoiceMap, addr::Pair) = _get_value(choices, addr)
 has_value(choices::ChoiceAtChoiceMap, addr::Pair) = _has_value(choices, addr)
+get_submap(choices::ChoiceAtChoiceMap, addr::Pair) = _get_submap(choices, addr)
 function get_value(choices::ChoiceAtChoiceMap{T,K}, addr::K) where {T,K}
     choices.key == addr ? choices.value : throw(KeyError(choices, addr))
 end
-get_submaps_shallow(choices::ChoiceAtChoiceMap) = ()
+get_submap(choices::ChoiceAtChoiceMap, addr) = addr == choices.key ? ValueChoiceMap(choices.value) : EmptyChoiceMap()
+get_submaps_shallow(choices::ChoiceAtChoiceMap) = ((choices.key, ValueChoiceMap(choices.value)),)
 get_values_shallow(choices::ChoiceAtChoiceMap) = ((choices.key, choices.value),)
 
 struct ChoiceAtCombinator{T,K} <: GenerativeFunction{T, ChoiceAtTrace}

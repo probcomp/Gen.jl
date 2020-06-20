@@ -119,9 +119,6 @@ struct DynamicDSLChoiceMap <: ChoiceMap
 end
 
 get_address_schema(::Type{DynamicDSLChoiceMap}) = DynamicAddressSchema()
-Base.isempty(::DynamicDSLChoiceMap) = false # TODO not necessarily true
-has_value(choices::DynamicDSLChoiceMap, addr::Pair) = _has_value(choices, addr)
-get_value(choices::DynamicDSLChoiceMap, addr::Pair) = _get_value(choices, addr)
 get_submap(choices::DynamicDSLChoiceMap, addr::Pair) = _get_submap(choices, addr)
 
 function get_submap(choices::DynamicDSLChoiceMap, addr)
@@ -130,9 +127,10 @@ function get_submap(choices::DynamicDSLChoiceMap, addr)
         # leaf node, must be a call
         call = trie[addr]
         if call.is_choice
-            throw(KeyError(addr))
+            ValueChoiceMap(call.subtrace_or_retval)
+        else
+            get_choices(call.subtrace_or_retval)
         end
-        get_choices(call.subtrace_or_retval)
     elseif has_internal_node(trie, addr)
         # internal node
         subtrie = get_internal_node(trie, addr)
@@ -142,32 +140,12 @@ function get_submap(choices::DynamicDSLChoiceMap, addr)
     end
 end
 
-function has_value(choices::DynamicDSLChoiceMap, addr)
-    trie = choices.trie
-    has_leaf_node(trie, addr) && trie[addr].is_choice
-end
-
-function get_value(choices::DynamicDSLChoiceMap, addr)
-    trie = choices.trie
-    choice = trie[addr]
-    if !choice.is_choice
-        throw(KeyError(addr))
-    end
-    choice.subtrace_or_retval
-end
-
-function get_values_shallow(choices::DynamicDSLChoiceMap)
-    ((key, choice.subtrace_or_retval)
-     for (key, choice) in get_leaf_nodes(choices.trie)
-     if choice.is_choice)
-end
-
 function get_submaps_shallow(choices::DynamicDSLChoiceMap)
-    calls_iter = ((key, get_choices(call.subtrace_or_retval))
+    calls_iter = (
+        (key, call.is_choice ? ValueChoiceMap(call.subtrace_or_retval) : get_choices(call.subtrace_or_retval))
         for (key, call) in get_leaf_nodes(choices.trie)
-        if !call.is_choice)
-    internal_nodes_iter = ((key, DynamicDSLChoiceMap(trie))
-        for (key, trie) in get_internal_nodes(choices.trie))
+    )
+    internal_nodes_iter = ((key, DynamicDSLChoiceMap(trie)) for (key, trie) in get_internal_nodes(choices.trie))
     Iterators.flatten((calls_iter, internal_nodes_iter))
 end
 
