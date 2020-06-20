@@ -26,7 +26,7 @@ First, [download Julia 1.0 or later](https://julialang.org/downloads/).
 The, install the Gen package with the Julia package manager.
 From the Julia REPL, type `]` to enter the Pkg REPL mode and then run:
 ```
-pkg> add https://github.com/probcomp/Gen
+pkg> add Gen
 ```
 ## Docker
 
