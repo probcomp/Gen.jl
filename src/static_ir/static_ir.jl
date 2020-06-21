@@ -51,7 +51,7 @@ function generate_generative_function(ir::StaticIR, name::Symbol, options::Stati
             params_grad::Dict{Symbol,Any}
             params::Dict{Symbol,Any}
         end
-        (gen_fn::$gen_fn_type_name)(args...) = propose(gen_fn, args)[3]
+        (gen_fn::$gen_fn_type_name)(args...) = $(Expr(:(.), Gen, QuoteNode(:propose)))(gen_fn, args)[3]
         $(Expr(:(.), Gen, QuoteNode(:get_ir)))(::Type{$gen_fn_type_name}) = $(QuoteNode(ir))
         $(Expr(:(.), Gen, QuoteNode(:get_trace_type)))(::Type{$gen_fn_type_name}) = $trace_struct_name
         $(Expr(:(.), Gen, QuoteNode(:has_argument_grads)))(::$gen_fn_type_name) = $(QuoteNode(has_argument_grads))
