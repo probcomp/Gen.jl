@@ -168,7 +168,7 @@ function generate_get_values_shallow(ir::StaticIR, trace_struct_name::Symbol)
         value = :(choices.trace.$(get_value_fieldname(node)))
         push!(elements, :(($(QuoteNode(addr)), $value)))
     end
-    Expr(:function, 
+    Expr(:function,
         Expr(:call, Expr(:(.), Gen, QuoteNode(:get_values_shallow)),
                     :(choices::$(QuoteNode(StaticIRTraceAssmt)){$trace_struct_name})),
         Expr(:block, Expr(:tuple, elements...)))
@@ -179,48 +179,48 @@ function generate_get_submaps_shallow(ir::StaticIR, trace_struct_name::Symbol)
     for node in ir.call_nodes
         addr = node.addr
         subtrace = :(choices.trace.$(get_subtrace_fieldname(node)))
-        push!(elements, :(($(QuoteNode(addr)), get_choices($subtrace))))
+        push!(elements, :(($(QuoteNode(addr)), $(Expr(:(.), Gen, QuoteNode(:get_choices)))($subtrace))))
     end
-    Expr(:function, 
+    Expr(:function,
         Expr(:call, Expr(:(.), Gen, QuoteNode(:get_submaps_shallow)),
                     :(choices::$(QuoteNode(StaticIRTraceAssmt)){$trace_struct_name})),
         Expr(:block, Expr(:tuple, elements...)))
 end
 
-function generate_getindex(ir::StaticIR, trace_struct_name::Symbol)       
+function generate_getindex(ir::StaticIR, trace_struct_name::Symbol)
     get_subtrace_exprs = Expr[]
     for node in ir.call_nodes
         push!(get_subtrace_exprs,
             quote
-                function Gen.static_get_subtrace(trace::$trace_struct_name, ::Val{$(QuoteNode(node.addr))})
+                function $(Expr(:(.), Gen, QuoteNode(:static_get_subtrace)))(trace::$trace_struct_name, ::Val{$(QuoteNode(node.addr))})
                     return trace.$(get_subtrace_fieldname(node))
                 end
             end
         )
     end
-    
+
     call_getindex_exprs = Expr[]
     for node in ir.call_nodes
         push!(call_getindex_exprs,
             quote
-                function Gen.static_getindex(trace::$trace_struct_name, ::Val{$(QuoteNode(node.addr))})
-                    return get_retval(trace.$(get_subtrace_fieldname(node)))
+                function $(Expr(:(.), Gen, QuoteNode(:static_getindex)))(trace::$trace_struct_name, ::Val{$(QuoteNode(node.addr))})
+                    return $(Expr(:(.), Gen, QuoteNode(:get_retval)))(trace.$(get_subtrace_fieldname(node)))
                 end
             end
         )
     end
-    
+
     choice_getindex_exprs = Expr[]
     for node in ir.choice_nodes
         push!(choice_getindex_exprs,
             quote
-                function Gen.static_getindex(trace::$trace_struct_name, ::Val{$(QuoteNode(node.addr))})
+                function $(Expr(:(.), Gen, QuoteNode(:static_getindex)))(trace::$trace_struct_name, ::Val{$(QuoteNode(node.addr))})
                     return trace.$(get_value_fieldname(node))
                 end
             end
         )
     end
-        
+
     return [get_subtrace_exprs; call_getindex_exprs; choice_getindex_exprs]
 end
 
@@ -256,7 +256,7 @@ function generate_static_get_submap(ir::StaticIR, trace_struct_name::Symbol)
                         :(choices::$(QuoteNode(StaticIRTraceAssmt)){$trace_struct_name}),
                         :(::Val{$(QuoteNode(node.addr))})),
             Expr(:block,
-                :(get_choices(choices.trace.$(get_subtrace_fieldname(node)))))))
+                :($(Expr(:(.), Gen, QuoteNode(:get_choices)))(choices.trace.$(get_subtrace_fieldname(node)))))))
     end
 
     # throw a KeyError if get_submap is run on an address containing a value
