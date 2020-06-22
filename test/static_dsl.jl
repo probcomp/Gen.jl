@@ -569,4 +569,26 @@ tr, w = generate(MyModuleB.foo, (0,), choicemap(:y => 1))
 
 end
 
+@testset "static gen function choicemaps" begin
+@gen (static) function bar2()
+    b ~ normal(0, 1)
+    return b
+end
+@gen (static) function bar1()
+    a ~ bar2()
+    x ~ normal(0, 1)
+    return x
+end
+Gen.load_generated_functions()
+tr = simulate(bar1, ())
+ch = get_choices(tr)
+@test has_value(ch, :x)
+@test !has_value(ch, :y)
+@test_throws KeyError get_submap(ch, :x)
+@test has_value(get_submap(ch, :a), :b)
+@test get_submap(ch, :y) == EmptyChoiceMap()
+@test length(get_values_shallow(ch)) == 1
+@test length(get_submaps_shallow(ch)) == 1
+end
+
 end # @testset "static DSL"

@@ -25,6 +25,7 @@ end
 @inline function get_submap(choices::StaticIRTraceAssmt, key::Symbol)
     static_get_submap(choices, Val(key))
 end
+static_get_submap(::StaticIRTraceAssmt, ::Val) = EmptyChoiceMap()
 
 @inline get_value(choices::StaticIRTraceAssmt, addr::Pair) = _get_value(choices, addr)
 @inline has_value(choices::StaticIRTraceAssmt, addr::Pair) = _has_value(choices, addr)
