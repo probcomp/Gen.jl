@@ -70,8 +70,8 @@ end
 println("Simple dynamic DSL MH on regression model:")
 (xs, ys) = make_data_set(200)
 do_inference(xs, ys, 10)
-@time do_inference(xs, ys, 50)
-@time do_inference(xs, ys, 50)
+@time do_inference(xs, ys, 20)
+@time do_inference(xs, ys, 20)
 println()
 
 end
