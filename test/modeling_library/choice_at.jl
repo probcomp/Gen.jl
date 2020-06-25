@@ -1,6 +1,6 @@
-@testset "choice_at combinator" begin
+@testset "call_at combinator on distribution" begin
 
-    at = choice_at(bernoulli, Int)
+    at = call_at(bernoulli, Int)
 
     @testset "assess" begin
         choices = choicemap()
@@ -143,7 +143,7 @@
         y = 1.2
         constraints = choicemap()
         set_value!(constraints, 3, y)
-        (trace, _) = generate(choice_at(normal, Int), (0.0, 1.0, 3), constraints)
+        (trace, _) = generate(call_at(normal, Int), (0.0, 1.0, 3), constraints)
 
         # not selected
         (input_grads, choices, gradients) = choice_gradients(

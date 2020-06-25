@@ -63,8 +63,10 @@ function cannot_statically_guarantee_nochange_retdiff(constraint_type, node, sta
         update_fn,
         Tuple{trace_type, Tuple, argdiff_type, constraint_type}
     )
-    has_static_retdiff = update_rettype <: Tuple && update_rettype != Union{} && length(update_rettype.parameters) > 3
+    has_static_retdiff = update_rettype <: Tuple && update_rettype != Union{} && length(update_rettype.parameters) >= 3
     guaranteed_returns_nochange = has_static_retdiff && update_rettype.parameters[3] == NoChange
+
+    # println("$trace_type, Tuple, $argdiff_type, $constraint_type >> $update_rettype : $has_static_retdiff")
 
     return !guaranteed_returns_nochange
 end

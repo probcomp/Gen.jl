@@ -51,10 +51,6 @@ end
 split_addr!(keys, addr_expr::QuoteNode) = push!(keys, addr_expr)
 split_addr!(keys, addr_expr::Symbol) = push!(keys, addr_expr)
 
-"Construct choice-at or call-at combinator depending on type."
-choice_or_call_at(gen_fn::GenerativeFunction, addr_typ) = call_at(gen_fn, addr_typ)
-choice_or_call_at(dist::Distribution, addr_typ) = choice_at(dist, addr_typ)
-
 "Generate informative node name for a Julia expression."
 gen_node_name(arg::Any) = gensym(string(arg))
 gen_node_name(arg::Expr) = gensym(arg.head)
@@ -78,12 +74,12 @@ function parse_trace_expr!(stmts, bindings, fn, args, addr)
     end
     addr = keys[1].value # Get top level address
     if length(keys) > 1
-        # For each nesting level, wrap gen_fn_or_dist within choice_at / call_at
+        # For each nesting level, wrap gen_fn_or_dist within call_at
         for key in keys[2:end]
             push!(stmts, :($(esc(gen_fn_or_dist)) =
-                choice_or_call_at($(esc(gen_fn_or_dist)), Any)))
+                call_at($(esc(gen_fn_or_dist)), Any)))
         end
-        # Append the nested addresses as arguments to choice_at / call_at
+        # Append the nested addresses as arguments to call_at
         args = [args; reverse(keys[2:end])]
     end
     # Handle arguments to the traced call

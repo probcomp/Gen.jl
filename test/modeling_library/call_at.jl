@@ -1,4 +1,4 @@
-@testset "call_at combinator" begin
+@testset "call_at combinator on non-distribution" begin
 
     @gen (grad) function foo((grad)(x::Float64))
         return x + @trace(normal(x, 1), :y)

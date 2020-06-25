@@ -40,13 +40,13 @@ end
     ret = @trace(bernoulli(0.5), :x => i)
 end
 
-# @trace(choice_at(bernoulli)(0.5, i), :x)
+# @trace(call_at(bernoulli)(0.5, i), :x)
 
 @gen (static) function at_choice_example_2(i::Int)
     ret = @trace(bernoulli(0.5), :x => i => :y)
 end
 
-# @trace(call_at(choice_at(bernoulli))(0.5, i, :y), :x)
+# @trace(call_at(call_at(bernoulli))(0.5, i, :y), :x)
 
 @gen function foo(mu)
     @trace(normal(mu, 1), :y)
@@ -255,8 +255,8 @@ ret = get_node_by_addr(ir, :x)
 @test isa(ret.inputs[1], Gen.JuliaNode) # () -> 0.5
 @test ret.inputs[2] === i
 at = ret.generative_function
-@test isa(at, Gen.ChoiceAtCombinator)
-@test at.dist == bernoulli
+@test isa(at, Gen.CallAtCombinator)
+@test at.kernel == bernoulli
 
 # at_choice_example_2
 ir = Gen.get_ir(typeof(at_choice_example_2))
@@ -271,8 +271,8 @@ ret = get_node_by_addr(ir, :x)
 at = ret.generative_function
 @test isa(at, Gen.CallAtCombinator)
 at2 = at.kernel
-@test isa(at2, Gen.ChoiceAtCombinator)
-@test at2.dist == bernoulli
+@test isa(at2, Gen.CallAtCombinator)
+@test at2.kernel == bernoulli
 end
 
 
