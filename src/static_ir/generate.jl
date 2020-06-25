@@ -29,12 +29,12 @@ function process!(state::StaticIRGenerateState, node::RandomChoiceNode, options)
     dist = QuoteNode(node.dist)
     @assert isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema)
     if isa(schema, StaticAddressSchema) && (node.addr in keys(schema))
-        push!(state.stmts, :($(node.name) = $qn_static_get_value(constraints, Val($addr))))
-        push!(state.stmts, :($incr = $qn_logpdf($dist, $(node.name), $(args...))))
+        push!(state.stmts, :($(node.name) = $(GlobalRef(Gen, :static_get_value))(constraints, Val($addr))))
+        push!(state.stmts, :($incr = $(GlobalRef(Gen, :logpdf))($dist, $(node.name), $(args...))))
         push!(state.stmts, :($weight += $incr))
     else
-        push!(state.stmts, :($(node.name) = $qn_random($dist, $(args...))))
-        push!(state.stmts, :($incr = $qn_logpdf($dist, $(node.name), $(args...))))
+        push!(state.stmts, :($(node.name) = $(GlobalRef(Gen, :random))($dist, $(args...))))
+        push!(state.stmts, :($incr = $(GlobalRef(Gen, :logpdf))($dist, $(node.name), $(args...))))
     end
     push!(state.stmts, :($(get_value_fieldname(node)) = $(node.name)))
     push!(state.stmts, :($(get_score_fieldname(node)) = $incr))
@@ -53,16 +53,16 @@ function process!(state::StaticIRGenerateState, node::GenerativeFunctionCallNode
     incr = gensym("weight")
     subconstraints = gensym("subconstraints")
     if isa(schema, StaticAddressSchema) && (node.addr in keys(schema))
-        push!(state.stmts, :($subconstraints = $qn_static_get_submap(constraints, Val($addr))))
-        push!(state.stmts, :(($subtrace, $incr) = $qn_generate($gen_fn, $args_tuple, $subconstraints)))
+        push!(state.stmts, :($subconstraints = $(GlobalRef(Gen, :static_get_submap))(constraints, Val($addr))))
+        push!(state.stmts, :(($subtrace, $incr) = $(GlobalRef(Gen, :generate))($gen_fn, $args_tuple, $subconstraints)))
     else
-        push!(state.stmts, :(($subtrace, $incr) = $qn_generate($gen_fn, $args_tuple, $qn_empty_choice_map)))
+        push!(state.stmts, :(($subtrace, $incr) = $(GlobalRef(Gen, :generate))($gen_fn, $args_tuple, $(GlobalRef(Gen, :EmptyChoiceMap))())))
     end
     push!(state.stmts, :($weight += $incr))
-    push!(state.stmts, :($num_nonempty_fieldname += !$qn_isempty($qn_get_choices($subtrace)) ? 1 : 0))
-    push!(state.stmts, :($(node.name) = $qn_get_retval($subtrace)))
-    push!(state.stmts, :($total_score_fieldname += $qn_get_score($subtrace)))
-    push!(state.stmts, :($total_noise_fieldname += $qn_project($subtrace, $qn_empty_selection)))
+    push!(state.stmts, :($num_nonempty_fieldname += !$(GlobalRef(Gen, :isempty))($(GlobalRef(Gen, :get_choices))($subtrace)) ? 1 : 0))
+    push!(state.stmts, :($(node.name) = $(GlobalRef(Gen, :get_retval))($subtrace)))
+    push!(state.stmts, :($total_score_fieldname += $(GlobalRef(Gen, :get_score))($subtrace)))
+    push!(state.stmts, :($total_noise_fieldname += $(GlobalRef(Gen, :project))($subtrace, $(GlobalRef(Gen, :EmptySelection))())))
 end
 
 function codegen_generate(gen_fn_type::Type{T}, args,
@@ -72,7 +72,7 @@ function codegen_generate(gen_fn_type::Type{T}, args,
 
     # convert the constraints to a static assignment if it is not already one
     if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
-        return quote $qn_generate(gen_fn, args, $(QuoteNode(StaticChoiceMap))(constraints)) end
+        return quote $(GlobalRef(Gen, :generate))(gen_fn, args, $(QuoteNode(StaticChoiceMap))(constraints)) end
     end
 
     ir = get_ir(gen_fn_type)
@@ -109,7 +109,7 @@ function codegen_generate(gen_fn_type::Type{T}, args,
 end
 
 push!(generated_functions, quote
-@generated function $(Expr(:(.), Gen, QuoteNode(:generate)))(gen_fn::$(QuoteNode(StaticIRGenerativeFunction)),
+@generated function $(GlobalRef(Gen, :generate))(gen_fn::$(QuoteNode(StaticIRGenerativeFunction)),
                                    args::$(QuoteNode(Tuple)), constraints::$(QuoteNode(ChoiceMap)))
     $(QuoteNode(codegen_generate))(gen_fn, args, constraints)
 end

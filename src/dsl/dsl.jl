@@ -112,7 +112,7 @@ end
 function extract_quoted_exprs(expr)
     quoted_exprs = []
     expr = MacroTools.prewalk(expr) do e
-        if MacroTools.@capture(e, :(quoted_))
+        if MacroTools.@capture(e, :(quoted_)) && !isa(quoted, Symbol)
             push!(quoted_exprs, e)
             Expr(:placeholder, length(quoted_exprs))
         else

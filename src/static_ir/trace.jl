@@ -136,7 +136,7 @@ end
 
 function generate_get_score(trace_struct_name::Symbol)
     Expr(:function,
-        Expr(:call, Expr(:(.), Gen, QuoteNode(:get_score)), :(trace::$trace_struct_name)),
+        Expr(:call, GlobalRef(Gen, :get_score), :(trace::$trace_struct_name)),
         Expr(:block, :(trace.$total_score_fieldname)))
 end
 
@@ -144,19 +144,19 @@ function generate_get_args(ir::StaticIR, trace_struct_name::Symbol)
     args = Expr(:tuple, [:(trace.$(get_value_fieldname(node)))
                          for node in ir.arg_nodes]...)
     Expr(:function,
-        Expr(:call, Expr(:(.), Gen, QuoteNode(:get_args)), :(trace::$trace_struct_name)),
+        Expr(:call, GlobalRef(Gen, :get_args), :(trace::$trace_struct_name)),
         Expr(:block, args))
 end
 
 function generate_get_retval(ir::StaticIR, trace_struct_name::Symbol)
     Expr(:function,
-        Expr(:call, Expr(:(.), Gen, QuoteNode(:get_retval)), :(trace::$trace_struct_name)),
+        Expr(:call, GlobalRef(Gen, :get_retval), :(trace::$trace_struct_name)),
         Expr(:block, :(trace.$return_value_fieldname)))
 end
 
 function generate_get_choices(trace_struct_name::Symbol)
     Expr(:function,
-        Expr(:call, Expr(:(.), Gen, QuoteNode(:get_choices)), :(trace::$trace_struct_name)),
+        Expr(:call, GlobalRef(Gen, :get_choices), :(trace::$trace_struct_name)),
         Expr(:if, :(!isempty(trace)),
             :($(QuoteNode(StaticIRTraceAssmt))(trace)),
             :($(QuoteNode(EmptyChoiceMap))())))
@@ -169,8 +169,8 @@ function generate_get_values_shallow(ir::StaticIR, trace_struct_name::Symbol)
         value = :(choices.trace.$(get_value_fieldname(node)))
         push!(elements, :(($(QuoteNode(addr)), $value)))
     end
-    Expr(:function, 
-        Expr(:call, Expr(:(.), Gen, QuoteNode(:get_values_shallow)),
+    Expr(:function,
+        Expr(:call, GlobalRef(Gen, :get_values_shallow),
                     :(choices::$(QuoteNode(StaticIRTraceAssmt)){$trace_struct_name})),
         Expr(:block, Expr(:tuple, elements...)))
 end
@@ -180,48 +180,48 @@ function generate_get_submaps_shallow(ir::StaticIR, trace_struct_name::Symbol)
     for node in ir.call_nodes
         addr = node.addr
         subtrace = :(choices.trace.$(get_subtrace_fieldname(node)))
-        push!(elements, :(($(QuoteNode(addr)), get_choices($subtrace))))
+        push!(elements, :(($(QuoteNode(addr)), $(GlobalRef(Gen, :get_choices))($subtrace))))
     end
-    Expr(:function, 
-        Expr(:call, Expr(:(.), Gen, QuoteNode(:get_submaps_shallow)),
+    Expr(:function,
+        Expr(:call, GlobalRef(Gen, :get_submaps_shallow),
                     :(choices::$(QuoteNode(StaticIRTraceAssmt)){$trace_struct_name})),
         Expr(:block, Expr(:tuple, elements...)))
 end
 
-function generate_getindex(ir::StaticIR, trace_struct_name::Symbol)       
+function generate_getindex(ir::StaticIR, trace_struct_name::Symbol)
     get_subtrace_exprs = Expr[]
     for node in ir.call_nodes
         push!(get_subtrace_exprs,
             quote
-                function Gen.static_get_subtrace(trace::$trace_struct_name, ::Val{$(QuoteNode(node.addr))})
+                function $(GlobalRef(Gen, :static_get_subtrace))(trace::$trace_struct_name, ::Val{$(QuoteNode(node.addr))})
                     return trace.$(get_subtrace_fieldname(node))
                 end
             end
         )
     end
-    
+
     call_getindex_exprs = Expr[]
     for node in ir.call_nodes
         push!(call_getindex_exprs,
             quote
-                function Gen.static_getindex(trace::$trace_struct_name, ::Val{$(QuoteNode(node.addr))})
-                    return get_retval(trace.$(get_subtrace_fieldname(node)))
+                function $(GlobalRef(Gen, :static_getindex))(trace::$trace_struct_name, ::Val{$(QuoteNode(node.addr))})
+                    return $(GlobalRef(Gen, :get_retval))(trace.$(get_subtrace_fieldname(node)))
                 end
             end
         )
     end
-    
+
     choice_getindex_exprs = Expr[]
     for node in ir.choice_nodes
         push!(choice_getindex_exprs,
             quote
-                function Gen.static_getindex(trace::$trace_struct_name, ::Val{$(QuoteNode(node.addr))})
+                function $(GlobalRef(Gen, :static_getindex))(trace::$trace_struct_name, ::Val{$(QuoteNode(node.addr))})
                     return trace.$(get_value_fieldname(node))
                 end
             end
         )
     end
-        
+
     return [get_subtrace_exprs; call_getindex_exprs; choice_getindex_exprs]
 end
 
@@ -229,7 +229,7 @@ function generate_static_get_value(ir::StaticIR, trace_struct_name::Symbol)
     methods = Expr[]
     for node in ir.choice_nodes
         push!(methods, Expr(:function,
-            Expr(:call, Expr(:(.), Gen, QuoteNode(:static_get_value)),
+            Expr(:call, GlobalRef(Gen, :static_get_value),
                         :(choices::$(QuoteNode(StaticIRTraceAssmt)){$trace_struct_name}),
                         :(::Val{$(QuoteNode(node.addr))})),
             Expr(:block, :(choices.trace.$(get_value_fieldname(node))))))
@@ -241,7 +241,7 @@ function generate_static_has_value(ir::StaticIR, trace_struct_name::Symbol)
     methods = Expr[]
     for node in ir.choice_nodes
         push!(methods, Expr(:function,
-            Expr(:call, Expr(:(.), Gen, QuoteNode(:static_has_value)),
+            Expr(:call, GlobalRef(Gen, :static_has_value),
                         :(choices::$(QuoteNode(StaticIRTraceAssmt)){$trace_struct_name}),
                         :(::Val{$(QuoteNode(node.addr))})),
             Expr(:block, :(true))))
@@ -253,17 +253,17 @@ function generate_static_get_submap(ir::StaticIR, trace_struct_name::Symbol)
     methods = Expr[]
     for node in ir.call_nodes
         push!(methods, Expr(:function,
-            Expr(:call, Expr(:(.), Gen, QuoteNode(:static_get_submap)),
+            Expr(:call, GlobalRef(Gen, :static_get_submap),
                         :(choices::$(QuoteNode(StaticIRTraceAssmt)){$trace_struct_name}),
                         :(::Val{$(QuoteNode(node.addr))})),
             Expr(:block,
-                :(get_choices(choices.trace.$(get_subtrace_fieldname(node)))))))
+                :($(GlobalRef(Gen, :get_choices))(choices.trace.$(get_subtrace_fieldname(node)))))))
     end
 
     # throw a KeyError if get_submap is run on an address containing a value
     for node in ir.choice_nodes
          push!(methods, Expr(:function,
-            Expr(:call, Expr(:(.), Gen, QuoteNode(:static_get_submap)),
+            Expr(:call, GlobalRef(Gen, :static_get_submap),
                         :(choices::$(QuoteNode(StaticIRTraceAssmt)){$trace_struct_name}),
                         :(::Val{$(QuoteNode(node.addr))})),
             Expr(:block, :(throw(KeyError($(QuoteNode(node.addr))))))))
@@ -276,7 +276,7 @@ function generate_get_schema(ir::StaticIR, trace_struct_name::Symbol)
     call_addrs = [QuoteNode(node.addr) for node in ir.call_nodes]
     addrs = vcat(choice_addrs, call_addrs)
     Expr(:function,
-        Expr(:call, Expr(:(.), Gen, QuoteNode(:get_schema)), :(::Type{$trace_struct_name})),
+        Expr(:call, GlobalRef(Gen, :get_schema), :(::Type{$trace_struct_name})),
         Expr(:block,
             :($(QuoteNode(StaticAddressSchema))(
                 Set{Symbol}([$(addrs...)])))))
