@@ -17,7 +17,15 @@ end
 
 @inline get_submaps_shallow(choices::StaticChoiceMap) = pairs(choices.submaps)
 @inline get_submap(choices::StaticChoiceMap, addr::Pair) = _get_submap(choices, addr)
-@inline get_submap(choices::StaticChoiceMap, addr::Symbol) = static_get_submap(choices, Val(addr))
+
+# TODO: would it be faster to do static_get_submap?
+function get_submap(choices::StaticChoiceMap{Addrs, SubmapTypes}, addr::Symbol) where {Addrs, SubmapTypes}
+    if addr in Addrs
+        choices.submaps[addr]
+    else
+        EmptyChoiceMap()
+    end
+end
 
 @generated function static_get_submap(choices::StaticChoiceMap{Addrs, SubmapTypes}, ::Val{A}) where {A, Addrs, SubmapTypes}
     if A in Addrs
