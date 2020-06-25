@@ -16,7 +16,7 @@ abstract type Distribution{T} <: GenerativeFunction{T, DistributionTrace{T}} end
 @inline get_trace_type(::Dist) where {T, Dist <: Distribution{T}} = DistributionTrace{T, Dist}
 
 function Base.convert(::Type{DistributionTrace{U, <:Any}}, tr::DistributionTrace{<:Any, Dist}) where {U, Dist}
-    DistributionTrace{U, Dist}(convert(U, tr.val), tr.args, dist(tr))
+    DistributionTrace(convert(U, tr.val), tr.args, dist(tr))
 end
 
 """
