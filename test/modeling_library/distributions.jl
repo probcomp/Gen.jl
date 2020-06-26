@@ -1,7 +1,6 @@
 import DataStructures: OrderedDict
 
 @testset "bernoulli" begin
-
     # random
     x = bernoulli(0.5)
 
@@ -85,10 +84,8 @@ end
 end
 
 @testset "normal" begin
-
     # random
     x = normal(0, 1)
-
     # logpdf_grad
     f = (x, mu, std) -> logpdf(normal, x, mu, std)
     args = (0.4, 0.2, 0.3)
@@ -134,7 +131,6 @@ end
 end
 
 @testset "broadcasted normal" begin
-
     ## Return shape of `broadcasted_normal`
     @test size(broadcasted_normal([0. 0. 0.], 1.)) == (1, 3)
     @test size(broadcasted_normal(zeros(1, 3, 4), ones(2, 1, 4))) == (2, 3, 4)
@@ -367,4 +363,32 @@ end
     @test isapprox(actual[1], finite_diff(f, args, 1, dx))
     @test isapprox(actual[2], finite_diff(f, args, 2, dx))
     @test isapprox(actual[3], finite_diff(f, args, 3, dx))
+end
+
+
+@testset "dirichlet" begin
+    # random
+    alpha = [2.0, 2.0, 2.0]
+    x = dirichlet(alpha)
+    f = (x, alpha) -> logpdf(dirichlet, x, alpha)
+    # args = (x, alpha) where x has to be simplex
+    args = ([0.05,0.25,0.7], alpha)
+    actual = logpdf_grad(dirichlet, args...) # gradient wrt x, then alpha1 ... alphak
+    @test isapprox(actual[2], finite_diff_vec(f, args, 2, 1, dx), rtol=1e-6)
+    @test isapprox(actual[3], finite_diff_vec(f, args, 2, 2, dx), rtol=1e-6)
+    @test isapprox(actual[4], finite_diff_vec(f, args, 2, 3, dx), rtol=1e-6)
+
+    x = dirichlet(alpha)
+    args = (x, alpha)
+    actual = logpdf_grad(dirichlet, args...) # gradient wrt x, then alpha1 ... alphak
+    @test isapprox(actual[2], finite_diff_vec(f, args, 2, 1, dx), rtol=1e-6)
+    @test isapprox(actual[3], finite_diff_vec(f, args, 2, 2, dx), rtol=1e-6)
+    @test isapprox(actual[4], finite_diff_vec(f, args, 2, 3, dx), rtol=1e-6)
+
+    x = dirichlet(alpha)
+    args = (x, alpha)
+    actual = logpdf_grad(dirichlet, args...) # gradient wrt x, then alpha1 ... alphak
+    @test isapprox(actual[2], finite_diff_vec(f, args, 2, 1, dx), rtol=1e-6)
+    @test isapprox(actual[3], finite_diff_vec(f, args, 2, 2, dx), rtol=1e-6)
+    @test isapprox(actual[4], finite_diff_vec(f, args, 2, 3, dx), rtol=1e-6)
 end

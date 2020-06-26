@@ -19,6 +19,7 @@ beta
 beta_uniform
 binom
 categorical
+dirichlet
 exponential
 gamma
 geometric

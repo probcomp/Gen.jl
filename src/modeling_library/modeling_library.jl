@@ -53,11 +53,11 @@ export logpdf_grad
 export has_output_grad
 export is_discrete
 
-# built-in distributions
 include("distributions/distributions.jl")
 
 # @dist DSL
 include("dist_dsl/dist_dsl.jl")
+
 
 ###############
 # combinators #
