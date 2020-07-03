@@ -99,7 +99,7 @@ end
 # this pass is used to determine which JuliaNodes need to be re-run (their
 # return value is not currently cached in the trace)
 
-struct BackwardPassState 
+struct BackwardPassState
     marked::Set{StaticIRNode}
 end
 
@@ -136,8 +136,8 @@ end
 ########################
 
 function arg_values_and_diffs_from_tracked_diffs(input_nodes)
-    arg_values = map((node) -> Expr(:call, qn_strip_diff, node.name), input_nodes)
-    arg_diffs = map((node) -> Expr(:call, qn_get_diff, node.name), input_nodes)
+    arg_values = map((node) -> Expr(:call, (GlobalRef(Gen, :strip_diff)), node.name), input_nodes)
+    arg_diffs = map((node) -> Expr(:call, (GlobalRef(Gen, :get_diff)), node.name), input_nodes)
     (arg_values, arg_diffs)
 end
 
@@ -151,7 +151,7 @@ end
 function process_codegen!(stmts, ::ForwardPassState, ::BackwardPassState,
                           node::ArgumentNode, ::AbstractUpdateMode, options)
     if options.track_diffs
-        push!(stmts, :($(get_value_fieldname(node)) = $qn_strip_diff($(node.name))))
+        push!(stmts, :($(get_value_fieldname(node)) = $(GlobalRef(Gen, :strip_diff))($(node.name))))
     else
         push!(stmts, :($(get_value_fieldname(node)) = $(node.name)))
     end
@@ -166,13 +166,13 @@ function process_codegen!(stmts, fwd::ForwardPassState, back::BackwardPassState,
         # track diffs
         if run_it
             arg_values, arg_diffs = arg_values_and_diffs_from_tracked_diffs(node.inputs)
-            args = map((v, d) -> Expr(:call, qn_Diffed, v, d), arg_values, arg_diffs)
+            args = map((v, d) -> Expr(:call, (GlobalRef(Gen, :Diffed)), v, d), arg_values, arg_diffs)
             push!(stmts, :($(node.name) = $(QuoteNode(node.fn))($(args...))))
         elseif options.cache_julia_nodes
-            push!(stmts, :($(node.name) = $qn_Diffed(trace.$(get_value_fieldname(node)), $qn_no_change)))
+            push!(stmts, :($(node.name) = $(GlobalRef(Gen, :Diffed))(trace.$(get_value_fieldname(node)), $(GlobalRef(Gen, :NoChange))())))
         end
         if options.cache_julia_nodes
-            push!(stmts, :($(get_value_fieldname(node)) = $qn_strip_diff($(node.name))))
+            push!(stmts, :($(get_value_fieldname(node)) = $(GlobalRef(Gen, :strip_diff))($(node.name))))
         end
     else
 
@@ -206,30 +206,30 @@ function process_codegen!(stmts, fwd::ForwardPassState, back::BackwardPassState,
     call_constraints = gensym("call_constraints")
     if node in fwd.constrained_or_selected_calls || node in fwd.input_changed
         if node in fwd.constrained_or_selected_calls
-            push!(stmts, :($call_constraints = $qn_static_get_submap(constraints, Val($addr))))
+            push!(stmts, :($call_constraints = $(GlobalRef(Gen, :static_get_submap))(constraints, Val($addr))))
         else
-            push!(stmts, :($call_constraints = $qn_empty_choice_map))
+            push!(stmts, :($call_constraints = $(GlobalRef(Gen, :EmptyChoiceMap))()))
         end
-        push!(stmts, :(($subtrace, $call_weight, $(calldiff_var(node)), $(call_discard_var(node))) = 
-            $qn_update($prev_subtrace, $(Expr(:tuple, arg_values...)), $(Expr(:tuple, arg_diffs...)), $call_constraints)))
+        push!(stmts, :(($subtrace, $call_weight, $(calldiff_var(node)), $(call_discard_var(node))) =
+            $(GlobalRef(Gen, :update))($prev_subtrace, $(Expr(:tuple, arg_values...)), $(Expr(:tuple, arg_diffs...)), $call_constraints)))
         push!(stmts, :($weight += $call_weight))
-        push!(stmts, :($total_score_fieldname += $qn_get_score($subtrace) - $qn_get_score($prev_subtrace)))
-        push!(stmts, :($total_noise_fieldname += $qn_project($subtrace, $qn_empty_selection) - $qn_project($prev_subtrace, $qn_empty_selection)))
-        push!(stmts, :(if !$qn_isempty($qn_get_choices($subtrace)) && $qn_isempty($qn_get_choices($prev_subtrace))
+        push!(stmts, :($total_score_fieldname += $(GlobalRef(Gen, :get_score))($subtrace) - $(GlobalRef(Gen, :get_score))($prev_subtrace)))
+        push!(stmts, :($total_noise_fieldname += $(GlobalRef(Gen, :project))($subtrace, $(GlobalRef(Gen, :EmptySelection))()) - $(GlobalRef(Gen, :project))($prev_subtrace, $(GlobalRef(Gen, :EmptySelection))())))
+        push!(stmts, :(if !$(GlobalRef(Gen, :isempty))($(GlobalRef(Gen, :get_choices))($subtrace)) && $(GlobalRef(Gen, :isempty))($(GlobalRef(Gen, :get_choices))($prev_subtrace))
                             $num_nonempty_fieldname += 1 end))
-        push!(stmts, :(if $qn_isempty($qn_get_choices($subtrace)) && !$qn_isempty($qn_get_choices($prev_subtrace))
+        push!(stmts, :(if $(GlobalRef(Gen, :isempty))($(GlobalRef(Gen, :get_choices))($subtrace)) && !$(GlobalRef(Gen, :isempty))($(GlobalRef(Gen, :get_choices))($prev_subtrace))
                             $num_nonempty_fieldname -= 1 end))
         if options.track_diffs
-            push!(stmts, :($(node.name) = $qn_Diffed($qn_get_retval($subtrace), $(calldiff_var(node)))))
+            push!(stmts, :($(node.name) = $(GlobalRef(Gen, :Diffed))($(GlobalRef(Gen, :get_retval))($subtrace), $(calldiff_var(node)))))
         else
-            push!(stmts, :($(node.name) = $qn_get_retval($subtrace)))
+            push!(stmts, :($(node.name) = $(GlobalRef(Gen, :get_retval))($subtrace)))
         end
     else
         push!(stmts, :($subtrace = $prev_subtrace))
         if options.track_diffs
-            push!(stmts, :($(node.name) = $qn_Diffed($qn_get_retval($subtrace), $(QuoteNode(NoChange())))))
+            push!(stmts, :($(node.name) = $(GlobalRef(Gen, :Diffed))($(GlobalRef(Gen, :get_retval))($subtrace), $(QuoteNode(NoChange())))))
         else
-            push!(stmts, :($(node.name) = $qn_get_retval($subtrace)))
+            push!(stmts, :($(node.name) = $(GlobalRef(Gen, :get_retval))($subtrace)))
         end
     end
 end
@@ -251,30 +251,30 @@ function process_codegen!(stmts, fwd::ForwardPassState, back::BackwardPassState,
     call_subselection = gensym("call_subselection")
     if node in fwd.constrained_or_selected_calls || node in fwd.input_changed
         if node in fwd.constrained_or_selected_calls
-            push!(stmts, :($call_subselection = $qn_static_getindex(selection, Val($addr))))
+            push!(stmts, :($call_subselection = $(GlobalRef(Gen, :static_getindex))(selection, Val($addr))))
         else
-            push!(stmts, :($call_subselection = $qn_empty_selection))
+            push!(stmts, :($call_subselection = $(GlobalRef(Gen, :EmptySelection))()))
         end
-        push!(stmts, :(($subtrace, $call_weight, $(calldiff_var(node))) = 
-            $qn_regenerate($prev_subtrace, $(Expr(:tuple, arg_values...)), $(Expr(:tuple, arg_diffs...)), $call_subselection)))
+        push!(stmts, :(($subtrace, $call_weight, $(calldiff_var(node))) =
+            $(GlobalRef(Gen, :regenerate))($prev_subtrace, $(Expr(:tuple, arg_values...)), $(Expr(:tuple, arg_diffs...)), $call_subselection)))
         push!(stmts, :($weight += $call_weight))
-        push!(stmts, :($total_score_fieldname += $qn_get_score($subtrace) - $qn_get_score($prev_subtrace)))
-        push!(stmts, :($total_noise_fieldname += $qn_project($subtrace, $qn_empty_selection) - $qn_project($prev_subtrace, $qn_empty_selection)))
-        push!(stmts, :(if !$qn_isempty($qn_get_choices($subtrace)) && !$qn_isempty($qn_get_choices($prev_subtrace))
+        push!(stmts, :($total_score_fieldname += $(GlobalRef(Gen, :get_score))($subtrace) - $(GlobalRef(Gen, :get_score))($prev_subtrace)))
+        push!(stmts, :($total_noise_fieldname += $(GlobalRef(Gen, :project))($subtrace, $(GlobalRef(Gen, :EmptySelection))()) - $(GlobalRef(Gen, :project))($prev_subtrace, $(GlobalRef(Gen, :EmptySelection))())))
+        push!(stmts, :(if !$(GlobalRef(Gen, :isempty))($(GlobalRef(Gen, :get_choices))($subtrace)) && !$(GlobalRef(Gen, :isempty))($(GlobalRef(Gen, :get_choices))($prev_subtrace))
                             $num_nonempty_fieldname += 1 end))
-        push!(stmts, :(if $qn_isempty($qn_get_choices($subtrace)) && !$qn_isempty($qn_get_choices($prev_subtrace))
+        push!(stmts, :(if $(GlobalRef(Gen, :isempty))($(GlobalRef(Gen, :get_choices))($subtrace)) && !$(GlobalRef(Gen, :isempty))($(GlobalRef(Gen, :get_choices))($prev_subtrace))
                             $num_nonempty_fieldname -= 1 end))
         if options.track_diffs
-            push!(stmts, :($(node.name) = $qn_Diffed($qn_get_retval($subtrace), $(calldiff_var(node)))))
+            push!(stmts, :($(node.name) = $(GlobalRef(Gen, :Diffed))($(GlobalRef(Gen, :get_retval))($subtrace), $(calldiff_var(node)))))
         else
-            push!(stmts, :($(node.name) = $qn_get_retval($subtrace)))
+            push!(stmts, :($(node.name) = $(GlobalRef(Gen, :get_retval))($subtrace)))
         end
     else
         push!(stmts, :($subtrace = $prev_subtrace))
         if options.track_diffs
-            push!(stmts, :($(node.name) = $qn_Diffed($qn_get_retval($subtrace), $qn_no_change)))
+            push!(stmts, :($(node.name) = $(GlobalRef(Gen, :Diffed))($(GlobalRef(Gen, :get_retval))($subtrace), $(GlobalRef(Gen, :NoChange))())))
         else
-            push!(stmts, :($(node.name) = $qn_get_retval($subtrace)))
+            push!(stmts, :($(node.name) = $(GlobalRef(Gen, :get_retval))($subtrace)))
         end
     end
 end
@@ -289,7 +289,7 @@ end
 function unpack_arguments!(stmts::Vector{Expr}, arg_nodes::Vector{ArgumentNode}, options)
     if options.track_diffs
         arg_names = Symbol[arg_node.name for arg_node in arg_nodes]
-        push!(stmts, :($(Expr(:tuple, arg_names...)) = $(QuoteNode(map))($qn_Diffed, args, argdiffs)))
+        push!(stmts, :($(Expr(:tuple, arg_names...)) = $(QuoteNode(map))($(GlobalRef(Gen, :Diffed)), args, argdiffs)))
     else
         arg_names = Symbol[arg_node.name for arg_node in arg_nodes]
         push!(stmts, :($(Expr(:tuple, arg_names...)) = args))
@@ -298,8 +298,8 @@ end
 
 function generate_return_value!(stmts::Vector{Expr}, fwd::ForwardPassState, return_node::StaticIRNode, options)
     if options.track_diffs
-        push!(stmts, :($return_value_fieldname = $qn_strip_diff($(return_node.name))))
-        push!(stmts, :($retdiff = $qn_get_diff($(return_node.name))))
+        push!(stmts, :($return_value_fieldname = $(GlobalRef(Gen, :strip_diff))($(return_node.name))))
+        push!(stmts, :($retdiff = $(GlobalRef(Gen, :get_diff))($(return_node.name))))
     else
         push!(stmts, :($return_value_fieldname = $(return_node.name)))
         push!(stmts, :($retdiff = $(QuoteNode(return_node in fwd.value_changed ? UnknownChange() : NoChange()))))
@@ -309,7 +309,7 @@ end
 function generate_new_trace!(stmts::Vector{Expr}, trace_type::Type, options)
     if options.track_diffs
         # note that the generative function is the last field
-        constructor_args = map((name) -> Expr(:call, QuoteNode(strip_diff), name), 
+        constructor_args = map((name) -> Expr(:call, QuoteNode(strip_diff), name),
                             fieldnames(trace_type)[1:end-1])
         push!(stmts, :($trace = $(QuoteNode(trace_type))($(constructor_args...),
                         $(Expr(:(.), :trace, QuoteNode(static_ir_gen_fn_ref))))))
@@ -347,7 +347,7 @@ function codegen_update(trace_type::Type{T}, args_type::Type, argdiffs_type::Typ
 
     # convert the constraints to a static assignment if it is not already one
     if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
-        return quote $qn_update(trace, args, argdiffs, $(QuoteNode(StaticChoiceMap))(constraints)) end
+        return quote $(GlobalRef(Gen, :update))(trace, args, argdiffs, $(QuoteNode(StaticChoiceMap))(constraints)) end
     end
 
     ir = get_ir(gen_fn_type)
@@ -395,7 +395,7 @@ function codegen_regenerate(trace_type::Type{T}, args_type::Type, argdiffs_type:
 
     # convert a hierarchical selection to a static selection if it is not alreay one
     if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema) || isa(schema, AllAddressSchema))
-        return quote $qn_regenerate(trace, args, argdiffs, $(QuoteNode(StaticSelection))(selection)) end
+        return quote $(GlobalRef(Gen, :regenerate))(trace, args, argdiffs, $(QuoteNode(StaticSelection))(selection)) end
     end
 
     ir = get_ir(gen_fn_type)
@@ -433,14 +433,14 @@ end
 
 let T = gensym()
     push!(generated_functions, quote
-    @generated function $(Expr(:(.), Gen, QuoteNode(:update)))(trace::$T, args::Tuple, argdiffs::Tuple,
+    @generated function $(GlobalRef(Gen, :update))(trace::$T, args::Tuple, argdiffs::Tuple,
                                    constraints::$(QuoteNode(ChoiceMap))) where {$T<:$(QuoteNode(StaticIRTrace))}
         $(QuoteNode(codegen_update))(trace, args, argdiffs, constraints)
     end
     end)
 
     push!(generated_functions, quote
-    @generated function $(Expr(:(.), Gen, QuoteNode(:regenerate)))(trace::$T, args::Tuple, argdiffs::Tuple,
+    @generated function $(GlobalRef(Gen, :regenerate))(trace::$T, args::Tuple, argdiffs::Tuple,
                                        selection::$(QuoteNode(Selection))) where {$T<:$(QuoteNode(StaticIRTrace))}
         $(QuoteNode(codegen_regenerate))(trace, args, argdiffs, selection)
     end
