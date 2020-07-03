@@ -23,9 +23,7 @@ Permit use of generative functions written in the static modeling language up
 to this point. Functions are loaded into the calling module.
 """
 macro load_generated_functions()
-    for function_defn in generated_functions
-        Core.eval(__module__, function_defn)
-    end
+    :(load_generated_functions($(__module__)))
 end
 
 export load_generated_functions, @load_generated_functions

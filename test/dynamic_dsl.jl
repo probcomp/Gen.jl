@@ -529,4 +529,18 @@ end
 
 end
 
+@testset "macros in dynamic function" begin
+    @gen function foo()
+        x ~ exponential(1)
+        y ~ @insert_normal_call x
+    end
+    simulate(foo, ())
+
+    @gen function bar()
+        x ~ exponential(1)
+        y = Gen.@trace(@insert_normal_call(x), :y)
+    end
+    simulate(bar, ())
+end
+
 end

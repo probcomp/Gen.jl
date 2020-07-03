@@ -591,4 +591,20 @@ ch = get_choices(tr)
 @test length(get_submaps_shallow(ch)) == 1
 end
 
+@testset "macros in static DSL" begin
+    @gen (static) function foo()
+        x ~ exponential(1)
+        y ~ @insert_normal_call x
+    end
+    @gen (static) function bar()
+        x ~ exponential(1)
+        y = Gen.@trace(@insert_normal_call(x), :y)
+    end
+    @load_generated_functions()
+
+    simulate(foo, ())
+    simulate(bar, ())
+end
+
+
 end # @testset "static DSL"

@@ -64,6 +64,11 @@ end
 
 const dx = 1e-6
 
+# macro used in a couple tests
+macro insert_normal_call(x)
+    :(normal($(esc(x)), 0.0001))
+end
+
 include("autodiff.jl")
 include("diff.jl")
 include("selection.jl")

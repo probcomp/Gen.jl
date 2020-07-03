@@ -4,7 +4,7 @@ import MacroTools
 @testset "tilde syntax" begin
 
 normalize(ex) =
-    MacroTools.prewalk(MacroTools.rmlines, Gen.resolve_gen_macros(ex, Main))
+    MacroTools.prewalk(MacroTools.rmlines, Gen.resolve_or_expand_macros(ex, Main))
 
 # dynamic
 @testset "tilde syntax smoke test (dynamic)" begin

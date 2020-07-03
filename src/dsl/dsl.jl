@@ -5,7 +5,9 @@ const DSL_ARG_GRAD_ANNOTATION = :grad
 const DSL_RET_GRAD_ANNOTATION = :grad
 const DSL_TRACK_DIFFS_ANNOTATION = :diffs
 const DSL_NO_JULIA_CACHE_ANNOTATION = :nojuliacache
-const DSL_MACROS = Set([Symbol("@trace"), Symbol("@param")])
+
+# the set of macros we should not macroexpand before parsing
+const DSL_MACROS = Set([Symbol("@trace"), Symbol("@param"), Symbol("@gen")])
 
 struct Argument
     name::Symbol
@@ -72,7 +74,7 @@ function address_from_expression(lhs)
 end
 
 function desugar_tildes(expr)
-    trace_ref = GlobalRef(@__MODULE__, Symbol("@trace"))
+    trace_ref = Symbol("@trace")
     line_num = LineNumberNode(1, :none)
     MacroTools.postwalk(expr) do e
         # Replace with globally referenced macrocalls
@@ -89,22 +91,33 @@ function desugar_tildes(expr)
     end
 end
 
-function resolve_gen_macros(expr, __module__)
+# Resolves Gen macros to globally referenced macro calls;
+# fully macroexpands all macros Gen does not recognize
+function resolve_or_expand_macros(expr, __module__)
     MacroTools.postwalk(expr) do e
-        # Resolve Gen macros to globally referenced macrocalls
-        if (MacroTools.@capture(e, @namespace_.m_(args__)) &&
-            m in DSL_MACROS && __module__.eval(namespace) == @__MODULE__)
-            macro_ref = GlobalRef(@__MODULE__, m)
-            line_num = e.args[2]
-            Expr(:macrocall, macro_ref, line_num, args...)
-        elseif (MacroTools.@capture(e, @m_(args__)) &&
-                m in DSL_MACROS && isdefined(__module__, m) &&
-                getfield(__module__, m) == getfield(@__MODULE__, m))
-            macro_ref = GlobalRef(@__MODULE__, m)
-            line_num = e.args[2]
-            Expr(:macrocall, macro_ref, line_num, args...)
-        else
-            e
+        if MacroTools.@capture(e, @namespace_.m_(args__) | @m_(args__)) # for any macro expression...
+            # if this is already a GlobalRef, the macro's name is stored in `m.name`
+            macroname = m isa GlobalRef ? m.name : m
+
+            if macroname in DSL_MACROS # if this is a Gen macro name (ie. @trace or @param)
+                # The macro is either from the local module `__module__` or explicitly specifies a `namespace`
+                if namespace === nothing
+                    mod = __module__
+                else
+                    mod =__module__.eval(namespace)
+                end
+
+                # if the macro is defined in the given module, and refers to the Gen macro
+                if isdefined(mod, macroname) && getfield(mod, macroname) == getfield(@__MODULE__, macroname)
+                    macro_ref = GlobalRef(@__MODULE__, macroname)
+                    line_num = e.args[2]
+                    return Expr(:macrocall, macro_ref, line_num, args...)
+                end
+            end
+            # if we get here, then this is not a Gen macro, so macroexpand it
+            return macroexpand(__module__, e)
+        else # not a macro
+            return e
         end
     end
 end
@@ -139,8 +152,9 @@ function preprocess_body(expr, __module__)
     expr, quoted_exprs = extract_quoted_exprs(expr)
     # Desugar tilde calls to globally referenced @trace calls
     expr = desugar_tildes(expr)
-    # Also resolve Gen macros to GlobalRefs for consistent downstream parsing 
-    expr = resolve_gen_macros(expr, __module__)
+    # Resolve Gen macros to GlobalRefs for consistent downstream parsing,
+    # and expand macros which are not from Gen
+    expr = resolve_or_expand_macros(expr, __module__)
     # Reinsert quoted expressions after pre-processing
     expr = insert_quoted_exprs(expr, quoted_exprs)
     return expr
