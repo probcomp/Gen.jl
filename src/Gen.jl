@@ -33,11 +33,9 @@ export load_generated_functions, @load_generated_functions
 # built-in extensions to the reverse mode AD
 include("backprop.jl")
 
-# addresses and address selections
-include("address.jl")
-
-# abstract and built-in concrete choice map data types
-include("choice_map/choice_map.jl")
+# address and address trees
+# (including choicemaps and selections)
+include("address_tree/address_tree.jl")
 
 # a homogeneous trie data type (not for use as choice map)
 include("trie.jl")

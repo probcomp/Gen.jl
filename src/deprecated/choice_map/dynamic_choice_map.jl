@@ -38,7 +38,7 @@ Copy a choice map, returning a mutable choice map.
 function DynamicChoiceMap(other::ChoiceMap)
     choices = DynamicChoiceMap()
     for (addr, submap) in get_submaps_shallow(other)
-        if submap isa ValueChoiceMap
+        if submap isa Value
             set_submap!(choices, addr, submap)
         else
             set_submap!(choices, addr, DynamicChoiceMap(submap))
@@ -47,7 +47,7 @@ function DynamicChoiceMap(other::ChoiceMap)
     choices
 end
 
-DynamicChoiceMap(other::ValueChoiceMap) = error("Cannot convert a ValueChoiceMap to a DynamicChoiceMap")
+DynamicChoiceMap(other::Value) = error("Cannot convert a Value to a DynamicChoiceMap")
 
 """
     choices = choicemap()
@@ -88,7 +88,7 @@ The following syntactic sugar is provided:
 """
 function set_value!(choices::DynamicChoiceMap, addr, value)
     delete!(choices.submaps, addr)
-    choices.submaps[addr] = ValueChoiceMap(value)
+    choices.submaps[addr] = Value(value)
 end
 
 function set_value!(choices::DynamicChoiceMap, addr::Pair, value)

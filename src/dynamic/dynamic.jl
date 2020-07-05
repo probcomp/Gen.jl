@@ -124,8 +124,8 @@ function visit!(visitor::AddressVisitor, addr)
     push!(visitor.visited, addr)
 end
 
-all_visited(::Selection, ::ValueChoiceMap) = false
-all_visited(::AllSelection, ::ValueChoiceMap) = true
+all_visited(::Selection, ::Value) = false
+all_visited(::AllSelection, ::Value) = true
 function all_visited(visited::Selection, choices::ChoiceMap)
     for (key, submap) in get_submaps_shallow(choices)
         if !all_visited(visited[key], submap)
@@ -135,8 +135,8 @@ function all_visited(visited::Selection, choices::ChoiceMap)
     return true
 end
 
-get_unvisited(::Selection, v::ValueChoiceMap) = v
-get_unvisited(::AllSelection, v::ValueChoiceMap) = EmptyChoiceMap()
+get_unvisited(::Selection, v::Value) = v
+get_unvisited(::AllSelection, v::Value) = EmptyChoiceMap()
 function get_unvisited(visited::Selection, choices::ChoiceMap)
     unvisited = choicemap()
     for (key, submap) in get_submaps_shallow(choices)

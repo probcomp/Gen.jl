@@ -14,28 +14,28 @@
     # test Base.getindex
     @test s[:x] == AllSelection()
     sub = s[:y]
-    @test isa(sub, DynamicSelection)
+    @test isa(sub, DynamicAddressTree)
     @test :z in sub
     @test :w in sub
-    @test s[:u] == EmptySelection()
+    @test s[:u] == EmptyAddressTree()
     @test s[:y => :z] == AllSelection()
 
     # test set_subselection!
-    set_subselection!(s, :y, select(:z))
+    set_subtree!(s, :y, select(:z))
     @test (:y => :z) in s
     @test !((:y => :w) in s)
 
     selection = select(:x)
     @test :x in selection
     subselection = select(:y)
-    set_subselection!(selection, :x, subselection)
+    set_subtree!(selection, :x, subselection)
     @test (:x => :y) in selection
     @test !(:x in selection)
 end
 
 @testset begin "all selection"
 
-    s = selectall()
+    s = AllSelection()
 
     # test Base.in
     @test :x in s
@@ -44,26 +44,4 @@ end
     # test Base.getindex
     @test s[:x] == AllSelection()
     @test s[:x => :y] == AllSelection()
-end
-
-@testset begin "complement selection"
-
-    @test !(:x in complement(selectall()))
-    @test :x in complement(select())
-
-    @test !(:x in complement(select(:x)))
-    @test :y in complement(select(:x))
-
-    @test :x in complement(select(:x => :y => :z))
-    @test (:x => :y) in complement(select(:x => :y => :z))
-    @test !((:x => :y => :z) in complement(select(:x => :y => :z)))
-
-    @test !(:x in complement(complement(select(:x => :y => :z))))
-    @test !((:x => :y) in complement(complement(select(:x => :y => :z))))
-    @test (:x => :y => :z) in complement(complement(select(:x => :y => :z)))
-
-    s = complement(select(:x => :y => :z))[:x]
-    @test !((:y => :z) in s)
-    @test :w in s
-    @test :y in s
 end

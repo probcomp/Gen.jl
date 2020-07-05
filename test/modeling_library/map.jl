@@ -408,7 +408,7 @@
         @test weight == 0.
         @test coinflips_tr[20] isa Bool
         choices = get_choices(coinflips_tr)
-        @test get_submap(choices, 42) isa ValueChoiceMap{Bool}
+        @test get_submap(choices, 42) isa Value{Bool}
         val42 = get_value(choices, 42)
         new_tr, weight, retdiff, discard = update(coinflips_tr, (fill(0.4, 100),), (NoChange(),), choicemap((42, !val42)))
         @test new_tr[42] == !val42

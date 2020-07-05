@@ -1,10 +1,10 @@
-@testset "ValueChoiceMap" begin
-    vcm1 = ValueChoiceMap(2)
-    vcm2 = ValueChoiceMap(2.)
-    vcm3 = ValueChoiceMap([1,2])
-    @test vcm1 isa ValueChoiceMap{Int}
-    @test vcm2 isa ValueChoiceMap{Float64}
-    @test vcm3 isa ValueChoiceMap{Vector{Int}}
+@testset "Value" begin
+    vcm1 = Value(2)
+    vcm2 = Value(2.)
+    vcm3 = Value([1,2])
+    @test vcm1 isa Value{Int}
+    @test vcm2 isa Value{Float64}
+    @test vcm3 isa Value{Vector{Int}}
     @test vcm1[] == 2
     @test vcm1[] == get_value(vcm1)
 
@@ -16,8 +16,8 @@
     @test isempty(get_values_shallow(vcm1))
     @test isempty(get_nonvalue_submaps_shallow(vcm1))
     @test to_array(vcm1, Int) == [2]
-    @test from_array(vcm1, [4]) == ValueChoiceMap(4)
-    @test from_array(vcm3, [4, 5]) == ValueChoiceMap([4, 5])
+    @test from_array(vcm1, [4]) == Value(4)
+    @test from_array(vcm3, [4, 5]) == Value([4, 5])
     @test_throws Exception merge(vcm1, vcm2)
     @test_throws Exception merge(vcm1, choicemap(:a, 5))
     @test merge(vcm1, EmptyChoiceMap()) == vcm1
@@ -25,19 +25,17 @@
     @test get_submap(vcm1, :addr) == EmptyChoiceMap()
     @test_throws ChoiceMapGetValueError get_value(vcm1, :addr)
     @test !has_value(vcm1, :addr)
-    @test isapprox(vcm2, ValueChoiceMap(prevfloat(2.)))
-    @test isapprox(vcm1, ValueChoiceMap(prevfloat(2.)))
-    @test get_address_schema(typeof(vcm1)) == AllAddressSchema()
-    @test get_address_schema(ValueChoiceMap) == AllAddressSchema()
+    @test isapprox(vcm2, Value(prevfloat(2.)))
+    @test isapprox(vcm1, Value(prevfloat(2.)))
     @test nested_view(vcm1) == 2
 end
 
 @testset "static choicemap constructor" begin
-    @test StaticChoiceMap((a=ValueChoiceMap(5), b=ValueChoiceMap(6))) == StaticChoiceMap(a=5, b=6)
+    @test StaticChoiceMap((a=Value(5), b=Value(6))) == StaticChoiceMap(a=5, b=6)
     submap = StaticChoiceMap(a=1., b=[2., 2.5])
-    @test submap == StaticChoiceMap((a=ValueChoiceMap(1.), b=ValueChoiceMap([2., 2.5])))
+    @test submap == StaticChoiceMap((a=Value(1.), b=Value([2., 2.5])))
     outer = StaticChoiceMap(c=3, d=submap, e=submap)
-    @test outer == StaticChoiceMap((c=ValueChoiceMap(3), d=submap, e=submap))
+    @test outer == StaticChoiceMap((c=Value(3), d=submap, e=submap))
 end
 
 @testset "static assignment to/from array" begin
@@ -83,8 +81,8 @@ end
     @test choices[:d => :b] == [3.0, 4.0]
     @test choices[:e => :a] == 5.0
     @test choices[:e => :b] == [6.0, 7.0]
-    @test get_submap(choices, :c) == ValueChoiceMap(1.0)
-    @test get_submap(choices, :d => :b) == ValueChoiceMap([3.0, 4.0])
+    @test get_submap(choices, :c) == Value(1.0)
+    @test get_submap(choices, :d => :b) == Value([3.0, 4.0])
     @test length(collect(get_submaps_shallow(choices))) == 3
     @test length(collect(get_nonvalue_submaps_shallow(choices))) == 2
     @test length(collect(get_values_shallow(choices))) == 1
@@ -182,13 +180,13 @@ end
 # they are mostly not error checks, but instead checks for returning `EmptyChoiceMap`;
 # should we relabel this testset?
 @testset "static assignment errors" begin
-    # get_choices on an address that returns a ValueChoiceMap
+    # get_choices on an address that returns a Value
     choices = StaticChoiceMap(x=1)
-    @test get_submap(choices, :x) == ValueChoiceMap(1)
+    @test get_submap(choices, :x) == Value(1)
 
-    # static_get_submap on an address that contains a value returns a ValueChoiceMap
+    # static_get_submap on an address that contains a value returns a Value
     choices = StaticChoiceMap(x=1)
-    @test static_get_submap(choices, Val(:x)) == ValueChoiceMap(1)
+    @test static_get_submap(choices, Val(:x)) == Value(1)
 
     # get_submap on an address whose prefix contains a value returns EmptyChoiceMap
     choices = StaticChoiceMap(x=1)
@@ -226,10 +224,10 @@ end
 end
 
 @testset "dynamic assignment errors" begin
-    # get_choices on an address that contains a value returns a ValueChoiceMap
+    # get_choices on an address that contains a value returns a Value
     choices = choicemap()
     choices[:x] = 1
-    @test get_submap(choices, :x) == ValueChoiceMap(1)
+    @test get_submap(choices, :x) == Value(1)
 
     # get_choices on an address whose prefix contains a value returns EmptyChoiceMap
     choices = choicemap()
@@ -272,7 +270,7 @@ end
     choices = choicemap()
     choices[:x => :y] = 1
     choices[:x] = 2
-    @test get_submap(choices, :x) == ValueChoiceMap(2)
+    @test get_submap(choices, :x) == Value(2)
     @test choices[:x] == 2
 
     # overwrite subassignment with a subassignment

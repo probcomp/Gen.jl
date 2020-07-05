@@ -121,15 +121,15 @@ end
 
         if type1 <: EmptyAddressTree
             push!(submap_exprs, 
-                quote choices2.submaps.$addr end
+                quote tree2.subtrees.$addr end
             )
         elseif type2 <: EmptyAddressTree
             push!(submap_exprs,
-                quote choices1.submaps.$addr end
+                quote tree1.subtrees.$addr end
             )
         else
             push!(submap_exprs,
-                quote merge(choices1.submaps.$addr, choices2.submaps.$addr) end
+                quote merge(tree1.subtrees.$addr, tree2.subtrees.$addr) end
             )
         end
     end

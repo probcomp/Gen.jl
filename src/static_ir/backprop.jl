@@ -322,8 +322,8 @@ function generate_value_gradient_trie(selected_choices::Set{GenerativeFunctionCa
                                       value_trie::Symbol, gradient_trie::Symbol)
     selected_choices_vec = collect(selected_choices)
     quoted_leaf_keys = map((node) -> QuoteNode(node.addr), selected_choices_vec)
-    leaf_value_choicemaps = map((node) -> :(ValueChoiceMap(get_retval(trace.$(get_subtrace_fieldname(node))))), selected_choices_vec)
-    leaf_gradient_choicemaps = map((node) -> :(ValueChoiceMap($(gradient_var(node)))), selected_choices_vec)
+    leaf_value_choicemaps = map((node) -> :(Value(get_retval(trace.$(get_subtrace_fieldname(node))))), selected_choices_vec)
+    leaf_gradient_choicemaps = map((node) -> :(Value($(gradient_var(node)))), selected_choices_vec)
 
     selected_calls_vec = collect(selected_calls)
     quoted_internal_keys = map((node) -> QuoteNode(node.addr), selected_calls_vec)

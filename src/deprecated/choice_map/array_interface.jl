@@ -33,14 +33,14 @@ function to_array(choices::ChoiceMap, ::Type{T}) where {T}
     arr
 end
 
-function _fill_array!(c::ValueChoiceMap{<:T}, arr::Vector{T}, start_idx::Int) where {T}
+function _fill_array!(c::Value{<:T}, arr::Vector{T}, start_idx::Int) where {T}
     if length(arr) < start_idx
         resize!(arr, 2 * start_idx)
     end
     arr[start_idx] = get_value(c)
     1
 end
-function _fill_array!(c::ValueChoiceMap{<:Vector{<:T}}, arr::Vector{T}, start_idx::Int) where {T}
+function _fill_array!(c::Value{<:Vector{<:T}}, arr::Vector{T}, start_idx::Int) where {T}
     value = get_value(c)
     if length(arr) < start_idx + length(value)
         resize!(arr, 2 * (start_idx + length(value)))
@@ -95,12 +95,12 @@ function from_array(proto_choices::ChoiceMap, arr::Vector)
     choices
 end
 
-function _from_array(::ValueChoiceMap, arr::Vector, start_idx::Int)
-    (1, ValueChoiceMap(arr[start_idx]))
+function _from_array(::Value, arr::Vector, start_idx::Int)
+    (1, Value(arr[start_idx]))
 end
-function _from_array(c::ValueChoiceMap{<:Vector{<:T}}, arr::Vector{T}, start_idx::Int) where {T}
+function _from_array(c::Value{<:Vector{<:T}}, arr::Vector{T}, start_idx::Int) where {T}
     n_read = length(get_value(c))
-    (n_read, ValueChoiceMap(arr[start_idx:start_idx+n_read-1]))
+    (n_read, Value(arr[start_idx:start_idx+n_read-1]))
 end
 
 export to_array, from_array

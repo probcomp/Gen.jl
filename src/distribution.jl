@@ -66,7 +66,7 @@ get_return_type(::Distribution{T}) where {T} = T
 
 @inline Base.getindex(trace::DistributionTrace) = trace.val
 @inline Gen.get_args(trace::DistributionTrace) = trace.args
-@inline Gen.get_choices(trace::DistributionTrace) = ValueChoiceMap(trace.val) # should be able to get type of val
+@inline Gen.get_choices(trace::DistributionTrace) = Value(trace.val) # should be able to get type of val
 @inline Gen.get_retval(trace::DistributionTrace) = trace.val
 @inline Gen.get_gen_fn(trace::DistributionTrace) = dist(trace)
 @inline Gen.get_score(trace::DistributionTrace) = trace.score
@@ -78,12 +78,12 @@ get_return_type(::Distribution{T}) where {T} = T
     DistributionTrace(val, args, dist)
 end
 @inline Gen.generate(dist::Distribution, args::Tuple, ::EmptyChoiceMap) = (simulate(dist, args), 0.)
-@inline function Gen.generate(dist::Distribution, args::Tuple, constraints::ValueChoiceMap)
+@inline function Gen.generate(dist::Distribution, args::Tuple, constraints::Value)
     tr = DistributionTrace(get_value(constraints), args, dist)
     weight = get_score(tr)
     (tr, weight)
 end
-@inline function Gen.update(tr::DistributionTrace, args::Tuple, argdiffs::Tuple, constraints::ValueChoiceMap)
+@inline function Gen.update(tr::DistributionTrace, args::Tuple, argdiffs::Tuple, constraints::Value)
     new_tr = DistributionTrace(get_value(constraints), args, dist(tr))
     weight = get_score(new_tr) - get_score(tr)
     (new_tr, weight, UnknownChange(), get_choices(tr))
@@ -109,9 +109,9 @@ end
 @inline function Gen.propose(dist::Distribution, args::Tuple)
     val = random(dist, args...)
     score = logpdf(dist, val, args...)
-    (ValueChoiceMap(val), score, val)
+    (Value(val), score, val)
 end
-@inline function Gen.assess(dist::Distribution, args::Tuple, choices::ValueChoiceMap)
+@inline function Gen.assess(dist::Distribution, args::Tuple, choices::Value)
     weight = logpdf(dist, get_value(choices), args...)
     (weight, choices.val)
 end

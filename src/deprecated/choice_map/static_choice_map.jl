@@ -11,7 +11,7 @@ end
 
 function StaticChoiceMap(;addrs_to_vals_and_maps...)
     addrs = Tuple(addr for (addr, val_or_map) in addrs_to_vals_and_maps)
-    maps = Tuple(val_or_map isa ChoiceMap ? val_or_map : ValueChoiceMap(val_or_map) for (addr, val_or_map) in addrs_to_vals_and_maps)
+    maps = Tuple(val_or_map isa ChoiceMap ? val_or_map : Value(val_or_map) for (addr, val_or_map) in addrs_to_vals_and_maps)
     StaticChoiceMap(NamedTuple{addrs}(maps))
 end
 
@@ -52,7 +52,7 @@ function StaticChoiceMap(other::ChoiceMap)
     end
     StaticChoiceMap(NamedTuple{addrs}(submaps))
 end
-StaticChoiceMap(other::ValueChoiceMap) = error("Cannot convert a ValueChoiceMap to a StaticChoiceMap")
+StaticChoiceMap(other::Value) = error("Cannot convert a Value to a StaticChoiceMap")
 StaticChoiceMap(::NamedTuple{(),Tuple{}}) = EmptyChoiceMap()
 
 # TODO: deep conversion to static choicemap
@@ -99,8 +99,8 @@ end
     for addr in merged_addrs
         type1 = get(addr_to_type1, addr, EmptyChoiceMap)
         type2 = get(addr_to_type2, addr, EmptyChoiceMap)
-        if ((type1 <: ValueChoiceMap && type2 != EmptyChoiceMap)
-            || (type2 <: ValueChoiceMap && type1 != EmptyChoiceMap))
+        if ((type1 <: Value && type2 != EmptyChoiceMap)
+            || (type2 <: Value && type1 != EmptyChoiceMap))
            error( "One choicemap has a value at address $addr; the other is nonempty at $addr.  Cannot merge.")
         end
         if type1 <: EmptyChoiceMap

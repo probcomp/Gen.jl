@@ -2,13 +2,14 @@ const Selection = AddressTree{AllSelection}
 
 const StaticSelection = StaticAddressTree{AllSelection}
 const DynamicSelection = DynamicAddressTree{AllSelection}
+const EmptySelection = EmptyAddressTree
 
 """
     in(addr, selection::Selection)
 
 Whether the address is selected in the given selection.
 """
-function Base.in(addr, selection::Selection) 
+@inline function Base.in(addr, selection::Selection) 
     get_subtree(selection, addr) === AllSelection()
 end
 
@@ -16,6 +17,8 @@ end
 function Base.getindex(selection::Selection, addr)
     get_subtree(selection, addr)
 end
+
+get_subselections(s::Selection) = get_subtrees_shallow(s)
 
 function select(addrs...)
     selection = DynamicSelection()
@@ -75,3 +78,4 @@ addresses.
 get_selected(tree::AddressTree, selection::Selection) = SelectionFilteredAddressTree(tree, selection)
 
 export select, get_selected
+export DynamicSelection, EmptySelection, StaticSelection

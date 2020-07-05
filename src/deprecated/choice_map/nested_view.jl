@@ -29,7 +29,7 @@ struct ChoiceMapNestedView
     choice_map::ChoiceMap
 end
 
-ChoiceMapNestedView(cm::ValueChoiceMap) = get_value(cm)
+ChoiceMapNestedView(cm::Value) = get_value(cm)
 ChoiceMapNestedView(::EmptyChoiceMap) = error("Can't convert an emptychoicemap to nested view.")
 
 function Base.getindex(choices::ChoiceMapNestedView, addr)

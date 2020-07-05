@@ -154,7 +154,7 @@ function choice_gradients(trace::CallAtTrace, selection::Selection, retval_grad)
             if retval_grad !== nothing
                 choice_grad += retval_grad
             end
-            gradient_choices = CallAtChoiceMap(trace.key, ValueChoiceMap(choice_grad))
+            gradient_choices = CallAtChoiceMap(trace.key, Value(choice_grad))
         else
             value_choices = EmptyChoiceMap()
             gradient_choices = EmptyChoiceMap()

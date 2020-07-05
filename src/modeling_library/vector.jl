@@ -113,7 +113,7 @@ function get_retained_and_selected(selection::EmptySelection, prev_length::Int, 
     Set{Int}()
 end
 
-function get_retained_and_selected(selection::HierarchicalSelection, prev_length::Int, new_length::Int)
+function get_retained_and_selected(selection::Selection, prev_length::Int, new_length::Int)
     keys = Set{Int}()
     for (key::Int, _) in get_subselections(selection)
         if key > 0 && key <= new_length

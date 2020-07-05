@@ -23,7 +23,7 @@ abstract type ChoiceMap end
 
 Returns an iterable collection of tuples `(address, submap)`
 for each top-level address associated with `choices`.
-(This includes `ValueChoiceMap`s.)
+(This includes `Value`s.)
 """
 function get_submaps_shallow end
 
@@ -46,7 +46,7 @@ end
 """
     has_value(choices::ChoiceMap)
 
-Returns true if `choices` is a `ValueChoiceMap`.
+Returns true if `choices` is a `Value`.
 
     has_value(choices::ChoiceMap, addr)
 
@@ -59,8 +59,8 @@ function has_value end
 """
     get_value(choices::ChoiceMap)
 
-Returns the value stored on `choices` is `choices` is a `ValueChoiceMap`;
-throws a `ChoiceMapGetValueError` if `choices` is not a `ValueChoiceMap`.
+Returns the value stored on `choices` is `choices` is a `Value`;
+throws a `ChoiceMapGetValueError` if `choices` is not a `Value`.
 
     get_value(choices::ChoiceMap, addr)
 Returns the value stored in the submap with address `addr` or throws
@@ -104,7 +104,7 @@ end
 
 Returns an iterable collection of tuples `(address, submap)`
 for every top-level submap stored in `choices` which is
-not a `ValueChoiceMap`.
+not a `Value`.
 (Works by applying a filter to `get_submaps_shallow`,
 so this internally requires iterating over every submap.)
 """
@@ -133,21 +133,21 @@ struct EmptyChoiceMap <: ChoiceMap end
 @inline Base.:(==)(::EmptyChoiceMap, ::ChoiceMap) = false
 
 """
-    ValueChoiceMap
+    Value
 
 A leaf-node choicemap.  Stores a single value.
 """
-struct ValueChoiceMap{T} <: ChoiceMap
+struct Value{T} <: ChoiceMap
     val::T
 end
 
-@inline has_value(choices::ValueChoiceMap) = true
-@inline get_value(choices::ValueChoiceMap) = choices.val
-@inline get_submap(choices::ValueChoiceMap, addr) = EmptyChoiceMap()
-@inline get_submaps_shallow(choices::ValueChoiceMap) = ()
-@inline Base.:(==)(a::ValueChoiceMap, b::ValueChoiceMap) = a.val == b.val
-@inline Base.isapprox(a::ValueChoiceMap, b::ValueChoiceMap) = isapprox(a.val, b.val)
-@inline get_address_schema(::Type{<:ValueChoiceMap}) = AllAddressSchema()
+@inline has_value(choices::Value) = true
+@inline get_value(choices::Value) = choices.val
+@inline get_submap(choices::Value, addr) = EmptyChoiceMap()
+@inline get_submaps_shallow(choices::Value) = ()
+@inline Base.:(==)(a::Value, b::Value) = a.val == b.val
+@inline Base.isapprox(a::Value, b::Value) = isapprox(a.val, b.val)
+@inline get_address_schema(::Type{<:Value}) = AllAddressSchema()
 
 """
     choices = Base.merge(choices1::ChoiceMap, choices2::ChoiceMap)
@@ -172,10 +172,10 @@ function Base.merge(choices1::ChoiceMap, choices2::ChoiceMap)
 end
 Base.merge(c::ChoiceMap, ::EmptyChoiceMap) = c
 Base.merge(::EmptyChoiceMap, c::ChoiceMap) = c
-Base.merge(c::ValueChoiceMap, ::EmptyChoiceMap) = c
-Base.merge(::EmptyChoiceMap, c::ValueChoiceMap) = c
-Base.merge(::ValueChoiceMap, ::ChoiceMap) = error("ValueChoiceMaps cannot be merged")
-Base.merge(::ChoiceMap, ::ValueChoiceMap) = error("ValueChoiceMaps cannot be merged")
+Base.merge(c::Value, ::EmptyChoiceMap) = c
+Base.merge(::EmptyChoiceMap, c::Value) = c
+Base.merge(::Value, ::ChoiceMap) = error("Values cannot be merged")
+Base.merge(::ChoiceMap, ::Value) = error("Values cannot be merged")
 
 """
 Variadic merge of choice maps.
@@ -270,7 +270,7 @@ function Base.show(io::IO, ::MIME"text/plain", choices::ChoiceMap)
     _show_pretty(io, choices, 0, ())
 end
 
-export ChoiceMap, ValueChoiceMap, EmptyChoiceMap
+export ChoiceMap, Value, EmptyChoiceMap
 export _get_submap, get_submap, get_submaps_shallow
 export get_value, has_value
 export get_values_shallow, get_nonvalue_submaps_shallow

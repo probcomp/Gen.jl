@@ -11,7 +11,7 @@ Choice maps are also returned by certain Gen inference methods, and are used int
 A choicemap a tree, whose leaf nodes store a single value, and whose internal nodes provide addresses
 for sub-choicemaps.  Leaf nodes have type:
 ```@docs
-ValueChoiceMap
+Value
 ```
 
 ### Example Usage Overview
@@ -27,7 +27,7 @@ value = choicemap[:a]
 ```
 A choicemap may also have a non-value choicemap stored at an address. For instance,
 if a choicemap has another choicemap stored at address `:a`, and this internal choicemap
-has a valuechoicemap stored at address `:b` and another at `:c`, we could perform the following lookups:
+has a Value stored at address `:b` and another at `:c`, we could perform the following lookups:
 ```julia
 value1 = choicemap[:a => :b]
 value2 = choicemap[:a => :c]
@@ -47,7 +47,7 @@ value1 == submap[:b] # is true
 value_submap = get_submap(choicemap, :a => :b)
 value_submap[] == value1 # is true
 ```
-One can think of `ValueChoiceMap`s at storing being a choicemap which has a value at "nesting level zero",
+One can think of `Value`s at storing being a choicemap which has a value at "nesting level zero",
 while other choicemaps have values at "nesting level" one or higher.
 
 ### Interface

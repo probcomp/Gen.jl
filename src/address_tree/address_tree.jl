@@ -32,10 +32,13 @@ struct EmptyAddressTree <: AddressTreeLeaf{EmptyAddressTree} end
 
 An address tree leaf node storing a value of type `T`.
 """
-struct Value{T} <: AddressTreeLeaf{Value{T}}
+struct Value{T} <: AddressTreeLeaf{Value}
     val::T
 end
 @inline get_value(v::Value) = v.val
+# Note that we don't set `Value{T} <: AddressTreeLeaf{Value{T}}`;
+# this complicates the type heirarchicy unnecessarily and results in
+# unintuitive phenomena, such as `Value <: AddressTreeLeaf{Value} == false`.
 
 """
     AllSelection
@@ -89,7 +92,8 @@ Base.isempty(t::AddressTree) = all((_, subtree) -> isempty(subtree), get_subtree
 @inline get_subtree(::AddressTreeLeaf, _) = EmptyAddressTree()
 @inline get_subtrees_shallow(::AddressTreeLeaf) = ()
 
-@inline Base.:(==)(a::Value, b::Value) = a.val == b.val
+@inline get_subtree(::AllSelection, _) = AllSelection()
+
 function Base.:(==)(a::AddressTree, b::AddressTree)
     for (addr, subtree) in get_subtrees_shallow(a)
         if get_subtree(b, addr) != subtree
@@ -103,6 +107,9 @@ function Base.:(==)(a::AddressTree, b::AddressTree)
     end
     return true
 end
+@inline Base.:(==)(a::Value, b::Value) = a.val == b.val
+Base.:(==)(a::AddressTreeLeaf, b::AddressTreeLeaf) = false
+Base.:(==)(::T, ::T) where {T <: AddressTreeLeaf} = true
 
 Base.isapprox(a::Value, b::Value) = isapprox(a.val, b.val)
 Base.isapprox(::EmptyAddressTree, ::EmptyAddressTree) = true
@@ -134,7 +141,7 @@ end
 Merge two address trees.
 """
 function Base.merge(a::AddressTree{T}, b::AddressTree{U}) where {T, U}
-    tree = DynamicAddressTree{<:Union{T, U}}()
+    tree = DynamicAddressTree{Union{T, U}}()
     for (key, subtree) in get_subtrees_shallow(a)
         set_subtree!(tree, key, merge(subtree, get_subtree(b, key)))
     end
@@ -147,6 +154,8 @@ function Base.merge(a::AddressTree{T}, b::AddressTree{U}) where {T, U}
 end
 Base.merge(t::AddressTree, ::EmptyAddressTree) = t
 Base.merge(::EmptyAddressTree, t::AddressTree) = t
+Base.merge(t::AddressTreeLeaf, ::EmptyAddressTree) = t
+Base.merge(::EmptyAddressTree, t::AddressTreeLeaf) = t
 
 Base.merge(::AddressTreeLeaf, ::AddressTree) = error("Not implemented")
 Base.merge(::AddressTree, ::AddressTreeLeaf) = error("Not implemented")
@@ -205,4 +214,6 @@ include("selection.jl")
 # include("array_interface.jl")
 # include("nested_view.jl")
 
-export get_subtree, get_subtrees_shallow, EmptyAddressTree, Value, AllSelection
+export get_subtree, get_subtrees_shallow
+export EmptyAddressTree, Value, AllSelection
+export get_address_schema

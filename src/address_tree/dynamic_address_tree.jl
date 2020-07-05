@@ -81,6 +81,7 @@ Shallowly convert an address tree to dynamic.
 """
 DynamicAddressTree(t::AddressTree) = shallow_dynamic_copy(t)
 DynamicAddressTree(t::DynamicAddressTree) = t
+DynamicAddressTree{LeafType}(t::AddressTree{<:LeafType}) where {LeafType} = DynamicAddressTree(t)
 
 function _from_array(proto_choices::DynamicAddressTree{LT}, arr::Vector{T}, start_idx::Int) where {T, LT}
     choices = DynamicAddressTree{LT}()
@@ -93,3 +94,5 @@ function _from_array(proto_choices::DynamicAddressTree{LT}, arr::Vector{T}, star
     end
     (idx - start_idx, choices)
 end
+
+export DynamicAddressTree, set_subtree!
