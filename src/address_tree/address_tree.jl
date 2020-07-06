@@ -46,6 +46,14 @@ from this point are selected.
 struct AllSelection <: AddressTreeLeaf{AllSelection} end
 
 """
+    CustomUpdateSpec
+
+Supertype for custom update specifications.
+"""
+abstract type CustomUpdateSpec <: AddressTreeLeaf{CustomUpdateSpec} end
+const UpdateSpec = AddressTree{<:Union{Value, AllSelection, EmptyAddressTree, CustomUpdateSpec}}
+
+"""
     get_subtree(tree::AddressTree, addr)
 
 Get the subtree at address `addr` or return `EmptyAddressTree`

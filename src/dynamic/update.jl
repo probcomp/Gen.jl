@@ -1,7 +1,7 @@
 mutable struct GFUpdateState
     prev_trace::DynamicDSLTrace
     trace::DynamicDSLTrace
-    constraints::Any
+    spec::UpdateSpec
     weight::Float64
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
@@ -26,8 +26,8 @@ function traceat(state::GFUpdateState, gen_fn::GenerativeFunction{T,U},
     # check key was not already visited, and mark it as visited
     visit!(state.visitor, key)
 
-    # check for constraints at this key
-    constraints = get_submap(state.constraints, key)
+    # updatespec at this key
+    spec = get_subtree(state.spec, key)
 
     # get subtrace
     has_previous = has_call(state.prev_trace, key)
@@ -36,7 +36,7 @@ function traceat(state::GFUpdateState, gen_fn::GenerativeFunction{T,U},
         prev_subtrace = prev_call.subtrace
         get_gen_fn(prev_subtrace) === gen_fn || gen_fn_changed_error(key)
         (subtrace, weight, _, discard) = update(prev_subtrace,
-            args, map((_) -> UnknownChange(), args), constraints)
+            args, map((_) -> UnknownChange(), args), spec)
     else
         (subtrace, weight) = generate(gen_fn, args, constraints)
     end
@@ -88,7 +88,7 @@ function update_delete_recurse(prev_trie::Trie{Any,CallRecord},
         end
     end
     for (key, subtrie) in get_internal_nodes(prev_trie)
-        subvisited = visited[key]
+        subvisited = get_subselection(visited, key)
         score += update_delete_recurse(subtrie, subvisited)
     end
     score
@@ -118,9 +118,9 @@ function add_unvisited_to_discard!(discard::DynamicChoiceMap,
 end
 
 function update(trace::DynamicDSLTrace, arg_values::Tuple, arg_diffs::Tuple,
-                constraints::ChoiceMap)
+                spec::UpdateSpec)
     gen_fn = trace.gen_fn
-    state = GFUpdateState(gen_fn, arg_values, trace, constraints, gen_fn.params)
+    state = GFUpdateState(gen_fn, arg_values, trace, spec, gen_fn.params)
     retval = exec(gen_fn, state, arg_values) 
     set_retval!(state.trace, retval)
     visited = get_visited(state.visitor)

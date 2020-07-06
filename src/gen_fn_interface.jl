@@ -304,7 +304,7 @@ then for each optional argument that is omitted, the old value will be
 over-written by the default argument value in the regenerated trace.
 """
 function regenerate(trace, args::Tuple, argdiffs::Tuple, selection::Selection)
-    error("Not implemented")
+    update(trace, args, argdiffs, selection)[1:3]
 end
 
 """
