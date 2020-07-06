@@ -58,28 +58,33 @@ end
 # it returns 'nothing' for those arguemnts that don't have a derivatice
 has_argument_grads(gen::DynamicDSLFunction) = gen.has_argument_grads
 
+"Global reference to the GFI state for the dynamic modeling language."
 const state = gensym("state")
 
-macro trace(expr::Expr, addr)
-    if expr.head != :call
-        error("syntax error in @trace at $(expr)")
+"Implementation of @trace for the dynamic modeling language."
+function dynamic_trace_impl(expr::Expr)
+    @assert expr.head == :gentrace "Not a Gen trace expression."
+    call, addr = expr.args[1], expr.args[2]
+    if (call.head != :call) error("syntax error in @trace at $(call)") end
+    fn = call.args[1]
+    args = Expr(:tuple, call.args[2:end]...)
+    if addr != nothing
+        addr = something(addr)
+        return Expr(:call, GlobalRef(@__MODULE__, :traceat), state, fn, args, addr)
+    else
+        return Expr(:call, GlobalRef(@__MODULE__, :splice), state, fn, args)
     end
-    fn = esc(expr.args[1])
-    args = map(esc, expr.args[2:end])
-    Expr(:call, :traceat, esc(state), fn, Expr(:tuple, args...), esc(addr))
 end
 
-macro trace(expr::Expr)
-    if expr.head != :call
-        error("syntax error in @trace at $(expr)")
-    end
-    invocation = expr.args[1]
-    args = esc(Expr(:tuple, expr.args[2:end]...))
-    Expr(:call, :splice, esc(state), esc(invocation), args)
-end
+########################
+# trainable parameters #
+########################
 
-function address_not_found_error_msg(addr)
-    "Address $addr not found"
+"Implementation of @param for the dynamic modeling language."
+function dynamic_param_impl(expr::Expr)
+    @assert expr.head == :genparam "Not a Gen param expression."
+    name = expr.args[1]
+    Expr(:(=), name, Expr(:call, GlobalRef(@__MODULE__, :read_param), state, QuoteNode(name)))
 end
 
 function read_param(state, name::Symbol)
@@ -88,23 +93,6 @@ function read_param(state, name::Symbol)
     else
         throw(UndefVarError(name))
     end
-end
-
-
-########################
-# trainable parameters #
-########################
-
-macro param(expr_or_symbol)
-    local name::Symbol
-    if isa(expr_or_symbol, Symbol)
-        name = expr_or_symbol
-    elseif expr_or_symbol.head == :(::)
-        name = expr_or_symbol.args[1]
-    else
-        error("Syntax in error in @param at $(expr_or_symbol)")
-    end
-    Expr(:(=), esc(name), Expr(:call, :read_param, esc(state), QuoteNode(name)))
 end
 
 ##################
@@ -183,6 +171,3 @@ include("regenerate.jl")
 include("backprop.jl")
 
 export DynamicDSLFunction
-export @param
-export @trace
-export @gen

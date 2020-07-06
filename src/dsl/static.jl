@@ -1,7 +1,3 @@
-const STATIC_DSL_GRAD = Symbol("@grad")
-const STATIC_DSL_TRACE = Symbol("@trace")
-const STATIC_DSL_PARAM = Symbol("@param")
-
 function static_dsl_syntax_error(expr, msg="")
     error("Syntax error when parsing static DSL function at $expr. $msg")
 end
@@ -63,7 +59,7 @@ gen_node_name(arg::QuoteNode) = gensym(string(arg.value))
 
 "Parse @trace expression and add corresponding node to IR."
 function parse_trace_expr!(stmts, bindings, fn, args, addr)
-    expr_s = "$STATIC_DSL_TRACE($fn($(join(args, ", "))), $addr)"
+    expr_s = "@trace($fn($(join(args, ", "))), $addr)"
     name = gen_node_name(addr) # Each @trace node is named after its address
     node = gen_node_name(addr) # Generate a variable name for the StaticIRNode
     bindings[name] = node
@@ -151,8 +147,7 @@ function parse_julia_expr!(stmts, bindings, name::Symbol, value,
 end
 
 "Parse @param line and add corresponding trainable param node."
-function parse_param_line!(stmts::Vector{Expr}, bindings, expr::Expr)
-    (name::Symbol, typ) = parse_typed_var(expr)
+function parse_param_line!(stmts::Vector{Expr}, bindings, name::Symbol, typ)
     if haskey(bindings, name)
         static_dsl_syntax_error(expr, "Symbol $name already bound")
     end
@@ -206,14 +201,12 @@ end
 
 "Parse and rewrite expression if it matches an @trace call."
 function parse_and_rewrite_trace!(stmts, bindings, expr)
-    if (MacroTools.@capture(expr, @m_(f_(xs__), addr_)) && isa(m, GlobalRef) &&
-        m.name == STATIC_DSL_TRACE && m.mod == @__MODULE__)
+    if MacroTools.@capture(expr, e_gentrace)
         # Parse "@trace(f(xs...), addr)" and return fresh variable
-        parse_trace_expr!(stmts, bindings, f, xs, addr)
-    elseif (MacroTools.@capture(expr, @m_(f_(xs__))) && isa(m, GlobalRef) &&
-            m.name == STATIC_DSL_TRACE && m.mod == @__MODULE__)
-        # Throw error for @trace expression without address
-        static_dsl_syntax_error(expr, "Address required.")
+        call, addr = expr.args
+        if addr == nothing static_dsl_syntax_error(expr, "Address required.") end
+        fn, args = call.args[1], call.args[2:end]
+        parse_trace_expr!(stmts, bindings, fn, args, something(addr))
     else
         expr # Return expression unmodified
     end
@@ -221,20 +214,17 @@ end
 
 "Parse line (i.e. top-level expression) of a static Gen function body."
 function parse_static_dsl_line!(stmts, bindings, line)
-    # Walk each line bottom-up, parsing and rewriting @trace expressions
+    # Walk each line bottom-up, parsing and rewriting :gentrace expressions
     rewritten = MacroTools.postwalk(
         e -> parse_and_rewrite_trace!(stmts, bindings, e), line)
     # If line is a top-level @trace call, we are done
-    if (MacroTools.@capture(line, @m_(f_(x__), a_)) && isa(m, GlobalRef) &&
-        m.name == STATIC_DSL_TRACE && m.mod == @__MODULE__)
-        return
-    end
+    if MacroTools.@capture(line, e_gentrace) return end
     # Match and parse any other top-level expressions
     line = rewritten
-    if (MacroTools.@capture(line, @m_(expr_)) && isa(m, GlobalRef) &&
-        m.name == STATIC_DSL_PARAM && m.mod == @__MODULE__)
+    if MacroTools.@capture(line, e_genparam)
         # Parse "@param var::T"
-        parse_param_line!(stmts, bindings, expr)
+        name, typ = e.args
+        parse_param_line!(stmts, bindings, name, typ)
     elseif MacroTools.@capture(line, lhs_ = rhs_)
         # Parse "lhs = rhs"
         parse_assignment_line!(stmts, bindings, lhs, rhs)
