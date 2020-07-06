@@ -150,7 +150,7 @@ get_call_record(trace::CollapsedHMMTrace) = trace.vector.call
 has_choices(trace::CollapsedHMMTrace) = length(trace.vector.call.retval) > 0
 get_choices(trace::CollapsedHMMTrace) = CollapsedHMMChoiceMap(get_choices(trace.vector))
 
-struct CollapsedHMMChoiceMap <: ChoiceMap
+struct CollapsedHMMChoiceMap <: AddressTree{Value}
     y_assignment::VectorDistTraceChoiceMap
 end
 

@@ -2,7 +2,7 @@
 # static assignment #
 ######################
 
-struct StaticChoiceMap{Addrs, SubmapTypes} <: ChoiceMap
+struct StaticChoiceMap{Addrs, SubmapTypes} AddressTree{Value}
     submaps::NamedTuple{Addrs, SubmapTypes}
     function StaticChoiceMap(submaps::NamedTuple{Addrs, SubmapTypes}) where {Addrs, SubmapTypes <: NTuple{n, ChoiceMap} where n}
         new{Addrs, SubmapTypes}(submaps)

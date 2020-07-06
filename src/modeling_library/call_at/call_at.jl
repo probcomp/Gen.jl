@@ -1,4 +1,4 @@
-struct CallAtChoiceMap{K,T} <: ChoiceMap
+struct CallAtChoiceMap{K,T} <: AddressTree{Value}
     key::K
     submap::T
 end
@@ -9,12 +9,12 @@ function get_address_schema(::Type{T}) where {T<:CallAtChoiceMap}
     SingleDynamicKeyAddressSchema()
 end
 
-function get_submap(choices::CallAtChoiceMap{K,T}, addr::K) where {K,T}
+function get_subtree(choices::CallAtChoiceMap{K,T}, addr::K) where {K,T}
     choices.key == addr ? choices.submap : EmptyChoiceMap()
 end
 
-get_submap(choices::CallAtChoiceMap, addr::Pair) = _get_submap(choices, addr)
-get_submaps_shallow(choices::CallAtChoiceMap) = ((choices.key, choices.submap),)
+get_subtree(choices::CallAtChoiceMap, addr::Pair) = _get_subtree(choices, addr)
+get_subtrees_shallow(choices::CallAtChoiceMap) = ((choices.key, choices.submap),)
 
 # TODO optimize CallAtTrace using type parameters
 
@@ -96,7 +96,7 @@ function generate(gen_fn::CallAtCombinator{T,U,K}, args::Tuple,
 end
 
 function project(trace::CallAtTrace, selection::Selection)
-    subselection = selection[trace.key]
+    subselection = get_subselection(selection, trace.key)
     project(trace.subtrace, subselection)
 end
 
@@ -123,7 +123,7 @@ function regenerate(trace::CallAtTrace, args::Tuple, argdiffs::Tuple,
                     selection::Selection)
     (key, kernel_args) = unpack_call_at_args(args)
     key_changed = (key != trace.key)
-    subselection = selection[key]
+    subselection = get_subselection(selection, key)
     if key_changed
         if !isempty(subselection)
             error("Cannot select addresses under new key $key in regenerate")
@@ -162,7 +162,7 @@ function choice_gradients(trace::CallAtTrace, selection::Selection, retval_grad)
         input_grads = (kernel_arg_grads[2:end]..., nothing)
         return (input_grads, value_choices, gradient_choices)
     else
-        subselection = selection[trace.key]
+        subselection = get_subselection(selection, trace.key)
         (kernel_input_grads, value_submap, gradient_submap) = choice_gradients(
             trace.subtrace, subselection, retval_grad)
         input_grads = (kernel_input_grads..., nothing)

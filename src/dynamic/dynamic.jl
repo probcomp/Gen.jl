@@ -128,7 +128,7 @@ all_visited(::Selection, ::Value) = false
 all_visited(::AllSelection, ::Value) = true
 function all_visited(visited::Selection, choices::ChoiceMap)
     for (key, submap) in get_submaps_shallow(choices)
-        if !all_visited(visited[key], submap)
+        if !all_visited(get_subselection(visited, key), submap)
             return false
         end
     end

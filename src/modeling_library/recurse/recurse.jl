@@ -51,7 +51,7 @@ project(trace::RecurseTrace, ::EmptySelection) = 0.
 # recurse assignment wrapper #
 ##############################
 
-struct RecurseTraceChoiceMap <: ChoiceMap
+struct RecurseTraceChoiceMap <: AddressTree{Value}
     trace::RecurseTrace
 end
 
@@ -64,7 +64,7 @@ end
 
 get_address_schema(::Type{RecurseTraceChoiceMap}) = DynamicAddressSchema()
 
-function get_submap(choices::RecurseTraceChoiceMap,
+function get_subtree(choices::RecurseTraceChoiceMap,
                       addr::Tuple{Int,Val{:production}})
     idx = addr[1]
     if !haskey(choices.trace.aggregation_traces, idx)
@@ -74,7 +74,7 @@ function get_submap(choices::RecurseTraceChoiceMap,
     end
 end
 
-function get_submap(choices::RecurseTraceChoiceMap,
+function get_subtree(choices::RecurseTraceChoiceMap,
                       addr::Tuple{Int,Val{:aggregation}})
     idx = addr[1]
     if !haskey(choices.trace.aggregation_traces, idx)
@@ -84,11 +84,11 @@ function get_submap(choices::RecurseTraceChoiceMap,
     end
 end
 
-get_submap(choices::RecurseTraceChoiceMap, addr::Pair) = _get_submap(choices, addr)
+get_subtree(choices::RecurseTraceChoiceMap, addr::Pair) = _get_subtree(choices, addr)
 
 get_values_shallow(choices::RecurseTraceChoiceMap) = ()
 
-function get_submaps_shallow(choices::RecurseTraceChoiceMap)
+function get_subtrees_shallow(choices::RecurseTraceChoiceMap)
     production_iter = (((idx, Val(:production)), get_choices(subtrace))
         for (idx, subtrace) in choices.trace.production_traces)
     aggregation_iter = (((idx, Val(:aggregation)), get_choices(subtrace))

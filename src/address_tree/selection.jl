@@ -1,7 +1,6 @@
-const Selection = AddressTree{AllSelection}
+const Selection = AddressTree{<:Union{AllSelection, EmptyAddressTree}}
 
 const StaticSelection = StaticAddressTree{AllSelection}
-const DynamicSelection = DynamicAddressTree{AllSelection}
 const EmptySelection = EmptyAddressTree
 
 """
@@ -14,19 +13,12 @@ Whether the address is selected in the given selection.
 end
 
 # indexing returns subtrees for selections
-function Base.getindex(selection::Selection, addr)
-    get_subtree(selection, addr)
-end
+Base.getindex(selection::AddressTree{AllSelection}, addr) = get_subtree(selection, addr)
+
+# TODO: deprecate indexing syntax and only use this
+get_subselection(s::Selection, addr) = get_subtree(s, addr)
 
 get_subselections(s::Selection) = get_subtrees_shallow(s)
-
-function select(addrs...)
-    selection = DynamicSelection()
-    for addr in addrs
-        set_subtree!(selection, addr, AllSelection())
-    end
-    selection
-end
 
 Base.merge(::AllSelection, ::Selection) = AllSelection()
 Base.merge(::Selection, ::AllSelection) = AllSelection()
@@ -76,6 +68,44 @@ Filter the address tree `tree` to only include leaf nodes at selected
 addresses.
 """
 get_selected(tree::AddressTree, selection::Selection) = SelectionFilteredAddressTree(tree, selection)
+
+"""
+    struct DynamicSelection <: HierarchicalSelection .. end
+A hierarchical, mutable, selection with arbitrary addresses.
+Can be mutated with the following methods:
+    Base.push!(selection::DynamicSelection, addr)
+Add the address and all of its sub-addresses to the selection.
+Example:
+```julia
+selection = select()
+@assert !(:x in selection)
+push!(selection, :x)
+@assert :x in selection
+```
+    set_subselection!(selection::DynamicSelection, addr, other::Selection)
+Change the selection status of the given address and its sub-addresses that defined by `other`.
+Example:
+```julia
+selection = select(:x)
+@assert :x in selection
+subselection = select(:y)
+set_subselection!(selection, :x, subselection)
+@assert (:x => :y) in selection
+@assert !(:x in selection)
+```
+Note that `set_subselection!` does not copy data in `other`, so `other` may be mutated by a later calls to `set_subselection!` for addresses under `addr`.
+"""
+const DynamicSelection = DynamicAddressTree{AllSelection}
+Base.push!(s::DynamicSelection, addr) = set_subtree!(s, addr, AllSelection())
+set_subselection!(s::DynamicSelection, addr, sub::Selection) = set_subtree!(s, addr, sub)
+
+function select(addrs...)
+    selection = DynamicSelection()
+    for addr in addrs
+        set_subtree!(selection, addr, AllSelection())
+    end
+    selection
+end
 
 export select, get_selected
 export DynamicSelection, EmptySelection, StaticSelection

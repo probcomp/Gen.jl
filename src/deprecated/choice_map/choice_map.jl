@@ -222,7 +222,7 @@ function get_selected(
         if has_value(submap) && addr in selection
             output[addr] = get_value(submap)
         else
-            subselection = selection[addr]
+            subselection = get_subselection(selection, addr)
             set_submap!(output, addr, get_selected(submap, subselection))
         end
     end

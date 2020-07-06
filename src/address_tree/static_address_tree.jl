@@ -7,12 +7,27 @@ struct StaticAddressTree{LeafType, Addrs, SubtreeTypes} <: AddressTree{LeafType}
     end
 end
 
+# If some of the subtrees are `EmptyAddressTree`s, but the `LeafType` does not have `EmptyAddressTree`
+# as a subtype, strip away the addresses which point to EmptyAddressTrees.
+# TODO: is this the implementation we want?  is the performance hit for removing the empty subtrees here worthwhile?
+# also TODO: should I make this @generated?
+function StaticAddressTree{LeafType}(nt::NamedTuple{Addrs, Subtrees}) where {
+    LeafType, Addrs, Subtrees <: Tuple{Vararg{<:AddressTree{<:Union{LeafType, EmptyAddressTree}}}}
+}
+    nonempty_addrs = Tuple(findall(x -> x != EmptyAddressTree(), nt))
+    nonempty_subtrees = Tuple(nt[addr] for addr in nonempty_addrs)
+    StaticAddressTree{LeafType}(NamedTuple{nonempty_addrs}(nonempty_subtrees))
+end
+
 # NOTE: It is probably better to avoid using this constructor when possible since I suspect it is less performant
 # than if we specify `LeafType`.
-# I could make this into a generated function...this would probably improve runtime performance but hurt compiletime performance.
 function StaticAddressTree(subtrees::NamedTuple{Addrs, SubtreeTypes}) where {Addrs, SubtreeTypes <: Tuple{Vararg{AddressTree}}}
     uniontype = Union{SubtreeTypes.parameters...}
-    StaticAddressTree{uniontype}(subtrees)
+    if @generated
+        quote StaticAddressTree{$uniontype}(subtrees) end
+    else
+        StaticAddressTree{uniontype}(subtrees)
+    end
 end
 """
     StaticAddressTree{LeafType}(; a=val, b=tree, ...)
@@ -169,7 +184,7 @@ end
     end
 end
 
-function get_address_schema(::Type{StaticAddressTree{LT, Addrs}}) where {LT, Addrs}
+function get_address_schema(::Type{StaticAddressTree{LT, Addrs, SubtreeTypes}}) where {LT, Addrs, SubtreeTypes}
     StaticAddressSchema(Set(Addrs))
 end
 

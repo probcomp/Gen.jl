@@ -251,7 +251,7 @@ function process_codegen!(stmts, fwd::ForwardPassState, back::BackwardPassState,
     call_subselection = gensym("call_subselection")
     if node in fwd.constrained_or_selected_calls || node in fwd.input_changed
         if node in fwd.constrained_or_selected_calls
-            push!(stmts, :($call_subselection = $(GlobalRef(Gen, :static_getindex))(selection, Val($addr))))
+            push!(stmts, :($call_subselection = $(GlobalRef(Gen, :static_get_subtree))(selection, Val($addr))))
         else
             push!(stmts, :($call_subselection = $(GlobalRef(Gen, :EmptySelection))()))
         end

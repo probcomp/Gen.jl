@@ -32,13 +32,10 @@ struct EmptyAddressTree <: AddressTreeLeaf{EmptyAddressTree} end
 
 An address tree leaf node storing a value of type `T`.
 """
-struct Value{T} <: AddressTreeLeaf{Value}
+struct Value{T} <: AddressTreeLeaf{Value{T}}
     val::T
 end
 @inline get_value(v::Value) = v.val
-# Note that we don't set `Value{T} <: AddressTreeLeaf{Value{T}}`;
-# this complicates the type heirarchicy unnecessarily and results in
-# unintuitive phenomena, such as `Value <: AddressTreeLeaf{Value} == false`.
 
 """
     AllSelection
@@ -53,6 +50,9 @@ struct AllSelection <: AddressTreeLeaf{AllSelection} end
 
 Get the subtree at address `addr` or return `EmptyAddressTree`
 if there is no subtree at this address.
+
+Invariant: `get_subtree(::AddressTree{LeafType}, addr)` either returns
+an object of `LeafType` or an `EmptyAddressTree`.
 """
 function get_subtree end
 
@@ -87,7 +87,7 @@ Base.isempty(::Value) = false
 Base.isempty(::AllSelection) = false
 Base.isempty(::EmptyAddressTree) = true
 Base.isempty(::AddressTreeLeaf) = error("Not implemented")
-Base.isempty(t::AddressTree) = all((_, subtree) -> isempty(subtree), get_subtrees_shallow(t))
+Base.isempty(t::AddressTree) = all(((_, subtree),) -> isempty(subtree), get_subtrees_shallow(t))
 
 @inline get_subtree(::AddressTreeLeaf, _) = EmptyAddressTree()
 @inline get_subtrees_shallow(::AddressTreeLeaf) = ()

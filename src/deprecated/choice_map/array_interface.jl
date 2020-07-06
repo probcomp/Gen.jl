@@ -15,7 +15,7 @@ the addresses of the choicemap using the `sort` function, then iterating over
 each submap in this order and filling the array for that submap.
 
 To override the default implementation of `to_array`, 
-a concrete subtype  `T <: ChoiceMap` should implement the following method:
+a concrete subtype  `T <: AddressTree{Value}` should implement the following method:
 
     n::Int = _fill_array!(choices::T, arr::Vector{V}, start_idx::Int) where {V}
 
@@ -78,7 +78,7 @@ and then filling in the submaps depth-first in this order.
 
 # Implementation
 
-To support `from_array`, a concrete subtype `T <: ChoiceMap` must implement
+To support `from_array`, a concrete subtype `T AddressTree{Value}` must implement
 the following method:
 
     (n::Int, choices::T) = _from_array(proto_choices::T, arr::Vector{V}, start_idx::Int) where {V}

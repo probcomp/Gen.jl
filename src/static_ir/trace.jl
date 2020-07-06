@@ -2,7 +2,7 @@
 # assignment wrapper #
 ######################
 
-struct StaticIRTraceAssmt{T} <: ChoiceMap
+struct StaticIRTraceAssmt{T} <: AddressTree{Value}
     trace::T
 end
 
@@ -10,8 +10,8 @@ function get_schema end
 
 @inline get_address_schema(::Type{StaticIRTraceAssmt{T}}) where {T} = get_schema(T)
 @inline Base.isempty(choices::StaticIRTraceAssmt) = isempty(choices.trace)
-@inline get_submap(choices::StaticIRTraceAssmt, key::Symbol) = static_get_submap(choices, Val(key))
-@inline get_submap(choices::StaticIRTraceAssmt, addr::Pair) = _get_submap(choices, addr)
+@inline get_subtree(choices::StaticIRTraceAssmt, key::Symbol) = static_get_submap(choices, Val(key))
+@inline get_subtree(choices::StaticIRTraceAssmt, addr::Pair) = _get_subtree(choices, addr)
 
 #########################
 # trace type generation #
@@ -26,7 +26,7 @@ abstract type StaticIRTrace <: Trace end
 @inline static_haskey(trace::StaticIRTrace, ::Val) = false
 @inline Base.haskey(trace::StaticIRTrace, key) = Gen.static_haskey(trace, Val(key))
 
-@inline Base.getindex(trace::StaticIRTrace, addr) = Gen.static_getindex(trace, Val(addr))
+@inline Base.getindex(trace::StaticIRTrace, addr) = Gen.static_get_subtree(trace, Val(addr))
 @inline function Base.getindex(trace::StaticIRTrace, addr::Pair)
     first, rest = addr
     return Gen.static_get_subtrace(trace, Val(first))[rest]
@@ -122,7 +122,7 @@ function generate_get_retval(ir::StaticIR, trace_struct_name::Symbol)
         Expr(:block, :(trace.$return_value_fieldname)))
 end
 
-function generate_get_submaps_shallow(ir::StaticIR, trace_struct_name::Symbol)
+function generate_get_subtrees_shallow(ir::StaticIR, trace_struct_name::Symbol)
     elements = []
     for node in ir.call_nodes
         addr = node.addr
@@ -130,7 +130,7 @@ function generate_get_submaps_shallow(ir::StaticIR, trace_struct_name::Symbol)
         push!(elements, :(($(QuoteNode(addr)), $(GlobalRef(Gen, :get_choices))($subtrace))))
     end
     Expr(:function,
-        Expr(:call, GlobalRef(Gen, :get_submaps_shallow),
+        Expr(:call, GlobalRef(Gen, :get_subtrees_shallow),
                     :(choices::$(QuoteNode(StaticIRTraceAssmt)){$trace_struct_name})),
         Expr(:block, Expr(:tuple, elements...)))
 end
@@ -151,7 +151,7 @@ function generate_getindex(ir::StaticIR, trace_struct_name::Symbol)
     for node in ir.call_nodes
         push!(call_getindex_exprs,
             quote
-                function $(GlobalRef(Gen, :static_getindex))(trace::$trace_struct_name, ::Val{$(QuoteNode(node.addr))})
+                function $(GlobalRef(Gen, :static_get_subtree))(trace::$trace_struct_name, ::Val{$(QuoteNode(node.addr))})
                     return $(GlobalRef(Gen, :get_retval))(trace.$(get_subtrace_fieldname(node)))
                 end
             end
@@ -192,7 +192,7 @@ function generate_trace_type_and_methods(ir::StaticIR, name::Symbol, options::St
     get_args_expr = generate_get_args(ir, trace_struct_name)
     get_retval_expr = generate_get_retval(ir, trace_struct_name)
     get_schema_expr = generate_get_schema(ir, trace_struct_name)
-    get_submaps_shallow_expr = generate_get_submaps_shallow(ir, trace_struct_name)
+    get_submaps_shallow_expr = generate_get_subtrees_shallow(ir, trace_struct_name)
     static_get_submap_exprs = generate_static_get_submap(ir, trace_struct_name)
     getindex_exprs = generate_getindex(ir, trace_struct_name)
 

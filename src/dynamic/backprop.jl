@@ -317,7 +317,7 @@ function traceat(state::GFBackpropTraceState, gen_fn::GenerativeFunction{T,U},
         retval_maybe_tracked = retval
         @assert !istracked(retval_maybe_tracked)
     end
-    selection = state.selection[key]
+    selection = get_subselection(state.selection, key)
     record = BackpropTraceRecord(gen_fn, subtrace, selection, state.value_choices,
         state.gradient_choices, key)
     record!(state.tape, ReverseDiff.SpecialInstruction, record, (args_maybe_tracked...,), retval_maybe_tracked)

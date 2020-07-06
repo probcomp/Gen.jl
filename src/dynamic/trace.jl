@@ -49,13 +49,13 @@ get_gen_fn(trace::DynamicDSLTrace) = trace.gen_fn
 
 get_choices(trace::DynamicDSLTrace) = DynamicDSLChoiceMap(trace.trie)
 
-struct DynamicDSLChoiceMap <: ChoiceMap
+struct DynamicDSLChoiceMap <: AddressTree{Value}
     trie::Trie{Any,CallRecord}
 end
 
 get_address_schema(::Type{DynamicDSLChoiceMap}) = DynamicAddressSchema()
-get_submap(choices::DynamicDSLChoiceMap, addr::Pair) = _get_submap(choices, addr)
-function get_submap(choices::DynamicDSLChoiceMap, addr)
+get_subtree(choices::DynamicDSLChoiceMap, addr::Pair) = _get_subtree(choices, addr)
+function get_subtree(choices::DynamicDSLChoiceMap, addr)
     if haskey(choices.trie.leaf_nodes, addr)
         get_choices(choices.trie[addr].subtrace)
     elseif haskey(choices.trie.internal_nodes, addr)
@@ -65,7 +65,7 @@ function get_submap(choices::DynamicDSLChoiceMap, addr)
     end
 end
 
-function get_submaps_shallow(choices::DynamicDSLChoiceMap)
+function get_subtrees_shallow(choices::DynamicDSLChoiceMap)
     leafs = ((key, get_choices(record.subtrace)) for (key, record) in get_leaf_nodes(choices.trie))
     internals = ((key, DynamicDSLChoiceMap(trie)) for (key, trie) in get_internal_nodes(choices.trie))
     Iterators.flatten((leafs, internals))

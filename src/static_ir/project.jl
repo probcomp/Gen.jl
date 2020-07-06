@@ -12,7 +12,7 @@ function process!(state::StaticIRProjectState, node::GenerativeFunctionCallNode)
     subtrace = get_subtrace_fieldname(node)
     subselection = gensym("subselection")
     if isa(schema, AllAddressSchema) || (isa(schema, StaticAddressSchema) && (node.addr in keys(schema)))
-        push!(state.stmts, :($subselection = $(GlobalRef(Gen, :static_getindex))(selection, Val($addr))))
+        push!(state.stmts, :($subselection = $(GlobalRef(Gen, :static_get_subtree))(selection, Val($addr))))
         push!(state.stmts, :($weight += $(GlobalRef(Gen, :project))(trace.$subtrace, $subselection)))
     else
         push!(state.stmts, :($weight += $(GlobalRef(Gen, :project))(trace.$subtrace, $(GlobalRef(Gen, :EmptySelection))())))

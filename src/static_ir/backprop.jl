@@ -266,7 +266,7 @@ function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
             subtrace_fieldname = get_subtrace_fieldname(node)
             call_selection = gensym("call_selection")
             if node in selected_calls
-                push!(stmts, :($call_selection = $(GlobalRef(Gen, :static_getindex))(selection, $(QuoteNode(Val(node.addr))))))
+                push!(stmts, :($call_selection = $(GlobalRef(Gen, :static_get_subtree))(selection, $(QuoteNode(Val(node.addr))))))
             else
                 push!(stmts, :($call_selection = EmptySelection()))
             end

@@ -24,7 +24,7 @@ function traceat(state::GFRegenerateState, gen_fn::GenerativeFunction{T,U},
     visit!(state.visitor, key)
 
     # check whether the key was selected
-    subselection = state.selection[key]
+    subselection = get_subselection(state.selection, key)
 
     # get subtrace
     has_previous = has_call(state.prev_trace, key)

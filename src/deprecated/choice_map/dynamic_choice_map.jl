@@ -3,7 +3,7 @@
 #######################
 
 """
-    struct DynamicChoiceMap <: ChoiceMap .. end
+    struct DynamicChoiceMap AddressTree{Value} .. end
 
 A mutable map from arbitrary hierarchical addresses to values.
 
@@ -15,7 +15,7 @@ Construct an empty map.
 
 Construct a map containing each of the given (addr, value) tuples.
 """
-struct DynamicChoiceMap <: ChoiceMap
+struct DynamicChoiceMap AddressTree{Value}
     submaps::Dict{Any, ChoiceMap}
     function DynamicChoiceMap()
         new(Dict())

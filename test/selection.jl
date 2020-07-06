@@ -1,5 +1,4 @@
 @testset begin "dynamic selection"
-
     s = select(:x, :y => :z, :y => :w)
 
     # test Base.in

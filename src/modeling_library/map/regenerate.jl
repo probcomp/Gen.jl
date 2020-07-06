@@ -15,7 +15,7 @@ function process_retained!(gen_fn::Map{T,U}, args::Tuple,
     local prev_subtrace::U
     local retval::T
 
-    subselection = selection[key]
+    subselection = get_subselection(selection, key)
     kernel_args = get_args_for_key(args, key)
 
     # get new subtrace with recursive call to regenerate()
@@ -48,7 +48,7 @@ function process_new!(gen_fn::Map{T,U}, args::Tuple, selection::Selection, key::
                       state::MapRegenerateState{T,U}) where {T,U}
     local subtrace::U
     local retval::T
-    if !isempty(selection[key])
+    if !isempty(get_subselection(selection, key))
         error("Tried to select new address in regenerate at key $key")
     end
     kernel_args = get_args_for_key(args, key)

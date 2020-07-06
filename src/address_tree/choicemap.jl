@@ -12,9 +12,7 @@ showerror(io::IO, ex::ChoiceMapGetValueError) = (print(io, "ChoiceMapGetValueErr
 
 Abstract type for maps from hierarchical addresses to values.
 """
-const ChoiceMap = AddressTree{Value}
-
-const ChoiceMapOrEmpty = Union{ChoiceMap, EmptyAddressTree}
+const ChoiceMap = AddressTree{<:Union{Value, EmptyAddressTree}}
 
 """
     get_submaps_shallow(choices::ChoiceMap)
@@ -23,7 +21,7 @@ Returns an iterable collection of tuples `(address, submap)`
 for each top-level address associated with `choices`.
 (This includes `Value`s.)
 """
-@inline get_submaps_shallow(c::ChoiceMapOrEmpty) = get_subtrees_shallow(c)
+@inline get_submaps_shallow(c::ChoiceMap) = get_subtrees_shallow(c)
 
 """
     get_submap(choices::ChoiceMap, addr)
@@ -31,9 +29,9 @@ for each top-level address associated with `choices`.
 Return the submap at the given address, or `EmptyChoiceMap`
 if there is no submap at the given address.
 """
-@inline get_submap(c::ChoiceMapOrEmpty, addr) = get_subtree(c, addr)
+@inline get_submap(c::ChoiceMap, addr) = get_subtree(c, addr)
 
-@inline static_get_submap(c::ChoiceMapOrEmpty, a) = static_get_subtree(c, a)
+@inline static_get_submap(c::ChoiceMap, a) = static_get_subtree(c, a)
 
 """
     has_value(choices::ChoiceMap)
@@ -45,9 +43,9 @@ Returns true if `choices` is a `Value`.
 Returns true if `choices` has a value stored at address `addr`.
 """
 function has_value end
-@inline has_value(c::ChoiceMapOrEmpty, addr) = has_value(get_submap(c, addr))
+@inline has_value(c::ChoiceMap, addr) = has_value(get_submap(c, addr))
 has_value(::Value) = true
-has_value(::ChoiceMapOrEmpty) = false
+has_value(::ChoiceMap) = false
 
 """
     get_value(choices::ChoiceMap)
@@ -64,8 +62,8 @@ A syntactic sugar is `Base.getindex`:
     value = choices[addr]
 """
 function get_value end
-@inline get_value(::ChoiceMapOrEmpty) = throw(ChoiceMapGetValueError())
-@inline get_value(c::ChoiceMapOrEmpty, addr) = get_value(get_submap(c, addr))
+@inline get_value(::ChoiceMap) = throw(ChoiceMapGetValueError())
+@inline get_value(c::ChoiceMap, addr) = get_value(get_submap(c, addr))
 @inline Base.getindex(choices::ChoiceMap, addr...) = get_value(choices, addr...)
 
 """
@@ -76,7 +74,7 @@ for each value stored at a top-level address in `choices`.
 (Works by applying a filter to `get_submaps_shallow`,
 so this internally requires iterating over every submap.)
 """
-function get_values_shallow(choices::ChoiceMapOrEmpty)
+function get_values_shallow(choices::ChoiceMap)
     (
         (addr, get_value(submap))
         for (addr, submap) in get_submaps_shallow(choices)
@@ -93,7 +91,7 @@ not a `Value`.
 (Works by applying a filter to `get_submaps_shallow`,
 so this internally requires iterating over every submap.)
 """
-function get_nonvalue_submaps_shallow(choices::ChoiceMapOrEmpty)
+function get_nonvalue_submaps_shallow(choices::ChoiceMap)
     (addr_to_submap for addr_to_submap in get_submaps_shallow(choices) if !has_value(addr_to_submap[2]))
 end
 

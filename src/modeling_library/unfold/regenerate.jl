@@ -17,7 +17,7 @@ function process_retained!(gen_fn::Unfold{T,U}, params::Tuple,
     local prev_state::T
     local new_state::T
 
-    subselection = selection[key]
+    subselection = get_subselection(selection, key)
     prev_state = (key == 1) ? state.init_state : state.retval[key-1]
     kernel_args = (key, prev_state, params...)
 
@@ -55,7 +55,7 @@ function process_new!(gen_fn::Unfold{T,U}, params::Tuple, selection::Selection, 
     local prev_state::T
     local new_state::T
 
-    if !isempty(selection[key])
+    if !isempty(get_subselection(selection, key))
         error("Cannot select new addresses in regenerate")
     end
     prev_state = (key == 1) ? state.init_state : state.retval[key-1]

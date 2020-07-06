@@ -65,21 +65,21 @@ end
 function project(trace::VectorTrace, selection::Selection)
     weight = 0.
     for key=1:trace.len
-        subselection = selection[key]
+        subselection = get_subselection(selection, key)
         weight += project(trace.subtraces[key], subselection)
     end
     weight
 end
 project(trace::VectorTrace, ::EmptySelection) = trace.noise
 
-struct VectorTraceChoiceMap{GenFnType, T, U} <: ChoiceMap
+struct VectorTraceChoiceMap{GenFnType, T, U} <: AddressTree{Value}
     trace::VectorTrace{GenFnType, T, U}
 end
 
 @inline Base.isempty(assignment::VectorTraceChoiceMap) = assignment.trace.num_nonempty == 0
 @inline get_address_schema(::Type{VectorTraceChoiceMap}) = VectorAddressSchema()
 
-@inline function get_submap(choices::VectorTraceChoiceMap, addr::Int)
+@inline function get_subtree(choices::VectorTraceChoiceMap, addr::Int)
     if addr <= choices.trace.len
         get_choices(choices.trace.subtraces[addr])
     else
@@ -87,11 +87,11 @@ end
     end
 end
 
-@inline function get_submaps_shallow(choices::VectorTraceChoiceMap)
+@inline function get_subtrees_shallow(choices::VectorTraceChoiceMap)
     ((i, get_choices(choices.trace.subtraces[i])) for i=1:choices.trace.len)
 end
 
-@inline get_submap(choices::VectorTraceChoiceMap, addr::Pair) = _get_submap(choices, addr)
+@inline get_subtree(choices::VectorTraceChoiceMap, addr::Pair) = _get_subtree(choices, addr)
 
 ############################################
 # code shared by vector-shaped combinators #
