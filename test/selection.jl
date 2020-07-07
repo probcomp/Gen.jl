@@ -45,7 +45,7 @@ end
     @test s[:x => :y] == AllSelection()
 end
 
-@testset begin "addrs, selection minus, underlying_selection"
+@testset begin "addrs"
     choices = choicemap((:a, 1), (:b => :c, 2))
     a = addrs(choices)
     @test a isa Selection
@@ -54,20 +54,4 @@ end
     @test !(:d in a)
     @test get_subselection(a, :b) == select(:c)
     @test length(collect(get_subtrees_shallow(a))) == 2
-
-    sel1 = select(:b => :c)
-    diff = a - sel1
-    @test diff isa Selection
-    @test :a in diff
-    @test !((:b => :c) in diff)
-    @test isempty(get_subselection(diff, :b))
-    @test !(:d in diff)
-
-    @test isempty(diff - select(:a))
-
-    tree = DynamicAddressTree{Union{Value, AllSelection}}()
-    sel = select(:x => :y, :z)
-    merge!(tree, sel)
-    merge!(tree, choicemap((:a, 1), (:b => :c => :d, 10.5)))
-    @test underlying_selection(tree) == sel
 end
