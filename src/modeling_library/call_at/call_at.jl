@@ -101,42 +101,31 @@ function project(trace::CallAtTrace, selection::Selection)
 end
 
 function update(trace::CallAtTrace, args::Tuple, argdiffs::Tuple,
-                choices::ChoiceMap)
+                spec::UpdateSpec, externally_constrained_addrs::Selection)
     (key, kernel_args) = unpack_call_at_args(args)
     key_changed = (key != trace.key)
-    submap = get_submap(choices, key)
-    if key_changed
-        (subtrace, weight) = generate(trace.gen_fn.kernel, kernel_args, submap)
-        weight -= get_score(trace.subtrace)
+    subspec = get_subtree(spec, key)
+    if key_changed # TODO: remove the capacity to change key!
+        # TODO: convert subspec to choicemap
+        (subtrace, weight) = generate(trace.gen_fn.kernel, kernel_args, subspec)
+
+        sub_ext_const_addrs = get_subselection(externally_constrained_addrs, key)
+        if sub_ext_const_addrs === AllSelection()
+            weight -= get_score(trace.subtrace)
+        else
+            reverse_external_constraint_addrs = addrs(get_selected(get_choices(trace.subtrace), sub_ext_const_addrs))
+            weight -= project(trace.subtrace, reverse_external_constraint_addrs)
+        end
         discard = get_choices(trace)
         retdiff = UnknownChange()
     else
+        sub_ext_const_addrs = get_subtree(externally_constrained_addrs, key)
         (subtrace, weight, retdiff, subdiscard) = update(
-            trace.subtrace, kernel_args, argdiffs[1:end-1], submap)
+            trace.subtrace, kernel_args, argdiffs[1:end-1], subspec, sub_ext_const_addrs)
         discard = CallAtChoiceMap(key, subdiscard)
     end
     new_trace = CallAtTrace(trace.gen_fn, subtrace, key)
     (new_trace, weight, retdiff, discard)
-end
-
-function regenerate(trace::CallAtTrace, args::Tuple, argdiffs::Tuple,
-                    selection::Selection)
-    (key, kernel_args) = unpack_call_at_args(args)
-    key_changed = (key != trace.key)
-    subselection = get_subselection(selection, key)
-    if key_changed
-        if !isempty(subselection)
-            error("Cannot select addresses under new key $key in regenerate")
-        end
-        (subtrace, weight) = generate(trace.gen_fn.kernel, kernel_args, EmptyChoiceMap())
-        weight -= project(trace.subtrace, EmptySelection())
-        retdiff = UnknownChange()
-    else
-        (subtrace, weight, retdiff) = regenerate(
-            trace.subtrace, kernel_args, argdiffs[1:end-1], subselection)
-    end
-    new_trace = CallAtTrace(trace.gen_fn, subtrace, key)
-    (new_trace, weight, retdiff)
 end
 
 function choice_gradients(trace::CallAtTrace, selection::Selection, retval_grad)
