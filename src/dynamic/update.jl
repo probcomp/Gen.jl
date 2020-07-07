@@ -2,17 +2,18 @@ mutable struct GFUpdateState
     prev_trace::DynamicDSLTrace
     trace::DynamicDSLTrace
     spec::UpdateSpec
+    externally_constrained_addrs::Selection
     weight::Float64
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
     discard::DynamicChoiceMap
 end
 
-function GFUpdateState(gen_fn, args, prev_trace, constraints, params)
+function GFUpdateState(gen_fn, args, prev_trace, constraints, externally_constrained_addrs, params)
     visitor = AddressVisitor()
     discard = choicemap()
     trace = DynamicDSLTrace(gen_fn, args)
-    GFUpdateState(prev_trace, trace, constraints,
+    GFUpdateState(prev_trace, trace, constraints, externally_constrained_addrs,
         0., visitor, params, discard)
 end
 
@@ -28,6 +29,7 @@ function traceat(state::GFUpdateState, gen_fn::GenerativeFunction{T,U},
 
     # updatespec at this key
     spec = get_subtree(state.spec, key)
+    sub_externally_constrained_addrs = get_subtree(state.externally_constrained_addrs, key)
 
     # get subtrace
     has_previous = has_call(state.prev_trace, key)
@@ -36,9 +38,10 @@ function traceat(state::GFUpdateState, gen_fn::GenerativeFunction{T,U},
         prev_subtrace = prev_call.subtrace
         get_gen_fn(prev_subtrace) === gen_fn || gen_fn_changed_error(key)
         (subtrace, weight, _, discard) = update(prev_subtrace,
-            args, map((_) -> UnknownChange(), args), spec)
+            args, map((_) -> UnknownChange(), args), spec, sub_externally_constrained_addrs)
     else
-        (subtrace, weight) = generate(gen_fn, args, constraints)
+        @assert spec isa ChoiceMap "Cannot generate subtrace at $key with non-choicemap update spec $spec"
+        (subtrace, weight) = generate(gen_fn, args, spec)
     end
     
     # update the weight
@@ -68,30 +71,24 @@ function splice(state::GFUpdateState, gen_fn::DynamicDSLFunction,
 end
 
 function update_delete_recurse(prev_trie::Trie{Any,CallRecord},
-                               visited::EmptySelection)
-    score = 0.
-    for (key, call) in get_leaf_nodes(prev_trie)
-        score += call.score
-    end
-    for (key, subtrie) in get_internal_nodes(prev_trie)
-        score += update_delete_recurse(subtrie, EmptySelection())
-    end
-    score
-end
-
-function update_delete_recurse(prev_trie::Trie{Any,CallRecord},
-                               visited::DynamicSelection)
-    score = 0.
+                               visited::Selection, externally_constrained_addrs::Selection)
+    weight = 0.
     for (key, call) in get_leaf_nodes(prev_trie)
         if !(key in visited)
-            score += call.score
+            # weight += Q[deleted_subtrace | reverse_constraints] / P[deleted_subtrace] .
+            # where reverse_constraints = get_selected(choices(deleted_subtrace), externally_constrained_addrs)
+            # (ie. whatever choices in the discard are constrained externally)
+            sub_externally_constrained_addrs = get_subselection(externally_constrained_addrs, key)
+            reverse_constraint = get_selected(get_choices(call.subtrace), sub_externally_constrained_addrs)
+            weight += project(call, addrs(reverse_constraint))
         end
     end
     for (key, subtrie) in get_internal_nodes(prev_trie)
-        subvisited = get_subselection(visited, key)
-        score += update_delete_recurse(subtrie, subvisited)
+        subvisited = get_subtree(visited, key)
+        sub_externally_constrained_addrs = get_subtree(externally_constrained_addrs, key)
+        weight += update_delete_recurse(subtrie, subvisited, sub_externally_constrained_addrs)
     end
-    score
+    weight
 end
 
 function add_unvisited_to_discard!(discard::DynamicChoiceMap,
@@ -103,7 +100,7 @@ function add_unvisited_to_discard!(discard::DynamicChoiceMap,
         # for this entire submap; else we need to handle it
         if !(key in visited)
             @assert isempty(get_submap(discard, key))
-            subvisited = visited[key]
+            subvisited = get_subselection(visited, key)
             if isempty(subvisited)
                 # none of this submap was visited, so we discard the whole thing
                 set_submap!(discard, key, submap)
@@ -118,16 +115,16 @@ function add_unvisited_to_discard!(discard::DynamicChoiceMap,
 end
 
 function update(trace::DynamicDSLTrace, arg_values::Tuple, arg_diffs::Tuple,
-                spec::UpdateSpec)
+                spec::UpdateSpec, externally_constrained_addrs::Selection)
     gen_fn = trace.gen_fn
-    state = GFUpdateState(gen_fn, arg_values, trace, spec, gen_fn.params)
+    state = GFUpdateState(gen_fn, arg_values, trace, spec, externally_constrained_addrs, gen_fn.params)
     retval = exec(gen_fn, state, arg_values) 
     set_retval!(state.trace, retval)
     visited = get_visited(state.visitor)
-    state.weight -= update_delete_recurse(trace.trie, visited)
+    state.weight -= update_delete_recurse(trace.trie, visited, externally_constrained_addrs)
     add_unvisited_to_discard!(state.discard, visited, get_choices(trace))
-    if !all_visited(visited, constraints)
-        error("Did not visit all constraints")
+    if !all_constraints_visited(visited, spec)
+        error("Did not visit all addresses in the update specification")
     end
     (state.trace, state.weight, UnknownChange(), state.discard)
 end

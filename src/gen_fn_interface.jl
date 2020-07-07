@@ -203,7 +203,7 @@ let \$u\$ denote the restriction of \$t\$ to \$A\$. Return the weight
 \\log \\frac{p(r, t; x)}{q(t; u, x) q(r; x, t)}
 ```
 """
-function project(trace, selection::Selection)
+function project(trace::Trace, selection::Selection)
     error("Not implemented")
 end
 
@@ -244,6 +244,12 @@ function assess(gen_fn::GenerativeFunction, args::Tuple, choices::ChoiceMap)
 end
 
 """
+    (new_trace, weight, retdiff, reverse_update_spec) = update(trace, args::Tuple, argdiffs::Tuple,
+                                                        spec::UpdateSpec, externally_constrained_addresses::Selection)
+
+TODO: Document me.
+
+
     (new_trace, weight, retdiff, discard) = update(trace, args::Tuple, argdiffs::Tuple,
                                                    constraints::ChoiceMap)
 
@@ -272,8 +278,11 @@ that if the original `trace` was generated using non-default argument values,
 then for each optional argument that is omitted, the old value will be
 over-written by the default argument value in the updated trace.
 """
-function update(trace, args::Tuple, argdiffs::Tuple, ::ChoiceMap)
+function update(trace, args::Tuple, argdiffs::Tuple, ::UpdateSpec, ::Selection)
     error("Not implemented")
+end
+function update(trace, args::Tuple, argdiffs::Tuple, constraints::ChoiceMap)
+    update(trace, args, argdiffs, constraints, AllSelection())
 end
 
 """
@@ -304,7 +313,7 @@ then for each optional argument that is omitted, the old value will be
 over-written by the default argument value in the regenerated trace.
 """
 function regenerate(trace, args::Tuple, argdiffs::Tuple, selection::Selection)
-    update(trace, args, argdiffs, selection)[1:3]
+    update(trace, args, argdiffs, selection, EmptySelection())[1:3]
 end
 
 """

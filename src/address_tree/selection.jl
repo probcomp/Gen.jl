@@ -50,14 +50,9 @@ function get_subtree(t::SelectionFilteredAddressTree, addr)
 end
 
 function get_subtrees_shallow(t::SelectionFilteredAddressTree)
-    all_selected_including_empty = (
+    nonempty_subtree_itr(
         (addr, SelectionFilteredAddressTree(subtree, get_subtree(t.sel, addr)))
         for (addr, subtree) in get_subtrees_shallow(t.tree)
-    )
-
-    return (
-        (addr, tree) for (addr, tree) in all_selected_including_empty
-        if tree !== EmptyAddressTree()
     )
 end
 
@@ -120,7 +115,7 @@ AddressSelection(::AddressTreeLeaf) = AllSelection()
 AddressSelection(::EmptyAddressTree) = EmptyAddressTree()
 get_subtree(a::AddressSelection, addr) = AddressSelection(get_subtree(a.a, addr))
 function get_subtrees_shallow(a::AddressSelection)
-    ((addr, AddressSelection(subtree)) for (addr, subtree) in get_subtrees_shallow(a.a))
+    nonempty_subtree_itr((addr, AddressSelection(subtree)) for (addr, subtree) in get_subtrees_shallow(a.a))
 end
 get_address_schema(::Type{AddressSelection{T}}) where {T} = get_address_schema(T)
 
@@ -147,7 +142,7 @@ SelectionDiff(s::Selection, ::EmptyAddressTree) = s
 SelectionDiff(::EmptyAddressTree, ::EmptyAddressTree) = EmptyAddressTree()
 get_subtree(a::SelectionDiff, addr) = SelectionDiff(get_subtree(a.sel, addr), get_subtree(a.minus, addr))
 function get_subtrees_shallow(a::SelectionDiff)
-    (
+    nonempty_subtree_itr(
         (addr, SelectionDiff(subtree, get_subtree(a.minus, addr)))
         for (addr, subtree) in get_subtrees_shallow(a.sel)
     )
@@ -161,5 +156,31 @@ The selection containing every address in `selection1` but not in `selection2`.
 """
 Base.:(-)(sel::Selection, minus::Selection) = SelectionDiff(sel, minus)
 
-export select, get_selected, addrs, get_subselection, get_subselections
+"""
+    SelectedAddrs(::AddressTree)
+
+The selection containg all addresses in the given address tree
+which contain an `AllSelection` (or are downstream from an `AllSelection`).
+"""
+struct SelectedAddrs <: AddressTree{AllSelection}
+    tree::AddressTree
+    SelectedAddrs(tree::AddressTree{T}) where {AllSelection <: T <: Any} = new(tree)
+end
+SelectedAddrs(::AllSelection) = AllSelection()
+SelectedAddrs(::AddressTree) = EmptyAddressTree()
+get_subtree(s::SelectedAddrs, addr) = SelectedAddrs(get_subtree(s.tree, addr))
+function get_subtrees_shallow(s::SelectedAddrs)
+    nonempty_subtree_itr((addr, SelectedAddrs(sub)) for (addr, sub) in get_subtrees_shallow(s.tree))
+end
+
+"""
+    underlying_selection(::AddressTree)
+
+Returns the "underlying selection" in the given address tree, ie. the selection
+containg all addresses in the address tree
+which point to an `AllSelection` (or are downstream from an `AllSelection`).
+"""
+underlying_selection(t::AddressTree) = SelectedAddrs(t)
+
+export select, get_selected, underlying_selection, addrs, get_subselection, get_subselections
 export Selection, DynamicSelection, EmptySelection, StaticSelection

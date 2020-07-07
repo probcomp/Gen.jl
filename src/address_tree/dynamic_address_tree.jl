@@ -95,4 +95,26 @@ function _from_array(proto_choices::DynamicAddressTree{LT}, arr::Vector{T}, star
     (idx - start_idx, choices)
 end
 
+"""
+    merge!(into::DynamicAddressTree{T}, from::DynamicAddressTree{U}) where U <: T
+
+Merge all the subtrees from `from` into `into`.
+
+Merges in place as deeply as possible,
+until encountering a non-dynamic subtree of `into`, at which point
+this resorts to non-mutating `merge` for that subtree.
+"""
+function Base.merge!(into::DynamicAddressTree{T}, from::DynamicAddressTree{U}) where {T, U <: T}
+    for (addr, from_subtree) in get_subtrees_shallow(from)
+        into_subtree = get_subtree(into, addr)
+        if isempty(into_subtree)
+            set_subtree!(into, addr, from_subtree)
+        elseif into_subtree isa DynamicAddressTree
+            merge!(into_subtree, from_subtree)
+        else
+            set_subtree!(into, addr, merge(into_subtree, from_subtree))
+        end
+    end
+end
+
 export DynamicAddressTree, set_subtree!

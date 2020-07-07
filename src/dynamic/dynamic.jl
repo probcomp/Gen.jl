@@ -124,11 +124,14 @@ function visit!(visitor::AddressVisitor, addr)
     push!(visitor.visited, addr)
 end
 
-all_visited(::Selection, ::Value) = false
-all_visited(::AllSelection, ::Value) = true
-function all_visited(visited::Selection, choices::ChoiceMap)
-    for (key, submap) in get_submaps_shallow(choices)
-        if !all_visited(get_subselection(visited, key), submap)
+all_constraints_visited(::Selection, ::Value) = false
+all_constraints_visited(::AllSelection, ::Value) = true
+all_constraints_visited(::Selection, ::Selection) = true # we're allowed to not visit selections
+all_constraints_visited(::Selection, ::EmptyAddressTree) = true
+all_constraints_visited(::AllSelection, ::EmptyAddressTree) = true
+function all_constraints_visited(visited::Selection, spec::UpdateSpec)
+    for (key, subtree) in get_subtrees_shallow(spec)
+        if !all_constraints_visited(get_subselection(visited, key), subtree)
             return false
         end
     end
@@ -164,7 +167,6 @@ include("propose.jl")
 include("assess.jl")
 include("project.jl")
 include("update.jl")
-include("regenerate.jl")
 include("backprop.jl")
 
 export DynamicDSLFunction

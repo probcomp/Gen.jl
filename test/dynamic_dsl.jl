@@ -1,4 +1,4 @@
-using Gen: AddressVisitor, all_visited, visit!, get_visited
+using Gen: AddressVisitor, all_constraints_visited, visit!, get_visited
 
 struct DummyReturnType
 end
@@ -49,20 +49,20 @@ end
     visitor = AddressVisitor()
     visit!(visitor, :x)
     visit!(visitor, :y => :z)
-    @test all_visited(get_visited(visitor), choices)
+    @test all_constraints_visited(get_visited(visitor), choices)
 
     visitor = AddressVisitor()
     visit!(visitor, :x)
-    @test !all_visited(get_visited(visitor), choices)
+    @test !all_constraints_visited(get_visited(visitor), choices)
 
     visitor = AddressVisitor()
     visit!(visitor, :y => :z)
-    @test !all_visited(get_visited(visitor), choices)
+    @test !all_constraints_visited(get_visited(visitor), choices)
 
     visitor = AddressVisitor()
     visit!(visitor, :x)
     visit!(visitor, :y)
-    @test all_visited(get_visited(visitor), choices)
+    @test all_constraints_visited(get_visited(visitor), choices)
 end
 
 @testset "simulate" begin

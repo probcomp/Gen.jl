@@ -72,6 +72,10 @@ get_return_type(::Distribution{T}) where {T} = T
 @inline Gen.get_score(trace::DistributionTrace) = trace.score
 @inline Gen.project(trace::DistributionTrace, ::EmptySelection) = 0.
 @inline Gen.project(trace::DistributionTrace, ::AllSelection) = get_score(trace)
+function Gen.project(trace::DistributionTrace, sel::Selection)
+    println("SELECTION: $sel")
+    display(sel)
+end
 
 @inline function Gen.simulate(dist::Distribution, args::Tuple)
     val = random(dist, args...)
@@ -83,28 +87,23 @@ end
     weight = get_score(tr)
     (tr, weight)
 end
-@inline function Gen.update(tr::DistributionTrace, args::Tuple, argdiffs::Tuple, constraints::Value)
-    new_tr = DistributionTrace(get_value(constraints), args, dist(tr))
+@inline function Gen.update(tr::DistributionTrace, args::Tuple, argdiffs::Tuple, spec::Value, ::AllSelection)
+    new_tr = DistributionTrace(get_value(spec), args, dist(tr))
     weight = get_score(new_tr) - get_score(tr)
     (new_tr, weight, UnknownChange(), get_choices(tr))
 end
-@inline function Gen.update(tr::DistributionTrace, args::Tuple, argdiffs::Tuple, constraints::EmptyChoiceMap)
+@inline function Gen.update(tr::DistributionTrace, args::Tuple, argdiffs::Tuple, ::EmptyAddressTree, ::Selection)
     new_tr = DistributionTrace(tr.val, args, dist(tr))
     weight = get_score(new_tr) - get_score(tr)
     (new_tr, weight, NoChange(), EmptyChoiceMap())
 end
-@inline Gen.update(tr::DistributionTrace, args::Tuple, argdiffs::NTuple{n, NoChange}, constraints::EmptyChoiceMap) where {n} = (tr, 0., NoChange())
-# TODO: do I need an update method to handle empty choicemaps which are not `EmptyChoiceMap`s?
-@inline Gen.regenerate(tr::DistributionTrace, args::Tuple, argdiffs::NTuple{n, NoChange}, selection::EmptySelection) where {n} = (tr, 0., NoChange())
-@inline function Gen.regenerate(tr::DistributionTrace, args::Tuple, argdiffs::Tuple, selection::EmptySelection)
-    new_tr = DistributionTrace(tr.val, args, dist(tr))
-    weight = get_score(new_tr) - get_score(tr)
-    (new_tr, weight, NoChange())
+@inline function Gen.update(tr::DistributionTrace, args::Tuple, argdiffs::Tuple{Vararg{NoChange}}, ::EmptyAddressTree, ::Selection)
+    (tr, 0., NoChange(), EmptyChoiceMap())
 end
-@inline function Gen.regenerate(tr::DistributionTrace, args::Tuple, argdiffs::Tuple, selection::AllSelection)
+@inline function Gen.update(tr::DistributionTrace, args::Tuple, argdiffs::Tuple, ::AllSelection, ::EmptyAddressTree)
     new_val = random(dist(tr), args...)
     new_tr = DistributionTrace(new_val, args, dist(tr))
-    (new_tr, 0., UnknownChange())
+    (new_tr, 0., UnknownChange(), get_choices(tr))
 end
 @inline function Gen.propose(dist::Distribution, args::Tuple)
     val = random(dist, args...)

@@ -3,6 +3,9 @@ struct CallRecord{T}
     score::Float64
     noise::Float64
 end
+project(c::CallRecord, ::EmptySelection) = c.noise
+project(c::CallRecord, ::AllSelection) = c.score
+project(c::CallRecord, s::Selection) = project(c.subtrace, s)
 
 mutable struct DynamicDSLTrace{T} <: Trace
     gen_fn::T

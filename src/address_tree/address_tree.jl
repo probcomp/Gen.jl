@@ -213,6 +213,10 @@ function Base.show(io::IO, ::MIME"text/plain", tree::AddressTree)
 end
 Base.show(io::IO, ::MIME"text/plain", t::AddressTreeLeaf) = print(io, t)
 
+function nonempty_subtree_itr(itr)
+    ((addr, subtree) for (addr, subtree) in itr if !isempty(subtree))
+end
+
 include("dynamic_address_tree.jl")
 include("static_address_tree.jl")
 
