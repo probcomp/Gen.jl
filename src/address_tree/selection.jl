@@ -107,5 +107,59 @@ function select(addrs...)
     selection
 end
 
-export select, get_selected
-export DynamicSelection, EmptySelection, StaticSelection
+"""
+    AddressSelection(::AddressTree)
+
+A selection containing all of the addresses in the given address tree with a nonempty leaf node.
+"""
+struct AddressSelection{T} <: AddressTree{AllSelection}
+    a::T
+    AddressSelection(a::T) where {T <: AddressTree} = new{T}(a)
+end
+AddressSelection(::AddressTreeLeaf) = AllSelection()
+AddressSelection(::EmptyAddressTree) = EmptyAddressTree()
+get_subtree(a::AddressSelection, addr) = AddressSelection(get_subtree(a.a, addr))
+function get_subtrees_shallow(a::AddressSelection)
+    ((addr, AddressSelection(subtree)) for (addr, subtree) in get_subtrees_shallow(a.a))
+end
+get_address_schema(::Type{AddressSelection{T}}) where {T} = get_address_schema(T)
+
+"""
+    addrs(::AddressTree)
+
+Returns a selection containing all of the addresses in the tree with a nonempty leaf node.
+"""
+addrs(a::AddressTree) = AddressSelection(a)
+
+"""
+    SelectionDiff(sel::Selection, minus::Selection)
+
+Returns the selection containing every address in `sel` but not in `minus`.
+"""
+struct SelectionDiff <: AddressTree{AllSelection}
+    sel::Selection
+    minus::Selection
+end
+SelectionDiff(::EmptyAddressTree, ::Selection) = EmptyAddressTree()
+SelectionDiff(::Selection, ::AllSelection) = EmptyAddressTree()
+SelectionDiff(::EmptyAddressTree, ::AllSelection) = EmptyAddressTree()
+SelectionDiff(s::Selection, ::EmptyAddressTree) = s
+SelectionDiff(::EmptyAddressTree, ::EmptyAddressTree) = EmptyAddressTree()
+get_subtree(a::SelectionDiff, addr) = SelectionDiff(get_subtree(a.sel, addr), get_subtree(a.minus, addr))
+function get_subtrees_shallow(a::SelectionDiff)
+    (
+        (addr, SelectionDiff(subtree, get_subtree(a.minus, addr)))
+        for (addr, subtree) in get_subtrees_shallow(a.sel)
+    )
+end
+# TODO: address schema?
+
+"""
+    selection1 - selection2
+
+The selection containing every address in `selection1` but not in `selection2`.
+"""
+Base.:(-)(sel::Selection, minus::Selection) = SelectionDiff(sel, minus)
+
+export select, get_selected, addrs, get_subselection, get_subselections
+export Selection, DynamicSelection, EmptySelection, StaticSelection
