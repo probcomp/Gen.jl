@@ -97,13 +97,14 @@ end
 # code shared by vector-shaped combinators #
 ############################################
 
-function get_retained_and_constrained(constraints::ChoiceMap, prev_length::Int, new_length::Int)
+function get_retained_and_specd(spec::UpdateSpec, prev_length::Int, new_length::Int)
     keys = Set{Int}()
-    for (key::Int, _) in get_submaps_shallow(constraints)
+    for (key::Int, subspec) in get_subtrees_shallow(spec)
+        isempty(subspec) && continue;
         if key > 0 && key <= new_length
             push!(keys, key)
         else
-            error("Constrained address does not exist: $key")
+            error("Update spec included address which does not exist: $key")
         end
     end
     keys 
@@ -138,39 +139,36 @@ function vector_compute_retdiff(updated_retdiffs::Dict{Int,Diff}, new_length::In
 end
 
 function vector_update_delete(new_length::Int, prev_length::Int,
-                                 prev_trace::VectorTrace)
+                                 prev_trace::VectorTrace, externally_constrained_addrs::Selection)
     num_nonempty = prev_trace.num_nonempty
     discard = choicemap()
     score_decrement = 0.
     noise_decrement = 0.
+    deletion_weight = 0.
     for key=new_length+1:prev_length
         subtrace = prev_trace.subtraces[key]
-        score_decrement += get_score(subtrace)
-        noise_decrement += project(subtrace, EmptySelection())
+        score_change = get_score(subtrace)
+        noise_change = project(subtrace, EmptySelection())
+       
+        score_decrement += score_change
+        noise_decrement += noise_change
+
+        ext_const = get_subselection(externally_constrained_addrs, key)
+        if isempty(ext_const)
+            deletion_weight += noise_change
+        elseif ext_const === AllSelection()
+            deletion_weight += score_change
+        else
+            deletion_weight += project(subtrace, addrs(get_selected(get_choices(subtrace), ext_const)))
+        end
+
         if !isempty(get_choices(subtrace))
             num_nonempty -= 1
         end
         @assert num_nonempty >= 0
         set_submap!(discard, key, get_choices(subtrace))
     end
-    return (discard, num_nonempty, score_decrement, noise_decrement)
-end
-
-function vector_regenerate_delete(new_length::Int, prev_length::Int,
-                                  prev_trace::VectorTrace)
-    num_nonempty = prev_trace.num_nonempty
-    score_decrement = 0.
-    noise_decrement = 0.
-    for key=new_length+1:prev_length
-        subtrace = prev_trace.subtraces[key]
-        score_decrement += get_score(subtrace)
-        noise_decrement += project(subtrace, EmptySelection())
-        if !isempty(get_choices(subtrace))
-            num_nonempty -= 1
-        end
-        @assert num_nonempty >= 0
-    end
-    return (num_nonempty, score_decrement, noise_decrement)
+    return (discard, num_nonempty, score_decrement, noise_decrement, deletion_weight)
 end
 
 function vector_remove_deleted_applications(subtraces, retval, prev_length, new_length)
