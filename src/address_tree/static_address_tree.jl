@@ -14,9 +14,18 @@ end
 function StaticAddressTree{LeafType}(nt::NamedTuple{Addrs, Subtrees}) where {
     LeafType, Addrs, Subtrees <: Tuple{Vararg{<:AddressTree{<:Union{LeafType, EmptyAddressTree}}}}
 }
-    nonempty_addrs = Tuple(findall(x -> x != EmptyAddressTree(), nt))
-    nonempty_subtrees = Tuple(nt[addr] for addr in nonempty_addrs)
-    StaticAddressTree{LeafType}(NamedTuple{nonempty_addrs}(nonempty_subtrees))
+    # if @generated
+    # println(Subtrees.parameters)
+    #     nonempty_indices = (x -> x != EmptyAddressTree, Subtrees.parameters)
+    #     nonempty_addrs = Tuple(Addrs[i] for i in nonempty_indices)
+    #     nonempty_subtrees_exprs = [:(nt[$addr]) for addr in nonempty_addrs]
+    #     nonempty_subtrees_expr = :((nonempty_subtrees_exprs...,))
+    #     quote StaticAddressTree{$LeafType}(NamedTuple{$nonempty_addrs}($nonempty_subtrees_expr)) end
+    # else
+        nonempty_addrs = Tuple(findall(x -> x != EmptyAddressTree(), nt))
+        nonempty_subtrees = Tuple(nt[addr] for addr in nonempty_addrs)
+        StaticAddressTree{LeafType}(NamedTuple{nonempty_addrs}(nonempty_subtrees))
+    # end
 end
 
 # NOTE: It is probably better to avoid using this constructor when possible since I suspect it is less performant
@@ -66,6 +75,8 @@ end
     end
 end
 @inline static_get_subtree(::EmptyAddressTree, ::Val) = EmptyAddressTree()
+@inline static_get_subtree(::Value, ::Val) = EmptyAddressTree()
+@inline static_get_subtree(::AllSelection, ::Val) = AllSelection()
 
 @inline static_get_value(choices::StaticAddressTree, v::Val) = get_value(static_get_subtree(choices, v))
 @inline static_get_value(::EmptyAddressTree, ::Val) = throw(ChoiceMapGetValueError())
@@ -84,7 +95,10 @@ function StaticAddressTree(other::AddressTree{LeafType}) where {LeafType}
     end
     StaticAddressTree{LeafType}(NamedTuple{addrs}(submaps))
 end
-StaticAddressTree(::AddressTreeLeaf) = error("Cannot convert a leaf node to a static address tree.")
+StaticAddressTree(::AllSelection) = AllSelection()
+StaticAddressTree(::EmptyAddressTree) = EmptyAddressTree()
+StaticAddressTree(v::Value) = v
+StaticAddressTree(::AddressTreeLeaf) = error("Not implemented")
 StaticAddressTree{LeafType}(::NamedTuple{(),Tuple{}}) where {LeafType} = EmptyAddressTree()
 StaticAddressTree(::NamedTuple{(),Tuple{}}) = EmptyAddressTree()
 StaticAddressTree{LeafType}(other::AddressTree{<:LeafType}) where {LeafType} = StaticAddressTree(other)

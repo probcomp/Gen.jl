@@ -38,38 +38,41 @@ function forward_pass_argdiff!(state::ForwardPassState,
     end
 end
 
-function process_forward!(::Type{<:Union{ChoiceMap, Selection}}, ::ForwardPassState, ::TrainableParameterNode) end
+function process_forward!(::Type{<:UpdateSpec}, ::Type{<:Selection}, ::ForwardPassState, ::TrainableParameterNode) end
 
-function process_forward!(::Type{<:Union{ChoiceMap, Selection}}, ::ForwardPassState, node::ArgumentNode) end
+function process_forward!(::Type{<:UpdateSpec}, ::Type{<:Selection}, ::ForwardPassState, node::ArgumentNode) end
 
-function process_forward!(::Type{<:Union{ChoiceMap, Selection}}, state::ForwardPassState, node::JuliaNode)
+function process_forward!(::Type{<:UpdateSpec}, ::Type{<:Selection}, state::ForwardPassState, node::JuliaNode)
     if any(input_node in state.value_changed for input_node in node.inputs)
         push!(state.value_changed, node)
     end
 end
 
-function cannot_statically_guarantee_nochange_retdiff(constraint_type, node, state)
-    update_fn = constraint_type <: ChoiceMap ? Gen.update : Gen.regenerate
-
+function cannot_statically_guarantee_nochange_retdiff(spec_type, externally_constrained_addr_type, node, state)
     trace_type = get_trace_type(node.generative_function)
     argdiff_types = map(input_node -> input_node in state.value_changed ? UnknownChange : NoChange, node.inputs)
     argdiff_type = Tuple{argdiff_types...}
     # TODO: can we know the arg type statically?
+
+    # TODO: is there a way to do this using `get_subtree` with constant propagation?
+    # if so, we might be able to avoid always casting to static address trees
+    subspec_type = Core.Compiler.return_type(static_get_subtree, Tuple{spec_type, Val{node.addr}})
+    subext_const_addr_type = Core.Compiler.return_type(static_get_subtree, Tuple{externally_constrained_addr_type, Val{node.addr}})
+    
     update_rettype = Core.Compiler.return_type(
-        update_fn,
-        Tuple{trace_type, Tuple, argdiff_type, constraint_type}
+        Gen.update,
+        Tuple{trace_type, Tuple, argdiff_type, subspec_type, subext_const_addr_type}
     )
     has_static_retdiff = update_rettype <: Tuple && update_rettype != Union{} && length(update_rettype.parameters) >= 3
     guaranteed_returns_nochange = has_static_retdiff && update_rettype.parameters[3] == NoChange
 
-    # println("$trace_type, Tuple, $argdiff_type, $constraint_type >> $update_rettype : $has_static_retdiff")
-
     return !guaranteed_returns_nochange
 end
 
-function process_forward!(constraint_type::Type{<:Union{<:ChoiceMap, <:Selection}}, state::ForwardPassState,
+function process_forward!(spec_type::Type{<:UpdateSpec}, externally_constrained_addrs_type::Type{<:Selection},
+                          state::ForwardPassState,
                           node::GenerativeFunctionCallNode)
-    schema = get_address_schema(constraint_type)
+    schema = get_address_schema(spec_type)
     will_run_update = false
     @assert isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema) || isa(schema, AllAddressSchema)
     if isa(schema, AllAddressSchema) || (isa(schema, StaticAddressSchema) && (node.addr in keys(schema)))
@@ -82,7 +85,7 @@ function process_forward!(constraint_type::Type{<:Union{<:ChoiceMap, <:Selection
     end
     if will_run_update
         push!(state.discard_calls, node)
-        if cannot_statically_guarantee_nochange_retdiff(constraint_type, node, state)
+        if cannot_statically_guarantee_nochange_retdiff(spec_type, externally_constrained_addrs_type, node, state)
             push!(state.value_changed, node)
         end
     end
@@ -293,13 +296,17 @@ end
 #######################
 
 function codegen_update(trace_type::Type{T}, args_type::Type, argdiffs_type::Type,
-                        spec_type::Type) where {T<:StaticIRTrace}
+                        spec_type::Type, externally_constrained_addrs_type::Type) where {T<:StaticIRTrace}
     gen_fn_type = get_gen_fn_type(trace_type)
-    schema = get_address_schema(spec_type)
+    spec_schema = get_address_schema(spec_type)
+    ext_const_addrs_schema = get_address_schema(externally_constrained_addrs_type)
 
-    # convert the spec to a static addresstree if it is not already one
-    if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
-        return quote $(GlobalRef(Gen, :update))(trace, args, argdiffs, $(QuoteNode(StaticAddressTree))(spec), externally_constrained_addrs) end
+    spec_is_static = (isa(spec_schema, StaticAddressSchema) || isa(spec_schema, EmptyAddressSchema)) || isa(spec_schema, AllAddressSchema)
+    ext_const_addrs_is_static = (isa(ext_const_addrs_schema, StaticAddressSchema) || isa(ext_const_addrs_schema, EmptyAddressSchema)) || isa(ext_const_addrs_schema, AllAddressSchema)
+
+    # convert the spec and ext_const_addrs to static if they are not already
+    if !(spec_is_static && ext_const_addrs_is_static)
+        return quote $(GlobalRef(Gen, :update))(trace, args, argdiffs, $(QuoteNode(StaticAddressTree))(spec), $(QuoteNode(StaticAddressTree))(externally_constrained_addrs)) end
     end
 
     ir = get_ir(gen_fn_type)
@@ -309,7 +316,7 @@ function codegen_update(trace_type::Type{T}, args_type::Type, argdiffs_type::Typ
     fwd_state = ForwardPassState()
     forward_pass_argdiff!(fwd_state, ir.arg_nodes, argdiffs_type)
     for node in ir.nodes
-        process_forward!(spec_type, fwd_state, node)
+        process_forward!(spec_type, externally_constrained_addrs_type, fwd_state, node)
     end
 
     # backward marking pass
@@ -344,7 +351,7 @@ let T = gensym()
     push!(generated_functions, quote
     @generated function $(GlobalRef(Gen, :update))(trace::$T, args::Tuple, argdiffs::Tuple,
                                    spec::$(QuoteNode(UpdateSpec)), externally_constrained_addrs::$(QuoteNode(Selection))) where {$T<:$(QuoteNode(StaticIRTrace))}
-        $(QuoteNode(codegen_update))(trace, args, argdiffs, spec)
+        $(QuoteNode(codegen_update))(trace, args, argdiffs, spec, externally_constrained_addrs)
     end
     end)
 end
