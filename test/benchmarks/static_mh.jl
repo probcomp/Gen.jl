@@ -1,6 +1,8 @@
 module StaticMHBenchmark
 using Gen
 import Random
+using Profile
+using ProfileView
 
 include("../../examples/regression/static_model.jl")
 include("../../examples/regression/dataset.jl")
@@ -81,7 +83,9 @@ end
 (xs, ys) = make_data_set(200)
 do_inference(xs, ys, 10)
 println("Simple static DSL (including CallAt nodes) MH on regression model:")
+# Profile.clear()
 @time do_inference(xs, ys, 50)
 @time do_inference(xs, ys, 50)
+# ProfileView.view()
 println()
 end

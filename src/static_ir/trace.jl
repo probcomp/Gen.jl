@@ -10,7 +10,7 @@ function get_schema end
 
 @inline get_address_schema(::Type{StaticIRTraceAssmt{T}}) where {T} = get_schema(T)
 @inline Base.isempty(choices::StaticIRTraceAssmt) = isempty(choices.trace)
-@inline get_subtree(choices::StaticIRTraceAssmt, key::Symbol) = static_get_submap(choices, Val(key))
+@inline get_subtree(choices::StaticIRTraceAssmt, key::Symbol) = static_get_subtree(choices, Val(key))
 @inline get_subtree(choices::StaticIRTraceAssmt, addr::Pair) = _get_subtree(choices, addr)
 
 #########################
@@ -20,8 +20,8 @@ function get_schema end
 abstract type StaticIRTrace <: Trace end
 
 @inline static_get_subtrace(trace::StaticIRTrace, addr) = error("Not implemented")
-@inline static_get_submap(::StaticIRTraceAssmt, ::Val) = EmptyChoiceMap()
-@inline static_get_value(trace::StaticIRTrace, v::Val) = get_value(static_get_submap(trace, v))
+@inline static_get_subtree(::StaticIRTraceAssmt, ::Val) = EmptyChoiceMap()
+@inline static_get_value(trace::StaticIRTrace, v::Val) = get_value(static_get_subtree(trace, v))
 
 @inline static_haskey(trace::StaticIRTrace, ::Val) = false
 @inline Base.haskey(trace::StaticIRTrace, key) = Gen.static_haskey(trace, Val(key))
@@ -161,11 +161,11 @@ function generate_getindex(ir::StaticIR, trace_struct_name::Symbol)
     return [get_subtrace_exprs; call_getindex_exprs]
 end
 
-function generate_static_get_submap(ir::StaticIR, trace_struct_name::Symbol)
+function generate_static_get_subtree(ir::StaticIR, trace_struct_name::Symbol)
     methods = Expr[]
     for node in ir.call_nodes
         push!(methods, Expr(:function,
-            Expr(:call, GlobalRef(Gen, :static_get_submap),
+            Expr(:call, GlobalRef(Gen, :static_get_subtree),
                         :(choices::$(QuoteNode(StaticIRTraceAssmt)){$trace_struct_name}),
                         :(::Val{$(QuoteNode(node.addr))})),
             Expr(:block,
@@ -193,12 +193,12 @@ function generate_trace_type_and_methods(ir::StaticIR, name::Symbol, options::St
     get_retval_expr = generate_get_retval(ir, trace_struct_name)
     get_schema_expr = generate_get_schema(ir, trace_struct_name)
     get_submaps_shallow_expr = generate_get_subtrees_shallow(ir, trace_struct_name)
-    static_get_submap_exprs = generate_static_get_submap(ir, trace_struct_name)
+    static_get_subtree_exprs = generate_static_get_subtree(ir, trace_struct_name)
     getindex_exprs = generate_getindex(ir, trace_struct_name)
 
     exprs = Expr(:block, trace_struct_expr, isempty_expr, get_score_expr,
                  get_args_expr, get_retval_expr,
-                 get_schema_expr, get_submaps_shallow_expr, static_get_submap_exprs..., getindex_exprs...)
+                 get_schema_expr, get_submaps_shallow_expr, static_get_subtree_exprs..., getindex_exprs...)
     (exprs, trace_struct_name)
 end
 

@@ -2,8 +2,6 @@
 # Trie #
 ##################
 
-# TODO: use the `DynamicAddressTree` implementation for this
-
 struct Trie{K,V} <: AddressTree{Value}
     leaf_nodes::Dict{K,V}
     internal_nodes::Dict{K,Trie{K,V}}
