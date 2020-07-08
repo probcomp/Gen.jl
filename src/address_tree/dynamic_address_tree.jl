@@ -9,9 +9,9 @@ Construct an empty address tree.
 
 """
 struct DynamicAddressTree{LeafType} <: AddressTree{LeafType}
-    subtrees::Dict{Any, AddressTree{LeafType}}
+    subtrees::Dict{Any, AddressTree{<:LeafType}}
 end
-DynamicAddressTree{LeafType}() where {LeafType} = DynamicAddressTree{LeafType}(Dict{Any, AddressTree{LeafType}}())
+DynamicAddressTree{LeafType}() where {LeafType} = DynamicAddressTree{LeafType}(Dict{Any, AddressTree{<:LeafType}}())
 
 """
     tree = address_tree()

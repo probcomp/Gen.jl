@@ -28,12 +28,12 @@ An empty address tree with no subtrees.
 struct EmptyAddressTree <: AddressTreeLeaf{EmptyAddressTree} end
 
 """
-    Value
+    Value{T}
 
 An address tree leaf node storing a value of type `T`.
 """
-struct Value <: AddressTreeLeaf{Value}
-    val
+struct Value{T} <: AddressTreeLeaf{Value{T}}
+    val::T
 end
 @inline get_value(v::Value) = v.val
 
@@ -222,9 +222,6 @@ include("static_address_tree.jl")
 
 include("choicemap.jl")
 include("selection.jl")
-
-# include("array_interface.jl")
-# include("nested_view.jl")
 
 export get_subtree, get_subtrees_shallow
 export EmptyAddressTree, Value, AllSelection

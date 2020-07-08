@@ -1,7 +1,7 @@
 struct StaticAddressTree{LeafType, Addrs, SubtreeTypes} <: AddressTree{LeafType}
     subtrees::NamedTuple{Addrs, SubtreeTypes}
     function StaticAddressTree{LeafType}(nt::NamedTuple{Addrs, Subtrees}) where {
-        LeafType, Addrs, Subtrees <: Tuple{Vararg{<:AddressTree{LeafType}}}
+        LeafType, Addrs, Subtrees <: Tuple{Vararg{<:AddressTree{<:LeafType}}}
     }
         new{LeafType, Addrs, Subtrees}(nt)
     end
@@ -11,8 +11,10 @@ end
 # as a subtype, strip away the addresses which point to EmptyAddressTrees.
 # TODO: is this the implementation we want?  is the performance hit for removing the empty subtrees here worthwhile?
 # also TODO: should I make this @generated?
-function StaticAddressTree{LeafType}(nt::NamedTuple{Addrs, Subtrees}) where {LeafType, Addrs, Subtrees}
-    @assert Subtrees <: Tuple{Vararg{<:AddressTree{<:Union{LeafType, EmptyAddressTree}}}}
+function StaticAddressTree{LeafType}(nt::NamedTuple{Addrs, Subtrees}) where {
+    LeafType, Addrs, Subtrees <: Tuple{Vararg{<:Union{AddressTree{<:LeafType}, EmptyAddressTree}}}
+}
+    #@assert Subtrees <: Tuple{Vararg{<:AddressTree{<:Union{LeafType, EmptyAddressTree}}}}
     # if @generated
     # println(Subtrees.parameters)
     #     nonempty_indices = (x -> x != EmptyAddressTree, Subtrees.parameters)

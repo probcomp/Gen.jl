@@ -135,5 +135,5 @@ export EmptyChoiceMap, StaticChoiceMap, DynamicChoiceMap
 export set_value!, set_submap!
 export static_get_submap
 
-# include("array_interface.jl")
-# include("nested_view.jl")
+include("array_interface.jl")
+include("nested_view.jl")

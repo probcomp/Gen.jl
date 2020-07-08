@@ -30,12 +30,22 @@
     @test nested_view(vcm1) == 2
 end
 
-@testset "static choicemap constructor" begin
+@testset "static choicemap constructors" begin
     @test StaticChoiceMap((a=Value(5), b=Value(6))) == StaticChoiceMap(a=5, b=6)
     submap = StaticChoiceMap(a=1., b=[2., 2.5])
     @test submap == StaticChoiceMap((a=Value(1.), b=Value([2., 2.5])))
     outer = StaticChoiceMap(c=3, d=submap, e=submap)
     @test outer == StaticChoiceMap((c=Value(3), d=submap, e=submap))
+
+    # what if we have an emptychoicemap?
+    StaticChoiceMap(a=Value(5), b=choicemap((1, "hello")), c=EmptyChoiceMap())
+
+    # convert dynamic --> static
+    d1 = choicemap((:a, 1), (:b => :c, 2))
+    s1 = StaticChoiceMap(d1)
+    @test s1 == d1
+    # should not be a deep conversion!
+    @test get_subtree(s1, :b) === get_subtree(d1, :b)
 end
 
 @testset "static assignment to/from array" begin
