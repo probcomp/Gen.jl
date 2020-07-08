@@ -37,7 +37,7 @@ function to_array(choices::ChoiceMap, ::Type{T}) where {T}
     arr
 end
 
-function _fill_array!(c::Value{<:T}, arr::Vector{T}, start_idx::Int) where {T}
+function _fill_array!(c::Value, arr::Vector{T}, start_idx::Int)
     if length(arr) < start_idx
         resize!(arr, 2 * start_idx)
     end

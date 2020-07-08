@@ -79,6 +79,7 @@ end
 @inline Base.isempty(assignment::VectorTraceChoiceMap) = assignment.trace.num_nonempty == 0
 @inline get_address_schema(::Type{VectorTraceChoiceMap}) = VectorAddressSchema()
 
+@inline get_subtree(choices::VectorTraceChoiceMap, addr::Pair) = _get_subtree(choices, addr)
 @inline function get_subtree(choices::VectorTraceChoiceMap, addr::Int)
     if addr <= choices.trace.len
         get_choices(choices.trace.subtraces[addr])
@@ -86,12 +87,12 @@ end
         EmptyChoiceMap()
     end
 end
+# keys which are not ints have no sub-choicemap
+@inline get_subtree(choices::VectorTraceChoiceMap, addr) = EmptyChoiceMap()
 
 @inline function get_subtrees_shallow(choices::VectorTraceChoiceMap)
     ((i, get_choices(choices.trace.subtraces[i])) for i=1:choices.trace.len)
 end
-
-@inline get_subtree(choices::VectorTraceChoiceMap, addr::Pair) = _get_subtree(choices, addr)
 
 ############################################
 # code shared by vector-shaped combinators #

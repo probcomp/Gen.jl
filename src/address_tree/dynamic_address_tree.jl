@@ -9,11 +9,9 @@ Construct an empty address tree.
 
 """
 struct DynamicAddressTree{LeafType} <: AddressTree{LeafType}
-    subtrees::Dict{Any, AddressTree{<:LeafType}}
-    function DynamicAddressTree{LeafType}() where {LeafType}
-        new{LeafType}(Dict{Any, AddressTree}())
-    end
+    subtrees::Dict{Any, AddressTree{LeafType}}
 end
+DynamicAddressTree{LeafType}() where {LeafType} = DynamicAddressTree{LeafType}(Dict{Any, AddressTree{LeafType}}())
 
 """
     tree = address_tree()
@@ -81,7 +79,7 @@ Shallowly convert an address tree to dynamic.
 """
 DynamicAddressTree(t::AddressTree) = shallow_dynamic_copy(t)
 DynamicAddressTree(t::DynamicAddressTree) = t
-DynamicAddressTree{LeafType}(t::AddressTree{<:LeafType}) where {LeafType} = DynamicAddressTree(t)
+DynamicAddressTree{LeafType}(t::AddressTree) where {LeafType} = DynamicAddressTree(t)
 
 function _from_array(proto_choices::DynamicAddressTree{LT}, arr::Vector{T}, start_idx::Int) where {T, LT}
     choices = DynamicAddressTree{LT}()

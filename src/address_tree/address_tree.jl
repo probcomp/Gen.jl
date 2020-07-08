@@ -28,12 +28,12 @@ An empty address tree with no subtrees.
 struct EmptyAddressTree <: AddressTreeLeaf{EmptyAddressTree} end
 
 """
-    Value{T}
+    Value
 
 An address tree leaf node storing a value of type `T`.
 """
-struct Value{T} <: AddressTreeLeaf{Value{T}}
-    val::T
+struct Value <: AddressTreeLeaf{Value}
+    val
 end
 @inline get_value(v::Value) = v.val
 

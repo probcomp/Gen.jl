@@ -40,6 +40,9 @@ function traceat(state::GFUpdateState, gen_fn::GenerativeFunction{T,U},
         (subtrace, weight, _, discard) = update(prev_subtrace,
             args, map((_) -> UnknownChange(), args), spec, sub_externally_constrained_addrs)
     else
+        if spec isa Selection
+            spec = EmptyChoiceMap()
+        end
         @assert spec isa ChoiceMap "Cannot generate subtrace at $key with non-choicemap update spec $spec"
         (subtrace, weight) = generate(gen_fn, args, spec)
     end
