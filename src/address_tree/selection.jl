@@ -23,6 +23,8 @@ get_subselections(s::Selection) = get_subtrees_shallow(s)
 Base.merge(::AllSelection, ::Selection) = AllSelection()
 Base.merge(::Selection, ::AllSelection) = AllSelection()
 Base.merge(::AllSelection, ::AllSelection) = AllSelection()
+Base.merge(::AllSelection, ::EmptySelection) = AllSelection()
+Base.merge(::EmptySelection, ::AllSelection) = AllSelection()
 
 """
     filtered = SelectionFilteredAddressTree(tree, selection)
@@ -91,8 +93,22 @@ set_subselection!(selection, :x, subselection)
 Note that `set_subselection!` does not copy data in `other`, so `other` may be mutated by a later calls to `set_subselection!` for addresses under `addr`.
 """
 const DynamicSelection = DynamicAddressTree{AllSelection}
-Base.push!(s::DynamicSelection, addr) = set_subtree!(s, addr, AllSelection())
 set_subselection!(s::DynamicSelection, addr, sub::Selection) = set_subtree!(s, addr, sub)
+
+function Base.push!(s::DynamicSelection, addr)
+    set_subtree!(s, addr, AllSelection())
+end
+function Base.push!(s::DynamicSelection, addr::Pair)
+    first, rest = addr
+    subtree = get_subtree(s, first)
+    if subtree isa DynamicSelection
+        push!(subtree, rest)
+    else
+        new_subtree = select(rest)
+        merge!(new_subtree, subtree)
+        set_subtree!(s, first, new_subtree)
+    end
+end
 
 function select(addrs...)
     selection = DynamicSelection()

@@ -241,10 +241,7 @@ return the weight (`weight`):
 ```
 It is an error if \$p(t; x) = 0\$.
 """
-function assess(gen_fn::GenerativeFunction, args::Tuple, choices::ChoiceMap)
-    (trace, weight) = generate(gen_fn, args, choices)
-    (weight, get_retval(trace))
-end
+function assess end
 
 """
     (new_trace, weight, retdiff, reverse_update_spec) = update(trace, args::Tuple, argdiffs::Tuple,

@@ -72,10 +72,6 @@ get_return_type(::Distribution{T}) where {T} = T
 @inline Gen.get_score(trace::DistributionTrace) = trace.score
 @inline Gen.project(trace::DistributionTrace, ::EmptySelection) = 0.
 @inline Gen.project(trace::DistributionTrace, ::AllSelection) = get_score(trace)
-function Gen.project(trace::DistributionTrace, sel::Selection)
-    println("SELECTION: $sel")
-    display(sel)
-end
 
 @inline function Gen.simulate(dist::Distribution, args::Tuple)
     val = random(dist, args...)
@@ -113,6 +109,9 @@ end
 @inline function Gen.assess(dist::Distribution, args::Tuple, choices::Value)
     weight = logpdf(dist, get_value(choices), args...)
     (weight, choices.val)
+end
+@inline function Gen.assess(dist::Distribution, args::Tuple, ::EmptyChoiceMap)
+    error("Call to `assess` did not provide a value constraint for a call to $dist.")
 end
 
 ###########

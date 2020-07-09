@@ -55,3 +55,25 @@ end
     @test get_subselection(a, :b) == select(:c)
     @test length(collect(get_subtrees_shallow(a))) == 2
 end
+
+@testset begin "push, merge, merge!"
+    x = select(:x, :y => :z)
+    push!(x, :y => :w)
+    @test !(:y in x)
+    @test (:y => :z) in x
+    @test (:y => :w) in x
+    @test :x in x
+    
+    y = select(:a => 1 => :b, 5.1, :y => :k)
+    z = merge(x, y)
+    @test 5.1 in z
+    @test :x in z
+    @test (:y => :w) in z
+    @test (:a => :1 => :b) in z
+    @test (:y => :k) in z
+
+    merge!(y, x)
+    @test (:y => :w) in y
+    @test 5.1 in y
+    @test (:y => :k) in y
+end

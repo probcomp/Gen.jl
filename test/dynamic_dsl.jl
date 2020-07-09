@@ -454,6 +454,10 @@ end
     @test trace[:x => 2] == 2
     @test trace[:x => 3 => :z] == 3
 
+    new_trace, _, _ = regenerate(trace, (), (), select(:x => 2))
+    @test new_trace[:x => 1] == trace[:x => 1]
+    @test new_trace[:y] == trace[:y]
+
     choices = get_choices(trace)
     @test choices[:x => 1] == 1
     @test choices[:x => 2] == 2

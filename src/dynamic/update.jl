@@ -98,17 +98,17 @@ function add_unvisited_to_discard!(discard::DynamicChoiceMap,
         # the recursive call to update already handled the discard
         # for this entire submap; else we need to handle it
         if !(key in visited)
-            @assert isempty(get_submap(discard, key))
             subvisited = get_subselection(visited, key)
             if isempty(subvisited)
                 # none of this submap was visited, so we discard the whole thing
+                @assert isempty(get_submap(discard, key))
                 set_submap!(discard, key, submap)
             else
                 subdiscard = get_submap(discard, key)
                 subdiscard = isempty(subdiscard) ? choicemap() : subdiscard
                 add_unvisited_to_discard!(subdiscard, subvisited, submap)
                 set_submap!(discard, key, subdiscard)
-            end 
+            end
         end
     end
 end

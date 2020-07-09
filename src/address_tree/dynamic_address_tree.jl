@@ -114,5 +114,6 @@ function Base.merge!(into::DynamicAddressTree{T}, from::DynamicAddressTree{U}) w
         end
     end
 end
+Base.merge!(into::DynamicAddressTree, ::EmptyAddressTree) = into
 
 export DynamicAddressTree, set_subtree!

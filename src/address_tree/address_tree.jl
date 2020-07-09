@@ -163,7 +163,7 @@ function Base.merge(a::AddressTree{T}, b::AddressTree{U}) where {T, U}
     end
     for (key, subtree) in get_subtrees_shallow(b)
         if isempty(get_subtree(a, key))
-            set_submap!(tree, key, subtree)
+            set_subtree!(tree, key, subtree)
         end
     end
     tree
