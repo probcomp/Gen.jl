@@ -32,10 +32,18 @@ struct EmptyAddressTree <: AddressTreeLeaf{EmptyAddressTree} end
 
 An address tree leaf node storing a value of type `T`.
 """
-struct Value{T} <: AddressTreeLeaf{Value{T}}
+struct Value{T} <: AddressTreeLeaf{Value}
     val::T
 end
 @inline get_value(v::Value) = v.val
+
+# Note that I don't set `Value{T} <: AddressTreeLeaf{Value{T}}`.
+# I have run into issues when I do this,
+# because then `Value{T} <: AddressTree{Value}` is not true.
+# There may be some way to make this work, but I haven't been
+# able to figure it out, and I don't currently have any need
+# for specifying `AddressTree{Value{T}}` types, so I'm not going
+# to worry about it for now.
 
 """
     AllSelection
@@ -54,7 +62,7 @@ abstract type CustomUpdateSpec <: AddressTreeLeaf{CustomUpdateSpec} end
 const UpdateSpec = AddressTree{<:Union{Value, AllSelection, EmptyAddressTree, CustomUpdateSpec}}
 
 """
-    get_subtree(tree::AddressTree, addr)
+    get_subtree(tree::AddressTree{T}, addr)::Union{AddressTree{T}, EmptyAddressTree}
 
 Get the subtree at address `addr` or return `EmptyAddressTree`
 if there is no subtree at this address.
@@ -62,16 +70,16 @@ if there is no subtree at this address.
 Invariant: `get_subtree(::AddressTree{LeafType}, addr)` either returns
 an object of `LeafType` or an `EmptyAddressTree`.
 """
-function get_subtree end
+function get_subtree(::AddressTree{LeafType}, addr)::AddressTree{LeafType} where {LeafType} end
 
 function _get_subtree(t::AddressTree, addr::Pair)
     get_subtree(get_subtree(t, addr.first), addr.second)
 end
 
 """
-    get_subtrees_shallow(tree::AddressTree)
+    get_subtrees_shallow(tree::AddressTree{T})
 
-Return an iterator over tuples `(address, subtree)` for each
+Return an iterator over tuples `(address, subtree::AddressTree{T})` for each
 top-level address associated with `tree`.
 
 The length of this iterator must nonzero if this is not a leaf node.

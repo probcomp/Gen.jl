@@ -41,11 +41,18 @@ end
     StaticChoiceMap(a=Value(5), b=choicemap((1, "hello")), c=EmptyChoiceMap())
 
     # convert dynamic --> static
-    d1 = choicemap((:a, 1), (:b => :c, 2))
+    d1 = choicemap((:a, 1), (:b => :c, 2.), (:d, "yes"))
     s1 = StaticChoiceMap(d1)
     @test s1 == d1
     # should not be a deep conversion!
     @test get_subtree(s1, :b) === get_subtree(d1, :b)
+
+    d2 = choicemap((:a, 3), (:b, -10.2))
+    d3 = choicemap((1 => :a, 80), (2 => :a, 100), (3 => :a, 2))
+    set_submap!(d2, :c, d3)
+    s2 = StaticChoiceMap(d2)
+    @test s2 == d2
+    @test get_subtree(s2, :c) == d3
 end
 
 @testset "static assignment to/from array" begin

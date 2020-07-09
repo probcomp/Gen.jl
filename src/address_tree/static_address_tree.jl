@@ -1,33 +1,20 @@
 struct StaticAddressTree{LeafType, Addrs, SubtreeTypes} <: AddressTree{LeafType}
     subtrees::NamedTuple{Addrs, SubtreeTypes}
     function StaticAddressTree{LeafType}(nt::NamedTuple{Addrs, Subtrees}) where {
-        LeafType, Addrs, Subtrees <: Tuple{Vararg{<:AddressTree{<:LeafType}}}
+        LeafType, Addrs, Subtrees <: Tuple{Vararg{<:Union{AddressTree{<:LeafType}, EmptyAddressTree}}}
     }
         new{LeafType, Addrs, Subtrees}(nt)
     end
 end
 
-# If some of the subtrees are `EmptyAddressTree`s, but the `LeafType` does not have `EmptyAddressTree`
-# as a subtype, strip away the addresses which point to EmptyAddressTrees.
-# TODO: is this the implementation we want?  is the performance hit for removing the empty subtrees here worthwhile?
-# also TODO: should I make this @generated?
-function StaticAddressTree{LeafType}(nt::NamedTuple{Addrs, Subtrees}) where {
-    LeafType, Addrs, Subtrees <: Tuple{Vararg{<:Union{AddressTree{<:LeafType}, EmptyAddressTree}}}
-}
-    #@assert Subtrees <: Tuple{Vararg{<:AddressTree{<:Union{LeafType, EmptyAddressTree}}}}
-    # if @generated
-    # println(Subtrees.parameters)
-    #     nonempty_indices = (x -> x != EmptyAddressTree, Subtrees.parameters)
-    #     nonempty_addrs = Tuple(Addrs[i] for i in nonempty_indices)
-    #     nonempty_subtrees_exprs = [:(nt[$addr]) for addr in nonempty_addrs]
-    #     nonempty_subtrees_expr = :((nonempty_subtrees_exprs...,))
-    #     quote StaticAddressTree{$LeafType}(NamedTuple{$nonempty_addrs}($nonempty_subtrees_expr)) end
-    # else
-        nonempty_addrs = Tuple(findall(x -> x != EmptyAddressTree(), nt))
-        nonempty_subtrees = Tuple(nt[addr] for addr in nonempty_addrs)
-        StaticAddressTree{LeafType}(NamedTuple{nonempty_addrs}(nonempty_subtrees))
-    # end
-end
+# NOTE: this constructor makes it possible to construct `StaticAddressTree`s
+# which have `EmptyAddressTree` as a subtree.  If we want to avoid this,
+# we can have the inner constructor only accept
+# Subtrees <: Tuple{Vararg{AddressTree{<:LeafType}}}
+# and have a separate outer constructor accepting
+# Subtrees <: Tuple{Vararg{<:Union{AddressTree{<:LeafType}, EmptyAddressTree}}}
+# that removes the empty subtrees.  (Possibly this should be an @generated method
+# which does this at compile-time.)
 
 # NOTE: It is probably better to avoid using this constructor when possible since I suspect it is less performant
 # than if we specify `LeafType`.
