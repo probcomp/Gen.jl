@@ -270,6 +270,34 @@ end
         @test retdiff === UnknownChange()
     end
 
+    @gen function bar(mu)
+        @trace(normal(mu, 1), :a)
+    end
+
+    @gen function baz(mu)
+        @trace(normal(mu, 1), :b)
+    end
+
+    @gen function foo(mu)
+        if @trace(bernoulli(0.4), :branch)
+            @trace(normal(mu, 1), :x)
+            @trace(bar(mu), :u)
+        else
+            @trace(normal(mu, 1), :y)
+            @trace(baz(mu), :v)
+        end
+    end
+
+    # test that no errors occur if we select addresses in a subtrace we have to generate
+    tr, _ = generate(foo, (mu,), choicemap((:branch, true)))
+    old_score = get_score(tr)
+    weight = nothing
+    while tr[:branch]
+        tr, weight, _ = regenerate(tr, (mu,), (NoChange(),), select(:branch, :x, :y, :v => :b))
+    end
+    # P[new_tr]/P[old_tr] * Q[old_tr|new_tr]/Q[new_tr|old_tr] should be 1
+    # since if we switch branches, we totally regenerate everything, so the Q values should equal the P values
+    @test weight == 0.
 end
 
 @testset "choice_gradients and accumulate_param_gradients!" begin

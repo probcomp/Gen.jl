@@ -106,7 +106,6 @@ function update(trace::CallAtTrace, args::Tuple, argdiffs::Tuple,
     key_changed = (key != trace.key)
     subspec = get_subtree(spec, key)
     if key_changed # TODO: remove the capacity to change key!
-        # TODO: convert subspec to choicemap
         (subtrace, weight) = generate(trace.gen_fn.kernel, kernel_args, subspec)
 
         sub_ext_const_addrs = get_subselection(externally_constrained_addrs, key)
