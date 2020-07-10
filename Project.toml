@@ -1,7 +1,7 @@
 name = "Gen"
 uuid = "ea4f424c-a589-11e8-07c0-fd5c91b9da4a"
 authors = ["Marco Cusumano-Towner <imarcoam@gmail.com>"]
-version = "0.3.3"
+version = "0.3.5"
 
 [deps]
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
@@ -14,6 +14,17 @@ MacroTools = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 ReverseDiff = "37e2e3b7-166d-5795-8a7a-e32c996b4267"
 SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
+
+[compat]
+DataStructures = "0.15, 0.16, 0.17"
+Distributions = "0.21, 0.22, 0.23"
+ForwardDiff = "0.10.10"
+FunctionalCollections = "0.5"
+JSON = "0.20, 0.21"
+MacroTools = "0.5"
+ReverseDiff = "0.3, 1"
+SpecialFunctions = "0.8, 0.9, 0.10"
+julia = "1"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"

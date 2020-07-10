@@ -227,7 +227,7 @@ function process_codegen!(stmts, fwd::ForwardPassState, back::BackwardPassState,
     else
         push!(stmts, :($subtrace = $prev_subtrace))
         if options.track_diffs
-            push!(stmts, :($(node.name) = $(GlobalRef(Gen, :Diffed))($(GlobalRef(Gen, :get_retval))($subtrace), $(QuoteNode(NoChange())))))
+            push!(stmts, :($(node.name) = $(GlobalRef(Gen, :Diffed))($(GlobalRef(Gen, :get_retval))($subtrace), $(GlobalRef(Gen, :NoChange))())))
         else
             push!(stmts, :($(node.name) = $(GlobalRef(Gen, :get_retval))($subtrace)))
         end
