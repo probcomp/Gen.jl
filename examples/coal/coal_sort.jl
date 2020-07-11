@@ -113,8 +113,9 @@ end
     i = @trace(uniform_discrete(1, trace[K]+1), :i)
 
     # propose new value for the rate
-    cur_rate = trace[(UNSORTED_RATE, i)]
-    @trace(uniform_continuous(cur_rate/2., cur_rate*2.), :new_rate)
+    #cur_rate = trace[(UNSORTED_RATE, i)]
+    #I@trace(uniform_continuous(cur_rate/2., cur_rate*2.), :new_rate)
+    new_rate_scaled ~ uniform(0, 1)
 
     nothing
 end
@@ -126,10 +127,17 @@ end
 @bijection function rate_involution(model_args, proposal_args, proposal_retval)
     i = @read_discrete_from_proposal(:i)
     @write_discrete_to_proposal(:i, i)
-    new_rate = @read_continuous_from_proposal(:new_rate)
+    #new_rate = @read_continuous_from_proposal(:new_rate)
+    new_rate_scaled = @read_continuous_from_proposal(:new_rate_scaled)
+    cur_rate = @read_continuous_from_model((UNSORTED_RATE, i))
+    lower_bound = cur_rate / 2.0
+    upper_bound = cur_rate * 2.0
+    new_rate = lower_bound + new_rate_scaled * (upper_bound - lower_bound)
     @write_continuous_to_model((UNSORTED_RATE, i), new_rate)
-    prev_rate = @read_continuous_from_model((UNSORTED_RATE, i))
-    @write_continuous_to_proposal(:new_rate, prev_rate)
+    
+    #prev_rate = @read_continuous_from_model((UNSORTED_RATE, i))
+    prev_rate_scaled = (cur_rate - (new_rate / 2.0)) / (new_rate * 2.0 - new_rate / 2.0)
+    @write_continuous_to_proposal(:new_rate_scaled, prev_rate_scaled)
 end
 
 is_involution!(rate_involution)
@@ -396,10 +404,10 @@ end
 is_involution!(permutation_involution)
 
 function birth_death_move(trace)
-    #if trace[:k] > 1
-        #trace, acc = metropolis_hastings(trace, permutation_proposal, (), permutation_involution, check=false)
-        #@assert acc
-    #end
+    if trace[:k] > 1
+        trace, acc = metropolis_hastings(trace, permutation_proposal, (), permutation_involution, check=false)
+        @assert acc
+    end
     return metropolis_hastings(trace, birth_death_proposal, (), birth_death_involution, check=false)
 end
 
