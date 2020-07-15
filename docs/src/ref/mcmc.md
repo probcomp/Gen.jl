@@ -421,7 +421,7 @@ Also, the top-level function must take three arguments (`model_args`, `proposal_
 
 Some additional tips for defining valid involutions:
 
-- If you find yourself copying the same continuous source address to multiple locations, it probably means your involution is not valid (the Jacobian matrix will have rows that are identical, and so the Jacobian determinant will be nonzero).
+- If you find yourself copying the same continuous source address to multiple locations, it probably means your involution is not valid. (The Jacobian matrix will have rows that are identical and have zeros in every slot except one, and so the Jacobian determinant will be zero).
 
 - You can gain some confidence that your involution is valid by enabling dynamic checks (`check=true`) in [`metropolis_hastings`](@ref), which applies the involution to its output and checks that the original input is recovered.
 
