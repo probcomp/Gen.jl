@@ -64,13 +64,13 @@ end
 
 const dx = 1e-6
 
-# include("autodiff.jl")
-# include("diff.jl")
-# include("selection.jl")
-# include("assignment.jl")
-include("dsls/dsls.jl")
-# include("optional_args.jl")
-# include("static_ir/static_ir.jl")
-# include("tilde_sugar.jl")
-# include("inference/inference.jl")
-# include("modeling_library/modeling_library.jl")
+include("autodiff.jl")
+include("diff.jl")
+include("selection.jl")
+include("assignment.jl")
+include("dsl/dsl.jl")
+include("optional_args.jl")
+include("static_ir/static_ir.jl")
+include("tilde_sugar.jl")
+include("inference/inference.jl")
+include("modeling_library/modeling_library.jl")

@@ -15,11 +15,13 @@ end
 
 # @add_gaussian_noise x y  # means y ~ normal(x, 1.)
 macro add_gaussian_noise(x, y)
-    :($(esc(y)) ~ normal($(esc(x)), 1.0))
+    Expr(:call, esc(:~), esc(y), :(normal($(esc(x)), 1.0)))
+    #:($(esc(y)) $(esc(:~)) normal($(esc(x)), 1.0))
 end
 
 macro set_x_to_normal_tilde(mean)
-    :($(esc(:x)) ~ normal($(esc(mean)), 1))
+    Expr(:call, esc(:~), esc(:x), :(normal($(esc(mean)), 1)))
+    #:($(esc(:x)) $(esc(:~)) normal($(esc(mean)), 1))
 end
 
 macro set_x_to_normal_trace(mean)
