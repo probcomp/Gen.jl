@@ -1,7 +1,7 @@
 # Built-in Modeling Language
 
 Gen provides a built-in embedded modeling language for defining generative functions.
-The language uses a syntax that extends Julia's syntax for defining regular Julia functions.
+The language uses a syntax that extends Julia's syntax for defining regular Julia functions, and is also referred to as the **Dynamic Modeling Language**.
 
 Generative functions in the modeling language are identified using the `@gen` keyword in front of a Julia function definition.
 Here is an example `@gen` function that samples two random choices:
@@ -36,7 +36,7 @@ julia> get_args(trace)
 See [Generative Functions](@ref) for the full set of operations supported by a generative function.
 Note that the built-in modeling language described in this section is only one of many ways of defining a generative function -- generative functions can also be constructed using other embedded languages, or by directly implementing the methods of the generative function interface.
 However, the built-in modeling language is intended to being flexible enough cover a wide range of use cases.
-In the remainder of this section, we refer to generative functions defined using the built-in modeling language as `@gen` functions.
+In the remainder of this section, we refer to generative functions defined using the built-in modeling language as `@gen` functions. Details about the implementation of `@gen` functions can be found in the [Modeling Language Implementation](@ref) section.
 
 ## Annotations
 
@@ -210,6 +210,35 @@ This example is **valid** because `:a => :b` and `:a => :c` are not prefixes of 
 ```julia
 @trace(normal(0, 1), :a => :b)
 @trace(foo(0.5), :a => :c)
+```
+
+## Tilde syntax
+
+As a short-hand for `@trace` expressions, the tilde operator `~` can also be used to make random choices and traced calls to generative functions. For example, the expression
+```julia
+{:x} ~ normal(0, 1)
+```
+is equivalent to:
+```julia
+@trace(normal(0, 1), :x)
+```
+
+One can also conveniently assign random values to variables using the syntax:
+```julia
+x ~ normal(0, 1)
+```
+which is equivalent to:
+```julia
+x = @trace(normal(0, 1), :x)
+```
+
+Finally, one can make traced calls using a shared address namespace with the syntax:
+```julia
+{*} ~ foo(0.5)
+```
+which is equivalent to:
+```julia
+@trace(foo(0.5))
 ```
 
 ## Return value
