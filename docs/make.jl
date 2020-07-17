@@ -28,6 +28,7 @@ makedocs(
         ],
         "Internals" => [
             "Optimizing Trainable Parameters" => "ref/internals/parameter_optimization.md"
+            "Modeling Language Implementation" => "ref/internals/language_implementation.md"
          ]
     ]
 )

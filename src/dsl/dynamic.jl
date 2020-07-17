@@ -1,5 +1,6 @@
 const DYNAMIC_DSL_TRACE = Symbol("@trace")
 
+"Convert Argument structs to ASTs."
 function arg_to_ast(arg::Argument)
     ast = esc(arg.name)
     if (arg.default != nothing)
@@ -9,14 +10,30 @@ function arg_to_ast(arg::Argument)
     ast
 end
 
+"Escape argument defaults (if present)."
 function escape_default(arg)
     (arg.default == nothing ? nothing :
         Expr(:call, :Some, esc(something(arg.default))))
 end
 
+"Rewrites :gentrace and :genparam with their dynamic implementations."
+function rewrite_dynamic_gen_exprs(expr)
+    MacroTools.postwalk(expr) do e
+        if MacroTools.@capture(e, ex_gentrace)
+            return dynamic_trace_impl(ex)
+        elseif MacroTools.@capture(e, ex_genparam)
+            return dynamic_param_impl(ex)
+        else
+            return e
+        end
+    end
+end
+
+"Construct a dynamic Gen function."
 function make_dynamic_gen_function(name, args, body, return_type, annotations)
     escaped_args = map(arg_to_ast, args)
     gf_args = [esc(state), escaped_args...]
+    body = rewrite_dynamic_gen_exprs(body)
 
     julia_fn_name = gensym(name)
     julia_fn_defn = Expr(:function,
