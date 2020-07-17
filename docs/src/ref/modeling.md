@@ -241,6 +241,8 @@ which is equivalent to:
 @trace(foo(0.5))
 ```
 
+Note that `~` is also defined in `Base` as a unary operator that performs the bitwise-not operation (see [`Base.:~`](https://docs.julialang.org/en/v1/base/math/#Base.:~)). This use of `~` is also supported within `@gen` functions. However, uses of `~` as a *binary* infix operator within an `@gen` function will *always* be treated as equivalent to an `@trace` expression. If your module contains its own two-argument definition `YourModule.:~(a, b)` of the `~` function, calls to that function within `@gen` functions have to be in qualified prefix form, i.e., you have to write `YourModule.:~(a, b)` instead of `a ~ b`.
+
 ## Return value
 
 Like regular Julia functions, `@gen` functions return either the expression used in a `return` keyword, or by evaluating the last expression in the function body.
