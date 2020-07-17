@@ -12,9 +12,12 @@ function logpdf(::Cauchy, x::Real, x0::Real, gamma::Real)
 end
 
 function logpdf_grad(::Cauchy, x::Real, x0::Real, gamma::Real)
-    deriv_x =  - 2 * (x - x0) / (gamma^2 + (x - x0)^2)
-    deriv_x0 = 2 * (x - x0) / (gamma^2 + (x - x0)^2)
-    deriv_gamma = ((x - x0)^2 - gamma^2) / (gamma * (gamma^2 + (x - x0)^2)) 
+    x_x0 = x - x0
+    x_x0_sq = x_x0^2
+    gamma_sq = gamma^2
+    deriv_x0 =  2 * x_x0 / (gamma_sq + x_x0_sq)
+    deriv_x = - deriv_x0
+    deriv_gamma = (x_x0_sq - gamma_sq) / (gamma * (gamma_sq + x_x0_sq)) 
     (deriv_x, deriv_x0, deriv_gamma)
 end
 
