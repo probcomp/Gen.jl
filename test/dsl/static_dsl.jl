@@ -591,22 +591,4 @@ ch = get_choices(tr)
 @test length(get_submaps_shallow(ch)) == 1
 end
 
-@testset "macros in static functions" begin
-    @gen (static) function foo()
-        x ~ exponential(1)
-        y ~ @insert_normal_call x
-    end
-
-    @gen (static) function bar()
-        x ~ exponential(1)
-        y = Gen.@trace(@insert_normal_call(x), :y)
-    end
-
-    Gen.load_generated_functions()
-    trace = simulate(foo, ())
-    @test trace[:x] == trace[:y]
-    trace = simulate(bar, ())
-    @test trace[:x] == trace[:y]
-end
-
 end # @testset "static DSL"

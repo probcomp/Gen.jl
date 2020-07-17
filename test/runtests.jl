@@ -62,21 +62,15 @@ function finite_diff_mat_sym(f::Function, args::Tuple, i::Int, j::Int, k::Int, d
     return (f(pos_args...) - f(neg_args...)) / (2. * dx)
 end
 
-"Macro to test nesting of macros in @trace calls."
-macro insert_normal_call(x)
-    :(normal($(esc(x)), 0.0))
-end
-
 const dx = 1e-6
 
 include("autodiff.jl")
 include("diff.jl")
 include("selection.jl")
 include("assignment.jl")
-include("dynamic_dsl.jl")
+include("dsl/dsl.jl")
 include("optional_args.jl")
 include("static_ir/static_ir.jl")
-include("static_dsl.jl")
 include("tilde_sugar.jl")
 include("inference/inference.jl")
 include("modeling_library/modeling_library.jl")

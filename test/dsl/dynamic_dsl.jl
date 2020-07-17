@@ -529,20 +529,4 @@ end
 
 end
 
-@testset "macros in dynamic functions" begin
-    @gen function foo()
-        x ~ exponential(1)
-        y ~ @insert_normal_call x
-    end
-    trace = simulate(foo, ())
-    @test trace[:x] == trace[:y]
-
-    @gen function bar()
-        x ~ exponential(1)
-        y = Gen.@trace(@insert_normal_call(x), :y)
-    end
-    trace = simulate(bar, ())
-    @test trace[:x] == trace[:y]
-end
-
 end
