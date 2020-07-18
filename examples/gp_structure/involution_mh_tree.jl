@@ -98,17 +98,17 @@ end
     (path, new_subtree_node)
 end
 
-@bijection function subtree_involution(model_args::Tuple, proposal_args::Tuple, fwd_ret::Tuple)
+@transform subtree_involution (model_in, aux_in) to (model_out, aux_out) begin
 
-    (path::Vector{Symbol}, new_subtree_node) = fwd_ret
+    (path::Vector{Symbol}, new_subtree_node) = @read(aux_in[], :discrete)
 
     # populate backward assignment with choice of root
-    @copy_proposal_to_proposal(:choose_subtree_root, :choose_subtree_root)
+    @copy(aux_in[:choose_subtree_root], aux_out[:choose_subtree_root])
 
     # swap subtrees
     model_subtree_addr = isempty(path) ? :tree : (:tree => foldr(=>, path))
-    @copy_proposal_to_model(:subtree, model_subtree_addr)
-    @copy_model_to_proposal(model_subtree_addr, :subtree)
+    @copy(aux_in[:subtree], model_out[model_subtree_addr])
+    @copy(model_in[model_subtree_addr], aux_out[:subtree])
 end
 
 is_involution!(subtree_involution)

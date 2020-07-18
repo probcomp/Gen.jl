@@ -120,13 +120,13 @@ end
 # - maintains i = fwd_choices[:i] constant
 # - swaps choices[(RATE, i)] with fwd_choices[:new_rate]
 
-@bijection function rate_involution(model_args, proposal_args, proposal_retval)
-    i = @read_discrete_from_proposal(:i)
-    @write_discrete_to_proposal(:i, i)
-    new_rate = @read_continuous_from_proposal(:new_rate)
-    @write_continuous_to_model((RATE, i), new_rate)
-    prev_rate = @read_continuous_from_model((RATE, i))
-    @write_continuous_to_proposal(:new_rate, prev_rate)
+@transform rate_involution() (model_in, aux_in) to (model_out, aux_out) begin
+    i = @read(aux_in[:i], :discrete)
+    @write(aux_out[:i], i, :discrete)
+    new_rate = @read(aux_in[:new_rate], :continuous)
+    @write(model_out[(RATE, i)], new_rate, :continuous)
+    prev_rate = @read(model_in[(RATE, i)], :continuous)
+    @write(aux_out[:new_rate], prev_rate, :continuous)
 end
 
 is_involution!(rate_involution)
@@ -155,11 +155,11 @@ end
 # - maintains i = fwd_choices[:i] constant
 # - swaps choices[(CHANGEPT, i)] with fwd_choices[:new_changept]
 
-@bijection function position_involution(model_args, proposal_args, proposal_retval::Int)
-    i = @read_discrete_from_proposal(:i)
-    @write_discrete_to_proposal(:i, i)
-    @copy_model_to_proposal((CHANGEPT, i), :new_changept)
-    @copy_proposal_to_model(:new_changept, (CHANGEPT, i))
+@transform position_involution (model_in, aux_in) to (model_out, aux_out) begin
+    i = @read(aux_in[:i], :discrete)
+    @write(aux_out[:i], i, :discrete)
+    @copy(model_in[(CHANGEPT, i)], aux_out[:new_changept])
+    @copy(aux_in[:new_changept], model_out[(CHANGEPT, i)])
 end
 
 is_involution!(position_involution)
@@ -239,86 +239,86 @@ end
 #   changepoint and then remove that same changepoint)
 # - new_rates, curried on cp_new, cp_prev, and cp_next, is the inverse of new_rates_inverse.
 
-@bijection function birth_death_involution(model_args, proposal_args, proposal_retval::Nothing)
-    T = model_args[1]
+@transform birth_death_involution (model_in, aux_in) to (model_out, aux_out) begin
+    T = get_args(model_in)[1]
 
     # current number of changepoints
-    k = @read_discrete_from_model(K)
+    k = @read(model_in[K], :discrete)
     
     # if k == 0, then we can only do a birth move
-    isbirth = (k == 0) || @read_discrete_from_proposal(IS_BIRTH)
+    isbirth = (k == 0) || @read(aux_in[IS_BIRTH], :discrete)
 
     # if we are a birth move, the inverse is a death move
     if k > 1 || isbirth
-        @write_discrete_to_proposal(IS_BIRTH, !isbirth)
+        @write(aux_out[IS_BIRTH], !isbirth, :discrete)
     end
     
     # the changepoint to be added or deleted
-    i = @read_discrete_from_proposal(CHOSEN)
-    @copy_proposal_to_proposal(CHOSEN, CHOSEN)
+    i = @read(aux_in[CHOSEN], :discrete)
+    @copy(aux_in[CHOSEN], aux_out[CHOSEN])
 
     if isbirth
-        @bijcall(birth(k, i))
+        @tcall(birth(k, i))
     else
-        @bijcall(death(k, i))
+        @tcall(death(k, i))
     end
 end
 
-@bijection function birth(k::Int, i::Int)
-    @write_discrete_to_model(K, k+1)
+@transform birth(k::Int, i::Int) (model_in, aux_in) to (model_out, aux_out) begin
+    @write(model_out[K], k+1, :discrete)
 
-    cp_new = @read_continuous_from_proposal(NEW_CHANGEPT)
-    cp_prev = (i == 1) ? 0. : @read_continuous_from_model((CHANGEPT, i-1))
-    cp_next = (i == k+1) ? T : @read_continuous_from_model((CHANGEPT, i))
+    cp_new = @read(aux_in[NEW_CHANGEPT], :continuous)
+    cp_prev = (i == 1) ? 0. : @read(model_in[(CHANGEPT, i-1)], :continuous)
+    cp_next = (i == k+1) ? T : @read(model_in[(CHANGEPT, i)], :continuous)
 
     # set new changepoint
-    @copy_proposal_to_model(NEW_CHANGEPT, (CHANGEPT, i))
+    @copy(aux_in[NEW_CHANGEPT], model_out[(CHANGEPT, i)])
 
     # shift up changepoints
     for j=i+1:k+1
-        @copy_model_to_model((CHANGEPT, j-1), (CHANGEPT, j))
+        @copy(model_in[(CHANGEPT, j-1)], model_out[(CHANGEPT, j)])
     end
 
     # compute new rates
-    h_cur = @read_continuous_from_model((RATE, i))
-    u = @read_continuous_from_proposal(U)
+    h_cur = @read(model_in[(RATE, i)], :continuous)
+    u = @read(aux_in[U], :continuous)
     (h_prev, h_next) = new_rates(h_cur, u, cp_new, cp_prev, cp_next)
 
     # set new rates
-    @write_continuous_to_model((RATE, i), h_prev)
-    @write_continuous_to_model((RATE, i+1), h_next)
+    @write(model_out[(RATE, i)], h_prev, :continuous)
+    @write(model_out[(RATE, i+1)], h_next, :continuous)
 
     # shift up rates
     for j=i+2:k+2
-        @copy_model_to_model((RATE, j-1), (RATE, j))
+        @copy(model_in[(RATE, j-1)], model_out[(RATE, j)])
     end
 end
 
-@bijection function death(k::Int, i::Int)
-    @write_discrete_to_model(K, k-1)
+@transform death(k::Int, i::Int) (model_in, aux_in) to (model_out, aux_out) begin
+    @write(model_out[K], k-1, :discrete)
 
-    cp_deleted = @read_continuous_from_model((CHANGEPT, i))
-    cp_prev = (i == 1) ? 0. : @read_continuous_from_model((CHANGEPT, i-1))
-    cp_next = (i == k) ? T : @read_continuous_from_model((CHANGEPT, i+1))
-    @copy_model_to_proposal((CHANGEPT, i), NEW_CHANGEPT)
+    cp_deleted = @read(model_in[(CHANGEPT, i)], :continuous)
+    cp_prev = (i == 1) ? 0. : @read(model_in[(CHANGEPT, i-1)], :continuous)
+    cp_next = (i == k) ? T : @read(model_in[(CHANGEPT, i+1)], :continuous)
+    @copy(model_in[(CHANGEPT, i)], aux_out[NEW_CHANGEPT])
 
     # shift down changepoints
     for j=i:k-1
-        @copy_model_to_model((CHANGEPT, j+1), (CHANGEPT, j))
+        @copy(model_in[(CHANGEPT, j+1)], model_out[(CHANGEPT, j)])
     end
 
     # compute cur rate and u
-    h_prev = @read_continuous_from_model((RATE, i))
-    h_next = @read_continuous_from_model((RATE, i+1))
+    h_prev = @read(model_in[(RATE, i)], :continuous)
+    h_next = @read(model_in[(RATE, i+1)], :continuous)
     (h_cur, u) = new_rates_inverse(h_prev, h_next, cp_deleted, cp_prev, cp_next)
-    @write_continuous_to_proposal(U, u)
+    @write(aux_out[U], u, :continuous)
 
     # set cur rate
-    @write_continuous_to_model((RATE, i), h_cur)
+    @write(model_out[(RATE, i)], h_cur, :continuous)
 
     # shift down rates
     for j=i+1:k
-        @copy_model_to_model((RATE, j+1), (RATE, j))
+        @copy(model_in[(RATE, j+1)], model_out[(RATE, j)])
     end
 end
 

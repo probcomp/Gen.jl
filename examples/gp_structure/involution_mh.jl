@@ -88,68 +88,70 @@ noise_move(trace) = metropolis_hastings(trace, noise_proposal, ())[1]
     (subtree_idx, depth, new_subtree_node)
 end
 
-@bijection function walk_previous_subtree(cur::Int)
-    @copy_model_to_proposal(:tree => (cur, :type), :subtree => (cur, :type))
-    node_type = @read_discrete_from_model(:tree => (cur, :type))
+@transform walk_previous_subtree(cur::Int) (model_in, aux_in) to (model_out, aux_out) begin
+    @copy(model_in[:tree => (cur, :type)], aux_out[:subtree => (cur, :type)])
+    node_type = @read(model_in[:tree => (cur, :type)], :discrete)
     if node_type == CONSTANT
-        @copy_model_to_proposal(:tree => (cur, :param), :subtree => (cur, :param))
+        @copy(model_in[:tree => (cur, :param)], aux_out[:subtree => (cur, :param)])
     elseif node_type == LINEAR
-        @copy_model_to_proposal(:tree => (cur, :param), :subtree => (cur, :param))
+        @copy(model_in[:tree => (cur, :param)], aux_out[:subtree => (cur, :param)])
     elseif node_type == SQUARED_EXP
-        @copy_model_to_proposal(:tree => (cur, :length_scale), :subtree => (cur, :length_scale))
+        @copy(model_in[:tree => (cur, :length_scale)], aux_out[:subtree => (cur, :length_scale)])
     elseif node_type == PERIODIC
-        @copy_model_to_proposal(:tree => (cur, :scale), :subtree => (cur, :scale))
-        @copy_model_to_proposal(:tree => (cur, :period), :subtree => (cur, :period))
+        @copy(model_in[:tree => (cur, :scale)], aux_out[:subtree => (cur, :scale)])
+        @copy(model_in[:tree => (cur, :period)], aux_out[:subtree => (cur, :period)])
     elseif (node_type == PLUS) || (node_type == TIMES)
         child1 = get_child(cur, 1, max_branch)
         child2 = get_child(cur, 2, max_branch)
-        @bijcall(walk_previous_subtree(child1)) # use same namespace
-        @bijcall(walk_previous_subtree(child2))
+        @tcall(walk_previous_subtree(child1)) # use same namespace
+        @tcall(walk_previous_subtree(child2))
     else
         error("Unknown node type: $node_type")
     end
 end
 
-@bijection function walk_new_subtree(cur::Int)
-    @copy_proposal_to_model(:subtree => (cur, :type), :tree => (cur, :type))
-    node_type = @read_discrete_from_proposal(:subtree => (cur, :type))
+@transform walk_new_subtree(cur::Int) (model_in, aux_in) to (model_out, aux_out) begin
+    @copy(aux_in[:subtree => (cur, :type)], model_out[:tree => (cur, :type)])
+    node_type = @read(aux_in[:subtree => (cur, :type)], :discrete)
     if node_type == CONSTANT
-        @copy_proposal_to_model(:subtree => (cur, :param), :tree => (cur, :param))
+        @copy(aux_in[:subtree => (cur, :param)], model_out[:tree => (cur, :param)])
     elseif node_type == LINEAR
-        @copy_proposal_to_model(:subtree => (cur, :param), :tree => (cur, :param))
+        @copy(aux_in[:subtree => (cur, :param)], model_out[:tree => (cur, :param)])
     elseif node_type == SQUARED_EXP
-        @copy_proposal_to_model(:subtree => (cur, :length_scale), :tree => (cur, :length_scale))
+        @copy(aux_in[:subtree => (cur, :length_scale)], model_out[:tree => (cur, :length_scale)])
     elseif node_type == PERIODIC
-        @copy_proposal_to_model(:subtree => (cur, :scale), :tree => (cur, :scale))
-        @copy_proposal_to_model(:subtree => (cur, :period), :tree => (cur, :period))
+        @copy(aux_in[:subtree => (cur, :scale)], model_out[:tree => (cur, :scale)])
+        @copy(aux_in[:subtree => (cur, :period)], model_out[:tree => (cur, :period)])
     elseif (node_type == PLUS) || (node_type == TIMES)
         child1 = get_child(cur, 1, max_branch)
         child2 = get_child(cur, 2, max_branch)
-        @bijcall(walk_new_subtree(child1)) # use same namespace
-        @bijcall(walk_new_subtree(child2))
+        @tcall(walk_new_subtree(child1)) # use same namespace
+        @tcall(walk_new_subtree(child2))
     else
         error("Unknown node type: $node_type")
     end
 end
 
-@bijection function subtree_involution(model_args::Tuple, proposal_args::Tuple, fwd_ret::Tuple)
+@transform subtree_involution (model_in, aux_in) to (model_out, aux_out) begin
 
-    (subtree_idx, subtree_depth, new_subtree_node) = fwd_ret
+    (subtree_idx, subtree_depth, new_subtree_node) = @read(aux_in[], :discrete)
 
     # populate backward assignment with choice of root
-    @copy_proposal_to_proposal(:choose_subtree_root => :recurse_left, :choose_subtree_root => :recurse_left)
+    @copy(
+        aux_in[:choose_subtree_root => :recurse_left],
+        aux_out[:choose_subtree_root => :recurse_left])
     for depth=0:subtree_depth-1
-        @write_discrete_to_proposal(:choose_subtree_root => :done => depth, false)
+        @write(aux_out[:choose_subtree_root => :done => depth], false, :discrete)
     end
     if !isa(new_subtree_node, LeafNode)
-        @write_discrete_to_proposal(:choose_subtree_root => :done => subtree_depth, true)
+        @write(aux_out[:choose_subtree_root => :done => subtree_depth], true, :discrete)
     end
 
     # populate constraints with proposed subtree
-    @bijcall(walk_previous_subtree(subtree_idx))
+    @tcall(walk_previous_subtree(subtree_idx))
 
     # populate backward assignment with the previous subtree
-    @bijcall(walk_new_subtree(subtree_idx))
+    @tcall(walk_new_subtree(subtree_idx))
 end
 
 is_involution!(subtree_involution)

@@ -74,16 +74,8 @@ struct ModelInputAddress{T}
     addr::T
 end
 
-struct ModelInputArgs{T}
-    args::T
-end
-
 struct AuxInputAddress{T}
     addr::T
-end
-
-struct AuxInputArgs{T}
-    args::T
 end
 
 struct ModelOutputAddress{T}
@@ -99,9 +91,9 @@ Base.getindex(::ModelOutputTraceToken, addr) = ModelOutputAddress(addr) # model_
 Base.getindex(::AuxInputTraceToken, addr) = AuxInputAddress(addr) # aux_in[addr]
 Base.getindex(::AuxOutputTraceToken, addr) = AuxOutputAddress(addr) # aux_out[addr]
 Base.getindex(::ModelInputTraceToken) = ModelInputTraceRetvalToken() # model_in[]
-Base.getindex(::AuxInputTraceToken) = AuxInputTraceRetvalToken() # aux_in[]
-get_args(token::ModelInputTraceToken) = ModelInputArgsToken(token.args) # get_args(model_in)
-get_args(token::AuxInputTraceToken) = AuxInputArgsToken(token.args) # get_args(aux_in)
+Base.getindex(::AuxInputTraceToken) = AuxInputTraceRetValToken() # aux_in[]
+get_args(token::ModelInputTraceToken) = token.args # get_args(model_in)
+get_args(token::AuxInputTraceToken) = token.args # get_args(aux_in)
 
 const bij_state = gensym("bij_state")
 
@@ -238,7 +230,7 @@ end
 
 function run_first_pass(bijection::BijectionDSLProgram, model_trace, aux_trace)
     state = FirstPassState(model_trace, aux_trace)
-    bijection.fn!(state) # TODO allow for other to top-level transform function
+    bijection.fn!(state) # TODO allow for other args to top-level transform function
     return state.results
 end
 
