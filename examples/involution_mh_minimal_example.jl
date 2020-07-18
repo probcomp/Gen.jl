@@ -43,24 +43,23 @@ function split_mean(m, u)
     (m1, m2)
 end
 
-@bijection function split_merge_involution(
-        model_args, proposal_args, proposal_retval)
-    if @read_discrete_from_model(:z)
+@transform split_merge_involution (model_in, aux_in) to (model_out, aux_out) begin
+    if @read(model_in[:z], :discrete)
         # currently two means, switch to one
-        @write_discrete_to_model(:z, false)
-        m1 = @read_continuous_from_model(:m1)
-        m2 = @read_continuous_from_model(:m2)
+        @write(model_out[:z], false, :discrete)
+        m1 = @read(model_in[:m1], :continuous)
+        m2 = @read(model_in[:m2], :continuous)
         (m, u) = merge_mean(m1, m2)
-        @write_continuous_to_model(:m, m)
-        @write_continuous_to_proposal(:u, u)
+        @write(model_out[:m], m, :continuous)
+        @write(aux_out[:u], u, :continuous)
     else
         # currently one mean, switch to two
-        @write_discrete_to_model(:z, true)
-        m = @read_continuous_from_model(:m)
-        u = @read_continuous_from_proposal(:u)
+        @write(model_out[:z], true, :discrete)
+        m = @read(model_in[:m], :continuous)
+        u = @read(aux_in[:u], :continuous)
         (m1, m2) = split_mean(m, u)
-        @write_continuous_to_model(:m1, m1)
-        @write_continuous_to_model(:m2, m2)
+        @write(model_out[:m1], m1, :continuous)
+        @write(model_out[:m2], m2, :continuous)
     end
 end
 
