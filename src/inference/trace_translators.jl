@@ -779,7 +779,7 @@ end
 function (translator::SimpleExtendingTraceTranslator)(prev_model_trace::Trace)
 
     # simulate from auxiliary program
-    forward_proposal_trace = simulate(proposal, (prev_model_trace, proposal_args...,))
+    forward_proposal_trace = simulate(translator.q_fwd, (prev_model_trace, translator.q_fwd_args...,))
     forward_proposal_score = get_score(forward_proposal_trace)
 
     # computing the new trace via update
