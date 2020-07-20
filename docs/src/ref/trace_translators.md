@@ -307,7 +307,7 @@ This has two benefits when the previous and new traces have random choices that 
 (i) the incremental modification may be more efficient than writing the new trace entirely from scratch, and
 (ii) the transform DSL program does not need to specify a value for addresses whose value is not changed from the previous trace.
 
-### Simple Extending Trace Translators
+## Simple Extending Trace Translators
 
 TODO Document
 
@@ -386,6 +386,8 @@ Tips for defining valid transforms:
 - If you find yourself copying the same continuous source address to multiple locations, it probably means your transform is not valid (the Jacobian matrix will have rows that are identical, and so the Jacobian determinant will be nonzero).
 
 - You can gain some confidence that your transform is valid by enabling dynamic checks (`check=true`) in the trace translator that uses it.
+
+## API
 
 ```@docs
 @transform

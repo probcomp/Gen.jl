@@ -201,21 +201,21 @@ new_trace = permute_move(trace, 2)
 Indeed, they are just regular Julia functions, but with some extra information attached so that the composite kernel DSL knows they have been declared as stationary kernels.
 
 
-## Involution MCMC
+## Involutive MCMC
 
-Gen's most flexible variant of [`metropolis_hastings`](@ref), called **involution MCMC**, allows users to specify any MCMC kernel in the reversible jump MCMC (RJMCMC) framework [2].
+Gen's most flexible variant of [`metropolis_hastings`](@ref), called **Involutive MCMC**, allows users to specify any MCMC kernel in the reversible jump MCMC (RJMCMC) framework [2].
 Involution MCMC allows you to express a broad class of custom MCMC kernels that are not expressible using the other, simpler variants of Metropolis-Hastings supported by Gen.
 These kernels are particularly useful for inferring the structure (e.g. control flow) of a model.
 
 [2] Green, Peter J. "Reversible jump Markov chain Monte Carlo computation and Bayesian model determination." Biometrika 82.4 (1995): 711-732. [Link](https://academic.oup.com/biomet/article-abstract/82/4/711/252058)
 
-An involution MCMC kernel in Gen takes as input a previous trace of the model (whose choice map we will denote by ``t``), and performs three phases to obtain a new trace of the model:
+An involutive MCMC kernel in Gen takes as input a previous trace of the model (whose choice map we will denote by ``t``), and performs three phases to obtain a new trace of the model:
 
-- First, it traces the execution of a **proposal**, which is a generative function that takes the previous trace of the model as its first argument. Mathematically, we will denote the choice map associated with the trace of the proposal by ``u``. The proposal can of course be defined using the [Built-In Modeling Languages](@ref), just like the model itself. However, unlike many other uses of proposals in Gen, these proposals *can make random choices at addresses that the model does not*.
+- First, it traces the execution of a **proposal**, which is an auxiliary generative function that takes the previous trace of the model as its first argument. Mathematically, we will denote the choice map associated with the trace of the proposal by ``u``. The proposal can of course be defined using the [Built-In Modeling Languages](@ref), just like the model itself. However, unlike many other uses of proposals in Gen, these proposals *can make random choices at addresses that the model does not*.
 
 - Next, it takes the tuple ``(t, u)`` and passes it into an **involution** (denoted mathematically by ``h``), which is a function that returns a new tuple ``(t', u')``, where ``t'`` is the choice map for a new proposed trace of the model, and ``u'`` are random choices for a new trace of the proposal. The defining property of the involution is that *it is invertible*, and *it is its own inverse*; i.e. ``(t, u) = h(h(t, u))``. Intuitively, ``u'`` is a description of a way that the proposal could be reversed, taking ``t'`` to ``t``.
 
-- Finally, it computes an acceptance probability, which involves computing certain derivatives associated with the involution, and stochastically accepts or rejects the proposed model trace according to this probability. If the involution is defined using a the **Involution DSL** described later in this section, then the acceptance probability calculation is fully automated. (You can also implement involutions directly as Julia functions, but then you need to compute the Jacobian correction to the acceptance probability yourself).
+- Finally, it computes an acceptance probability, which involves computing certain derivatives associated with the involution, and stochastically accepts or rejects the proposed model trace according to this probability. The involution is typically defined using the [Trace Transform DSL](@ref), in which case the acceptance probability calculation is fully automated.
  
 ### Example
 Consider the following generative model of two pieces of observed data, at addresses `:y1` and `:y2`.
@@ -305,29 +305,27 @@ The proposal is responsible for generating the extra degree of freedom when spli
     end
 end
 ```
-Finally, we write the involution itself, using the involution DSL:
+Finally, we write the involution itself, using the [Trace Transform DSL](@ref):
 ```julia
-@involution function split_merge_involution(model_args, proposal_args, proposal_retval)
+@transform split_merge_involution (model_in, aux_in) to (model_out, aux_out) begin
+    if @read(model_in[:z], :discrete)
 
-    if @read_discrete_from_model(:z)
-
-        # currently two segments, switch to one
-        @write_discrete_to_model(:z, false)
-        m1 = @read_continuous_from_model(:m1)
-        m2 = @read_continuous_from_model(:m2)
-        (m, dof) = merge_means(m1, m2)
-        @write_continuous_to_model(:m, m)
-        @write_continuous_to_proposal(:dof, dof)
-
+        # currently two means, switch to one
+        @write(model_out[:z], false, :discrete)
+        m1 = @read(model_in[:m1], :continuous)
+        m2 = @read(model_in[:m2], :continuous)
+        (m, u) = merge_mean(m1, m2)
+        @write(model_out[:m], m, :continuous)
+        @write(aux_out[:u], u, :continuous)
     else
 
-        # currently one segments, switch to two
-        @write_discrete_to_model(:z, true)
-        m = @read_continuous_from_model(:m)
-        dof = @read_continuous_from_proposal(:dof)
-        (m1, m2) = split_mean(m, dof)
-        @write_continuous_to_model(:m1, m1)
-        @write_continuous_to_model(:m2, m2)
+        # currently one mean, switch to two
+        @write(model_out[:z], true, :discrete)
+        m = @read(model_in[:m], :continuous)
+        u = @read(aux_in[:u], :continuous)
+        (m1, m2) = split_mean(m, u)
+        @write(model_out[:m1], m1, :continuous)
+        @write(model_out[:m2], m2, :continuous)
     end
 end
 ```
@@ -382,5 +380,5 @@ elliptical_slice
 @kern
 @rkern
 reversal
-@involution
+involutive_mcmc
 ```

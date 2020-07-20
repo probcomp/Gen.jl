@@ -16,6 +16,7 @@ makedocs(
             "Choice Maps" => "ref/choice_maps.md",
             "Selections" => "ref/selections.md",
             "Optimizing Trainable Parameters" => "ref/parameter_optimization.md",
+            "Trace Translators" => "ref/trace_translators.md",
             "Extending Gen" => "ref/extending.md"
          ],
         "Standard Inference Library" => [
@@ -25,7 +26,6 @@ makedocs(
             "MAP Optimization" => "ref/map.md",
             "Particle Filtering" => "ref/pf.md",
             "Variational Inference" => "ref/vi.md",
-            "Trace Translators" => "ref/trace_transforms.md",
             "Learning Generative Functions" => "ref/learning.md"
         ],
         "Internals" => [
