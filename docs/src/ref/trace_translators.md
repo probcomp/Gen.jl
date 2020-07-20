@@ -383,7 +383,7 @@ The `discrete' requirement is needed because the transform DSL does not currentl
 
 Tips for defining valid transforms:
 
-- If you find yourself copying the same continuous source address to multiple locations, it probably means your transform is not valid (the Jacobian matrix will have rows that are identical, and so the Jacobian determinant will be nonzero).
+- If you find yourself copying the same continuous source address to multiple locations, it probably means your transform is not valid (the Jacobian matrix will have rows that are identical, and so the Jacobian determinant will be zero).
 
 - You can gain some confidence that your transform is valid by enabling dynamic checks (`check=true`) in the trace translator that uses it.
 
