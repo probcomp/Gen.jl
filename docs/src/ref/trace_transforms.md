@@ -51,19 +51,10 @@ The following trace transform DSL program defines a transformation (called `f`) 
     @write(t2[:y], r * sin(theta), continuous)
 end
 ```
-The first is the transform signature:
-Transforms are constructed with the macro [`@transform`](@ref).
-The transform signature defines the name (`f`) of the transform, and the names of the input and output traces (`tr1` and `tr2` respectively) that will be used within the body of the transform definition, which is between the `begin` and `end` keywords.
-In the body `@read` expressions read a value from a particular address of the input trace:
-```
-val = @read(<source>, <type-label>)
-```
-where `<source>` is an expression of the form `<trace>[<addr>]` where `<trace>` must be the name of the input trace in the transform's signature.
-The `<type-label>` is either `:continuous` or `:discrete`, and indicates whether the random choice is discrete or continuous (in measure-theoretic terms, whether it uses the counting measure, or a Lebesgue-measure a Euclidean space of some dimension).
-Similarly, `@write` expressions write a value to a particular address in the output trace:
-```
-@write(<source>, <value>, <type-label>)
-```
+This transform reads values of random choices in the input trace (`t1`) at specific addresses (indicated by the syntax `t1[addr]`) using `@read` and writes values to the output trace (`t2`) using `@write`.
+Each read and write operation is labeled with whether the random choice is discrete or continuous.
+The section [Trace Transform DSL](@ref) defines the DSL in more detail.
+
 It is usually a good idea to write the inverse of the bijection.
 The inverse can provide a dynamic check that the transform truly is a bijection.
 The inverse of the above transformation is:
@@ -301,6 +292,7 @@ Then, we can apply the trace translator to a trace (`t1`) of `p1` and get a trac
 (t2, log_weight) = translator(t1)
 ```
 
+
 ## Symmetric Trace Translators
 
 When the previous and new generative functions (e.g. `p1` and `p2` in the previous example) are the same, and their arguments are the same, and `q_forward` and `q_backward` (and their arguments) are also identical, we call this the trace translator a **Symmetric Trace Translator**.
@@ -315,187 +307,96 @@ This has two benefits when the previous and new traces have random choices that 
 (i) the incremental modification may be more efficient than writing the new trace entirely from scratch, and
 (ii) the transform DSL program does not need to specify a value for addresses whose value is not changed from the previous trace.
 
-## Trace Transform DSL Syntax
+### Simple Extending Trace Translators
 
+TODO Document
 
+## Trace Transform DSL
 
-## API
+The **Trace Transform DSL** is a differentiable programming language for writing deterministic transformations of traces.
+Programs written in this DSL are called *transforms*.
+Transforms read the value of random choices from input trace(s) and write values of random choices to output trace(s).
+These programs are not typically executed directly by users, but are instead wrapped into one of the several forms of trace translators listed above ([`GeneralTraceTranslator`](@ref), and [`SymmetricTraceTranslator`](@ref)).
 
-Consider the special case when the two models are the same.
+A transform is identified with the [`@transform`](@ref) macro, and uses one of the following four syntactic forms for the signature (the name of the transform, and the names of the input and output traces are all user-defined varibles; the only keywords are `@transform`, `to`, `begin`, and `end`):
 
-Involutions..
-
-
-
-
-
-
-
-
-We can write code that translates from one representation to another in the following DSL
-When we 
-
-'trace transforms' are bijections between spaces of traces
-
-motivate bijections -- preserving probability
-
-given two probabilistic programs P and P', we can define a bijection between their spaces of traces
-
-
-
-## Trace Transforms
-
-'trace transforms' are bijections between spaces of traces
-
-motivate bijections -- preserving probability
-
-given two probabilistic programs P and P', we can define a bijection between their spaces of traces
-
-### Trace Transform DSL
-
-define the trace transform DSL as a differentiable programming language for specifying these transforms; give syntax
-
-from (x) to (y)
-
-additional parameters f(x) from (x) to (y)
-
-### Applying trace transforms
-
-there are two types of trace transforms, those that transform from one space of traces to itself
-
-trace transforms that transform traces of a single model use 'update'
-    - this includes both transforms for use in MCMC (same args, no new obs) and extension SMC (new args, new obs)
-    - update should ideally be run automatically, within the API
-
-apply(t::TraceTransform, model_trace::Trace, proposal_trace::Trace) -> (new_model_trace, u_back, model_weight)
-
-apply(t::TraceTransform, model_trace::Trace, proposal_trace::Trace, new_model_args, argdiffs, new_obs)
-
-but .. a trace transform doesn't really exist without a P and P'...? but it could..
-
-TODO: update is involved in some cases...
-
-`run_first_pass`
-
-`jacobian_correction`
-
-### Example: Change-of-variables
-
-Example: give example of polar vs cartesian coordinate?
-
-### Example: Changing discrete representation
-
-Example: also show an example where they transform discete variables too
-(e.g. changing between boolean and integer representations)?
-
-Example: show an example involving discrete variables, control flow, and continuous variables
-
-### Example: Trace transforms and control-flow
-
-
-## Trace Translators
-
-motivate them -- not always a 1-1 correspondence
-
-need auxiliary randomness
-
-then introduce auxiliary distributions and define (P1, P2, Q1, Q2, f, finv) as a trace translator
-
-### Trace Transforms between pairs of traces
-
-Introduce Trace Transform DSL syntax for from (x, y) to (xout, yout)
-
-### Example: Translating between a discrete and continuous representation
-
-then introduce involutive trace transforms (when the spaces are the same)
-
-## Symmetric trace translators
-
-there is one model, no change in distribution P
-
-the introduce trace translators (P, Q, f) as a special case, where  f = finv (it is an involution)
-
-### Example: changing branches
-
-Link to docs for involutive MCMC
-
-## Relationship to 'Bijectors'
-
-
-
-### Involutive Trace Transforms
-
-### Bijective Trace Transforms
-
-### Trace Transform DSL
-
-Gen includes a DSL for defining trace transforms that automatically computes the Jacobian of the transformation via automatic differentiation.
-To define trace transform in the DSL, use the [`@transform`](@ref) macro:
+*A transform from one trace to another, without extra parameters*
 ```julia
-@transform f trace_in to trace_out
-    ..
+@transform f t1 to t2 begin
+    ...
 end
 ```
-Note that the names ``f``, ``trace_in`` and ``trace_out`` can be any variable names, but `to` is a keyword.
-The body of the function can contain almost arbitrary Julia code.
-However, reading from the input trace and writing to the output trace must be done with specific macros:
-
-- `@read(trace_in[addr], type_label)` where `addr` is the address in `trace_in` and `type_label` is either `:discrete` or `:continuous`
-
-- `@write(trace_out[addr], value, type_label)` where `addr` is the address in `trace_in` and `type_label` is either `:discrete` or `:continuous`
-
-Often trace transforms directly copy the value from one address in the input trace to one address in the output trace.
-In these cases, the implementation will be more efficient an explicit 'copy' commands is used instead:
-
-- `@copy(trace_in[addr], trace_out[addr])` where `addr` is the address in `trace_in` and `type_label` is either `:discrete` or `:continuous`
-
-### Applying trace transforms
-
-It is not necessary to explicitly copy values from the previous model choice map (``t``) to the new model choice map (``t'``) at the same address.
-These values will be copied automatically by the system.
-Specifically, if using the proposed constraints, the model visits an address that was not explicitly copied or written to, the old value will automatically be copied.
-
-Caveats:
-
-- It is possible to write functions in the involution DSL that are not actually involutions -- Gen does not statically check whether the function is an involution or not, but it is possible to turn on a dynamic check that can detect invalid involutions using a keyword argument `check=true` to [`metropolis_hastings`](@ref).
-
-- To avoid unecessary recomputation within the involution of values that are already computed and available in the return value of the model or the proposal, it is possible to depend on these values through the proposal return value (the third argument to the involution). However, it is possible to introduce a dependence on the value of continuous random choices in the input model choice map and the input proposal choice map through the proposal return value, and this dependence is not tracked by the automatic differentiation that is used to compute the Jacobian correction of the acceptance probability. Therefore, you should only only the proposal return value if you are sure you are not depending on the value of continuous choices (conditioned on the values of discrete choices).
-
-It is also possible to call one `@involution` function from another, using the `@invcall` macro.
-For example, below `bar` is the top-level `@involution` function, that calls the `@involution` function `foo`:
+*A transform from one trace to another, with extra parameters*
 ```julia
-@involution foo(x)
-    ..
+@transform f(x, y, ..) t1 to t2 begin
+    ...
 end
-
-@involution bar(model_args, proposal_args, proposal_retval)
-    ..
+```
+*A transform from pairs of traces to pairs of traces, without extra parameters*
+```julia
+@transform f (t1, t2) to (t3, t4) begin
+    ...
+end
+```
+*A transform from one trace to another, with extra parameters*
+```julia
+@transform f(x, y, ..) (t1, t2) to (t3, t4) begin
+    ...
+end
+```
+The extra parameters are optional, and can be used to pass arguments to a transform function that is invoked, from another transform function, using the [`@tcall`](@ref) macro.
+For example:
+```julia
+@transform g(x) t1 to t2 begin
+    ...
+end
+@transform f t1 to t2 begin
     x = ..
-    ..
-    @invcall(foo(x))
+    @tcall(x)
 end
 ```
-Note that when constructing involutions that call other `@involution` functions, the function being called (`bar` in this case) need not be mathematically speaking, an involution itself, for `foo` to be mathematically be an involution.
-Also, the top-level function must take three arguments (`model_args`, `proposal_args`, and `proposal_retval`), but any other `@involution` function may have an argument signature of the user's choosing.
 
-Some additional tips for defining valid involutions:
+The body of a transform reads the values of random choices at addresses in the input trace(s), performs computation using regular Julia code (provided this code can be differentiated with [ForwardDiff.jl](https://github.com/JuliaDiff/ForwardDiff.jl)) and writes valeus of random choices at addresses in the output trace(s).
+In the body [`@read`](@ref) expressions read a value from a particular address of an input trace:
+```
+val = @read(<source>, <type-label>)
+```
+where `<source>` is an expression of the form `<trace>[<addr>]` where `<trace>` must be the name of an input trace in the transform's signature.
+The `<type-label>` is either `:continuous` or `:discrete`, and indicates whether the random choice is discrete or continuous (in measure-theoretic terms, whether it uses the counting measure, or a Lebesgue-measure a Euclidean space of some dimension).
+Similarly, [`@write`](@ref) expressions write a value to a particular address in an output trace:
+```
+@write(<destination>, <value>, <type-label>)
+```
+Sometimes trace transforms need to directly copy the value from one address in an input trace to one address in an output trace.
+In these cases, it is recommended to use the explicit [`@copy`](@ref) expression:
+```
+@copy(<source>, <destination>)
+```
+where `<source>` and `<destination>` are of the form `<trace>[<addr>]` as above.
 
-- If you find yourself copying the same continuous source address to multiple locations, it probably means your involution is not valid (the Jacobian matrix will have rows that are identical, and so the Jacobian determinant will be nonzero).
+It is also possible to read the *return value* from an input trace using the following syntax, but this value must be discrete (in the local neighborhood of traces, the return value must be constant as a function of all continuous random choices in input traces):
+```
+val = @read(<trace>[], :discrete)
+```
+This feature is useful when the generative function precomputes a quantity as part of its return value, and we would like to reuse this value, instead of having to recompute it as part of the transform.
+The `discrete' requirement is needed because the transform DSL does not currently backpropagate through the return value (this feature could be added in the future).
 
-- You can gain some confidence that your involution is valid by enabling dynamic checks (`check=true`) in [`metropolis_hastings`](@ref), which applies the involution to its output and checks that the original input is recovered.
+Tips for defining valid transforms:
 
-### Transforming Between Arbitrary Spaces of Traces
+- If you find yourself copying the same continuous source address to multiple locations, it probably means your transform is not valid (the Jacobian matrix will have rows that are identical, and so the Jacobian determinant will be nonzero).
 
-### Involutive Trace Translators
-
-When a trace transform is its own inverse, it is called an **involution**.
-Invollutive trace transforms play the central role in [`Involution MCMC`](@ref), a general construct for MCMC kernels.
-To indicate that a trace transform is an involution, use [`is_involution!`](@ref).
+- You can gain some confidence that your transform is valid by enabling dynamic checks (`check=true`) in the trace translator that uses it.
 
 ```@docs
 @transform
-TraceTransformDSLProgram
+@read
+@write
+@copy
 pair_bijections!
 is_involution!
 inverse
+DeterministicTraceTranslator
+GeneralTraceTranslator
+SimpleExtendingTraceTranslator
+SymmetricTraceTranslator
 ```

@@ -103,7 +103,7 @@ get_args(token::AuxInputTraceToken) = token.args # get_args(aux_in)
 const bij_state = gensym("bij_state")
 
 """
-    @transform f (model_in, aux_in) to (model_out, aux_out)
+    @transform f[(params...)] (in1 [,in2]) to (out1 [,out2])
         ..
     end
 
@@ -178,14 +178,35 @@ function typed(annotation::Symbol)
     end
 end
 
+"""
+    @read(<source>, <annotation>)
+
+Macro for reading the value of a random choice from an input trace in the [Trace Transform DSL](@ref).
+
+<source> is of the form <trace>[<addr>] where <trace> is an input trace, and <annotation> is either :discrete or :continuous.
+"""
 macro read(src, ann::QuoteNode)
     return quote read($(esc(bij_state)), $(esc(src)), $(esc(typed(ann.value)))) end
 end
 
+"""
+    @write(<destination>, <value>, <annotation>)
+
+Macro for writing the value of a random choice to an output trace in the [Trace Transform DSL](@ref).
+
+<destination> is of the form <trace>[<addr>] where <trace> is an input trace, and <annotation> is either :discrete or :continuous.
+"""
 macro write(dest, val, ann::QuoteNode)
     return quote write($(esc(bij_state)), $(esc(dest)), $(esc(val)), $(esc(typed(ann.value)))) end
 end
 
+"""
+    @copy(<source>, <destination>)
+
+Macro for copying the value of a random choice (or a whole namespace of random choices) from an input trace to an output trace in the [Trace Transform DSL](@ref).
+
+<destination> is of the form <trace>[<addr>] where <trace> is an input trace, and <annotation> is either :discrete or :continuous.
+"""
 macro copy(src, dest)
     return quote copy($(esc(bij_state)), $(esc(src)), $(esc(dest))) end
 end
@@ -586,6 +607,18 @@ end
 # DeterministicTraceTranslator #
 ################################
 
+"""
+    translator = DeterministicTraceTranslator(;
+        p_new::GenerativeFunction, p_args::Tuple=();
+        new_observations::ChoiceMap=EmptyChoiceMap()
+        f::TraceTransformDSLProgram)
+
+Constructor for a deterministic trace translator.
+
+Run the translator with:
+
+    (output_trace, log_weight) = translator(input_trace)
+"""
 @with_kw struct DeterministicTraceTranslator
     p_new::GenerativeFunction
     p_args::Tuple = ()
@@ -636,6 +669,27 @@ end
 # GeneralTraceTranslator #
 ##########################
 
+"""
+    translator = GeneralTraceTranslator(;
+        p_new::GenerativeFunction,
+        p_new_args::Tuple = (),
+        new_observations::ChoiceMap = EmptyChoiceMap(),
+        q_forward::GenerativeFunction,
+        q_forward_args::Tuple  = (),
+        q_backward::GenerativeFunction,
+        q_backward_args::Tuple  = (),
+        f::TraceTransformDSLProgram)
+
+Constructor for a general trace translator.
+
+Run the translator with:
+
+    (output_trace, log_weight) = translator(input_trace; check=false, prev_observations=EmptyChoiceMap())
+
+Use `check` to enable a bijection check (this requires that the transform `f` has been paired with its inverse using [`pair_bijections!](@ref) or [`is_involution`](@ref)).
+
+If `check` is enabled, then `prev_observations` is a choice map containing the observed random choices in the previous trace.
+"""
 @with_kw struct GeneralTraceTranslator
     p_new::GenerativeFunction
     p_new_args::Tuple = ()
@@ -662,15 +716,6 @@ function general_trace_translator_run_transform(
     return (new_model_trace, backward_proposal_trace, log_abs_determinant)
 end
 
-"""
-    (new_trace, log_weight) = (translator::GeneralTraceTranslator)(trace)
-
-Apply a trace translator.
-
-    (new_trace, log_weight) = (translator::GeneralTraceTranslator)(trace; check=true, prev_observations=..)
-
-Apply a trace translator with additional dynamic checks for correctnesss. Requires a choice map of the previous observations.
-"""
 function (translator::GeneralTraceTranslator)(
         prev_model_trace::Trace; check=false, prev_observations=EmptyChoiceMap())
 
@@ -709,6 +754,20 @@ end
 # SimpleExtendingTraceTranslator #
 ##################################
 
+"""
+    translator = SimpleExtendingTraceTranslator(;
+        p_new_args::Tuple = (),
+        argdiffs::Tuple = (),
+        new_obs::ChoiceMap = EmptyChoiceMap(),
+        q_fwd::GenerativeFunction,
+        q_fwd_args::Tuple  = ())
+
+Constructor for a simple extending trace translator.
+
+Run the translator with:
+
+    (output_trace, log_weight) = translator(input_trace)
+"""
 @with_kw struct SimpleExtendingTraceTranslator 
     p_new_args::Tuple = ()
     argdiffs::Tuple = ()
@@ -717,11 +776,6 @@ end
     q_fwd_args::Tuple  = ()
 end
 
-"""
-    (new_trace, log_weight) = (translator::SimpleExtendingTraceTranslator)(trace)
-
-Apply a trace translator.
-"""
 function (translator::SimpleExtendingTraceTranslator)(prev_model_trace::Trace)
 
     # simulate from auxiliary program
@@ -747,6 +801,22 @@ end
 # SymmetricTraceTranslator #
 ############################
 
+"""
+    translator = SymmetricTraceTranslator(;
+        q::GenerativeFunction,
+        q_args::Tuple = (),
+        f::TraceTransformDSLProgram)
+
+Constructor for a symmetric trace translator.
+
+Run the translator with:
+
+    (output_trace, log_weight) = translator(input_trace; check=false, observations=EmptyChoiceMap())
+
+Use `check` to enable the involution check (this requires that the transform `f` has been marked with [`is_involution`](@ref)).
+
+If `check` is enabled, then `observations` is a choice map containing the observed random choices, and the check will additionally ensure they are not mutated by the involution.
+"""
 @with_kw struct SymmetricTraceTranslator
     q::GenerativeFunction
     q_args::Tuple = ()
@@ -769,11 +839,6 @@ function symmetric_trace_translator_run_transform(
     return (new_model_trace, backward_proposal_trace, log_abs_determinant)
 end
 
-"""
-    (new_trace, log_weight) = (translator::SymmetricTraceTranslator)(trace)
-
-Apply a trace translator.
-"""
 function (translator::SymmetricTraceTranslator)(prev_model_trace::Trace; check=false, observations=EmptyChoiceMap())
 
     # simulate from auxiliary program
