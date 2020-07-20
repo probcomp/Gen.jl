@@ -85,14 +85,11 @@ The `check` keyword argument to the involution can be used to enable or disable 
 """
 function metropolis_hastings(
         trace, proposal::GenerativeFunction,
-        proposal_args::Tuple, involution;
+        proposal_args::Tuple, involution::TraceTransformDSLProgram;
         check=false, observations=EmptyChoiceMap())
-    fwd_trace = simulate(proposal, (trace, proposal_args...,))
-    (new_trace, bwd_trace, weight) = involution(trace, fwd_trace; check=check)
-    check && check_observations(get_choices(new_trace), observations)
-    fwd_score = get_score(fwd_trace)
-    bwd_score = get_score(bwd_trace)
-    if log(rand()) < weight - fwd_score + bwd_score
+    trace_translator = SymmetricTraceTranslator(proposal, proposal_args, involution)
+    (new_trace, log_weight) = trace_translator(trace; check=check, observations=observations)
+    if log(rand()) < log_weight
         # accept
         (new_trace, true)
     else

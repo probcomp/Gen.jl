@@ -2,6 +2,10 @@ import ForwardDiff
 import MacroTools
 import LinearAlgebra
 
+#######################
+# trace transform DSL #
+#######################
+
 # See this math writeup for an understanding of how this code works:
 # docs/tex/mcmc.pdf
 
@@ -104,7 +108,7 @@ const bij_state = gensym("bij_state")
 
 Write a program in the [Trace Transform DSL](@ref).
 """
-macro transform(f_expr, from_expr, to_symbol::Symbol, to_expr, body)
+macro transform(f_expr, src_expr, to_symbol::Symbol, dest_expr, body)
     syntax_err = "valid syntactic forms:\n@transform f (..) to (..) begin .. end\n@transform f(..) (..) to (..) begin .. end"
     err = false
     if MacroTools.@capture(f_expr, f_(args__))
@@ -114,13 +118,17 @@ macro transform(f_expr, from_expr, to_symbol::Symbol, to_expr, body)
         err = true
     end
     err = err || (to_symbol != :to)
-    MacroTools.@capture(from_expr,
-         (model_in_, aux_in_)) || (err = true)
-    MacroTools.@capture(to_expr,
-         (model_out_, aux_out_)) || (err = true)
-    if err
-        @error(syntax_err)
-        error("invalid @transform syntax")
+    if MacroTools.@capture(src_expr, (model_in_, aux_in_))
+    elseif MacroTools.@capture(src_expr, (model_in_))
+        aux_in = gensym("dummy_aux")
+    else
+        err = true
+    end
+    if MacroTools.@capture(dest_expr, (model_out_, aux_out_))
+    elseif MacroTools.@capture(src_expr, (model_out_))
+        aux_out = gensym("dummy_aux")
+    else
+        err = true
     end
 
     fn! = gensym("$(esc(f))_fn!")
@@ -554,15 +562,9 @@ function jacobian_correction(transform::TraceTransformDSLProgram, prev_model_tra
     return correction
 end
 
-
-#########################################
-# different forms of calling transforms #
-#########################################
-
 function check_round_trip(
             prev_model_trace, prev_model_trace_rt,
-            forward_proposal_trace, forward_proposal_trace_rt,
-            model_weight, model_weight_inv)
+            forward_proposal_trace, forward_proposal_trace_rt)
 
     forward_proposal_choices = get_choices(forward_proposal_trace)
     forward_proposal_choices_rt = get_choices(forward_proposal_trace_rt)
@@ -581,149 +583,178 @@ function check_round_trip(
     return nothing
 end
 
+##########################
+# GeneralTraceTranslator #
+##########################
 
-"""
-    (bijection::TraceTransformDSLProgram)(
-        prev_model_trace::Trace, proposal_trace::Trace,
-        new_model::GenerativeFunction, new_model_args::Tuple,
-        new_constraints::ChoiceMap)
+struct GeneralTraceTranslator
+    p_new::GenerativeFunction
+    p_new_args::Tuple
+    new_observations::ChoiceMap
+    q_forward::GenerativeFunction
+    q_forward_args::Tuple 
+    q_backward::GenerativeFunction
+    q_backward_args::Tuple 
+    f::TraceTransformDSLProgram # a bijection
+end
 
-Apply bijection with a change to the model
-
-Appropriate for use in sequential Monte Carlo (SMC) kernels.
-"""
-function (bijection::TraceTransformDSLProgram)(
+function general_trace_translator_run_transform(
+        f::TraceTransformDSLProgram, new_observations::ChoiceMap,
         prev_model_trace::Trace, forward_proposal_trace::Trace,
-        backward_proposal::GenerativeFunction, backward_proposal_args::Tuple,
-        new_model::GenerativeFunction, new_model_args::Tuple,
-        new_observations::ChoiceMap;
-        check=false, prev_observations=EmptyChoiceMap())
+        p_new::GenerativeFunction, p_new_args::Tuple,
+        q_backard::GenerativeFunction, q_backward_args::Tuple)
+    first_pass_results = run_first_pass(f, prev_model_trace, forward_proposal_trace)
+    log_abs_determinant = jacobian_correction(
+        f, prev_model_trace, forward_proposal_trace, first_pass_results, nothing)
+    constraints = merge(first_pass_results.constraints, new_observations)
+    (new_model_trace, _) = generate(p_new, p_new_args, constraints)
+    backward_proposal_trace, = generate(
+        q_backward, (new_model_trace, q_backward_args...), first_pass_results.u_back)
+    return (new_model_trace, backward_proposal_trace, log_abs_determinant)
+end
 
-    # run the bijection forward
-    first_pass_results = run_first_pass(bijection, prev_model_trace, forward_proposal_trace)
-    
-    # construct new trace and get model weight
-    new_model_trace, new_model_score = generate(
-        new_model, new_model_args,
-        merge(first_pass_results.constraints, new_observations))
+"""
+    (new_trace, log_weight) = (translator::GeneralTraceTranslator)(trace)
+
+Apply a trace translator.
+
+    (new_trace, log_weight) = (translator::GeneralTraceTranslator)(trace; check=true, prev_observations=..)
+
+Apply a trace translator with additional dynamic checks for correctnesss. Requires a choice map of the previous observations.
+"""
+function (translator::GeneralTraceTranslator)(
+        prev_model_trace::Trace; check=false, prev_observations=EmptyChoiceMap())
+
+    # sample auxiliary trace
+    forward_proposal_trace = simulate(proposal, (prev_model_trace, translator.q_forward_args...,))
+
+    # apply trace transform
+    (new_model_trace, backward_proposal_trace, log_abs_determinant) = general_trace_translator_run_transform(
+        translator.f, prev_model_trace, forward_proposal_trace, translator.new_observations,
+        translator.p_new, translator.p_new_args, translator.q_backward, translator.q_backward_args)
+
+    # compute log weight
     prev_model_score = get_score(prev_model_trace)
-    model_weight = new_model_score - prev_model_score
-
-    # jacobian correction
-    discard = nothing
-    model_weight += jacobian_correction(bijection, prev_model_trace, forward_proposal_trace, first_pass_results, discard)
-
-    # get backward proposal trace
-    # TODO check that proposal is fully constrained in the backward direction
-    backward_proposal_trace, = generate(backward_proposal, (new_model_trace, backward_proposal_args...), first_pass_results.u_back)
+    new_model_score = get_score(new_model_trace)
+    forward_proposal_score = get_score(forward_proposal_trace)
+    backward_proposal_score = get_score(backward_proposal_trace)
+    log_weight = new_model_score - prev_model_score + backward_proposal_score + forward_proposal_score + log_abs_determinant
 
     if check
         forward_proposal_choices = get_choices(forward_proposal_trace)
-        bijection_inv = inverse(bijection)
-        (prev_model_trace_rt, forward_proposal_trace_rt, inv_model_weight) = bijection_inv(
+        f_inv = inverse(translator.f)
+        (prev_model_trace_rt, forward_proposal_trace_rt, _) = general_trace_translator_run_transform(
+            inverse(translator.f), prev_observations,
             new_model_trace, backward_proposal_trace,
-            get_gen_fn(forward_proposal_trace), get_args(forward_proposal_trace)[2:end],
             get_gen_fn(prev_model_trace), get_args(prev_model_trace),
-            prev_observations; check=false)
+            translator.q_forward, translator.q_forward_args)
         check_round_trip(
             prev_model_trace, prev_model_trace_rt,
-            forward_proposal_trace, forward_proposal_trace_rt,
-            model_weight, inv_model_weight)
+            forward_proposal_trace, forward_proposal_trace_rt)
     end
 
-    return (new_model_trace, backward_proposal_trace, model_weight)
+    return (new_model_trace, log_weight)
+end
+
+##################################
+# SimpleExtendingTraceTranslator #
+##################################
+
+struct SimpleExtendingTraceTranslator 
+    p_new_args::Tuple
+    argdiffs::Tuple
+    new_obs::ChoiceMap
+    q_fwd::GenerativeFunction
+    q_fwd_args::Tuple 
 end
 
 """
-    (bijection::TraceTransformDSLProgram)(
-        prev_model_trace::Trace, proposal_trace::Trace, new_args::Tuple;
-        argdiffs=map((_) -> UnknownChange(), new_args), check=false)
+    (new_trace, log_weight) = (translator::SimpleExtendingTraceTranslator)(trace)
 
-Apply bijection with no change to the model, but a change to the model arguments.
-
-Appropriate for use in sequential Monte Carlo (SMC) kernels.
+Apply a trace translator.
 """
-function (bijection::TraceTransformDSLProgram)(
-        prev_model_trace::Trace, forward_proposal_trace::Trace,
-        backward_proposal::GenerativeFunction, backward_proposal_args::Tuple,
-        new_model_args::Tuple, observations::ChoiceMap;
-        argdiffs=map((_) -> UnknownChange(), new_model_args), check=false,
-        prev_observations=EmptyChoiceMap())
+function (translator::SimpleExtendingTraceTranslator)(prev_model_trace::Trace)
 
-    # run the partial bijection forward
-    first_pass_results = run_first_pass(bijection, prev_model_trace, forward_proposal_trace)
+    # simulate from auxiliary program
+    forward_proposal_trace = simulate(proposal, (prev_model_trace, proposal_args...,))
+    forward_proposal_score = get_score(forward_proposal_trace)
 
-    # finish running the bijection via update
-    (new_model_trace, model_weight, _, discard) = update(
-        prev_model_trace, new_model_args, argdiffs,
-        merge(first_pass_results.constraints, observations))
-
-    # jacobian correction
-    model_weight += jacobian_correction(bijection, prev_model_trace, forward_proposal_trace, first_pass_results, discard)
-
-    # get backward proposal trace
-    # TODO check that proposal is fully constrained in the backward direction
-    backward_proposal_trace, = generate(backward_proposal, (new_model_trace, backward_proposal_args...), first_pass_results.u_back)
-
-    if check
-        forward_proposal_choices = get_choices(forward_proposal_trace)
-        bijection_inv = inverse(bijection)
-        (prev_model_trace_rt, forward_proposal_trace_rt, inv_model_weight) = bijection_inv(
-            new_model_trace, backward_proposal_trace,
-            get_gen_fn(forward_proposal_trace), get_args(forward_proposal_trace)[2:end],
-            get_args(prev_model_trace), prev_observations; check=false)
-        check_round_trip(
-            prev_model_trace, prev_model_trace_rt,
-            forward_proposal_trace, forward_proposal_trace_rt,
-            model_weight, inv_model_weight)
-    end
-
-    return (new_model_trace, backward_proposal_trace, model_weight)
-end
-
-"""
-    (involution::TraceTransformDSLProgram)(
-        prev_model_trace::Trace, proposal_trace::Trace; check=false)
-
-Apply involution with no change to model or the model arguments.
-
-Appropriate for use in Markov chain Monte Carlo (MCMC) kernels.
-"""
-function (involution::TraceTransformDSLProgram)(
-        prev_model_trace::Trace, forward_proposal_trace::Trace; check=false)
-
-    # run the partial involution forward
-    first_pass_results = run_first_pass(involution, prev_model_trace, forward_proposal_trace)
-
-    # finish running the involution via update
-    (new_model_trace, model_weight, _, discard) = update(
+    # computing the new trace via update
+    (new_model_trace, log_model_weight, _, discard) = update(
         prev_model_trace, get_args(prev_model_trace),
         map((_) -> NoChange(), get_args(prev_model_trace)),
         first_pass_results.constraints)
 
-    # jacobian correction
-    model_weight += jacobian_correction(involution, prev_model_trace, forward_proposal_trace, first_pass_results, discard)
-
-    # get backward proposal trace
-    # TODO check that proposal is fully constrained in the backward direction
-    proposal = get_gen_fn(forward_proposal_trace)
-    proposal_args = get_args(forward_proposal_trace)[2:end]
-    backward_proposal_trace, = generate(proposal, (new_model_trace, proposal_args...), first_pass_results.u_back)
-
-    if check
-        forward_proposal_choices = get_choices(forward_proposal_trace)
-        involution_inv = inverse(involution)
-        (prev_model_trace_rt, forward_proposal_trace_rt, inv_model_weight) = involution_inv(
-            new_model_trace, backward_proposal_trace; check=false)
-        check_round_trip(
-            prev_model_trace, prev_model_trace_rt,
-            forward_proposal_trace, forward_proposal_trace_rt,
-            model_weight, inv_model_weight)
+    if !isempty(discard)
+        @error("can only extend the trace with random choices, cannot remove random choices")
+        error("Invalid SimpleExtendingTraceTranslator")
     end
 
-    return (new_model_trace, backward_proposal_trace, model_weight)
+    log_weight = log_model_weight - forward_proposal_score
+    return (new_model_trace, log_weight)
+end
+
+############################
+# SymmetricTraceTranslator #
+############################
+
+struct SymmetricTraceTranslator
+    q::GenerativeFunction
+    q_args::Tuple 
+    f::TraceTransformDSLProgram # an involution
+end
+
+function symmetric_trace_translator_run_transform(
+        f::TraceTransformDSLProgram,
+        prev_model_trace::Trace, forward_proposal_trace::Trace,
+        q::GenerativeFunction, q_args::Tuple)
+    first_pass_results = run_first_pass(f, prev_model_trace, forward_proposal_trace)
+    (new_model_trace, log_model_weight, _, discard) = update(
+        prev_model_trace, get_args(prev_model_trace),
+        map((_) -> NoChange(), get_args(prev_model_trace)),
+        first_pass_results.constraints)
+    log_abs_determinant = jacobian_correction(
+        f, prev_model_trace, forward_proposal_trace, first_pass_results, discard)
+    backward_proposal_trace, = generate(
+        q, (new_model_trace, q_args...), first_pass_results.u_back)
+    return (new_model_trace, backward_proposal_trace, log_abs_determinant)
+end
+
+"""
+    (new_trace, log_weight) = (translator::SymmetricTraceTranslator)(trace)
+
+Apply a trace translator.
+"""
+function (translator::SymmetricTraceTranslator)(prev_model_trace::Trace; check=false, observations=EmptyChoiceMap())
+
+    # simulate from auxiliary program
+    forward_proposal_trace = simulate(translator.q, (prev_model_trace, translator.q_args...,))
+
+    # apply trace transform
+    (new_model_trace, backward_proposal_trace, log_abs_determinant) = symmetric_trace_translator_run_transform(
+        translator.f, prev_model_trace, forward_proposal_trace, translator.q, translator.q_args)
+
+    # compute log weight
+    prev_model_score = get_score(prev_model_trace)
+    new_model_score = get_score(new_model_trace)
+    forward_proposal_score = get_score(forward_proposal_trace)
+    backward_proposal_score = get_score(backward_proposal_trace)
+    log_weight = new_model_score - prev_model_score + backward_proposal_score + forward_proposal_score + log_abs_determinant
+
+    if check
+        check_observations(get_choices(new_model_trace), observations)
+        forward_proposal_choices = get_choices(forward_proposal_trace)
+        (prev_model_trace_rt, forward_proposal_trace_rt, _) = symmetric_trace_translator_run_transform(
+            translator.f, new_model_trace, backward_proposal_trace, translator.q, translator.q_args)
+        check_round_trip(
+            prev_model_trace, prev_model_trace_rt,
+            forward_proposal_trace, forward_proposal_trace_rt)
+    end
+
+    return (new_model_trace, log_weight)
 end
 
 export @transform
 export @read, @write, @copy, @tcall
 export TraceTransformDSLProgram, pair_bijections!, is_involution!, inverse
+export SymmetricTraceTranslator, SimpleExtendingTraceTranslator, GeneralTraceTranslator
