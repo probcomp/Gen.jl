@@ -110,4 +110,15 @@ Alias for [`metropolis_hastings`](@ref). Perform a Metropolis-Hastings update on
 """
 const mh = metropolis_hastings
 
-export metropolis_hastings, mh
+"""
+    (new_trace, accepted) = involutive_mcmc(trace, proposal::GenerativeFunction, proposal_args::Tuple, involution; ..)
+    
+Alias for the involutive form of [`metropolis_hastings`](@ref).
+"""
+function involutive_mcmc(trace, proposal, proposal_args, involution; check=false, observations=EmptyChoiceMap())
+    return metropolis_hastings(
+        trace, proposal, proposal_args, involution;
+        check=check, observations=observations)
+end
+
+export metropolis_hastings, mh, involutive_mcmc

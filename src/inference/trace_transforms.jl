@@ -6,44 +6,44 @@ import LinearAlgebra
 # docs/tex/mcmc.pdf
 
 """
-    BijectionDSLProgram
+    TraceTransformDSLProgram
 
-A program compiled from the [Trace Bijection DSL](@ref).
+A program compiled from the [Trace Transform DSL](@ref).
 """
-mutable struct BijectionDSLProgram
+mutable struct TraceTransformDSLProgram
     fn!::Function
-    inverse::Union{Nothing,BijectionDSLProgram}
+    inverse::Union{Nothing,TraceTransformDSLProgram}
 end
 
 """
-    pair_bijections!(f1::BijectionDSLProgram, f2::BijectionDSLProgram)
+    pair_bijections!(f1::TraceTransformDSLProgram, f2::TraceTransformDSLProgram)
 
-Assert that a pair of bijections contsructed using the [Trace Bijection DSL](@ref) are inverses of one another.
+Assert that a pair of bijections contsructed using the [Trace Transform DSL](@ref) are inverses of one another.
 """
-function pair_bijections!(f1::BijectionDSLProgram, f2::BijectionDSLProgram)
+function pair_bijections!(f1::TraceTransformDSLProgram, f2::TraceTransformDSLProgram)
     f1.inverse = f2
     f2.inverse = f1
     return nothing
 end
 
 """
-    is_involution!(f::BijectionDSLProgram)
+    is_involution!(f::TraceTransformDSLProgram)
 
-Assert that a bijection constructed with the [Trace Bijection DSL](@ref) is its own inverse.
+Assert that a bijection constructed with the [Trace Transform DSL](@ref) is its own inverse.
 """
-function is_involution!(f::BijectionDSLProgram)
+function is_involution!(f::TraceTransformDSLProgram)
     f.inverse = f
     return nothing
 end
 
 """
-    b::BijectionDSLProgram = inverse(a::BijectionDSLProgram)
+    b::TraceTransformDSLProgram = inverse(a::TraceTransformDSLProgram)
 
-Obtain the inverse of a bijection that was constructed with the [Trace Bijection DSL](@ref).
+Obtain the inverse of a bijection that was constructed with the [Trace Transform DSL](@ref).
 
 The inverse must have been associated with the bijection either via [`pair_bijections!`](@ref) or [`is_involution!`])(@ref).
 """
-function inverse(bijection::BijectionDSLProgram)
+function inverse(bijection::TraceTransformDSLProgram)
     if isnothing(bijection.inverse)
         error("inverse bijection was not defined")
     end
@@ -141,7 +141,7 @@ macro transform(f_expr, from_expr, to_symbol::Symbol, to_expr, body)
             return nothing
         end
 
-        Core.@__doc__ $(esc(f)) = BijectionDSLProgram($fn!, nothing)
+        Core.@__doc__ $(esc(f)) = TraceTransformDSLProgram($fn!, nothing)
 
     end
 end
@@ -187,7 +187,7 @@ end
 # TODO add haskey(model_in, addr), and haskey(aux_in, addr)
 
 ################################
-# first pass through bijection #
+# first pass through transform #
 ################################
 
 struct FirstPassResults
@@ -228,9 +228,9 @@ function FirstPassState(model_trace, aux_trace)
     return FirstPassState(model_trace, aux_trace, FirstPassResults())
 end
 
-function run_first_pass(bijection::BijectionDSLProgram, model_trace, aux_trace)
+function run_first_pass(transform::TraceTransformDSLProgram, model_trace, aux_trace)
     state = FirstPassState(model_trace, aux_trace)
-    bijection.fn!(state) # TODO allow for other args to top-level transform function
+    transform.fn!(state) # TODO allow for other args to top-level transform function
     return state.results
 end
 
@@ -341,7 +341,7 @@ function copy(state::FirstPassState, src::AuxInputAddress, dest::ModelOutputAddr
 end
 
 #####################################################################
-# second pass through bijection (gets automatically differentiated) #
+# second pass through transform (gets automatically differentiated) #
 #####################################################################
 
 struct JacobianPassState{T<:Real}
@@ -497,7 +497,7 @@ function assemble_output_maps(t_cont_writes, u_cont_writes)
     return (cont_constraints_key_to_index, cont_u_back_key_to_index, next_output_index-1)
 end
 
-function jacobian_correction(bijection::BijectionDSLProgram, prev_model_trace, proposal_trace, first_pass_results, discard)
+function jacobian_correction(transform::TraceTransformDSLProgram, prev_model_trace, proposal_trace, first_pass_results, discard)
 
     # create input array and mappings input addresses that are needed for Jacobian
     # exclude addresses that were copied explicitly to another address
@@ -513,7 +513,7 @@ function jacobian_correction(bijection::BijectionDSLProgram, prev_model_trace, p
         first_pass_results.u_cont_writes)
 
     # this function is the partial application of the continuous part of the
-    # bijection, with inputs corresponding to a particular superset of the
+    # transform, with inputs corresponding to a particular superset of the
     # columns of the reduced Jacobian matrix
     function f_array(input_arr::AbstractArray{T}) where {T <: Real}
 
@@ -531,7 +531,7 @@ function jacobian_correction(bijection::BijectionDSLProgram, prev_model_trace, p
             cont_u_back_key_to_index)
 
         # mutates the state
-        bijection.fn!(jacobian_pass_state)
+        transform.fn!(jacobian_pass_state)
 
         # return the output array
         output_arr
@@ -555,9 +555,9 @@ function jacobian_correction(bijection::BijectionDSLProgram, prev_model_trace, p
 end
 
 
-########################################
-# different forms of calling bijection #
-########################################
+#########################################
+# different forms of calling transforms #
+#########################################
 
 function check_round_trip(
             prev_model_trace, prev_model_trace_rt,
@@ -571,23 +571,19 @@ function check_round_trip(
     if !isapprox(forward_proposal_choices, forward_proposal_choices_rt)
         @error("forward proposal choices: $(sprint(show, "text/plain", forward_proposal_choices))")
         @error("forward proposal choices after round trip: $(sprint(show, "text/plain", forward_proposal_choices_rt))")
-        error("bijection round trip check failed")
+        error("transform round trip check failed")
     end
     if !isapprox(prev_model_choices, prev_model_choices_rt)
         @error "previous model choices: $(sprint(show, "text/plain", prev_model_choices))"
         @error "previous model choices after round trip: $(sprint(show, "text/plain", prev_model_choices_rt))"
-        error("bijection round trip check failed")
+        error("transform round trip check failed")
     end
-    #if !isapprox(model_weight, -model_weight_inv)
-        #@error "model weight: $model_weight, inverse model weight: $model_weight_inv"
-        #error("bijection round trip check failed")
-    #end
     return nothing
 end
 
 
 """
-    (bijection::BijectionDSLProgram)(
+    (bijection::TraceTransformDSLProgram)(
         prev_model_trace::Trace, proposal_trace::Trace,
         new_model::GenerativeFunction, new_model_args::Tuple,
         new_constraints::ChoiceMap)
@@ -596,7 +592,7 @@ Apply bijection with a change to the model
 
 Appropriate for use in sequential Monte Carlo (SMC) kernels.
 """
-function (bijection::BijectionDSLProgram)(
+function (bijection::TraceTransformDSLProgram)(
         prev_model_trace::Trace, forward_proposal_trace::Trace,
         backward_proposal::GenerativeFunction, backward_proposal_args::Tuple,
         new_model::GenerativeFunction, new_model_args::Tuple,
@@ -639,7 +635,7 @@ function (bijection::BijectionDSLProgram)(
 end
 
 """
-    (bijection::BijectionDSLProgram)(
+    (bijection::TraceTransformDSLProgram)(
         prev_model_trace::Trace, proposal_trace::Trace, new_args::Tuple;
         argdiffs=map((_) -> UnknownChange(), new_args), check=false)
 
@@ -647,7 +643,7 @@ Apply bijection with no change to the model, but a change to the model arguments
 
 Appropriate for use in sequential Monte Carlo (SMC) kernels.
 """
-function (bijection::BijectionDSLProgram)(
+function (bijection::TraceTransformDSLProgram)(
         prev_model_trace::Trace, forward_proposal_trace::Trace,
         backward_proposal::GenerativeFunction, backward_proposal_args::Tuple,
         new_model_args::Tuple, observations::ChoiceMap;
@@ -686,27 +682,27 @@ function (bijection::BijectionDSLProgram)(
 end
 
 """
-    (bijection::BijectionDSLProgram)(
+    (involution::TraceTransformDSLProgram)(
         prev_model_trace::Trace, proposal_trace::Trace; check=false)
 
-Apply bijection with no change to model or the model arguments.
+Apply involution with no change to model or the model arguments.
 
 Appropriate for use in Markov chain Monte Carlo (MCMC) kernels.
 """
-function (bijection::BijectionDSLProgram)(
+function (involution::TraceTransformDSLProgram)(
         prev_model_trace::Trace, forward_proposal_trace::Trace; check=false)
 
-    # run the partial bijection forward
-    first_pass_results = run_first_pass(bijection, prev_model_trace, forward_proposal_trace)
+    # run the partial involution forward
+    first_pass_results = run_first_pass(involution, prev_model_trace, forward_proposal_trace)
 
-    # finish running the bijection via update
+    # finish running the involution via update
     (new_model_trace, model_weight, _, discard) = update(
         prev_model_trace, get_args(prev_model_trace),
         map((_) -> NoChange(), get_args(prev_model_trace)),
         first_pass_results.constraints)
 
     # jacobian correction
-    model_weight += jacobian_correction(bijection, prev_model_trace, forward_proposal_trace, first_pass_results, discard)
+    model_weight += jacobian_correction(involution, prev_model_trace, forward_proposal_trace, first_pass_results, discard)
 
     # get backward proposal trace
     # TODO check that proposal is fully constrained in the backward direction
@@ -716,8 +712,8 @@ function (bijection::BijectionDSLProgram)(
 
     if check
         forward_proposal_choices = get_choices(forward_proposal_trace)
-        bijection_inv = inverse(bijection)
-        (prev_model_trace_rt, forward_proposal_trace_rt, inv_model_weight) = bijection_inv(
+        involution_inv = inverse(involution)
+        (prev_model_trace_rt, forward_proposal_trace_rt, inv_model_weight) = involution_inv(
             new_model_trace, backward_proposal_trace; check=false)
         check_round_trip(
             prev_model_trace, prev_model_trace_rt,
@@ -730,4 +726,4 @@ end
 
 export @transform
 export @read, @write, @copy, @tcall
-export BijectionDSLProgram, pair_bijections!, is_involution!, inverse
+export TraceTransformDSLProgram, pair_bijections!, is_involution!, inverse
