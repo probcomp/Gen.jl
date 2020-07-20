@@ -1,6 +1,7 @@
 import ForwardDiff
 import MacroTools
 import LinearAlgebra
+import Parameters: @with_kw
 
 #######################
 # trace transform DSL #
@@ -585,16 +586,11 @@ end
 # DeterministicTraceTranslator #
 ################################
 
-struct DeterministicTraceTranslator
+@with_kw struct DeterministicTraceTranslator
     p_new::GenerativeFunction
-    p_args::Tuple 
-    new_observations::ChoiceMap
+    p_args::Tuple = ()
+    new_observations::ChoiceMap = EmptyChoiceMap()
     f::TraceTransformDSLProgram # a bijection
-end
-
-function DeterministicTraceTranslator(
-        p_new::GenerativeFunction, p_args::Tuple, f::TraceTransformDSLProgram)
-    return DeterministicTraceTranslator(p_new, p_args, EmptyChoiceMap(), f)
 end
 
 function deterministic_trace_translator_run_transform(
@@ -640,14 +636,14 @@ end
 # GeneralTraceTranslator #
 ##########################
 
-struct GeneralTraceTranslator
+@with_kw struct GeneralTraceTranslator
     p_new::GenerativeFunction
-    p_new_args::Tuple
-    new_observations::ChoiceMap
+    p_new_args::Tuple = ()
+    new_observations::ChoiceMap = EmptyChoiceMap()
     q_forward::GenerativeFunction
-    q_forward_args::Tuple 
+    q_forward_args::Tuple  = ()
     q_backward::GenerativeFunction
-    q_backward_args::Tuple 
+    q_backward_args::Tuple  = ()
     f::TraceTransformDSLProgram # a bijection
 end
 
@@ -713,12 +709,12 @@ end
 # SimpleExtendingTraceTranslator #
 ##################################
 
-struct SimpleExtendingTraceTranslator 
-    p_new_args::Tuple
-    argdiffs::Tuple
-    new_obs::ChoiceMap
+@with_kw struct SimpleExtendingTraceTranslator 
+    p_new_args::Tuple = ()
+    argdiffs::Tuple = ()
+    new_obs::ChoiceMap = EmptyChoiceMap()
     q_fwd::GenerativeFunction
-    q_fwd_args::Tuple 
+    q_fwd_args::Tuple  = ()
 end
 
 """
@@ -751,9 +747,9 @@ end
 # SymmetricTraceTranslator #
 ############################
 
-struct SymmetricTraceTranslator
+@with_kw struct SymmetricTraceTranslator
     q::GenerativeFunction
-    q_args::Tuple 
+    q_args::Tuple = ()
     f::TraceTransformDSLProgram # an involution
 end
 

@@ -175,9 +175,6 @@ end
         y ~ gamma(1, 1)
     end
 end
-
-# k = 1 and k = 2 get mapped to branch=1; and if k=1 then x will be negative and if k=2 then x will be positive; and y gives the absolute value of x.
-# k = 3 and k = 4 get mapped to branch=2; k = 3 gets mapped to other=1 and k = 4 gets mapped to other=2
 ```
 Note that transformations between spaces of traces need not be intuitive (although they probably should)!
 Try to convince yourself that the functions below are indeed a pair of bijections between the traces of these two generative functions.
@@ -209,38 +206,120 @@ end
 end
 ```
 
-
-
-
-
-
-
-### Example: 
-
-
-This computation is automated using automatic differntiation when traces are written in Gen's **Trace Transform DSL**.
-
-
-
-Suppose we have two 
-
-Give two probabilistic programs, one using cartesian coordinates, the other using polar coordinates
-
-We could write plain Julia code that reads in one trace and generates a trace of the other generative function
-
-But inference programs need to keep track of probabilities and probability densities associated with code
-
-Gen provides a DSL for writing deterministic transformations between traces
-
-The DSL automatically computes the probability or probability density of the new trace
-
 ## General Trace Translators
 
-What if there is no one-to-one correspondence?
+Note that for two arbitrary generative functions `p1` and `p2` there may not exist any one-to-one correspondence between their spaces of traces.
+For example, consider a generative function `p1` that samples points within the unit square ``[0, 1]^2``
+```julia
+@gen function p1()
+    x ~ uniform(0, 1)
+    y ~ uniform(0, 1)
+end
+```
+and another generative function `p2` that samples one of 100 possible discrete values, each value representing one cell of the unit square:
+```julia
+@gen function p2()
+    i ~ uniform_discrete(1, 10) # interval [(i-1)/10, i/10]
+    j ~ uniform_discrete(1, 10) # interval [(j-1)/10, j/10]
+end
+```
+There is no one-to-one correspondence between the spaces of traces of these two generative functions:
+The first is an uncountably infinite set, and the other is a finite set with 100 elements in it.
 
-Extend the trace transform DSL to take you from two traces to two traces
+However, there is an intuitive notion of correspondence that we would like to be able to encode.
+Each discrete cell ``(i, j)`` corresponds to a subset of the unit square ``[(i - 1)/10, i/10] \times [(j-1)/10, j/10]``.
+
+We can express this correspondence (and any correspondence between two arbitrary generative functions) by introducing two auxiliary generative functions `q1` and `q2`.
+The first function `q1` will take a trace of `p1` as input, and the second function `q2` will take a trace of `p2` as input.
+Then, instead of a transfomation between traces of `p1` and traces of `p2` our trace transform will transform between (i) the space of pairs of traces of `p1` and `q1` and (ii) the space of pairs of traces of `p2` and `q2`.
+We construct `q1` and `q2` so that the two spaces have the same size, and a one-to-one correspondence is possible.
+
+For our example above, we construct `q2` to sample the coordinate (``[0, 0.1]^2``) relative to the cell.
+We construct `q1` to be empty--there is already a mapping from each trace of `p1` to each trace of `p2` that simply identifies what cell ``(i, j)`` a given point in ``[0, 1]^2`` is in, so no extra random choices are needed.
+```julia
+@gen function q1()
+end
+
+@gen function q2(p2_trace)
+    i = p2_trace[:i]
+    j = p2_trace[:j]
+    dx ~ uniform(0.0, 0.1)
+    dy ~ uniform(0.0, 0.1)
+end
+```
+### Trace transforms between pairs of traces
+
+To handle general trace translators that require auxiliary probability distributions, the trace trace DSL supports defining transformations between *pairs* of traces.
+For example, the following defines a trace transform that maps from pairs of traces of `p1` and `q1` to pairs of traces of `p2` and `q2`:
+
+```julia
+@transform f (p1_trace, q1_trace) to (p2_trace, q2_trace)
+    x = @read(p1_trace[:x], :continuous)
+    y = @read(p1_trace[:y], :continuous)
+    i = ceil(x * 10)
+    j = ceil(y * 10)
+    @write(p2_trace[:i], i, :discrete)
+    @write(p2_trace[:j], j, :discrete)
+    @write(q2_trace[:dx], x / 10, :continuous)
+    @write(q2_trace[:dy], y / 10, :continuous)
+end
+```
+and the inverse transform:
+```julia
+@transform f_inv (p2_trace, q2_trace) to (p1_trace, q1_trace)
+    i = @read(p2_trace[:i], :discrete)
+    j = @read(p2_trace[:j], :discrete)
+    dx = @read(q2_trace[:dx], :continuous)
+    dy = @read(q2_trace[:dy], :continuous)
+    x = (i-1)/10 + dx
+    y = (j-1)/10 + dy
+    @write(p1_trace[:x], x, :continuous)
+    @write(p1_trace[:y], x, :continuous)
+end
+```
+which we associate as inverses:
+```julia
+pair_bijections!(f, f_inv)
+```
+
+### Constructing a general trace translator
+
+We now wrap the transform above into a general trace translator, by providing the three probabilistic programs `p2`, `q1`, `q2` that it uses (a reference to `p1` will included in the input trace), and the arguments to these functions.
+```julia
+translator = GeneralTraceTranslator(
+    p_new=p2,
+    p_new_args=(),
+    new_observations=choicemap(),
+    q_forward=q1,
+    q_forward_args=(),
+    q_backward=q2,
+    q_backward_args=(),
+    f=f)
+```
+Then, we can apply the trace translator to a trace (`t1`) of `p1` and get a trace (`t2`) of `p2` and a log-weight:
+```julia
+(t2, log_weight) = translator(t1)
+```
 
 ## Symmetric Trace Translators
+
+When the previous and new generative functions (e.g. `p1` and `p2` in the previous example) are the same, and their arguments are the same, and `q_forward` and `q_backward` (and their arguments) are also identical, we call this the trace translator a **Symmetric Trace Translator**.
+Symmetric trace translators are important because they form the basis of [Involutive MCMC](@ref).
+Instead of translating a trace of one generative function to the trace of another generative function, they translate a trace of a generative function to another trace of the *same* generative function.
+
+Symmetric trace translators have the interesting property that the function `f` is an **involution**, or a function that is its own inverse.
+To indicate that a trace transform is an involution, use [`is_involution!`](@ref).
+
+Because symmetric trace translators translate within the same generative function, their implementation uses [`update`](@ref) to incrementally modify the trace from the previous to the new trace.
+This has two benefits when the previous and new traces have random choices that aren't modified between them:
+(i) the incremental modification may be more efficient than writing the new trace entirely from scratch, and
+(ii) the transform DSL program does not need to specify a value for addresses whose value is not changed from the previous trace.
+
+## Trace Transform DSL Syntax
+
+
+
+## API
 
 Consider the special case when the two models are the same.
 
@@ -406,73 +485,6 @@ Some additional tips for defining valid involutions:
 - You can gain some confidence that your involution is valid by enabling dynamic checks (`check=true`) in [`metropolis_hastings`](@ref), which applies the involution to its output and checks that the original input is recovered.
 
 ### Transforming Between Arbitrary Spaces of Traces
-
-Note that for two arbitrary generative functions `p1` and `p2` there may not exist any one-to-one correspondence between their spaces of traces.
-For example, consider a generative function `p1` that samples points within the unit square ``[0, 1]^2``
-```julia
-@gen function p1()
-    x ~ uniform(0, 1)
-    y ~ uniform(0, 1)
-end
-```
-and another generative function `p2` that samples one of 100 possible discrete values, each value representing one cell of the unit square:
-```julia
-@gen function p2()
-    i ~ uniform_discrete(1, 10) # interval [(i-1)/10, i/10]
-    j ~ uniform_discrete(1, 10) # interval [(j-1)/10, j/10]
-end
-```
-There is no one-to-one correspondence between the spaces of traces of these two generative functions:
-The first is an uncountably infinite set, and the other is a finite set with 100 elements in it.
-
-However, there is an intuitive notion of correspondence that we would like to be able to encode.
-Each discrete cell ``(i, j)`` corresponds to a subset of the unit square ``[(i - 1)/10, i/10] \times [(j-1)/10, j/10]``.
-
-We can express this correspondence (and any correspondence between two arbitrary generative functions) by introducing two auxiliary generative functions `q1` and `q2`.
-The first function `q1` will take a trace of `p1` as input, and the second function `q2` will take a trace of `p2` as input.
-Then, instead of a transfomation between traces of `p1` and traces of `p2` our trace transform will transform between (i) the space of pairs of traces of `p1` and `q1` and (ii) the space of pairs of traces of `p2` and `q2`.
-We construct `q1` and `q2` so that the two spaces have the same size, and a one-to-one correspondence is possible.
-
-For our example above, we construct `q2` to sample the coordinate (``[0, 0.1]^2``) relative to the cell.
-We construct `q1` to be empty--there is already a mapping from each trace of `p1` to each trace of `p2` that simply identifies what cell ``(i, j)`` a given point in ``[0, 1]^2`` is in, so no extra random choices are needed.
-```julia
-@gen function q1()
-end
-
-@gen function q2(p2_trace)
-    i = p2_trace[:i]
-    j = p2_trace[:j]
-    dx ~ uniform(0.0, 0.1)
-    dy ~ uniform(0.0, 0.1)
-end
-```
-We can then define a trace transform that maps between these two pairs of traces:
-
-```julia
-@transform f (p1_trace, q1_trace) to (p2_trace, q2_trace)
-    x = @read(p1_trace[:x], :continuous)
-    y = @read(p1_trace[:y], :continuous)
-    i = ceil(x * 10)
-    j = ceil(y * 10)
-    @write(p2_trace[:i], i, :discrete)
-    @write(p2_trace[:j], j, :discrete)
-    @write(q2_trace[:dx], x / 10, :continuous)
-    @write(q2_trace[:dy], y / 10, :continuous)
-end
-```
-and the inverse transform:
-```julia
-@transform f_inv (p2_trace, q2_trace) to (p1_trace, q1_trace)
-    i = @read(p2_trace[:i], :discrete)
-    j = @read(p2_trace[:j], :discrete)
-    dx = @read(q2_trace[:dx], :continuous)
-    dy = @read(q2_trace[:dy], :continuous)
-    x = (i-1)/10 + dx
-    y = (j-1)/10 + dy
-    @write(p1_trace[:x], x, :continuous)
-    @write(p1_trace[:y], x, :continuous)
-end
-```
 
 ### Involutive Trace Translators
 
