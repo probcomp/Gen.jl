@@ -783,10 +783,11 @@ function (translator::SimpleExtendingTraceTranslator)(prev_model_trace::Trace)
     forward_proposal_score = get_score(forward_proposal_trace)
 
     # computing the new trace via update
+    constraints = merge(get_choices(forward_proposal_trace), translator.new_obs)
     (new_model_trace, log_model_weight, _, discard) = update(
         prev_model_trace, get_args(prev_model_trace),
         map((_) -> NoChange(), get_args(prev_model_trace)),
-        first_pass_results.constraints)
+        constraints)
 
     if !isempty(discard)
         @error("can only extend the trace with random choices, cannot remove random choices")
