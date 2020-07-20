@@ -562,25 +562,78 @@ function jacobian_correction(transform::TraceTransformDSLProgram, prev_model_tra
     return correction
 end
 
-function check_round_trip(
-            prev_model_trace, prev_model_trace_rt,
-            forward_proposal_trace, forward_proposal_trace_rt)
-
-    forward_proposal_choices = get_choices(forward_proposal_trace)
-    forward_proposal_choices_rt = get_choices(forward_proposal_trace_rt)
-    prev_model_choices = get_choices(prev_model_trace)
-    prev_model_choices_rt = get_choices(prev_model_trace_rt)
-    if !isapprox(forward_proposal_choices, forward_proposal_choices_rt)
-        @error("forward proposal choices: $(sprint(show, "text/plain", forward_proposal_choices))")
-        @error("forward proposal choices after round trip: $(sprint(show, "text/plain", forward_proposal_choices_rt))")
-        error("transform round trip check failed")
-    end
-    if !isapprox(prev_model_choices, prev_model_choices_rt)
-        @error "previous model choices: $(sprint(show, "text/plain", prev_model_choices))"
-        @error "previous model choices after round trip: $(sprint(show, "text/plain", prev_model_choices_rt))"
+function check_round_trip(trace, trace_rt)
+    choices = get_choices(trace)
+    choices_rt = get_choices(trace_rt)
+    if !isapprox(choices, choices_rt)
+        @error("choices: $(sprint(show, "text/plain", choices))")
+        @error("choices after round trip: $(sprint(show, "text/plain", choices_rt))")
         error("transform round trip check failed")
     end
     return nothing
+end
+
+function check_round_trip(
+            prev_model_trace, prev_model_trace_rt,
+            forward_proposal_trace, forward_proposal_trace_rt)
+    check_round_trip(prev_model_trace, prev_model_trace_rt)
+    check_round_trip(forward_proposal_trace, forward_proposal_trace_rt)
+    return nothing
+end
+
+################################
+# DeterministicTraceTranslator #
+################################
+
+struct DeterministicTraceTranslator
+    p_new::GenerativeFunction
+    p_args::Tuple 
+    new_observations::ChoiceMap
+    f::TraceTransformDSLProgram # a bijection
+end
+
+function DeterministicTraceTranslator(
+        p_new::GenerativeFunction, p_args::Tuple, f::TraceTransformDSLProgram)
+    return DeterministicTraceTranslator(p_new, p_args, EmptyChoiceMap(), f)
+end
+
+function deterministic_trace_translator_run_transform(
+        f::TraceTransformDSLProgram, new_observations::ChoiceMap,
+        prev_model_trace::Trace, p_new::GenerativeFunction, p_new_args::Tuple)
+    first_pass_results = run_first_pass(f, prev_model_trace, nothing)
+    log_abs_determinant = jacobian_correction(
+        f, prev_model_trace, nothing, first_pass_results, nothing)
+    constraints = merge(first_pass_results.constraints, new_observations)
+    (new_model_trace, _) = generate(p_new, p_new_args, constraints)
+    return (new_model_trace, log_abs_determinant)
+end
+
+"""
+    (new_trace, log_weight) = (translator::DeterministicTraceTranslator)(trace)
+
+Apply a trace translator.
+"""
+function (translator::DeterministicTraceTranslator)(
+        prev_model_trace::Trace; check=false, prev_observations=EmptyChoiceMap())
+
+    # apply trace transform
+    (new_model_trace, log_abs_determinant) = deterministic_trace_translator_run_transform(
+        translator.f, translator.new_observations, prev_model_trace, translator.p_new, translator.p_new_args)
+
+    # compute log weight
+    prev_model_score = get_score(prev_model_trace)
+    new_model_score = get_score(new_model_trace)
+    log_weight = new_model_score - prev_model_score + log_abs_determinant
+
+    if check
+        check_observations(get_choices(new_model_trace), observations)
+        (prev_model_trace_rt, _) = deterministic_trace_translator_run_transform(
+            inverse(translator.f), prev_observations, new_model_trace,
+            get_gen_fn(prev_model_trace), get_args(prev_model_trace))
+        check_round_trip(prev_model_trace, prev_model_trace_rt)
+    end
+
+    return (new_model_trace, log_weight)
 end
 
 ##########################
@@ -757,4 +810,4 @@ end
 export @transform
 export @read, @write, @copy, @tcall
 export TraceTransformDSLProgram, pair_bijections!, is_involution!, inverse
-export SymmetricTraceTranslator, SimpleExtendingTraceTranslator, GeneralTraceTranslator
+export DeterministicTraceTranslator, SymmetricTraceTranslator, SimpleExtendingTraceTranslator, GeneralTraceTranslator

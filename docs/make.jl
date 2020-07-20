@@ -20,10 +20,12 @@ makedocs(
          ],
         "Standard Inference Library" => [
             "Importance Sampling" => "ref/importance.md",
+            "MAP Optimization" => "ref/map.md",
             "Markov chain Monte Carlo" => "ref/mcmc.md",
             "MAP Optimization" => "ref/map.md",
             "Particle Filtering" => "ref/pf.md",
             "Variational Inference" => "ref/vi.md",
+            "Trace Translators" => "ref/trace_transforms.md",
             "Learning Generative Functions" => "ref/learning.md"
         ],
         "Internals" => [
