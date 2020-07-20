@@ -368,3 +368,17 @@ end
     @test isapprox(actual[2], finite_diff(f, args, 2, dx))
     @test isapprox(actual[3], finite_diff(f, args, 3, dx))
 end
+
+@testset "cauchy" begin
+
+    # random
+    x = cauchy(0, 5)
+
+    # logpdf_grad
+    f = (x, x0, gamma) -> logpdf(cauchy, x, x0, gamma)
+    args = (0.4, 0.2, 0.3)
+    actual = logpdf_grad(cauchy, args...)
+    @test isapprox(actual[1], finite_diff(f, args, 1, dx))
+    @test isapprox(actual[2], finite_diff(f, args, 2, dx))
+    @test isapprox(actual[3], finite_diff(f, args, 3, dx))
+end
