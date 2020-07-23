@@ -24,7 +24,7 @@ twitter_username: username
 github_username: username
 minimal_mistakes_skin: mint #default
 search: false
-logo: assets/images/logo.png
+#logo: assets/images/logo.png
 
 # Build settings
 markdown: kramdown
