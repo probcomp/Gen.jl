@@ -1,0 +1,9 @@
+main:
+  - title: "Documentation"
+    url: https://www.gen.dev/dev/
+  - title: "Tutorials"
+    url: /tutorials/
+  - title: "Source"
+    url: https://github.com/probcomp/Gen.jl
+  - title: "Ecosystem"
+    url: /ecosystem/

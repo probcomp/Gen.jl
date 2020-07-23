@@ -1,3 +1,7 @@
+---
+layout: splash
+---
+<br>
 
 # Scaling with Combinators and the Static Modeling Language
 
@@ -357,7 +361,8 @@ The static language has a number of restrictions that make it more amenable to s
 
 Below, we show the static dependency graph that Gen builds for this function. Arguments are shown as diamonds, Julia computations are shown as squares, random choices are shown as circles, and calls to other generative function are shown as stars. The call that produces the return value of the function is shaded in blue.
 
-<img src="graph.png" width="100%"/>
+![png](graph.png)
+{: style="width: 100%"}
 
 Now, consider the update to the `is_outlier` variable:
 ```julia

@@ -1,3 +1,7 @@
+---
+layout: splash
+---
+<br>
 
 # A Bottom-Up Introduction to Gen
 

@@ -1,3 +1,7 @@
+---
+layout: splash
+---
+<br>
 
 # Tutorial: Introduction to Modeling in Gen
 

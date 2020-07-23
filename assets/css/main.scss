@@ -1,0 +1,40 @@
+---
+# Only the main Sass file needs front matter (the dashes are enough)
+---
+
+@charset "utf-8";
+
+$background-color: #ffffff;
+$body-color: #ffffff;
+.archive__item-title { font-size: 1em; }
+
+@import "minimal-mistakes/skins/{{ site.minimal_mistakes_skin | default: 'default' }}"; // skin
+@import "minimal-mistakes"; // main partials
+
+.logo-table {
+  text-align: center;
+  border: none;
+}
+
+.logo-table table {
+  display: inline;
+  width: auto;
+  margin-left: auto;
+  margin-right: auto;
+  border: none;
+}
+
+.logo-table table, th, td {
+    border-collapse: collapse;
+}
+.logo-table td {
+    border:1px solid black;
+    border-top: none;
+    border-bottom: none;
+    border-left: none;
+    border-right: none;
+}
+
+.page__hero--overlay .page__title {
+    font-size: 4em;
+}

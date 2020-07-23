@@ -1,3 +1,7 @@
+---
+layout: splash
+---
+<br>
 
 # Reasoning About Regenerate
 

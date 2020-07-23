@@ -1,3 +1,7 @@
+---
+layout: splash
+---
+<br>
 
 # Tutorial: Particle Filtering in Gen
 
