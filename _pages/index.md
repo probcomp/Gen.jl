@@ -133,5 +133,5 @@ Gen: A General-Purpose Probabilistic Programming System with Programmable Infere
 <br>
 # The Gen team
 {: style="text-align: center"}
-Gen was originally created by [Marco Cusumano-Towner](https://www.mct.dev) at the [MIT Probabilistic Computing Project](http://probcomp.csail.mit.edu/), which is led by [Vikash Mansinghka](http://probcomp.csail.mit.edu/principal-investigator/).
+Gen was originally created by [Marco Cusumano-Towner](http://web.mit.edu/marcoct/www/) at the [MIT Probabilistic Computing Project](http://probcomp.csail.mit.edu/), which is led by [Vikash Mansinghka](http://probcomp.csail.mit.edu/principal-investigator/).
 Gen continues to actively evolve with the help of a core team that includes Ben Zinberg, [Alex Lew](http://alexlew.net/), [Tan Zhi-Xuan](https://github.com/ztangent/), and [George Matheos](https://www.linkedin.com/in/george-matheos-429982160/); and a number of open-source [contributors](https://github.com/probcomp/Gen.jl/graphs/contributors).
