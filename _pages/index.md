@@ -50,20 +50,20 @@ feature_row5:
 # Why Gen
 {: style="text-align: center"}
 
-### Implement sophisticated probabilistic inference algorithms without the math
-Gen's inference library gives you building blocks for writing efficient probabilistic inference algorithms that are tailored to your model, while automating the tricky math and the low-level implementation details.
-Gen helps you write hybrid algorithms that combine neural networks, variational inference, sequential Monte Carlo samplers, and Markov chain Monte Carlo.
+### Gen automates the implementation details of probabilistic inference algorithms
+Gen's inference library gives users building blocks for writing efficient probabilistic inference algorithms that are tailored to their models, while automating the tricky math and the low-level implementation details.
+Gen helps users write hybrid algorithms that combine neural networks, variational inference, sequential Monte Carlo samplers, and Markov chain Monte Carlo.
 
-### Flexibly navigate performance trade-offs
+### Gen allows users to flexibly navigate performance trade-offs
 Gen features an easy-to-use modeling language for writing down generative models, inference models, variational families, and proposal distributions using ordinary Julia code. 
-But it also lets you migrate parts of your model or inference algorithm to specialized modeling languages for which it can generate especially fast code.
-You can also hand-code parts of your models that demand better performance.
+But it also lets users migrate parts of their model or inference algorithm to specialized modeling languages for which it can generate especially fast code.
+Users can also hand-code parts of their models that demand better performance.
 
 ### Gen supports custom hybrid inference algorithms
 Neural network inference is fast, but can be inaccurate on out-of-distribution data, and requires expensive training. Model-based inference is more computationally expensive, but does not require retraining, and can be more accurate. Gen supports custom hybrid inference algorithms that benefit from the strengths of both approaches.
 
-### Implement custom inference algorithms without modifying the compiler
-Instead of an *inference engine* that tightly couples inference algorithms with language compiler details, Gen gives you a *flexible API* for implementing an open-ended set of inference and learning algorithms.
+### Users write custom inference algorithms without extending the compiler
+Instead of an *inference engine* that tightly couples inference algorithms with language compiler details, Gen gives users a *flexible API* for implementing an open-ended set of inference and learning algorithms.
 This API includes automatic differentiation (AD), but goes far beyond AD and includes many other operations that are needed for model-based inference algorithms.
 
 ### Efficient inference in models with stochastic structure
