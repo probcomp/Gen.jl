@@ -22,7 +22,7 @@ ForwardDiff = "0.10.10"
 FunctionalCollections = "0.5"
 JSON = "0.20, 0.21"
 MacroTools = "0.5"
-ReverseDiff = "0.3, 1"
+ReverseDiff = "1.4"
 SpecialFunctions = "0.8, 0.9, 0.10"
 julia = "1"
 
