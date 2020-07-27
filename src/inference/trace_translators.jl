@@ -853,7 +853,7 @@ function (translator::SymmetricTraceTranslator)(prev_model_trace::Trace; check=f
     new_model_score = get_score(new_model_trace)
     forward_proposal_score = get_score(forward_proposal_trace)
     backward_proposal_score = get_score(backward_proposal_trace)
-    log_weight = new_model_score - prev_model_score + backward_proposal_score + forward_proposal_score + log_abs_determinant
+    log_weight = new_model_score - prev_model_score + backward_proposal_score - forward_proposal_score + log_abs_determinant
 
     if check
         check_observations(get_choices(new_model_trace), observations)
