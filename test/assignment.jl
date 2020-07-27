@@ -355,7 +355,6 @@ end
 end
 
 @testset "filtering choicemaps with selections" begin
-
     c = choicemap((:a, 1), (:b, 2))
 
     filtered = get_selected(c, select(:a))    
@@ -371,4 +370,15 @@ end
     filtered = get_selected(c, select(:x => :y))
     @test filtered[:x => :y] == 1
     @test !has_value(filtered, :x => :z)
+end
+
+@testset "underlying choicemap" begin
+    t = DynamicAddressTree{Union{Value, SelectionLeaf}}()
+    set_subtree!(t, :a, AllSelection())
+    set_subtree!(t, :b => :c, invert(select(:d, :e => :f)))
+    set_subtree!(t, :c => :a, AllSelection())
+    set_subtree!(t, :c => :b, Value(5))
+    set_subtree!(t, :c => :c, Value(6))
+    set_subtree!(t, :d, Value(7))
+    @test UnderlyingChoices(t) == choicemap((:c => :b, 5), (:c => :c, 6), (:d, 7))
 end

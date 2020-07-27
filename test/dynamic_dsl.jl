@@ -577,4 +577,22 @@ end
     @test trace[:x] == trace[:y]
 end
 
+@testset "generate with selections in constraints" begin
+    @gen function foo()
+        x ~ normal(0, 1)
+        return x
+    end
+    constraints = choicemap((:x, 1.))
+    constraints_and_selection = DynamicAddressTree{Union{Value, SelectionLeaf}}()
+    set_subtree!(constraints_and_selection, :x, Value(1.))
+    set_subtree!(constraints_and_selection, :y, AllSelection())
+    tr1, w1 = generate(foo, (), constraints)
+    tr2, w2 = generate(foo, (), constraints_and_selection)
+    @test get_choices(tr1) == get_choices(tr2)
+    @test w1 == w2
+    _, weight1 = generate(foo, (), EmptyAddressTree())
+    _, weight2 = generate(foo, (), AllSelection())
+    @test weight1 == weight2
+end
+
 end

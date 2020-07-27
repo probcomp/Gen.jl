@@ -188,10 +188,10 @@ end
 
 generate(gen_fn::GenerativeFunction, args::Tuple) = generate(gen_fn, args, EmptyChoiceMap())
 
-# If we try to generate with "constraints" that is a selection, we are "regenerating"
-# the trace, which means we don't actually have any constraints.
-# Use `::AddressTree{AllSelection}` rather than `::Selection` so there is no method ambiguity for `EmptyAddressTree()`.
-generate(gen_fn::GenerativeFunction, args::Tuple, ::AddressTree{SelectionLeaf}) = generate(gen_fn, args)
+# if we try to generate with an address tree that has some choices, and some selections,
+# we should simply generate with the constraint choices, ignoring the selection part of the address tree
+generate(gen_fn::GenerativeFunction, args::Tuple, t::AddressTree{Union{Value, SelectionLeaf}}) = generate(gen_fn, args, UnderlyingChoices(t))
+generate(gen_fn::GenerativeFunction, args::Tuple, ::AddressTree{SelectionLeaf}) = generate(gen_fn, args, EmptyAddressTree())
 
 """
     weight = project(trace::U, selection::Selection)

@@ -157,6 +157,7 @@ InvertedSelection(::AllSelection) = EmptySelection()
 InvertedSelection(::EmptySelection) = AllSelection()
 get_subtree(s::InvertedSelection, address) = InvertedSelection(get_subtree(s.sel, address))
 # get_subtrees_shallow uses default implementation for ::AddressTreeLeaf to return ()
+Base.isempty(::InvertedSelection) = false
 
 export select, get_selected, addrs, get_subselection, get_subselections, invert
 export Selection, DynamicSelection, EmptySelection, StaticSelection, InvertedSelection

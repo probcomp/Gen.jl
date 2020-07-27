@@ -34,18 +34,18 @@ if there is no submap at the given address.
 @inline static_get_submap(c::ChoiceMap, a) = static_get_subtree(c, a)
 
 """
-    has_value(choices::ChoiceMap)
+    has_value(tree::AddressTree)
 
-Returns true if `choices` is a `Value`.
+Returns true if `tree` is a `Value`.
 
-    has_value(choices::ChoiceMap, addr)
+    has_value(tree::AddressTree, addr)
 
-Returns true if `choices` has a value stored at address `addr`.
+Returns true if `tree` has a value stored at address `addr`.
 """
 function has_value end
-@inline has_value(c::ChoiceMap, addr) = has_value(get_submap(c, addr))
+@inline has_value(t::AddressTree, addr) = has_value(get_subtree(t, addr))
 has_value(::Value) = true
-has_value(::ChoiceMap) = false
+has_value(::AddressTree) = false
 
 """
     get_value(choices::ChoiceMap)
@@ -127,11 +127,27 @@ function choicemap(tuples...)
     cm
 end
 
+"""    
+    UnderlyingChoices(tree::AddressTree)
+
+A choicemap exposing all the choices in a given `tree`, removing any leaf
+nodes which are not values.
+"""
+struct UnderlyingChoices <: AddressTree{Value}
+    tree::AddressTree
+end
+UnderlyingChoices(t::ChoiceMap) = t
+UnderlyingChoices(v::Value) = v
+UnderlyingChoices(::AddressTreeLeaf) = EmptyAddressTree()
+UnderlyingChoices(::EmptyAddressTree) = EmptyAddressTree()
+get_subtree(t::UnderlyingChoices, a) = UnderlyingChoices(get_subtree(t.tree, a))
+get_subtrees_shallow(t::UnderlyingChoices) = ((addr, UnderlyingChoices(subtree)) for (addr, subtree) in get_subtrees_shallow(t.tree) if UnderlyingChoices(subtree) !== EmptyAddressTree())
+
 export ChoiceMap, choicemap
 export ChoiceMapGetValueError
 export get_value, has_value, get_submap
 export get_values_shallow, get_submaps_shallow, get_nonvalue_submaps_shallow
-export EmptyChoiceMap, StaticChoiceMap, DynamicChoiceMap
+export EmptyChoiceMap, StaticChoiceMap, DynamicChoiceMap, UnderlyingChoices
 export set_value!, set_submap!
 export static_get_submap
 
