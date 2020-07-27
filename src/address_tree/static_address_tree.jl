@@ -73,7 +73,7 @@ end
 # are symbols into a staticchoicemap at the top level
 StaticAddressTree(t::StaticAddressTree) = t
 function StaticAddressTree(other::AddressTree{LeafType}) where {LeafType}
-    keys_and_nodes = get_subtrees_shallow(other)
+    keys_and_nodes = collect(get_subtrees_shallow(other))
     if length(keys_and_nodes) > 0
         addrs = Tuple(key for (key, _) in keys_and_nodes)
         submaps = Tuple(submap for (_, submap) in keys_and_nodes)

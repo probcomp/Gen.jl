@@ -143,6 +143,9 @@ UnderlyingChoices(::EmptyAddressTree) = EmptyAddressTree()
 get_subtree(t::UnderlyingChoices, a) = UnderlyingChoices(get_subtree(t.tree, a))
 get_subtrees_shallow(t::UnderlyingChoices) = ((addr, UnderlyingChoices(subtree)) for (addr, subtree) in get_subtrees_shallow(t.tree) if UnderlyingChoices(subtree) !== EmptyAddressTree())
 
+# TODO: we should be able to extract more information
+get_address_schema(::Type{UnderlyingChoices}) = DynamicAddressSchema()
+
 export ChoiceMap, choicemap
 export ChoiceMapGetValueError
 export get_value, has_value, get_submap
