@@ -77,3 +77,25 @@ end
     @test 5.1 in y
     @test (:y => :k) in y
 end
+
+@testset begin "inverted selection"
+    sel = select(:x, :y => :z, :a => :b => 1, :a => :b => 2, :a => :c => 1)
+    i = invert(sel)
+    @test !(:x in i)
+    @test !(:y in i)
+    @test !((:y => :z) in i)
+    @test (:y => :a) in i
+    @test !((:a => :b) in i)
+    @test (:a => :b => 3) in i
+    @test (:a => :d) in i
+    @test :z in i
+
+    c = choicemap(
+        (:x, 1),
+        (:y, 5),
+        (:a => :b => 1, 10),
+        (:a => :b => 3, 2),
+        (:a => :c => 2, 12)
+    )
+    @test get_selected(c, i) == choicemap((:a => :b => 3, 2), (:a => :c => 2, 12))
+end

@@ -1,6 +1,6 @@
-const Selection = AddressTree{<:Union{AllSelection, EmptyAddressTree}}
+const Selection = AddressTree{<:Union{SelectionLeaf, EmptyAddressTree}}
 
-const StaticSelection = StaticAddressTree{AllSelection}
+const StaticSelection = StaticAddressTree{SelectionLeaf}
 const EmptySelection = EmptyAddressTree
 
 """
@@ -13,7 +13,7 @@ Whether the address is selected in the given selection.
 end
 
 # indexing returns subtrees for selections
-Base.getindex(selection::AddressTree{AllSelection}, addr) = get_subtree(selection, addr)
+Base.getindex(selection::AddressTree{SelectionLeaf}, addr) = get_subtree(selection, addr)
 
 # TODO: deprecate indexing syntax and only use this
 get_subselection(s::Selection, addr) = get_subtree(s, addr)
@@ -92,7 +92,7 @@ set_subselection!(selection, :x, subselection)
 ```
 Note that `set_subselection!` does not copy data in `other`, so `other` may be mutated by a later calls to `set_subselection!` for addresses under `addr`.
 """
-const DynamicSelection = DynamicAddressTree{AllSelection}
+const DynamicSelection = DynamicAddressTree{SelectionLeaf}
 set_subselection!(s::DynamicSelection, addr, sub::Selection) = set_subtree!(s, addr, sub)
 
 function Base.push!(s::DynamicSelection, addr)
@@ -142,5 +142,21 @@ Returns a selection containing all of the addresses in the tree with a nonempty 
 """
 addrs(a::AddressTree) = AddressSelection(a)
 
-export select, get_selected, addrs, get_subselection, get_subselections
-export Selection, DynamicSelection, EmptySelection, StaticSelection
+"""
+    invert(sel::Selection)
+    InvertedSelection(sel::Selection)
+
+"Inverts" `sel` by transforming every `AllSelection` subtree
+to an `EmptySelection` and every `EmptySelection` to an `AllSelection`.
+"""
+invert(sel::Selection) = InvertedSelection(sel)
+struct InvertedSelection <: SelectionLeaf
+    sel::Selection
+end
+InvertedSelection(::AllSelection) = EmptySelection()
+InvertedSelection(::EmptySelection) = AllSelection()
+get_subtree(s::InvertedSelection, address) = InvertedSelection(get_subtree(s.sel, address))
+# get_subtrees_shallow uses default implementation for ::AddressTreeLeaf to return ()
+
+export select, get_selected, addrs, get_subselection, get_subselections, invert
+export Selection, DynamicSelection, EmptySelection, StaticSelection, InvertedSelection

@@ -46,12 +46,21 @@ end
 # to worry about it for now.
 
 """
+    SelectionLeaf
+
+Abstract type for a `Selection` which cannot be naturally decomposed
+into "subtrees" as an address tree.  (Often this is because infinitely
+many addresses should have `get_subtree` return a nonempty tree.)
+"""
+abstract type SelectionLeaf <: AddressTreeLeaf{SelectionLeaf} end
+
+"""
     AllSelection
 
 An address tree leaf node representing that all sub-addresses
 from this point are selected.
 """
-struct AllSelection <: AddressTreeLeaf{AllSelection} end
+struct AllSelection <: SelectionLeaf end
 
 """
     CustomUpdateSpec
@@ -59,7 +68,7 @@ struct AllSelection <: AddressTreeLeaf{AllSelection} end
 Supertype for custom update specifications.
 """
 abstract type CustomUpdateSpec <: AddressTreeLeaf{CustomUpdateSpec} end
-const UpdateSpec = AddressTree{<:Union{Value, AllSelection, EmptyAddressTree, CustomUpdateSpec}}
+const UpdateSpec = AddressTree{<:Union{Value, SelectionLeaf, EmptyAddressTree, CustomUpdateSpec}}
 
 """
     get_subtree(tree::AddressTree{T}, addr)::Union{AddressTree{T}, EmptyAddressTree}
@@ -232,5 +241,5 @@ include("choicemap.jl")
 include("selection.jl")
 
 export get_subtree, get_subtrees_shallow
-export EmptyAddressTree, Value, AllSelection
+export EmptyAddressTree, Value, AllSelection, SelectionLeaf, CustomUpdateSpec, UpdateSpec
 export get_address_schema

@@ -191,7 +191,7 @@ generate(gen_fn::GenerativeFunction, args::Tuple) = generate(gen_fn, args, Empty
 # If we try to generate with "constraints" that is a selection, we are "regenerating"
 # the trace, which means we don't actually have any constraints.
 # Use `::AddressTree{AllSelection}` rather than `::Selection` so there is no method ambiguity for `EmptyAddressTree()`.
-generate(gen_fn::GenerativeFunction, args::Tuple, ::AddressTree{AllSelection}) = generate(gen_fn, args)
+generate(gen_fn::GenerativeFunction, args::Tuple, ::AddressTree{SelectionLeaf}) = generate(gen_fn, args)
 
 """
     weight = project(trace::U, selection::Selection)
