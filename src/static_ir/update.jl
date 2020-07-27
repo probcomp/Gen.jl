@@ -74,8 +74,8 @@ function process_forward!(spec_type::Type{<:UpdateSpec}, externally_constrained_
                           node::GenerativeFunctionCallNode)
     schema = get_address_schema(spec_type)
     will_run_update = false
-    @assert isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema) || isa(schema, AllAddressSchema)
-    if isa(schema, AllAddressSchema) || (isa(schema, StaticAddressSchema) && (node.addr in keys(schema)))
+    @assert isa(schema, StaticSchema)
+    if isa(schema, AllAddressSchema) || (!isa(schema, EmptyAddressSchema) && node.addr in keys(schema))
         push!(state.constrained_or_selected_calls, node)
         will_run_update = true
     end
@@ -301,8 +301,8 @@ function codegen_update(trace_type::Type{T}, args_type::Type, argdiffs_type::Typ
     spec_schema = get_address_schema(spec_type)
     ext_const_addrs_schema = get_address_schema(externally_constrained_addrs_type)
 
-    spec_is_static = (isa(spec_schema, StaticAddressSchema) || isa(spec_schema, EmptyAddressSchema)) || isa(spec_schema, AllAddressSchema)
-    ext_const_addrs_is_static = (isa(ext_const_addrs_schema, StaticAddressSchema) || isa(ext_const_addrs_schema, EmptyAddressSchema)) || isa(ext_const_addrs_schema, AllAddressSchema)
+    spec_is_static = isa(spec_schema, StaticSchema)
+    ext_const_addrs_is_static = isa(ext_const_addrs_schema, StaticSchema)
 
     # convert the spec and ext_const_addrs to static if they are not already
     if !(spec_is_static && ext_const_addrs_is_static)

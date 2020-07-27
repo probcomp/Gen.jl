@@ -101,6 +101,11 @@ end
     new_tr = DistributionTrace(new_val, args, dist(tr))
     (new_tr, 0., UnknownChange(), get_choices(tr))
 end
+@inline function Gen.update(tr::DistributionTrace, args::Tuple, argdiffs::Tuple, ::AllSelection, ::AllSelection)
+    new_val = random(dist(tr), args...)
+    new_tr = DistributionTrace(new_val, args, dist(tr))
+    (new_tr, -get_score(tr), UnknownChange(), get_choices(tr))
+end
 @inline function Gen.propose(dist::Distribution, args::Tuple)
     val = random(dist, args...)
     score = logpdf(dist, val, args...)

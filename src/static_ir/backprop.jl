@@ -350,6 +350,7 @@ function get_selected_choices(::AllAddressSchema, ir::StaticIR)
 end
 
 function get_selected_choices(schema::StaticAddressSchema, ir::StaticIR)
+    # TODO: handle inverted selections!
     selected_choice_addrs = Set(keys(schema))
     selected_choices = Set{GenerativeFunctionCallNode}()
     for node in ir.call_nodes

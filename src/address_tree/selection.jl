@@ -150,14 +150,22 @@ addrs(a::AddressTree) = AddressSelection(a)
 to an `EmptySelection` and every `EmptySelection` to an `AllSelection`.
 """
 invert(sel::Selection) = InvertedSelection(sel)
-struct InvertedSelection <: SelectionLeaf
-    sel::Selection
+struct InvertedSelection{SelectionType} <: SelectionLeaf
+    sel::SelectionType
+    InvertedSelection(t::T) where {T <: Selection} = new{T}(t)
 end
-InvertedSelection(::AllSelection) = EmptySelection()
-InvertedSelection(::EmptySelection) = AllSelection()
+@inline InvertedSelection(::AllSelection) = EmptySelection()
+@inline InvertedSelection(::EmptySelection) = AllSelection()
 get_subtree(s::InvertedSelection, address) = InvertedSelection(get_subtree(s.sel, address))
 # get_subtrees_shallow uses default implementation for ::AddressTreeLeaf to return ()
 Base.isempty(::InvertedSelection) = false
+
+function get_address_schema(::Type{InvertedSelection{T}}) where {T <: StaticAddressTree}
+    StaticInverseAddressSchema(get_address_schema(T))
+end
+get_address_schema(::Type{<:InvertedSelection}) = DynamicAddressSchema()
+@inline static_get_subtree(s::InvertedSelection, v::Val) = InvertedSelection(static_get_subtree(s.sel, v))
+StaticAddressTree(t::InvertedSelection) = InvertedSelection(StaticAddressTree(t.sel))
 
 export select, get_selected, addrs, get_subselection, get_subselections, invert
 export Selection, DynamicSelection, EmptySelection, StaticSelection, InvertedSelection

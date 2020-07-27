@@ -1,5 +1,5 @@
 struct StaticIRProjectState
-    schema::Union{StaticAddressSchema,EmptyAddressSchema,AllAddressSchema}
+    schema::StaticSchema
     stmts::Vector{Any}
 end
 
@@ -8,14 +8,12 @@ function process!(state::StaticIRProjectState, node) end
 function process!(state::StaticIRProjectState, node::GenerativeFunctionCallNode)
     schema = state.schema
     addr = QuoteNode(node.addr)
-    @assert isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema) || isa(schema, AllAddressSchema)
+    @assert isa(schema, StaticSchema)
     subtrace = get_subtrace_fieldname(node)
     subselection = gensym("subselection")
-    if isa(schema, AllAddressSchema) || (isa(schema, StaticAddressSchema) && (node.addr in keys(schema)))
+    if isa(schema, AllAddressSchema) || (!isa(schema, EmptyAddressSchema) && (node.addr in keys(schema)))
         push!(state.stmts, :($subselection = $(GlobalRef(Gen, :static_get_subtree))(selection, Val($addr))))
         push!(state.stmts, :($weight += $(GlobalRef(Gen, :project))(trace.$subtrace, $subselection)))
-    else
-        push!(state.stmts, :($weight += $(GlobalRef(Gen, :project))(trace.$subtrace, $(GlobalRef(Gen, :EmptySelection))())))
     end
 end
 
@@ -24,7 +22,7 @@ function codegen_project(trace_type::Type, selection_type::Type)
     schema = get_address_schema(selection_type)
 
     # convert the selection to a static selection if it is not already one
-    if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema) || isa(schema, AllAddressSchema))
+    if !(isa(schema, StaticSchema))
         return quote $(GlobalRef(Gen, :project))(trace, $(QuoteNode(StaticSelection))(selection)) end
     end
 

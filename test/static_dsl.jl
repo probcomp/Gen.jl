@@ -64,6 +64,12 @@ end
     ret = @trace(foo(mu), :x => i => :y)
 end
 
+@gen (static) function foo6()
+    x ~ exponential(1)
+    y ~ normal(x, 1)
+end
+@load_generated_functions()
+
 # Modules to test load_generated_functions
 module MyModuleA
 using Gen
@@ -587,6 +593,19 @@ ch = get_choices(tr)
 @test get_submap(ch, :y) == EmptyChoiceMap()
 @test length(collect(get_values_shallow(ch))) == 1
 @test length(collect(get_submaps_shallow(ch))) == 2
+end
+
+@testset "inverted selections!" begin
+    tr = simulate(foo6, ())
+    # regenerate y but not x
+    new_tr, _, _ = regenerate(tr, (), (), invert(select(:x)))
+    @test new_tr[:x] == tr[:x]
+    @test new_tr[:y] != tr[:y]
+    @test isapprox(project(new_tr, invert(select(:y))), logpdf(exponential, new_tr[:x], 1))
+
+    # regenerate x and y, with y but not x constrained in the reverse direction
+    new_tr, weight, _, _ = update(tr, (), (), AllSelection(), invert(select(:y)))
+    @test isapprox(weight, -get_score(tr) + logpdf(normal, tr[:y], tr[:x], 1.))
 end
 
 @testset "macros in static functions" begin
