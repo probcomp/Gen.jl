@@ -88,6 +88,10 @@ end
     weight = get_score(new_tr) - get_score(tr)
     (new_tr, weight, UnknownChange(), get_choices(tr))
 end
+@inline function Gen.update(tr::DistributionTrace, args::Tuple, argdiffs::Tuple, spec::Value, ::EmptyAddressTree)
+    new_tr = DistributionTrace(get_value(spec), args, dist(tr))
+    (new_tr, get_score(new_tr), UnknownChange(), get_choices(tr))
+end
 @inline function Gen.update(tr::DistributionTrace, args::Tuple, argdiffs::Tuple, ::EmptyAddressTree, ::Selection)
     new_tr = DistributionTrace(tr.val, args, dist(tr))
     weight = get_score(new_tr) - get_score(tr)
