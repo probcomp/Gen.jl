@@ -123,7 +123,7 @@ end
 
 A selection containing all of the addresses in the given address tree with a nonempty leaf node.
 """
-struct AddressSelection{T} <: AddressTree{AllSelection}
+struct AddressSelection{T} <: AddressTree{SelectionLeaf}
     a::T
     AddressSelection(a::T) where {T <: AddressTree} = new{T}(a)
 end
