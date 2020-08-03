@@ -554,6 +554,47 @@ Gen.load_generated_functions()
     @test counter == 1
 end
 
+struct SignFlipDiff <: Gen.Diff end
+counter = 0
+Base.abs(v::Diffed{<:Any, SignFlipDiff}) = Diffed(abs(strip_diff(v)), NoChange())
+Base.abs(v::Diffed{<:Any, UnknownChange}) = Diffed(abs(strip_diff(v)), UnknownChange())
+
+#=
+@gen (static, diffs) function foo105(x)
+    x1 = abs(x)
+    x2 = begin x1 + 5; counter += 1; end
+    return x2
+end
+=#
+
+counter = 0
+builder = StaticIRBuilder()
+x = add_argument_node!(builder, name=:x)
+x1 = add_julia_node!(builder, abs, inputs=[x], name=:x1)
+x2 = add_julia_node!(builder, (a,) -> begin counter += 1; a += 5; end, inputs=[x1], name=:x2)
+set_return_node!(builder, x2)
+ir = build_ir(builder)
+foo105 = eval(generate_generative_function(ir, :foo105, track_diffs=true, cache_julia_nodes=true))
+Gen.load_generated_functions()
+
+@testset "cached julia nodes with runtime NoChange diffs" begin
+    counter = 0
+    tr = simulate(foo105, (-4,))
+    @test counter == 1
+
+    counter = 0
+    update(tr, (4,), (SignFlipDiff(),), EmptyChoiceMap())
+    @test counter == 0
+
+    counter = 0
+    update(tr, (-4,), (NoChange(),), EmptyChoiceMap())
+    @test counter == 0
+
+    counter = 0
+    update(tr, (5,), (UnknownChange(),), EmptyChoiceMap())
+    @test counter == 1
+end
+
 @testset "regression test for https://github.com/probcomp/Gen/issues/168" begin
     @gen (static) function model(var)
         mean = @trace(normal(0, 1), :mean)

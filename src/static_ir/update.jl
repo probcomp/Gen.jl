@@ -158,25 +158,27 @@ end
 
 function process_codegen!(stmts, fwd::ForwardPassState, back::BackwardPassState,
                          node::JuliaNode, options)
-    run_it = ((options.cache_julia_nodes && node in fwd.value_changed) ||
-              (!options.cache_julia_nodes && node in back.marked))
     if options.track_diffs
-
-        # track diffs
-        if run_it
-            arg_values, arg_diffs = arg_values_and_diffs_from_tracked_diffs(node.inputs)
-            args = map((v, d) -> Expr(:call, (GlobalRef(Gen, :Diffed)), v, d), arg_values, arg_diffs)
+        arg_values, arg_diffs = arg_values_and_diffs_from_tracked_diffs(node.inputs)
+        args = map((v, d) -> Expr(:call, (GlobalRef(Gen, :Diffed)), v, d), arg_values, arg_diffs)
+        if !options.cache_julia_nodes && (node in back.marked)
             push!(stmts, :($(node.name) = $(QuoteNode(node.fn))($(args...))))
-        elseif options.cache_julia_nodes
+        elseif node in fwd.value_changed
+            push!(stmts, (quote
+               if !($(Expr(:call, GlobalRef(Gen, :all_nochange), Expr(:tuple, arg_diffs...))))
+                    $(node.name) = $(QuoteNode(node.fn))($(args...))
+                else
+                    $(node.name) = $(GlobalRef(Gen, :Diffed))(trace.$(get_value_fieldname(node)), $(GlobalRef(Gen, :NoChange))())
+                end
+            end).args[2])
+        else
             push!(stmts, :($(node.name) = $(GlobalRef(Gen, :Diffed))(trace.$(get_value_fieldname(node)), $(GlobalRef(Gen, :NoChange))())))
         end
         if options.cache_julia_nodes
             push!(stmts, :($(get_value_fieldname(node)) = $(GlobalRef(Gen, :strip_diff))($(node.name))))
         end
     else
-
-        # no track diffs
-        if run_it
+        if (!options.cache_julia_nodes && node in back.marked) || (node in fwd.value_changed)
             arg_values = map((n) -> n.name, node.inputs)
             push!(stmts, :($(node.name) = $(QuoteNode(node.fn))($(arg_values...))))
         elseif options.cache_julia_nodes

@@ -96,3 +96,11 @@ end
 
 @testset "diff sets" begin
 end
+
+@testset "diff properties" begin
+    struct Foo51
+        x::Int
+    end
+    @test Diffed(Foo51(1), NoChange()).x == Diffed(1, NoChange())
+    @test Diffed(Foo51(1), UnknownChange()).x == Diffed(1, UnknownChange())
+end

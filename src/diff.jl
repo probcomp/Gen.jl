@@ -82,6 +82,12 @@ export UnknownChange, NoChange
 export SetDiff, DictDiff, VectorDiff
 export IntDiff
 
+function all_nochange(itr)
+    for i in itr
+        i !== NoChange() && return false
+    end
+    return true
+end
 
 ###############################
 ## differencing of Julia code #
@@ -98,16 +104,20 @@ struct Diffed{V,DV <: Diff}
 end
 
 # obtain the diff part of a Diffed value
-get_diff(diffed::Diffed) = diffed.diff
+get_diff(diffed::Diffed) = getfield(diffed, :diff) # use `getfield` to avoid infinite recursion with `getproperty`
 
 # a value that is not wrapped in Diffed is a constant
 get_diff(value) = NoChange()
 
-strip_diff(diffed::Diffed) = diffed.value
+strip_diff(diffed::Diffed) = getfield(diffed, :value)
 
 strip_diff(value) = value
 
 export Diffed, diff, strip_diff
+
+# getting properties of `NoChange` or `UnknownChange` diffed objects
+Base.getproperty(x::Diffed{<:Any, NoChange}, sym::Symbol) = Diffed(getproperty(strip_diff(x), sym), NoChange())
+Base.getproperty(x::Diffed{<:Any, UnknownChange}, sym::Symbol) = Diffed(getproperty(strip_diff(x), sym), UnknownChange())
 
 # sets
 
