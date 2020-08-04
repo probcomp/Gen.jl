@@ -17,4 +17,4 @@ increment_deriv!(arg, deriv) = ReverseDiff.increment_deriv!(arg, deriv)
 seed!(tracked) = ReverseDiff.seed!(tracked)
 unseed!(tracked) = ReverseDiff.unseed!(tracked)
 
-using ReverseDiff: InstructionTape, TrackedReal, SpecialInstruction, TrackedArray
+using ReverseDiff: InstructionTape, TrackedReal, TrackedArray
