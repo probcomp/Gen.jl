@@ -1,3 +1,5 @@
+import SpecialFunctions
+
 struct InverseGamma <: Distribution{Float64} end
 
 """
@@ -16,8 +18,10 @@ function logpdf(::InverseGamma, x::Real, shape::Real, scale::Real)
 end
 
 function logpdf_grad(::InverseGamma, x::Real, shape::Real, scale::Real)
-    error("Not Implemented")
-    (nothing, nothing, nothing)
+    deriv_x = -(shape + 1) / x + scale / (x^2)
+    deriv_shape = log(scale) - SpecialFunctions.digamma(shape) - log(x)
+    deriv_scale = shape / scale - 1/x
+    return (deriv_x, deriv_shape, deriv_scale)
 end
 
 
@@ -29,7 +33,7 @@ is_discrete(::InverseGamma) = false
 
 (::InverseGamma)(shape, scale) = random(InverseGamma(), shape, scale)
 
-has_output_grad(::InverseGamma) = false
-has_argument_grads(::InverseGamma) = (false, false)
+has_output_grad(::InverseGamma) = true
+has_argument_grads(::InverseGamma) = (true, true)
 
 export inv_gamma

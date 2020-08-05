@@ -80,8 +80,13 @@ end
     # out of support
     @test logpdf(inv_gamma, -1, 1, 1) == -Inf
 
-    # logpdf_grad not implemented
-
+    # logpdf_grad
+    f = (x, shape, scale) -> logpdf(inv_gamma, x, shape, scale)
+    args = (0.4, 0.2, 0.3)
+    actual = logpdf_grad(inv_gamma, args...)
+    @test isapprox(actual[1], finite_diff(f, args, 1, dx))
+    @test isapprox(actual[2], finite_diff(f, args, 2, dx))
+    @test isapprox(actual[3], finite_diff(f, args, 3, dx))
 end
 
 @testset "normal" begin
