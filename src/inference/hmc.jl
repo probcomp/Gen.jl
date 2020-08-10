@@ -24,7 +24,7 @@ Neal, Radford M. (2011), "MCMC Using Hamiltonian Dynamics", Handbook of Markov C
 """
 function hmc(
         trace::U, selection::Selection; L=10, eps=0.1,
-        check=false, observations=EmptyChoiceMap()) where {T,U}
+        check=false, observations=EmptyChoiceMap()) where {U}
     prev_model_score = get_score(trace)
     args = get_args(trace)
     retval_grad = accepts_output_grad(get_gen_fn(trace)) ? zero(get_retval(trace)) : nothing
