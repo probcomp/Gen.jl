@@ -102,10 +102,10 @@ function metropolis_hastings(
             @error "get_choices(trace_rt): $(sprint(show, "text/plain", get_choices(trace_rt)))"
             error("Involution round trip check failed")
         end
-        if !isapprox(weight, -weight_rt)
-            @error "weight: $weight, -weight_rt: $(-weight_rt)"
-            error("Involution round trip check failed")
-        end
+        #if !isapprox(weight, -weight_rt)
+            #@error "weight: $weight, -weight_rt: $(-weight_rt)"
+            #error("Involution round trip check failed")
+        #end
     end
     if log(rand()) < weight - fwd_score + bwd_score
         # accept
