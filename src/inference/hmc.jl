@@ -23,7 +23,7 @@ Hamilton's equations are numerically integrated using leapfrog integration with 
 Neal, Radford M. (2011), "MCMC Using Hamiltonian Dynamics", Handbook of Markov Chain Monte Carlo, pp. 113-162. URL: http://www.mcmchandbook.net/HandbookChapter5.pdf
 """
 function hmc(
-        trace::U, selection::Selection; L=10, eps=0.1,
+        trace::Trace, selection::Selection; L=10, eps=0.1,
         check=false, observations=EmptyChoiceMap()) where {U}
     prev_model_score = get_score(trace)
     args = get_args(trace)
