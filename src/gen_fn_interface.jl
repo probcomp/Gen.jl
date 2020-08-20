@@ -209,6 +209,7 @@ let \$u\$ denote the restriction of \$t\$ to \$A\$. Return the weight
 function project(trace::Trace, selection::Selection)
     error("Not implemented")
 end
+project(trace::Trace, ::AllSelection) = get_score(trace)
 
 """
     (choices, weight, retval) = propose(gen_fn::GenerativeFunction, args::Tuple)

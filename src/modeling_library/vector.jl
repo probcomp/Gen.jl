@@ -160,7 +160,7 @@ function vector_update_delete(new_length::Int, prev_length::Int,
         elseif ext_const === AllSelection()
             deletion_weight += score_change
         else
-            deletion_weight += project(subtrace, addrs(get_selected(get_choices(subtrace), ext_const)))
+            deletion_weight -= project(subtrace, addrs(get_selected(get_choices(subtrace), ext_const)))
         end
 
         if !isempty(get_choices(subtrace))

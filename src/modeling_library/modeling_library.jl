@@ -23,6 +23,7 @@ include("call_at/call_at.jl")
 include("map/map.jl")
 include("unfold/unfold.jl")
 include("recurse/recurse.jl")
+include("set_map/set_map.jl")
 
 #############################################################
 # abstractions for constructing custom generative functions #
