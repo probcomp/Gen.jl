@@ -98,7 +98,10 @@ end
 # support `DynamicChoiceMap` and `StaticChoiceMap` types, and the "legacy" DynamicChoiceMap interface
 const DynamicChoiceMap = DynamicAddressTree{Value}
 set_submap!(cm::DynamicChoiceMap, addr, submap::ChoiceMap) = set_subtree!(cm, addr, submap)
-set_value!(cm::DynamicChoiceMap, addr, val) = set_subtree!(cm, addr, Value(val))
+function set_value!(cm::DynamicChoiceMap, addr, val)
+    @assert isempty(get_subtree(cm, addr)) "Cannot assign a value to address `$addr` since there is a nonempty subtree at `$addr`"
+    set_subtree!(cm, addr, Value(val))
+end
 Base.setindex!(cm::DynamicChoiceMap, val, addr) = set_value!(cm, addr, val)
 
 const StaticChoiceMap = StaticAddressTree{Value}
@@ -122,7 +125,7 @@ Construct a mutable choice map initialized with given (address, value) tuples.
 function choicemap(tuples...)
     cm = DynamicChoiceMap()
     for (addr, val) in tuples
-        set_subtree!(cm, addr, Value(val))
+        cm[addr] = val
     end
     cm
 end
