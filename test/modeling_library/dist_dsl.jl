@@ -56,3 +56,15 @@ end
   @test logpdf(mylabel_cat, MyLabel(:a), [MyLabel(:a)], [1.0]) == 0
   @test_throws MethodError logpdf(mylabel_cat, :a, [MyLabel(:a)], [1.0])
 end
+
+@testset "dist dsl as generative function" begin
+  @dist labeled_cat(labels, probs) = labels[categorical(probs)]
+
+  (tr, weight) = generate(labeled_cat, ([1, 2, 3], [.2, .2, .6]), Value(3))
+  @test get_score(tr) == weight
+  @test get_retval(tr) == 3
+
+  (new_tr, weight, _, _) = update(tr, ([1, 2, 3], [.2, .2, .6]), (NoChange(), NoChange()), Value(2))
+  @test isapprox(weight, log(.2) - log(.6))
+  @test get_retval(new_tr) == 2
+end

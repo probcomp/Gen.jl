@@ -3,21 +3,21 @@
 ###############################
 
 struct DistributionTrace{T, Dist} <: Trace
+    dist::Dist
     val::T
     args
     score::Float64
 end
-@inline dist(::DistributionTrace{T, Dist}) where {T, Dist} = Dist()
 
 abstract type Distribution{T} <: GenerativeFunction{T, DistributionTrace{T}} end
-DistributionTrace{T, Dist}(val::T, args::Tuple, dist::Dist) where {T, Dist <: Distribution} = DistributionTrace{T, Dist}(val, args, logpdf(dist, val, args...))
-@inline DistributionTrace(val::T, args::Tuple, dist::Dist) where {T, Dist <: Distribution} = DistributionTrace{T, Dist}(val, args, logpdf(dist, val, args...))
+DistributionTrace{T, Dist}(dist::Dist, val::T, args::Tuple) where {T, Dist} = DistributionTrace{T, Dist}(dist, val, args, logpdf(dist, val, args...))
+DistributionTrace(dist::Dist, val::T, args::Tuple) where{Dist, T} = DistributionTrace{T, Dist}(dist, val, args)
 
 # we need to know the specific distribution in the trace type so the compiler can specialize GFI calls fully
 @inline get_trace_type(::Dist) where {T, Dist <: Distribution{T}} = DistributionTrace{T, Dist}
 
 function Base.convert(::Type{<:DistributionTrace{U, <:Any}}, tr::DistributionTrace{<:Any, Dist}) where {U, Dist}
-    DistributionTrace{U, Dist}(convert(U, tr.val), tr.args, tr.score)
+    DistributionTrace{U, Dist}(tr.dist, convert(U, tr.val), tr.args, tr.score)
 end
 
 """
@@ -68,32 +68,32 @@ get_return_type(::Distribution{T}) where {T} = T
 @inline Gen.get_args(trace::DistributionTrace) = trace.args
 @inline Gen.get_choices(trace::DistributionTrace) = Value(trace.val) # should be able to get type of val
 @inline Gen.get_retval(trace::DistributionTrace) = trace.val
-@inline Gen.get_gen_fn(trace::DistributionTrace) = dist(trace)
+@inline Gen.get_gen_fn(trace::DistributionTrace) = trace.dist
 @inline Gen.get_score(trace::DistributionTrace) = trace.score
 @inline Gen.project(trace::DistributionTrace, ::EmptySelection) = 0.
 @inline Gen.project(trace::DistributionTrace, ::AllSelection) = get_score(trace)
 
 @inline function Gen.simulate(dist::Distribution, args::Tuple)
     val = random(dist, args...)
-    DistributionTrace(val, args, dist)
+    DistributionTrace(dist, val, args)
 end
 @inline Gen.generate(dist::Distribution, args::Tuple, ::EmptyChoiceMap) = (simulate(dist, args), 0.)
 @inline function Gen.generate(dist::Distribution, args::Tuple, constraints::Value)
-    tr = DistributionTrace(get_value(constraints), args, dist)
+    tr = DistributionTrace(dist, get_value(constraints), args)
     weight = get_score(tr)
     (tr, weight)
 end
 @inline function Gen.update(tr::DistributionTrace, args::Tuple, argdiffs::Tuple, spec::Value, ::AllSelection)
-    new_tr = DistributionTrace(get_value(spec), args, dist(tr))
+    new_tr = DistributionTrace(tr.dist, get_value(spec), args)
     weight = get_score(new_tr) - get_score(tr)
     (new_tr, weight, UnknownChange(), get_choices(tr))
 end
 @inline function Gen.update(tr::DistributionTrace, args::Tuple, argdiffs::Tuple, spec::Value, ::EmptyAddressTree)
-    new_tr = DistributionTrace(get_value(spec), args, dist(tr))
+    new_tr = DistributionTrace(tr.dist, get_value(spec), args)
     (new_tr, get_score(new_tr), UnknownChange(), get_choices(tr))
 end
 @inline function Gen.update(tr::DistributionTrace, args::Tuple, argdiffs::Tuple, ::EmptyAddressTree, ::Selection)
-    new_tr = DistributionTrace(tr.val, args, dist(tr))
+    new_tr = DistributionTrace(tr.dist, tr.val, args)
     weight = get_score(new_tr) - get_score(tr)
     (new_tr, weight, NoChange(), EmptyChoiceMap())
 end
@@ -101,13 +101,13 @@ end
     (tr, 0., NoChange(), EmptyChoiceMap())
 end
 @inline function Gen.update(tr::DistributionTrace, args::Tuple, argdiffs::Tuple, ::AllSelection, ::EmptyAddressTree)
-    new_val = random(dist(tr), args...)
-    new_tr = DistributionTrace(new_val, args, dist(tr))
+    new_val = random(tr.dist, args...)
+    new_tr = DistributionTrace(tr.dist, new_val, args)
     (new_tr, 0., UnknownChange(), get_choices(tr))
 end
 @inline function Gen.update(tr::DistributionTrace, args::Tuple, argdiffs::Tuple, ::AllSelection, ::AllSelection)
-    new_val = random(dist(tr), args...)
-    new_tr = DistributionTrace(new_val, args, dist(tr))
+    new_val = random(tr.dist, args...)
+    new_tr = DistributionTrace(tr.dist, new_val, args)
     (new_tr, -get_score(tr), UnknownChange(), get_choices(tr))
 end
 @inline function Gen.propose(dist::Distribution, args::Tuple)
