@@ -104,3 +104,11 @@ end
     @test Diffed(Foo51(1), NoChange()).x == Diffed(1, NoChange())
     @test Diffed(Foo51(1), UnknownChange()).x == Diffed(1, UnknownChange())
 end
+
+@testset "map diff" begin
+    list = [1, 2, 3, 4, 5]
+    @test map(x -> 2*x, Diffed(list, NoChange()) == Diffed([2, 4, 6, 8, 10], NoChange())
+    @test map(x -> 2*x, Diffed(list, UnknownChange()) == Diffed([2, 4, 6, 8, 10], UnknownChange())
+
+    # TODO: test propagating VectorDiffs
+end
