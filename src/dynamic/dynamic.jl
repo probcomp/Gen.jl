@@ -131,7 +131,7 @@ get_unvisited(::AllSelection, v::Value) = EmptyChoiceMap()
 function get_unvisited(visited::Selection, choices::ChoiceMap)
     unvisited = choicemap()
     for (key, submap) in get_submaps_shallow(choices)
-        sub_unvisited = get_unvisited(visited[key], submap)
+        sub_unvisited = get_unvisited(get_subselection(visited, key), submap)
         set_submap!(unvisited, key, sub_unvisited)
     end
     unvisited
