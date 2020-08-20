@@ -66,7 +66,7 @@ function deep_dynamic_copy(other::AddressTree{LeafType}) where {LeafType}
         if subtree isa AddressTreeLeaf
             set_subtree!(tree, addr, subtree)
         else
-            set_subtree!(tree, addr, DynamicAddressTree(subtree))
+            set_subtree!(tree, addr, deep_dynamic_copy(subtree))
         end
     end
     tree
