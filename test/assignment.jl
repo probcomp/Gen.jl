@@ -272,7 +272,7 @@ end
     # overwrite value with a value
     choices = choicemap()
     choices[:x] = 1
-    choices[:x] = 2
+    set_subtree!(choices, :x, Value(2))
     @test choices[:x] == 2
 
     # overwrite value with a submap
@@ -286,7 +286,7 @@ end
     # overwrite subassignment with a value
     choices = choicemap()
     choices[:x => :y] = 1
-    choices[:x] = 2
+    set_subtree!(choices, :x, Value(2))
     @test get_submap(choices, :x) == Value(2)
     @test choices[:x] == 2
 

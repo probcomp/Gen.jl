@@ -99,7 +99,8 @@ end
 const DynamicChoiceMap = DynamicAddressTree{Value}
 set_submap!(cm::DynamicChoiceMap, addr, submap::ChoiceMap) = set_subtree!(cm, addr, submap)
 function set_value!(cm::DynamicChoiceMap, addr, val)
-    @assert isempty(get_subtree(cm, addr)) "Cannot assign a value to address `$addr` since there is a nonempty subtree at `$addr`"
+    is_empty_or_subtree = let sub = get_subtree(cm, addr); sub isa Value || isempty(sub); end
+    @assert is_empty_or_subtree "Cannot assign a value to address `$addr` since there is a nonempty, nonvalue subtree at `$addr`"
     set_subtree!(cm, addr, Value(val))
 end
 Base.setindex!(cm::DynamicChoiceMap, val, addr) = set_value!(cm, addr, val)
