@@ -103,6 +103,14 @@ struct Diffed{V,DV <: Diff}
    diff::DV
 end
 
+function Base.show(io::IO, dv::Diffed)
+    print(io, "Diffed(")
+    print(io, strip_diff(dv))
+    print(io, ", ")
+    print(io, get_diff(dv))
+    print(io, ")")
+end
+
 # obtain the diff part of a Diffed value
 get_diff(diffed::Diffed) = getfield(diffed, :diff) # use `getfield` to avoid infinite recursion with `getproperty`
 
@@ -118,6 +126,12 @@ export Diffed, diff, strip_diff
 # getting properties of `NoChange` or `UnknownChange` diffed objects
 Base.getproperty(x::Diffed{<:Any, NoChange}, sym::Symbol) = Diffed(getproperty(strip_diff(x), sym), NoChange())
 Base.getproperty(x::Diffed{<:Any, UnknownChange}, sym::Symbol) = Diffed(getproperty(strip_diff(x), sym), UnknownChange())
+
+# simple map
+# TODO: handle VectorDiff
+Base.map(f::Function, itr::Diffed{<:Any, NoChange}) = Diffed(map(f, strip_diff(itr)), NoChange())
+Base.map(f::Function, itr::Diffed{<:Any, UnknownChange}) = Diffed(map(f, strip_diff(itr)), UnknownChange())
+Base.map(f::Diffed{Function, NoChange}, itr::Diffed) = map(strip_diff(f), itr)
 
 # sets
 
@@ -230,6 +244,14 @@ function Base.length(vec::Diffed{T,VectorDiff}) where {T <: Union{AbstractVector
         Diffed(len, IntDiff(len_diff))
     end
 end
+
+function Base.collect(T::Type, v::Diffed{U, NoChange}) where {U <: Union{AbstractVector, Tuple}}
+    Diffed(collect(T, strip_diff(v)), NoChange())
+end
+function Base.collect(T::Type, v::Diffed{U, UnknownChange}) where {U <: Union{AbstractVector, Tuple}}
+    Diffed(collect(T, strip_diff(v)), UnknownChange())
+end
+# TODO: vector diff
 
 # TODO: we know that indeices before teh deleted/inserted idnex have not been changed
 
