@@ -110,6 +110,7 @@ function Base.show(io::IO, dv::Diffed)
     print(io, get_diff(dv))
     print(io, ")")
 end
+Base.:(==)(x::Diffed, y::Diffed) = strip_diff(x) == strip_diff(y) && get_diff(x) == get_diff(y)
 
 # obtain the diff part of a Diffed value
 get_diff(diffed::Diffed) = getfield(diffed, :diff) # use `getfield` to avoid infinite recursion with `getproperty`
