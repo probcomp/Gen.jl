@@ -23,6 +23,9 @@ Base.getindex(tr::SetTrace, address::Pair) = tr.subtraces[address.first][address
 
 struct SetMap{RetType, TraceType} <: GenerativeFunction{MultiSet{RetType}, SetTrace{<:Any, RetType, TraceType}}
     kernel::GenerativeFunction{RetType, T} where {T >: TraceType}
+    function SetMap{RetType, TraceType}(kernel::GenerativeFunction{RetType, T} where {T >: TraceType}) where {RetType, TraceType}
+        new{RetType, TraceType}(kernel)
+    end
 end
 function SetMap(kernel::GenerativeFunction{RetType, TraceType}) where {RetType, TraceType}
     SetMap{RetType, get_trace_type(kernel)}(kernel)
