@@ -11,6 +11,7 @@ function logpdf(::UniformDiscrete, x::Int, low::Integer, high::Integer)
     d = Distributions.DiscreteUniform(low, high)
     Distributions.logpdf(d, x)
 end
+logpdf(u::UniformDiscrete, x::Real, low::Integer, high::Integer) = logpdf(u, convert(Int, x), low, high)
 
 function logpdf_grad(::UniformDiscrete, x::Int, lower::Integer, high::Integer)
     (nothing, nothing, nothing)

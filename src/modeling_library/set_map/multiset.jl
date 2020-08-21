@@ -3,13 +3,14 @@ import FunctionalCollections
 export MultiSet, remove_one, setmap
 
 struct MultiSet{T}
-    counts::PersistentHashMap{T, Int}
+    counts::PersistentHashMap
     len::Int
 end
 function MultiSet{T}() where {T}
     MultiSet{T}(PersistentHashMap{T, Int}(), 0)
 end
 MultiSet() = MultiSet{Any}()
+Base.convert(::Type{MultiSet{T}}, ms::MultiSet) where {T} = MultiSet{T}(ms.counts, ms.len)
 
 function MultiSet(vals::Vector{T}) where T
     ms = MultiSet{T}()
