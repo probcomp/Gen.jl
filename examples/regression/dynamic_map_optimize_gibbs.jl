@@ -25,7 +25,7 @@ function do_inference(xs, ys, num_iters)
     end
     observations[:log_inlier_std] = 0.
     observations[:log_outlier_std] = 0.
- 
+
     # initial trace
     (trace, _) = generate(model, (xs,), observations)
 
@@ -33,15 +33,15 @@ function do_inference(xs, ys, num_iters)
     for i=1:num_iters
         trace = map_optimize(trace, slope_intercept_selection, max_step_size=1., min_step_size=1e-10)
         trace = map_optimize(trace, std_selection, max_step_size=1., min_step_size=1e-10)
-    
+
         # gibbs step on the outliers
         for j=1:length(xs)
             (trace, _) = metropolis_hastings(trace, gibbs_proposal, (j,))
         end
-    
+
         score = get_score(trace)
         scores[i] = score
-    
+
         # print
         assignment = get_choices(trace)
         slope = assignment[:slope]

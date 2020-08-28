@@ -299,7 +299,7 @@ end
         #out = @trace(normal(c, 1), :out)
         #return out
     #end
-    
+
     # foo
     builder = StaticIRBuilder()
     mu_a = add_argument_node!(builder, name=:mu_a, typ=:Float64, compute_grad=true)

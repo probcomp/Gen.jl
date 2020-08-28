@@ -1,10 +1,10 @@
 @testset "static assignment to/from array" begin
     submap = StaticChoiceMap((a=1., b=[2., 2.5]),NamedTuple())
     outer = StaticChoiceMap((c=3.,), (d=submap, e=submap))
-    
+
     arr = to_array(outer, Float64)
     @test to_array(outer, Float64) == Float64[3.0, 1.0, 2.0, 2.5, 1.0, 2.0, 2.5]
-    
+
     choices = from_array(outer, Float64[1, 2, 3, 4, 5, 6, 7])
     @test choices[:c] == 1.0
     @test choices[:d => :a] == 2.0
@@ -29,10 +29,10 @@ end
     set_value!(submap, :b, [2., 2.5])
     set_submap!(outer, :d, submap)
     set_submap!(outer, :e, submap)
-    
+
     arr = to_array(outer, Float64)
     @test to_array(outer, Float64) == Float64[3.0, 1.0, 2.0, 2.5, 1.0, 2.0, 2.5]
-    
+
     choices = from_array(outer, Float64[1, 2, 3, 4, 5, 6, 7])
     @test choices[:c] == 1.0
     @test choices[:d => :a] == 2.0
@@ -353,7 +353,7 @@ end
 
     c = choicemap((:a, 1), (:b, 2))
 
-    filtered = get_selected(c, select(:a))    
+    filtered = get_selected(c, select(:a))
     @test filtered[:a] == 1
     @test !has_value(filtered, :b)
 

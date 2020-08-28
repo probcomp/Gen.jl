@@ -203,10 +203,10 @@ function simulate(gen_fn::Recurse{S,T,U,V,W,X,Y}, args::Tuple{U,Int}) where {S,T
     aggregation_traces = PersistentHashMap{Int,T}()
     score = 0.
     num_has_choices = 0
-    
+
     # production phase
     # does not matter in which order we visit (since children are inserted after parents)
-    prod_to_visit = Set{Int}([root_idx]) 
+    prod_to_visit = Set{Int}([root_idx])
     while !isempty(prod_to_visit)
         local subtrace::S
         local input::U
@@ -257,10 +257,10 @@ function generate(gen_fn::Recurse{S,T,U,V,W,X,Y}, args::Tuple{U,Int},
     weight = 0.
     score = 0.
     num_has_choices = 0
-    
+
     # production phase
     # does not matter in which order we visit (since children are inserted after parents)
-    prod_to_visit = Set{Int}([root_idx]) 
+    prod_to_visit = Set{Int}([root_idx])
     while !isempty(prod_to_visit)
         local subtrace::S
         local input::U
@@ -445,7 +445,7 @@ function update(trace::RecurseTrace{S,T,U,V,W,X,Y},
     gen_fn = get_gen_fn(trace)
     (root_production_input::U, root_idx::Int) = new_args
     if root_idx != get_args(trace)[2]
-        error("Cannot change root_idx argument") 
+        error("Cannot change root_idx argument")
     end
 
     (root_argdiff::Diff,) = argdiffs
@@ -482,7 +482,7 @@ function update(trace::RecurseTrace{S,T,U,V,W,X,Y},
     # only store for nodes that are retained
     # if a value is not present for a retained node, then the number of children of that node did not change
     idx_to_prev_num_children = Dict{Int,Int}()
-    
+
     # production phase
     production_retdiffs = Dict{Int,Diff}() # elements with no difference are ommitted
     while !isempty(prod_to_visit)
@@ -542,7 +542,7 @@ function update(trace::RecurseTrace{S,T,U,V,W,X,Y},
             end
 
             if isa(subretdiff, ProductionDiff)
-            
+
                 # maybe mark existing children for processing, if they have a custom retdiff
                 # (otherwise they do not change)
                 for child_num in keys(subretdiff.children_diff.updated)
@@ -550,7 +550,7 @@ function update(trace::RecurseTrace{S,T,U,V,W,X,Y},
                     child = get_child(cur, child_num, gen_fn.max_branch)
                     push!(prod_to_visit, child)
                 end
-    
+
                 # mark corresponding aggregation node for processing if v has
                 # changed, or if the number of children has changed
                 if subretdiff.value_diff != NoChange() || prev_num_children != new_num_children
@@ -636,7 +636,7 @@ function update(trace::RecurseTrace{S,T,U,V,W,X,Y},
             elseif isempty(get_choices(prev_subtrace)) && !isempty(get_choices(subtrace))
                 num_has_choices += 1
             end
- 
+
             # take action based on our subretdiff
             if cur == root_idx
                 retdiff = subretdiff
@@ -665,13 +665,13 @@ function update(trace::RecurseTrace{S,T,U,V,W,X,Y},
             @assert cur != 1
             @assert get_parent(cur, gen_fn.max_branch) in agg_to_visit
         end
-        
+
     end
 
     new_trace = RecurseTrace{S,T,U,V,W,X,Y}(gen_fn,
         production_traces, aggregation_traces, gen_fn.max_branch,
         score, root_idx, num_has_choices)
-    
+
     return (new_trace, weight, retdiff, discard)
 end
 

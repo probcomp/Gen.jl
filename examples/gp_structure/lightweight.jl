@@ -59,7 +59,7 @@ end
     # compute covariance matrix
     cov_matrix = compute_cov_matrix_vectorized(covariance_fn, noise, xs)
 
-    # sample from multivariate normal   
+    # sample from multivariate normal
     @trace(mvnormal(zeros(n), cov_matrix), :ys)
 
     return covariance_fn

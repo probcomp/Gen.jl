@@ -58,7 +58,7 @@ end
 
 function simulate(gen_fn::DynamicDSLFunction, args::Tuple)
     state = GFSimulateState(gen_fn, args, gen_fn.params)
-    retval = exec(gen_fn, state, args) 
+    retval = exec(gen_fn, state, args)
     set_retval!(state.trace, retval)
     state.trace
 end

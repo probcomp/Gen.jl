@@ -121,7 +121,7 @@ function log_likelihood(state)
 end
 
 macro parameter_mh_move!(state, addr)
-    quote 
+    quote
         prev_ll = log_likelihood($(esc(state)))
         prev_val = $(esc(state)).$addr
         new_val = normal(prev_val, 0.5)
@@ -129,7 +129,7 @@ macro parameter_mh_move!(state, addr)
         new_prior = logpdf(normal, new_val, 0, 2)
         $(esc(state)).$addr = new_val
         new_ll = log_likelihood($(esc(state)))
-        if log(rand()) >= new_ll - prev_ll + new_prior - prev_prior 
+        if log(rand()) >= new_ll - prev_ll + new_prior - prev_prior
             $(esc(state)).$addr = prev_val # reject
         end
     end

@@ -91,12 +91,12 @@ function regenerate(trace::VectorTrace{MapType,T,U}, args::Tuple, argdiffs::Tupl
     process_all_retained!(gen_fn, args, argdiffs, selection,
                           prev_length, new_length, retained_and_selected, state)
     process_all_new!(gen_fn, args, selection, prev_length, new_length, state)
-    
+
     # retdiff
     retdiff = vector_compute_retdiff(state.updated_retdiffs, new_length, prev_length)
 
     # new trace
-    new_trace = VectorTrace{MapType,T,U}(gen_fn, state.subtraces, state.retval, args,  
+    new_trace = VectorTrace{MapType,T,U}(gen_fn, state.subtraces, state.retval, args,
         state.score, state.noise, new_length, state.num_nonempty)
 
     return (new_trace, state.weight, retdiff)

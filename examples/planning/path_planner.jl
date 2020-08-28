@@ -97,7 +97,7 @@ function random_config(scheme::HolonomicPointRRTScheme)
     Point(x, y)
 end
 
-function select_control(scheme::HolonomicPointRRTScheme, 
+function select_control(scheme::HolonomicPointRRTScheme,
                         target_conf::Point, start_conf::Point, dt::Float64)
 
     dist_to_target = dist(start_conf, target_conf)
@@ -108,7 +108,7 @@ function select_control(scheme::HolonomicPointRRTScheme,
 
     obstacles = scheme.scene.obstacles
 
-    # go in the direction of target_conf from start_conf 
+    # go in the direction of target_conf from start_conf
     new_conf = Point(start_conf.x + control.x, start_conf.y + control.y)
 
     # test the obstacles
@@ -200,7 +200,7 @@ function refine_path(scene::Scene, original::Path, iters::Int, std::Float64)
         ok_forward = line_of_site(scene, adjusted, next_point)
         if ok_backward && ok_forward
             new_dist = dist(prev_point, adjusted) + dist(adjusted, next_point)
-            if new_dist < cur_dist 
+            if new_dist < cur_dist
                 # accept the change
                 new_points[point_idx] = adjusted
             end
@@ -257,7 +257,7 @@ function plan_path(start::Point, goal::Point, scene::Scene,
     else
         path = Nullable{Path}()
     end
-    
+
     local optimized_path::Nullable{Path}
     if path_found
         optimized_path = Nullable{Path}(optimize_path(scene, get(path),

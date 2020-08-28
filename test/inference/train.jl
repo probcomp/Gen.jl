@@ -63,7 +63,7 @@
     # theta1 = 0.0
     # theta2 -> inf (prob_y -> 1)
     # theta3 -> -inf (prob_y -> 0)
-    
+
     init_param!(student, :theta1, 0.)
     init_param!(student, :theta2, 0.)
     init_param!(student, :theta3, 0.)
@@ -99,7 +99,7 @@
             (incr, _) = assess(student, inputs[i], constraints[i])
             lpdf_neg += incr
         end
-    
+
         expected = (lpdf_pos - lpdf_neg) / (2 * dx)
         @test isapprox(actual, expected, atol=1e-4)
 
@@ -124,13 +124,13 @@ end
 
 
 @testset "lecture!" begin
-    
+
     Random.seed!(1)
 
     # simple p
     @gen function p()
         z = @trace(normal(0., 1.), :z)
-        x = @trace(normal(z + 2., 0.3), :x) 
+        x = @trace(normal(z + 2., 0.3), :x)
         return x
     end
 

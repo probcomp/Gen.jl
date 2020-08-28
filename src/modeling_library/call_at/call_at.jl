@@ -92,7 +92,7 @@ end
 function generate(gen_fn::CallAtCombinator{T,U,K}, args::Tuple,
                   choices::ChoiceMap) where {T,U,K}
     (key, kernel_args) = unpack_call_at_args(args)
-    submap = get_submap(choices, key) 
+    submap = get_submap(choices, key)
     (subtrace, weight) = generate(gen_fn.kernel, kernel_args, submap)
     trace = CallAtTrace(gen_fn, subtrace, key)
     (trace, weight)

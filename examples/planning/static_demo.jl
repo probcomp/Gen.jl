@@ -6,7 +6,7 @@ using Printf: @sprintf
 import Random
 
 function make_scene()
-    scene = Scene(0, 1, 0, 1) 
+    scene = Scene(0, 1, 0, 1)
     add!(scene, Tree(Point(0.30, 0.20), size=0.1))
     add!(scene, Tree(Point(0.83, 0.80), size=0.1))
     add!(scene, Tree(Point(0.80, 0.40), size=0.1))

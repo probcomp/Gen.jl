@@ -4,7 +4,7 @@ using Gen
 include("poisson_process.jl")
 
 # Example from Section 4 of Reversible jump Markov chain Monte Carlo
-# computation and Bayesian model determination 
+# computation and Bayesian model determination
 
 # minimum of k draws from uniform_continuous(lower, upper)
 
@@ -240,7 +240,7 @@ end
 
     # current number of changepoints
     k = @read_discrete_from_model(K)
-    
+
     # if k == 0, then we can only do a birth move
     isbirth = (k == 0) || @read_discrete_from_proposal(IS_BIRTH)
 
@@ -248,7 +248,7 @@ end
     if k > 1 || isbirth
         @write_discrete_to_proposal(IS_BIRTH, !isbirth)
     end
-    
+
     # the changepoint to be added or deleted
     i = @read_discrete_from_proposal(CHOSEN)
     @copy_proposal_to_proposal(CHOSEN, CHOSEN)
@@ -376,7 +376,7 @@ end
         #cp_deleted = trace[(CHANGEPT, i)]
         #cp_prev = (i == 1) ? 0. : trace[(CHANGEPT, i-1)]
         #cp_next = (i == k) ? T : trace[(CHANGEPT, i+1)]
-        #bwd_choices[NEW_CHANGEPT] = cp_deleted 
+        #bwd_choices[NEW_CHANGEPT] = cp_deleted
 #
         ## shift down changepoints
         #for j=i:k-1
@@ -560,7 +560,7 @@ function plot_trace_plot()
     rate1 = Float64[]
     num_clusters_vec = Int[]
     burn_in = 0
-    for iter=1:burn_in + 1000 
+    for iter=1:burn_in + 1000
         trace = mcmc_step(trace)
         if iter > burn_in
             push!(num_clusters_vec, trace[K])
@@ -574,7 +574,7 @@ function plot_trace_plot()
     rate1 = Float64[]
     num_clusters_vec = Int[]
     burn_in = 0
-    for iter=1:burn_in + 1000 
+    for iter=1:burn_in + 1000
         trace = simple_mcmc_step(trace)
         if iter > burn_in
             push!(num_clusters_vec, trace[K])

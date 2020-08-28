@@ -42,7 +42,7 @@ function run_particle_filter(gen_fn::ParticleFilterCombinator, args::Tuple, choi
     init_obs = choicemap()
     set_submap!(init_obs, :init_emission, get_submap(choices, 1))
     init_args = (0, initial_args, dynamics_args, emission_args)
-    state = initialize_particle_filter(gen_fn.combined, 
+    state = initialize_particle_filter(gen_fn.combined,
         init_args, init_obs, num_particles)
     argdiff = UnfoldCustomArgDiff(false, false)
     for t=2:T

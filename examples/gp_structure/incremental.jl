@@ -108,7 +108,7 @@ const covariance_prior_incremental = Recurse(
     n = length(xs)
     cov_matrix = cov_fn_and_matrix.cov_matrix + Matrix((noise + 0.01) * LinearAlgebra.I, n, n)
 
-    # sample from multivariate normal   
+    # sample from multivariate normal
     @trace(mvnormal(zeros(n), cov_matrix), :ys)
 
     node = cov_fn_and_matrix.node
@@ -118,13 +118,13 @@ end
 Gen.load_generated_functions()
 
 @gen function subtree_proposal_recursive(cur::Int)
-    
+
     # base address for production kernel application 'cur'
     prod_addr = (cur, Val(:production))
 
     # base address for aggregation kernel application 'cur'
     agg_addr = (cur, Val(:aggregation))
-    
+
     # sample node type
     node_type = @trace(categorical(node_dist), (cur, Val(:production)) => :type)
 
@@ -228,7 +228,7 @@ function inference(xs::Vector{Float64}, ys::Vector{Float64}, num_iters::Int, cal
 
         # do MH move on the subtree
         (trace, _) = metropolis_hastings(trace, subtree_proposal, (), subtree_involution)
-        
+
         # do MH move on the top-level white noise
         (trace, _) = metropolis_hastings(trace, noise_proposal, ())
     end

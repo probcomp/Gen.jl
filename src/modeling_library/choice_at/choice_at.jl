@@ -120,7 +120,7 @@ function regenerate(trace::ChoiceAtTrace, args::Tuple, argdiffs::Tuple,
     (key, kernel_args) = unpack_choice_at_args(args)
     key_changed = (key != trace.key)
     selected = key in selection
-    if !key_changed && selected 
+    if !key_changed && selected
         new_value = random(trace.gen_fn.dist, kernel_args...)
     elseif !key_changed && !selected
         new_value = trace.value
@@ -130,7 +130,7 @@ function regenerate(trace::ChoiceAtTrace, args::Tuple, argdiffs::Tuple,
         error("Cannot select new address $key in regenerate")
     end
     new_score = logpdf(trace.gen_fn.dist, new_value, kernel_args...)
-    if !key_changed && selected 
+    if !key_changed && selected
         weight = 0.
     elseif !key_changed && !selected
         weight = new_score - trace.score
