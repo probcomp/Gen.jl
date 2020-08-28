@@ -129,7 +129,7 @@ function black_box_vi!(
         # do an update
         apply!(update)
     end
-    
+
     (elbo_history[end], traces, elbo_history)
 end
 
@@ -150,7 +150,7 @@ function black_box_vimco!(
         update::ParamUpdate, num_samples::Int;
         iters=1000, samples_per_iter=100, verbose=false,
         geometric=true)
-    
+
     traces = Vector{Any}(undef, samples_per_iter)
     iwelbo_history = Vector{Float64}(undef, iters)
     for iter=1:iters

@@ -17,10 +17,10 @@ function do_inference(xs, ys, num_iters)
 
     # initial trace
     (trace, _) = generate(model, (xs,), observations)
-    
+
     scores = Vector{Float64}(undef, num_iters)
     for i=1:num_iters
-    
+
         # steps on the parameters
         for j=1:5
             (trace, _) = metropolis_hastings(trace, select(:slope))
@@ -28,12 +28,12 @@ function do_inference(xs, ys, num_iters)
             (trace, _) = metropolis_hastings(trace, select(:log_inlier_std))
             (trace, _) = metropolis_hastings(trace, select(:log_outlier_std))
         end
-    
+
         # step on the outliers
         for j=1:length(xs)
             (trace, _) = metropolis_hastings(trace, is_outlier_proposal, (j,))
         end
-    
+
         score = get_score(trace)
         scores[i] = score
 

@@ -28,9 +28,9 @@ get_gen_fn(trace::CustomDetermGFTrace) = trace.gen_fn
 
 
 """
-    CustomDetermGF{T,S} <: GenerativeFunction{T,CustomDetermGFTrace{T,S}} 
+    CustomDetermGF{T,S} <: GenerativeFunction{T,CustomDetermGFTrace{T,S}}
 
-Abstract type for a custom deterministic generative function. 
+Abstract type for a custom deterministic generative function.
 """
 abstract type CustomDetermGF{T,S} <: GenerativeFunction{T,CustomDetermGFTrace{T,S}} end
 
@@ -57,7 +57,7 @@ function update_with_state(gen_fn::CustomDetermGF{T,S}, state, args, argdiffs) w
 end
 
 """
-    arg_grads = gradient_with_state(gen_fn::CustomDetermGF, state, args, retgrad) 
+    arg_grads = gradient_with_state(gen_fn::CustomDetermGF, state, args, retgrad)
 
 Return the gradient tuple with respect to the arguments.
 """
@@ -69,7 +69,7 @@ end
 """
     arg_grads = accumulate_param_gradients_determ!(
         gen_fn::CustomDetermGF, state, args, retgrad, scale_factor)
-    
+
 Increment gradient accumulators for parameters the gradient with respect to the
 arguments, optionally scaled, and return the gradient with respect to the
 arguments (not scaled).
@@ -163,7 +163,7 @@ function apply_with_state(gen_fn::CustomGradientGF, args)
 end
 
 """
-    arg_grads = gradient(gen_fn::CustomDetermGF, args, retval, retgrad) 
+    arg_grads = gradient(gen_fn::CustomDetermGF, args, retval, retgrad)
 
 Return the gradient tuple with respect to the arguments, where `nothing` is for argument(s) whose gradient is not available.
 """

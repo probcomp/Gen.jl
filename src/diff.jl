@@ -5,7 +5,7 @@
 # NOTE: values encountered during an update that are not wrapped in Diffed are
 # assumed to have not changed (i.e. constants)
 
-# NOTE: the requirement is that if a method takes any Diffed arguments, it must 
+# NOTE: the requirement is that if a method takes any Diffed arguments, it must
 # return a Diffed value.
 
 # a Julia method may take non-diffed arguments (which indicate no change, in
@@ -36,7 +36,7 @@ abstract type Diff end
 
 No information is provided about the change to the value.
 """
-struct UnknownChange <: Diff end 
+struct UnknownChange <: Diff end
 
 """
     NoChange
@@ -58,18 +58,18 @@ struct DictDiff{K,V} <: Diff
 
     # keys that that were added and their values
     added::AbstractDict{K,V}
-    
+
     # keys that were deleted
     deleted::AbstractSet{K}
 
     # map from key to diff value for that key
-    updated::AbstractDict{K,Diff} 
+    updated::AbstractDict{K,Diff}
 end
 
 struct VectorDiff <: Diff
     new_length::Int
     prev_length::Int
-    updated::Dict{Int,Diff} 
+    updated::Dict{Int,Diff}
 end
 
 struct IntDiff <: Diff
@@ -249,7 +249,7 @@ function Base.getindex(vec::Diffed{T,VectorDiff}, idx::Union{Diffed{U,NoChange},
     d = get_diff(vec)
     result = v[i]
     if i > d.prev_length
-        Diffed(result, UnknownChange()) 
+        Diffed(result, UnknownChange())
     elseif haskey(d.updated, i)
         Diffed(result, d.updated[i])
     else
@@ -266,7 +266,7 @@ macro diffed_unary_function(fn)
         function $(fn)(value::Diffed{T,NoChange}) where {T}
             Diffed($(fn)(strip_diff(value)), NoChange())
         end
-        
+
         function $(fn)(value::Diffed{T,UnknownChange}) where {T}
             Diffed($(fn)(strip_diff(value)), UnknownChange())
         end

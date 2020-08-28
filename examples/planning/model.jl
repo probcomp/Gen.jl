@@ -17,7 +17,7 @@ using PyPlot
 
     # plan a path that avoids obstacles in the scene
     maybe_path = plan_path(start, stop, scene, PlannerParams(300, 3.0, 2000, 1.))
-    
+
     # speed
     speed = @trace(uniform(0, 1), :speed)
 
@@ -72,7 +72,7 @@ function render(scene::Scene, trace, ax;
             ax[:add_patch](circle)
         end
     end
-    
+
     # plot measured locations
     if show_measurements
         measured_xs = [assignment[i => :x] for i=1:length(locations)]

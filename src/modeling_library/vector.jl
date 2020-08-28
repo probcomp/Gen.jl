@@ -110,7 +110,7 @@ function get_retained_and_constrained(constraints::ChoiceMap, prev_length::Int, 
             error("Constrained address does not exist: $key")
         end
     end
-    keys 
+    keys
 end
 
 function get_retained_and_selected(selection::EmptySelection, prev_length::Int, new_length::Int)
@@ -126,7 +126,7 @@ function get_retained_and_selected(selection::HierarchicalSelection, prev_length
             error("Selected address does not exist: $key")
         end
     end
-    keys 
+    keys
 end
 
 function get_retained_and_selected(selection::AllSelection, prev_length::Int, new_length::Int)

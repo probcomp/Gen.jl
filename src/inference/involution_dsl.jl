@@ -289,7 +289,7 @@ macro invcall(ex)
     quote $(esc(f)).fn!($(esc(inv_state)), $(map(esc, args)...)) end
 end
 
-# apply 
+# apply
 
 function apply_involution(involution::InvolutionDSLProgram, trace, u, proposal_args, proposal_retval)
 
@@ -358,7 +358,7 @@ function apply_involution(involution::InvolutionDSLProgram, trace, u, proposal_a
         output_arr = Vector{T}(undef, n_output)
 
         jacobian_pass_state = JacobianPassState(
-            trace, u, input_arr, output_arr, 
+            trace, u, input_arr, output_arr,
             t_key_to_index, u_key_to_index,
             cont_constraints_key_to_index,
             cont_u_back_key_to_index)

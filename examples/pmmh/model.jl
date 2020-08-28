@@ -174,10 +174,10 @@ function unbiased_logpdf_est(args, ys::PersistentVector{Float64})
     retval = PersistentVector{Float64}(ys)
     vector = VectorDistTrace(retval, args, lml_estimate, length(ys))
     CollapsedHMMTrace(vector)
-end 
+end
 
 function Gen.generate(generator::CollapsedHMM, args, constraints)
-    (var_x, var_y, T, num_particles, ess) = args 
+    (var_x, var_y, T, num_particles, ess) = args
     if isempty(constraints)
         error("Unsupported constraints")
     end

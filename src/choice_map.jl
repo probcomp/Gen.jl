@@ -501,7 +501,7 @@ end
         push!(internal_node_names, node)
         push!(exprs, quote
             (n_read, $node) = _from_array(proto_choices.internal_nodes.$key, arr, idx)
-            idx += n_read 
+            idx += n_read
         end)
     end
 
@@ -625,7 +625,7 @@ end
 
 function DynamicChoiceMap(tuples...)
     choices = DynamicChoiceMap()
-    for (addr, value) in tuples 
+    for (addr, value) in tuples
         choices[addr] = value
     end
     choices

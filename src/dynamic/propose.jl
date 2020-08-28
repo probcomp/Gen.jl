@@ -22,9 +22,9 @@ function traceat(state::GFProposeState, dist::Distribution{T},
     # update assignment
     set_value!(state.choices, key, retval)
 
-    # update weight 
+    # update weight
     state.weight += logpdf(dist, retval, args...)
-    
+
     retval
 end
 

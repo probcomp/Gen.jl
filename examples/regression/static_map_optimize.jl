@@ -30,15 +30,15 @@ function do_inference(xs, ys, num_iters)
     for i=1:num_iters
         trace = map_optimize(trace, slope_intercept_selection, max_step_size=1., min_step_size=1e-10)
         trace = map_optimize(trace, std_selection, max_step_size=1., min_step_size=1e-10)
-    
+
         # step on the outliers
         for j=1:length(xs)
             (trace, _) = metropolis_hastings(trace, is_outlier_proposal, (j,))
         end
-    
+
         score = get_score(trace)
         scores[i] = score
-    
+
         # print
         slope = trace[:slope]
         intercept = trace[:intercept]

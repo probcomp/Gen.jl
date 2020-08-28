@@ -105,9 +105,9 @@ println(zs)
 
 function plots()
     Random.seed!(2)
-    
+
     figure(figsize=(6, 3))
-    
+
     subplot(2, 2, 1)
     y1, y2 = (1.0, 1.3)
     (zs, m, m1, m2) = do_inference_rjmcmc(y1, y2)
@@ -117,14 +117,14 @@ function plots()
     title("Involution MH (RJMCMC)")
     legend(loc="lower right")
     gca().set_ylim(0.5, 1.5)
-    
+
     subplot(2, 2, 3)
     plot(zs, label="z", color="black")
     xlabel("\\# MCMC moves")
     legend(loc="center right")
     yticks(ticks=[0, 1], labels=["F", "T"])
     gca().set_ylim(-0.1, 1.1)
-    
+
     subplot(2, 2, 2)
     y1, y2 = (1.0, 1.3)
     (zs, m, m1, m2) = do_inference_simple(y1, y2)
@@ -134,14 +134,14 @@ function plots()
     title("Selection MH")
     legend(loc="lower right")
     gca().set_ylim(0.5, 1.5)
-    
+
     subplot(2, 2, 4)
     plot(zs, label="z", color="black")
     xlabel("\\# MCMC moves")
     legend(loc="center right")
     yticks(ticks=[0, 1], labels=["F", "T"])
     gca().set_ylim(-0.1, 1.1)
-    
+
     tight_layout()
     savefig("rjmcmc.png")
 end

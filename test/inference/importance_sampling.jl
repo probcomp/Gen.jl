@@ -12,7 +12,7 @@
     y = 2.
     observations = choicemap()
     set_value!(observations, :y, y)
-    
+
     n = 4
 
     (traces, log_weights, lml_est) = importance_sampling(model, (), observations, n)

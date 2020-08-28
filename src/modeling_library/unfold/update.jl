@@ -98,7 +98,7 @@ function update(trace::VectorTrace{UnfoldType,T,U},
     # handle retained and new applications
     state = UnfoldUpdateState{T,U}(init_state, -score_decrement, score, noise,
         subtraces, retval, discard, num_nonempty, Dict{Int,Diff}())
-    process_all_retained!(gen_fn, params, argdiffs, choices, prev_length, new_length,    
+    process_all_retained!(gen_fn, params, argdiffs, choices, prev_length, new_length,
                           retained_and_constrained, state)
     process_all_new!(gen_fn, params, choices, prev_length, new_length, state)
 
@@ -106,7 +106,7 @@ function update(trace::VectorTrace{UnfoldType,T,U},
     retdiff = vector_compute_retdiff(state.updated_retdiffs, new_length, prev_length)
 
     # new trace
-    new_trace = VectorTrace{UnfoldType,T,U}(gen_fn, state.subtraces, state.retval, args,  
+    new_trace = VectorTrace{UnfoldType,T,U}(gen_fn, state.subtraces, state.retval, args,
         state.score, state.noise, new_length, state.num_nonempty)
 
     (new_trace, state.weight, retdiff, discard)

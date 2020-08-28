@@ -16,7 +16,7 @@ function GFUpdateState(gen_fn, args, prev_trace, constraints, params)
         0., visitor, params, discard)
 end
 
-function traceat(state::GFUpdateState, dist::Distribution{T}, 
+function traceat(state::GFUpdateState, dist::Distribution{T},
                  args::Tuple, key) where {T}
 
     local prev_retval::T
@@ -30,7 +30,7 @@ function traceat(state::GFUpdateState, dist::Distribution{T},
     if has_previous
         prev_choice = get_choice(state.prev_trace, key)
         prev_retval = prev_choice.retval
-        prev_score = prev_choice.score 
+        prev_score = prev_choice.score
     end
 
     # check for constraints at this key
@@ -41,7 +41,7 @@ function traceat(state::GFUpdateState, dist::Distribution{T},
     if constrained && has_previous
         set_value!(state.discard, key, prev_retval)
     end
-    
+
     # get return value
     if constrained
         retval = get_value(state.constraints, key)
@@ -92,7 +92,7 @@ function traceat(state::GFUpdateState, gen_fn::GenerativeFunction{T,U},
     else
         (subtrace, weight) = generate(gen_fn, args, constraints)
     end
-    
+
     # update the weight
     state.weight += weight
 
@@ -162,7 +162,7 @@ function add_unvisited_to_discard!(discard::DynamicChoiceMap,
             # the recursive call to update already handled the discard
             # for this entire submap
             continue
-        else 
+        else
             subvisited = visited[key]
             if isempty(subvisited)
                 # none of this submap was visited, so we discard the whole thing
@@ -183,7 +183,7 @@ function update(trace::DynamicDSLTrace, arg_values::Tuple, arg_diffs::Tuple,
                 constraints::ChoiceMap)
     gen_fn = trace.gen_fn
     state = GFUpdateState(gen_fn, arg_values, trace, constraints, gen_fn.params)
-    retval = exec(gen_fn, state, arg_values) 
+    retval = exec(gen_fn, state, arg_values)
     set_retval!(state.trace, retval)
     visited = get_visited(state.visitor)
     state.weight -= update_delete_recurse(trace.trie, visited)

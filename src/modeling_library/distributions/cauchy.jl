@@ -17,7 +17,7 @@ function logpdf_grad(::Cauchy, x::Real, x0::Real, gamma::Real)
     gamma_sq = gamma^2
     deriv_x0 =  2 * x_x0 / (gamma_sq + x_x0_sq)
     deriv_x = - deriv_x0
-    deriv_gamma = (x_x0_sq - gamma_sq) / (gamma * (gamma_sq + x_x0_sq)) 
+    deriv_gamma = (x_x0_sq - gamma_sq) / (gamma * (gamma_sq + x_x0_sq))
     (deriv_x, deriv_x0, deriv_gamma)
 end
 

@@ -146,12 +146,12 @@ function particle_filter_step!(state::ParticleFilterState{U}, new_args::Tuple, a
         @assert isempty(disc)
         state.log_weights[i] += up_weight - prop_weight
     end
-    
+
     # swap references
     tmp = state.traces
     state.traces = state.new_traces
     state.new_traces = tmp
-    
+
     return nothing
 end
 
@@ -172,12 +172,12 @@ function particle_filter_step!(state::ParticleFilterState{U}, new_args::Tuple, a
         end
         state.log_weights[i] += increment
     end
-    
+
     # swap references
     tmp = state.traces
     state.traces = state.new_traces
     state.new_traces = tmp
-    
+
     return nothing
 end
 
@@ -205,7 +205,7 @@ function maybe_resample!(state::ParticleFilterState{U};
             state.new_traces[i] = state.traces[state.parents[i]]
             state.log_weights[i] = 0.
         end
-        
+
         # swap references
         tmp = state.traces
         state.traces = state.new_traces
