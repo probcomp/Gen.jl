@@ -8,8 +8,6 @@ Selected random choices must have support on the entire real line.
 """
 function map_optimize(trace, selection::Selection;
                       max_step_size=0.1, tau=0.5, min_step_size=1e-16, verbose=false)
-    args = get_args(trace)
-    argdiffs = map((_) -> NoChange(), args)
     retval_grad = accepts_output_grad(get_gen_fn(trace)) ? zero(get_retval(trace)) : nothing
 
     (_, values, gradient) = choice_gradients(trace, selection, retval_grad)
@@ -21,7 +19,7 @@ function map_optimize(trace, selection::Selection;
         new_values_vec = values_vec + gradient_vec * step_size
         values = from_array(values, new_values_vec)
         # TODO discard and weight are not actually needed, there should be a more specialized variant
-        (new_trace, _, _, discard) = update(trace, args, argdiffs, values)
+        (new_trace, _, _, discard) = update(trace, values)
         new_score = get_score(new_trace)
         change = new_score - score
         if verbose

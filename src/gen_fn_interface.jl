@@ -244,8 +244,9 @@ function assess(gen_fn::GenerativeFunction, args::Tuple, choices::ChoiceMap)
 end
 
 """
-    (new_trace, weight, retdiff, discard) = update(trace, args::Tuple, argdiffs::Tuple,
-                                                   constraints::ChoiceMap)
+
+    (new_trace, weight, retdiff, discard) = update(
+        trace, args::Tuple, argdiffs::Tuple, constraints::ChoiceMap)
 
 Update a trace by changing the arguments and/or providing new values for some
 existing random choice(s) and values for some newly introduced random choice(s).
@@ -272,13 +273,37 @@ that if the original `trace` was generated using non-default argument values,
 then for each optional argument that is omitted, the old value will be
 over-written by the default argument value in the updated trace.
 """
-function update(trace, args::Tuple, argdiffs::Tuple, ::ChoiceMap)
+function update(trace, args::Tuple, argdiffs::Tuple, constraints::ChoiceMap)
     error("Not implemented")
 end
 
 """
-    (new_trace, weight, retdiff) = regenerate(trace, args::Tuple, argdiffs::Tuple,
-                                              selection::Selection)
+    update(
+        trace, constraints::ChoiceMap, args::Tuple;
+        argdiffs::Tuple=map((_) -> UnknownChange(), args))
+
+Convenience form of `update` with keyword argument for argdiffs.
+"""
+function update(trace, constraints::ChoiceMap, args::Tuple;
+        argdiffs::Tuple=map((_) -> UnknownChange(), args))
+    update(trace, args, argdiffs, constraints)
+end
+
+"""
+    update(trace, constraints::ChoiceMap)
+
+Convenience form of `update` when there is no change to arguments.
+"""
+function update(trace, constraints::ChoiceMap)
+    args = get_args(trace)
+    argdiffs = map((_) -> NoChange(), args)
+    update(trace, args, argdiffs, constraints)
+end
+
+
+"""
+    (new_trace, weight, retdiff) = regenerate(
+        trace, args::Tuple, argdiffs::Tuple, selection::Selection)
 
 Update a trace by changing the arguments and/or randomly sampling new values
 for selected random choices using the internal proposal distribution family.
@@ -306,6 +331,31 @@ over-written by the default argument value in the regenerated trace.
 function regenerate(trace, args::Tuple, argdiffs::Tuple, selection::Selection)
     error("Not implemented")
 end
+
+"""
+    regenerate(
+        trace, selection::Selection, args::Tuple;
+        argdiffs::Tuple=map((_) -> UnknownChange(), args),
+
+Convenience form of `regenerate` with keyword arguments for argdiffs.
+"""
+function regenerate(trace, selection::Selection, args::Tuple;
+        argdiffs::Tuple=map((_) -> UnknownChange(), args))
+    regenerate(trace, args, argdiffs, selection)
+end
+
+"""
+    regenerate(trace, selection::Selection)
+
+Convenience form of `regenerate` when there is no change to arguments.
+"""
+function regenerate(trace, selection::Selection)
+    args = get_args(trace)
+    argdiffs = map((_) -> NoChange(), args)
+    regenerate(trace, args, argdiffs, selection)
+end
+
+
 
 """
     arg_grads = accumulate_param_gradients!(trace, retgrad=nothing, scale_factor=1.)

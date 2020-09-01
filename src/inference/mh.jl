@@ -14,9 +14,7 @@ Perform a Metropolis-Hastings update that proposes new values for the selected a
 function metropolis_hastings(
         trace, selection::Selection;
         check=false, observations=EmptyChoiceMap())
-    args = get_args(trace)
-    argdiffs = map((_) -> NoChange(), args)
-    (new_trace, weight) = regenerate(trace, args, argdiffs, selection)
+    (new_trace, weight) = regenerate(trace, selection)
     check && check_observations(get_choices(new_trace), observations)
     if log(rand()) < weight
         # accept
@@ -41,12 +39,9 @@ If the proposal modifies addresses that determine the control flow in the model,
 function metropolis_hastings(
         trace, proposal::GenerativeFunction, proposal_args::Tuple;
         check=false, observations=EmptyChoiceMap())
-    model_args = get_args(trace)
-    argdiffs = map((_) -> NoChange(), model_args)
     proposal_args_forward = (trace, proposal_args...,)
     (fwd_choices, fwd_weight, _) = propose(proposal, proposal_args_forward)
-    (new_trace, weight, _, discard) = update(trace,
-        model_args, argdiffs, fwd_choices)
+    (new_trace, weight, _, discard) = update(trace, fwd_choices)
     proposal_args_backward = (new_trace, proposal_args...,)
     (bwd_weight, _) = assess(proposal, proposal_args_backward, discard)
     alpha = weight - fwd_weight + bwd_weight
