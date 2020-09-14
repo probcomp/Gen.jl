@@ -625,7 +625,11 @@ end
 
 function DynamicChoiceMap(tuples...)
     choices = DynamicChoiceMap()
-    for (addr, value) in tuples
+    for tuple in tuples
+        if length(tuple) != 2
+            error("Constructor accepts tuples of the form (address, value) only")
+        end
+        (addr, value) = tuple
         choices[addr] = value
     end
     choices

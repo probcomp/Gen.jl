@@ -367,3 +367,9 @@ end
     @test filtered[:x => :y] == 1
     @test !has_value(filtered, :x => :z)
 end
+
+@testset "invalid choice map constructor" begin
+    threw = false
+    try c = choicemap((:a, 1, :b, 2)) catch Exception threw = true end
+    @test threw
+end
