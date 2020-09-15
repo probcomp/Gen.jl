@@ -3,3 +3,11 @@ baseurl: "" # the subpath of your site, e.g. /blog
 title: "Gen" # the name of your site, e.g. ACME Corp.
 
 github_comments_repository: probcomp/gen-blog-comments
+
+exclude:
+    - src
+    - examples
+    - test
+    - docs
+    - dev
+    - v0.3
