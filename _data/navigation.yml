@@ -1,9 +1,12 @@
-main:
-  - title: "Documentation"
-    url: https://www.gen.dev/dev/
-  - title: "Tutorials"
-    url: /tutorials/
-  - title: "Source"
-    url: https://github.com/probcomp/Gen.jl
-  - title: "Ecosystem"
-    url: /ecosystem/
+  - name: Home
+    link: /
+  - name: "Documentation"
+    link: https://www.gen.dev/dev/
+  - name: "Tutorials"
+    link: /tutorials/
+  - name: "Source"
+    link: https://github.com/probcomp/Gen.jl
+  - name: "Ecosystem"
+    link: /ecosystem/
+  - name: Blog
+    link: /posts.html
