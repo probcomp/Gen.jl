@@ -457,6 +457,14 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "ref/distributions/#Gen.cauchy",
+    "page": "Probability Distributions",
+    "title": "Gen.cauchy",
+    "category": "constant",
+    "text": "cauchy(x0::Real, gamma::Real)\n\nSample a Float64 value from a Cauchy distribution with location x0 and scale gamma.\n\n\n\n\n\n"
+},
+
+{
     "location": "ref/distributions/#Gen.exponential",
     "page": "Probability Distributions",
     "title": "Gen.exponential",
@@ -557,7 +565,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Probability Distributions",
     "title": "Built-In Distributions",
     "category": "section",
-    "text": "bernoulli\nbeta\nbeta_uniform\nbinom\ncategorical\nexponential\ngamma\ngeometric\ninv_gamma\nlaplace\nmvnormal\nneg_binom\nnormal\npiecewise_uniform\npoisson\nuniform\nuniform_discrete"
+    "text": "bernoulli\nbeta\nbeta_uniform\nbinom\ncategorical\ncauchy\nexponential\ngamma\ngeometric\ninv_gamma\nlaplace\nmvnormal\nneg_binom\nnormal\npiecewise_uniform\npoisson\nuniform\nuniform_discrete"
 },
 
 {
@@ -621,7 +629,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Built-in Modeling Language",
     "title": "Built-in Modeling Language",
     "category": "section",
-    "text": "Gen provides a built-in embedded modeling language for defining generative functions. The language uses a syntax that extends Julia\'s syntax for defining regular Julia functions.Generative functions in the modeling language are identified using the @gen keyword in front of a Julia function definition. Here is an example @gen function that samples two random choices:@gen function foo(prob::Float64=0.1)\n    z1 = @trace(bernoulli(prob), :a)\n    z2 = @trace(bernoulli(prob), :b)\n    return z1 || z2\nendAfter running this code, foo is a Julia value of type DynamicDSLFunction:DynamicDSLFunctionNote that it is possible to provide default values for trailing positional arguments. However, keyword arguments are currently not supported.We can call the resulting generative function like we would a regular Julia function:retval::Bool = foo(0.5)We can also trace its execution:(trace, _) = generate(foo, (0.5,))Optional arguments can be left out of the above operations, and default values will be filled in automatically:julia> (trace, _) = generate(foo, (,));\njulia> get_args(trace)\n(0.1,)See Generative Functions for the full set of operations supported by a generative function. Note that the built-in modeling language described in this section is only one of many ways of defining a generative function – generative functions can also be constructed using other embedded languages, or by directly implementing the methods of the generative function interface. However, the built-in modeling language is intended to being flexible enough cover a wide range of use cases. In the remainder of this section, we refer to generative functions defined using the built-in modeling language as @gen functions."
+    "text": "Gen provides a built-in embedded modeling language for defining generative functions. The language uses a syntax that extends Julia\'s syntax for defining regular Julia functions, and is also referred to as the Dynamic Modeling Language.Generative functions in the modeling language are identified using the @gen keyword in front of a Julia function definition. Here is an example @gen function that samples two random choices:@gen function foo(prob::Float64=0.1)\n    z1 = @trace(bernoulli(prob), :a)\n    z2 = @trace(bernoulli(prob), :b)\n    return z1 || z2\nendAfter running this code, foo is a Julia value of type DynamicDSLFunction:DynamicDSLFunctionNote that it is possible to provide default values for trailing positional arguments. However, keyword arguments are currently not supported.We can call the resulting generative function like we would a regular Julia function:retval::Bool = foo(0.5)We can also trace its execution:(trace, _) = generate(foo, (0.5,))Optional arguments can be left out of the above operations, and default values will be filled in automatically:julia> (trace, _) = generate(foo, (,));\njulia> get_args(trace)\n(0.1,)See Generative Functions for the full set of operations supported by a generative function. Note that the built-in modeling language described in this section is only one of many ways of defining a generative function – generative functions can also be constructed using other embedded languages, or by directly implementing the methods of the generative function interface. However, the built-in modeling language is intended to being flexible enough cover a wide range of use cases. In the remainder of this section, we refer to generative functions defined using the built-in modeling language as @gen functions. Details about the implementation of @gen functions can be found in the Modeling Language Implementation section."
 },
 
 {
@@ -662,6 +670,14 @@ var documenterSearchIndex = {"docs": [
     "title": "Composite addresses",
     "category": "section",
     "text": "In Julia, Pair values can be constructed using the => operator. For example, :a => :b is equivalent to Pair(:a, :b) and :a => :b => :c is equivalent to Pair(:a, Pair(:b, :c)). A Pair value (e.g. :a => :b => :c) can be passed as the address field in an @trace expression, provided that there is not also a random choice or generative function called with @trace at any prefix of the address.Consider the following examples.This example is invalid because :a => :b is a prefix of :a => :b => :c:@trace(normal(0, 1), :a => :b => :c)\n@trace(normal(0, 1), :a => :b)This example is invalid because :a is a prefix of :a => :b => :c:@trace(normal(0, 1), :a => :b => :c)\n@trace(normal(0, 1), :a)This example is invalid because :a => :b is a prefix of :a => :b => :c:@trace(normal(0, 1), :a => :b => :c)\n@trace(foo(0.5), :a => :b)This example is invalid because :a is a prefix of :a => :b:@trace(normal(0, 1), :a)\n@trace(foo(0.5), :a => :b)This example is valid because :a => :b and :a => :c are not prefixes of one another:@trace(normal(0, 1), :a => :b)\n@trace(normal(0, 1), :a => :c)This example is valid because :a => :b and :a => :c are not prefixes of one another:@trace(normal(0, 1), :a => :b)\n@trace(foo(0.5), :a => :c)"
+},
+
+{
+    "location": "ref/modeling/#Tilde-syntax-1",
+    "page": "Built-in Modeling Language",
+    "title": "Tilde syntax",
+    "category": "section",
+    "text": "As a short-hand for @trace expressions, the tilde operator ~ can also be used to make random choices and traced calls to generative functions. For example, the expression{:x} ~ normal(0, 1)is equivalent to:@trace(normal(0, 1), :x)One can also conveniently assign random values to variables using the syntax:x ~ normal(0, 1)which is equivalent to:x = @trace(normal(0, 1), :x)Finally, one can make traced calls using a shared address namespace with the syntax:{*} ~ foo(0.5)which is equivalent to:@trace(foo(0.5))Note that ~ is also defined in Base as a unary operator that performs the bitwise-not operation (see Base.:~). This use of ~ is also supported within @gen functions. However, uses of ~ as a binary infix operator within an @gen function will always be treated as equivalent to an @trace expression. If your module contains its own two-argument definition YourModule.:~(a, b) of the ~ function, calls to that function within @gen functions have to be in qualified prefix form, i.e., you have to write YourModule.:~(a, b) instead of a ~ b."
 },
 
 {
@@ -1509,7 +1525,7 @@ var documenterSearchIndex = {"docs": [
     "page": "MAP Optimization",
     "title": "Gen.map_optimize",
     "category": "function",
-    "text": "new_trace = map_optimize(trace, selection::Selection, \n    max_step_size=0.1, tau=0.5, min_step_size=1e-16, verbose=false)\n\nPerform backtracking gradient ascent to optimize the log probability of the trace over selected continuous choices.\n\nSelected random choices must have support on the entire real line.\n\n\n\n\n\n"
+    "text": "new_trace = map_optimize(trace, selection::Selection,\n    max_step_size=0.1, tau=0.5, min_step_size=1e-16, verbose=false)\n\nPerform backtracking gradient ascent to optimize the log probability of the trace over selected continuous choices.\n\nSelected random choices must have support on the entire real line.\n\n\n\n\n\n"
 },
 
 {
@@ -1789,7 +1805,31 @@ var documenterSearchIndex = {"docs": [
     "page": "Optimizing Trainable Parameters",
     "title": "Optimizing Trainable Parameters",
     "category": "section",
-    "text": "To add support for a new type of gradient-based parameter update, create a new type with the following methods deifned for the types of generative functions that are to be supported.Gen.init_update_state\nGen.apply_update!"
+    "text": "To add support for a new type of gradient-based parameter update, create a new type with the following methods defined for the types of generative functions that are to be supported.Gen.init_update_state\nGen.apply_update!"
+},
+
+{
+    "location": "ref/internals/language_implementation/#",
+    "page": "Modeling Language Implementation",
+    "title": "Modeling Language Implementation",
+    "category": "page",
+    "text": ""
+},
+
+{
+    "location": "ref/internals/language_implementation/#language-implementation-1",
+    "page": "Modeling Language Implementation",
+    "title": "Modeling Language Implementation",
+    "category": "section",
+    "text": ""
+},
+
+{
+    "location": "ref/internals/language_implementation/#Parsing-@gen-functions-1",
+    "page": "Modeling Language Implementation",
+    "title": "Parsing @gen functions",
+    "category": "section",
+    "text": "Gen\'s built-in modeling languages are designed to preserve Julia\'s syntax as far as possible, apart from the Tilde syntax for calling generative functions, and the restrictions imposed on the Static Modeling Language. In order to preserve that syntax, including the use of non-Gen macros within @gen functions, we relegate as much of the parsing of @gen functions as possible to Julia\'s macro-expander and parser.In particular, we adopt an implementation strategy that enforces a separation between the surface syntax associated with Gen-specific macros (i.e., @trace and @param) and their corresponding implementations, which differ across the Dynamic Modeling Language (DML) and the Static Modeling Language (SML). We do this by introducing the custom expressions Expr(:gentrace, call, addr) and Expr(:genparam, name, type), which serve as intermediate representations in the macro-expanded abstract syntax tree.Each modeling language can then handle these custom expressions in their own manner, either by parsing them to nodes in the Static Computation Graph (for the SML), or by substituting them with their implementations (for the DML). This effectively allows the SML and DML to have separate implementations of @trace and @param.For clarity, below is a procedural description of how the @gen macro processes Julia function syntax:macroexpand the entire function body with respect to the calling module. This expands any (properly-scoped) @trace calls to Expr(:gentrace, ...) expressions, and any (properly-scoped) @param calls to Expr(:genparam, ...) expressions, while also expanding non-Gen macros.\nDesugar any tilde expressions x ~ gen_fn(), including those that may have been generated by macros, to Expr(:gentrace, ...) expressions.\nPass the macro-expanded and de-sugared function body on to make_static_gen_function or make_dynamic_gen_function accordingly.\nFor static @gen functions, match :gentrace expressions when adding address nodes to the static computation graph, and match :genparam expressions when adding parameter nodes to the static computation graph. A StaticIRGenerativeFunction is then compiled from the static computation graph.\nFor dynamic @gen functions, rewrite any :gentrace expression with its implementation dynamic_trace_impl, and rewrite any :genparam expression with its implementation dynamic_param_impl. The rewritten syntax tree is then evaluated as a standard Julia function, which serves as the implementation of the constructed DynamicDSLFunction."
 },
 
 ]}
