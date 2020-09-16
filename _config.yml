@@ -9,5 +9,3 @@ exclude:
     - examples
     - test
     - docs
-    - dev
-    - v0.3
