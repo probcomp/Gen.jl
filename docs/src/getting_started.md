@@ -2,7 +2,7 @@
 
 ## Installation
 
-First, obtain Julia 1.0 or later, available [here](https://julialang.org/downloads/).
+First, obtain Julia 1.3 or later, available [here](https://julialang.org/downloads/).
 
 The Gen package can be installed with the Julia package manager. From the Julia REPL, type `]` to enter the Pkg REPL mode and then run:
 ```
