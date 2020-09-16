@@ -37,7 +37,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Getting Started",
     "title": "Installation",
     "category": "section",
-    "text": "First, obtain Julia 1.0 or later, available here.The Gen package can be installed with the Julia package manager. From the Julia REPL, type ] to enter the Pkg REPL mode and then run:pkg> add https://github.com/probcomp/GenTo test the installation, run the example in the next section, or run the tests with:using Pkg; Pkg.test(\"Gen\")"
+    "text": "First, obtain Julia 1.3 or later, available here.The Gen package can be installed with the Julia package manager. From the Julia REPL, type ] to enter the Pkg REPL mode and then run:pkg> add https://github.com/probcomp/GenTo test the installation, run the example in the next section, or run the tests with:using Pkg; Pkg.test(\"Gen\")"
 },
 
 {
