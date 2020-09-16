@@ -12,7 +12,7 @@ See [https://gen.dev](https://gen.dev/) for introduction, documentation, and tut
 
 The Gen PLDI 2019 paper is publicly available [here](https://dl.acm.org/citation.cfm?id=3314642).
 
-Gen was created at the [MIT Probabilistic Computing Project](http://probcomp.csail.mit.edu/). To get in contact with the Project, please fill out this [online form](https://docs.google.com/forms/d/e/1FAIpQLSfbPY5e0KMVEFg7tjVUsOsKy5tWV9Moml3dPkDPXvP8-TSMNA/viewform?usp=sf_link). (But please don't hesitate to engage directly with the Gen open source project via the GitHub site!)
+Gen was created at the [MIT Probabilistic Computing Project](http://probcomp.csail.mit.edu/). To get in contact about Gen, please email gen-contact@mit.edu. (But please don't hesitate to engage directly with the Gen open source project via the GitHub site!)
 
 If you use Gen in your research, please cite it using:
 ```bibtex
