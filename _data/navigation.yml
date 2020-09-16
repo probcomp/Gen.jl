@@ -8,5 +8,5 @@
     link: https://github.com/probcomp/Gen.jl
   - name: "Ecosystem"
     link: /ecosystem/
-  - name: Blog
-    link: /posts.html
+  #- name: Blog
+    #link: /posts.html
