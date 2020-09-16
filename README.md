@@ -1,6 +1,6 @@
 # Gen.jl
 
-[![Build Status](https://travis-ci.org/probcomp/Gen.jl.svg?branch=master)](https://travis-ci.org/probcomp/Gen.jl)
+[![Build Status](https://travis-ci.com/probcomp/Gen.jl.svg?branch=master)](https://travis-ci.org/probcomp/Gen.jl)
 [![](https://img.shields.io/badge/docs-stable-blue.svg)](https://probcomp.github.io/Gen.jl/stable)
 [![](https://img.shields.io/badge/docs-dev-blue.svg)](https://probcomp.github.io/Gen.jl/dev)
 
