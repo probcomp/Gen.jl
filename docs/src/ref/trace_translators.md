@@ -373,6 +373,12 @@ In these cases, it is recommended to use the explicit [`@copy`](@ref) expression
 @copy(<source>, <destination>)
 ```
 where `<source>` and `<destination>` are of the form `<trace>[<addr>]` as above.
+Note you can also copy collections of multiple random choices under an address namespace in an input trace to an address namespace in an output trace.
+For example,
+```
+@copy(trace1[:foo], trace2[:bar])
+```
+will copy every random choice in `trace1` with an address of the form `:foo => <rest>` to `trace2` at address `:bar => <rest>`.
 
 It is also possible to read the *return value* from an input trace using the following syntax, but this value must be discrete (in the local neighborhood of traces, the return value must be constant as a function of all continuous random choices in input traces):
 ```
