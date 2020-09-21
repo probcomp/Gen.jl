@@ -10,9 +10,9 @@ end
 
 Base.keys(schema::StaticAddressSchema) = schema.keys
 
-struct VectorAddressSchema <: AddressSchema end 
-struct SingleDynamicKeyAddressSchema <: AddressSchema end 
-struct DynamicAddressSchema <: AddressSchema end 
+struct VectorAddressSchema <: AddressSchema end
+struct SingleDynamicKeyAddressSchema <: AddressSchema end
+struct DynamicAddressSchema <: AddressSchema end
 struct EmptyAddressSchema <: AddressSchema end
 struct AllAddressSchema <: AddressSchema end
 
@@ -315,7 +315,7 @@ function Base.push!(selection::DynamicSelection, addr::Pair)
         subselection = selection.subselections[first]
     else
         subselection = DynamicSelection()
-        selection.subselections[first] = subselection 
+        selection.subselections[first] = subselection
     end
     push!(subselection, rest)
 end
@@ -330,7 +330,7 @@ function set_subselection!(selection::DynamicSelection, addr::Pair, other::Selec
         subselection = selection.subselections[first]
     else
         subselection = DynamicSelection()
-        selection.subselections[first] = subselection 
+        selection.subselections[first] = subselection
     end
     set_subselection!(subselection, rest, other)
 end

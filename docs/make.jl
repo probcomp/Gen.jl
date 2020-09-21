@@ -29,12 +29,13 @@ makedocs(
             "Learning Generative Functions" => "ref/learning.md"
         ],
         "Internals" => [
-            "Optimizing Trainable Parameters" => "ref/internals/parameter_optimization.md"
+            "Optimizing Trainable Parameters" => "ref/internals/parameter_optimization.md",
+            "Modeling Language Implementation" => "ref/internals/language_implementation.md"
          ]
     ]
 )
 
 deploydocs(
-    repo = "github.com/probcomp/Gen.git",
+    repo = "github.com/probcomp/Gen.jl.git",
     target = "build"
 )

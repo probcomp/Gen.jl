@@ -1,4 +1,4 @@
-# piecewise homogenous Poisson process 
+# piecewise homogenous Poisson process
 
 # n intervals - n + 1 bounds
 # (b_1, b_2]
@@ -37,7 +37,7 @@ function Gen.logpdf(::PiecewiseHomogenousPoissonProcess, x::Vector{Float64}, bou
         if xi < bounds[1] || xi > bounds[end]
             error("x ($xi) lies outside of interval")
         end
-        while xi > upper 
+        while xi > upper
             cur += 1
             upper = bounds[cur+1]
         end

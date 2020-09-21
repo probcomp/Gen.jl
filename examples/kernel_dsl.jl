@@ -31,7 +31,7 @@ function add_remove_involution(trace, fwd_choices, ret, args)
     bwd_choices = choicemap()
     new_n = add ? n + 1 : n - 1
     constraints = choicemap((:n, new_n))
-    if add 
+    if add
         bwd_choices[:add] = false
         constraints[(:x, new_n)] = fwd_choices[:new_x]
     else
@@ -67,7 +67,7 @@ max_n_add_remove = 10 # to test that we have escaped the body of the kern proper
 
 ex = quote
 @kern function my_kernel(trace)
-    
+
     # cycle through the x's and do a random walk update on each one
     for i in 1:trace[:n]
         trace ~ mh(trace, random_walk_proposal, (i,))

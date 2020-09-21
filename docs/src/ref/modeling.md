@@ -1,7 +1,7 @@
 # Built-in Modeling Language
 
 Gen provides a built-in embedded modeling language for defining generative functions.
-The language uses a syntax that extends Julia's syntax for defining regular Julia functions.
+The language uses a syntax that extends Julia's syntax for defining regular Julia functions, and is also referred to as the **Dynamic Modeling Language**.
 
 Generative functions in the modeling language are identified using the `@gen` keyword in front of a Julia function definition.
 Here is an example `@gen` function that samples two random choices:
@@ -36,7 +36,7 @@ julia> get_args(trace)
 See [Generative Functions](@ref) for the full set of operations supported by a generative function.
 Note that the built-in modeling language described in this section is only one of many ways of defining a generative function -- generative functions can also be constructed using other embedded languages, or by directly implementing the methods of the generative function interface.
 However, the built-in modeling language is intended to being flexible enough cover a wide range of use cases.
-In the remainder of this section, we refer to generative functions defined using the built-in modeling language as `@gen` functions.
+In the remainder of this section, we refer to generative functions defined using the built-in modeling language as `@gen` functions. Details about the implementation of `@gen` functions can be found in the [Modeling Language Implementation](@ref) section.
 
 ## Annotations
 
@@ -100,17 +100,17 @@ An address is required if the random choice will be observed, or will be referen
 
 ### Sample space and support of random choices
 
-Different probability distributions produce different types of values for their random choices. For example, the [`Bernoulli`](@ref) distribution results in `Bool` values (either `true` or `false`), the [`Normal`](@ref) distribution results in `Real` values that may be positive or negative, and the [`Beta`](@ref) distributions result in `Real` values that are always in the unit interval (0, 1).
+Different probability distributions produce different types of values for their random choices. For example, the [`bernoulli`](@ref) distribution results in `Bool` values (either `true` or `false`), the [`normal`](@ref) distribution results in `Real` values that may be positive or negative, and the [`beta`](@ref) distribution result in `Real` values that are always in the unit interval (0, 1).
 
-Each [`Distribution`](@ref) is associated with two sets of values:
+Each `Distribution` is associated with two sets of values:
 
 - The **sample space** of the distribution, which does not depend on the arguments.
 
 - The **support** of the distribution, which may depend on the arguments, and is the set of values that has nonzero probability (or probability density). It may be the entire sample space, or it may be a subset of the sample space.
 
-For example, the sample space of [`Bernoulli`](@ref) is `Bool` and its support is either `{true}`, `{false}`, or `{true, false}`. The sample space of [`Normal`](@ref) is `Real` and its support is the set of all values on the real line. The sample space of [`Beta`](@ref) is `Real` and its support is the set of values in the interval (0, 1).
+For example, the sample space of [`bernoulli`](@ref) is `Bool` and its support is either `{true}`, `{false}`, or `{true, false}`. The sample space of [`normal`](@ref) is `Real` and its support is the set of all values on the real line. The sample space of [`beta`](@ref) is `Real` and its support is the set of values in the interval (0, 1).
 
-Gen's built in modeling languages require that a address is associated with a fixed sample space. For example, it is not permitted to use a `Bernoulli` distribution to sample at addresss `:a` in one execution, and a `Normal` distribution to sample at address `:a` in a different execution, because their sample spaces differ (`Bool` vs `Real`):
+Gen's built in modeling languages require that a address is associated with a fixed sample space. For example, it is not permitted to use a `bernoulli` distribution to sample at addresss `:a` in one execution, and a `normal` distribution to sample at address `:a` in a different execution, because their sample spaces differ (`Bool` vs `Real`):
 ```julia
 @gen function foo()
     if @trace(bernoulli(0.5), :branch)
@@ -211,6 +211,37 @@ This example is **valid** because `:a => :b` and `:a => :c` are not prefixes of 
 @trace(normal(0, 1), :a => :b)
 @trace(foo(0.5), :a => :c)
 ```
+
+## Tilde syntax
+
+As a short-hand for `@trace` expressions, the tilde operator `~` can also be used to make random choices and traced calls to generative functions. For example, the expression
+```julia
+{:x} ~ normal(0, 1)
+```
+is equivalent to:
+```julia
+@trace(normal(0, 1), :x)
+```
+
+One can also conveniently assign random values to variables using the syntax:
+```julia
+x ~ normal(0, 1)
+```
+which is equivalent to:
+```julia
+x = @trace(normal(0, 1), :x)
+```
+
+Finally, one can make traced calls using a shared address namespace with the syntax:
+```julia
+{*} ~ foo(0.5)
+```
+which is equivalent to:
+```julia
+@trace(foo(0.5))
+```
+
+Note that `~` is also defined in `Base` as a unary operator that performs the bitwise-not operation (see [`Base.:~`](https://docs.julialang.org/en/v1/base/math/#Base.:~)). This use of `~` is also supported within `@gen` functions. However, uses of `~` as a *binary* infix operator within an `@gen` function will *always* be treated as equivalent to an `@trace` expression. If your module contains its own two-argument definition `YourModule.:~(a, b)` of the `~` function, calls to that function within `@gen` functions have to be in qualified prefix form, i.e., you have to write `YourModule.:~(a, b)` instead of `a ~ b`.
 
 ## Return value
 

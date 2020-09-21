@@ -134,7 +134,7 @@ end
     # distribution over sizes of the letters
     size_alpha = exp(outputs[7])
     size_beta = exp(outputs[8])
-    
+
     # distribution over 3 possible letters
     log_letter_dist = outputs[9:9 + length(letters)-1]
     letter_dist = exp.(log_letter_dist)

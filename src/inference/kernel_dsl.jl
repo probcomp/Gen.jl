@@ -213,7 +213,7 @@ macro kern(ex)
     quote
         # define forward kerel
         $kern_ex
-        
+
         # define reversal kernel
         $rev_kern_ex
 

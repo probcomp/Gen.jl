@@ -1,5 +1,5 @@
 """
-    new_trace = map_optimize(trace, selection::Selection, 
+    new_trace = map_optimize(trace, selection::Selection,
         max_step_size=0.1, tau=0.5, min_step_size=1e-16, verbose=false)
 
 Perform backtracking gradient ascent to optimize the log probability of the trace over selected continuous choices.
@@ -34,7 +34,7 @@ function map_optimize(trace, selection::Selection;
             # it got worse, but we ran out of attempts
             return trace
         end
-        
+
         # try again with a smaller step size
         step_size = tau * step_size
     end

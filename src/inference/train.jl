@@ -55,7 +55,7 @@ function train!(gen_fn::GenerativeFunction, data_generator::Function,
             avg_score += weight
         end
         avg_score /= evaluation_size
-        
+
         history[epoch] = avg_score
 
         if verbose

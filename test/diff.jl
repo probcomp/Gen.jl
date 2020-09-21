@@ -54,7 +54,7 @@ end
     end
 
     @testset "getindex" begin
-    
+
     v = [1, 2, 3]
     i = Diffed(2, UnknownChange())
     @test strip_diff(v[i]) == 2

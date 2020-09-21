@@ -4,7 +4,7 @@ using Gen
 include("poisson_process.jl")
 
 # Example from Section 4 of Reversible jump Markov chain Monte Carlo
-# computation and Bayesian model determination 
+# computation and Bayesian model determination
 
 # minimum of k draws from uniform_continuous(lower, upper)
 
@@ -244,7 +244,7 @@ end
 
     # current number of changepoints
     k = @read(model_in[K], :discrete)
-    
+
     # if k == 0, then we can only do a birth move
     isbirth = (k == 0) || @read(aux_in[IS_BIRTH], :discrete)
 
@@ -252,7 +252,7 @@ end
     if k > 1 || isbirth
         @write(aux_out[IS_BIRTH], !isbirth, :discrete)
     end
-    
+
     # the changepoint to be added or deleted
     i = @read(aux_in[CHOSEN], :discrete)
     @copy(aux_in[CHOSEN], aux_out[CHOSEN])
@@ -481,7 +481,7 @@ function plot_trace_plot()
     rate1 = Float64[]
     num_clusters_vec = Int[]
     burn_in = 0
-    for iter=1:burn_in + 1000 
+    for iter=1:burn_in + 1000
         trace = mcmc_step(trace)
         if iter > burn_in
             push!(num_clusters_vec, trace[K])
@@ -495,7 +495,7 @@ function plot_trace_plot()
     rate1 = Float64[]
     num_clusters_vec = Int[]
     burn_in = 0
-    for iter=1:burn_in + 1000 
+    for iter=1:burn_in + 1000
         trace = simple_mcmc_step(trace)
         if iter > burn_in
             push!(num_clusters_vec, trace[K])

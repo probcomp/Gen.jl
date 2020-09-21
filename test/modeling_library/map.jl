@@ -1,5 +1,5 @@
 @testset "map combinator" begin
-    
+
     @gen (grad) function foo((grad)(x::Float64), (grad)(y::Float64))
         @param std::Float64
         z = @trace(normal(x + y, std), :z)

@@ -6,7 +6,7 @@ end
 function accumulate_param_gradients!(trace::VectorTrace{UnfoldType,T,U}, retval_grad) where {T,U}
     args = get_args(trace)
     (len, init_state, params) = unpack_args(args)
-    
+
     kernel_has_grads = has_argument_grads(trace.gen_fn.kernel)
     if kernel_has_grads[1]
         error("Cannot differentiate with respect to index in unfold")
@@ -16,7 +16,7 @@ function accumulate_param_gradients!(trace::VectorTrace{UnfoldType,T,U}, retval_
         error("Not implemented")
     end
     params_has_grad = kernel_has_grads[3:end]
- 
+
     params_grad = Vector(undef, length(params_has_grad))
     for (i, has_grad) in enumerate(params_has_grad)
         if has_grad
@@ -25,7 +25,7 @@ function accumulate_param_gradients!(trace::VectorTrace{UnfoldType,T,U}, retval_
             params_grad[i] = nothing
         end
     end
-    
+
     for key=1:len
         subtrace = trace.subtraces[key]
         kernel_retval_grad = (retval_grad == nothing) ? nothing : retval_grad[key]

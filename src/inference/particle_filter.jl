@@ -144,12 +144,12 @@ function particle_filter_step!(state::ParticleFilterState{U}, new_args::Tuple, a
         (state.new_traces[i], log_weight) = trace_translator(state.traces[i])
         state.log_weights[i] += log_weight
     end
-    
+
     # swap references
     tmp = state.traces
     state.traces = state.new_traces
     state.new_traces = tmp
-    
+
     return nothing
 end
 
@@ -170,12 +170,12 @@ function particle_filter_step!(state::ParticleFilterState{U}, new_args::Tuple, a
         end
         state.log_weights[i] += increment
     end
-    
+
     # swap references
     tmp = state.traces
     state.traces = state.new_traces
     state.new_traces = tmp
-    
+
     return nothing
 end
 
@@ -184,6 +184,7 @@ end
         ess_threshold::Float64=length(state.traces)/2, verbose=false)
 
 Do a resampling step if the effective sample size is below the given threshold.
+Return `true` if a resample thus occurred, `false` otherwise.
 """
 function maybe_resample!(state::ParticleFilterState{U};
                         ess_threshold::Real=length(state.traces)/2, verbose=false) where {U}
@@ -202,7 +203,7 @@ function maybe_resample!(state::ParticleFilterState{U};
             state.new_traces[i] = state.traces[state.parents[i]]
             state.log_weights[i] = 0.
         end
-        
+
         # swap references
         tmp = state.traces
         state.traces = state.new_traces

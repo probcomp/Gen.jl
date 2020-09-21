@@ -10,7 +10,7 @@ for (i, letter) in enumerate(alphabet)
 end
 
 # load bigram data into a transition matrix
-# bigrams.json from https://gist.github.com/lydell/c439049abac2c9226e53 
+# bigrams.json from https://gist.github.com/lydell/c439049abac2c9226e53
 data = JSON.parsefile("$(@__DIR__)/bigrams.json")
 counts = zeros(Int64, (27, 27))
 for (bigram, count) in data
@@ -121,12 +121,12 @@ function do_inference(encoded_text::AbstractString, num_iter::Int)
             choices[replica => (:code, l)] = l
         end
 
-        # initialize original text 
+        # initialize original text
         for (l, char) in enumerate(encoded_text)
             choices[replica => :text => l] = letter_to_int[char]
         end
     end
-        
+
     # initial trace
     (trace, _) = generate(par_model, (alphas, fill(len, num_replicas)), choices)
 

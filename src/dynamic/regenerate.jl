@@ -22,7 +22,7 @@ function traceat(state::GFRegenerateState, dist::Distribution{T},
     # check that key was not already visited, and mark it as visited
     visit!(state.visitor, key)
 
-    # check for previous choice at this key 
+    # check for previous choice at this key
     has_previous = has_choice(state.prev_trace, key)
     if has_previous
         prev_choice = get_choice(state.prev_trace, key)

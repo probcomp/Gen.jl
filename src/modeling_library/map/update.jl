@@ -84,12 +84,12 @@ function update(trace::VectorTrace{MapType,T,U}, args::Tuple, argdiffs::Tuple,
         trace.subtraces, trace.retval, prev_length, new_length)
     score = trace.score - score_decrement
     noise = trace.noise - noise_decrement
-    
+
     # handle retained and new applications
     state = MapUpdateState{T,U}(-score_decrement, score, noise,
                                      subtraces, retval, discard, num_nonempty,
                                      Dict{Int,Diff}())
-    process_all_retained!(gen_fn, args, argdiffs, choices, prev_length, new_length,    
+    process_all_retained!(gen_fn, args, argdiffs, choices, prev_length, new_length,
                           retained_and_constrained, state)
     process_all_new!(gen_fn, args, choices, prev_length, new_length, state)
 
@@ -97,7 +97,7 @@ function update(trace::VectorTrace{MapType,T,U}, args::Tuple, argdiffs::Tuple,
     retdiff = vector_compute_retdiff(state.updated_retdiffs, new_length, prev_length)
 
     # new trace
-    new_trace = VectorTrace{MapType,T,U}(gen_fn, state.subtraces, state.retval, args,  
+    new_trace = VectorTrace{MapType,T,U}(gen_fn, state.subtraces, state.retval, args,
         state.score, state.noise, new_length, state.num_nonempty)
 
     return (new_trace, state.weight, retdiff, discard)

@@ -99,7 +99,7 @@ function compute_custom_proposal_params(dt::Float64, prev_dist::Float64, noise::
                                         posterior_var_d::Float64, posterior_covars::Vector{Matrix{Float64}},
                                         path::Path, distances_from_start::Vector{Float64},
                                         speed::Float64, dist_slack::Float64)
-    
+
     N = length(path.points)
 
     # Initialize parameters for truncated normal
@@ -111,7 +111,7 @@ function compute_custom_proposal_params(dt::Float64, prev_dist::Float64, noise::
     mus[1] = prev_dist + dt * speed
     stds[1] = dist_slack
     unnormalized_log_segment_probs[1] = Distributions.logcdf(Distributions.Normal(mus[1], stds[1]), 0) + Distributions.logpdf(Distributions.Normal(path.start.x, noise), obs.x) + Distributions.logpdf(Distributions.Normal(path.start.y, noise), obs.y)
-   
+
     # Last segment
     mus[N+1] = prev_dist + dt * speed
     stds[N+1] = dist_slack
@@ -119,12 +119,12 @@ function compute_custom_proposal_params(dt::Float64, prev_dist::Float64, noise::
 
     # Middle segments
     for i=2:N
-        dx = path.points[i].x - path.points[i-1].x 
+        dx = path.points[i].x - path.points[i-1].x
         dy = path.points[i].y - path.points[i-1].y
         dd = distances_from_start[i] - distances_from_start[i-1]
 
         prior_mu_d = mus[1] - distances_from_start[i-1]
-        x_obs = obs.x - path.points[i-1].x 
+        x_obs = obs.x - path.points[i-1].x
         y_obs = obs.y - path.points[i-1].y
 
         posterior_mu_d = posterior_var_d * ((dx * x_obs + dy * y_obs) / (dd * noise^2) + prior_mu_d / dist_slack^2)
@@ -192,7 +192,7 @@ static_fancy_proposal = at_dynamic(static_markov_fancy_proposal_inner, Int)
 #############################
 
 function make_scene()
-    scene = Scene(0, 1, 0, 1) 
+    scene = Scene(0, 1, 0, 1)
     add!(scene, Tree(Point(0.30, 0.20), size=0.1))
     add!(scene, Tree(Point(0.83, 0.80), size=0.1))
     add!(scene, Tree(Point(0.80, 0.40), size=0.1))
@@ -276,7 +276,7 @@ function render_lightweight_hmm_trace(scene::Scene, start::Point, stop::Point,
             ax[:add_patch](circle)
         end
     end
-    
+
     # plot measured locations
     assignment = get_choices(trace)
     if show_measurements
@@ -330,7 +330,7 @@ function render_static_hmm_trace(scene::Scene, start::Point, stop::Point,
             ax[:add_patch](circle)
         end
     end
-    
+
     # plot measured locations
     assignment = get_choices(trace)
     if show_measurements
@@ -414,7 +414,7 @@ function PrecomputedPathData(params::Params)
     posterior_covars = Vector{Matrix{Float64}}(undef, length(distances_from_start))
     for i = 2:length(distances_from_start)
         dd = distances_from_start[i] - distances_from_start[i-1]
-        dx = path.points[i].x - path.points[i-1].x 
+        dx = path.points[i].x - path.points[i-1].x
         dy = path.points[i].y - path.points[i-1].y
         posterior_covars[i] = [noise 0; 0 noise] .+ (dist_slack^2/dd^2 .* [dx^2 dx*dy; dy*dx dy^2])
     end
@@ -566,7 +566,7 @@ function particle_filtering_lightweight_hmm_default_proposal(params::Params,
         lmls = Vector{Float64}(undef, num_reps)
         for rep=1:num_reps
             start = time_ns()
-            (traces, _, lml) = particle_filter(lightweight_hmm, model_args_rest, max_steps, 
+            (traces, _, lml) = particle_filter(lightweight_hmm, model_args_rest, max_steps,
                                                num_particles, ess_threshold, obs)
             elapsed[rep] = Int(time_ns() - start) / 1e9
             println("num_particles: $num_particles, lml estimate: $lml, elapsed: $(elapsed[rep])")
@@ -679,7 +679,7 @@ function particle_filtering_lightweight_markov_hmm_default_proposal(params::Para
         lmls = Vector{Float64}(undef, num_reps)
         for rep=1:num_reps
             start = time_ns()
-            (traces, _, lml) = particle_filter(lightweight_hmm_with_markov, model_args_rest, max_steps, 
+            (traces, _, lml) = particle_filter(lightweight_hmm_with_markov, model_args_rest, max_steps,
                                                num_particles, ess_threshold, obs)
             elapsed[rep] = Int(time_ns() - start) / 1e9
             println("num_particles: $num_particles, lml estimate: $lml, elapsed: $(elapsed[rep])")

@@ -23,10 +23,10 @@ function do_inference(xs, ys, num_iters)
     end
     observations[:log_inlier_std] = 0.
     observations[:log_outlier_std] = 0.
-    
+
     # initial trace
     (trace, _) = generate(model, (xs,), observations)
-    
+
     scores = Vector{Float64}(undef, num_iters)
     for i=1:num_iters
         trace, = hmc(trace, line_selection; eps=1e-2, L=10)
@@ -38,10 +38,10 @@ function do_inference(xs, ys, num_iters)
         for j=1:length(xs)
             (trace, _) = metropolis_hastings(trace, is_outlier_proposal, (j,))
         end
-    
+
         score = get_score(trace)
         scores[i] = score
-    
+
         # print
         slope = trace[:slope]
         intercept = trace[:intercept]

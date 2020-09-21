@@ -105,7 +105,7 @@ function traceat(state::GFBackpropParamsState, gen_fn::GenerativeFunction{T},
     record!(state.tape, ReverseDiff.SpecialInstruction,
         BackpropParamsRecord(gen_fn, subtrace, state.scale_factor),
         (args_maybe_tracked...,), retval_maybe_tracked)
-    retval_maybe_tracked 
+    retval_maybe_tracked
 end
 
 function splice(state::GFBackpropParamsState, gen_fn::DynamicDSLFunction,
@@ -113,7 +113,7 @@ function splice(state::GFBackpropParamsState, gen_fn::DynamicDSLFunction,
 
     # save previous tracked parameter scope
     prev_tracked_params = state.tracked_params
-    
+
     # construct new tracked parameter scope
     state.tracked_params = Dict{Symbol,Any}()
     for name in keys(gen_fn.params)
@@ -321,7 +321,7 @@ function traceat(state::GFBackpropTraceState, gen_fn::GenerativeFunction{T,U},
     record = BackpropTraceRecord(gen_fn, subtrace, selection, state.value_choices,
         state.gradient_choices, key)
     record!(state.tape, ReverseDiff.SpecialInstruction, record, (args_maybe_tracked...,), retval_maybe_tracked)
-    retval_maybe_tracked 
+    retval_maybe_tracked
 end
 
 function splice(state::GFBackpropTraceState, gen_fn::DynamicDSLFunction,

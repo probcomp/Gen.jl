@@ -81,7 +81,7 @@ end
 function generate(gen_fn::DynamicDSLFunction, args::Tuple,
                     constraints::ChoiceMap)
     state = GFGenerateState(gen_fn, args, constraints, gen_fn.params)
-    retval = exec(gen_fn, state, args) 
+    retval = exec(gen_fn, state, args)
     set_retval!(state.trace, retval)
     (state.trace, state.weight)
 end

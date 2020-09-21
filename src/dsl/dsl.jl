@@ -1,3 +1,5 @@
+export @gen, @param, @trace
+
 import MacroTools
 
 const DSL_STATIC_ANNOTATION = :static
@@ -62,30 +64,65 @@ end
 include("dynamic.jl")
 include("static.jl")
 
-function address_from_expression(lhs)
-    if lhs isa Symbol
-        QuoteNode(lhs)
-    else
-        error("Syntax error: Only a variable or an address expression can appear on the lefthand side of a ~. Invalid left-hand side: $(lhs).")
-    end
-end
-
 function desugar_tildes(expr)
     MacroTools.postwalk(expr) do e
-        if MacroTools.@capture(e, {*} ~ rhs_)
-            :(@trace($rhs))
-        elseif MacroTools.@capture(e, {addr_} ~ rhs_)
-            :(@trace($rhs, $(addr)))
+        # Replace tilde statements with :gentrace expressions
+        if MacroTools.@capture(e, {*} ~ rhs_call)
+            Expr(:gentrace, rhs, nothing)
+        elseif MacroTools.@capture(e, {addr_} ~ rhs_call)
+            Expr(:gentrace, rhs, Some(addr))
+        elseif MacroTools.@capture(e, lhs_Symbol ~ rhs_call)
+            addr = QuoteNode(lhs)
+            Expr(:(=), lhs, Expr(:gentrace, rhs, Some(addr)))
+        elseif MacroTools.@capture(e, lhs_ ~ rhs_call)
+            error("Syntax error: Invalid left-hand side: $(e)." *
+                  "Only a variable or address can appear on the left of a `~`.")
         elseif MacroTools.@capture(e, lhs_ ~ rhs_)
-            addr_expr = address_from_expression(lhs)
-            :($lhs = @trace($rhs, $(addr_expr)))
+            error("Syntax error: Invalid right-hand side in: $(e)")
         else
             e
         end
     end
 end
 
-function parse_gen_function(ast, annotations)
+function extract_quoted_exprs(expr)
+    quoted_exprs = []
+    expr = MacroTools.prewalk(expr) do e
+        if MacroTools.@capture(e, :(quoted_)) && !isa(quoted, Symbol)
+            push!(quoted_exprs, e)
+            Expr(:placeholder, length(quoted_exprs))
+        else
+            e
+        end
+    end
+    return expr, quoted_exprs
+end
+
+function insert_quoted_exprs(expr, quoted_exprs)
+    expr = MacroTools.prewalk(expr) do e
+        if MacroTools.@capture(e, p_placeholder)
+            idx = p.args[1]
+            quoted_exprs[idx]
+        else
+            e
+        end
+    end
+    return expr
+end
+
+function preprocess_body(expr, __module__)
+    # Expand all macros relative to the calling module
+    expr = macroexpand(__module__, expr)
+    # Protect quoted expressions from pre-processing by extracting them
+    expr, quoted_exprs = extract_quoted_exprs(expr)
+    # Desugar tilde calls to :gentrace expressions
+    expr = desugar_tildes(expr)
+    # Reinsert quoted expressions after pre-processing
+    expr = insert_quoted_exprs(expr, quoted_exprs)
+    return expr
+end
+
+function parse_gen_function(ast, annotations, __module__)
     ast = MacroTools.longdef(ast)
     if ast.head != :function
         error("syntax error at $ast in $(ast.head)")
@@ -94,7 +131,6 @@ function parse_gen_function(ast, annotations)
         error("syntax error at $ast in $(ast.args)")
     end
     signature = ast.args[1]
-    body = desugar_tildes(ast.args[2])
     if signature.head == :(::)
         (call_signature, return_type) = signature.args
     elseif signature.head == :call
@@ -102,6 +138,7 @@ function parse_gen_function(ast, annotations)
     else
         error("syntax error at $(signature)")
     end
+    body = preprocess_body(ast.args[2], __module__)
     name = call_signature.args[1]
     args = map(parse_arg, call_signature.args[2:end])
     static = DSL_STATIC_ANNOTATION in annotations
@@ -112,15 +149,31 @@ function parse_gen_function(ast, annotations)
     end
 end
 
-macro gen(annotations_expr, ast)
-
+macro gen(annotations_expr, ast::Expr)
     # parse the annotations
     annotations = parse_annotations(annotations_expr)
-
     # parse the function definition
-    parse_gen_function(ast, annotations)
+    parse_gen_function(ast, annotations, __module__)
 end
 
-macro gen(ast)
-    parse_gen_function(ast, Set{Symbol}())
+macro gen(ast::Expr)
+    parse_gen_function(ast, Set{Symbol}(), __module__)
+end
+
+macro trace(expr::Expr)
+    return Expr(:gentrace, esc(expr), nothing)
+end
+
+macro trace(expr::Expr, addr)
+    return Expr(:gentrace, esc(expr), Some(addr))
+end
+
+macro param(expr::Expr)
+    if (expr.head != :(::)) error("Syntax in error in @param at $(expr)") end
+    name, type = expr.args
+    return Expr(:genparam, esc(name), esc(type))
+end
+
+macro param(sym::Symbol)
+    return Expr(:genparam, esc(sym), esc(:Any))
 end

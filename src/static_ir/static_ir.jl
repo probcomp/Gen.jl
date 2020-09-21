@@ -51,14 +51,14 @@ function generate_generative_function(ir::StaticIR, name::Symbol, options::Stati
             params_grad::Dict{Symbol,Any}
             params::Dict{Symbol,Any}
         end
-        (gen_fn::$gen_fn_type_name)(args...) = propose(gen_fn, args)[3]
-        $(Expr(:(.), Gen, QuoteNode(:get_ir)))(::Type{$gen_fn_type_name}) = $(QuoteNode(ir))
-        $(Expr(:(.), Gen, QuoteNode(:get_trace_type)))(::Type{$gen_fn_type_name}) = $trace_struct_name
-        $(Expr(:(.), Gen, QuoteNode(:has_argument_grads)))(::$gen_fn_type_name) = $(QuoteNode(has_argument_grads))
-        $(Expr(:(.), Gen, QuoteNode(:accepts_output_grad)))(::$gen_fn_type_name) = $(QuoteNode(accepts_output_grad))
-        $(Expr(:(.), Gen, QuoteNode(:get_gen_fn)))(trace::$trace_struct_name) = $(Expr(:(.), :trace, QuoteNode(static_ir_gen_fn_ref)))
-        $(Expr(:(.), Gen, QuoteNode(:get_gen_fn_type)))(::Type{$trace_struct_name}) = $gen_fn_type_name
-        $(Expr(:(.), Gen, QuoteNode(:get_options)))(::Type{$gen_fn_type_name}) = $(QuoteNode(options))
+        (gen_fn::$gen_fn_type_name)(args...) = $(GlobalRef(Gen, :propose))(gen_fn, args)[3]
+        $(GlobalRef(Gen, :get_ir))(::Type{$gen_fn_type_name}) = $(QuoteNode(ir))
+        $(GlobalRef(Gen, :get_trace_type))(::Type{$gen_fn_type_name}) = $trace_struct_name
+        $(GlobalRef(Gen, :has_argument_grads))(::$gen_fn_type_name) = $(QuoteNode(has_argument_grads))
+        $(GlobalRef(Gen, :accepts_output_grad))(::$gen_fn_type_name) = $(QuoteNode(accepts_output_grad))
+        $(GlobalRef(Gen, :get_gen_fn))(trace::$trace_struct_name) = $(Expr(:(.), :trace, QuoteNode(static_ir_gen_fn_ref)))
+        $(GlobalRef(Gen, :get_gen_fn_type))(::Type{$trace_struct_name}) = $gen_fn_type_name
+        $(GlobalRef(Gen, :get_options))(::Type{$gen_fn_type_name}) = $(QuoteNode(options))
     end
     Expr(:block, trace_defns, gen_fn_defn, Expr(:call, gen_fn_type_name, :(Dict{Symbol,Any}()), :(Dict{Symbol,Any}())))
 end
@@ -73,31 +73,6 @@ include("render_ir.jl")
 const trace = gensym("trace")
 const weight = gensym("weight")
 const subtrace = gensym("subtrace")
-
-# quoted values and function called in generated code (since generated code is
-# evaluted in the user's Main module, not Gen)
-const qn_isempty = QuoteNode(isempty)
-const qn_get_score = QuoteNode(get_score)
-const qn_get_retval = QuoteNode(get_retval)
-const qn_project = QuoteNode(project)
-const qn_logpdf = QuoteNode(logpdf)
-const qn_get_choices = QuoteNode(get_choices)
-const qn_random = QuoteNode(random)
-const qn_simulate = QuoteNode(simulate)
-const qn_generate = QuoteNode(generate)
-const qn_update = QuoteNode(update)
-const qn_regenerate = QuoteNode(regenerate)
-const qn_strip_diff = QuoteNode(strip_diff)
-const qn_get_diff = QuoteNode(get_diff)
-const qn_Diffed = QuoteNode(Diffed)
-const qn_unknown_change = QuoteNode(UnknownChange())
-const qn_no_change = QuoteNode(NoChange())
-const qn_get_internal_node = QuoteNode(get_internal_node)
-const qn_static_get_value = QuoteNode(static_get_value)
-const qn_static_get_submap = QuoteNode(static_get_submap)
-const qn_static_getindex = QuoteNode(static_getindex) # for getting a subselection
-const qn_empty_choice_map = QuoteNode(EmptyChoiceMap())
-const qn_empty_selection = QuoteNode(EmptySelection())
 
 include("simulate.jl")
 include("generate.jl")

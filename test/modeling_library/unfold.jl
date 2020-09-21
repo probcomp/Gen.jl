@@ -489,7 +489,7 @@
         end
 
         foo = Unfold(kernel)
-   
+
         std = 1.
         set_param!(kernel, :std, std)
 
