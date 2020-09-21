@@ -352,9 +352,10 @@ For example:
 end
 @transform f t1 to t2 begin
     x = ..
-    @tcall(x)
+    @tcall(g(x))
 end
 ```
+The callee transform function (`g` above) reads and writes to the same input and output traces as the caller transform function (`f` above). Note that the input and output traces can be assigned different names in the caller and the callee.
 
 The body of a transform reads the values of random choices at addresses in the input trace(s), performs computation using regular Julia code (provided this code can be differentiated with [ForwardDiff.jl](https://github.com/JuliaDiff/ForwardDiff.jl)) and writes valeus of random choices at addresses in the output trace(s).
 In the body [`@read`](@ref) expressions read a value from a particular address of an input trace:
