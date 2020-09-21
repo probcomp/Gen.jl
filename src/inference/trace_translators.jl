@@ -822,29 +822,22 @@ If `check` is enabled, then `observations` is a choice map containing the observ
 @with_kw struct SymmetricTraceTranslator{T <: Union{TraceTransformDSLProgram,Function}}
     q::GenerativeFunction
     q_args::Tuple = ()
-    f::T # an involution
+    involution::T # an involution
 end
 
 function symmetric_trace_translator_run_transform(
-        f::TraceTransformDSLProgram,
+        involution::TraceTransformDSLProgram,
         prev_model_trace::Trace, forward_proposal_trace::Trace,
         q::GenerativeFunction, q_args::Tuple)
-    first_pass_results = run_first_pass(f, prev_model_trace, forward_proposal_trace)
+    first_pass_results = run_first_pass(involution, prev_model_trace, forward_proposal_trace)
     (new_model_trace, log_model_weight, _, discard) = update(
         prev_model_trace, get_args(prev_model_trace),
         map((_) -> NoChange(), get_args(prev_model_trace)),
         first_pass_results.constraints)
     log_abs_determinant = jacobian_correction(
-        f, prev_model_trace, forward_proposal_trace, first_pass_results, discard)
+        involution, prev_model_trace, forward_proposal_trace, first_pass_results, discard)
     backward_proposal_trace, = generate(
         q, (new_model_trace, q_args...), first_pass_results.u_back)
-    return (new_model_trace, backward_proposal_trace, log_abs_determinant)
-end
-
-function symmetric_trace_translator_run_transform(
-        f::Function,
-        prev_model_trace::Trace, forward_proposal_trace::Trace,
-        q::GenerativeFunction, q_args::Tuple)
     return (new_model_trace, backward_proposal_trace, log_abs_determinant)
 end
 
@@ -878,7 +871,7 @@ function (translator::SymmetricTraceTranslator{TraceTransformDSLProgram})(
     return (new_model_trace, log_weight)
 end
 
-function (translator::SymmetricTraceTranslator{Function})(
+function (translator::SymmetricTraceTranslator{<:Function})(
         prev_model_trace::Trace; check=false, observations=EmptyChoiceMap())
 
     forward_trace = simulate(translator.q, (prev_model_trace, translator.q_args...,))
