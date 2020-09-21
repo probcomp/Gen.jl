@@ -805,9 +805,11 @@ end
     translator = SymmetricTraceTranslator(;
         q::GenerativeFunction,
         q_args::Tuple = (),
-        f::TraceTransformDSLProgram)
+        involution::Union{TraceTransformDSLProgram,Function})
 
 Constructor for a symmetric trace translator.
+
+The involution is either constructed via the [`@transform`](@ref) macro (recommended), or can be provided as a Julia function.
 
 Run the translator with:
 
@@ -817,10 +819,10 @@ Use `check` to enable the involution check (this requires that the transform `f`
 
 If `check` is enabled, then `observations` is a choice map containing the observed random choices, and the check will additionally ensure they are not mutated by the involution.
 """
-@with_kw struct SymmetricTraceTranslator
+@with_kw struct SymmetricTraceTranslator{T <: Union{TraceTransformDSLProgram,Function}}
     q::GenerativeFunction
     q_args::Tuple = ()
-    f::TraceTransformDSLProgram # an involution
+    f::T # an involution
 end
 
 function symmetric_trace_translator_run_transform(
@@ -839,14 +841,22 @@ function symmetric_trace_translator_run_transform(
     return (new_model_trace, backward_proposal_trace, log_abs_determinant)
 end
 
-function (translator::SymmetricTraceTranslator)(prev_model_trace::Trace; check=false, observations=EmptyChoiceMap())
+function symmetric_trace_translator_run_transform(
+        f::Function,
+        prev_model_trace::Trace, forward_proposal_trace::Trace,
+        q::GenerativeFunction, q_args::Tuple)
+    return (new_model_trace, backward_proposal_trace, log_abs_determinant)
+end
+
+function (translator::SymmetricTraceTranslator{TraceTransformDSLProgram})(
+        prev_model_trace::Trace; check=false, observations=EmptyChoiceMap())
 
     # simulate from auxiliary program
     forward_proposal_trace = simulate(translator.q, (prev_model_trace, translator.q_args...,))
 
     # apply trace transform
     (new_model_trace, backward_proposal_trace, log_abs_determinant) = symmetric_trace_translator_run_transform(
-        translator.f, prev_model_trace, forward_proposal_trace, translator.q, translator.q_args)
+        translator.involution, prev_model_trace, forward_proposal_trace, translator.q, translator.q_args)
 
     # compute log weight
     prev_model_score = get_score(prev_model_trace)
@@ -859,7 +869,7 @@ function (translator::SymmetricTraceTranslator)(prev_model_trace::Trace; check=f
         check_observations(get_choices(new_model_trace), observations)
         forward_proposal_choices = get_choices(forward_proposal_trace)
         (prev_model_trace_rt, forward_proposal_trace_rt, _) = symmetric_trace_translator_run_transform(
-            translator.f, new_model_trace, backward_proposal_trace, translator.q, translator.q_args)
+            translator.involution, new_model_trace, backward_proposal_trace, translator.q, translator.q_args)
         check_round_trip(
             prev_model_trace, prev_model_trace_rt,
             forward_proposal_trace, forward_proposal_trace_rt)
@@ -867,6 +877,33 @@ function (translator::SymmetricTraceTranslator)(prev_model_trace::Trace; check=f
 
     return (new_model_trace, log_weight)
 end
+
+function (translator::SymmetricTraceTranslator{Function})(
+        prev_model_trace::Trace; check=false, observations=EmptyChoiceMap())
+
+    forward_trace = simulate(translator.q, (prev_model_trace, translator.q_args...,))
+    forward_score = get_score(forward_trace)
+    forward_choices = get_choices(forward_trace)
+    forward_retval = get_retval(forward_trace)
+    (new_model_trace, backward_choices, log_weight) = translator.involution(
+        prev_model_trace, forward_choices, forward_retval, translator.q_args)
+    (backward_score, backward_retval) = assess(translator.q, (new_model_trace, translator.q_args...), backward_choices) 
+
+    log_weight += (backward_score - forward_score)
+
+    if check
+        check_observations(get_choices(new_model_trace), observations)
+        (prev_model_trace_rt, forward_choices_rt, _) = translator.involution(
+            new_model_trace, backward_choices, backward_retval, translator.q_args)
+        (forward_trace_rt, _) = generate(translator.q, (prev_model_trace, translator.q_args...), forward_choices_rt)
+        check_round_trip(
+            prev_model_trace, prev_model_trace_rt,
+            forward_trace, forward_trace_rt)
+    end
+
+    return (new_model_trace, log_weight)
+end
+
 
 export @transform
 export @read, @write, @copy, @tcall

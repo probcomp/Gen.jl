@@ -63,16 +63,15 @@ end
 
 """
     (new_trace, accepted) = metropolis_hastings(
-        trace, proposal::GenerativeFunction, proposal_args::Tuple, involution;
+        trace, proposal::GenerativeFunction, proposal_args::Tuple,
+        involution::Union{TraceTransformDSLProgram,Function};
         check=false, observations=EmptyChoiceMap())
 
 Perform a generalized (reversible jump) Metropolis-Hastings update based on an involution (bijection that is its own inverse) on a space of choice maps, returning the new trace (which is equal to the previous trace if the move was not accepted) and a Bool indicating whether the move was accepted or not.
 
-The `involution` is a callable value that has the following signature:
+Most users will want to construct `involution` using the [Trace Transform DSL](@ref) with the [`@transform`](@ref) macro, but for more user control it is also possible to provide a Julia function for `involution`, that has the following signature:
 
-    (new_trace, bwd_choices::ChoiceMap, weight) = involution(trace::Trace, fwd_trace::Trace; check::Bool=false)
-
-Most users will want to construct `involution` using the [Trace Transform DSL](@ref) with the [`@bijection`](@ref) macro, but is also possible to provide a Julia function for `involution`.
+    (new_trace, bwd_choices::ChoiceMap, weight) = involution(trace::Trace, fwd_choices::ChoiceMap, fwd_retval, fwd_args::Tuple)
 
 The generative function `proposal` is executed on arguments `(trace, proposal_args...)`, producing a choice map `fwd_choices` and return value `fwd_ret`.
 For each value of model arguments (contained in `trace`) and `proposal_args`, the `involution` function applies an involution that maps the tuple `(get_choices(trace), fwd_choices)` to the tuple `(get_choices(new_trace), bwd_choices)`.
@@ -85,7 +84,7 @@ The `check` keyword argument to the involution can be used to enable or disable 
 """
 function metropolis_hastings(
         trace, proposal::GenerativeFunction,
-        proposal_args::Tuple, involution::TraceTransformDSLProgram;
+        proposal_args::Tuple, involution::Union{TraceTransformDSLProgram,Function};
         check=false, observations=EmptyChoiceMap())
     trace_translator = SymmetricTraceTranslator(proposal, proposal_args, involution)
     (new_trace, log_weight) = trace_translator(trace; check=check, observations=observations)
