@@ -246,16 +246,20 @@ end
 struct FirstPassState
 
     "trace containing the input model choice map ``t``"
-    model_trace
+    model_trace::Trace
+    model_choices::ChoiceMap
 
     "the input proposal choice map ``u``"
-    aux_trace
+    aux_trace::Trace
+    aux_choices::ChoiceMap
 
     results::FirstPassResults
 end
 
 function FirstPassState(model_trace, aux_trace)
-    return FirstPassState(model_trace, aux_trace, FirstPassResults())
+    return FirstPassState(
+        model_trace, get_choices(model_trace),
+        aux_trace, get_choices(aux_trace), FirstPassResults())
 end
 
 function run_first_pass(transform::TraceTransformDSLProgram, model_trace, aux_trace)
@@ -279,7 +283,7 @@ end
 
 function read(state::FirstPassState, src::ModelInputAddress, ::ContinuousAnn)
     addr = src.addr
-    state.results.t_cont_reads[addr] = state.model_trace[addr]
+    state.results.t_cont_reads[addr] = state.model_choices[addr]
     return state.model_trace[addr]
 end
 
@@ -290,7 +294,7 @@ end
 
 function read(state::FirstPassState, src::AuxInputAddress, ::ContinuousAnn)
     addr = src.addr
-    state.results.u_cont_reads[addr] = state.aux_trace[addr]
+    state.results.u_cont_reads[addr] = state.aux_choices[addr]
     return state.aux_trace[addr]
 end
 
