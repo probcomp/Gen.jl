@@ -138,13 +138,11 @@ the internal proposal.
 """
 function particle_filter_step!(state::ParticleFilterState{U}, new_args::Tuple, argdiffs::Tuple,
         observations::ChoiceMap, proposal::GenerativeFunction, proposal_args::Tuple) where {U}
+    trace_translator = SimpleExtendingTraceTranslator(new_args, argdiffs, observations, proposal, proposal_args)
     num_particles = length(state.traces)
     for i=1:num_particles
-        (prop_choices, prop_weight, _) = propose(proposal, (state.traces[i], proposal_args...))
-        constraints = merge(observations, prop_choices)
-        (state.new_traces[i], up_weight, _, disc) = update(state.traces[i], new_args, argdiffs, constraints)
-        @assert isempty(disc)
-        state.log_weights[i] += up_weight - prop_weight
+        (state.new_traces[i], log_weight) = trace_translator(state.traces[i])
+        state.log_weights[i] += log_weight
     end
 
     # swap references

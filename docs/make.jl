@@ -16,10 +16,12 @@ makedocs(
             "Choice Maps" => "ref/choice_maps.md",
             "Selections" => "ref/selections.md",
             "Optimizing Trainable Parameters" => "ref/parameter_optimization.md",
+            "Trace Translators" => "ref/trace_translators.md",
             "Extending Gen" => "ref/extending.md"
          ],
         "Standard Inference Library" => [
             "Importance Sampling" => "ref/importance.md",
+            "MAP Optimization" => "ref/map.md",
             "Markov chain Monte Carlo" => "ref/mcmc.md",
             "MAP Optimization" => "ref/map.md",
             "Particle Filtering" => "ref/pf.md",

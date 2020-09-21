@@ -43,26 +43,27 @@ function split_mean(m, u)
     (m1, m2)
 end
 
-@involution function split_merge_involution(
-        model_args, proposal_args, proposal_retval)
-    if @read_discrete_from_model(:z)
+@transform split_merge_involution (model_in, aux_in) to (model_out, aux_out) begin
+    if @read(model_in[:z], :discrete)
         # currently two means, switch to one
-        @write_discrete_to_model(:z, false)
-        m1 = @read_continuous_from_model(:m1)
-        m2 = @read_continuous_from_model(:m2)
+        @write(model_out[:z], false, :discrete)
+        m1 = @read(model_in[:m1], :continuous)
+        m2 = @read(model_in[:m2], :continuous)
         (m, u) = merge_mean(m1, m2)
-        @write_continuous_to_model(:m, m)
-        @write_continuous_to_proposal(:u, u)
+        @write(model_out[:m], m, :continuous)
+        @write(aux_out[:u], u, :continuous)
     else
         # currently one mean, switch to two
-        @write_discrete_to_model(:z, true)
-        m = @read_continuous_from_model(:m)
-        u = @read_continuous_from_proposal(:u)
+        @write(model_out[:z], true, :discrete)
+        m = @read(model_in[:m], :continuous)
+        u = @read(aux_in[:u], :continuous)
         (m1, m2) = split_mean(m, u)
-        @write_continuous_to_model(:m1, m1)
-        @write_continuous_to_model(:m2, m2)
+        @write(model_out[:m1], m1, :continuous)
+        @write(model_out[:m2], m2, :continuous)
     end
 end
+
+is_involution!(split_merge_involution)
 
 function do_inference_simple(y1, y2)
     trace, = generate(model, (), choicemap((:y1, y1), (:y2, y2), (:z, false), (:m, 1.2)))
@@ -103,48 +104,37 @@ y1, y2 = (1.0, 1.3)
 (zs, m, m1, m2) = do_inference_rjmcmc(y1, y2)
 println(zs)
 
-function plots()
+using Plots
+
+function make_plots()
     Random.seed!(2)
-
-    figure(figsize=(6, 3))
-
-    subplot(2, 2, 1)
+    
     y1, y2 = (1.0, 1.3)
     (zs, m, m1, m2) = do_inference_rjmcmc(y1, y2)
-    plot(m, label="m")
-    plot(m1, label="m1")
-    plot(m2, label="m2")
-    title("Involution MH (RJMCMC)")
-    legend(loc="lower right")
-    gca().set_ylim(0.5, 1.5)
-
-    subplot(2, 2, 3)
-    plot(zs, label="z", color="black")
-    xlabel("\\# MCMC moves")
-    legend(loc="center right")
-    yticks(ticks=[0, 1], labels=["F", "T"])
-    gca().set_ylim(-0.1, 1.1)
-
-    subplot(2, 2, 2)
+    p1 = plot(title="Involution MH (RJMCMC)", m, label="m")
+    plot!(m1, label="m1")
+    plot!(m2, label="m2")
+    ylims!(0.5, 1.5)
+    
+    p2 = plot(zs, label="z", color="black")
+    xlabel!("# MCMC moves")
+    yticks!([0, 1], ["F", "T"])
+    ylims!(-0.1, 1.1)
+    
     y1, y2 = (1.0, 1.3)
     (zs, m, m1, m2) = do_inference_simple(y1, y2)
-    plot(m, label="m")
-    plot(m1, label="m1")
-    plot(m2, label="m2")
-    title("Selection MH")
-    legend(loc="lower right")
-    gca().set_ylim(0.5, 1.5)
-
-    subplot(2, 2, 4)
-    plot(zs, label="z", color="black")
-    xlabel("\\# MCMC moves")
-    legend(loc="center right")
-    yticks(ticks=[0, 1], labels=["F", "T"])
-    gca().set_ylim(-0.1, 1.1)
-
-    tight_layout()
+    p3 = plot(title="Selection MH", m, label="m")
+    plot!(m1, label="m1")
+    plot!(m2, label="m2")
+    ylims!(0.5, 1.5)
+    
+    p4 = plot(zs, label="z", color="black")
+    xlabel!("# MCMC moves")
+    yticks!([0, 1], ["F", "T"])
+    ylims!(-0.1, 1.1)
+    
+    plot(p1, p3, p2, p4)
     savefig("rjmcmc.png")
 end
 
-using PyPlot
-plots()
+make_plots()
