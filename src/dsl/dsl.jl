@@ -61,6 +61,22 @@ function parse_arg(expr)
     arg
 end
 
+function resolve_grad_arg(arg, __module__)
+    # Ensure that differentiable arguments are supported by ReverseDiff
+    if !(DSL_ARG_GRAD_ANNOTATION in arg.annotations) return arg end
+    typ = Core.eval(__module__, arg.typ)
+    if typ <: Real
+        new_typ = :Real
+    elseif typ <: AbstractArray{<:Real} && IndexStyle(typ) == IndexLinear()
+        new_typ = :(AbstractArray{<:Real})
+    elseif Real <: typ || AbstractArray{<:Real} <: typ
+        new_typ = arg.typ
+    else
+        error("Type of $(arg.name)::$(arg.typ) does not support differentiation.")
+    end
+    return Argument(arg.name, new_typ, arg.annotations, arg.default)
+end
+
 include("dynamic.jl")
 include("static.jl")
 
@@ -124,23 +140,11 @@ end
 
 function parse_gen_function(ast, annotations, __module__)
     ast = MacroTools.longdef(ast)
-    if ast.head != :function
-        error("syntax error at $ast in $(ast.head)")
-    end
-    if length(ast.args) != 2
-        error("syntax error at $ast in $(ast.args)")
-    end
-    signature = ast.args[1]
-    if signature.head == :(::)
-        (call_signature, return_type) = signature.args
-    elseif signature.head == :call
-        (call_signature, return_type) = (signature, :Any)
-    else
-        error("syntax error at $(signature)")
-    end
-    body = preprocess_body(ast.args[2], __module__)
-    name = call_signature.args[1]
-    args = map(parse_arg, call_signature.args[2:end])
+    def = MacroTools.splitdef(ast)
+    name = def[:name]
+    args = def[:args] .|> parse_arg .|> a -> resolve_grad_arg(a, __module__)
+    body = preprocess_body(def[:body], __module__)
+    return_type = get(def, :rtype, :Any)
     static = DSL_STATIC_ANNOTATION in annotations
     if static
         make_static_gen_function(name, args, body, return_type, annotations)

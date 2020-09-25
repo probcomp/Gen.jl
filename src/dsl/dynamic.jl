@@ -2,12 +2,12 @@ const DYNAMIC_DSL_TRACE = Symbol("@trace")
 
 "Convert Argument structs to ASTs."
 function arg_to_ast(arg::Argument)
-    ast = esc(arg.name)
+    ast = Expr(:(::), esc(arg.name), esc(arg.typ))
     if (arg.default != nothing)
         default = something(arg.default)
         ast = Expr(:kw, ast, esc(default))
     end
-    ast
+    return ast
 end
 
 "Escape argument defaults (if present)."
@@ -41,8 +41,8 @@ function make_dynamic_gen_function(name, args, body, return_type, annotations)
         esc(body))
     arg_types = map((arg) -> esc(arg.typ), args)
     arg_defaults = map(escape_default, args)
-    has_argument_grads = map(
-        (arg) -> (DSL_ARG_GRAD_ANNOTATION in arg.annotations), args)
+    has_argument_grads =
+        map((arg) -> (DSL_ARG_GRAD_ANNOTATION in arg.annotations), args)
     accepts_output_grad = DSL_RET_GRAD_ANNOTATION in annotations
 
     quote
