@@ -142,13 +142,14 @@ function parse_gen_function(ast, annotations, __module__)
     ast = MacroTools.longdef(ast)
     def = MacroTools.splitdef(ast)
     name = def[:name]
-    args = def[:args] .|> parse_arg .|> a -> resolve_grad_arg(a, __module__)
+    args = map(parse_arg, def[:args])
     body = preprocess_body(def[:body], __module__)
     return_type = get(def, :rtype, :Any)
     static = DSL_STATIC_ANNOTATION in annotations
     if static
         make_static_gen_function(name, args, body, return_type, annotations)
     else
+        args = map(a -> resolve_grad_arg(a, __module__), args)
         make_dynamic_gen_function(name, args, body, return_type, annotations)
     end
 end
