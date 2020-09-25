@@ -1,4 +1,4 @@
-@testset begin "dynamic selection"
+@testset "dynamic selection" begin
 
     s = select(:x, :y => :z, :y => :w)
 
@@ -33,7 +33,7 @@
     @test !(:x in selection)
 end
 
-@testset begin "all selection"
+@testset "all selection" begin
 
     s = selectall()
 
@@ -46,7 +46,7 @@ end
     @test s[:x => :y] == AllSelection()
 end
 
-@testset begin "complement selection"
+@testset "complement selection" begin
 
     @test !(:x in complement(selectall()))
     @test :x in complement(select())
