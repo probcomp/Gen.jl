@@ -500,6 +500,18 @@ load_generated_functions()
 
 end
 
+@testset "'return nothing'" begin
+
+@gen (static) function foo()
+    return nothing
+end
+
+load_generated_functions()
+
+@test foo() == nothing
+
+end
+
 @testset "getindex(trace)" begin
 
 @gen (static) function bar(r)
