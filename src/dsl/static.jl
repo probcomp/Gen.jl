@@ -185,16 +185,9 @@ end
 
 "Parse a return line and add corresponding return node."
 function parse_return_line!(stmts, bindings, expr)
-    if isa(expr, Symbol)
-        if !haskey(bindings, expr)
-            error("Tried to return $expr, which is not a locally bound variable")
-        end
-        node = bindings[expr]
-    else
-        name, typ = gensym("return"), QuoteNode(Any)
-        node = parse_julia_expr!(stmts, bindings, name, expr, typ)
-        bindings[name] = node
-    end
+    name, typ = gensym("return"), QuoteNode(Any)
+    node = parse_julia_expr!(stmts, bindings, name, expr, typ)
+    bindings[name] = node
     push!(stmts, :(set_return_node!(builder, $(esc(node)))))
     return Expr(:return, expr)
 end
