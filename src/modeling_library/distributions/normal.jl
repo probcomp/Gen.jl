@@ -54,9 +54,8 @@ Float64
 const broadcasted_normal = BroadcastedNormal()
 
 function logpdf(::Normal, x::Real, mu::Real, std::Real)
-    var = std * std
-    diff = x - mu
-    -(diff * diff)/ (2.0 * var) - 0.5 * log(2.0 * pi * var)
+    z = (x - mu) / std
+    - (abs2(z) + log(2π))/2 - log(std)
 end
 
 function logpdf(::BroadcastedNormal,
@@ -65,17 +64,17 @@ function logpdf(::BroadcastedNormal,
                 std::Union{AbstractArray{<:Real}, Real})
     assert_has_shape(x, broadcast_shapes_or_crash(mu, std);
                      msg="Shape of `x` does not agree with the sample space")
+    z = (x .- mu) ./ std
     var = std .* std
     diff = x .- mu
-    sum(-(diff .* diff) ./ (2.0 * var) .- 0.5 * log.(2.0 * pi * var))
+    sum(- (abs2.(z) .+ log(2π)) / 2 - log.(std))
 end
 
 function logpdf_grad(::Normal, x::Real, mu::Real, std::Real)
-    precision = 1. / (std * std)
-    diff = mu - x
-    deriv_x = diff * precision
+    z = (x - mu) / std
+    deriv_x = - z / std
     deriv_mu = -deriv_x
-    deriv_std = -1. / std + (diff * diff) / (std * std * std)
+    deriv_std = -1. / std + abs2(z) / std
     (deriv_x, deriv_mu, deriv_std)
 end
 
@@ -85,11 +84,12 @@ function logpdf_grad(::BroadcastedNormal,
                      std::Union{AbstractArray{<:Real}, Real})
     assert_has_shape(x, broadcast_shapes_or_crash(mu, std);
                      msg="Shape of `x` does not agree with the sample space")
+    z = (x .- mu) ./ std
     precision = 1.0 ./ (std .* std)
     diff = mu .- x
-    deriv_x = sum(diff .* precision)
-    deriv_mu = sum(-deriv_x)
-    deriv_std = sum(-1.0 ./ std .+ (diff .* diff) ./ (std .* std .* std))
+    deriv_x = sum(- z ./ std)
+    deriv_mu = -deriv_x
+    deriv_std = sum(-1. ./ std .+ abs2(z) ./ std)
     (deriv_x, deriv_mu, deriv_std)
 end
 
