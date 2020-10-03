@@ -104,6 +104,10 @@ end
     # random
     x = normal(0, 1)
 
+    # does not overflow
+    @test logpdf(normal, 10000000000000, 0, 1) == -5e25
+    @test logpdf_grad(normal, 10000000000000, 0, 1) == (-1e13, 1e13, 1e26)
+
     # logpdf_grad
     f = (x, mu, std) -> logpdf(normal, x, mu, std)
     args = (0.4, 0.2, 0.3)

@@ -67,7 +67,7 @@ function logpdf(::BroadcastedNormal,
     z = (x .- mu) ./ std
     var = std .* std
     diff = x .- mu
-    sum(- (abs2.(z) .+ log(2π)) / 2 - log.(std))
+    sum(- (abs2.(z) .+ log(2π)) / 2 .- log.(std))
 end
 
 function logpdf_grad(::Normal, x::Real, mu::Real, std::Real)
@@ -89,7 +89,7 @@ function logpdf_grad(::BroadcastedNormal,
     diff = mu .- x
     deriv_x = sum(- z ./ std)
     deriv_mu = -deriv_x
-    deriv_std = sum(-1. ./ std .+ abs2(z) ./ std)
+    deriv_std = sum(-1. ./ std .+ abs2.(z) ./ std)
     (deriv_x, deriv_mu, deriv_std)
 end
 
