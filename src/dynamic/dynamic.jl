@@ -45,13 +45,17 @@ end
 
 accepts_output_grad(gen_fn::DynamicDSLFunction) = gen_fn.accepts_output_grad
 
-function (gen_fn::DynamicDSLFunction)(args...)
-    (_, _, retval) = propose(gen_fn, args)
-    retval
+mutable struct GFUntracedState
+    params::Dict{Symbol,Any}
 end
 
-function exec(gf::DynamicDSLFunction, state, args::Tuple)
-    gf.julia_function(state, args...)
+function (gen_fn::DynamicDSLFunction)(args...)
+    state = GFUntracedState(gen_fn.params)
+    gen_fn.julia_function(state, args...)
+end
+
+function exec(gen_fn::DynamicDSLFunction, state, args::Tuple)
+    gen_fn.julia_function(state, args...)
 end
 
 # whether there is a gradient of score with respect to each argument
@@ -75,6 +79,13 @@ function dynamic_trace_impl(expr::Expr)
         return Expr(:call, GlobalRef(@__MODULE__, :splice), state, fn, args)
     end
 end
+
+# Defaults for untraced execution
+@inline traceat(state::GFUntracedState, gen_fn::GenerativeFunction{T,U}, args, key) where {T,U} =
+    gen_fn(args...)
+
+@inline traceat(state::GFUntracedState, dist::Distribution{T}, args, key) where {T} =
+    random(dist, args...)
 
 ########################
 # trainable parameters #
