@@ -81,10 +81,10 @@ function dynamic_trace_impl(expr::Expr)
 end
 
 # Defaults for untraced execution
-@inline traceat(state::GFUntracedState, gen_fn::GenerativeFunction{T,U}, args, key) where {T,U} =
+@inline traceat(state::GFUntracedState, gen_fn::GenerativeFunction, args, key) =
     gen_fn(args...)
 
-@inline traceat(state::GFUntracedState, dist::Distribution{T}, args, key) where {T} =
+@inline traceat(state::GFUntracedState, dist::Distribution, args, key) =
     random(dist, args...)
 
 ########################
