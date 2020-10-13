@@ -366,7 +366,10 @@ the values of these choices:
 ```math
 ∇_A \\left( \\log P(t; x) + J \\right)
 ```
-Also return the assignment (`choice_values`) that is the restriction of \$t\$ to \$A\$.
+The gradient is represented as a choicemap whose value at (hierarchical)
+address `addr` is \$∂J/∂t[\\texttt{addr}]\$.
+
+Also return the choicemap (`choice_values`) that is the restriction of \$t\$ to \$A\$.
 """
 function choice_gradients(trace, selection::Selection, retgrad)
     error("Not implemented")
