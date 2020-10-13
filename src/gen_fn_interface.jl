@@ -277,6 +277,19 @@ function update(trace, args::Tuple, argdiffs::Tuple, ::ChoiceMap)
 end
 
 """
+    (new_trace, weight, retdiff, discard) = update(trace, constraints::ChoiceMap)
+
+Shorthand variant of
+[`update`](@ref update(::Any, ::Tuple, ::Tuple, ::ChoiceMap))
+which assumes the arguments are unchanged.
+"""
+function update(trace, constraints::ChoiceMap)
+    args = get_args(trace)
+    argdiffs = Tuple(NoChange() for _ in args)
+    return update(trace, args, argdiffs, constraints)
+end
+
+"""
     (new_trace, weight, retdiff) = regenerate(trace, args::Tuple, argdiffs::Tuple,
                                               selection::Selection)
 
