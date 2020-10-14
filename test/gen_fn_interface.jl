@@ -1,12 +1,13 @@
-f_dynamic = (@gen function f(x, y)
-                 z ~ normal(0, 1)
-                 return x + y + z
-             end)
-f_static  = (@gen (static) function f(x, y)
-                 z ~ normal(0, 1)
-                 return x + y + z
-             end)
+@gen function f_dynamic(x, y)
+    z ~ normal(0, 1)
+    return x + y + z
+end
+@gen (static) function f_static(x, y)
+    z ~ normal(0, 1)
+    return x + y + z
+end
 @load_generated_functions()
+
 for (lang, f) in [:dynamic => f_dynamic,
                   :static  => f_static]
     @testset "update(...) shorthand assuming unchanged args ($lang modeling lang)" begin
