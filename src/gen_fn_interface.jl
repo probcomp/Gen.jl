@@ -321,6 +321,19 @@ function regenerate(trace, args::Tuple, argdiffs::Tuple, selection::Selection)
 end
 
 """
+    (new_trace, weight, retdiff) = regenerate(trace, selection::Selection)
+
+Shorthand variant of
+[`regenerate`](@ref regenerate(::Any, ::Tuple, ::Tuple, ::Selection))
+which assumes the arguments are unchanged.
+"""
+function regenerate(trace, selection::Selection)
+    args = get_args(trace)
+    argdiffs = Tuple(NoChange() for _ in args)
+    return regenerate(trace, args, argdiffs, selection)
+end
+
+"""
     arg_grads = accumulate_param_gradients!(trace, retgrad=nothing, scale_factor=1.)
 
 Increment gradient accumulators for parameters by the gradient of the
