@@ -23,12 +23,7 @@ let f_dynamic = (@gen function f(x, y)
         end
 
         @testset "regenerate(...) shorthand assuming unchanged args ($lang modeling lang)" begin
-            @gen function f(x, y)
-                z ~ normal(0, 1)
-                return x + y + z
-            end
             trace0 = simulate(f, (5, 6))
-
             trace1, _, _ = regenerate(trace0, select(:z))
             # The main test is that the shorthand version runs without crashing,
             # which is already shown by the time we get here.  Beyond that, let's
