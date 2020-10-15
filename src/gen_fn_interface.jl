@@ -277,6 +277,19 @@ function update(trace, args::Tuple, argdiffs::Tuple, ::ChoiceMap)
 end
 
 """
+    (new_trace, weight, retdiff, discard) = update(trace, constraints::ChoiceMap)
+
+Shorthand variant of
+[`update`](@ref update(::Any, ::Tuple, ::Tuple, ::ChoiceMap))
+which assumes the arguments are unchanged.
+"""
+function update(trace, constraints::ChoiceMap)
+    args = get_args(trace)
+    argdiffs = Tuple(NoChange() for _ in args)
+    return update(trace, args, argdiffs, constraints)
+end
+
+"""
     (new_trace, weight, retdiff) = regenerate(trace, args::Tuple, argdiffs::Tuple,
                                               selection::Selection)
 
@@ -305,6 +318,19 @@ over-written by the default argument value in the regenerated trace.
 """
 function regenerate(trace, args::Tuple, argdiffs::Tuple, selection::Selection)
     error("Not implemented")
+end
+
+"""
+    (new_trace, weight, retdiff) = regenerate(trace, selection::Selection)
+
+Shorthand variant of
+[`regenerate`](@ref regenerate(::Any, ::Tuple, ::Tuple, ::Selection))
+which assumes the arguments are unchanged.
+"""
+function regenerate(trace, selection::Selection)
+    args = get_args(trace)
+    argdiffs = Tuple(NoChange() for _ in args)
+    return regenerate(trace, args, argdiffs, selection)
 end
 
 """
