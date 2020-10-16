@@ -426,7 +426,10 @@ This will produce a file `test.pdf` in the current working directory containing 
 
 ### Restrictions
 
-In order to be able to construct the static graph, Gen restricts the permitted syntax that can be used in functions annotated with `static`.
+First, the definition of a `(static)` generative function is always expected to occur as a [top-level definition](https://docs.julialang.org/en/v1/manual/modules/) (aka global variable); usage in non–top-level scopes is unsupported and may result in incorrect behavior.
+Recall also that the macro [`@load_generated_functions`](@ref) is expected to be called as a top-level expression only.
+
+Next, in order to be able to construct the static graph, Gen restricts the permitted syntax that can be used in functions annotated with `static`.
 In particular, each statement in the body must be one of the following:
 
 - A `@param` statement specifying any [Trainable parameters](@ref), e.g.:
