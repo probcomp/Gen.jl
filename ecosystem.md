@@ -35,6 +35,9 @@ Building blocks for basic and advanced particle filtering.
 #### [GenPseudoMarginal](https://github.com/probcomp/GenPseudoMarginal.jl)
 Building blocks for [modular probabilistic inference](https://arxiv.org/abs/1612.04759) using pseudo-marginal Monte Carlo algorithms.
 
+#### [GenVariableElimination](https://github.com/probcomp/GenVariableElimination.jl)
+Compile portions of traces into factor graphs and use variable elimination on them.
+
 <br>
 <hr> 
 
