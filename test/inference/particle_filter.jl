@@ -31,7 +31,7 @@ end
     # test the hmm_forward_alg on a hand-calculated example
     prior = [0.4, 0.6]
     emission_dists = [0.1 0.9; 0.7 0.3]'
-    transition_dists = [0.5 0.5; 0.2 0.8']
+    transition_dists = [0.5 0.5; 0.2 0.8]'
     obs = [2, 1]
     expected_marg_lik = 0.
     # z = [1, 1]
@@ -114,7 +114,7 @@ end
 
     # do particle filter steps
 
-    @gen function step_proposal(prev_trace, T::Int, x::Float64)
+    @gen function step_proposal(prev_trace, T::Int, x::Int)
         @assert T > 1
         choices = get_choices(prev_trace)
         if T > 2
