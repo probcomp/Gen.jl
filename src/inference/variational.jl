@@ -5,18 +5,18 @@ function single_sample_gradient_estimate!(
         scale_factor=1.)
 
     # sample from variational approximation
-    trace = simulate(var_model, var_model_args)
+    var_trace = simulate(var_model, var_model_args)
 
     # compute learning signal
-    constraints = merge(observations, get_choices(trace)) # TODO characterize what it means when not all var_model choices are in the model..
-    (model_log_weight, _) = assess(model, model_args, constraints)
-    log_weight = model_log_weight - get_score(trace)
+    constraints = merge(observations, get_choices(var_trace)) # TODO characterize what it means when not all var_model choices are in the model..
+    (model_trace, model_log_weight) = generate(model, model_args, constraints)
+    log_weight = model_log_weight - get_score(var_trace)
 
     # accumulate the weighted gradient
-    accumulate_param_gradients!(trace, nothing, log_weight * scale_factor)
+    accumulate_param_gradients!(var_trace, nothing, log_weight * scale_factor)
 
     # unbiased estimate of objective function, and trace
-    (log_weight, trace)
+    (log_weight, var_trace, model_trace)
 end
 
 function vimco_geometric_baselines(log_weights)
@@ -88,13 +88,17 @@ function multi_sample_gradient_estimate!(
     (L, traces, weights_normalized)
 end
 
+_maybe_accumulate_param_grad!(trace, update::ParamUpdate) = accumulate_param_gradients!(trace, nothing)
+_maybe_accumulate_param_grad!(trace, update::Nothing) = begin end
+
 """
     (elbo_estimate, traces, elbo_history) = black_box_vi!(
         model::GenerativeFunction, args::Tuple,
         observations::ChoiceMap,
         var_model::GenerativeFunction, var_model_args::Tuple,
-        update::ParamUpdate;
-        iters=1000, samples_per_iter=100, verbose=false)
+        variational_family_update::ParamUpdate;
+        iters=1000, samples_per_iter=100, verbose=false,
+        generative_model_update::Union{ParamUpdate,Nothing}=nothing)
 
 Fit the parameters of a generative function (`var_model`) to the posterior distribution implied by the given model and observations using stochastic gradient methods.
 """
@@ -102,35 +106,48 @@ function black_box_vi!(
         model::GenerativeFunction, model_args::Tuple,
         observations::ChoiceMap,
         var_model::GenerativeFunction, var_model_args::Tuple,
-        update::ParamUpdate;
-        iters=1000, samples_per_iter=100, verbose=false)
+        variational_family_update::ParamUpdate;
+        iters=1000, samples_per_iter=100, verbose=false,
+        generative_model_update::Union{ParamUpdate,Nothing}=nothing)
 
-    traces = Vector{Any}(undef, samples_per_iter)
+    var_traces = Vector{Any}(undef, samples_per_iter)
+    model_traces = Vector{Any}(undef, samples_per_iter)
     elbo_history = Vector{Float64}(undef, iters)
     for iter=1:iters
 
         # compute gradient estimate and objective function estimate
-        elbo_estimate = 0.
-        # TODO multithread
+        elbo_estimate = 0.0
+        # TODO multithread (note that this would require accumulate_param_gradients! to be threadsafe)
         for sample=1:samples_per_iter
-            (log_weight, trace) = single_sample_gradient_estimate!(
+
+            # accumulate the variational family gradients
+            (log_weight, var_trace, model_trace) = single_sample_gradient_estimate!(
                 var_model, var_model_args,
                 model, model_args, observations, 1/samples_per_iter)
             elbo_estimate += (log_weight / samples_per_iter)
 
-            # record the model trace
-            traces[sample] = trace
+            # accumulate the generative model gradients
+            _maybe_accumulate_param_grad!(model_trace, generative_model_update)
+
+            # record the traces
+            var_traces[sample] = var_trace
+            model_traces[sample] = model_trace
         end
         elbo_history[iter] = elbo_estimate
 
         # print it
         verbose && println("iter $iter; est objective: $elbo_estimate")
 
-        # do an update
-        apply!(update)
+        # update parameters of variational family
+        apply!(variational_family_update)
+
+        # update parameters of generative model 
+        if !isnothing(generative_model_update)
+            apply!(generative_model_update)
+        end
     end
 
-    (elbo_history[end], traces, elbo_history)
+    (elbo_history[end], var_traces, elbo_history, model_traces)
 end
 
 """
@@ -138,8 +155,9 @@ end
         model::GenerativeFunction, args::Tuple,
         observations::ChoiceMap,
         var_model::GenerativeFunction, var_model_args::Tuple,
-        update::ParamUpdate, num_samples::Int;
-        iters=1000, samples_per_iter=100, verbose=false)
+        variational_family_update::ParamUpdate, num_samples::Int;
+        iters=1000, samples_per_iter=100, verbose=false,
+        generative_model_update::Union{ParamUpdate,Nothing}=nothing)
 
 Fit the parameters of a generative function (`var_model`) to the posterior distribution implied by the given model and observations using stochastic gradient methods applied to the [Variational Inference with Monte Carlo Objectives](https://arxiv.org/abs/1602.06725) lower bound on the marginal likelihood.
 """
@@ -147,36 +165,55 @@ function black_box_vimco!(
         model::GenerativeFunction, model_args::Tuple,
         observations::ChoiceMap,
         var_model::GenerativeFunction, var_model_args::Tuple,
-        update::ParamUpdate, num_samples::Int;
+        variational_family_update::ParamUpdate, num_samples::Int;
         iters=1000, samples_per_iter=100, verbose=false,
-        geometric=true)
+        geometric=true,
+        generative_model_update::Union{ParamUpdate,Nothing}=nothing)
 
-    traces = Vector{Any}(undef, samples_per_iter)
+    var_traces = Vector{Any}(undef, samples_per_iter)
+    model_traces = Vector{Any}(undef, samples_per_iter)
+
     iwelbo_history = Vector{Float64}(undef, iters)
     for iter=1:iters
 
         # compute gradient estimate and objective function estimate
         iwelbo_estimate = 0.
         for sample=1:samples_per_iter
-            (est, original_traces, weights) = multi_sample_gradient_estimate!(
+
+            # accumulate the variational family gradients
+            (est, original_var_traces, weights) = multi_sample_gradient_estimate!(
                 var_model, var_model_args,
                 model, model_args, observations, num_samples,
                 1/samples_per_iter, geometric)
             iwelbo_estimate += (est / samples_per_iter)
 
-            # record a model trace obtained by resampling from the weighted collection
-            traces[sample] = original_traces[categorical(weights)]
+            # record a variational trace obtained by resampling from the weighted collection
+            var_traces[sample] = original_var_traces[categorical(weights)]
+
+            # construct a model trace
+            constraints = merge(observations, get_choices(var_traces[sample]))
+            (model_trace, _) = generate(model, model_args, constraints)
+            model_traces[iter] = model_trace
+
+            # accumulate the generative model gradients
+            _maybe_accumulate_param_grad!(model_trace, generative_model_update)
         end
         iwelbo_history[iter] = iwelbo_estimate
 
         # print it
         verbose && println("iter $iter; est objective: $iwelbo_estimate")
 
-        # do an update
-        apply!(update)
+        # update parameters of variational family
+        apply!(variational_family_update)
+
+        # update parameters of generative model 
+        if !isnothing(generative_model_update)
+            apply!(generative_model_update)
+        end
+
     end
 
-    (iwelbo_history[end], traces, iwelbo_history)
+    (iwelbo_history[end], var_traces, iwelbo_history, model_traces)
 end
 
 export black_box_vi!, black_box_vimco!
