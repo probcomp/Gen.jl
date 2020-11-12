@@ -193,7 +193,7 @@ function black_box_vimco!(
             # construct a model trace
             constraints = merge(observations, get_choices(var_traces[sample]))
             (model_trace, _) = generate(model, model_args, constraints)
-            model_traces[iter] = model_trace
+            model_traces[sample] = model_trace
 
             # accumulate the generative model gradients
             _maybe_accumulate_param_grad!(model_trace, generative_model_update)
