@@ -8,13 +8,12 @@ end
 function process_new!(gen_fn::Switch{T1, T2, Tr}, 
                       branch_p::Float64, 
                       args::Tuple, 
-                      state::SwitchProposeState{T}) where T
+                      state::SwitchProposeState{Union{T1, T2}}) where {T1, T2, Tr}
 
-    flip_d = Bernoulli(branch_p)
-    flip = rand(flip_d)
+    flip = bernoulli(branch_p)
     (submap, weight, retval) = propose(flip ? gen_fn.a : gen_fn.b, args)
     set_value!(state.choices, :cond, flip)
-    state.weight += logpdf(flip_d, flip)
+    state.weight += logpdf(Bernoulli(), flip, branch_p)
     set_submap!(state.choices, :branch, submap)
     state.weight += weight
     state.retval = retval

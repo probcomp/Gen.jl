@@ -1,5 +1,5 @@
 struct SwitchTrace{T1, T2, Tr} <: Trace
-    kernel::Switch{T1, T2, Tr}
+    kernel::GenerativeFunction{Union{T1, T2}, Tr}
     p::Float64
     cond::Bool
     branch::Tr
@@ -9,7 +9,12 @@ struct SwitchTrace{T1, T2, Tr} <: Trace
     noise::Float64
 end
 
-@inline get_choices(tr::SwitchTrace) = SwitchTraceChoiceMap(tr)
+@inline function get_choices(tr::SwitchTrace)
+    choices = choicemap()
+    set_submap!(choices, :branch, get_choices(tr.branch))
+    set_value!(choices, :cond, tr.cond)
+    choices
+end
 @inline get_retval(tr::SwitchTrace) = tr.retval
 @inline get_args(tr::SwitchTrace) = tr.args
 @inline get_score(tr::SwitchTrace) = tr.score
@@ -31,8 +36,3 @@ function project(tr::SwitchTrace, selection::Selection)
     weight
 end
 project(tr::SwitchTrace, ::EmptySelection) = tr.noise
-
-@inline function get_submap(choices::SwitchTraceChoiceMap, addr::Symbol)
-    hasfield(choices, addr) || return EmptyChoiceMap()
-    get_choices(getfield(choices, addr))
-end

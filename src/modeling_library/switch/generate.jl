@@ -5,7 +5,7 @@ mutable struct SwitchGenerateState{T1, T2, Tr}
     cond::Bool
     subtrace::Tr
     retval::Union{T1, T2}
-    SwitchGenerateState{T1, T2, Tr}(score::Float64, noise::Float64, weight::Float64) = new{T1, T2, Tr}(score, noise, weight)
+    SwitchGenerateState{T1, T2, Tr}(score::Float64, noise::Float64, weight::Float64) where {T1, T2, Tr} = new{T1, T2, Tr}(score, noise, weight)
 end
 
 function process!(gen_fn::Switch{T1, T2, Tr}, 
@@ -15,24 +15,24 @@ function process!(gen_fn::Switch{T1, T2, Tr},
                   state::SwitchGenerateState{T1, T2, Tr}) where {T1, T2, Tr}
    
     # create flip distribution
-    flip_d = Bernoulli(branch_p)
+    flip_d = bernoulli(branch_p)
 
     # check for constraints at :cond
     constrained = has_value(choices, :cond)
     !constrained && check_no_submap(choices, :cond)
 
     # get/constrain flip value
-    constrained ? (flip = get_value(choices, :cond); state.weight += logpdf(flip_d, flip)) : flip = rand(flip_d)
+    constrained ? (flip = get_value(choices, :cond); state.weight += logpdf(Bernoulli(), flip, branch_p)) : flip = rand(flip_d)
     state.cond = flip
   
     # generate subtrace
-    constraints = get_submap(choices, :cond)
+    constraints = get_submap(choices, :branch)
     (subtrace, weight) = generate(flip ? gen_fn.a : gen_fn.b, args, constraints)
     state.subtrace = subtrace
     state.weight += weight
 
     # return from branch
-    get_retval(subtrace)
+    state.retval = get_retval(subtrace)
 end
 
 function generate(gen_fn::Switch{T1, T2, Tr}, 
