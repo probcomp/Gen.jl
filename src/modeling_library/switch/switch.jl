@@ -13,6 +13,7 @@ function (gen_fn::Switch)(flip_p::Float64, args...)
     retval
 end
 
+include("assess.jl")
 include("propose.jl")
 include("simulate.jl")
 include("generate.jl")
