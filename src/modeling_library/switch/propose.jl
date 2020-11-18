@@ -25,5 +25,5 @@ function propose(gen_fn::Switch{C, N, K, T},
     choices = choicemap()
     state = SwitchProposeState{T}(choices, 0.0)
     process!(gen_fn, index, args[2:end], state)
-    (state.choices, state.weight, state.retval)
+    return state.choices, state.weight, state.retval
 end

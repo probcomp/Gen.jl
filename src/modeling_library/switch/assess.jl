@@ -21,5 +21,5 @@ function assess(gen_fn::Switch{C, N, K, T},
     index = args[1]
     state = SwitchAssessState{T}(0.0)
     process!(gen_fn, index, args[2 : end], choices, state)
-    (state.weight, state.retval)
+    return state.weight, state.retval
 end

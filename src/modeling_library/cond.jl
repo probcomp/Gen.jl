@@ -1,7 +1,7 @@
 # ------------ WithProbability trace ------------ #
 
 struct WithProbabilityTrace{T1, T2, Tr} <: Trace
-    kernel::GenerativeFunction{Union{T1, T2}, Tr}
+    gen_fn::GenerativeFunction{Union{T1, T2}, Tr}
     p::Float64
     cond::Bool
     branch::Tr
@@ -20,7 +20,7 @@ end
 @inline get_retval(tr::WithProbabilityTrace) = tr.retval
 @inline get_args(tr::WithProbabilityTrace) = tr.args
 @inline get_score(tr::WithProbabilityTrace) = tr.score
-@inline get_gen_fn(tr::WithProbabilityTrace) = tr.kernel
+@inline get_gen_fn(tr::WithProbabilityTrace) = tr.gen_fn
 
 @inline function Base.getindex(tr::WithProbabilityTrace, addr::Pair)
     (first, rest) = addr
@@ -40,7 +40,7 @@ project(tr::WithProbabilityTrace, ::EmptySelection) = tr.noise
 # ------------ Switch trace ------------ #
 
 struct SwitchTrace{T} <: Trace
-    kernel::GenerativeFunction{T}
+    gen_fn::GenerativeFunction{T}
     index::Int
     branch::Trace
     retval::T
@@ -53,7 +53,7 @@ end
 @inline get_retval(tr::SwitchTrace) = tr.retval
 @inline get_args(tr::SwitchTrace) = tr.args
 @inline get_score(tr::SwitchTrace) = tr.score
-@inline get_gen_fn(tr::SwitchTrace) = tr.kernel
+@inline get_gen_fn(tr::SwitchTrace) = tr.gen_fn
 
 @inline function Base.getindex(tr::SwitchTrace, addr::Pair)
     (first, rest) = addr

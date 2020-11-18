@@ -38,5 +38,10 @@ Gen.@load_generated_functions()
 
 tr = simulate(bam, (:x, ))
 display(get_choices(tr))
+display(get_score(tr))
+
+new_tr, w = update(tr, (:y, ), (UnknownChange(), ), choicemap())
+display(get_choices(new_tr))
+display(get_score(new_tr) - w)
 
 end # module
