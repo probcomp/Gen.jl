@@ -5,7 +5,7 @@ mutable struct SwitchUpdateState{T}
     prev_trace::Trace
     trace::Trace
     index::Int
-    discard::DynamicChoiceMap
+    discard::ChoiceMap
     updated_retdiff::Diff
     SwitchUpdateState{T}(weight::Float64, score::Float64, noise::Float64, prev_trace::Trace) where T = new{T}(weight, score, noise, prev_trace)
 end
@@ -19,9 +19,10 @@ function process!(gen_fn::Switch{C, N, K, T},
                   state::SwitchUpdateState{T}) where {C, N, K, T}
     if index != getfield(state.prev_trace, :index)
         merged = merge(get_choices(state.prev_trace), choices)
-        display(merged)
-        kernel_argdiffs = map(_ -> UnknownChange(), kernel_argdiffs)
-        new_trace, weight, retdiff, discard = update(getfield(state.prev_trace, :branch), args, kernel_argdiffs, merged)
+        branch_fn = getfield(gen_fn.mix, index)
+        new_trace, weight = generate(branch_fn, args, merged)
+        retdiff, discard = UnknownChange(), get_choices(getfield(state.prev_trace, :branch))
+        weight -= get_score(state.prev_trace)
     else
         new_trace, weight, retdiff, discard = update(getfield(state.prev_trace, :branch), args, kernel_argdiffs, choices)
     end
