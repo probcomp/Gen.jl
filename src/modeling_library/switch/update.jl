@@ -12,20 +12,33 @@ end
 
 function process!(gen_fn::Switch{C, N, K, T},
                   index::Int,
-                  index_argdiff::Diff,
+                  index_argdiff::UnknownChange, # TODO: Diffed wrapper?
+                  args::Tuple,
+                  kernel_argdiffs::Tuple,
+                  choices::ChoiceMap, 
+                  state::SwitchUpdateState{T}) where {C, N, K, T, DV}
+    merged = merge(get_choices(state.prev_trace), choices)
+    branch_fn = getfield(gen_fn.mix, index)
+    new_trace, weight = generate(branch_fn, args, merged)
+    retdiff, discard = UnknownChange(), get_choices(getfield(state.prev_trace, :branch))
+    weight -= get_score(state.prev_trace)
+    state.index = index
+    state.weight = weight
+    state.noise = project(new_trace, EmptySelection()) - project(state.prev_trace, EmptySelection())
+    state.score = get_score(new_trace)
+    state.trace = new_trace
+    state.updated_retdiff = retdiff
+    state.discard = discard
+end
+
+function process!(gen_fn::Switch{C, N, K, T},
+                  index::Int,
+                  index_argdiff::NoChange, # TODO: Diffed wrapper?
                   args::Tuple,
                   kernel_argdiffs::Tuple,
                   choices::ChoiceMap, 
                   state::SwitchUpdateState{T}) where {C, N, K, T}
-    if index != getfield(state.prev_trace, :index)
-        merged = merge(get_choices(state.prev_trace), choices)
-        branch_fn = getfield(gen_fn.mix, index)
-        new_trace, weight = generate(branch_fn, args, merged)
-        retdiff, discard = UnknownChange(), get_choices(getfield(state.prev_trace, :branch))
-        weight -= get_score(state.prev_trace)
-    else
-        new_trace, weight, retdiff, discard = update(getfield(state.prev_trace, :branch), args, kernel_argdiffs, choices)
-    end
+    new_trace, weight, retdiff, discard = update(getfield(state.prev_trace, :branch), args, kernel_argdiffs, choices)
     state.index = index
     state.weight = weight
     state.noise = project(new_trace, EmptySelection()) - project(state.prev_trace, EmptySelection())
