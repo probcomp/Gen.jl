@@ -13,12 +13,14 @@ function process!(gen_fn::Switch{C, N, K, T},
                   args::Tuple, 
                   choices::ChoiceMap, 
                   state::SwitchGenerateState{T}) where {C, N, K, T}
-   
+
     (subtrace, weight) = generate(getindex(gen_fn.mix, index), args, choices)
     state.subtrace = subtrace
     state.weight += weight
     state.retval = get_retval(subtrace)
 end
+
+@inline process!(gen_fn::Switch{C, N, K, T}, index::C, args::Tuple, choices::ChoiceMap, state::SwitchGenerateState{T}) where {C, N, K, T} = process!(gen_fn, getindex(gen_fn.cases, index), args, choices, state)
 
 function generate(gen_fn::Switch{C, N, K, T}, 
                   args::Tuple, 

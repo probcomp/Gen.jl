@@ -30,12 +30,10 @@ end
 @inline Base.getindex(tr::WithProbabilityTrace, addr::Symbol) = getfield(trace, addr)
 
 function project(tr::WithProbabilityTrace, selection::Selection)
-    weight = 0.
-    for k in [:cond, :branch]
-        subselection = selection[k]
-        weight += project(getindex(tr, k), subselection)
-    end
-    weight
+    sum(map([:cond, :branch]) do k
+            subselection = selection[k]
+            project(getindex(tr, k), subselection)
+        end)
 end
 project(tr::WithProbabilityTrace, ::EmptySelection) = tr.noise
 
@@ -64,9 +62,5 @@ end
 end
 @inline Base.getindex(tr::SwitchTrace, addr::Symbol) = getfield(trace, addr)
 
-function project(tr::SwitchTrace, selection::Selection)
-    weight = 0.
-    weight += project(tr.branch, selection)
-    weight
-end
-project(tr::SwitchTrace, ::EmptySelection) = tr.noise
+@inline project(tr::SwitchTrace, selection::Selection) = project(tr.branch, selection)
+@inline project(tr::SwitchTrace, ::EmptySelection) = tr.noise

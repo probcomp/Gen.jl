@@ -3,21 +3,23 @@ mutable struct SwitchAssessState{T}
     retval::T
 end
 
-function process_new!(gen_fn::Switch{C, N, K, T},
-                      branch_p::Float64, 
-                      args::Tuple, 
-                      choices::ChoiceMap, 
-                      state::SwitchAssessState{T}) where {C, N, K, T}
+function process!(gen_fn::Switch{C, N, K, T},
+                  index::Int, 
+                  args::Tuple, 
+                  choices::ChoiceMap, 
+                  state::SwitchAssessState{T}) where {C, N, K, T}
     (weight, retval) = assess(getindex(gen_fn.mix, index), kernel_args, choices)
     state.weight += weight
     state.retval = retval
 end
+
+@inline process!(gen_fn::Switch{C, N, K, T}, index::C, args::Tuple, choices::ChoiceMap, state::SwitchAssessState{T}) where {C, N, K, T} = process!(gen_fn, getindex(gen_fn.cases, index), args, choices, state)
 
 function assess(gen_fn::Switch{C, N, K, T}, 
                 args::Tuple, 
                 choices::ChoiceMap) where {C, N, K, T}
     index = args[1]
     state = SwitchAssessState{T}(0.0)
-    process_new!(gen_fn, index, args[2 : end], choices, state)
+    process!(gen_fn, index, args[2 : end], choices, state)
     (state.weight, state.retval)
 end

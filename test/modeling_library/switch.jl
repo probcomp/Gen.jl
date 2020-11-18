@@ -1,6 +1,6 @@
 module SwitchComb
 
-include("../src/Gen.jl")
+include("../../src/Gen.jl")
 using .Gen
 
 # ------------ Toplevel caller ------------ #
