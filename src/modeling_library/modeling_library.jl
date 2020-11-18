@@ -76,7 +76,6 @@ include("map/map.jl")
 include("unfold/unfold.jl")
 include("recurse/recurse.jl")
 include("switch/switch.jl")
-include("with_prob/with_prob.jl")
 
 #############################################################
 # abstractions for constructing custom generative functions #
