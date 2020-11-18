@@ -44,8 +44,8 @@ function update_discard(prev_trace::Trace, choices::ChoiceMap, new_trace::Trace)
     discard = choicemap()
     prev_choices = get_choices(prev_trace)
     for (k, v) in get_submaps_shallow(prev_choices)
-        get_submap(get_choices(new_trace), k) isa EmptyChoiceMap && continue
-        get_submap(choices, k) isa EmptyChoiceMap && continue
+        isempty(get_submap(get_choices(new_trace), k)) && continue
+        isempty(get_submap(choices, k)) && continue
         set_submap!(discard, k, v)
     end
     for (k, v) in get_values_shallow(prev_choices)
