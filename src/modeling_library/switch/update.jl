@@ -17,11 +17,15 @@ function process!(gen_fn::Switch{C, N, K, T},
                   kernel_argdiffs::Tuple,
                   choices::ChoiceMap, 
                   state::SwitchUpdateState{T}) where {C, N, K, T, DV}
+
+    # Generate new trace.
     merged = merge(get_choices(state.prev_trace), choices)
     branch_fn = getfield(gen_fn.mix, index)
     new_trace, weight = generate(branch_fn, args, merged)
     retdiff, discard = UnknownChange(), get_choices(getfield(state.prev_trace, :branch))
     weight -= get_score(state.prev_trace)
+
+    # Set state.
     state.index = index
     state.weight = weight
     state.noise = project(new_trace, EmptySelection()) - project(state.prev_trace, EmptySelection())
@@ -38,7 +42,11 @@ function process!(gen_fn::Switch{C, N, K, T},
                   kernel_argdiffs::Tuple,
                   choices::ChoiceMap, 
                   state::SwitchUpdateState{T}) where {C, N, K, T}
+
+    # Update trace.
     new_trace, weight, retdiff, discard = update(getfield(state.prev_trace, :branch), args, kernel_argdiffs, choices)
+
+    # Set state.
     state.index = index
     state.weight = weight
     state.noise = project(new_trace, EmptySelection()) - project(state.prev_trace, EmptySelection())
