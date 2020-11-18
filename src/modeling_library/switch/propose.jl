@@ -5,10 +5,10 @@ mutable struct SwitchProposeState{T}
     SwitchProposeState{T}(choices, weight) where T = new{T}(choices, weight)
 end
 
-function process_new!(gen_fn::Switch{N, K, T}, 
+function process_new!(gen_fn::Switch{C, N, K, T}, 
                       index::Int, 
                       args::Tuple, 
-                      state::SwitchProposeState{T}) where {N, K, T}
+                      state::SwitchProposeState{T}) where {C, N, K, T}
 
     (submap, weight, retval) = propose(getindex(gen_fn.mix, index), args)
     state.choices = submap
@@ -16,8 +16,8 @@ function process_new!(gen_fn::Switch{N, K, T},
     state.retval = retval
 end
 
-function propose(gen_fn::Switch{N, K, T}, 
-                 args::Tuple) where {N, K, T}
+function propose(gen_fn::Switch{C, N, K, T}, 
+                 args::Tuple) where {C, N, K, T}
 
     index = args[1]
     choices = choicemap()

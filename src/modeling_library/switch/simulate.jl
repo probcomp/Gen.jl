@@ -7,11 +7,26 @@ mutable struct SwitchSimulateState{T}
     SwitchSimulateState{T}(score::Float64, noise::Float64) where T = new{T}(score, noise)
 end
 
-function process!(gen_fn::Switch{N, K, T},
+function process!(gen_fn::Switch{C, N, K, T},
                   index::Int, 
                   args::Tuple, 
-                  state::SwitchSimulateState{T}) where {N, K, T}
+                  state::SwitchSimulateState{T}) where {C, N, K, T}
     local retval::T
+    subtrace = simulate(getindex(gen_fn.mix, index), args)
+    state.index = index
+    state.noise += project(subtrace, EmptySelection())
+    state.subtrace = subtrace
+    state.score += get_score(subtrace)
+    state.retval = get_retval(subtrace)
+end
+
+function process!(gen_fn::Switch{C, N, K, T},
+                  index::C, 
+                  args::Tuple, 
+                  state::SwitchSimulateState{T}) where {C, N, K, T}
+    local retval::T
+    index = getindex(gen_fn.cases, index)
+    state.index = index
     subtrace = simulate(getindex(gen_fn.mix, index), args)
     state.noise += project(subtrace, EmptySelection())
     state.subtrace = subtrace
@@ -19,12 +34,12 @@ function process!(gen_fn::Switch{N, K, T},
     state.retval = get_retval(subtrace)
 end
 
-function simulate(gen_fn::Switch{N, K, T},
-                  args::Tuple) where {N, K, T}
+function simulate(gen_fn::Switch{C, N, K, T},
+                  args::Tuple) where {C, N, K, T}
 
     index = args[1]
     state = SwitchSimulateState{T}(0.0, 0.0)
     process!(gen_fn, index, args[2 : end], state)
-    trace = SwitchTrace{T}(gen_fn, index, state.subtrace, state.retval, args[2 : end], state.score, state.noise)
+    trace = SwitchTrace{T}(gen_fn, state.index, state.subtrace, state.retval, args[2 : end], state.score, state.noise)
     trace
 end

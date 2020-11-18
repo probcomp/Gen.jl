@@ -9,12 +9,12 @@ mutable struct SwitchUpdateState{T,U}
     updated_retdiff::Diff
 end
 
-function process!(gen_fn::Switch{T1, T2, Tr}, 
+function process!(gen_fn::Switch{C, N, T, K},
                            branch_p::Float64,
                            args::Tuple,
                            choices::ChoiceMap, 
                            kernel_argdiffs::Tuple,
-                           state::SwitchUpdateState{Union{T1, T2}, Tr}) where {T1, T2, Tr}
+                           state::SwitchUpdateState{T}) where {C, N, T, K}
     local subtrace::Tr
     local prev_subtrace::Tr
     local retval::T

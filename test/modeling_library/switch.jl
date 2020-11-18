@@ -1,44 +1,42 @@
-@testset "switch combinator" begin
+module SwitchComb
 
-    @gen (grad) function foo((grad)(x::Float64), (grad)(y::Float64))
-        @param std::Float64
-        z = @trace(normal(x + y, std), :z)
-        return z
-    end
+include("../src/Gen.jl")
+using .Gen
 
-    @gen (grad) function baz((grad)(x::Float64), (grad)(y::Float64))
-        @param std::Float64
-        z = @trace(normal(x + 2 * y, std), :z)
-        return z
-    end
+# ------------ Toplevel caller ------------ #
 
-    set_param!(foo, :std, 1.)
-    set_param!(baz, :std, 1.)
-
-    bar = Switch(foo, baz)
-    args = (1.0, 3.0)
-
-    @testset "simulate" begin
-    end
-
-    @testset "generate" begin
-    end
-
-    @testset "propose" begin
-    end
-
-    @testset "assess" begin
-    end
-
-    @testset "update" begin
-    end
-
-    @testset "regenerate" begin
-    end
-
-    @testset "choice_gradients" begin
-    end
-
-    @testset "accumulate_param_gradients!" begin
-    end
+@gen (grad) function foo((grad)(x::Float64), (grad)(y::Float64))
+    std::Float64 = 3.0
+    z = @trace(normal(x + y, std), :z)
+    return z
 end
+
+@gen (grad) function baz((grad)(x::Float64), (grad)(y::Float64))
+    std::Float64 = 3.0
+    z = @trace(normal(x + 2 * y, std), :z)
+    return z
+end
+
+sc = Switch(Dict(:x => 1, :y => 2), foo, baz)
+chm, _, _ = propose(sc, (2, 5.0, 3.0))
+display(chm)
+
+tr = simulate(sc, (2, 5.0, 3.0))
+display(get_choices(tr))
+
+chm = choicemap()
+chm[:z] = 5.0
+tr, _ = generate(sc, (2, 5.0, 3.0), chm)
+display(get_choices(tr))
+
+# ------------ Static DSL ------------ #
+
+@gen (static) function bam(s::Symbol)
+    x ~ sc(s, 5.0, 3.0)
+end
+Gen.@load_generated_functions()
+
+tr = simulate(bam, (:x, ))
+display(get_choices(tr))
+
+end # module
