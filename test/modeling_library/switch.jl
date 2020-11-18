@@ -17,7 +17,8 @@ end
     return z
 end
 
-sc = Switch(Dict(:x => 1, :y => 2), foo, baz)
+# Standard.
+sc = Switch(foo, baz)
 chm, _, _ = propose(sc, (2, 5.0, 3.0))
 display(chm)
 
@@ -27,6 +28,19 @@ display(get_choices(tr))
 chm = choicemap()
 chm[:z] = 5.0
 tr, _ = generate(sc, (2, 5.0, 3.0), chm)
+display(get_choices(tr))
+
+# Cases.
+sc = Switch(Dict(:x => 1, :y => 2), foo, baz)
+chm, _, _ = propose(sc, (:x, 5.0, 3.0))
+display(chm)
+
+tr = simulate(sc, (:x, 5.0, 3.0))
+display(get_choices(tr))
+
+chm = choicemap()
+chm[:z] = 5.0
+tr, _ = generate(sc, (:x, 5.0, 3.0), chm)
 display(get_choices(tr))
 
 # ------------ Static DSL ------------ #

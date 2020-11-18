@@ -15,6 +15,7 @@ function process!(gen_fn::Switch{C, N, K, T},
                   state::SwitchGenerateState{T}) where {C, N, K, T}
 
     (subtrace, weight) = generate(getindex(gen_fn.mix, index), args, choices)
+    state.index = index
     state.subtrace = subtrace
     state.weight += weight
     state.retval = get_retval(subtrace)
@@ -29,5 +30,5 @@ function generate(gen_fn::Switch{C, N, K, T},
     index = args[1]
     state = SwitchGenerateState{T}(0.0, 0.0, 0.0)
     process!(gen_fn, index, args[2 : end], choices, state)
-    return SwitchTrace{T}(gen_fn, index, state.subtrace, state.retval, args[2 : end], state.score, state.noise), state.weight
+    return SwitchTrace{T}(gen_fn, state.index, state.subtrace, state.retval, args[2 : end], state.score, state.noise), state.weight
 end
