@@ -32,7 +32,9 @@ function update_recurse_merge(prev_choices::ChoiceMap, choices::ChoiceMap)
     for (key, value) in choice_value_iterator
         set_value!(choices, key, value)
     end
-    for (key, node) in filter((k, _) -> !(k in keys(prev_choice_submap_iterator)), choice_submap_iterator)
+    for (key, node) in filter(choice_submap_iterator) do (k, _)
+            !(k in keys(prev_choice_submap_iterator))
+        end
         set_submap!(choices, key, node)
     end
     return choices
