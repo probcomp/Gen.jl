@@ -16,15 +16,15 @@ end
 end
 
 sc = Switch(foo, baz)
-chm, _, _ = propose(sc, (0.3, 5.0, 3.0))
+chm, _, _ = propose(sc, (2, 5.0, 3.0))
 display(chm)
 
-tr = simulate(sc, (0.3, 5.0, 3.0))
+tr = simulate(sc, (2, 5.0, 3.0))
 display(get_choices(tr))
 
 chm = choicemap()
-chm[:cond] = true
-tr, _ = generate(sc, (0.3, 5.0, 3.0), chm)
+chm[:z] = 5.0
+tr, _ = generate(sc, (2, 5.0, 3.0), chm)
 display(get_choices(tr))
 
 end # module

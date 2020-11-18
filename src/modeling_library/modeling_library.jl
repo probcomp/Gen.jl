@@ -66,8 +66,8 @@ include("dist_dsl/dist_dsl.jl")
 # code shared by vector-shaped combinators
 include("vector.jl")
 
-# trace for switch combinator
-include("switch/trace.jl")
+# traces for with prob/switch combinator
+include("cond.jl")
 
 # built-in generative function combinators
 include("choice_at/choice_at.jl")
@@ -76,6 +76,7 @@ include("map/map.jl")
 include("unfold/unfold.jl")
 include("recurse/recurse.jl")
 include("switch/switch.jl")
+include("with_prob/with_prob.jl")
 
 #############################################################
 # abstractions for constructing custom generative functions #

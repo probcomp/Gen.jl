@@ -1,15 +1,19 @@
-struct Switch{T1, T2, Tr} <: GenerativeFunction{Union{T1, T2}, Tr}
-    a::GenerativeFunction{T1, Tr}
-    b::GenerativeFunction{T2, Tr}
+struct Switch{N, K, T} <: GenerativeFunction{T, Trace}
+    mix::NTuple{N, GenerativeFunction{T}}
+    function Switch(gen_fns::GenerativeFunction...)
+        @assert !isempty(gen_fns)
+        rettype = get_return_type(getindex(gen_fns, 1))
+        new{length(gen_fns), typeof(gen_fns), rettype}(gen_fns)
+    end
 end
 
 export Switch
 
-has_argument_grads(switch_fn::Switch) = has_argument_grads(switch_fn.a) && has_argument_grads(switch_fn.b)
-accepts_output_grad(switch_fn::Switch) = accepts_output_grad(switch_fn.a) && accepts_output_grad(switch_fn.b)
+has_argument_grads(switch_fn::Switch) = all(has_argument_grads, switch.mix)
+accepts_output_grad(switch_fn::Switch) = all(accepts_output_grad, switch.mix)
 
-function (gen_fn::Switch)(flip_p::Float64, args...)
-    (_, _, retval) = propose(gen_fn, (flip_p, args...))
+function (gen_fn::Switch)(index::Int, args...)
+    (_, _, retval) = propose(gen_fn, (index, args...))
     retval
 end
 
