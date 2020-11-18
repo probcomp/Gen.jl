@@ -11,20 +11,32 @@ end
 
 function process!(gen_fn::Switch{C, N, K, T},
                   index::Int,
-                  index_argdiff::Diff,
+                  index_argdiff::UnknownChange,
                   args::Tuple,
                   kernel_argdiffs::Tuple,
                   selection::Selection, 
                   state::SwitchRegenerateState{T}) where {C, N, K, T}
-    if index != getfield(state.prev_trace, :index)
-        merged = get_choices(state.prev_trace)
-        branch_fn = getfield(gen_fn.mix, index)
-        new_trace, weight = generate(branch_fn, args, merged)
-        retdiff = UnknownChange()
-        weight -= get_score(state.prev_trace)
-    else
-        new_trace, weight, retdiff = regenerate(getfield(state.prev_trace, :branch), args, kernel_argdiffs, selection)
-    end
+    merged = get_choices(state.prev_trace)
+    branch_fn = getfield(gen_fn.mix, index)
+    new_trace, weight = generate(branch_fn, args, merged)
+    retdiff = UnknownChange()
+    weight -= get_score(state.prev_trace)
+    state.index = index
+    state.weight = weight
+    state.noise = project(new_trace, EmptySelection()) - project(state.prev_trace, EmptySelection())
+    state.score = get_score(new_trace)
+    state.trace = new_trace
+    state.retdiff = retdiff
+end
+
+function process!(gen_fn::Switch{C, N, K, T},
+                  index::Int,
+                  index_argdiff::NoChange,
+                  args::Tuple,
+                  kernel_argdiffs::Tuple,
+                  selection::Selection, 
+                  state::SwitchRegenerateState{T}) where {C, N, K, T}
+    new_trace, weight, retdiff = regenerate(getfield(state.prev_trace, :branch), args, kernel_argdiffs, selection)
     state.index = index
     state.weight = weight
     state.noise = project(new_trace, EmptySelection()) - project(state.prev_trace, EmptySelection())
