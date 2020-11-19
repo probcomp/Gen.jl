@@ -51,13 +51,16 @@ end
     return z
 end
 
-sc = Switch(bang, fuzz)
-
 @gen (static) function bam(s::Int)
     x ~ sc(s, 5.0, 3.0)
     return x
 end
 Gen.@load_generated_functions()
+
+sc = Switch(bang, fuzz)
+tr = simulate(sc, (2, 5.0, 3.0))
+display(get_choices(tr))
+display(tr.index)
 
 tr = simulate(bam, (1, ))
 
