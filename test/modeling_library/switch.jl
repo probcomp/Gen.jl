@@ -68,10 +68,9 @@ display(get_choices(new_tr))
 
 new_tr, w = regenerate(tr, (1, ), (UnknownChange(), ), select())
 
-sel = AllSelection()
+sel = select(:x => :z)
 arg_grads, cvs, cgs = choice_gradients(tr, sel, 1.0)
 display(arg_grads)
-display(cvs)
 display(cgs)
 
 end # module
