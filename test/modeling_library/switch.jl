@@ -55,6 +55,7 @@ sc = Switch(bang, fuzz)
 
 @gen (static) function bam(s::Int)
     x ~ sc(s, 5.0, 3.0)
+    return x
 end
 Gen.@load_generated_functions()
 
@@ -62,9 +63,15 @@ tr = simulate(bam, (1, ))
 
 chm = choicemap((:x => :z, 5.0))
 new_tr, w, rd, discard = update(tr, (2, ), (UnknownChange(), ), chm)
-display(get_choices(new_tr))
 display(discard)
+display(get_choices(new_tr))
 
 new_tr, w = regenerate(tr, (1, ), (UnknownChange(), ), select())
+
+sel = AllSelection()
+arg_grads, cvs, cgs = choice_gradients(tr, sel, 1.0)
+display(arg_grads)
+display(cvs)
+display(cgs)
 
 end # module
