@@ -1,6 +1,7 @@
 mutable struct SwitchAssessState{T}
     weight::Float64
     retval::T
+    SwitchAssessState{T}(weight::Float64) where T = new{T}(weight)
 end
 
 function process!(gen_fn::Switch{C, N, K, T},
@@ -8,7 +9,7 @@ function process!(gen_fn::Switch{C, N, K, T},
                   args::Tuple, 
                   choices::ChoiceMap, 
                   state::SwitchAssessState{T}) where {C, N, K, T}
-    (weight, retval) = assess(getindex(gen_fn.mix, index), kernel_args, choices)
+    (weight, retval) = assess(getindex(gen_fn.mix, index), args, choices)
     state.weight += weight
     state.retval = retval
 end

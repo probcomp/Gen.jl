@@ -15,29 +15,29 @@ function update_recurse_merge(prev_choices::ChoiceMap, choices::ChoiceMap)
     prev_choice_value_iterator = get_values_shallow(prev_choices)
     choice_submap_iterator = get_submaps_shallow(choices)
     choice_value_iterator = get_values_shallow(choices)
-    choices = DynamicChoiceMap()
+    new_choices = DynamicChoiceMap()
     for (key, value) in prev_choice_value_iterator
         key in keys(choice_value_iterator) && continue
-        set_value!(choices, key, value)
+        set_value!(new_choices, key, value)
     end
     for (key, node1) in prev_choice_submap_iterator
         if key in keys(choice_submap_iterator)
             node2 = get_submap(choices, key)
             node = update_recurse_merge(node1, node2)
-            set_submap!(choices, key, node)
+            set_submap!(new_choices, key, node)
         else
-            set_submap!(choices, key, node1)
+            set_submap!(new_choices, key, node1)
         end
     end
     for (key, value) in choice_value_iterator
-        set_value!(choices, key, value)
+        set_value!(new_choices, key, value)
     end
-    for (key, node) in filter(choice_submap_iterator) do (k, _)
-            !(k in keys(prev_choice_submap_iterator))
-        end
-        set_submap!(choices, key, node)
+    sel, _ = zip(prev_choice_submap_iterator...)
+    comp = complement(select(sel...))
+    for (key, node) in get_submaps_shallow(get_selected(choices, comp))
+        set_submap!(new_choices, key, node)
     end
-    return choices
+    return new_choices
 end
 
 function update_discard(prev_trace::Trace, choices::ChoiceMap, new_trace::Trace)

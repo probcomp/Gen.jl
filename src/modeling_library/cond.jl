@@ -21,7 +21,7 @@ end
     subtr = getfield(trace, first)
     subtrace[rest]
 end
-@inline Base.getindex(tr::SwitchTrace, addr::Symbol) = getfield(trace, addr)
+@inline Base.getindex(tr::SwitchTrace, addr::Symbol) = getindex(tr.branch, addr)
 
 @inline project(tr::SwitchTrace, selection::Selection) = project(tr.branch, selection)
 @inline project(tr::SwitchTrace, ::EmptySelection) = tr.noise

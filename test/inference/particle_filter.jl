@@ -164,7 +164,7 @@ end
     # check log marginal likelihood estimate
     expected_log_ml = log(hmm_forward_alg(prior, emission_dists, transition_dists, obs_x))
     actual_log_ml_est = log_ml_estimate(state)
-    @test isapprox(expected_log_ml, actual_log_ml_est, atol=0.01)
+    @test isapprox(expected_log_ml, actual_log_ml_est, atol=0.02)
 end
 
 end

@@ -12,11 +12,12 @@ struct Switch{C, N, K, T} <: GenerativeFunction{T, Trace}
         new{C, length(gen_fns), typeof(gen_fns), rettype}(gen_fns, d)
     end
 end
-
 export Switch
 
-has_argument_grads(switch_fn::Switch) = all(has_argument_grads, switch.mix)
-accepts_output_grad(switch_fn::Switch) = all(accepts_output_grad, switch.mix)
+has_argument_grads(switch_fn::Switch) = map(zip(map(has_argument_grads, switch_fn.mix)...)) do as
+    all(as)
+end
+accepts_output_grad(switch_fn::Switch) = all(accepts_output_grad, switch_fn.mix)
 
 function (gen_fn::Switch)(index::Int, args...)
     (_, _, retval) = propose(gen_fn, (index, args...))
