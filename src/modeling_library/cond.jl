@@ -15,13 +15,6 @@ end
 @inline get_args(tr::SwitchTrace) = tr.args
 @inline get_score(tr::SwitchTrace) = tr.score
 @inline get_gen_fn(tr::SwitchTrace) = tr.gen_fn
-
-@inline function Base.getindex(tr::SwitchTrace, addr::Pair)
-    (first, rest) = addr
-    subtr = getfield(trace, first)
-    subtrace[rest]
-end
-@inline Base.getindex(tr::SwitchTrace, addr::Symbol) = getindex(tr.branch, addr)
-
+@inline Base.getindex(tr::SwitchTrace, addr) = Base.getindex(tr.branch, addr)
 @inline project(tr::SwitchTrace, selection::Selection) = project(tr.branch, selection)
 @inline project(tr::SwitchTrace, ::EmptySelection) = tr.noise
