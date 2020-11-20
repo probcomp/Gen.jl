@@ -80,12 +80,12 @@
         old_sc = get_score(tr)
         sel = select(:z)
         new_tr, w, rd = regenerate(tr, (2, 5.0, 3.0), 
-                               (UnknownChange(), NoChange(), NoChange()), 
-                               sel)
+                                   (UnknownChange(), NoChange(), NoChange()), 
+                                   sel)
         @test old_sc == get_score(new_tr) - w
         new_tr, w, rd = regenerate(tr, (1, 5.0, 3.0), 
-                               (UnknownChange(), NoChange(), NoChange()), 
-                               sel)
+                                   (UnknownChange(), NoChange(), NoChange()), 
+                                   sel)
         @test old_sc == get_score(new_tr) - w
     end
 
