@@ -1,5 +1,5 @@
 struct Switch{C, N, K, T} <: GenerativeFunction{T, Trace}
-    mix::NTuple{N, GenerativeFunction{T}}
+    branches::NTuple{N, GenerativeFunction{T}}
     cases::Dict{C, Int}
     function Switch(gen_fns::GenerativeFunction...)
         @assert !isempty(gen_fns)
@@ -14,10 +14,10 @@ struct Switch{C, N, K, T} <: GenerativeFunction{T, Trace}
 end
 export Switch
 
-has_argument_grads(switch_fn::Switch) = map(zip(map(has_argument_grads, switch_fn.mix)...)) do as
+has_argument_grads(switch_fn::Switch) = map(zip(map(has_argument_grads, switch_fn.branches)...)) do as
     all(as)
 end
-accepts_output_grad(switch_fn::Switch) = all(accepts_output_grad, switch_fn.mix)
+accepts_output_grad(switch_fn::Switch) = all(accepts_output_grad, switch_fn.branches)
 
 function (gen_fn::Switch)(index::Int, args...)
     (_, _, retval) = propose(gen_fn, (index, args...))

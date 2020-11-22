@@ -9,7 +9,7 @@ function process!(gen_fn::Switch{C, N, K, T},
                   args::Tuple, 
                   choices::ChoiceMap, 
                   state::SwitchAssessState{T}) where {C, N, K, T}
-    (weight, retval) = assess(getindex(gen_fn.mix, index), args, choices)
+    (weight, retval) = assess(getindex(gen_fn.branches, index), args, choices)
     state.weight = weight
     state.retval = retval
 end

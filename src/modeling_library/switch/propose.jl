@@ -10,7 +10,7 @@ function process!(gen_fn::Switch{C, N, K, T},
                   args::Tuple, 
                   state::SwitchProposeState{T}) where {C, N, K, T}
 
-    (submap, weight, retval) = propose(getindex(gen_fn.mix, index), args)
+    (submap, weight, retval) = propose(getindex(gen_fn.branches, index), args)
     state.choices = submap
     state.weight += weight
     state.retval = retval

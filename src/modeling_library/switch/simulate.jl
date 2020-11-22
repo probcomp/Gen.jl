@@ -12,7 +12,7 @@ function process!(gen_fn::Switch{C, N, K, T},
                   args::Tuple, 
                   state::SwitchSimulateState{T}) where {C, N, K, T}
     local retval::T
-    subtrace = simulate(getindex(gen_fn.mix, index), args)
+    subtrace = simulate(getindex(gen_fn.branches, index), args)
     state.index = index
     state.noise += project(subtrace, EmptySelection())
     state.subtrace = subtrace

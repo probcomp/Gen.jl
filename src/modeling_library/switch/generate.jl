@@ -14,7 +14,7 @@ function process!(gen_fn::Switch{C, N, K, T},
                   choices::ChoiceMap, 
                   state::SwitchGenerateState{T}) where {C, N, K, T}
 
-    (subtrace, weight) = generate(getindex(gen_fn.mix, index), args, choices)
+    (subtrace, weight) = generate(getindex(gen_fn.branches, index), args, choices)
     state.index = index
     state.subtrace = subtrace
     state.weight += weight

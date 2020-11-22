@@ -66,7 +66,7 @@ function process!(gen_fn::Switch{C, N, K, T},
 
     # Generate new trace.
     merged = update_recurse_merge(get_choices(state.prev_trace), choices)
-    branch_fn = getfield(gen_fn.mix, index)
+    branch_fn = getfield(gen_fn.branches, index)
     new_trace, weight = generate(branch_fn, args, merged)
     weight -= get_score(state.prev_trace)
     state.discard = update_discard(state.prev_trace, choices, new_trace)

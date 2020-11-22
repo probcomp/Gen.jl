@@ -38,7 +38,7 @@ function process!(gen_fn::Switch{C, N, K, T},
                   kernel_argdiffs::Tuple,
                   selection::Selection, 
                   state::SwitchRegenerateState{T}) where {C, N, K, T}
-    branch_fn = getfield(gen_fn.mix, index)
+    branch_fn = getfield(gen_fn.branches, index)
     merged = regenerate_recurse_merge(get_choices(state.prev_trace), selection)
     new_trace, weight = generate(branch_fn, args, merged)
     retdiff = UnknownChange()
