@@ -299,4 +299,42 @@
             @test isapprox(gradients[:x => :z], expected_choice_grad[1])
         end
     end
+
+    # ------------ (More complex) hierarchy to test discard ------------ #
+    
+    # Model chunk.
+    @gen (grad) function bang3((grad)(x::Float64), (grad)(y::Float64))
+        std::Float64 = 3.0
+        z = @trace(normal(x + y, std), :z)
+        q = @trace(bang2(z, y), :q)
+        return z
+    end
+    @gen (grad) function fuzz3((grad)(x::Float64), (grad)(y::Float64))
+        std::Float64 = 3.0
+        z = @trace(normal(x + 2 * y, std), :z)
+        m = @trace(normal(x + 3 * y, std), :m)
+        q = @trace(bang3(z, y), :q)
+        return z
+    end
+    sc3 = Switch(bang3, fuzz3)
+    @gen (grad) function bam3(s::Int)
+        x ~ sc3(s, 5.0, 3.0)
+        return x
+    end
+    # ----.
+    
+    @testset "update" begin
+        tr = simulate(bam3, (2, ))
+        old_sc = get_score(tr)
+        chm = choicemap((:x => :z, 5.0))
+        future_discarded = tr[:x => :z]
+        new_tr, w, rd, discard = update(tr, (2, ), (UnknownChange(), ), chm)
+        @test discard[:x => :z] == future_discarded
+        @test isapprox(old_sc, get_score(new_tr) - w)
+        chm = choicemap((:x => :z, 10.0))
+        future_discarded = tr[:x => :q => :q => :z]
+        new_tr, w, rd, discard = update(tr, (1, ), (UnknownChange(), ), chm)
+        @test discard[:x => :q => :q => :z] == future_discarded
+        @test isapprox(old_sc, get_score(new_tr) - w)
+    end
 end
