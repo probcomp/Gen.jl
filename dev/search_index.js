@@ -873,6 +873,22 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "ref/combinators/#Gen.Switch",
+    "page": "Generative Function Combinators",
+    "title": "Gen.Switch",
+    "category": "type",
+    "text": "gen_fn = Switch(gen_fns::GenerativeFunction...)\n\nReturns a new generative function that accepts an argument tuple of type Tuple{Int, ...} where the first index indicates which branch to call.\n\ngen_fn = Switch(d::Dict{T, Int}, gen_fns::GenerativeFunction...) where T\n\nReturns a new generative function that accepts an argument tuple of type Tuple{Int, ...} or an argument tuple of type Tuple{T, ...} where the first index either indicates which branch to call, or indicates an index into d which maps to the selected branch. This form is meant for convenience - it allows the programmer to use d like if-else or case statements.\n\nSwitch is designed to allow for the expression of patterns of if-else control flow. gen_fns must satisfy a few requirements:\n\nEach gen_fn in gen_fns must accept the same argument types.\nEach gen_fn in gen_fns must return the same return type.\n\nOtherwise, each gen_fn can come from different modeling languages, possess different traces, etc.\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/combinators/#Switch-combinator-1",
+    "page": "Generative Function Combinators",
+    "title": "Switch combinator",
+    "category": "section",
+    "text": "SwitchIn the schematic below, the kernel is denoted S and accepts an integer index k.Consider the following constructions:@gen function bang((grad)(x::Float64), (grad)(y::Float64))\n    std::Float64 = 3.0\n    z = @trace(normal(x + y, std), :z)\n    return z\nend\n\n@gen function fuzz((grad)(x::Float64), (grad)(y::Float64))\n    std::Float64 = 3.0\n    z = @trace(normal(x + 2 * y, std), :z)\n    return z\nend\n\nsc = Switch(bang, fuzz)This creates a new generative function sc. We can then obtain the trace of sc:(trace, _) = simulate(sc, (2, 5.0, 3.0))The resulting trace contains the subtrace from the branch with index 2 - in this case, a call to fuzz:│\n└── :z : 13.552870875213735"
+},
+
+{
     "location": "ref/choice_maps/#",
     "page": "Choice Maps",
     "title": "Choice Maps",
