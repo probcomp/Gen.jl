@@ -59,6 +59,9 @@ include("distributions/distributions.jl")
 # @dist DSL
 include("dist_dsl/dist_dsl.jl")
 
+# mixtures of distributions
+include("mixture.jl")
+
 ###############
 # combinators #
 ###############
