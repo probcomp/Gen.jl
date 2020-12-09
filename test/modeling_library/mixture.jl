@@ -1,7 +1,45 @@
+uniform_beta_mixture = @het_mixture Float64 (uniform, 2) (beta, 2)
 
-mixture_of_normals = @mixturedist normal (0, 0) Float64
-mixture_of_binomials = @mixturedist binom (0, 0) Int
-mixture_of_mvnormals = @mixturedist mvnormal (1, 2) Vector{Float64}
+@testset "fixed mixture of different distributions" begin
+
+    @test !is_discrete(uniform_beta_mixture)
+    @test has_output_grad(uniform_beta_mixture)
+    @test has_argument_grads(uniform_beta_mixture) == (true, true, true, true, true)
+
+    w1 = 0.4
+    w2 = 0.6
+    a = 0.0
+    b = 3.4
+    alpha = 2.3
+    beta = 1.0
+
+    # random
+    x = uniform_beta_mixture([w1, w2], a, b, alpha, beta)
+
+    # logpdf
+    x = 0.123
+    actual = logpdf(uniform_beta_mixture, x, [w1, w2], a, b, alpha, beta)
+    expected = log(w1 * exp(logpdf(uniform, x, a, b)) + w2 * exp(logpdf(Gen.Beta(), x, alpha, beta)))
+    @test isapprox(actual, expected)
+
+    # test logpdf_grad against finite differencing
+    args = (x, [w1, w2], a, b, alpha, beta)
+    (x_grad, weights_grad, a_grad, b_grad, alpha_grad, beta_grad) = logpdf_grad(
+        uniform_beta_mixture, args...)
+    f = (x, weights, a, b, alpha, beta) -> logpdf(uniform_beta_mixture, x, weights, a, b, alpha, beta)
+
+    @test isapprox(x_grad, finite_diff(f, args, 1, dx))
+    @test isapprox(weights_grad[1], finite_diff_vec(f, args, 2, 1, dx))
+    @test isapprox(weights_grad[2], finite_diff_vec(f, args, 2, 2, dx))
+    @test isapprox(a_grad, finite_diff(f, args, 3, dx))
+    @test isapprox(b_grad, finite_diff(f, args, 4, dx))
+    @test isapprox(alpha_grad, finite_diff(f, args, 5, dx))
+    @test isapprox(beta_grad, finite_diff(f, args, 6, dx))
+end
+
+mixture_of_normals = @hom_mixture Float64 normal (0, 0)
+mixture_of_binomials = @hom_mixture Int binom (0, 0)
+mixture_of_mvnormals = @hom_mixture Vector{Float64} mvnormal (1, 2)
 
 @testset "mixture of normals" begin
 
