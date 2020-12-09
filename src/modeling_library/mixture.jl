@@ -9,7 +9,7 @@ The second argument `arg_dims` must be a literal tuple of Ints, of length equal 
 A value of 0 at a position in the tuple an indicates that the corresponding argument to the base distribution is a scalar, and integer values of i for i >= 1 indicate that the corresponding argument is an i-dimensional array.
 (Currently, only base distribution families with all scalar arguments are supported.)
 
-The third argument is the output_type which should match the output type of the base distribution.
+The third argument, `output_type, should match the output type of the base distribution.
 
 Example:
 
@@ -19,16 +19,12 @@ macro mixturedist(base_dist, arg_dims, output_type)
     name = gensym(Symbol("Mixture_$(base_dist)"))
     if isa(arg_dims, Expr) && (arg_dims.head == :tuple) && all([isa(dim, Int) for dim in arg_dims.args])
         dims = Vector{Int}(arg_dims.args)
-        for dim in dims
-            if dim != 0
-                # TODO simply use arg[:,:,i] instead of args[i] below to handle distributions with array arguments
-                error("only distributions with all scalar arguments are currently supported")
-            end
-        end
     else
         error("invalid syntax")
     end
     args = [Symbol("arg$i") for i in 1:length(dims)]
+
+    get_arg_expr(i::Int, component) = Expr(:ref, args[i], fill(Colon(), dims[i])..., component)
     
     return quote
         struct $name <: Distribution{$output_type} end
@@ -39,24 +35,24 @@ macro mixturedist(base_dist, arg_dims, output_type)
 
         function Gen.random(::$(esc(name)), weights, $(args...))
             j = categorical(weights)
-            return random($base_dist, $([:($(arg)[j]) for arg in args]...))
+            return random($base_dist, $([get_arg_expr(i, :j) for i in 1:length(args)]...))
         end
 
         function Gen.logpdf(::$(esc(name)), x, weights, $(args...))
-            log_densities = [Gen.logpdf($base_dist, x, $((:($(args[i])[j]) for i in 1:length(dims))...))
+            log_densities = [Gen.logpdf($base_dist, x, $((get_arg_expr(i, :j) for i in 1:length(args))...))
                     for j in 1:length(weights)]
             log_densities = log_densities .+ log.(weights)
             return logsumexp(log_densities)
         end
 
         function Gen.logpdf_grad(::$(esc(name)), x, weights, $(args...))
-            log_densities = [Gen.logpdf($base_dist, x, $((:($(args[i])[j]) for i in 1:length(dims))...))
+            log_densities = [Gen.logpdf($base_dist, x, $((get_arg_expr(i, :j) for i in 1:length(args))...))
                     for j in 1:length(weights)]
             log_weighted_densities = log_densities .+ log.(weights)
             relative_weighted_densities = exp.(log_weighted_densities .- logsumexp(log_weighted_densities))
 
             # log_grads[j] contains the gradients for the j'th component in the mixture
-            log_grads = [Gen.logpdf_grad($base_dist, x, $((:($(args[i])[j]) for i in 1:length(dims))...))
+            log_grads = [Gen.logpdf_grad($base_dist, x, $((get_arg_expr(i, :j) for i in 1:length(args))...))
                     for j in 1:length(weights)]
 
             # gradient with respect to x
@@ -75,12 +71,19 @@ macro mixturedist(base_dist, arg_dims, output_type)
                 [quote
                     if has_argument_grads($base_dist)[$i]
 
-                        # gradients of each component log density with respect to argument i
-                        $(Symbol("$(arg)_component_grad")) = [log_grad[$(i+1)] for log_grad in log_grads] 
-
-                        # gradient of the mixture log density respect to argument i
-                        $(Symbol("$(arg)_mixture_grad")) = $(Symbol("$(arg)_component_grad")) .* relative_weighted_densities
-
+                        $(if dims[i] == 0
+                            Expr(:block, 
+                                # gradients of each component log density with respect to argument i
+                                :($(Symbol("$(arg)_component_grad")) = [log_grad[$(i+1)] for log_grad in log_grads]),
+                                # gradient of the mixture log density respect to argument i
+                                :($(Symbol("$(arg)_mixture_grad")) = $(Symbol("$(arg)_component_grad")) .* relative_weighted_densities))
+                        else
+                            Expr(:block,
+                                # gradients of each component log density with respect to argument i
+                                :($(Symbol("$(arg)_component_grad")) = cat([log_grad[$(i+1)] for log_grad in log_grads]..., dims=$(dims[i] + 1))),
+                                # gradient of the mixture log density respect to argument i
+                                :($(Symbol("$(arg)_mixture_grad")) = $(Symbol("$(arg)_component_grad")) .* reshape(relative_weighted_densities, $((1 for d in 1:dims[i])..., length(dims)))))
+                        end)
                     else
                         $(Symbol("$(arg)_mixture_grad")) = nothing
                     end

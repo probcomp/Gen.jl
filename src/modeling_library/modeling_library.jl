@@ -40,7 +40,7 @@ Otherwise, this element contains the gradient with respect to the `i`th argument
 """
 function logpdf_grad end
 
-function is_discrete end
+is_discrete(::Distribution) = false # default
 
 # NOTE: has_argument_grad is documented and exported in gen_fn_interface.jl
 

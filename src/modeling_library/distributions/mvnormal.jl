@@ -1,3 +1,5 @@
+import LinearAlgebra
+
 struct MultivariateNormal <: Distribution{Vector{Float64}} end
 
 """
@@ -9,13 +11,13 @@ const mvnormal = MultivariateNormal()
 
 function logpdf(::MultivariateNormal, x::AbstractVector{T}, mu::AbstractVector{U},
                 cov::AbstractMatrix{V}) where {T <: Real, U <: Real, V <: Real}
-    dist = Distributions.MvNormal(mu, cov)
+    dist = Distributions.MvNormal(mu, LinearAlgebra.Symmetric(cov))
     Distributions.logpdf(dist, x)
 end
 
 function logpdf_grad(::MultivariateNormal, x::AbstractVector{T}, mu::AbstractVector{U},
                 cov::AbstractMatrix{V}) where {T <: Real,U <: Real, V <: Real}
-    dist = Distributions.MvNormal(mu, cov)
+    dist = Distributions.MvNormal(mu, LinearAlgebra.Symmetric(cov))
     inv_cov = Distributions.invcov(dist)
 
     x_deriv = Distributions.gradlogpdf(dist, x)
@@ -27,7 +29,7 @@ end
 
 function random(::MultivariateNormal, mu::AbstractVector{U},
                 cov::AbstractMatrix{V}) where {U <: Real, V <: Real}
-    rand(Distributions.MvNormal(mu, cov))
+    rand(Distributions.MvNormal(mu, LinearAlgebra.Symmetric(cov)))
 end
 
 (::MultivariateNormal)(mu, cov) = random(MultivariateNormal(), mu, cov)
