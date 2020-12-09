@@ -1,9 +1,12 @@
 
 mixture_of_normals = @mixturedist normal (0, 0) Float64
+mixture_of_binomials = @mixturedist binom (0, 0) Int
 
-@testset "mixture" begin
+@testset "mixture of normals" begin
 
-    println(mixture_of_normals)
+    @test !is_discrete(mixture_of_normals)
+    @test has_output_grad(mixture_of_normals)
+    @test has_argument_grads(mixture_of_normals) == (true, true, true)
 
     w1 = 0.4
     w2 = 0.6
@@ -55,4 +58,38 @@ mixture_of_normals = @mixturedist normal (0, 0) Float64
     @test isapprox(Gen.deriv(mu2_tracked), finite_diff_vec(f, args, 3, 2, dx))
     @test isapprox(Gen.deriv(std1_tracked), finite_diff_vec(f, args, 4, 1, dx))
     @test isapprox(Gen.deriv(std2_tracked), finite_diff_vec(f, args, 4, 2, dx))
+end
+
+@testset "mixture of binomial" begin
+
+    @test is_discrete(mixture_of_binomials)
+    @test !has_output_grad(mixture_of_binomials)
+    @test has_argument_grads(mixture_of_binomials) == (true, false, true)
+
+    w1 = 0.4
+    w2 = 0.6
+    n1 = 10
+    n2 = 20
+    p1 = 0.2
+    p2 = 0.3
+
+    # random
+    x = mixture_of_binomials([w1, w2], [n1, n2], [p1, p2])
+
+    # logpdf
+    x = 4
+    actual = logpdf(mixture_of_binomials, x, [w1, w2], [n1, n2], [p1, p2])
+    expected = log(w1 * exp(logpdf(binom, x, n1, p1)) + w2 * exp(logpdf(binom, x, n2, p2)))
+    @test isapprox(actual, expected)
+
+    # test logpdf_grad against finite differencing
+    args = (x, [w1, w2], [n1, n2], [p1, p2])
+    (x_grad, weights_grad, ns_grad, ps_grad) = logpdf_grad(
+        mixture_of_binomials, args...)
+    @test ns_grad == nothing
+    f = (x, weights, ns, ps) -> logpdf(mixture_of_binomials, x, weights, ns, ps)
+    @test isapprox(weights_grad[1], finite_diff_vec(f, args, 2, 1, dx))
+    @test isapprox(weights_grad[2], finite_diff_vec(f, args, 2, 2, dx))
+    @test isapprox(ps_grad[1], finite_diff_vec(f, args, 4, 1, dx))
+    @test isapprox(ps_grad[2], finite_diff_vec(f, args, 4, 2, dx))
 end

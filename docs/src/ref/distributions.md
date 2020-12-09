@@ -33,6 +33,10 @@ poisson
 uniform
 uniform_discrete
 ```
+There is also built-in macro for defining mixtures of one type of distribution:
+```@docs
+@mixturedist
+```
 
 ## [Defining New Distributions Inline with the `@dist` DSL](@id dist_dsl)
 
