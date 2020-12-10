@@ -1,4 +1,4 @@
-uniform_beta_mixture = @het_mixture Float64 (uniform, 2) (beta, 2)
+uniform_beta_mixture = HeterogeneousMixture([uniform, beta])
 
 @testset "fixed mixture of different distributions" begin
 
@@ -37,9 +37,9 @@ uniform_beta_mixture = @het_mixture Float64 (uniform, 2) (beta, 2)
     @test isapprox(beta_grad, finite_diff(f, args, 6, dx))
 end
 
-mixture_of_normals = @hom_mixture Float64 normal (0, 0)
-mixture_of_binomials = @hom_mixture Int binom (0, 0)
-mixture_of_mvnormals = @hom_mixture Vector{Float64} mvnormal (1, 2)
+mixture_of_normals = HomogeneousMixture(normal, [0, 0])
+mixture_of_binomials = HomogeneousMixture(binom, [0, 0])
+mixture_of_mvnormals = HomogeneousMixture(mvnormal, [1, 2])
 
 @testset "mixture of normals" begin
 
