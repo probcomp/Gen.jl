@@ -154,6 +154,8 @@ Gen.has_output_grad(dist::HeterogeneousMixture) = dist.has_output_grad
 Gen.has_argument_grads(dist::HeterogeneousMixture) = dist.has_argument_grads
 Gen.is_discrete(dist::HeterogeneousMixture) = dist.is_discrete
 
+const MIXTURE_WRONG_NUM_COMPONENTS_ERR = "the length of the weights vector does not match the number of mixture components"
+
 function HeterogeneousMixture(distributions::Vector{Distribution{T}}) where {T}
     _has_output_grad = true
     _has_argument_grads = Bool[true] # weights
@@ -188,7 +190,7 @@ function extract_args_for_component(dist::HeterogeneousMixture, component_args_f
 end
 
 function Gen.random(dist::HeterogeneousMixture{T}, weights, component_args_flat...) where {T}
-    (length(weights) != dist.K) && error(MIXED_WEIGHT_VECTOR_ERR_MSG)
+    (length(weights) != dist.K) && error(MIXTURE_WRONG_NUM_COMPONENTS_ERR)
     k = categorical(weights)
     value::T = random(
         dist.distributions[k],
@@ -197,7 +199,7 @@ function Gen.random(dist::HeterogeneousMixture{T}, weights, component_args_flat.
 end
 
 function Gen.logpdf(dist::HeterogeneousMixture, x, weights, component_args_flat...)
-    (length(weights) != dist.K) && error(MIXED_WEIGHT_VECTOR_ERR_MSG)
+    (length(weights) != dist.K) && error(MIXTURE_WRONG_NUM_COMPONENTS_ERR)
     log_densities = [Gen.logpdf(
             dist.distributions[k], x,
             extract_args_for_component(dist, component_args_flat, k)...)
@@ -207,7 +209,7 @@ function Gen.logpdf(dist::HeterogeneousMixture, x, weights, component_args_flat.
 end
 
 function Gen.logpdf_grad(dist::HeterogeneousMixture, x, weights, component_args_flat...)
-    (length(weights) != dist.K) && error(MIXED_WEIGHT_VECTOR_ERR_MSG)
+    (length(weights) != dist.K) && error(MIXTURE_WRONG_NUM_COMPONENTS_ERR)
     log_densities = [Gen.logpdf(
             dist.distributions[k], x,
             extract_args_for_component(dist, component_args_flat, k)...)
