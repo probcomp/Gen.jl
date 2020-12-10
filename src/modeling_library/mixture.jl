@@ -18,6 +18,32 @@ the corresponding argument is an i-dimensional array.
 Example:
 
     mixture_of_normals = HomogeneousMixture(normal, [0, 0])
+
+The resulting distribution (e.g. `mixture_of_normals` above) can then be used like the built-in distribution values like `normal`.
+The distribution takes `n+1` arguments where `n` is the number of arguments taken by the base distribution.
+The first argument to the distribution is a vector of weights.
+The remaining arguments to the distribution correspond to the arguments of the base distribution, but have a different type:
+If an argument to the base distribution is a scalar of type `T`, then the corresponding argument to the mixture distribution is a `Vector{T}`, where each element of this vector is the argument to the corresponding mixture component.
+If an argument to the base distribution is an `Array{T,N}` for some `N`, then the corresponding argument to the mixture distribution is of the form `arr::Array{T,N+1}`, where each slice of the array of the form `arr[:,:,...,i]` is the argument for the `i`th mixture component.
+
+Example:
+
+    mixture_of_normals = HomogeneousMixture(normal, [0, 0])
+    mixture_of_mvnormals = HomogeneousMixture(mvnormal, [1, 2])
+
+    @gen function foo()
+        # mixture of two normal distributions
+        # with means -1.0 and 1.0
+        # and standard deviations 0.1 and 10.0
+        x ~ mixture_of_normals([0.4, 0.6], [-1.0, 1.0], [0.1, 10.0])
+
+        # mixture of two multivariat normal distributions
+        # with means: [0.0, 0.0] and [1.0, 1.0]
+        # and covariance matrices: 
+        means = [0.0 1.0; 0.0 1.0] # or, cat([0.0, 0.0], [1.0, 1.0], dims=2)
+        covs = cat([1.0 0.0; 0.0 1.0], [10.0 0.0; 0.0 10.0], dims=3)
+        y ~ mixture_of_mvnormals([0.4, 0.6], means, covs)
+    end
 """
 struct HomogeneousMixture{T} <: Distribution{T}
     base_dist::Distribution{T}
