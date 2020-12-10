@@ -33,10 +33,10 @@ poisson
 uniform
 uniform_discrete
 ```
-There are also two built-in macros for defining mixture distributions:
+There are also two built-in constructors for defining mixture distributions:
 ```@docs
-@hom_mixture
-@het_mixture
+HomogeneousMixture
+HeterogeneousMixture
 ```
 
 ## [Defining New Distributions Inline with the `@dist` DSL](@id dist_dsl)

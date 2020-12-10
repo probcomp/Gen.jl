@@ -104,7 +104,7 @@ export HomogeneousMixture
 
 Defines a new mixture distribution family.
 
-The argument is the vector of base distributions, one for each mixture component/
+The argument is the vector of base distributions, one for each mixture component.
 
 Note that the base distributions must have the same output type.
 
