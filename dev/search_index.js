@@ -413,7 +413,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Probability Distributions",
     "title": "Probability Distributions",
     "category": "section",
-    "text": "Gen provides a library of built-in probability distributions, and two ways of writing custom distributions, both of which are explained below:The @dist constructor, for a distribution that can be expressed as a simple deterministic transformation (technically, a pushforward) of an existing distribution.\nAn API for defining arbitrary custom distributions in plain Julia code."
+    "text": "Gen provides a library of built-in probability distributions, and three ways of defining custom distributions, each of which are explained below:The @dist constructor, for a distribution that can be expressed as a simple deterministic transformation (technically, a pushforward) of an existing distribution.\nThe HeterogeneousMixture and HomogeneousMixture constructors for distributions that are mixtures of other distributions.\nAn API for defining arbitrary custom distributions in plain Julia code."
 },
 
 {
@@ -598,6 +598,30 @@ var documenterSearchIndex = {"docs": [
     "title": "Examples",
     "category": "section",
     "text": "Let\'s walk through some examples.@dist f(x) = exp(normal(x, 1))We can annotate with types:1 :: CONST		  (by rule 1)\nx :: ARG 		  (by rule 2)\nnormal(x, 1) :: RND 	  (by rule 3)\nexp(normal(x, 1)) :: RND  (by rule 6)Here\'s another:@dist function labeled_cat(labels, probs)\n	index = categorical(probs)\n	labels[index]\nendAnd the types:probs :: ARG 			(by rule 2)\ncategorical(probs) :: RND 	(by rule 3)\nindex :: RND 			(Julia assignment)\nlabels :: ARG 			(by rule 2)\nlabels[index] :: RND 		(by rule 6, f == getindex)Note that getindex is designed to work on anything indexible, not just vectors. So, for example, it also works with Dicts.Another one (not as realistic, but it uses all the rules):@dist function weird(x)\n  log(normal(exp(x), exp(x))) + (x * (2 + 3))\nendAnd the types:2, 3 :: CONST 						(by rule 1)\n2 + 3 :: CONST 						(by rule 4)\nx :: ARG 						(by rule 2)\nx * (2 + 3) :: ARG 					(by rule 5)\nexp(x) :: ARG 						(by rule 5)\nnormal(exp(x), exp(x)) :: RND 				(by rule 3)\nlog(normal(exp(x), exp(x))) :: RND 			(by rule 6)\nlog(normal(exp(x), exp(x))) + (x * (2 + 3)) :: RND 	(by rule 6)"
+},
+
+{
+    "location": "ref/distributions/#Gen.HomogeneousMixture",
+    "page": "Probability Distributions",
+    "title": "Gen.HomogeneousMixture",
+    "category": "type",
+    "text": "HomogeneousMixture(distribution::Distribution, dims::Vector{Int})\n\nDefine a new distribution that is a mixture of some number of instances of single base distributions.\n\nThe first argument defines the base distribution of each component in the mixture.\n\nThe second argument must have length equal to the number of arguments taken by the base distribution.  A value of 0 at a position in the vector an indicates that the corresponding argument to the base distribution is a scalar, and integer values of i for i >= 1 indicate that the corresponding argument is an i-dimensional array.\n\nExample:\n\nmixture_of_normals = HomogeneousMixture(normal, [0, 0])\n\nThe resulting distribution (e.g. mixture_of_normals above) can then be used like the built-in distribution values like normal. The distribution takes n+1 arguments where n is the number of arguments taken by the base distribution. The first argument to the distribution is a vector of non-negative mixture weights, which must sum to 1.0. The remaining arguments to the distribution correspond to the arguments of the base distribution, but have a different type: If an argument to the base distribution is a scalar of type T, then the corresponding argument to the mixture distribution is a Vector{T}, where each element of this vector is the argument to the corresponding mixture component. If an argument to the base distribution is an Array{T,N} for some N, then the corresponding argument to the mixture distribution is of the form arr::Array{T,N+1}, where each slice of the array of the form arr[:,:,...,i] is the argument for the ith mixture component.\n\nExample:\n\nmixture_of_normals = HomogeneousMixture(normal, [0, 0])\nmixture_of_mvnormals = HomogeneousMixture(mvnormal, [1, 2])\n\n@gen function foo()\n    # mixture of two normal distributions\n    # with means -1.0 and 1.0\n    # and standard deviations 0.1 and 10.0\n    # the first normal distribution has weight 0.4; the second has weight 0.6\n    x ~ mixture_of_normals([0.4, 0.6], [-1.0, 1.0], [0.1, 10.0])\n\n    # mixture of two multivariate normal distributions\n    # with means: [0.0, 0.0] and [1.0, 1.0]\n    # and covariance matrices: [1.0 0.0; 0.0 1.0] and [10.0 0.0; 0.0 10.0]\n    # the first multivariate normal distribution has weight 0.4;\n    # the second has weight 0.6\n    means = [0.0 1.0; 0.0 1.0] # or, cat([0.0, 0.0], [1.0, 1.0], dims=2)\n    covs = cat([1.0 0.0; 0.0 1.0], [10.0 0.0; 0.0 10.0], dims=3)\n    y ~ mixture_of_mvnormals([0.4, 0.6], means, covs)\nend\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/distributions/#Gen.HeterogeneousMixture",
+    "page": "Probability Distributions",
+    "title": "Gen.HeterogeneousMixture",
+    "category": "type",
+    "text": "HeterogeneousMixture(distributions::Vector{Distribution{T}}) where {T}\n\nDefine a new distribution that is a mixture of a given list of base distributions.\n\nThe argument is the vector of base distributions, one for each mixture component.\n\nNote that the base distributions must have the same output type.\n\nExample:\n\nuniform_beta_mixture = HeterogeneousMixture([uniform, beta])\n\nThe resulting mixture distribution takes n+1 arguments, where n is the sum of the number of arguments taken by each distribution in the list. The first argument to the mixture distribution is a vector of non-negative mixture weights, which must sum to 1.0. The remaining arguments are the arguments to each mixture component distribution, in order in which the distributions are passed into the constructor.\n\nExample:\n\n@gen function foo()\n    # mixure of a uniform distribution on the interval [`lower`, `upper`]\n    # and a beta distribution with alpha parameter `a` and beta parameter `b`\n    # the uniform as weight 0.4 and the beta has weight 0.6\n    x ~ uniform_beta_mixture([0.4, 0.6], lower, upper, a, b)\nend\n\n\n\n\n\n"
+},
+
+{
+    "location": "ref/distributions/#Mixture-Distribution-Constructors-1",
+    "page": "Probability Distributions",
+    "title": "Mixture Distribution Constructors",
+    "category": "section",
+    "text": "There are two built-in constructors for defining mixture distributions:HomogeneousMixture\nHeterogeneousMixture"
 },
 
 {
