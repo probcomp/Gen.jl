@@ -1885,7 +1885,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Variational Inference",
     "title": "Gen.black_box_vi!",
     "category": "function",
-    "text": "(elbo_estimate, traces, elbo_history) = black_box_vi!(\n    model::GenerativeFunction, args::Tuple,\n    observations::ChoiceMap,\n    var_model::GenerativeFunction, var_model_args::Tuple,\n    update::ParamUpdate;\n    iters=1000, samples_per_iter=100, verbose=false)\n\nFit the parameters of a generative function (var_model) to the posterior distribution implied by the given model and observations using stochastic gradient methods.\n\n\n\n\n\n"
+    "text": "(elbo_estimate, traces, elbo_history) = black_box_vi!(\n    model::GenerativeFunction, args::Tuple,\n    observations::ChoiceMap,\n    var_model::GenerativeFunction, var_model_args::Tuple,\n    update::ParamUpdate;\n    iters=1000, samples_per_iter=100, verbose=false,\n    callback=(iter, traces, elbo_estimate) -> nothing)\n\nFit the parameters of a generative function (var_model) to the posterior distribution implied by the given model and observations using stochastic gradient methods.\n\n\n\n\n\n"
 },
 
 {
@@ -1893,7 +1893,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Variational Inference",
     "title": "Gen.black_box_vimco!",
     "category": "function",
-    "text": "(iwelbo_estimate, traces, iwelbo_history) = black_box_vimco!(\n    model::GenerativeFunction, args::Tuple,\n    observations::ChoiceMap,\n    var_model::GenerativeFunction, var_model_args::Tuple,\n    update::ParamUpdate, num_samples::Int;\n    iters=1000, samples_per_iter=100, verbose=false)\n\nFit the parameters of a generative function (var_model) to the posterior distribution implied by the given model and observations using stochastic gradient methods applied to the Variational Inference with Monte Carlo Objectives lower bound on the marginal likelihood.\n\n\n\n\n\n"
+    "text": "(iwelbo_estimate, traces, iwelbo_history) = black_box_vimco!(\n    model::GenerativeFunction, args::Tuple,\n    observations::ChoiceMap,\n    var_model::GenerativeFunction, var_model_args::Tuple,\n    update::ParamUpdate, num_samples::Int;\n    iters=1000, samples_per_iter=100, verbose=false,\n    callback=(iter, traces, elbo_estimate) -> nothing)\n\nFit the parameters of a generative function (var_model) to the posterior distribution implied by the given model and observations using stochastic gradient methods applied to the Variational Inference with Monte Carlo Objectives lower bound on the marginal likelihood.\n\n\n\n\n\n"
 },
 
 {
@@ -2021,7 +2021,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Learning Generative Functions",
     "title": "Gen.train!",
     "category": "function",
-    "text": "train!(gen_fn::GenerativeFunction, data_generator::Function,\n       update::ParamUpdate,\n       num_epoch, epoch_size, num_minibatch, minibatch_size; verbose::Bool=false)\n\nTrain the given generative function to maximize the expected conditional log probability (density) that gen_fn generates the assignment constraints given inputs, where the expectation is taken under the output distribution of data_generator.\n\nThe function data_generator is a function of no arguments that returns a tuple (inputs, constraints) where inputs is a Tuple of inputs (arguments) to gen_fn, and constraints is an ChoiceMap. conf configures the optimization algorithm used. param_lists is a map from generative function to lists of its parameters. This is equivalent to minimizing the expected KL divergence from the conditional distribution constraints | inputs of the data generator to the distribution represented by the generative function, where the expectation is taken under the marginal distribution on inputs determined by the data generator.\n\n\n\n\n\n"
+    "text": "train!(gen_fn::GenerativeFunction, data_generator::Function,\n       update::ParamUpdate,\n       num_epoch, epoch_size, num_minibatch, minibatch_size; verbose::Bool=false)\n\nTrain the given generative function to maximize the expected conditional log probability (density) that gen_fn generates the assignment constraints given inputs, where the expectation is taken under the output distribution of data_generator.\n\nThe function data_generator is a function of no arguments that returns a tuple (inputs, constraints) where inputs is a Tuple of inputs (arguments) to gen_fn, and constraints is an ChoiceMap.\n\nconf configures the optimization algorithm used.\n\nparam_lists is a map from generative function to lists of its parameters. This is equivalent to minimizing the expected KL divergence from the conditional distribution constraints | inputs of the data generator to the distribution represented by the generative function, where the expectation is taken under the marginal distribution on inputs determined by the data generator.\n\n\n\n\n\n"
 },
 
 {
