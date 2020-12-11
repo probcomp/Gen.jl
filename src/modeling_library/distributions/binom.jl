@@ -23,5 +23,6 @@ end
 
 has_output_grad(::Binomial) = false
 has_argument_grads(::Binomial) = (false, true)
+is_discrete(::Binomial) = true
 
 export binom
