@@ -3,7 +3,7 @@
 Gen provides a library of built-in probability distributions, and three ways of
 defining custom distributions, each of which are explained below:
 
-1. The `@dist` constructor, for a distribution that can be expressed as a
+1. The [`@dist` constructor](@ref dist_dsl), for a distribution that can be expressed as a
    simple deterministic transformation (technically, a
    [pushforward](https://en.wikipedia.org/wiki/Pushforward_measure)) of an
    existing distribution.
