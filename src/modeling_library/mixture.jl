@@ -17,7 +17,9 @@ the corresponding argument is an i-dimensional array.
 
 Example:
 
-    mixture_of_normals = HomogeneousMixture(normal, [0, 0])
+```julia
+mixture_of_normals = HomogeneousMixture(normal, [0, 0])
+```
 
 The resulting distribution (e.g. `mixture_of_normals` above) can then be used like the built-in distribution values like `normal`.
 The distribution takes `n+1` arguments where `n` is the number of arguments taken by the base distribution.
@@ -28,24 +30,26 @@ If an argument to the base distribution is an `Array{T,N}` for some `N`, then th
 
 Example:
 
-    mixture_of_normals = HomogeneousMixture(normal, [0, 0])
-    mixture_of_mvnormals = HomogeneousMixture(mvnormal, [1, 2])
+```julia
+mixture_of_normals = HomogeneousMixture(normal, [0, 0])
+mixture_of_mvnormals = HomogeneousMixture(mvnormal, [1, 2])
 
-    @gen function foo()
-        # mixture of two normal distributions
-        # with means -1.0 and 1.0
-        # and standard deviations 0.1 and 10.0
-        # the first normal distribution has weight 0.4; the second has weight 0.6
-        x ~ mixture_of_normals([0.4, 0.6], [-1.0, 1.0], [0.1, 10.0])
+@gen function foo()
+    # mixture of two normal distributions
+    # with means -1.0 and 1.0
+    # and standard deviations 0.1 and 10.0
+    # the first normal distribution has weight 0.4; the second has weight 0.6
+    x ~ mixture_of_normals([0.4, 0.6], [-1.0, 1.0], [0.1, 10.0])
 
-        # mixture of two multivariate normal distributions
-        # with means: [0.0, 0.0] and [1.0, 1.0]
-        # and covariance matrices: [1.0 0.0; 0.0 1.0] and [10.0 0.0; 0.0 10.0]
-        # the first multivariate normal distribution has weight 0.4; the second has weight 0.6
-        means = [0.0 1.0; 0.0 1.0] # or, cat([0.0, 0.0], [1.0, 1.0], dims=2)
-        covs = cat([1.0 0.0; 0.0 1.0], [10.0 0.0; 0.0 10.0], dims=3)
-        y ~ mixture_of_mvnormals([0.4, 0.6], means, covs)
-    end
+    # mixture of two multivariate normal distributions
+    # with means: [0.0, 0.0] and [1.0, 1.0]
+    # and covariance matrices: [1.0 0.0; 0.0 1.0] and [10.0 0.0; 0.0 10.0]
+    # the first multivariate normal distribution has weight 0.4; the second has weight 0.6
+    means = [0.0 1.0; 0.0 1.0] # or, cat([0.0, 0.0], [1.0, 1.0], dims=2)
+    covs = cat([1.0 0.0; 0.0 1.0], [10.0 0.0; 0.0 10.0], dims=3)
+    y ~ mixture_of_mvnormals([0.4, 0.6], means, covs)
+end
+```
 """
 struct HomogeneousMixture{T} <: Distribution{T}
     base_dist::Distribution{T}
@@ -137,21 +141,23 @@ The argument is the vector of base distributions, one for each mixture component
 Note that the base distributions must have the same output type.
 
 Example:
-
-    uniform_beta_mixture = HeterogeneousMixture([uniform, beta])
+```julia
+uniform_beta_mixture = HeterogeneousMixture([uniform, beta])
+```
 
 The resulting mixture distribution takes `n+1` arguments, where `n` is the sum of the number of arguments taken by each distribution in the list.
 The first argument to the mixture distribution is a vector of non-negative mixture weights, which must sum to 1.0.
 The remaining arguments are the arguments to each mixture component distribution, in order in which the distributions are passed into the constructor.
 
 Example:
-
-    @gen function foo()
-        # mixure of a uniform distribution on the interval [`lower`, `upper`]
-        # and a beta distribution with alpha parameter `a` and beta parameter `b`
-        # the uniform as weight 0.4 and the beta has weight 0.6
-        x ~ uniform_beta_mixture([0.4, 0.6], lower, upper, a, b)
-    end
+```julia
+@gen function foo()
+    # mixure of a uniform distribution on the interval [`lower`, `upper`]
+    # and a beta distribution with alpha parameter `a` and beta parameter `b`
+    # the uniform as weight 0.4 and the beta has weight 0.6
+    x ~ uniform_beta_mixture([0.4, 0.6], lower, upper, a, b)
+end
+```
 """
 struct HeterogeneousMixture{T} <: Distribution{T}
     K::Int
