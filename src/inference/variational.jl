@@ -94,16 +94,20 @@ end
         observations::ChoiceMap,
         var_model::GenerativeFunction, var_model_args::Tuple,
         update::ParamUpdate;
-        iters=1000, samples_per_iter=100, verbose=false)
+        iters=1000, samples_per_iter=100, verbose=false,
+        callback=(iter, traces, elbo_estimate) -> nothing)
 
-Fit the parameters of a generative function (`var_model`) to the posterior distribution implied by the given model and observations using stochastic gradient methods.
+Fit the parameters of a generative function (`var_model`) to the posterior
+distribution implied by the given model and observations using stochastic
+gradient methods.
 """
 function black_box_vi!(
         model::GenerativeFunction, model_args::Tuple,
         observations::ChoiceMap,
         var_model::GenerativeFunction, var_model_args::Tuple,
         update::ParamUpdate;
-        iters=1000, samples_per_iter=100, verbose=false)
+        iters=1000, samples_per_iter=100, verbose=false,
+        callback=(iter, traces, elbo_estimate) -> nothing)
 
     traces = Vector{Any}(undef, samples_per_iter)
     elbo_history = Vector{Float64}(undef, iters)
@@ -126,6 +130,9 @@ function black_box_vi!(
         # print it
         verbose && println("iter $iter; est objective: $elbo_estimate")
 
+        # callback
+        callback(iter, traces, elbo_estimate)
+
         # do an update
         apply!(update)
     end
@@ -139,9 +146,14 @@ end
         observations::ChoiceMap,
         var_model::GenerativeFunction, var_model_args::Tuple,
         update::ParamUpdate, num_samples::Int;
-        iters=1000, samples_per_iter=100, verbose=false)
+        iters=1000, samples_per_iter=100, verbose=false,
+        callback=(iter, traces, elbo_estimate) -> nothing)
 
-Fit the parameters of a generative function (`var_model`) to the posterior distribution implied by the given model and observations using stochastic gradient methods applied to the [Variational Inference with Monte Carlo Objectives](https://arxiv.org/abs/1602.06725) lower bound on the marginal likelihood.
+Fit the parameters of a generative function (`var_model`) to the posterior
+distribution implied by the given model and observations using stochastic
+gradient methods applied to the [Variational Inference with Monte Carlo
+Objectives](https://arxiv.org/abs/1602.06725) lower bound on the marginal
+likelihood.
 """
 function black_box_vimco!(
         model::GenerativeFunction, model_args::Tuple,
@@ -149,7 +161,8 @@ function black_box_vimco!(
         var_model::GenerativeFunction, var_model_args::Tuple,
         update::ParamUpdate, num_samples::Int;
         iters=1000, samples_per_iter=100, verbose=false,
-        geometric=true)
+        geometric=true,
+        callback=(iter, traces, elbo_estimate) -> nothing)
 
     traces = Vector{Any}(undef, samples_per_iter)
     iwelbo_history = Vector{Float64}(undef, iters)
@@ -171,6 +184,9 @@ function black_box_vimco!(
 
         # print it
         verbose && println("iter $iter; est objective: $iwelbo_estimate")
+
+        # callback
+        callback(iter, traces, iwelbo_estimate)
 
         # do an update
         apply!(update)
