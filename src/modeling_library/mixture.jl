@@ -44,7 +44,8 @@ mixture_of_mvnormals = HomogeneousMixture(mvnormal, [1, 2])
     # mixture of two multivariate normal distributions
     # with means: [0.0, 0.0] and [1.0, 1.0]
     # and covariance matrices: [1.0 0.0; 0.0 1.0] and [10.0 0.0; 0.0 10.0]
-    # the first multivariate normal distribution has weight 0.4; the second has weight 0.6
+    # the first multivariate normal distribution has weight 0.4;
+    # the second has weight 0.6
     means = [0.0 1.0; 0.0 1.0] # or, cat([0.0, 0.0], [1.0, 1.0], dims=2)
     covs = cat([1.0 0.0; 0.0 1.0], [10.0 0.0; 0.0 10.0], dims=3)
     y ~ mixture_of_mvnormals([0.4, 0.6], means, covs)
