@@ -8,7 +8,7 @@ defining custom distributions, each of which are explained below:
    [pushforward](https://en.wikipedia.org/wiki/Pushforward_measure)) of an
    existing distribution.
 
-2. The [HeterogeneousMixture](@ref) and [HomogeneousMixture](@ref) constructors
+2. The [`HeterogeneousMixture`](@ref) and [`HomogeneousMixture`](@ref) constructors
    for distributions that are mixtures of other distributions.
 
 3. An API for defining arbitrary [custom distributions](@ref

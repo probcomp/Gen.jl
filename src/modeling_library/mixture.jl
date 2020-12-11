@@ -5,12 +5,12 @@
 """
     HomogeneousMixture(distribution::Distribution, dims::Vector{Int})
 
-Defines a new type for a mixture distribution family.
+Define a new distribution that is a mixture of some number of instances of single base distributions.
 
-The first argument defines the base distribution family of each component in the mixture.
+The first argument defines the base distribution of each component in the mixture.
 
 The second argument must have length equal
-to the number of arguments taken by the base distribution family.  A value of 0
+to the number of arguments taken by the base distribution.  A value of 0
 at a position in the vector an indicates that the corresponding argument to the
 base distribution is a scalar, and integer values of i for i >= 1 indicate that
 the corresponding argument is an i-dimensional array.
@@ -35,13 +35,13 @@ Example:
         # mixture of two normal distributions
         # with means -1.0 and 1.0
         # and standard deviations 0.1 and 10.0
-        # the first normal distribution has weight 0.4 and the second has weight 0.6
+        # the first normal distribution has weight 0.4; the second has weight 0.6
         x ~ mixture_of_normals([0.4, 0.6], [-1.0, 1.0], [0.1, 10.0])
 
         # mixture of two multivariate normal distributions
         # with means: [0.0, 0.0] and [1.0, 1.0]
         # and covariance matrices: [1.0 0.0; 0.0 1.0] and [10.0 0.0; 0.0 10.0]
-        # the first multivariate normal distribution has weight 0.4 and the second has weight 0.6
+        # the first multivariate normal distribution has weight 0.4; the second has weight 0.6
         means = [0.0 1.0; 0.0 1.0] # or, cat([0.0, 0.0], [1.0, 1.0], dims=2)
         covs = cat([1.0 0.0; 0.0 1.0], [10.0 0.0; 0.0 10.0], dims=3)
         y ~ mixture_of_mvnormals([0.4, 0.6], means, covs)
@@ -130,7 +130,7 @@ export HomogeneousMixture
 """
     HeterogeneousMixture(distributions::Vector{Distribution{T}}) where {T}
 
-Defines a new mixture distribution family.
+Define a new distribution that is a mixture of a given list of base distributions.
 
 The argument is the vector of base distributions, one for each mixture component.
 
