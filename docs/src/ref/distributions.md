@@ -211,7 +211,7 @@ log(normal(exp(x), exp(x))) :: RND 			(by rule 6)
 log(normal(exp(x), exp(x))) + (x * (2 + 3)) :: RND 	(by rule 6)
 ```
 
-## Mixture distribution constructors
+## Mixture Distribution Constructors
 
 There are two built-in constructors for defining mixture distributions:
 ```@docs
