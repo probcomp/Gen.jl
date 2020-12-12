@@ -526,14 +526,8 @@
     end
 
     @testset "test_2 - accumulate_param_gradients!" begin
-
         uf = Unfold(ker)
-
         tr = simulate(uf, (10, 1.0))
-        println(get_retval(tr))
-
-        # Throws.
         k_grads = accumulate_param_gradients!(tr, [i == 10 ? 1.0 : nothing for i in 1 : 10])
-        println(k_grads)
     end
 end
