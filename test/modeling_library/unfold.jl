@@ -30,8 +30,8 @@
         @test length(collect(get_values_shallow(choices))) == 0
         @test length(collect(get_submaps_shallow(choices))) == 3
         expected_score = (logpdf(normal, x1, x_init * alpha + beta, std)
-             + logpdf(normal, x2, x1 * alpha + beta, std)
-             + logpdf(normal, x3, x2 * alpha + beta, std))
+                          + logpdf(normal, x2, x1 * alpha + beta, std)
+                          + logpdf(normal, x3, x2 * alpha + beta, std))
         @test isapprox(get_score(trace), expected_score)
         retval = get_retval(trace)
         @test length(retval) == 3
@@ -58,10 +58,10 @@
         @test length(collect(get_submaps_shallow(choices))) == 3
         x2 = choices[2 => :x]
         expected_weight = (logpdf(normal, x1, x_init * alpha + beta, std)
-             + logpdf(normal, x3, x2 * alpha + beta, std))
+                           + logpdf(normal, x3, x2 * alpha + beta, std))
         expected_score = (logpdf(normal, x1, x_init * alpha + beta, std)
-             + logpdf(normal, x2, x1 * alpha + beta, std)
-             + logpdf(normal, x3, x2 * alpha + beta, std))
+                          + logpdf(normal, x2, x1 * alpha + beta, std)
+                          + logpdf(normal, x3, x2 * alpha + beta, std))
         @test isapprox(weight, expected_weight)
         @test isapprox(get_score(trace), expected_score)
         retval = get_retval(trace)
@@ -82,8 +82,8 @@
         x2 = choices[2 => :x]
         x3 = choices[3 => :x]
         expected_weight = (logpdf(normal, x1, x_init * alpha + beta, std)
-             + logpdf(normal, x2, x1 * alpha + beta, std)
-             + logpdf(normal, x3, x2 * alpha + beta, std))
+                           + logpdf(normal, x2, x1 * alpha + beta, std)
+                           + logpdf(normal, x3, x2 * alpha + beta, std))
         @test isapprox(weight, expected_weight)
         @test length(retval) == 3
         @test retval[1] == x1
@@ -104,8 +104,8 @@
         choices[3 => :x] = x3
         (weight, retval) = assess(foo, (3, x_init, alpha, beta), choices)
         expected_weight = (logpdf(normal, x1, x_init * alpha + beta, std)
-             + logpdf(normal, x2, x1 * alpha + beta, std)
-             + logpdf(normal, x3, x2 * alpha + beta, std))
+                           + logpdf(normal, x2, x1 * alpha + beta, std)
+                           + logpdf(normal, x3, x2 * alpha + beta, std))
         @test isapprox(weight, expected_weight)
         @test length(retval) == 3
         @test retval[1] == x1
@@ -137,8 +137,8 @@
         constraints[2 => :x] = x2_new
         constraints[3 => :x] = x3_new
         (trace, weight, retdiff, discard) = update(trace,
-            (3, x_init, alpha_new, beta),
-            (UnknownChange(), UnknownChange(), UnknownChange(), UnknownChange()), constraints)
+                                                   (3, x_init, alpha_new, beta),
+                                                   (UnknownChange(), UnknownChange(), UnknownChange(), UnknownChange()), constraints)
         choices = get_choices(trace)
         @test get_args(trace) == (3, x_init, alpha_new, beta)
         @test choices[1 => :x] == x1
@@ -146,14 +146,14 @@
         @test choices[3 => :x] == x3_new
         @test discard[2 => :x] == x2
         expected_score = (logpdf(normal, x1, x_init * alpha_new + beta, std)
-            + logpdf(normal, x2_new, x1 * alpha_new + beta, std)
-            + logpdf(normal, x3_new, x2_new * alpha_new + beta, std))
+                          + logpdf(normal, x2_new, x1 * alpha_new + beta, std)
+                          + logpdf(normal, x3_new, x2_new * alpha_new + beta, std))
         @test isapprox(get_score(trace), expected_score)
         expected_weight = (logpdf(normal, x3_new, x2_new * alpha_new + beta, std)
-            + logpdf(normal, x2_new, x1 * alpha_new + beta, std)
-            - logpdf(normal, x2, x1 * alpha + beta, std)
-            + logpdf(normal, x1, x_init * alpha_new + beta, std)
-            - logpdf(normal, x1, x_init * alpha + beta, std))
+                           + logpdf(normal, x2_new, x1 * alpha_new + beta, std)
+                           - logpdf(normal, x2, x1 * alpha + beta, std)
+                           + logpdf(normal, x1, x_init * alpha_new + beta, std)
+                           - logpdf(normal, x1, x_init * alpha + beta, std))
         @test isapprox(weight, expected_weight)
         retval = get_retval(trace)
         @test length(retval) == 3
@@ -172,8 +172,8 @@
         constraints = choicemap()
         constraints[1 => :x] = x1_new
         (trace, weight, retdiff, discard) = update(trace,
-            (1, x_init, alpha_new, beta),
-            (UnknownChange(), UnknownChange(), UnknownChange(), UnknownChange()), constraints)
+                                                   (1, x_init, alpha_new, beta),
+                                                   (UnknownChange(), UnknownChange(), UnknownChange(), UnknownChange()), constraints)
         choices = get_choices(trace)
         @test get_args(trace) == (1, x_init, alpha_new, beta)
         @test !has_value(choices, 2 => :x)
@@ -183,8 +183,8 @@
         @test discard[2 => :x] == x2
         @test isapprox(get_score(trace), logpdf(normal, x1_new, x_init * alpha_new + beta, std))
         expected_weight = (logpdf(normal, x1_new, x_init * alpha_new + beta, std)
-            - logpdf(normal, x1, x_init * alpha + beta, std)
-            - logpdf(normal, x2, x1 * alpha + beta, std))
+                           - logpdf(normal, x1, x_init * alpha + beta, std)
+                           - logpdf(normal, x2, x1 * alpha + beta, std))
         @test isapprox(weight, expected_weight)
         retval = get_retval(trace)
         @test length(retval) == 1
@@ -201,8 +201,8 @@
         constraints = choicemap()
         constraints[4 => :x] = x4_new
         (trace, weight, retdiff, discard) = update(trace,
-            (4, x_init, alpha_new, beta),
-            (UnknownChange(), UnknownChange(), UnknownChange(), UnknownChange()), constraints)
+                                                   (4, x_init, alpha_new, beta),
+                                                   (UnknownChange(), UnknownChange(), UnknownChange(), UnknownChange()), constraints)
         choices = get_choices(trace)
         @test isempty(discard)
         @test get_args(trace) == (4, x_init, alpha_new, beta)
@@ -211,15 +211,15 @@
         x3_new = choices[3 => :x]
         @test choices[4 => :x] == x4_new
         expected_score = (logpdf(normal, x1, x_init * alpha_new + beta, std)
-            + logpdf(normal, x2, x1 * alpha_new + beta, std)
-            + logpdf(normal, x3_new, x2 * alpha_new + beta, std)
-            + logpdf(normal, x4_new, x3_new * alpha_new + beta, std))
+                          + logpdf(normal, x2, x1 * alpha_new + beta, std)
+                          + logpdf(normal, x3_new, x2 * alpha_new + beta, std)
+                          + logpdf(normal, x4_new, x3_new * alpha_new + beta, std))
         @test isapprox(get_score(trace), expected_score)
         expected_weight = (logpdf(normal, x1, x_init * alpha_new + beta, std)
-            - logpdf(normal, x1, x_init * alpha + beta, std)
-            + logpdf(normal, x2, x1 * alpha_new + beta, std)
-            - logpdf(normal, x2, x1 * alpha + beta, std)
-            + logpdf(normal, x4_new, x3_new * alpha_new + beta, std))
+                           - logpdf(normal, x1, x_init * alpha + beta, std)
+                           + logpdf(normal, x2, x1 * alpha_new + beta, std)
+                           - logpdf(normal, x2, x1 * alpha + beta, std)
+                           + logpdf(normal, x4_new, x3_new * alpha_new + beta, std))
         @test isapprox(weight, expected_weight)
         retval = get_retval(trace)
         @test length(retval) == 4
@@ -236,15 +236,15 @@
         # no change to arguments, change nothing
         trace = get_initial_trace()
         (trace, weight, retdiff, discard) = update(trace,
-            (2, x_init, alpha, beta),
-            (NoChange(), NoChange(), NoChange(), NoChange()), EmptyChoiceMap())
+                                                   (2, x_init, alpha, beta),
+                                                   (NoChange(), NoChange(), NoChange(), NoChange()), EmptyChoiceMap())
         choices = get_choices(trace)
         @test get_args(trace) == (2, x_init, alpha, beta)
         @test choices[1 => :x] == x1
         @test choices[2 => :x] == x2
         @test isempty(discard)
         expected_score = (logpdf(normal, x1, x_init * alpha + beta, std)
-            + logpdf(normal, x2, x1 * alpha + beta, std))
+                          + logpdf(normal, x2, x1 * alpha + beta, std))
         @test isapprox(get_score(trace), expected_score)
         @test isapprox(weight, 0.)
         retval = get_retval(trace)
@@ -256,18 +256,18 @@
         constraints = choicemap()
         constraints[2 => :x] = x2_new
         (trace, weight, retdiff, discard) = update(trace,
-            (2, x_init, alpha, beta),
-            (NoChange(), NoChange(), NoChange(), NoChange()), constraints)
+                                                   (2, x_init, alpha, beta),
+                                                   (NoChange(), NoChange(), NoChange(), NoChange()), constraints)
         choices = get_choices(trace)
         @test get_args(trace) == (2, x_init, alpha, beta)
         @test choices[1 => :x] == x1
         @test choices[2 => :x] == x2_new
         @test discard[2 => :x] == x2
         expected_score = (logpdf(normal, x1, x_init * alpha + beta, std)
-            + logpdf(normal, x2_new, x1 * alpha + beta, std))
+                          + logpdf(normal, x2_new, x1 * alpha + beta, std))
         @test isapprox(get_score(trace), expected_score)
         expected_weight = (logpdf(normal, x2_new, x1 * alpha + beta, std)
-            - logpdf(normal, x2, x1 * alpha + beta, std))
+                           - logpdf(normal, x2, x1 * alpha + beta, std))
         @test isapprox(weight, expected_weight)
         retval = get_retval(trace)
         @test length(retval) == 2
@@ -281,18 +281,18 @@
         trace = get_initial_trace()
         x_init_new = 0.1
         (trace, weight, retdiff, discard) = update(trace,
-            (2, x_init_new, alpha, beta),
-            (NoChange(), UnknownChange(), NoChange(), NoChange()), EmptyChoiceMap())
+                                                   (2, x_init_new, alpha, beta),
+                                                   (NoChange(), UnknownChange(), NoChange(), NoChange()), EmptyChoiceMap())
         choices = get_choices(trace)
         @test get_args(trace) == (2, x_init_new, alpha, beta)
         @test choices[1 => :x] == x1
         @test choices[2 => :x] == x2
         @test isempty(discard)
         expected_score = (logpdf(normal, x1, x_init_new * alpha + beta, std)
-            + logpdf(normal, x2, x1 * alpha + beta, std))
+                          + logpdf(normal, x2, x1 * alpha + beta, std))
         @test isapprox(get_score(trace), expected_score)
         expected_weight = (logpdf(normal, x1, x_init_new * alpha + beta, std)
-            - logpdf(normal, x1, x_init * alpha + beta, std))
+                           - logpdf(normal, x1, x_init * alpha + beta, std))
         @test isapprox(weight, expected_weight)
         retval = get_retval(trace)
         @test length(retval) == 2
@@ -304,20 +304,20 @@
         trace = get_initial_trace()
         alpha_new = 0.5
         (trace, weight, retdiff, discard) = update(trace,
-            (2, x_init, alpha_new, beta),
-            (NoChange(), NoChange(), UnknownChange(), UnknownChange()), EmptyChoiceMap())
+                                                   (2, x_init, alpha_new, beta),
+                                                   (NoChange(), NoChange(), UnknownChange(), UnknownChange()), EmptyChoiceMap())
         choices = get_choices(trace)
         @test get_args(trace) == (2, x_init, alpha_new, beta)
         @test choices[1 => :x] == x1
         @test choices[2 => :x] == x2
         @test isempty(discard)
         expected_score = (logpdf(normal, x1, x_init * alpha_new + beta, std)
-            + logpdf(normal, x2, x1 * alpha_new + beta, std))
+                          + logpdf(normal, x2, x1 * alpha_new + beta, std))
         @test isapprox(get_score(trace), expected_score)
         expected_weight = (logpdf(normal, x1, x_init * alpha_new + beta, std)
-            - logpdf(normal, x1, x_init * alpha + beta, std)
-            + logpdf(normal, x2, x1 * alpha_new + beta, std)
-            - logpdf(normal, x2, x1 * alpha + beta, std))
+                           - logpdf(normal, x1, x_init * alpha + beta, std)
+                           + logpdf(normal, x2, x1 * alpha_new + beta, std)
+                           - logpdf(normal, x2, x1 * alpha + beta, std))
         @test isapprox(weight, expected_weight)
         retval = get_retval(trace)
         @test length(retval) == 2
@@ -346,19 +346,19 @@
         alpha_new = 0.5
         selection = select(2 => :x)
         (trace, weight, retdiff) = regenerate(trace,
-            (3, x_init, alpha_new, beta),
-            (UnknownChange(), UnknownChange(), UnknownChange(), UnknownChange()), selection)
+                                              (3, x_init, alpha_new, beta),
+                                              (UnknownChange(), UnknownChange(), UnknownChange(), UnknownChange()), selection)
         choices = get_choices(trace)
         @test get_args(trace) == (3, x_init, alpha_new, beta)
         @test choices[1 => :x] == x1
         x2_new = choices[2 => :x]
         x3_new = choices[3 => :x]
         expected_score = (logpdf(normal, x1, x_init * alpha_new + beta, std)
-            + logpdf(normal, x2_new, x1 * alpha_new + beta, std)
-            + logpdf(normal, x3_new, x2_new * alpha_new + beta, std))
+                          + logpdf(normal, x2_new, x1 * alpha_new + beta, std)
+                          + logpdf(normal, x3_new, x2_new * alpha_new + beta, std))
         @test isapprox(get_score(trace), expected_score)
         expected_weight = (logpdf(normal, x1, x_init * alpha_new + beta, std)
-            - logpdf(normal, x1, x_init * alpha + beta, std))
+                           - logpdf(normal, x1, x_init * alpha + beta, std))
         @test isapprox(weight, expected_weight)
         retval = get_retval(trace)
         @test length(retval) == 3
@@ -375,8 +375,8 @@
         alpha_new = 0.5
         selection = select(1 => :x)
         (trace, weight, retdiff) = regenerate(trace,
-            (1, x_init, alpha_new, beta),
-            (UnknownChange(), UnknownChange(), UnknownChange(), UnknownChange()), selection)
+                                              (1, x_init, alpha_new, beta),
+                                              (UnknownChange(), UnknownChange(), UnknownChange(), UnknownChange()), selection)
         choices = get_choices(trace)
         @test get_args(trace) == (1, x_init, alpha_new, beta)
         @test !has_value(choices, 2 => :x)
@@ -394,14 +394,14 @@
         # no change to args, change nothing
         trace = get_initial_trace()
         (trace, weight, retdiff) = regenerate(trace,
-            (2, x_init, alpha, beta),
-            (NoChange(), NoChange(), NoChange(), NoChange()), EmptySelection())
+                                              (2, x_init, alpha, beta),
+                                              (NoChange(), NoChange(), NoChange(), NoChange()), EmptySelection())
         choices = get_choices(trace)
         @test get_args(trace) == (2, x_init, alpha, beta)
         @test choices[1 => :x] == x1
         @test choices[2 => :x] == x2
         expected_score = (logpdf(normal, x1, x_init * alpha + beta, std)
-            + logpdf(normal, x2, x1 * alpha + beta, std))
+                          + logpdf(normal, x2, x1 * alpha + beta, std))
         @test isapprox(get_score(trace), expected_score)
         @test isapprox(weight, 0.)
         retval = get_retval(trace)
@@ -415,14 +415,14 @@
         x2_new = 3.3
         selection = select(2 => :x)
         (trace, weight, retdiff) = regenerate(trace,
-            (2, x_init, alpha, beta),
-            (NoChange(), NoChange(), NoChange(), NoChange()), selection)
+                                              (2, x_init, alpha, beta),
+                                              (NoChange(), NoChange(), NoChange(), NoChange()), selection)
         choices = get_choices(trace)
         @test get_args(trace) == (2, x_init, alpha, beta)
         @test choices[1 => :x] == x1
         x2_new = choices[2 => :x]
         expected_score = (logpdf(normal, x1, x_init * alpha + beta, std)
-            + logpdf(normal, x2_new, x1 * alpha + beta, std))
+                          + logpdf(normal, x2_new, x1 * alpha + beta, std))
         @test isapprox(get_score(trace), expected_score)
         @test isapprox(weight, 0.)
         retval = get_retval(trace)
@@ -437,17 +437,17 @@
         trace = get_initial_trace()
         x_init_new = -0.1
         (trace, weight, retdiff) = regenerate(trace,
-            (2, x_init_new, alpha, beta),
-            (NoChange(), UnknownChange(), NoChange(), NoChange()), EmptySelection())
+                                              (2, x_init_new, alpha, beta),
+                                              (NoChange(), UnknownChange(), NoChange(), NoChange()), EmptySelection())
         choices = get_choices(trace)
         @test get_args(trace) == (2, x_init_new, alpha, beta)
         @test choices[1 => :x] == x1
         @test choices[2 => :x] == x2
         expected_score = (logpdf(normal, x1, x_init_new * alpha + beta, std)
-            + logpdf(normal, x2, x1 * alpha + beta, std))
+                          + logpdf(normal, x2, x1 * alpha + beta, std))
         @test isapprox(get_score(trace), expected_score)
         expected_weight = (logpdf(normal, x1, x_init_new * alpha + beta, std)
-            - logpdf(normal, x1, x_init * alpha + beta, std))
+                           - logpdf(normal, x1, x_init * alpha + beta, std))
         @test isapprox(weight, expected_weight)
         retval = get_retval(trace)
         @test length(retval) == 2
@@ -459,19 +459,19 @@
         trace = get_initial_trace()
         alpha_new = 0.5
         (trace, weight, retdiff) = regenerate(trace,
-            (2, x_init, alpha_new, beta),
-            (NoChange(), NoChange(), UnknownChange(), UnknownChange()), EmptySelection())
+                                              (2, x_init, alpha_new, beta),
+                                              (NoChange(), NoChange(), UnknownChange(), UnknownChange()), EmptySelection())
         choices = get_choices(trace)
         @test get_args(trace) == (2, x_init, alpha_new, beta)
         @test choices[1 => :x] == x1
         @test choices[2 => :x] == x2
         expected_score = (logpdf(normal, x1, x_init * alpha_new + beta, std)
-            + logpdf(normal, x2, x1 * alpha_new + beta, std))
+                          + logpdf(normal, x2, x1 * alpha_new + beta, std))
         @test isapprox(get_score(trace), expected_score)
         expected_weight = (logpdf(normal, x1, x_init * alpha_new + beta, std)
-            - logpdf(normal, x1, x_init * alpha + beta, std)
-            + logpdf(normal, x2, x1 * alpha_new + beta, std)
-            - logpdf(normal, x2, x1 * alpha + beta, std))
+                           - logpdf(normal, x1, x_init * alpha + beta, std)
+                           + logpdf(normal, x2, x1 * alpha_new + beta, std)
+                           - logpdf(normal, x2, x1 * alpha + beta, std))
         @test isapprox(weight, expected_weight)
         retval = get_retval(trace)
         @test length(retval) == 2
@@ -480,7 +480,7 @@
         @test retdiff == NoChange()
     end
 
-    @testset "accumulate_param_gradients!" begin
+    @testset "test_1 - accumulate_param_gradients!" begin
 
         @gen function kernel(t::Int, x_prev::Float64, (grad)(alpha::Float64), (grad)(beta::Float64))
             @param std::Float64
@@ -511,7 +511,29 @@
         #@test isapprox(input_grads[3], expected_xs_grad) # alpha
         #@test isapprox(input_grads[4], expected_ys_grad) # beta
         expected_std_grad = (logpdf_grad(normal, x1, x_init * alpha + beta, std)[3]
-            + logpdf_grad(normal, x2, x1 * alpha + beta, std)[3])
+                             + logpdf_grad(normal, x2, x1 * alpha + beta, std)[3])
         @test isapprox(get_param_grad(kernel, :std), expected_std_grad)
+    end
+
+    @gen (grad) function ker(t, (grad)(x::Float64))
+        return 2 * x
+    end
+
+    @gen function kernel(t::Int, x_prev::Float64, (grad)(alpha::Float64), (grad)(beta::Float64))
+        @param std::Float64
+        x = @trace(normal(x_prev * alpha + beta, std), :x)
+        return x
+    end
+
+    @testset "test_2 - accumulate_param_gradients!" begin
+
+        uf = Unfold(ker)
+
+        tr = simulate(uf, (10, 1.0))
+        println(get_retval(tr))
+
+        # Throws.
+        k_grads = accumulate_param_gradients!(tr, [i == 10 ? 1.0 : nothing for i in 1 : 10])
+        println(k_grads)
     end
 end
