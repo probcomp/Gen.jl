@@ -8,12 +8,22 @@ function choice_gradients(trace::VectorTrace{UnfoldType,T,U}, selection::Selecti
     if kernel_has_grads[1]
         error("Cannot differentiate with respect to index in unfold")
     end
+
     args = get_args(trace)
     (len, init_state, params) = unpack_args(args)
     state_has_grad = kernel_has_grads[2]
     params_has_grad = kernel_has_grads[3 : end]
     value_choices = choicemap()
     gradient_choices = choicemap()
+    params_grad = Vector(undef, length(params_has_grad))
+    for (i, has_grad) in enumerate(params_has_grad)
+        if has_grad
+            params_grad[i] = Vector(undef, len)
+        else
+            params_grad[i] = nothing
+        end
+    end
+
     local kernel_arg_grads :: Tuple = (nothing, nothing)
     for key = len : -1 : 1 # walks backward over chain
         subtrace = trace.subtraces[key]
@@ -27,8 +37,13 @@ function choice_gradients(trace::VectorTrace{UnfoldType,T,U}, selection::Selecti
         set_submap!(gradient_choices, key, kernel_gradient_choices)
         @assert kernel_arg_grads[1] == nothing
         state_has_grad || @assert kernel_arg_grads[2] == nothing
+        for (i, (grad, has_grad)) in enumerate(zip(kernel_arg_grads[3:end], params_has_grad))
+            if has_grad
+                params_grad[i][key] = grad
+            end
+        end
     end
-    (kernel_arg_grads, value_choices, gradient_choices)
+    ((nothing, kernel_arg_grads[2], params_grad...), value_choices, gradient_choices)
 end
 
 function accumulate_param_gradients!(trace::VectorTrace{UnfoldType,T,U}, retval_grad) where {T,U}
@@ -36,7 +51,7 @@ function accumulate_param_gradients!(trace::VectorTrace{UnfoldType,T,U}, retval_
     if kernel_has_grads[1]
         error("Cannot differentiate with respect to index in unfold")
     end
-    
+
     args = get_args(trace)
     (len, init_state, params) = unpack_args(args)
     state_has_grad = kernel_has_grads[2]
