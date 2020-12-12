@@ -480,7 +480,7 @@
         @test retdiff == NoChange()
     end
 
-    @testset "test_1 - accumulate_param_gradients!" begin
+    @testset "test 1 - accumulate_param_gradients!" begin
 
         @gen function kernel(t::Int, x_prev::Float64, (grad)(alpha::Float64), (grad)(beta::Float64))
             @param std::Float64
@@ -516,7 +516,7 @@
     end
 
     @gen (grad) function ker(t, (grad)(x::Float64))
-        return 2 * x
+        return 2.0 * x
     end
 
     @gen function kernel(t::Int, x_prev::Float64, (grad)(alpha::Float64), (grad)(beta::Float64))
@@ -525,9 +525,13 @@
         return x
     end
 
-    @testset "test_2 - accumulate_param_gradients!" begin
+    @testset "test 2 - accumulate_param_gradients!" begin
         uf = Unfold(ker)
         tr = simulate(uf, (10, 1.0))
         k_grads = accumulate_param_gradients!(tr, [i == 10 ? 1.0 : nothing for i in 1 : 10])
+        @test isapprox(k_grads[2], 1024.0)
+    end
+
+    @testset "choice gradients" begin
     end
 end
