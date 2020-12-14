@@ -127,7 +127,7 @@ Switch
 
 ```@raw html
 <div style="text-align:center">
-    <img src="../../images/switch_combinator.png" alt="schematic of recurse combinatokr" width="100%"/>
+    <img src="../../images/switch_combinator.png" alt="schematic of switch combinator" width="100%"/>
 </div>
 ```
 
