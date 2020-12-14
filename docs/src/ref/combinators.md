@@ -125,8 +125,6 @@ TODO: document me
 Switch
 ```
 
-In the schematic below, the kernel is denoted `S` and accepts an integer index `k`.
-
 ```@raw html
 <div style="text-align:center">
     <img src="../../images/switch_combinator.png" alt="schematic of recurse combinatokr" width="100%"/>
