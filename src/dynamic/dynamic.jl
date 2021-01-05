@@ -87,6 +87,9 @@ end
 @inline traceat(state::GFUntracedState, dist::Distribution, args, key) =
     random(dist, args...)
 
+@inline splice(state::GFUntracedState, gen_fn::DynamicDSLFunction, args::Tuple) =
+    gen_fn(args...)
+
 ########################
 # trainable parameters #
 ########################
