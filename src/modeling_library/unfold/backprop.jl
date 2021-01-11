@@ -2,6 +2,7 @@
 @inline fold_sum(::Nothing, ::Nothing) = nothing
 @inline fold_sum(a::A, ::Nothing) where A = a
 @inline fold_sum(::Nothing, a::A) where A = a
+@inline fold_sum(a::A, b::A) where A = a + b
 
 function choice_gradients(trace::VectorTrace{UnfoldType,T,U}, selection::Selection, retval_grad) where {T,U}
     kernel_has_grads = has_argument_grads(trace.gen_fn.kernel)
@@ -27,7 +28,7 @@ function choice_gradients(trace::VectorTrace{UnfoldType,T,U}, selection::Selecti
     local kernel_arg_grads :: Tuple = (nothing, nothing)
     for key = len : -1 : 1 # walks backward over chain
         subtrace = trace.subtraces[key]
-        subselection = get_subselection(selection, key)
+        subselection = getindex(selection, key)
         kernel_retval_grad = (retval_grad == nothing) ? nothing : retval_grad[key]
         if state_has_grad
             kernel_retval_grad = fold_sum(kernel_retval_grad, kernel_arg_grads[2])

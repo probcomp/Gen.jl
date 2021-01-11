@@ -519,12 +519,6 @@
         return 2.0 * x
     end
 
-    @gen function kernel(t::Int, x_prev::Float64, (grad)(alpha::Float64), (grad)(beta::Float64))
-        @param std::Float64
-        x = @trace(normal(x_prev * alpha + beta, std), :x)
-        return x
-    end
-
     @testset "test 2 - accumulate_param_gradients!" begin
         uf = Unfold(ker)
         tr = simulate(uf, (10, 1.0))
@@ -532,6 +526,42 @@
         @test isapprox(k_grads[2], 1024.0)
     end
 
+    @gen (grad) function kernel(t::Int, 
+            (grad)(x_prev::Float64), 
+            (grad)(alpha::Float64), 
+            (grad)(beta::Float64))
+        x = @trace(normal(x_prev * alpha + beta, 1.0), :x)
+        return x
+    end
+
     @testset "choice gradients" begin
+        uf = Unfold(kernel)
+        alpha, beta = 1.0, 0.0
+        tr = simulate(uf, (10, 0.0, alpha, beta))
+        chm = get_choices(tr)
+
+        # Test propagation over state.
+        for i in 1 : 10
+            sel = select(i => :x)
+            grads, value_choices, grad_choices = choice_gradients(tr, sel, [nothing for _ in 1 : 10])
+
+            # Explicit edge cases.
+            grad_t = logpdf_grad(normal, chm[i => :x], i == 1 ? 0.0 : chm[(i - 1) => :x], 1.0) # if first index, init_state = 0.0
+            i == 10 ? grad_tp1 = (0.0, 0.0, 0.0) : grad_tp1 = logpdf_grad(normal, chm[(i + 1) => :x], chm[i => :x], 1.0) # if last index, no more iterations.
+
+            # Propagation should be previous choice value grad + next choice mean grad.
+            @test isapprox(grad_t[1] + grad_tp1[2], grad_choices[i => :x])
+        end
+
+        # Test propagation with non-nothing ret grad.
+        for i in 1 : 10
+            sel = select(i => :x)
+            grads, value_choices, grad_choices = choice_gradients(tr, sel, [k == i ? 1.0 : nothing for k in 1 : 10])
+            grad_t = logpdf_grad(normal, chm[i => :x], i == 1 ? 0.0 : chm[(i - 1) => :x], 1.0)
+            i == 10 ? grad_tp1 = (0.0, 0.0, 0.0) : grad_tp1 = logpdf_grad(normal, chm[(i + 1) => :x], chm[i => :x], 1.0)
+
+            # Propagation should be same as above, but including accumulating the retval grad.
+            @test isapprox(grad_t[1] + grad_tp1[2] + 1.0, grad_choices[i => :x])
+        end
     end
 end
