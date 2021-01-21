@@ -49,3 +49,6 @@ Domain-specific modeling library for fast inference in hidden Markov models.
 
 #### [Gen2DAgentMotion](https://github.com/probcomp/Gen2DAgentMotion.jl)
 Components for building generative models of the motion of an agent moving around a 2D environment.
+
+#### [GenRedner](https://github.com/probcomp/GenRedner.jl)
+Wrapper for employing the [Redner](https://github.com/BachiLi/redner) differentiable renderer in Gen generative models.
