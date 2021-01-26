@@ -48,7 +48,7 @@ struct ParamUpdate
     conf::Any
     function ParamUpdate(conf, param_lists...)
         states = Dict{GenerativeFunction,Any}()
-            for (gen_fn, param_list) in param_lists
+        for (gen_fn, param_list) in param_lists
             states[gen_fn] = init_update_state(conf, gen_fn, param_list)
         end
         new(states, conf)
