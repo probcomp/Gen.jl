@@ -267,12 +267,12 @@ Also, `discard` will be:
 │
 └── :c : false
 ```
-If `:d` is assigned to 0.1, then the weight (`w`) is computed as:
+If the former case occurs and `:d` is assigned to `true`, then the weight (`w`) is computed as:
 ```math
 p(t'; x) = 0.7 × 0.4 × 0.4 × 0.7 = 0.0784\\
 p(t; x') = 0.7 × 0.6 × 0.1 × 0.7 = 0.0294\\
 q(t'; x', t + u) = 0.1\\
-u = \log p(t'; x')/(p(t; x) q(t'; x', t + u)) = \log 0.0294/(0.0784 \cdot 0.1) = \log (3.75)
+w = \log p(t'; x')/(p(t; x) q(t'; x', t + u)) = \log 0.0294/(0.0784 \cdot 0.1) = \log (3.75)
 ```
 
 
