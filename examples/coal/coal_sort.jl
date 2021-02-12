@@ -124,20 +124,17 @@ end
 # - maintains i = fwd_choices[:i] constant
 # - swaps choices[(RATE, i)] with fwd_choices[:new_rate]
 
-@bijection function rate_involution(model_args, proposal_args, proposal_retval)
-    i = @read_discrete_from_proposal(:i)
-    @write_discrete_to_proposal(:i, i)
-    #new_rate = @read_continuous_from_proposal(:new_rate)
-    new_rate_scaled = @read_continuous_from_proposal(:new_rate_scaled)
-    cur_rate = @read_continuous_from_model((UNSORTED_RATE, i))
+@transform rate_involution (model_in, aux_in) to (model_out, aux_out) begin
+    i = @read(aux_in[:i], :discrete)
+    @write(aux_out[:i], i, :discrete)
+    new_rate_scaled = @read(aux_in[:new_rate_scaled], :continuous)
+    cur_rate = @read(model_in[(UNSORTED_RATE, i)], :continuous)
     lower_bound = cur_rate / 2.0
     upper_bound = cur_rate * 2.0
     new_rate = lower_bound + new_rate_scaled * (upper_bound - lower_bound)
-    @write_continuous_to_model((UNSORTED_RATE, i), new_rate)
-    
-    #prev_rate = @read_continuous_from_model((UNSORTED_RATE, i))
+    @write(model_out[(UNSORTED_RATE, i)], new_rate, :continuous)
     prev_rate_scaled = (cur_rate - (new_rate / 2.0)) / (new_rate * 2.0 - new_rate / 2.0)
-    @write_continuous_to_proposal(:new_rate_scaled, prev_rate_scaled)
+    @write(aux_out[:new_rate_scaled], prev_rate_scaled, :continuous)
 end
 
 is_involution!(rate_involution)
@@ -193,24 +190,20 @@ end
 # - maintains i = fwd_choices[:i] constant
 # - swaps choices[(CHANGEPT, i)] with fwd_choices[:new_changept]
 
-@bijection function position_involution(model_args, proposal_args, proposal_retval)
-    (sorted_idx, sorted_to_unsorted) = proposal_retval
-    k = @read_discrete_from_model(:k)
-    i = @read_discrete_from_proposal(:i)
-    @write_discrete_to_proposal(:i, i)
-    new_changept_scaled = @read_continuous_from_proposal(:new_changept_scaled)
-    lower_bound = sorted_idx == 1 ? 0.0 : @read_continuous_from_model((UNSORTED_CHANGEPT, sorted_to_unsorted[sorted_idx-1]))
-    upper_bound = sorted_idx == k ? T : @read_continuous_from_model((UNSORTED_CHANGEPT, sorted_to_unsorted[sorted_idx+1]))
+@transform position_involution (model_in, aux_in) to (model_out, aux_out) begin
+    (sorted_idx, sorted_to_unsorted) = @read(aux_in[], :discrete)
+    k = @read(model_in[:k], :discrete)
+    i = @read(aux_in[:i], :discrete)
+    @write(aux_out[:i], i, :discrete)
+    new_changept_scaled = @read(aux_in[:new_changept_scaled], :continuous)
+    lower_bound = sorted_idx == 1 ? 0.0 : @read(model_in[(UNSORTED_CHANGEPT, sorted_to_unsorted[sorted_idx-1])], :continuous)
+    upper_bound = sorted_idx == k ? T : @read(model_in[(UNSORTED_CHANGEPT, sorted_to_unsorted[sorted_idx+1])], :continuous)
     new_changept = lower_bound + new_changept_scaled * (upper_bound - lower_bound)
-    @write_continuous_to_model((UNSORTED_CHANGEPT, i), new_changept)
+    @write(model_out[(UNSORTED_CHANGEPT, i)], new_changept, :continuous)
 
-
-    prev_changept = @read_continuous_from_model((UNSORTED_CHANGEPT, i))
+    prev_changept = @read(model_in[(UNSORTED_CHANGEPT, i)], :continuous)
     prev_changept_scaled = (prev_changept - lower_bound) / (upper_bound - lower_bound)
-    @write_continuous_to_proposal(:new_changept_scaled, prev_changept_scaled)
-
-    #@copy_model_to_proposal((UNSORTED_CHANGEPT, i), :new_changept)
-    #@copy_proposal_to_model(:new_changept, (UNSORTED_CHANGEPT, i))
+    @write(aux_out[:new_changept_scaled], prev_changept_scaled, :continuous)
 end
 
 is_involution!(position_involution)
@@ -276,38 +269,38 @@ end
 #   changepoint and then remove that same changepoint)
 # - new_rates, curried on cp_new, cp_prev, and cp_next, is the inverse of new_rates_inverse.
 
-@bijection function birth_death_involution(model_args, proposal_args, proposal_retval)
-    T = model_args[1]
-    (unsorted_to_sorted, sorted_to_unsorted) = proposal_retval
+@transform birth_death_involution (model_in, aux_in) to (model_out, aux_out) begin
+    T = get_args(model_in)[1]
+    (unsorted_to_sorted, sorted_to_unsorted) = @read(aux_in[], :discrete) 
 
     # current number of changepoints
-    k = @read_discrete_from_model(K)
+    k = @read(model_in[K], :discrete)
     
     # if k == 0, then we can only do a birth move
-    isbirth = (k == 0) || @read_discrete_from_proposal(IS_BIRTH)
+    isbirth = (k == 0) || @read(aux_in[IS_BIRTH], :discrete)
 
     # if we are a birth move, the inverse is a death move
     if k > 1 || isbirth
-        @write_discrete_to_proposal(IS_BIRTH, !isbirth)
+        @write(aux_out[IS_BIRTH], !isbirth, :discrete)
     end
     
     if isbirth
-        @bijcall(birth(k, unsorted_to_sorted, sorted_to_unsorted))
+        @tcall(birth(k, unsorted_to_sorted, sorted_to_unsorted))
     else
-        @bijcall(death(k, unsorted_to_sorted, sorted_to_unsorted))
+        @tcall(death(k, unsorted_to_sorted, sorted_to_unsorted))
     end
 end
 
-@bijection function birth(k::Int, unsorted_to_sorted, sorted_to_unsorted)
-    k = @read_discrete_from_model(K)
-    @write_discrete_to_model(K, k+1)
-    cp_new = @read_continuous_from_proposal(NEW_CHANGEPT)
+@transform birth(k::Int, unsorted_to_sorted, sorted_to_unsorted) (model_in, aux_in) to (model_out, aux_out) begin
+    k = @read(model_in[K], :discrete)
+    @write(model_out[K], k+1, :discrete)
+    cp_new = @read(aux_in[NEW_CHANGEPT], :continuous)
 
     # set new changepoint
-    @copy_proposal_to_model(NEW_CHANGEPT, (UNSORTED_CHANGEPT, k+1))
+    @copy(aux_in[NEW_CHANGEPT], model_out[(UNSORTED_CHANGEPT, k+1)])
 
     # re-sort the changepoints, with the new one added
-    unsorted_change_pts = [@read_continuous_from_model((UNSORTED_CHANGEPT, i)) for i in 1:k]
+    unsorted_change_pts = [@read(model_in[(UNSORTED_CHANGEPT, i)], :continuous) for i in 1:k]
     push!(unsorted_change_pts, cp_new)
     (sorted_change_pts, unsorted_to_sorted, sorted_to_unsorted) = sort_change_pts(unsorted_change_pts)
     sorted_idx = unsorted_to_sorted[k+1]
@@ -321,32 +314,32 @@ end
     cp_next = (sorted_idx == k+1) ? T : sorted_change_pts[sorted_idx+1]
 
     # compute new rates
-    h_cur = @read_continuous_from_model((UNSORTED_RATE, prev_next_unsorted_rate_idx))
-    u = @read_continuous_from_proposal(U)
+    h_cur = @read(model_in[(UNSORTED_RATE, prev_next_unsorted_rate_idx)], :continuous)
+    u = @read(aux_in[U], :continuous)
     (h_prev, h_next) = new_rates(h_cur, u, cp_new, cp_prev, cp_next)
 
     # set new rates
-    @write_continuous_to_model((UNSORTED_RATE, k+1), h_prev)
-    @write_continuous_to_model((UNSORTED_RATE, new_next_unsorted_rate_idx), h_next)
+    @write(model_out[(UNSORTED_RATE, k+1)], h_prev, :continuous)
+    @write(model_out[(UNSORTED_RATE, new_next_unsorted_rate_idx)], h_next, :continuous)
 
     # shift the final rate up, only if it is not where we inserted it...
     if sorted_idx != k+1
-        @copy_model_to_model((UNSORTED_RATE, k+1), (UNSORTED_RATE, k+2))
+        @copy(model_in[(UNSORTED_RATE, k+1)], model_out[(UNSORTED_RATE, k+2)])
     end
 end
 
 # TODO rename the last rate to 'last_rate' so we don't need to shift it around...
 
-@bijection function death(k::Int, unsorted_to_sorted, sorted_to_unsorted)
-    k = @read_discrete_from_model(K)
-    @write_discrete_to_model(K, k-1)
-    cp_deleted = @read_continuous_from_model((UNSORTED_CHANGEPT, k)) # NOTE: will not be copied...
+@transform death(k::Int, unsorted_to_sorted, sorted_to_unsorted) (model_in, aux_in) to (model_out, aux_out) begin
+    k = @read(model_in[K], :discrete)
+    @write(model_out[K], k-1, :discrete)
+    cp_deleted = @read(model_in[(UNSORTED_CHANGEPT, k)], :continuous) # NOTE: will not be copied...
 
     # set proposed changepoint
-    @copy_model_to_proposal((UNSORTED_CHANGEPT, k), NEW_CHANGEPT) # but gets copied here..
+    @copy(model_in[(UNSORTED_CHANGEPT, k)], aux_out[NEW_CHANGEPT]) # but gets copied here..
 
     # re-sort the changepoints (we could use the result of the sorting from the model trace, if we wanted)
-    unsorted_change_pts = [@read_continuous_from_model((UNSORTED_CHANGEPT, i)) for i in 1:k] # all get copied..
+    unsorted_change_pts = [@read(model_in[(UNSORTED_CHANGEPT, i)], :continuous) for i in 1:k] # all get copied..
     (sorted_change_pts, unsorted_to_sorted, sorted_to_unsorted) = sort_change_pts(unsorted_change_pts)
     sorted_idx = unsorted_to_sorted[k]
 
@@ -360,45 +353,35 @@ end
     cp_next = (sorted_idx == k) ? T : sorted_change_pts[sorted_idx+1]
 
     # compute cur rate and u
-    h_prev = @read_continuous_from_model((UNSORTED_RATE, k))
-    h_next = @read_continuous_from_model((UNSORTED_RATE, prev_next_unsorted_rate_idx))
+    h_prev = @read(model_in[(UNSORTED_RATE, k)], :continuous)
+    h_next = @read(model_in[(UNSORTED_RATE, prev_next_unsorted_rate_idx)], :continuous)
     (h_cur, u) = new_rates_inverse(h_prev, h_next, cp_deleted, cp_prev, cp_next)
-    @write_continuous_to_proposal(U, u)
+    @write(aux_out[U], u, :continuous)
 
     # set cur rate
-    @write_continuous_to_model((UNSORTED_RATE, new_next_unsorted_rate_idx), h_cur)
+    @write(model_out[(UNSORTED_RATE, new_next_unsorted_rate_idx)], h_cur, :continuous)
 
     # shift the final rate, only if we are not deleting the last one..
     if sorted_idx != k
-        @copy_model_to_model((UNSORTED_RATE, k+1), (UNSORTED_RATE, k))
+        @copy(model_in[(UNSORTED_RATE, k+1)], model_out[(UNSORTED_RATE, k)])
     end
 end
 
 is_involution!(birth_death_involution)
-
-#struct UniformPerm <: Gen.Distribution{Vector{Int}} end
-#const uniform_permutation = UniformPerm()
-#import Random, SpecialFunctions
-#Gen.random(::UniformPerm, n::Int) = Random.randperm(n)
-#Gen.logpdf(::UniformPerm, perm::Vector{Int}, n::Int) = isperm(perm) ? -SpecialFunctions.logfactorial(n) : -Inf
-#Gen.logpdf_grad(::UniformPerm, perm::Vector{Int}, n::Int) = (nothing, nothing)
-#Gen.is_discrete(::UniformPerm) = true
-#Gen.has_output_grad(::UniformPerm) = false
-#Gen.has_argument_grads(::UniformPerm) = (false,)
 
 @gen function permutation_proposal(trace)
     k = get_num_change_pts(trace)
     to_swap ~ uniform_discrete(1, k-1)
 end
 
-@bijection function permutation_involution(model_args, proposal_args, proposal_retval)
-    k = @read_discrete_from_model(:k)
-    to_swap_with_k = @read_discrete_from_proposal(:to_swap)
-    @copy_proposal_to_proposal(:to_swap, :to_swap)
-    @copy_model_to_model((UNSORTED_RATE, k), (UNSORTED_RATE, to_swap_with_k))
-    @copy_model_to_model((UNSORTED_RATE, to_swap_with_k), (UNSORTED_RATE, k))
-    @copy_model_to_model((UNSORTED_CHANGEPT, k), (UNSORTED_CHANGEPT, to_swap_with_k))
-    @copy_model_to_model((UNSORTED_CHANGEPT, to_swap_with_k), (UNSORTED_CHANGEPT, k))
+@transform permutation_involution (model_in, aux_in) to (model_out, aux_out) begin
+    k = @read(model_in[:k], :discrete)
+    to_swap_with_k = @read(aux_in[:to_swap], :discrete)
+    @copy(aux_in[:to_swap], aux_out[:to_swap])
+    @copy(model_in[(UNSORTED_RATE, k)], model_out[(UNSORTED_RATE, to_swap_with_k)])
+    @copy(model_in[(UNSORTED_RATE, to_swap_with_k)], model_out[(UNSORTED_RATE, k)])
+    @copy(model_in[(UNSORTED_CHANGEPT, k)], model_out[(UNSORTED_CHANGEPT, to_swap_with_k)])
+    @copy(model_in[(UNSORTED_CHANGEPT, to_swap_with_k)], model_out[(UNSORTED_CHANGEPT, k)])
 end
 
 is_involution!(permutation_involution)
