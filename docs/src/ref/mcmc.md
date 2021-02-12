@@ -143,7 +143,7 @@ Here is an example composite kernel for MCMC in this model:
 end
 ```
 
-In the DSL, the first arugment (`trace` in this case) represents the trace on which the kernel is acting.
+In the DSL, the first argument (`trace` in this case) represents the trace on which the kernel is acting.
 the kernel may have additional arguments.
 The code inside the body can read from the trace (e.g. `trace[:n]` reads the value of the random choice `:n`).
 Finally, the return value of the composite kernel is automatically set to the trace.
