@@ -193,6 +193,27 @@ function get_aggregation_constraints(constraints::ChoiceMap, cur::Int)
     get_submap(constraints, (cur, Val(:aggregation)))
 end
 
+function to_serializable_trace(tr::RecurseTrace)
+    return GenericST(
+        (
+            Dict(k => to_serializable_trace(subtr) for (k, tr) in tr.production_traces),
+            Dict(k => to_serializable_trace(subtr) for (k, tr) in tr.aggregation_traces)
+        ),
+        tr.max_branch, tr.score, tr.root_idx, tr.num_has_choices
+    )
+end
+function from_serializable_trace(st::GenericST, gf::Recurse)
+    production_traces = PersistentHashMap{TODO}(
+        k => from_serializable_trace(subst, gf.production_kern)
+        for (k, subst) in st.subtraces[1]
+    )
+    aggregation_traces = PersistentHashMap{TODO}(
+        k => from_serializable_trace(subst, gf.aggregation_kern)
+        for (k, subst) in st.subtraces[2]
+    )
+    return get_trace_type(gf)(gf, production_traces, aggregation_traces, st.properties...)
+end
+
 ############
 # simulate #
 ############

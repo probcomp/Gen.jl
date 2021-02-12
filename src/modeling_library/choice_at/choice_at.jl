@@ -172,4 +172,12 @@ function accumulate_param_gradients!(trace::ChoiceAtTrace, retval_grad)
     (kernel_arg_grads[2:end]..., nothing)
 end
 
+
+function to_serializable_trace(tr::ChoiceAtTrace)
+    return GenericST(nothing, (tr.value, tr.key, tr.kernel_args, tr.score))
+end
+function from_serializable_trace(st::GenericST, gf::ChoiceAtCombinator)
+    return get_trace_type(gf)(gf, st.properties...)
+end
+
 export choice_at

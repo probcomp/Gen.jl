@@ -43,6 +43,8 @@ function get_prev_and_new_lengths(args::Tuple, prev_trace)
     (new_length, prev_length)
 end
 
+_addr_to_gen_fn(gf::Map, _) = gf.kernel
+
 include("assess.jl")
 include("propose.jl")
 include("simulate.jl")
