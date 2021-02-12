@@ -93,12 +93,12 @@ _maybe_accumulate_param_grad!(trace, update::Nothing) = begin end
 
 """
     (elbo_estimate, traces, elbo_history) = black_box_vi!(
-        model::GenerativeFunction, args::Tuple,
+        model::GenerativeFunction, model_args::Tuple,
+        [model_update::ParamUpdate,]
         observations::ChoiceMap,
         var_model::GenerativeFunction, var_model_args::Tuple,
-        variational_family_update::ParamUpdate;
+        var_model_update::ParamUpdate;
         iters=1000, samples_per_iter=100, verbose=false,
-        generative_model_update::Union{ParamUpdate,Nothing}=nothing,
         callback=(iter, traces, elbo_estimate) -> nothing)
 
 Fit the parameters of a generative function (`var_model`) to the posterior
@@ -107,11 +107,11 @@ gradient methods.
 """
 function black_box_vi!(
         model::GenerativeFunction, model_args::Tuple,
+        model_update::Union{ParamUpdate,Nothing},
         observations::ChoiceMap,
         var_model::GenerativeFunction, var_model_args::Tuple,
-        variational_family_update::ParamUpdate;
+        var_model_update::ParamUpdate;
         iters=1000, samples_per_iter=100, verbose=false,
-        generative_model_update::Union{ParamUpdate,Nothing}=nothing,
         callback=(iter, traces, elbo_estimate) -> nothing)
 
     var_traces = Vector{Any}(undef, samples_per_iter)
@@ -131,7 +131,7 @@ function black_box_vi!(
             elbo_estimate += (log_weight / samples_per_iter)
 
             # accumulate the generative model gradients
-            _maybe_accumulate_param_grad!(model_trace, generative_model_update)
+            _maybe_accumulate_param_grad!(model_trace, model_update)
 
             # record the traces
             var_traces[sample] = var_trace
@@ -146,25 +146,31 @@ function black_box_vi!(
         callback(iter, var_traces, elbo_estimate)
 
         # update parameters of variational family
-        apply!(variational_family_update)
+        apply!(var_model_update)
 
         # update parameters of generative model
-        if !isnothing(generative_model_update)
-            apply!(generative_model_update)
+        if !isnothing(model_update)
+            apply!(model_update)
         end
     end
 
     (elbo_history[end], var_traces, elbo_history, model_traces)
 end
 
+black_box_vi!(model::GenerativeFunction, model_args::Tuple,
+              observations::ChoiceMap,
+              var_model::GenerativeFunction, var_model_args::Tuple,
+              var_model_update::ParamUpdate; options...) =
+    black_box_vi!(model, model_args, nothing, observations,
+                  var_model, var_model_args, var_model_update; options...)
+
 """
     (iwelbo_estimate, traces, iwelbo_history) = black_box_vimco!(
-        model::GenerativeFunction, args::Tuple,
-        observations::ChoiceMap,
+        model::GenerativeFunction, model_args::Tuple,
+        [model_update::ParamUpdate,] observations::ChoiceMap,
         var_model::GenerativeFunction, var_model_args::Tuple,
-        variational_family_update::ParamUpdate, num_samples::Int;
+        var_model_update::ParamUpdate, num_samples::Int;
         iters=1000, samples_per_iter=100, verbose=false, geometric=true,
-        generative_model_update::Union{ParamUpdate,Nothing}=nothing,
         callback=(iter, traces, elbo_estimate) -> nothing)
 
 Fit the parameters of a generative function (`var_model`) to the posterior
@@ -175,12 +181,10 @@ likelihood.
 """
 function black_box_vimco!(
         model::GenerativeFunction, model_args::Tuple,
-        observations::ChoiceMap,
+        model_update::Union{ParamUpdate,Nothing}, observations::ChoiceMap,
         var_model::GenerativeFunction, var_model_args::Tuple,
-        variational_family_update::ParamUpdate, num_samples::Int;
-        iters=1000, samples_per_iter=100, verbose=false,
-        geometric=true,
-        generative_model_update::Union{ParamUpdate,Nothing}=nothing,
+        var_model_update::ParamUpdate, num_samples::Int;
+        iters=1000, samples_per_iter=100, verbose=false, geometric=true,
         callback=(iter, traces, elbo_estimate) -> nothing)
 
     var_traces = Vector{Any}(undef, samples_per_iter)
@@ -209,7 +213,7 @@ function black_box_vimco!(
             model_traces[sample] = model_trace
 
             # accumulate the generative model gradients
-            _maybe_accumulate_param_grad!(model_trace, generative_model_update)
+            _maybe_accumulate_param_grad!(model_trace, model_update)
         end
         iwelbo_history[iter] = iwelbo_estimate
 
@@ -220,16 +224,25 @@ function black_box_vimco!(
         callback(iter, var_traces, iwelbo_estimate)
 
         # update parameters of variational family
-        apply!(variational_family_update)
+        apply!(var_model_update)
 
         # update parameters of generative model
-        if !isnothing(generative_model_update)
-            apply!(generative_model_update)
+        if !isnothing(model_update)
+            apply!(model_update)
         end
 
     end
 
     (iwelbo_history[end], var_traces, iwelbo_history, model_traces)
 end
+
+black_box_vimco!(model::GenerativeFunction, model_args::Tuple,
+                 observations::ChoiceMap,
+                 var_model::GenerativeFunction, var_model_args::Tuple,
+                 var_model_update::ParamUpdate,
+                 num_samples::Int; options...) =
+    black_box_vimco!(model, model_args, nothing, observations,
+                     var_model, var_model_args, var_model_update,
+                     num_samples; options...)
 
 export black_box_vi!, black_box_vimco!

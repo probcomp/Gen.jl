@@ -110,8 +110,10 @@ end
     init_param!(approx, :log_std, 0.0)
     approx_update = ParamUpdate(FixedStepGradientDescent(0.0001), approx)
     model_update = ParamUpdate(FixedStepGradientDescent(0.0001), model)
-    @time (_, _, elbo_history, _) = black_box_vi!(model, (), observations, approx, (xs,), approx_update;
-        iters=3000, samples_per_iter=20, verbose=false, generative_model_update=model_update)
+    @time (_, _, elbo_history, _) =
+        black_box_vi!(model, (), model_update, observations,
+                      approx, (xs,), approx_update;
+                      iters=3000, samples_per_iter=20, verbose=false)
     @test isapprox(get_param(model, :theta), opt_theta, atol=1e-1)
     println("final theta: $(get_param(model, :theta))")
     println("final elbo estimate: $(elbo_history[end])")
@@ -123,8 +125,10 @@ end
     init_param!(approx, :log_std, 0.0)
     approx_update = ParamUpdate(FixedStepGradientDescent(0.001), approx)
     model_update = ParamUpdate(FixedStepGradientDescent(0.001), model)
-    @time (_, _, elbo_history, _) = black_box_vimco!(model, (), observations, approx, (xs,), approx_update, 10;
-        iters=1000, samples_per_iter=10, verbose=false, generative_model_update=model_update)
+    @time (_, _, elbo_history, _) =
+        black_box_vimco!(model, (), model_update, observations,
+                         approx, (xs,), approx_update, 10;
+                         iters=1000, samples_per_iter=10, verbose=false)
     println("final theta: $(get_param(model, :theta))")
     println("final elbo estimate: $(elbo_history[end])")
     @test isapprox(elbo_history[end], log_marginal_likelihood, rtol=0.1)
