@@ -98,9 +98,12 @@ _maybe_accumulate_param_grad!(trace, update::Nothing) = begin end
         var_model::GenerativeFunction, var_model_args::Tuple,
         variational_family_update::ParamUpdate;
         iters=1000, samples_per_iter=100, verbose=false,
-        generative_model_update::Union{ParamUpdate,Nothing}=nothing)
+        generative_model_update::Union{ParamUpdate,Nothing}=nothing,
+        callback=(iter, traces, elbo_estimate) -> nothing)
 
-Fit the parameters of a generative function (`var_model`) to the posterior distribution implied by the given model and observations using stochastic gradient methods.
+Fit the parameters of a generative function (`var_model`) to the posterior
+distribution implied by the given model and observations using stochastic
+gradient methods.
 """
 function black_box_vi!(
         model::GenerativeFunction, model_args::Tuple,
@@ -108,7 +111,8 @@ function black_box_vi!(
         var_model::GenerativeFunction, var_model_args::Tuple,
         variational_family_update::ParamUpdate;
         iters=1000, samples_per_iter=100, verbose=false,
-        generative_model_update::Union{ParamUpdate,Nothing}=nothing)
+        generative_model_update::Union{ParamUpdate,Nothing}=nothing,
+        callback=(iter, traces, elbo_estimate) -> nothing)
 
     var_traces = Vector{Any}(undef, samples_per_iter)
     model_traces = Vector{Any}(undef, samples_per_iter)
@@ -138,10 +142,13 @@ function black_box_vi!(
         # print it
         verbose && println("iter $iter; est objective: $elbo_estimate")
 
+        # callback
+        callback(iter, var_traces, elbo_estimate)
+
         # update parameters of variational family
         apply!(variational_family_update)
 
-        # update parameters of generative model 
+        # update parameters of generative model
         if !isnothing(generative_model_update)
             apply!(generative_model_update)
         end
@@ -156,10 +163,15 @@ end
         observations::ChoiceMap,
         var_model::GenerativeFunction, var_model_args::Tuple,
         variational_family_update::ParamUpdate, num_samples::Int;
-        iters=1000, samples_per_iter=100, verbose=false,
-        generative_model_update::Union{ParamUpdate,Nothing}=nothing)
+        iters=1000, samples_per_iter=100, verbose=false, geometric=true,
+        generative_model_update::Union{ParamUpdate,Nothing}=nothing,
+        callback=(iter, traces, elbo_estimate) -> nothing)
 
-Fit the parameters of a generative function (`var_model`) to the posterior distribution implied by the given model and observations using stochastic gradient methods applied to the [Variational Inference with Monte Carlo Objectives](https://arxiv.org/abs/1602.06725) lower bound on the marginal likelihood.
+Fit the parameters of a generative function (`var_model`) to the posterior
+distribution implied by the given model and observations using stochastic
+gradient methods applied to the [Variational Inference with Monte Carlo
+Objectives](https://arxiv.org/abs/1602.06725) lower bound on the marginal
+likelihood.
 """
 function black_box_vimco!(
         model::GenerativeFunction, model_args::Tuple,
@@ -168,7 +180,8 @@ function black_box_vimco!(
         variational_family_update::ParamUpdate, num_samples::Int;
         iters=1000, samples_per_iter=100, verbose=false,
         geometric=true,
-        generative_model_update::Union{ParamUpdate,Nothing}=nothing)
+        generative_model_update::Union{ParamUpdate,Nothing}=nothing,
+        callback=(iter, traces, elbo_estimate) -> nothing)
 
     var_traces = Vector{Any}(undef, samples_per_iter)
     model_traces = Vector{Any}(undef, samples_per_iter)
@@ -203,10 +216,13 @@ function black_box_vimco!(
         # print it
         verbose && println("iter $iter; est objective: $iwelbo_estimate")
 
+        # callback
+        callback(iter, var_traces, iwelbo_estimate)
+
         # update parameters of variational family
         apply!(variational_family_update)
 
-        # update parameters of generative model 
+        # update parameters of generative model
         if !isnothing(generative_model_update)
             apply!(generative_model_update)
         end
