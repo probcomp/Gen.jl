@@ -2,6 +2,14 @@ using Gen
 using Test
 import Random
 
+# use GEN_RUN_EXAMPLES=1 environment variable to run only the Gen examples in ../examples/run_examples.jl
+# if GEN_RUN_EXAMPLES is not set, then the regular unit tests will be run
+run_examples = haskey(ENV, "GEN_RUN_EXAMPLES")
+if run_examples
+    include("$(@__DIR__)/../examples/run_examples.jl")
+    exit()
+end
+
 """
 Compute a numerical partial derivative of `f` with respect to the `i`th
 argument using finite differences.
@@ -87,3 +95,5 @@ include("static_ir/static_ir.jl")
 include("tilde_sugar.jl")
 include("inference/inference.jl")
 include("modeling_library/modeling_library.jl")
+
+
