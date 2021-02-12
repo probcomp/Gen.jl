@@ -98,12 +98,21 @@ _maybe_accumulate_param_grad!(trace, update::Nothing) = begin end
         observations::ChoiceMap,
         var_model::GenerativeFunction, var_model_args::Tuple,
         var_model_update::ParamUpdate;
-        iters=1000, samples_per_iter=100, verbose=false,
-        callback=(iter, traces, elbo_estimate) -> nothing)
+        options...)
 
-Fit the parameters of a generative function (`var_model`) to the posterior
-distribution implied by the given model and observations using stochastic
-gradient methods.
+Fit the parameters of a variational model (`var_model`) to the posterior
+distribution implied by the given `model` and `observations` using stochastic
+gradient methods. Users may optionally specify a `model_update` to jointly
+update the parameters of `model`.
+
+# Additional arguments:
+- `iters=1000`: Number of iterations of gradient descent.
+- `samples_per_iter=100`: Number of samples from the variational and generative
+        model to accumulate gradients over before a single gradient step.
+- `verbose=false`: If `true`, print information about the progress of fitting.
+- `callback`: Callback function that takes `(iter, traces, elbo_estimate)`
+        as input, where `iter` is the iteration number and `traces` are samples
+        from `var_model` for that iteration.
 """
 function black_box_vi!(
         model::GenerativeFunction, model_args::Tuple,
@@ -167,24 +176,38 @@ black_box_vi!(model::GenerativeFunction, model_args::Tuple,
 """
     (iwelbo_estimate, traces, iwelbo_history) = black_box_vimco!(
         model::GenerativeFunction, model_args::Tuple,
-        [model_update::ParamUpdate,] observations::ChoiceMap,
+        [model_update::ParamUpdate,]
+        observations::ChoiceMap,
         var_model::GenerativeFunction, var_model_args::Tuple,
-        var_model_update::ParamUpdate, num_samples::Int;
-        iters=1000, samples_per_iter=100, verbose=false, geometric=true,
-        callback=(iter, traces, elbo_estimate) -> nothing)
+        var_model_update::ParamUpdate,
+        grad_est_samples::Int; options...)
 
-Fit the parameters of a generative function (`var_model`) to the posterior
-distribution implied by the given model and observations using stochastic
+Fit the parameters of a variational model (`var_model`) to the posterior
+distribution implied by the given `model` and `observations` using stochastic
 gradient methods applied to the [Variational Inference with Monte Carlo
-Objectives](https://arxiv.org/abs/1602.06725) lower bound on the marginal
-likelihood.
+Objectives](https://arxiv.org/abs/1602.06725) (VIMCO) lower bound on the
+marginal likelihood. Users may optionally specify a `model_update` to jointly
+update the parameters of `model`.
+
+# Additional arguments:
+- `grad_est_samples::Int`: Number of samples for the VIMCO gradient estimate.
+- `iters=1000`: Number of iterations of gradient descent.
+- `samples_per_iter=100`: Number of samples from the variational and generative
+        model to accumulate gradients over before a single gradient step.
+- `geometric=true`: Whether to use the geometric or arithmetric baselines
+        described in [Variational Inference with Monte Carlo
+        Objectives](https://arxiv.org/abs/1602.06725)
+- `verbose=false`: If `true`, print information about the progress of fitting.
+- `callback`: Callback function that takes `(iter, traces, elbo_estimate)`
+        as input, where `iter` is the iteration number and `traces` are samples
+        from `var_model` for that iteration.
 """
 function black_box_vimco!(
         model::GenerativeFunction, model_args::Tuple,
         model_update::Union{ParamUpdate,Nothing}, observations::ChoiceMap,
         var_model::GenerativeFunction, var_model_args::Tuple,
-        var_model_update::ParamUpdate, num_samples::Int;
-        iters=1000, samples_per_iter=100, verbose=false, geometric=true,
+        var_model_update::ParamUpdate, grad_est_samples::Int;
+        iters=1000, samples_per_iter=100, geometric=true, verbose=false,
         callback=(iter, traces, elbo_estimate) -> nothing)
 
     var_traces = Vector{Any}(undef, samples_per_iter)
@@ -200,7 +223,7 @@ function black_box_vimco!(
             # accumulate the variational family gradients
             (est, original_var_traces, weights) = multi_sample_gradient_estimate!(
                 var_model, var_model_args,
-                model, model_args, observations, num_samples,
+                model, model_args, observations, grad_est_samples,
                 1/samples_per_iter, geometric)
             iwelbo_estimate += (est / samples_per_iter)
 
@@ -240,9 +263,9 @@ black_box_vimco!(model::GenerativeFunction, model_args::Tuple,
                  observations::ChoiceMap,
                  var_model::GenerativeFunction, var_model_args::Tuple,
                  var_model_update::ParamUpdate,
-                 num_samples::Int; options...) =
+                 grad_est_samples::Int; options...) =
     black_box_vimco!(model, model_args, nothing, observations,
                      var_model, var_model_args, var_model_update,
-                     num_samples; options...)
+                     grad_est_samples; options...)
 
 export black_box_vi!, black_box_vimco!
