@@ -1885,7 +1885,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Variational Inference",
     "title": "Gen.black_box_vi!",
     "category": "function",
-    "text": "(elbo_estimate, traces, elbo_history) = black_box_vi!(\n    model::GenerativeFunction, args::Tuple,\n    observations::ChoiceMap,\n    var_model::GenerativeFunction, var_model_args::Tuple,\n    update::ParamUpdate;\n    iters=1000, samples_per_iter=100, verbose=false,\n    callback=(iter, traces, elbo_estimate) -> nothing)\n\nFit the parameters of a generative function (var_model) to the posterior distribution implied by the given model and observations using stochastic gradient methods.\n\n\n\n\n\n"
+    "text": "(elbo_estimate, traces, elbo_history) = black_box_vi!(\n    model::GenerativeFunction, model_args::Tuple,\n    [model_update::ParamUpdate,]\n    observations::ChoiceMap,\n    var_model::GenerativeFunction, var_model_args::Tuple,\n    var_model_update::ParamUpdate;\n    options...)\n\nFit the parameters of a variational model (var_model) to the posterior distribution implied by the given model and observations using stochastic gradient methods. Users may optionally specify a model_update to jointly update the parameters of model.\n\nAdditional arguments:\n\niters=1000: Number of iterations of gradient descent.\nsamples_per_iter=100: Number of samples from the variational and generative       model to accumulate gradients over before a single gradient step.\nverbose=false: If true, print information about the progress of fitting.\ncallback: Callback function that takes (iter, traces, elbo_estimate)       as input, where iter is the iteration number and traces are samples       from var_model for that iteration.\n\n\n\n\n\n"
 },
 
 {
@@ -1893,7 +1893,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Variational Inference",
     "title": "Gen.black_box_vimco!",
     "category": "function",
-    "text": "(iwelbo_estimate, traces, iwelbo_history) = black_box_vimco!(\n    model::GenerativeFunction, args::Tuple,\n    observations::ChoiceMap,\n    var_model::GenerativeFunction, var_model_args::Tuple,\n    update::ParamUpdate, num_samples::Int;\n    iters=1000, samples_per_iter=100, verbose=false,\n    callback=(iter, traces, elbo_estimate) -> nothing)\n\nFit the parameters of a generative function (var_model) to the posterior distribution implied by the given model and observations using stochastic gradient methods applied to the Variational Inference with Monte Carlo Objectives lower bound on the marginal likelihood.\n\n\n\n\n\n"
+    "text": "(iwelbo_estimate, traces, iwelbo_history) = black_box_vimco!(\n    model::GenerativeFunction, model_args::Tuple,\n    [model_update::ParamUpdate,]\n    observations::ChoiceMap,\n    var_model::GenerativeFunction, var_model_args::Tuple,\n    var_model_update::ParamUpdate,\n    grad_est_samples::Int; options...)\n\nFit the parameters of a variational model (var_model) to the posterior distribution implied by the given model and observations using stochastic gradient methods applied to the Variational Inference with Monte Carlo Objectives (VIMCO) lower bound on the marginal likelihood. Users may optionally specify a model_update to jointly update the parameters of model.\n\nAdditional arguments:\n\ngrad_est_samples::Int: Number of samples for the VIMCO gradient estimate.\niters=1000: Number of iterations of gradient descent.\nsamples_per_iter=100: Number of samples from the variational and generative       model to accumulate gradients over before a single gradient step.\ngeometric=true: Whether to use the geometric or arithmetric baselines       described in Variational Inference with Monte Carlo       Objectives\nverbose=false: If true, print information about the progress of fitting.\ncallback: Callback function that takes (iter, traces, elbo_estimate)       as input, where iter is the iteration number and traces are samples       from var_model for that iteration.\n\n\n\n\n\n"
 },
 
 {
@@ -1901,7 +1901,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Variational Inference",
     "title": "Black box variational inference",
     "category": "section",
-    "text": "There are two procedures in the inference library for performing black box variational inference.black_box_vi!\nblack_box_vimco!"
+    "text": "There are two procedures in the inference library for performing black box variational inference. Each of these procedures can also train the model using stochastic gradient descent, as in a variational autoencoder.black_box_vi!\nblack_box_vimco!"
 },
 
 {
