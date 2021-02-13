@@ -109,7 +109,7 @@ end
     init_param!(approx, :mu_coeffs, zeros(2))
     init_param!(approx, :log_std, 0.0)
     approx_update = ParamUpdate(FixedStepGradientDescent(0.0001), approx)
-    model_update = ParamUpdate(FixedStepGradientDescent(0.0001), model)
+    model_update = ParamUpdate(FixedStepGradientDescent(0.002), model)
     @time (_, _, elbo_history, _) =
         black_box_vi!(model, (), model_update, observations,
                       approx, (xs,), approx_update;
@@ -124,7 +124,7 @@ end
     init_param!(approx, :mu_coeffs, zeros(2))
     init_param!(approx, :log_std, 0.0)
     approx_update = ParamUpdate(FixedStepGradientDescent(0.001), approx)
-    model_update = ParamUpdate(FixedStepGradientDescent(0.001), model)
+    model_update = ParamUpdate(FixedStepGradientDescent(0.01), model)
     @time (_, _, elbo_history, _) =
         black_box_vimco!(model, (), model_update, observations,
                          approx, (xs,), approx_update, 10;
