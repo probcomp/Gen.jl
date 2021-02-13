@@ -603,4 +603,9 @@ ch = get_choices(tr)
 @test length(get_submaps_shallow(ch)) == 1
 end
 
+@testset "serialization" begin
+    tr = simulate(model, ([1., 2., 3., 4.],))
+    @test serialize_loop_successful(tr)
+end
+
 end # @testset "static DSL"

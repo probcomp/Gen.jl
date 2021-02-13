@@ -208,7 +208,7 @@ function to_serializable_trace(tr::CustomDetermGFTrace)
     return GenericST(nothing, (tr.retval, tr.state, tr.args))
 end
 function from_serializable_trace(st::GenericST, gf::CustomDetermGF)
-    return get_trace_type(gf)(gf, st.properties...)
+    return get_trace_type(gf)(st.properties..., gf)
 end
 
 export CustomUpdateGF, num_args

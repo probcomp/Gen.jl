@@ -63,7 +63,7 @@ function generate_generative_function(ir::StaticIR, name::Symbol, options::Stati
 
     serialization_code = generate_serialization_methods(ir, trace_struct_name, gen_fn_type_name, tracefields)
 
-    Expr(:block, trace_defns, gen_fn_defn, serialization_code, Expr(:call, gen_fn_type_name, :(Dict{Symbol,Any}()), :(Dict{Symbol,Any}())))
+    Expr(:block, trace_defns, gen_fn_defn #=, serialization_code=#, Expr(:call, gen_fn_type_name, :(Dict{Symbol,Any}()), :(Dict{Symbol,Any}())))
 end
 
 include("render_ir.jl")

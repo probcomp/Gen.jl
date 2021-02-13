@@ -15,7 +15,7 @@ abstract type SerializableTrace end
 Get a SerializableTrace representing the `trace` in a serializable manner.
 """
 function to_serializable_trace(trace::Trace)
-    return GenericST(trace)
+    return DefaultST(trace)
 end
 
 """
@@ -37,7 +37,7 @@ Many trace types cannot be reliably serialized using this.
 """
 struct DefaultST{T} <: SerializableTrace
     trace::T
-    GenericST(trace::T) where {T <: Trace} = new{T}(trace)
+    DefaultST(trace::T) where {T <: Trace} = new{T}(trace)
 end
 from_serializable_trace(st::DefaultST, ::GenerativeFunction) = st.trace
 

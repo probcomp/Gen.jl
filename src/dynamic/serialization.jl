@@ -45,3 +45,4 @@ end
 function splice(state::GFDeserializeState, gf::DynamicDSLFunction, args::Tuple)
     return exec(gf, state, args)
 end
+read_param(::GFDeserializeState, ::Symbol) = nothing

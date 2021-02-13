@@ -191,13 +191,13 @@ end
 function to_serializable_trace(trace::VectorTrace)
     GenericST(
         [to_serializable_trace(st) for st in trace.subtraces],
-        (trace.retval, trace.args, trace.len, trace.num_nonempty)
+        (trace.retval, trace.args, trace.len, trace.num_nonempty, trace.score, trace.noise)
     )
 end
 function from_serializable_trace(st::GenericST, gf::GenerativeFunction{<:Any, VectorTrace{GenFnType, T, U}}) where {GenFnType, T, U}
-    PersistentVector{U}(
-        from_serializable_trace(serialized_subtrace, _gen_fn_at_addr(gf, i))
-        for (i, serialized_subtrace) in st.subtraces
+    subtraces = PersistentVector{U}(
+        [from_serializable_trace(serialized_subtrace, _gen_fn_at_addr(gf, i))
+        for (i, serialized_subtrace) in enumerate(st.subtraces)]
     )
-    get_trace_type(gf)(gf, st.properties...)
+    get_trace_type(gf)(gf, subtraces, st.properties...)
 end

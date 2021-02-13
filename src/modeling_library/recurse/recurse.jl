@@ -196,21 +196,21 @@ end
 function to_serializable_trace(tr::RecurseTrace)
     return GenericST(
         (
-            Dict(k => to_serializable_trace(subtr) for (k, tr) in tr.production_traces),
-            Dict(k => to_serializable_trace(subtr) for (k, tr) in tr.aggregation_traces)
+            Dict(k => to_serializable_trace(subtr) for (k, subtr) in tr.production_traces),
+            Dict(k => to_serializable_trace(subtr) for (k, subtr) in tr.aggregation_traces)
         ),
-        tr.max_branch, tr.score, tr.root_idx, tr.num_has_choices
+        (tr.max_branch, tr.score, tr.root_idx, tr.num_has_choices)
     )
 end
-function from_serializable_trace(st::GenericST, gf::Recurse)
-    production_traces = PersistentHashMap{TODO}(
-        k => from_serializable_trace(subst, gf.production_kern)
-        for (k, subst) in st.subtraces[1]
-    )
-    aggregation_traces = PersistentHashMap{TODO}(
-        k => from_serializable_trace(subst, gf.aggregation_kern)
-        for (k, subst) in st.subtraces[2]
-    )
+function from_serializable_trace(st::GenericST, gf::Recurse{S, T}) where {S, T}
+    production_traces = PersistentHashMap{Int, S}()
+    for (k, subst) in st.subtraces[1]
+        production_traces = assoc(production_traces, k, from_serializable_trace(subst, gf.production_kern))
+    end
+    aggregation_traces = PersistentHashMap{Int, T}()
+    for (k, subst) in st.subtraces[2]
+        aggregation_traces = assoc(aggregation_traces, k, from_serializable_trace(subst, gf.aggregation_kern))
+    end
     return get_trace_type(gf)(gf, production_traces, aggregation_traces, st.properties...)
 end
 
