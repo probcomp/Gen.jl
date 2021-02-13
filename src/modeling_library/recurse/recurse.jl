@@ -342,7 +342,7 @@ function recurse_unpack_constraints(constraints::ChoiceMap)
             error("Unknown address: $addr")
         end
     end
-    if length(get_values_shallow(constraints)) > 0
+    if !isempty(get_values_shallow(constraints))
         error("Unknown address: $(first(get_values_shallow(constraints))[1])")
     end
     return (production_constraints, aggregation_constraints)
