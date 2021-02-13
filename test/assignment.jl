@@ -267,16 +267,20 @@ end
     # overwrite value with a submap
     choices = choicemap()
     choices[:x] = 1
+    @test has_value(choices, :x)
+    @test !has_submap(choices, :x)
     submap = choicemap(); submap[:y] = 2
     set_submap!(choices, :x, submap)
     @test !has_value(choices, :x)
     @test !isempty(get_submap(choices, :x))
+    @test has_submap(choices, :x)
 
     # overwrite subassignment with a value
     choices = choicemap()
     choices[:x => :y] = 1
     choices[:x] = 2
     threw = false
+    @test !has_submap(choices, :x)
     try get_submap(choices, :x) catch KeyError threw = true end
     @test threw
     @test choices[:x] == 2
@@ -284,6 +288,8 @@ end
     # overwrite subassignment with a subassignment
     choices = choicemap()
     choices[:x => :y] = 1
+    @test has_submap(choices, :x)
+    @test !has_submap(choices, :x => :y)
     submap = choicemap(); submap[:z] = 2
     set_submap!(choices, :x,  submap)
     @test !isempty(get_submap(choices, :x))
