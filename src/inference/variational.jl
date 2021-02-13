@@ -88,8 +88,12 @@ function multi_sample_gradient_estimate!(
     (L, traces, weights_normalized)
 end
 
-_maybe_accumulate_param_grad!(trace, update::ParamUpdate) = accumulate_param_gradients!(trace, nothing)
-_maybe_accumulate_param_grad!(trace, update::Nothing) = begin end
+function _maybe_accumulate_param_grad!(trace, update::ParamUpdate, scale_factor::Real)
+    return accumulate_param_gradients!(trace, nothing, scale_factor)
+end
+
+function _maybe_accumulate_param_grad!(trace, update::Nothing, scale_factor::Real)
+end
 
 """
     (elbo_estimate, traces, elbo_history) = black_box_vi!(
@@ -140,7 +144,7 @@ function black_box_vi!(
             elbo_estimate += (log_weight / samples_per_iter)
 
             # accumulate the generative model gradients
-            _maybe_accumulate_param_grad!(model_trace, model_update)
+            _maybe_accumulate_param_grad!(model_trace, model_update, 1.0 / samples_per_iter)
 
             # record the traces
             var_traces[sample] = var_trace
@@ -210,7 +214,7 @@ function black_box_vimco!(
         iters=1000, samples_per_iter=100, geometric=true, verbose=false,
         callback=(iter, traces, elbo_estimate) -> nothing)
 
-    var_traces = Vector{Any}(undef, samples_per_iter)
+    resampled_var_traces = Vector{Any}(undef, samples_per_iter)
     model_traces = Vector{Any}(undef, samples_per_iter)
 
     iwelbo_history = Vector{Float64}(undef, iters)
@@ -228,15 +232,14 @@ function black_box_vimco!(
             iwelbo_estimate += (est / samples_per_iter)
 
             # record a variational trace obtained by resampling from the weighted collection
-            var_traces[sample] = original_var_traces[categorical(weights)]
+            resampled_var_traces[sample] = original_var_traces[categorical(weights)]
 
-            # construct a model trace
-            constraints = merge(observations, get_choices(var_traces[sample]))
-            (model_trace, _) = generate(model, model_args, constraints)
-            model_traces[sample] = model_trace
-
-            # accumulate the generative model gradients
-            _maybe_accumulate_param_grad!(model_trace, model_update)
+            # accumulate the generative model gradient estimator
+            for (var_trace, weight) in zip(original_var_traces, weights)
+                constraints = merge(observations, get_choices(var_trace))
+                (model_trace, _) = generate(model, model_args, constraints)
+                _maybe_accumulate_param_grad!(model_trace, model_update, weight / samples_per_iter)
+            end
         end
         iwelbo_history[iter] = iwelbo_estimate
 
@@ -244,7 +247,7 @@ function black_box_vimco!(
         verbose && println("iter $iter; est objective: $iwelbo_estimate")
 
         # callback
-        callback(iter, var_traces, iwelbo_estimate)
+        callback(iter, resampled_var_traces, iwelbo_estimate)
 
         # update parameters of variational family
         apply!(var_model_update)
@@ -256,7 +259,7 @@ function black_box_vimco!(
 
     end
 
-    (iwelbo_history[end], var_traces, iwelbo_history, model_traces)
+    (iwelbo_history[end], resampled_var_traces, iwelbo_history, model_traces)
 end
 
 black_box_vimco!(model::GenerativeFunction, model_args::Tuple,
