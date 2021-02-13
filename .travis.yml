@@ -7,9 +7,6 @@ julia:
 
 jobs:
   include:
-    - stage: examples
-      script:
-        - GEN_RUN_EXAMPLES=1 julia -e 'using Pkg; Pkg.build(); Pkg.test()'
     - stage: test
       script:
         - julia -e 'using Pkg; Pkg.build(); Pkg.test()'
