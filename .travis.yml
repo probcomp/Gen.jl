@@ -5,11 +5,17 @@ language: julia
 julia:
   - 1.4
 
+services:
+  - docker
+
 jobs:
   include:
     - stage: test
       script:
         - julia -e 'using Pkg; Pkg.build(); Pkg.test()'
+    - stage: docker
+      script:
+        - docker build docker/ -t gen
     - stage: docs
       julia: 1.4
       os: linux
