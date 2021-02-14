@@ -957,7 +957,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Choice Maps",
     "title": "Gen.get_values_shallow",
     "category": "function",
-    "text": "key_submap_iterable = get_values_shallow(choices::ChoiceMap)\n\nReturn an iterable collection of tuples (key, value) for each top-level key associated with a value.\n\n\n\n\n\n"
+    "text": "key_submap_iterable = get_values_shallow(choices::ChoiceMap)\n\nReturn an iterator over tuples of the form (key, value) for each top-level key associated with a value.\n\n\n\n\n\n"
 },
 
 {
@@ -965,7 +965,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Choice Maps",
     "title": "Gen.get_submaps_shallow",
     "category": "function",
-    "text": "key_submap_iterable = get_submaps_shallow(choices::ChoiceMap)\n\nReturn an iterable collection of tuples (key, submap::ChoiceMap) for each top-level key that has a non-empty sub-assignment.\n\n\n\n\n\n"
+    "text": "key_submap_iterable = get_submaps_shallow(choices::ChoiceMap)\n\nReturn an iterator over tuples of the form (key, submap::ChoiceMap) for each top-level key that has a non-empty sub-assignment.\n\n\n\n\n\n"
 },
 
 {
