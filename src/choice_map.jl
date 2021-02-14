@@ -33,7 +33,7 @@ function get_value end
 """
     key_submap_iterable = get_submaps_shallow(choices::ChoiceMap)
 
-Return an iterable collection of tuples `(key, submap::ChoiceMap)` for each top-level key
+Return an iterator over tuples of the form `(key, submap::ChoiceMap)` for each top-level key
 that has a non-empty sub-assignment.
 """
 function get_submaps_shallow end
@@ -48,7 +48,7 @@ function has_value end
 """
     key_submap_iterable = get_values_shallow(choices::ChoiceMap)
 
-Return an iterable collection of tuples `(key, value)` for each
+Return an iterator over tuples of the form `(key, value)` for each
 top-level key associated with a value.
 """
 function get_values_shallow end
