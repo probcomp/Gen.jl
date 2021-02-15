@@ -95,7 +95,7 @@ end
 
 @testset "custom proposal" begin
 
-    Random.seed!(0)
+    Random.seed!(1)
     num_particles = 10000
     ess_threshold = 10000 # make sure we exercise resampling
 
@@ -139,12 +139,12 @@ end
     # check log marginal likelihood estimate
     expected_log_ml = log(hmm_forward_alg(prior, emission_dists, transition_dists, obs_x))
     actual_log_ml_est = log_ml_estimate(state)
-    @test isapprox(expected_log_ml, actual_log_ml_est, atol=0.01)
+    @test isapprox(expected_log_ml, actual_log_ml_est, atol=0.02)
 end
 
 @testset "default proposal" begin
 
-    Random.seed!(0)
+    Random.seed!(1)
     num_particles = 10000
     ess_threshold = 10000 # make sure we exercise resampling
 
@@ -164,7 +164,7 @@ end
     # check log marginal likelihood estimate
     expected_log_ml = log(hmm_forward_alg(prior, emission_dists, transition_dists, obs_x))
     actual_log_ml_est = log_ml_estimate(state)
-    @test isapprox(expected_log_ml, actual_log_ml_est, atol=0.01)
+    @test isapprox(expected_log_ml, actual_log_ml_est, atol=0.02)
 end
 
 end
