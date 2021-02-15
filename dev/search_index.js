@@ -909,7 +909,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Generative Function Combinators",
     "title": "Switch combinator",
     "category": "section",
-    "text": "SwitchIn the schematic below, the kernel is denoted S and accepts an integer index k.Consider the following constructions:@gen function bang((grad)(x::Float64), (grad)(y::Float64))\n    std::Float64 = 3.0\n    z = @trace(normal(x + y, std), :z)\n    return z\nend\n\n@gen function fuzz((grad)(x::Float64), (grad)(y::Float64))\n    std::Float64 = 3.0\n    z = @trace(normal(x + 2 * y, std), :z)\n    return z\nend\n\nsc = Switch(bang, fuzz)This creates a new generative function sc. We can then obtain the trace of sc:(trace, _) = simulate(sc, (2, 5.0, 3.0))The resulting trace contains the subtrace from the branch with index 2 - in this case, a call to fuzz:│\n└── :z : 13.552870875213735"
+    "text": "Switch<div style=\"text-align:center\">\n    <img src=\"../../images/switch_combinator.png\" alt=\"schematic of switch combinator\" width=\"100%\"/>\n</div>Consider the following constructions:@gen function bang((grad)(x::Float64), (grad)(y::Float64))\n    std::Float64 = 3.0\n    z = @trace(normal(x + y, std), :z)\n    return z\nend\n\n@gen function fuzz((grad)(x::Float64), (grad)(y::Float64))\n    std::Float64 = 3.0\n    z = @trace(normal(x + 2 * y, std), :z)\n    return z\nend\n\nsc = Switch(bang, fuzz)This creates a new generative function sc. We can then obtain the trace of sc:(trace, _) = simulate(sc, (2, 5.0, 3.0))The resulting trace contains the subtrace from the branch with index 2 - in this case, a call to fuzz:│\n└── :z : 13.552870875213735"
 },
 
 {
