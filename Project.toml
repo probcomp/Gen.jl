@@ -4,6 +4,7 @@ authors = ["Marco Cusumano-Towner <imarcoam@gmail.com>"]
 version = "0.4.1"
 
 [deps]
+Compat = "34da2185-b29b-5c13-b0c7-acf172513d20"
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
