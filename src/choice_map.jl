@@ -31,6 +31,13 @@ no value exists. A syntactic sugar is `Base.getindex`:
 function get_value end
 
 """
+    has_submap(choices::ChoiceMap, addr)
+
+Return true if there is a non-empty sub-assignment at the given address.
+"""
+function has_submap end
+
+"""
     key_submap_iterable = get_submaps_shallow(choices::ChoiceMap)
 
 Return an iterator over tuples of the form `(key, submap::ChoiceMap)` for each top-level key
@@ -69,6 +76,8 @@ function Base.isempty(::ChoiceMap)
     true
 end
 
+
+@inline has_submap(choices::ChoiceMap, addr) = !has_value(choices, addr) && !isempty(get_submap(choices, addr))
 @inline get_submap(choices::ChoiceMap, addr) = EmptyChoiceMap()
 @inline has_value(choices::ChoiceMap, addr) = false
 @inline get_value(choices::ChoiceMap, addr) = throw(KeyError(addr))
@@ -323,6 +332,7 @@ end
 
 export ChoiceMap
 export get_address_schema
+export has_submap
 export get_submap
 export get_value
 export has_value
