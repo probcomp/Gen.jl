@@ -19,6 +19,9 @@ struct DynamicDSLFunction{T} <: GenerativeFunction{T,DynamicDSLTrace}
     accepts_output_grad::Bool
 end
 
+Base.nameof(gen_fn::DynamicDSLFunction) =
+    nameof(gen_fn.julia_function)
+
 function DynamicDSLFunction(arg_types::Vector{Type},
                      arg_defaults::Vector{Union{Some{Any},Nothing}},
                      julia_function::Function,

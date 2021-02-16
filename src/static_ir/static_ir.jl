@@ -27,6 +27,9 @@ Most generative function interface methods are generated from the intermediate r
 """
 abstract type StaticIRGenerativeFunction{T,U} <: GenerativeFunction{T,U} end
 
+Base.nameof(gen_fn::StaticIRGenerativeFunction) =
+    nameof(type_of(gen_fn))
+
 function get_ir end
 function get_gen_fn_type end
 function get_options end
@@ -52,6 +55,7 @@ function generate_generative_function(ir::StaticIR, name::Symbol, options::Stati
             params::Dict{Symbol,Any}
         end
         (gen_fn::$gen_fn_type_name)(args...) = $(GlobalRef(Gen, :propose))(gen_fn, args)[3]
+        $(GlobalRef(Gen, :get_ir))(::$gen_fn_type_name) = $(QuoteNode(ir))
         $(GlobalRef(Gen, :get_ir))(::Type{$gen_fn_type_name}) = $(QuoteNode(ir))
         $(GlobalRef(Gen, :get_trace_type))(::Type{$gen_fn_type_name}) = $trace_struct_name
         $(GlobalRef(Gen, :has_argument_grads))(::$gen_fn_type_name) = $(QuoteNode(has_argument_grads))
@@ -63,6 +67,7 @@ function generate_generative_function(ir::StaticIR, name::Symbol, options::Stati
     Expr(:block, trace_defns, gen_fn_defn, Expr(:call, gen_fn_type_name, :(Dict{Symbol,Any}()), :(Dict{Symbol,Any}())))
 end
 
+include("print_ir.jl")
 include("render_ir.jl")
 
 ###########################
