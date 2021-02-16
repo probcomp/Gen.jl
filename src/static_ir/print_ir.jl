@@ -23,7 +23,7 @@ end
 
 function print_ir(io::IO, node::GenerativeFunctionCallNode)
     inputs = join((string(i.name) for i in node.inputs), ", ")
-    gen_fn_name = nameof(node.generative_function)
+    gen_fn_name = ir_name(node.generative_function)
     print(io, "$(node.name) = @trace($(gen_fn_name)($inputs), :$(node.addr))")
 end
 
@@ -31,3 +31,6 @@ function print_ir(io::IO, node::RandomChoiceNode)
     inputs = join((string(i.name) for i in node.inputs), ", ")
     print(io, "$(node.name) = @trace($(node.dist)($inputs), :$(node.addr))")
 end
+
+ir_name(fn::GenerativeFunction) = nameof(typeof(fn))
+ir_name(fn::DynamicDSLFunction) = nameof(fn.julia_function)

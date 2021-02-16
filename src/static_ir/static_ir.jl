@@ -27,9 +27,6 @@ Most generative function interface methods are generated from the intermediate r
 """
 abstract type StaticIRGenerativeFunction{T,U} <: GenerativeFunction{T,U} end
 
-Base.nameof(gen_fn::StaticIRGenerativeFunction) =
-    nameof(type_of(gen_fn))
-
 function get_ir end
 function get_gen_fn_type end
 function get_options end
