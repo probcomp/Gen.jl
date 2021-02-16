@@ -22,6 +22,7 @@ z = add_julia_node!(builder, (u, v) -> u + v, inputs=[u, v], name=:z)
 set_return_node!(builder, z)
 ir = build_ir(builder)
 bar = eval(generate_generative_function(ir, :bar, track_diffs=false, cache_julia_nodes=false))
+@test occursin("== Static IR ==", repr("text/plain", ir))
 
 #@gen (static, nojuliacache) function foo(a, b)
     #@param theta::Float64
@@ -45,6 +46,7 @@ w = add_julia_node!(builder, (z, a, theta) -> z + 1 + a + theta, inputs=[z, a, t
 set_return_node!(builder, w)
 ir = build_ir(builder)
 foo = eval(generate_generative_function(ir, :foo, track_diffs=false, cache_julia_nodes=false))
+@test occursin("== Static IR ==", repr("text/plain", ir))
 
 theta_val = rand()
 set_param!(foo, :theta, theta_val)
@@ -58,6 +60,7 @@ one = add_constant_node!(builder, 2)
 set_return_node!(builder, one)
 ir = build_ir(builder)
 const_fn = eval(generate_generative_function(ir, :const_fn, track_diffs=false, cache_julia_nodes=false))
+@test occursin("== Static IR ==", repr("text/plain", ir))
 
 Gen.load_generated_functions()
 
