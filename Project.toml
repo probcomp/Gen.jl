@@ -18,6 +18,7 @@ ReverseDiff = "37e2e3b7-166d-5795-8a7a-e32c996b4267"
 SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
 
 [compat]
+Compat = "3.25"
 DataStructures = "0.15, 0.16, 0.17, 0.18"
 Distributions = "0.24"
 ForwardDiff = "0.10.10"
