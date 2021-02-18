@@ -45,10 +45,10 @@ end
 The following trace transform DSL program defines a transformation (called `f`) that transforms traces of `p1` into traces of `p2`:
 ```julia
 @transform f (t1) to (t2) begin
-    r = @read(t1[:r], continuous)
-    theta = @read(t1[theta], continuous)
-    @write(t2[:x], r * cos(theta), continuous)
-    @write(t2[:y], r * sin(theta), continuous)
+    r = @read(t1[:r], :continuous)
+    theta = @read(t1[theta], :continuous)
+    @write(t2[:x], r * cos(theta), :continuous)
+    @write(t2[:y], r * sin(theta), :continuous)
 end
 ```
 This transform reads values of random choices in the input trace (`t1`) at specific addresses (indicated by the syntax `t1[addr]`) using `@read` and writes values to the output trace (`t2`) using `@write`.
@@ -60,11 +60,11 @@ The inverse can provide a dynamic check that the transform truly is a bijection.
 The inverse of the above transformation is:
 ```julia
 @transform finv (t2) to (t1) begin
-    x = @read(t2[:x], continuous)
-    y = @read(t2[:y], continuous)
+    x = @read(t2[:x], :continuous)
+    y = @read(t2[:y], :continuous)
     r = sqrt(x^2 + y^2)
-    @write(t1[:r], sqrt(x^2 + y^2), continuous)
-    @write(t1[:theta], atan(y, x), continuous)
+    @write(t1[:r], sqrt(x^2 + y^2), :continuous)
+    @write(t1[:theta], atan(y, x), :continuous)
 end
 ```
 We can inform Gen that two transforms are inverses of one another using [`pair_bijections!`](@ref):
