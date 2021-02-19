@@ -244,7 +244,7 @@ To handle general trace translators that require auxiliary probability distribut
 For example, the following defines a trace transform that maps from pairs of traces of `p1` and `q1` to pairs of traces of `p2` and `q2`:
 
 ```julia
-@transform f (p1_trace, q1_trace) to (p2_trace, q2_trace)
+@transform f (p1_trace, q1_trace) to (p2_trace, q2_trace) begin
     x = @read(p1_trace[:x], :continuous)
     y = @read(p1_trace[:y], :continuous)
     i = ceil(x * 10)
@@ -257,7 +257,7 @@ end
 ```
 and the inverse transform:
 ```julia
-@transform f_inv (p2_trace, q2_trace) to (p1_trace, q1_trace)
+@transform f_inv (p2_trace, q2_trace) to (p1_trace, q1_trace) begin
     i = @read(p2_trace[:i], :discrete)
     j = @read(p2_trace[:j], :discrete)
     dx = @read(q2_trace[:dx], :continuous)
