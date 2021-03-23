@@ -53,4 +53,5 @@ Components for building generative models of the motion of an agent moving aroun
 #### [GenRedner](https://github.com/probcomp/GenRedner.jl)
 Wrapper for employing the [Redner](https://github.com/BachiLi/redner) differentiable renderer in Gen generative models.
 
-
+#### [GenTraceKernelDSL](https://github.com/probcomp/GenTraceKernelDSL.jl)
+An alternative interface to defining [trace translators](https://www.gen.dev/dev/ref/trace_translators/).
