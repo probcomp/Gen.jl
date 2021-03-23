@@ -32,17 +32,17 @@ Enables the use of any of [Flux](https://github.com/FluxML/Flux.jl)'s optimizers
 #### [GenParticleFilters](https://github.com/probcomp/GenParticleFilters.jl)
 Building blocks for basic and advanced particle filtering.
 
-#### [GenPseudoMarginal](https://github.com/probcomp/GenPseudoMarginal.jl)
-Building blocks for [modular probabilistic inference](https://arxiv.org/abs/1612.04759) using pseudo-marginal Monte Carlo algorithms.
-
-#### [GenVariableElimination](https://github.com/probcomp/GenVariableElimination.jl)
-Compile portions of traces into factor graphs and use variable elimination on them.
-
 <br>
 <hr> 
 
 ## Contributed packages
 <br>
+
+#### [GenPseudoMarginal](https://github.com/probcomp/GenPseudoMarginal.jl)
+Building blocks for [modular probabilistic inference](https://arxiv.org/abs/1612.04759) using pseudo-marginal Monte Carlo algorithms.
+
+#### [GenVariableElimination](https://github.com/probcomp/GenVariableElimination.jl)
+Compile portions of traces into factor graphs and use variable elimination on them.
 
 #### [GenHMM](https://github.com/probcomp/GenHMM.jl)
 Domain-specific modeling library for fast inference in hidden Markov models.
@@ -52,3 +52,5 @@ Components for building generative models of the motion of an agent moving aroun
 
 #### [GenRedner](https://github.com/probcomp/GenRedner.jl)
 Wrapper for employing the [Redner](https://github.com/BachiLi/redner) differentiable renderer in Gen generative models.
+
+
