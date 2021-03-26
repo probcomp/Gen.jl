@@ -46,7 +46,7 @@ The following trace transform DSL program defines a transformation (called `f`) 
 ```julia
 @transform f (t1) to (t2) begin
     r = @read(t1[:r], :continuous)
-    theta = @read(t1[theta], :continuous)
+    theta = @read(t1[:theta], :continuous)
     @write(t2[:x], r * cos(theta), :continuous)
     @write(t2[:y], r * sin(theta), :continuous)
 end
