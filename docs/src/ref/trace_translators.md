@@ -307,7 +307,49 @@ This has two benefits when the previous and new traces have random choices that 
 
 ## Simple Extending Trace Translators
 
-TODO Document
+Simple extending trace translators extend an existing trace with new random
+choices sampled from a proposal distribution, as well as any new observations.
+The arguments of the trace may also be updated. This type of trace translation
+is the basic operation used in [Particle Filtering](@ref). For example,
+we might have a model that sequentially samples new latent variables `(:z, t)`
+and observations `(:x, t)` for each timestep `t`:
+
+```julia
+@gen function model(T::Int)
+    for t in 1:T
+        z = {(:z, t)} ~ normal(0, 1)
+        x = {(:x, t)} ~ normal(z, 1)
+    end
+end
+```
+
+Each time we observe a new `(:x ,t)`, we might want to propose `(:z, t)` so that
+it is close in value:
+
+```julia
+@gen function proposal(trace::Trace, x::Real)
+    t = get_args(trace)[1] + 1
+    {(:z, t)} ~ normal(x, 1)
+end
+```
+
+Suppose we initially generated a trace up to timestep `t=1`, e.g. by calling
+`t1 = simulate(model, (1,))`. Now we observe `(:x, 2)` to be `5.0`. By
+constructing a simple extending trace translator, we can simultaneously
+update the trace `t1` with new arguments, introduce the new observation
+at `(:x, 2)`, and propose a likely value for `(:z, 2)`:
+
+```julia
+translator = SimpleExtendingTraceTranslator(
+    p_new_args=(2,), p_argdiffs=(UnknownChange(),),
+    new_observations=choicemap((:x, 2) => 5.0),
+    q_forward=proposal, q_forward_args=(5.0,))
+t2, log_weight = translator(t1)
+```
+
+Similar functionality can be achieved through a combination of [`propose`](@ref)
+on the proposal and [`update`](@ref) on the original trace, but using a trace
+translator provides a nice layer of abstraction.
 
 ## Trace Transform DSL
 
