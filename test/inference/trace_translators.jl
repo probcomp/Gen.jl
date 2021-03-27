@@ -59,7 +59,7 @@ end
         p_new_args=(2,), p_argdiffs=(UnknownChange(),),
         new_observations=choicemap((:x, 2) => 5.0),
         q_forward=proposal, q_forward_args=(5.0,))
-    t1, _ = generate(model, (1,), choicemap())
+    t1  = simulate(model, (1,))
     t2, log_weight = translator(t1)
 
     prop_choices = choicemap((:z, 2) => t2[(:z, 2)])
