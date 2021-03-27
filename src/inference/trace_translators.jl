@@ -761,10 +761,10 @@ end
 """
     translator = SimpleExtendingTraceTranslator(;
         p_new_args::Tuple = (),
-        argdiffs::Tuple = (),
-        new_obs::ChoiceMap = EmptyChoiceMap(),
-        q_fwd::GenerativeFunction,
-        q_fwd_args::Tuple  = ())
+        p_argdiffs::Tuple = (),
+        new_observations::ChoiceMap = EmptyChoiceMap(),
+        q_forward::GenerativeFunction,
+        q_forward_args::Tuple  = ())
 
 Constructor for a simple extending trace translator.
 
@@ -774,23 +774,23 @@ Run the translator with:
 """
 @with_kw struct SimpleExtendingTraceTranslator
     p_new_args::Tuple = ()
-    argdiffs::Tuple = ()
-    new_obs::ChoiceMap = EmptyChoiceMap()
-    q_fwd::GenerativeFunction
-    q_fwd_args::Tuple  = ()
+    p_argdiffs::Tuple = ()
+    new_observations::ChoiceMap = EmptyChoiceMap()
+    q_forward::GenerativeFunction
+    q_forward_args::Tuple  = ()
 end
 
 function (translator::SimpleExtendingTraceTranslator)(prev_model_trace::Trace)
 
     # simulate from auxiliary program
-    forward_proposal_trace = simulate(translator.q_fwd, (prev_model_trace, translator.q_fwd_args...,))
+    forward_proposal_trace = simulate(translator.q_forward, (prev_model_trace, translator.q_forward_args...,))
     forward_proposal_score = get_score(forward_proposal_trace)
 
     # computing the new trace via update
-    constraints = merge(get_choices(forward_proposal_trace), translator.new_obs)
+    constraints = merge(get_choices(forward_proposal_trace), translator.new_observations)
     (new_model_trace, log_model_weight, _, discard) = update(
         prev_model_trace, translator.p_new_args,
-        translator.argdiffs, constraints)
+        translator.p_argdiffs, constraints)
 
     if !isempty(discard)
         @error("can only extend the trace with random choices, cannot remove random choices")
