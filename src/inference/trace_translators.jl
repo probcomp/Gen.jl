@@ -139,8 +139,8 @@ macro transform(f_expr, src_expr, to_symbol::Symbol, dest_expr, body)
         function $fn!(
                 $(esc(bij_state))::Union{FirstPassState,JacobianPassState},
                 $(map(esc, args)...))
-            model_args = get_args($(esc(bij_state)).model_trace)
-            aux_args = get_args($(esc(bij_state)).aux_trace)
+            model_args = get_model_args($(esc(bij_state)))
+            aux_args = get_aux_args($(esc(bij_state)))
             $(esc(model_in)) = ModelInputTraceToken(model_args)
             $(esc(model_out)) = ModelOutputTraceToken()
             $(esc(aux_in)) = AuxInputTraceToken(aux_args)
@@ -241,22 +241,31 @@ function FirstPassResults()
 end
 
 struct FirstPassState
-
-    "trace containing the input model choice map ``t``"
+    "Trace containing the input model choice map ``t``"
     model_trace::Trace
     model_choices::ChoiceMap
 
-    "the input proposal choice map ``u``"
-    aux_trace::Trace
+    "The input proposal choice map ``u``"
+    aux_trace::Union{Trace,Nothing}
     aux_choices::ChoiceMap
 
     results::FirstPassResults
 end
 
-function FirstPassState(model_trace, aux_trace)
-    return FirstPassState(
-        model_trace, get_choices(model_trace),
-        aux_trace, get_choices(aux_trace), FirstPassResults())
+FirstPassState(model_trace::Trace, aux_trace::Trace) =
+    FirstPassState(model_trace, get_choices(model_trace),
+                   aux_trace, get_choices(aux_trace), FirstPassResults())
+
+FirstPassState(model_trace::Trace, aux_trace::Nothing) =
+    FirstPassState(model_trace, get_choices(model_trace),
+                   aux_trace, EmptyChoiceMap(), FirstPassResults())
+
+function get_model_args(state::FirstPassState)
+    return get_args(state.model_trace)
+end
+
+function get_aux_args(state::FirstPassState)
+    return state.aux_trace === nothing ? () : get_args(state.aux_trace)
 end
 
 function run_first_pass(transform::TraceTransformDSLProgram, model_trace, aux_trace)
@@ -376,14 +385,22 @@ end
 #####################################################################
 
 struct JacobianPassState{T<:Real}
-    model_trace
-    aux_trace
+    model_trace::Trace
+    aux_trace::Union{Trace,Nothing}
     input_arr::AbstractArray{T}
     output_arr::Array{T}
     t_key_to_index::Dict
     u_key_to_index::Dict
     cont_constraints_key_to_index::Dict
     cont_u_back_key_to_index::Dict
+end
+
+function get_model_args(state::JacobianPassState)
+    return get_args(state.model_trace)
+end
+
+function get_aux_args(state::JacobianPassState)
+    return state.aux_trace === nothing ? () : get_args(state.aux_trace)
 end
 
 function read(state::JacobianPassState, src::ModelInputTraceRetValToken, ::DiscreteAnn)
