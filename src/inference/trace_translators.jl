@@ -665,7 +665,7 @@ function (translator::DeterministicTraceTranslator)(
 
     # apply trace transform
     (new_model_trace, log_abs_determinant) = deterministic_trace_translator_run_transform(
-        translator.f, translator.new_observations, prev_model_trace, translator.p_new, translator.p_new_args)
+        translator.f, translator.new_observations, prev_model_trace, translator.p_new, translator.p_args)
 
     # compute log weight
     prev_model_score = get_score(prev_model_trace)
@@ -742,7 +742,7 @@ function (translator::GeneralTraceTranslator)(
 
     # apply trace transform
     (new_model_trace, backward_proposal_trace, log_abs_determinant) = general_trace_translator_run_transform(
-        translator.f, prev_model_trace, forward_proposal_trace, translator.new_observations,
+        translator.f, translator.new_observations, prev_model_trace, forward_proposal_trace,
         translator.p_new, translator.p_new_args, translator.q_backward, translator.q_backward_args)
 
     # compute log weight
