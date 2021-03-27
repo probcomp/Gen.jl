@@ -1,7 +1,7 @@
 import ForwardDiff
 import MacroTools
 import LinearAlgebra
-import Parameters: @with_kw
+import Parameters: @with_kw, @unpack
 
 #######################
 # trace transform DSL #
@@ -644,14 +644,21 @@ Run the translator with:
     f::TraceTransformDSLProgram # a bijection
 end
 
-function deterministic_trace_translator_run_transform(
-        f::TraceTransformDSLProgram, new_observations::ChoiceMap,
-        prev_model_trace::Trace, p_new::GenerativeFunction, p_new_args::Tuple)
+function inverse(translator::DeterministicTraceTranslator,
+        prev_model_trace::Trace, prev_observations::ChoiceMap=EmptyChoiceMap())
+    return DeterministicTraceTranslator(
+        get_gen_fn(prev_model_trace), get_args(prev_model_trace),
+        prev_observations, inverse(translator.f))
+end
+
+function run_transform(translator::DeterministicTraceTranslator,
+                       prev_model_trace::Trace)
+    @unpack p_new, p_args, new_observations, f = translator
     first_pass_results = run_first_pass(f, prev_model_trace, nothing)
     log_abs_determinant = jacobian_correction(
         f, prev_model_trace, nothing, first_pass_results, nothing)
     constraints = merge(first_pass_results.constraints, new_observations)
-    (new_model_trace, _) = generate(p_new, p_new_args, constraints)
+    (new_model_trace, _) = generate(p_new, p_args, constraints)
     return (new_model_trace, log_abs_determinant)
 end
 
@@ -664,8 +671,8 @@ function (translator::DeterministicTraceTranslator)(
         prev_model_trace::Trace; check=false, prev_observations=EmptyChoiceMap())
 
     # apply trace transform
-    (new_model_trace, log_abs_determinant) = deterministic_trace_translator_run_transform(
-        translator.f, translator.new_observations, prev_model_trace, translator.p_new, translator.p_args)
+    (new_model_trace, log_abs_determinant) =
+        run_transform(translator, prev_model_trace)
 
     # compute log weight
     prev_model_score = get_score(prev_model_trace)
@@ -674,9 +681,8 @@ function (translator::DeterministicTraceTranslator)(
 
     if check
         check_observations(get_choices(new_model_trace), translator.new_observations)
-        (prev_model_trace_rt, _) = deterministic_trace_translator_run_transform(
-            inverse(translator.f), prev_observations, new_model_trace,
-            get_gen_fn(prev_model_trace), get_args(prev_model_trace))
+        inverter = inverse(translator, prev_model_trace)
+        prev_model_trace_rt, _ = run_transform(inverter, new_model_trace)
         check_round_trip(prev_model_trace, prev_model_trace_rt)
     end
 
@@ -719,11 +725,19 @@ If `check` is enabled, then `prev_observations` is a choice map containing the o
     f::TraceTransformDSLProgram # a bijection
 end
 
-function general_trace_translator_run_transform(
-        f::TraceTransformDSLProgram, new_observations::ChoiceMap,
-        prev_model_trace::Trace, forward_proposal_trace::Trace,
-        p_new::GenerativeFunction, p_new_args::Tuple,
-        q_backward::GenerativeFunction, q_backward_args::Tuple)
+function inverse(translator::GeneralTraceTranslator, prev_model_trace::Trace,
+                 prev_observations::ChoiceMap=EmptyChoiceMap())
+    return GeneralTraceTranslator(
+        get_gen_fn(prev_model_trace), get_args(prev_model_trace),
+        prev_observations, translator.q_backward, translator.q_backward_args,
+        translator.q_forward, translator.q_forward_args,
+        inverse(translator.f))
+end
+
+function run_transform(translator::GeneralTraceTranslator,
+                       prev_model_trace::Trace, forward_proposal_trace::Trace)
+    @unpack f, new_observations = translator
+    @unpack p_new, p_new_args, q_backward, q_backward_args = translator
     first_pass_results = run_first_pass(f, prev_model_trace, forward_proposal_trace)
     log_abs_determinant = jacobian_correction(
         f, prev_model_trace, forward_proposal_trace, first_pass_results, nothing)
@@ -741,9 +755,8 @@ function (translator::GeneralTraceTranslator)(
     forward_proposal_trace = simulate(translator.q_forward, (prev_model_trace, translator.q_forward_args...,))
 
     # apply trace transform
-    (new_model_trace, backward_proposal_trace, log_abs_determinant) = general_trace_translator_run_transform(
-        translator.f, translator.new_observations, prev_model_trace, forward_proposal_trace,
-        translator.p_new, translator.p_new_args, translator.q_backward, translator.q_backward_args)
+    (new_model_trace, backward_proposal_trace, log_abs_determinant) =
+        run_transform(translator, prev_model_trace, forward_proposal_trace)
 
     # compute log weight
     prev_model_score = get_score(prev_model_trace)
@@ -753,16 +766,11 @@ function (translator::GeneralTraceTranslator)(
     log_weight = new_model_score - prev_model_score + backward_proposal_score + forward_proposal_score + log_abs_determinant
 
     if check
-        forward_proposal_choices = get_choices(forward_proposal_trace)
-        f_inv = inverse(translator.f)
-        (prev_model_trace_rt, forward_proposal_trace_rt, _) = general_trace_translator_run_transform(
-            inverse(translator.f), prev_observations,
-            new_model_trace, backward_proposal_trace,
-            get_gen_fn(prev_model_trace), get_args(prev_model_trace),
-            translator.q_forward, translator.q_forward_args)
-        check_round_trip(
-            prev_model_trace, prev_model_trace_rt,
-            forward_proposal_trace, forward_proposal_trace_rt)
+        inverter = inverse(translator, prev_model_trace, prev_observations)
+        (prev_model_trace_rt, forward_proposal_trace_rt, _) =
+            run_transform(inverter, new_model_trace, backward_proposal_trace)
+        check_round_trip(prev_model_trace, prev_model_trace_rt,
+                         forward_proposal_trace, forward_proposal_trace_rt)
     end
 
     return (new_model_trace, log_weight)
@@ -843,10 +851,13 @@ If `check` is enabled, then `observations` is a choice map containing the observ
     involution::T # an involution
 end
 
-function symmetric_trace_translator_run_transform(
-        involution::TraceTransformDSLProgram,
-        prev_model_trace::Trace, forward_proposal_trace::Trace,
-        q::GenerativeFunction, q_args::Tuple)
+function inverse(translator::SymmetricTraceTranslator, prev_model_trace=nothing)
+    return translator
+end
+
+function run_transform(translator::SymmetricTraceTranslator,
+                       prev_model_trace::Trace, forward_proposal_trace::Trace)
+    @unpack involution, q, q_args = translator
     first_pass_results = run_first_pass(involution, prev_model_trace, forward_proposal_trace)
     (new_model_trace, log_model_weight, _, discard) = update(
         prev_model_trace, get_args(prev_model_trace),
@@ -866,8 +877,8 @@ function (translator::SymmetricTraceTranslator{TraceTransformDSLProgram})(
     forward_proposal_trace = simulate(translator.q, (prev_model_trace, translator.q_args...,))
 
     # apply trace transform
-    (new_model_trace, backward_proposal_trace, log_abs_determinant) = symmetric_trace_translator_run_transform(
-        translator.involution, prev_model_trace, forward_proposal_trace, translator.q, translator.q_args)
+    (new_model_trace, backward_proposal_trace, log_abs_determinant) =
+        run_transform(translator, prev_model_trace, forward_proposal_trace)
 
     # compute log weight
     prev_model_score = get_score(prev_model_trace)
@@ -878,12 +889,10 @@ function (translator::SymmetricTraceTranslator{TraceTransformDSLProgram})(
 
     if check
         check_observations(get_choices(new_model_trace), observations)
-        forward_proposal_choices = get_choices(forward_proposal_trace)
-        (prev_model_trace_rt, forward_proposal_trace_rt, _) = symmetric_trace_translator_run_transform(
-            translator.involution, new_model_trace, backward_proposal_trace, translator.q, translator.q_args)
-        check_round_trip(
-            prev_model_trace, prev_model_trace_rt,
-            forward_proposal_trace, forward_proposal_trace_rt)
+        (prev_model_trace_rt, forward_proposal_trace_rt, _) =
+            run_transform(translator, new_model_trace, backward_proposal_trace)
+        check_round_trip(prev_model_trace, prev_model_trace_rt,
+                         forward_proposal_trace, forward_proposal_trace_rt)
     end
 
     return (new_model_trace, log_weight)
