@@ -633,6 +633,21 @@ function check_round_trip(
 end
 
 ################################
+# TraceTranslator #
+################################
+
+"Abstract type for trace translators."
+abstract type TraceTranslator end
+
+"""
+    (new_trace, log_weight) = (translator::TraceTranslator)(trace)
+
+Apply a trace translator on an input trace, returning a new trace and an incremental
+log weight.
+"""
+(translator::TraceTranslator)(trace::Trace; kwargs...) = error("Not implemented.")
+
+################################
 # DeterministicTraceTranslator #
 ################################
 
@@ -648,7 +663,7 @@ Run the translator with:
 
     (output_trace, log_weight) = translator(input_trace)
 """
-@with_kw struct DeterministicTraceTranslator
+@with_kw mutable struct DeterministicTraceTranslator <: TraceTranslator
     p_new::GenerativeFunction
     p_args::Tuple = ()
     new_observations::ChoiceMap = EmptyChoiceMap()
@@ -673,11 +688,6 @@ function run_transform(translator::DeterministicTraceTranslator,
     return (new_model_trace, log_abs_determinant)
 end
 
-"""
-    (new_trace, log_weight) = (translator::DeterministicTraceTranslator)(trace)
-
-Apply a trace translator.
-"""
 function (translator::DeterministicTraceTranslator)(
         prev_model_trace::Trace; check=false, prev_observations=EmptyChoiceMap())
 
@@ -728,7 +738,7 @@ paired with its inverse using [`pair_bijections!](@ref) or [`is_involution`](@re
 If `check` is enabled, then `prev_observations` is a choice map containing the observed
 random choices in the previous trace.
 """
-@with_kw struct GeneralTraceTranslator
+@with_kw mutable struct GeneralTraceTranslator <: TraceTranslator
     p_new::GenerativeFunction
     p_new_args::Tuple = ()
     new_observations::ChoiceMap = EmptyChoiceMap()
@@ -810,7 +820,7 @@ Run the translator with:
 
     (output_trace, log_weight) = translator(input_trace)
 """
-@with_kw struct SimpleExtendingTraceTranslator
+@with_kw mutable struct SimpleExtendingTraceTranslator <: TraceTranslator
     p_new_args::Tuple = ()
     p_argdiffs::Tuple = ()
     new_observations::ChoiceMap = EmptyChoiceMap()
@@ -844,6 +854,8 @@ end
 # SymmetricTraceTranslator #
 ############################
 
+const TransformFunction = Union{TraceTransformDSLProgram,Function}
+
 """
     translator = SymmetricTraceTranslator(;
         q::GenerativeFunction,
@@ -865,7 +877,7 @@ marked with [`is_involution`](@ref)).
 If `check` is enabled, then `observations` is a choice map containing the observed random
 choices, and the check will additionally ensure they are not mutated by the involution.
 """
-@with_kw struct SymmetricTraceTranslator{T <: Union{TraceTransformDSLProgram,Function}}
+@with_kw mutable struct SymmetricTraceTranslator{T <: TransformFunction} <: TraceTranslator
     q::GenerativeFunction
     q_args::Tuple = ()
     involution::T # an involution
@@ -951,4 +963,5 @@ end
 export @transform
 export @read, @write, @copy, @tcall
 export TraceTransformDSLProgram, pair_bijections!, is_involution!, inverse
-export DeterministicTraceTranslator, SymmetricTraceTranslator, SimpleExtendingTraceTranslator, GeneralTraceTranslator
+export TraceTranslator, DeterministicTraceTranslator, SymmetricTraceTranslator,
+       SimpleExtendingTraceTranslator, GeneralTraceTranslator
