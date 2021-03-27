@@ -69,7 +69,7 @@ end
 struct AuxInputTraceRetValToken
 end
 
-struct ModelOutputTraceToken 
+struct ModelOutputTraceToken
 end
 
 struct AuxOutputTraceToken
@@ -227,7 +227,7 @@ struct FirstPassResults
 
     "output proposal choice map ``u'``"
     u_back::ChoiceMap
-    
+
     t_cont_reads::Dict
     u_cont_reads::Dict
     t_cont_writes::Dict
@@ -326,7 +326,7 @@ function write(state::FirstPassState, dest::AuxOutputAddress, value, ::Continuou
     return value
 end
 
-function copy(state::FirstPassState, src::ModelInputAddress, dest::ModelOutputAddress) 
+function copy(state::FirstPassState, src::ModelInputAddress, dest::ModelOutputAddress)
     from_addr, to_addr = src.addr, dest.addr
     model_choices = get_choices(state.model_trace)
     push!(state.results.t_copy_reads, from_addr)
@@ -474,7 +474,7 @@ discard_skip_read_addr(addr, discard::ChoiceMap) = !has_value(discard, addr)
 discard_skip_read_addr(addr, discard::Nothing) = false
 
 function store_addr_info!(dict::Dict, addr, value::Real, next_index::Int)
-    dict[addr] = next_index 
+    dict[addr] = next_index
     return 1 # number of elements of array
 end
 
@@ -540,7 +540,7 @@ function jacobian_correction(transform::TraceTransformDSLProgram, prev_model_tra
         first_pass_results.t_copy_reads,
         first_pass_results.u_cont_reads,
         first_pass_results.u_copy_reads, discard)
-    
+
     # create mappings for output addresses that are needed for Jacobian
     (cont_constraints_key_to_index, cont_u_back_key_to_index, n_output) = assemble_output_maps(
         first_pass_results.t_cont_writes,
@@ -559,7 +559,7 @@ function jacobian_correction(transform::TraceTransformDSLProgram, prev_model_tra
         output_arr = Vector{T}(undef, n_output)
 
         jacobian_pass_state = JacobianPassState(
-            prev_model_trace, proposal_trace, input_arr, output_arr, 
+            prev_model_trace, proposal_trace, input_arr, output_arr,
             t_key_to_index, u_key_to_index,
             cont_constraints_key_to_index,
             cont_u_back_key_to_index)
@@ -584,7 +584,7 @@ function jacobian_correction(transform::TraceTransformDSLProgram, prev_model_tra
     if isinf(correction)
         @error "Weight correction is infinite; the function may not be an bijection"
     end
-    
+
     return correction
 end
 
@@ -659,7 +659,7 @@ function (translator::DeterministicTraceTranslator)(
     log_weight = new_model_score - prev_model_score + log_abs_determinant
 
     if check
-        check_observations(get_choices(new_model_trace), observations)
+        check_observations(get_choices(new_model_trace), translator.new_observations)
         (prev_model_trace_rt, _) = deterministic_trace_translator_run_transform(
             inverse(translator.f), prev_observations, new_model_trace,
             get_gen_fn(prev_model_trace), get_args(prev_model_trace))
@@ -709,7 +709,7 @@ function general_trace_translator_run_transform(
         f::TraceTransformDSLProgram, new_observations::ChoiceMap,
         prev_model_trace::Trace, forward_proposal_trace::Trace,
         p_new::GenerativeFunction, p_new_args::Tuple,
-        q_backard::GenerativeFunction, q_backward_args::Tuple)
+        q_backward::GenerativeFunction, q_backward_args::Tuple)
     first_pass_results = run_first_pass(f, prev_model_trace, forward_proposal_trace)
     log_abs_determinant = jacobian_correction(
         f, prev_model_trace, forward_proposal_trace, first_pass_results, nothing)
@@ -724,7 +724,7 @@ function (translator::GeneralTraceTranslator)(
         prev_model_trace::Trace; check=false, prev_observations=EmptyChoiceMap())
 
     # sample auxiliary trace
-    forward_proposal_trace = simulate(proposal, (prev_model_trace, translator.q_forward_args...,))
+    forward_proposal_trace = simulate(translator.q_forward, (prev_model_trace, translator.q_forward_args...,))
 
     # apply trace transform
     (new_model_trace, backward_proposal_trace, log_abs_determinant) = general_trace_translator_run_transform(
@@ -772,7 +772,7 @@ Run the translator with:
 
     (output_trace, log_weight) = translator(input_trace)
 """
-@with_kw struct SimpleExtendingTraceTranslator 
+@with_kw struct SimpleExtendingTraceTranslator
     p_new_args::Tuple = ()
     argdiffs::Tuple = ()
     new_obs::ChoiceMap = EmptyChoiceMap()
@@ -884,7 +884,7 @@ function (translator::SymmetricTraceTranslator{<:Function})(
     forward_retval = get_retval(forward_trace)
     (new_model_trace, backward_choices, log_weight) = translator.involution(
         prev_model_trace, forward_choices, forward_retval, translator.q_args)
-    (backward_score, backward_retval) = assess(translator.q, (new_model_trace, translator.q_args...), backward_choices) 
+    (backward_score, backward_retval) = assess(translator.q, (new_model_trace, translator.q_args...), backward_choices)
 
     log_weight += (backward_score - forward_score)
 
