@@ -126,16 +126,15 @@ macro transform(f_expr, src_expr, to_symbol::Symbol, dest_expr, body)
         err = true
     end
     if MacroTools.@capture(dest_expr, (model_out_, aux_out_))
-    elseif MacroTools.@capture(src_expr, (model_out_))
+    elseif MacroTools.@capture(dest_expr, (model_out_))
         aux_out = gensym("dummy_aux")
     else
         err = true
     end
+    if err error(syntax_err) end
 
-    fn! = gensym("$(esc(f))_fn!")
-
+    fn! = gensym(Symbol(f, "_fn!"))
     return quote
-
         # mutates the state
         function $fn!(
                 $(esc(bij_state))::Union{FirstPassState,JacobianPassState},
@@ -149,9 +148,7 @@ macro transform(f_expr, src_expr, to_symbol::Symbol, dest_expr, body)
             $(esc(body))
             return nothing
         end
-
         Core.@__doc__ $(esc(f)) = TraceTransformDSLProgram($fn!, nothing)
-
     end
 end
 
