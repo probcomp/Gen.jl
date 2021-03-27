@@ -78,7 +78,7 @@ Note that the transform DSL code does not specify what the two generative functi
 This information will be required for computing probabilities and probability densities of traces.
 We provide this information by constructing a **Trace Translator** that wraps the transform along with this transformation:
 ```julia
-translator = DeterministicTraceTranslator(p2, (), f)
+translator = DeterministicTraceTranslator(p2, (), choicemap(), f)
 ```
 We then can then apply the translator to a trace of `p1` using function call syntax.
 The translator returns a trace of `p2` and a log-weight that we can use to compute the probability (density) of the resulting trace:
@@ -228,12 +228,10 @@ We construct `q1` and `q2` so that the two spaces have the same size, and a one-
 For our example above, we construct `q2` to sample the coordinate (``[0, 0.1]^2``) relative to the cell.
 We construct `q1` to be empty--there is already a mapping from each trace of `p1` to each trace of `p2` that simply identifies what cell ``(i, j)`` a given point in ``[0, 1]^2`` is in, so no extra random choices are needed.
 ```julia
-@gen function q1()
+@gen function q1(p1_trace)
 end
 
 @gen function q2(p2_trace)
-    i = p2_trace[:i]
-    j = p2_trace[:j]
     dx ~ uniform(0.0, 0.1)
     dy ~ uniform(0.0, 0.1)
 end
@@ -251,8 +249,8 @@ For example, the following defines a trace transform that maps from pairs of tra
     j = ceil(y * 10)
     @write(p2_trace[:i], i, :discrete)
     @write(p2_trace[:j], j, :discrete)
-    @write(q2_trace[:dx], x / 10, :continuous)
-    @write(q2_trace[:dy], y / 10, :continuous)
+    @write(q2_trace[:dx], x - (i-1)/10, :continuous)
+    @write(q2_trace[:dy], y - (j-1)/10, :continuous)
 end
 ```
 and the inverse transform:
@@ -265,7 +263,7 @@ and the inverse transform:
     x = (i-1)/10 + dx
     y = (j-1)/10 + dy
     @write(p1_trace[:x], x, :continuous)
-    @write(p1_trace[:y], x, :continuous)
+    @write(p1_trace[:y], y, :continuous)
 end
 ```
 which we associate as inverses:
@@ -289,7 +287,7 @@ translator = GeneralTraceTranslator(
 ```
 Then, we can apply the trace translator to a trace (`t1`) of `p1` and get a trace (`t2`) of `p2` and a log-weight:
 ```julia
-(t2, log_weight) = translator(t1)
+t2, log_weight = translator(t1)
 ```
 
 
