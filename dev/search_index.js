@@ -1797,7 +1797,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Particle Filtering",
     "title": "Gen.initialize_particle_filter",
     "category": "function",
-    "text": "state = initialize_particle_filter(model::GenerativeFunction, model_args::Tuple,\n    observations::ChoiceMap proposal::GenerativeFunction, proposal_args::Tuple,\n    num_particles::Int)\n\nInitialize the state of a particle filter using a custom proposal for the initial latent state.\n\n\n\n\n\nstate = initialize_particle_filter(model::GenerativeFunction, model_args::Tuple,\n    observations::ChoiceMap, num_particles::Int)\n\nInitialize the state of a particle filter, using the default proposal for the initial latent state.\n\n\n\n\n\n"
+    "text": "state = initialize_particle_filter(model::GenerativeFunction, model_args::Tuple,\n    observations::ChoiceMap, proposal::GenerativeFunction, proposal_args::Tuple,\n    num_particles::Int)\n\nInitialize the state of a particle filter using a custom proposal for the initial latent state.\n\n\n\n\n\nstate = initialize_particle_filter(model::GenerativeFunction, model_args::Tuple,\n    observations::ChoiceMap, num_particles::Int)\n\nInitialize the state of a particle filter, using the default proposal for the initial latent state.\n\n\n\n\n\n"
 },
 
 {
