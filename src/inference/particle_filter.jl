@@ -108,7 +108,7 @@ function initialize_particle_filter(model::GenerativeFunction{T,U}, model_args::
 end
 
 """
-    log_incremental_weights = particle_filter_step!(
+    (log_incremental_weights,) = particle_filter_step!(
         state::ParticleFilterState, new_args::Tuple, argdiffs,
         observations::ChoiceMap, proposal::GenerativeFunction, proposal_args::Tuple)
 
@@ -153,11 +153,11 @@ function particle_filter_step!(state::ParticleFilterState{U}, new_args::Tuple, a
     state.traces = state.new_traces
     state.new_traces = tmp
 
-    return log_incremental_weights
+    return (log_incremental_weights,)
 end
 
 """
-    log_incremental_weights = particle_filter_step!(
+    (log_incremental_weights,) = particle_filter_step!(
         state::ParticleFilterState, new_args::Tuple, argdiffs,
         observations::ChoiceMap)
 
@@ -182,7 +182,7 @@ function particle_filter_step!(state::ParticleFilterState{U}, new_args::Tuple, a
     state.traces = state.new_traces
     state.new_traces = tmp
 
-    return log_incremental_weights
+    return (log_incremental_weights,)
 end
 
 """
