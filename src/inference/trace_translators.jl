@@ -850,6 +850,64 @@ function (translator::SimpleExtendingTraceTranslator)(prev_model_trace::Trace)
     return (new_model_trace, log_weight)
 end
 
+########################################
+# SimpleForwardBackwardTraceTranslator #
+########################################
+
+"""
+    translator = SimpleExtendingTraceTranslator(;
+        p_new_args::Tuple = (),
+        p_argdiffs::Tuple = (),
+        new_observations::ChoiceMap = EmptyChoiceMap(),
+        q_forward::GenerativeFunction,
+        q_forward_args::Tuple = (),
+        q_backward::GenerativeFunction,
+        q_backward_args::Tuple = ())
+
+Constructor for a simple forward-backward trace translator.
+
+This trace translator is constructed from two auxiliary generative functions,
+`q_forward` and `q_backward`. `q_forward` takes a first argument that is a
+trace of the model, and additional arguments given in `q_forward_args`.
+`q_backward` takes a first argument that is a trace of the model with the new
+arguments (`p_new_args`) and additional arguments given in `q_backward_args`.
+
+Run the translator with:
+
+    (output_trace, log_weight) = translator(input_trace)
+"""
+@with_kw mutable struct SimpleForwardBackwardTraceTranslator <: TraceTranslator
+    p_new_args::Tuple = ()
+    p_argdiffs::Tuple = ()
+    new_observations::ChoiceMap = EmptyChoiceMap()
+    q_forward::GenerativeFunction
+    q_forward_args::Tuple  = ()
+    q_backward::GenerativeFunction
+    q_backward_args::Tuple = ()
+end
+
+function (translator::SimpleForwardBackwardTraceTranslator)(prev_model_trace::Trace)
+
+    # simulate from forward auxiliary program
+    forward_proposal_trace =
+        simulate(translator.q_forward, (prev_model_trace, translator.q_forward_args...,))
+    forward_proposal_score = get_score(forward_proposal_trace)
+
+    # computing the new trace via update
+    constraints = merge(get_choices(forward_proposal_trace), translator.new_observations)
+    (new_model_trace, log_model_weight, _, discard) = update(
+        prev_model_trace, translator.p_new_args,
+        translator.p_argdiffs, constraints)
+
+    # evaluate density of discarded choices under backwards auxiliary program
+    (_, backwards_score) = generate(
+        q_backward, (new_model_trace, q_backward_args...), discard)
+
+    log_weight = log_model_weight - forward_proposal_score + backwards_score
+    return (new_model_trace, log_weight)
+end
+
+
 ############################
 # SymmetricTraceTranslator #
 ############################
