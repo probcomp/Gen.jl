@@ -1,3 +1,92 @@
+#############################
+
+# primitives for in-place gradient accumulation
+
+function in_place_add!(param::Array, increment::Array, scale_factor::Real)
+    # NOTE: it ignores the scale_factor, because it is not a parameter...
+    # scale factors only affect parameters
+    # TODO this is potentially very confusing!
+    @simd for i in 1:length(param)
+        param[i] += increment[i]
+    end
+    return param
+end
+
+function in_place_add!(param::Array, increment::Array)
+    @inbounds @simd for i in 1:length(param)
+        param[i] += increment[i]
+    end
+    return param
+end
+
+function in_place_add!(param::Real, increment::Real, scale_factor::Real)
+    return param + increment
+end
+
+function in_place_add!(param::Real, increment::Real)
+    return param + increment
+end
+
+mutable struct ThreadsafeAccumulator{T}
+    value::T
+    lock::ReentrantLock
+end
+
+ThreadsafeAccumulator(value) = ThreadsafeAccumulator(value, ReentrantLock())
+
+# TODO not threadsafe
+function get_current_value(accum::ThreadsafeAccumulator)
+    return accum.value
+end
+
+function in_place_add!(param::ThreadsafeAccumulator{Real}, increment::Real, scale_factor::Real)
+    lock(param.lock)
+    try
+        param.value = param.value + increment * scale_factor
+    finally
+        unlock(param.lock)
+    end
+    return param
+end
+
+function in_place_add!(param::ThreadsafeAccumulator{Real}, increment::Real)
+    lock(param.lock)
+    try
+        param.value = param.value + increment
+    finally
+        unlock(param.lock)
+    end
+    return param
+end
+
+function in_place_add!(param::ThreadsafeAccumulator{<:Array}, increment, scale_factor::Real)
+    lock(param.lock)
+    try
+        @simd for i in 1:length(param.value)
+            param.value[i] += increment[i] * scale_factor
+        end
+    finally
+        unlock(param.lock)
+    end
+    return param
+end
+
+function in_place_add!(param::ThreadsafeAccumulator{<:Array}, increment)
+    lock(param.lock)
+    try
+        @simd for i in 1:length(param.value)
+            param.value[i] += increment[i]
+        end
+    finally
+        unlock(param.lock)
+    end
+    return param
+end
+
+#############################
+
+
+
 """
     set_param!(gen_fn::Union{DynamicDSLFunction,StaticIRGenerativeFunction}, name::Symbol, value)
 
@@ -6,7 +95,7 @@ Set the value of a trainable parameter of the generative function.
 NOTE: Does not update the gradient accumulator value.
 """
 function set_param!(gf::Union{DynamicDSLFunction,StaticIRGenerativeFunction}, name::Symbol, value)
-    gf.params[name] = value
+    return gf.params[name] = value
 end
 
 """
@@ -15,35 +104,61 @@ end
 Get the current value of a trainable parameter of the generative function.
 """
 function get_param(gf::Union{DynamicDSLFunction,StaticIRGenerativeFunction}, name::Symbol)
-    gf.params[name]
+    return gf.params[name]
 end
 
 """
     value = get_param_grad(gen_fn::Union{DynamicDSLFunction,StaticIRGenerativeFunction}, name::Symbol)
 
 Get the current value of the gradient accumulator for a trainable parameter of the generative function.
+
+Not threadsafe.
 """
 function get_param_grad(gf::Union{DynamicDSLFunction,StaticIRGenerativeFunction}, name::Symbol)
-    gf.params_grad[name]
+    try
+	val = gf.params_grad[name] # the accumulator
+        return get_current_value(val)
+    catch KeyError
+        error("parameter $name not found")
+    end
+    return val
 end
 
 """
     zero_param_grad!(gen_fn::Union{DynamicDSLFunction,StaticIRGenerativeFunction}, name::Symbol)
 
 Reset the gradient accumlator for a trainable parameter of the generative function to all zeros.
+
+Not threadsafe.
 """
 function zero_param_grad!(gf::Union{DynamicDSLFunction,StaticIRGenerativeFunction}, name::Symbol)
-    gf.params_grad[name] = zero(gf.params[name])
+    gf.params_grad[name] = ThreadsafeAccumulator(zero(gf.params[name])) # TODO avoid allocation?
+    return gf.params_grad[name]
 end
 
 """
     set_param_grad!(gen_fn::Union{DynamicDSLFunction,StaticIRGenerativeFunction}, name::Symbol, grad_value)
 
 Set the gradient accumlator for a trainable parameter of the generative function.
+
+Not threadsafe.
 """
 function set_param_grad!(gf::Union{DynamicDSLFunction,StaticIRGenerativeFunction}, name::Symbol, grad_value)
-    gf.params_grad[name] = grad_value
+    gf.params_grad[name] = ThreadsafeAccumulator(grad_value)
+    return grad_value
 end
+
+# TODO document me; it is threadsafe..
+function increment_param_grad!(gf::Union{DynamicDSLFunction,StaticIRGenerativeFunction}, name::Symbol, increment, scale_factor)
+    in_place_add!(gf.params_grad[name], increment, scale_factor)
+end
+
+# TODO document me; it is threadsafe..
+function increment_param_grad!(gf::Union{DynamicDSLFunction,StaticIRGenerativeFunction}, name::Symbol, increment)
+    in_place_add!(gf.params_grad[name], increment)
+end
+
+
 
 """
     init_param!(gen_fn::Union{DynamicDSLFunction,StaticIRGenerativeFunction}, name::Symbol, value)
@@ -64,7 +179,7 @@ end
 
 get_params(gf::Union{DynamicDSLFunction,StaticIRGenerativeFunction}) = keys(gf.params)
 
-export set_param!, get_param, get_param_grad, zero_param_grad!, set_param_grad!, init_param!
+export set_param!, get_param, get_param_grad, zero_param_grad!, set_param_grad!, init_param!, increment_param_grad!
 
 #########################################
 # gradient descent with fixed step size #

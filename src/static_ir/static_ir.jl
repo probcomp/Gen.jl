@@ -50,6 +50,7 @@ function generate_generative_function(ir::StaticIR, name::Symbol, options::Stati
         struct $gen_fn_type_name <: $(QuoteNode(StaticIRGenerativeFunction)){$return_type,$trace_type}
             params_grad::Dict{Symbol,Any}
             params::Dict{Symbol,Any}
+	    params_grad_lock::ReentrantLock
         end
         (gen_fn::$gen_fn_type_name)(args...) = $(GlobalRef(Gen, :propose))(gen_fn, args)[3]
         $(GlobalRef(Gen, :get_ir))(::$gen_fn_type_name) = $(QuoteNode(ir))
@@ -61,7 +62,8 @@ function generate_generative_function(ir::StaticIR, name::Symbol, options::Stati
         $(GlobalRef(Gen, :get_gen_fn_type))(::Type{$trace_struct_name}) = $gen_fn_type_name
         $(GlobalRef(Gen, :get_options))(::Type{$gen_fn_type_name}) = $(QuoteNode(options))
     end
-    Expr(:block, trace_defns, gen_fn_defn, Expr(:call, gen_fn_type_name, :(Dict{Symbol,Any}()), :(Dict{Symbol,Any}())))
+    Expr(:block, trace_defns, gen_fn_defn,
+        Expr(:call, gen_fn_type_name, :(Dict{Symbol,Any}()), :(Dict{Symbol,Any}()), :(ReentrantLock())))
 end
 
 include("print_ir.jl")

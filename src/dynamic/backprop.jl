@@ -196,12 +196,14 @@ function accumulate_param_gradients!(trace::DynamicDSLTrace, retval_grad, scale_
 
     # increment the gradient accumulators for trainable parameters in scope
     for (name, tracked) in state.tracked_params
-        gen_fn.params_grad[name] += deriv(tracked) * state.scale_factor
+	#increment = deriv(tracked) * state.scale_factor
+	increment_param_grad!(gen_fn, name, deriv(tracked), state.scale_factor)
     end
 
     # increment the gradient accumulators for trainable parameters in splice calls
     for ((spliced_gen_fn, name), tracked) in state.splice_tracked_params
-        spliced_gen_fn.params_grad[name] += deriv(tracked) * state.scale_factor
+	#increment = deriv(tracked) * state.scale_factor
+	increment_param_grad!(spliced_gen_fn, name, deriv(tracked), state.scale_factor)
     end
 
     # return gradients with respect to arguments with gradients, or nothing

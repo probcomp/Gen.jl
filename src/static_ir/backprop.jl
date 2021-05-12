@@ -71,8 +71,10 @@ end
 
 function back_pass!(back_marked, node::GenerativeFunctionCallNode)
     # the logpdf of every generative function call is a SINK
-    for input_node in node.inputs
-        push!(back_marked, input_node)
+    for (input_node, has_grad) in zip(node.inputs, has_argument_grads(node.generative_function))
+        if has_grad
+            push!(back_marked, input_node)
+        end
     end
 end
 
@@ -85,7 +87,10 @@ function fwd_codegen!(stmts, fwd_marked, back_marked, node::TrainableParameterNo
     if node in fwd_marked && node in back_marked
 
         # initialize gradient to zero
-        push!(stmts, :($(gradient_var(node)) = zero($(node.name))))
+        # NOTE: we are avoiding allocating a new gradient accumulator for this function
+        # instead, we are using the threadsafe gradient accumulator directly..
+        #push!(stmts, :($(gradient_var(node)) = zero($(node.name))))
+        push!(stmts, :($(gradient_var(node)) = $(QuoteNode(get_gen_fn))(trace).params_grad[$(QuoteNode(node.name))]))
     end
 end
 
@@ -156,7 +161,7 @@ function fwd_codegen!(stmts, fwd_marked, back_marked, node::GenerativeFunctionCa
     # for reference by other nodes during back_codegen!
     # could performance optimize this away
     subtrace_fieldname = get_subtrace_fieldname(node)
-    push!(stmts, :($(node.name) = get_retval(trace.$subtrace_fieldname)))
+    push!(stmts, :($(node.name) = $(QuoteNode(get_retval))(trace.$subtrace_fieldname)))
 
     # NOTE: we will still potentially run choice_gradients recursively on the generative function,
     # we just might not use its return value gradient.
@@ -172,15 +177,17 @@ function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked, node:
     if node === ir.return_node && node in fwd_marked
         @assert node in back_marked
         push!(stmts, :(isnothing(retval_grad) && error("Required return value gradient but got nothing")))
-        push!(stmts, :($(gradient_var(node)) += retval_grad))
+        push!(stmts, :($(gradient_var(node)) = $(QuoteNode(in_place_add!))(
+                $(gradient_var(node)), retval_grad, scale_factor)))
+        #push!(stmts, :($(gradient_var(node)) += retval_grad))
     end
 
     if node in fwd_marked && node in back_marked
-        cur_param_grad = :($(QuoteNode(get_param_grad))(trace.$static_ir_gen_fn_ref,
-            $(QuoteNode(node.name))))
-        push!(stmts, :($(QuoteNode(set_param_grad!))(trace.$static_ir_gen_fn_ref,
-            $(QuoteNode(node.name)),
-            $cur_param_grad + $(gradient_var(node)))))
+        #NOTE: unecessary, because we accumulated in-place already
+        #push!(stmts, :($(QuoteNode(increment_param_grad!))(trace.$static_ir_gen_fn_ref,
+            #$(QuoteNode(node.name)),
+            #$(gradient_var(node)),
+	    #scale_factor)))
     end
 end
 
@@ -189,7 +196,9 @@ function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked, node:
     # handle case when it is the return node
     if node === ir.return_node && node in fwd_marked
         @assert node in back_marked
-        push!(stmts, :($(gradient_var(node)) += retval_grad))
+        push!(stmts, :($(gradient_var(node)) = $(QuoteNode(in_place_add!))(
+                $(gradient_var(node)), retval_grad, scale_factor)))
+        #push!(stmts, :($(gradient_var(node)) += retval_grad))
     end
 end
 
@@ -197,7 +206,9 @@ function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked, node:
     # handle case when it is the return node
     if node === ir.return_node && node in fwd_marked
         @assert node in back_marked
-        push!(stmts, :($(gradient_var(node)) += retval_grad))
+        push!(stmts, :($(gradient_var(node)) = $(QuoteNode(in_place_add!))(
+                $(gradient_var(node)), retval_grad, scale_factor)))
+        #push!(stmts, :($(gradient_var(node)) += retval_grad))
     end
     if node in back_marked && any(input_node in fwd_marked for input_node in node.inputs)
 
@@ -209,7 +220,9 @@ function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked, node:
         for (i, input_node) in enumerate(node.inputs)
             if input_node in fwd_marked
                 arg_maybe_tracked = maybe_tracked_arg_var(node, i)
-                push!(stmts, :($(gradient_var(input_node)) += $(QuoteNode(deriv))($arg_maybe_tracked)))
+                push!(stmts, :($(gradient_var(input_node)) = $(QuoteNode(in_place_add!))(
+                    $(gradient_var(input_node)), $(QuoteNode(deriv))($arg_maybe_tracked), scale_factor)))
+                #push!(stmts, :($(gradient_var(input_node)) += $(QuoteNode(deriv))($arg_maybe_tracked)))
             end
         end
     end
@@ -221,7 +234,7 @@ function back_codegen_random_choice_to_inputs!(stmts, ir, fwd_marked, back_marke
     # only evaluate the gradient of the logpdf if we need to
     if any(input_node in fwd_marked for input_node in node.inputs) || node in fwd_marked
         args = map((input_node) -> input_node.name, node.inputs)
-        push!(stmts, :($logpdf_grad = logpdf_grad($(node.dist), $(node.name), $(args...))))
+        push!(stmts, :($logpdf_grad = $(QuoteNode(Gen.logpdf_grad))($(node.dist), $(node.name), $(args...))))
     end
 
     # increment gradients of input nodes that are in fwd_marked
@@ -231,14 +244,18 @@ function back_codegen_random_choice_to_inputs!(stmts, ir, fwd_marked, back_marke
             if !has_argument_grads(node.dist)[i]
                 error("Distribution $(node.dist) does not have logpdf gradient for argument $i")
             end
-            push!(stmts, :($(gradient_var(input_node)) += $logpdf_grad[$(QuoteNode(i+1))]))
+            push!(stmts, :($(gradient_var(input_node)) = $(QuoteNode(in_place_add!))(
+                $(gradient_var(input_node)), $logpdf_grad[$(QuoteNode(i+1))], scale_factor)))
+            #push!(stmts, :($(gradient_var(input_node)) += $logpdf_grad[$(QuoteNode(i+1))]))
         end
     end
 
     # handle case when it is the return node
     if node === ir.return_node && node in fwd_marked
         @assert node in back_marked
-        push!(stmts, :($(gradient_var(node)) += retval_grad))
+        push!(stmts, :($(gradient_var(node)) = $(QuoteNode(in_place_add!))(
+            $(gradient_var(node)), retval_grad, scale_factor)))
+        #push!(stmts, :($(gradient_var(node)) += retval_grad))
     end
 end
 
@@ -254,7 +271,9 @@ function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
         if !has_output_grad(node.dist)
             error("Distribution $dist does not logpdf gradient for its output value")
         end
-        push!(stmts, :($(gradient_var(node)) += $logpdf_grad[1]))
+        push!(stmts, :($(gradient_var(node)) = $(QuoteNode(in_place_add!))(
+            $(gradient_var(node)), retval_grad, scale_factor)))
+        #push!(stmts, :($(gradient_var(node)) += $logpdf_grad[1]))
     end
 end
 
@@ -270,7 +289,9 @@ function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
     # handle case when it is the return node
     if node === ir.return_node && node in fwd_marked
         @assert node in back_marked
-        push!(stmts, :($(gradient_var(node)) += retval_grad))
+        push!(stmts, :($(gradient_var(node)) = $(QuoteNode(in_place_add!))(
+                $(gradient_var(node)), retval_grad, scale_factor)))
+        #push!(stmts, :($(gradient_var(node)) += retval_grad))
     end
 
     if node in fwd_marked
@@ -285,7 +306,7 @@ function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
             push!(stmts, :($call_selection = EmptySelection()))
         end
         retval_grad = node in back_marked ? gradient_var(node) : :(nothing)
-        push!(stmts, :(($input_grads, $value_trie, $gradient_trie) = choice_gradients(
+        push!(stmts, :(($input_grads, $value_trie, $gradient_trie) = $(QuoteNode(choice_gradients))(
             trace.$subtrace_fieldname, $call_selection, $retval_grad)))
     end
 
@@ -293,7 +314,9 @@ function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
     for (i, input_node) in enumerate(node.inputs)
         if input_node in fwd_marked
             @assert input_node in back_marked # this ensured its gradient will have been initialized
-            push!(stmts, :($(gradient_var(input_node)) += $input_grads[$(QuoteNode(i))]))
+            push!(stmts, :($(gradient_var(input_node)) = $(QuoteNode(in_place_add!))(
+                $(gradient_var(input_node)), $input_grads[$(QuoteNode(i))], scale_factor)))
+            #push!(stmts, :($(gradient_var(input_node)) += $input_grads[$(QuoteNode(i))]))
         end
     end
 
@@ -306,21 +329,25 @@ function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
     # handle case when it is the return node
     if node === ir.return_node && node in fwd_marked
         @assert node in back_marked
-        push!(stmts, :($(gradient_var(node)) += retval_grad))
+        push!(stmts, :($(gradient_var(node)) = $(QuoteNode(in_place_add!))(
+                $(gradient_var(node)), retval_grad, scale_factor)))
+        #push!(stmts, :($(gradient_var(node)) += retval_grad))
     end
 
     if node in fwd_marked
         input_grads = gensym("call_input_grads")
         subtrace_fieldname = get_subtrace_fieldname(node)
         retval_grad = node in back_marked ? gradient_var(node) : :(nothing)
-        push!(stmts, :($input_grads = accumulate_param_gradients!(trace.$subtrace_fieldname, $retval_grad)))
+        push!(stmts, :($input_grads = $(QuoteNode(accumulate_param_gradients!))(trace.$subtrace_fieldname, $retval_grad, scale_factor)))
     end
 
     # increment gradients of input nodes that are in fwd_marked
-    for (i, input_node) in enumerate(node.inputs)
-        if input_node in fwd_marked
+    for (i, (input_node, has_grad)) in enumerate(zip(node.inputs, has_argument_grads(node.generative_function)))
+        if input_node in fwd_marked && has_grad
             @assert input_node in back_marked # this ensured its gradient will have been initialized
-            push!(stmts, :($(gradient_var(input_node)) += $input_grads[$(QuoteNode(i))]))
+            push!(stmts, :($(gradient_var(input_node)) = $(QuoteNode(in_place_add!))(
+                $(gradient_var(input_node)), $input_grads[$(QuoteNode(i))], scale_factor)))
+            #push!(stmts, :($(gradient_var(input_node)) += $input_grads[$(QuoteNode(i))]))
         end
     end
 end
@@ -417,7 +444,7 @@ function codegen_choice_gradients(trace_type::Type{T}, selection_type::Type,
 
     # unpack arguments from the trace
     arg_names = Symbol[arg_node.name for arg_node in ir.arg_nodes]
-    push!(stmts, :($(Expr(:tuple, arg_names...)) = get_args(trace)))
+    push!(stmts, :($(Expr(:tuple, arg_names...)) = $(QuoteNode(get_args))(trace)))
 
     # forward code-generation pass (initialize gradients to zero, create needed references)
     for node in ir.nodes
@@ -446,7 +473,7 @@ function codegen_choice_gradients(trace_type::Type{T}, selection_type::Type,
 end
 
 function codegen_accumulate_param_gradients!(trace_type::Type{T},
-                                 retval_grad_type::Type) where {T<:StaticIRTrace}
+                                 retval_grad_type::Type, scale_factor_type) where {T<:StaticIRTrace}
     gen_fn_type = get_gen_fn_type(trace_type)
     ir = get_ir(gen_fn_type)
 
@@ -472,10 +499,11 @@ function codegen_accumulate_param_gradients!(trace_type::Type{T},
     end
 
     stmts = Expr[]
+    push!(stmts, :(scale_factor = 1.0f0))
 
     # unpack arguments from the trace
     arg_names = Symbol[arg_node.name for arg_node in ir.arg_nodes]
-    push!(stmts, :($(Expr(:tuple, arg_names...)) = get_args(trace)))
+    push!(stmts, :($(Expr(:tuple, arg_names...)) = $(QuoteNode(get_args))(trace)))
 
     # forward code-generation pass (initialize gradients to zero, create needed references)
     for node in ir.nodes
@@ -506,7 +534,7 @@ end
 end)
 
 push!(generated_functions, quote
-@generated function $(GlobalRef(Gen, :accumulate_param_gradients!))(trace::T, retval_grad) where {T<:$(QuoteNode(StaticIRTrace))}
-    $(QuoteNode(codegen_accumulate_param_gradients!))(trace, retval_grad)
+@generated function $(GlobalRef(Gen, :accumulate_param_gradients!))(trace::T, retval_grad, scale_factor) where {T<:$(QuoteNode(StaticIRTrace))}
+    $(QuoteNode(codegen_accumulate_param_gradients!))(trace, retval_grad, scale_factor)
 end
 end)

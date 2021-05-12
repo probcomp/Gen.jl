@@ -17,6 +17,7 @@ struct DynamicDSLFunction{T} <: GenerativeFunction{T,DynamicDSLTrace}
     julia_function::Function
     has_argument_grads::Vector{Bool}
     accepts_output_grad::Bool
+    params_grad_lock::ReentrantLock
 end
 
 function DynamicDSLFunction(arg_types::Vector{Type},
@@ -30,7 +31,8 @@ function DynamicDSLFunction(arg_types::Vector{Type},
     DynamicDSLFunction{T}(params_grad, params, arg_types,
                 has_defaults, arg_defaults,
                 julia_function,
-                has_argument_grads, accepts_output_grad)
+                has_argument_grads, accepts_output_grad,
+		ReentrantLock())
 end
 
 function DynamicDSLTrace(gen_fn::T, args) where {T<:DynamicDSLFunction}
