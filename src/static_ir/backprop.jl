@@ -423,6 +423,8 @@ function codegen_choice_gradients(trace_type::Type{T}, selection_type::Type,
         return quote choice_gradients(trace, StaticSelection(selection), retval_grad) end
     end
 
+    push!(stmts, :(scale_factor = NaN))
+
     ir = get_ir(gen_fn_type)
     selected_choices = get_selected_choices(schema, ir)
     selected_calls = get_selected_calls(schema, ir)
@@ -499,7 +501,6 @@ function codegen_accumulate_param_gradients!(trace_type::Type{T},
     end
 
     stmts = Expr[]
-    push!(stmts, :(scale_factor = 1.0f0))
 
     # unpack arguments from the trace
     arg_names = Symbol[arg_node.name for arg_node in ir.arg_nodes]
