@@ -86,7 +86,7 @@ function train_model(data::Vector{ChoiceMap})
         trace, = generate(model, model_args, observations)
         push!(traces, trace)
     end
-    update = ParamUpdate(FixedStepSizeGradientDescent(0.001), model)
+    update = ParamUpdate(FixedStepGradientDescent(0.001), model)
     for iter=1:max_iter
         objective = sum([get_score(trace) for trace in traces])
         println("objective: $objective")
