@@ -1,3 +1,27 @@
+export GenerativeFunction
+export has_argument_grads
+export accepts_output_grad
+
+
+export get_parameters 
+
+export Trace
+export get_args
+export get_retval
+export get_choices
+export get_score
+export get_gen_fn
+
+export simulate
+export generate
+export project
+export propose
+export assess
+export update
+export regenerate
+export accumulate_param_gradients!
+export choice_gradients
+
 ##########
 # Traces #
 ##########
@@ -85,12 +109,6 @@ Synonym for [`get_retval`](@ref).
 """
 Base.getindex(trace::Trace) = get_retval(trace)
 
-export get_args
-export get_retval
-export get_choices
-export get_score
-export get_gen_fn
-
 ######################
 # GenerativeFunction #
 ######################
@@ -104,6 +122,13 @@ abstract type GenerativeFunction{T,U <: Trace} end
 
 get_return_type(::GenerativeFunction{T,U}) where {T,U} = T
 get_trace_type(::GenerativeFunction{T,U}) where {T,U} = U
+
+"""
+    parameters::Dict{ParameterStore,Vector} = get_parameters(gen_fn::GenerativeFunction)
+
+Returns the parameters used by the generative function (including all of its calls).
+"""
+function get_parameters end
 
 """
     bools::Tuple = has_argument_grads(gen_fn::Union{GenerativeFunction,Distribution})
@@ -135,7 +160,7 @@ Return an iterable over the trainable parameters of the generative function.
 get_params(::GenerativeFunction) = ()
 
 """
-    trace = simulate(gen_fn, args)
+    trace = simulate(gen_fn, args; parameter_context=Dict())
 
 Execute the generative function and return the trace.
 
@@ -146,17 +171,19 @@ If `gen_fn` has optional trailing arguments (i.e., default values are provided),
 the optional arguments can be omitted from the `args` tuple. The generated trace
  will have default values filled in.
 """
-function simulate(::GenerativeFunction, ::Tuple)
+function simulate(::GenerativeFunction, ::Tuple; parameter_context=Dict())
     error("Not implemented")
 end
 
 """
-    (trace::U, weight) = generate(gen_fn::GenerativeFunction{T,U}, args::Tuple)
+    (trace::U, weight) = generate(
+        gen_fn::GenerativeFunction{T,U}, args::Tuple; parameter_context=Dict())
 
 Return a trace of a generative function.
 
-    (trace::U, weight) = generate(gen_fn::GenerativeFunction{T,U}, args::Tuple,
-                                    constraints::ChoiceMap)
+    (trace::U, weight) = generate(
+        gen_fn::GenerativeFunction{T,U}, args::Tuple,
+        constraints::ChoiceMap; parameter_context=Dict())
 
 Return a trace of a generative function that is consistent with the given
 constraints on the random choices.
@@ -182,11 +209,11 @@ Example with constraint that address `:z` takes value `true`.
 (trace, weight) = generate(foo, (2, 4), choicemap((:z, true))
 ```
 """
-function generate(::GenerativeFunction, ::Tuple, ::ChoiceMap)
+function generate(::GenerativeFunction, ::Tuple, ::ChoiceMap; parameter_context=Dict())
     error("Not implemented")
 end
 
-function generate(gen_fn::GenerativeFunction, args::Tuple)
+function generate(gen_fn::GenerativeFunction, args::Tuple; parameter_context=Dict())
     generate(gen_fn, args, EmptyChoiceMap())
 end
 
@@ -408,18 +435,3 @@ end
 function choice_gradients(trace)
     choice_gradients(trace, EmptySelection(), nothing)
 end
-
-export GenerativeFunction
-export Trace
-export has_argument_grads
-export accepts_output_grad
-export get_params
-export simulate
-export generate
-export project
-export propose
-export assess
-export update
-export regenerate
-export accumulate_param_gradients!
-export choice_gradients
