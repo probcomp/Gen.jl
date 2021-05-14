@@ -314,7 +314,7 @@ Finally, we write the involution itself, using the [Trace Transform DSL](@ref):
         @write(model_out[:z], false, :discrete)
         m1 = @read(model_in[:m1], :continuous)
         m2 = @read(model_in[:m2], :continuous)
-        (m, u) = merge_mean(m1, m2)
+        (m, u) = merge_means(m1, m2)
         @write(model_out[:m], m, :continuous)
         @write(aux_out[:u], u, :continuous)
     else
@@ -335,7 +335,7 @@ You should convince yourself that this function is invertible and its own invers
 
 Finally, we compose a structure-changing MCMC kernel using this involution:
 ```julia
-split_merge_kernel(trace) = mh(trace, split_merge_proposal, (), split_merge_involution)
+split_merge_kernel(trace) = mh(trace, split_merge_proposal, (), split_merge_involution)[1]
 ```
 We then compose this move with the fixed structure move, and run it on the observed data:
 ```julia
