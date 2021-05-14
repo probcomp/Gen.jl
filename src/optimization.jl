@@ -6,7 +6,13 @@ import Parameters
 # so that everything is gradient descent instead of ascent. this will also fix
 # the misnomer names
 #
-# add a default global JuliaParameterStore
+# combinators and call_at! and choice_at! all need to implement get_parameters..
+# 
+# make changes to src/static_ir/backprop.jl
+#
+# make changes to src/dynamic/dynamic.jl (use the JuliaParameterStore)
+#
+# make changes to src/dynamic/backprop.jl
 
 export in_place_add!
 

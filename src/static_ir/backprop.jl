@@ -1,3 +1,5 @@
+# TODO this code needs to be simplified
+
 struct BackpropTraceMode end
 struct BackpropParamsMode end
 
