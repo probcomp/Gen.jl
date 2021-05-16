@@ -293,21 +293,27 @@ function increment_gradient!(
     return nothing
 end
 
-# TODO docstring (thread-safe)
-function increment_gradient!(
-        store::JuliaParameterStore, id::JuliaParameterID,
-        increment)
+function get_gradient_accumulator(store::JuliaParameterStore, id::JuliaParameterID)
     (gen_fn, name) = id
     try
-        in_place_add!(store.gradient_accumulators[gen_fn][name], increment)
+        return store.gradient_accumulators[gen_fn][name]
     catch KeyError
         @error "parameter not initialized: $id"
         rethrow()
     end
+end
+
+# TODO docstring (thread-safe)
+function increment_gradient!(
+        store::JuliaParameterStore, id::JuliaParameterID,
+        increment)
+    accumulator = get_gradient_accumulator(store, id)
+    in_place_add!(accumulator, increment)
     return nothing
 end
 
 # TODO docstring (not thread-safe)
+
 function get_parameter_value(store::JuliaParameterStore, id::JuliaParameterID)
     (gen_fn, name) = id
     try

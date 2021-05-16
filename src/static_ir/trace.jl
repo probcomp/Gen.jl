@@ -37,6 +37,34 @@ static_get_submap(::StaticIRTraceAssmt, ::Val) = EmptyChoiceMap()
 
 abstract type StaticIRTrace <: Trace end
 
+# fixed fields shared by all StaticIRTraces
+const num_nonempty_fieldname = :num_nonempty
+const total_score_fieldname = :score
+const total_noise_fieldname = :noise
+const return_value_fieldname = :retval
+const parameter_store_fieldname = :parameter_store
+
+
+# other fields based on user-defined variable names are prefixed to avoid collisions
+get_value_fieldname(node::ArgumentNode) = Symbol("#arg#_$(node.name)")
+get_value_fieldname(node::RandomChoiceNode) = Symbol("#choice_value#_$(node.addr)")
+get_value_fieldname(node::JuliaNode) = Symbol("#julia#_$(node.name)")
+get_score_fieldname(node::RandomChoiceNode) = Symbol("#choice_score#_$(node.addr)")
+get_subtrace_fieldname(node::GenerativeFunctionCallNode) = Symbol("#subtrace#_$(node.addr)")
+
+
+# getters
+
+function get_parameter_value(trace::StaticIRTrace, name)
+    parameter_id = (get_gen_fn(trace), name)
+    return get_parameter_value(trace.parameter_store, parameter_id) 
+end
+
+function get_gradient_accumulator(trace::StaticIRTrace, name)
+    parameter_id = (get_gen_fn(trace), name)
+    return get_gradient_accumulator(trace.parameter_store, parameter_id)
+end
+
 @inline function static_get_subtrace(trace::StaticIRTrace, addr)
     error("Not implemented")
 end
@@ -52,36 +80,8 @@ end
     return Gen.static_get_subtrace(trace, Val(first))[rest]
 end
 
-const arg_prefix = gensym("arg")
-const choice_value_prefix = gensym("choice_value")
-const choice_score_prefix = gensym("choice_score")
-const subtrace_prefix = gensym("subtrace")
-const julia_prefix = gensym("julia_prefix")
 
-function get_value_fieldname(node::ArgumentNode)
-    Symbol("$(arg_prefix)_$(node.name)")
-end
 
-function get_value_fieldname(node::RandomChoiceNode)
-    Symbol("$(choice_value_prefix)_$(node.addr)")
-end
-
-function get_value_fieldname(node::JuliaNode)
-    Symbol("$(julia_prefix)_$(node.name)")
-end
-
-function get_score_fieldname(node::RandomChoiceNode)
-    Symbol("$(choice_score_prefix)_$(node.addr)")
-end
-
-function get_subtrace_fieldname(node::GenerativeFunctionCallNode)
-    Symbol("$(subtrace_prefix)_$(node.addr)")
-end
-
-const num_nonempty_fieldname = gensym("num_nonempty")
-const total_score_fieldname = gensym("score")
-const total_noise_fieldname = gensym("noise")
-const return_value_fieldname = gensym("retval")
 
 struct TraceField
     fieldname::Symbol
@@ -115,6 +115,7 @@ function get_trace_fields(ir::StaticIR, options::StaticIRGenerativeFunctionOptio
     push!(fields, TraceField(total_noise_fieldname, QuoteNode(Float64)))
     push!(fields, TraceField(num_nonempty_fieldname, QuoteNode(Int)))
     push!(fields, TraceField(return_value_fieldname, ir.return_node.typ))
+    push!(fields, parameter_store_fieldname, QuoteNode(JuliaParameterStore)())
     return fields
 end
 
@@ -125,7 +126,8 @@ function generate_trace_struct(ir::StaticIR, trace_struct_name::Symbol, options:
     fields = get_trace_fields(ir, options)
     field_exprs = map((f) -> Expr(:(::), f.fieldname, f.typ), fields)
     Expr(:struct, mutable, Expr(:(<:), trace_struct_name, QuoteNode(StaticIRTrace)),
-         Expr(:block, field_exprs..., Expr(:(::), static_ir_gen_fn_ref, QuoteNode(Any))))
+        Expr(:block, field_exprs...,
+        Expr(:(::), static_ir_gen_fn_ref, QuoteNode(Any))))
 end
 
 function generate_isempty(trace_struct_name::Symbol)

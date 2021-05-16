@@ -144,7 +144,7 @@ end
 function process_codegen!(stmts, ::ForwardPassState, back::BackwardPassState,
                           node::TrainableParameterNode, ::AbstractUpdateMode, options)
     if node in back.marked
-        push!(stmts, :($(node.name) = $(QuoteNode(get_param))($(QuoteNode(get_gen_fn))(trace), $(QuoteNode(node.name)))))
+        push!(stmts, :($(node.name) = $(QuoteNode(get_parameter_value))(trace, $(QuoteNode(node.name)))))
     end
 end
 
