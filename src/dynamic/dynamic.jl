@@ -9,15 +9,12 @@ Constructed using the `@gen` keyword.
 Most methods in the generative function interface involve a end-to-end execution of the function.
 """
 struct DynamicDSLFunction{T} <: GenerativeFunction{T,DynamicDSLTrace}
-    params_grad::Dict{Symbol,Any}
-    params::Dict{Symbol,Any}
     arg_types::Vector{Type}
     has_defaults::Bool
     arg_defaults::Vector{Union{Some{Any},Nothing}}
     julia_function::Function
     has_argument_grads::Vector{Bool}
     accepts_output_grad::Bool
-    params_grad_lock::ReentrantLock
 end
 
 function DynamicDSLFunction(arg_types::Vector{Type},
@@ -25,14 +22,11 @@ function DynamicDSLFunction(arg_types::Vector{Type},
                      julia_function::Function,
                      has_argument_grads, ::Type{T},
                      accepts_output_grad::Bool) where {T}
-    params_grad = Dict{Symbol,Any}()
-    params = Dict{Symbol,Any}()
     has_defaults = any(arg -> arg != nothing, arg_defaults)
-    DynamicDSLFunction{T}(params_grad, params, arg_types,
+    return DynamicDSLFunction{T}(arg_types,
                 has_defaults, arg_defaults,
                 julia_function,
-                has_argument_grads, accepts_output_grad,
-		ReentrantLock())
+                has_argument_grads, accepts_output_grad)
 end
 
 function DynamicDSLTrace(gen_fn::T, args) where {T<:DynamicDSLFunction}
@@ -42,17 +36,21 @@ function DynamicDSLTrace(gen_fn::T, args) where {T<:DynamicDSLFunction}
         defaults = map(x -> something(x), defaults)
         args = Tuple(vcat(collect(args), defaults))
     end
-    DynamicDSLTrace{T}(gen_fn, args)
+    return DynamicDSLTrace{T}(gen_fn, args)
 end
 
 accepts_output_grad(gen_fn::DynamicDSLFunction) = gen_fn.accepts_output_grad
 
 mutable struct GFUntracedState
-    params::Dict{Symbol,Any}
+    gen_fn::GenerativeFunction
+    parameter_store::JuliaParameterStore
 end
 
+get_parameter_store(state::GFUntracedState) = state.parameter_store
+get_parameter_id(state::GFUntracedState, name::Symbol) = (state.gen_fn, name)
+
 function (gen_fn::DynamicDSLFunction)(args...)
-    state = GFUntracedState(gen_fn.params)
+    state = GFUntracedState(gen_fn, default_julia_parameter_store)
     gen_fn.julia_function(state, args...)
 end
 
@@ -104,11 +102,9 @@ function dynamic_param_impl(expr::Expr)
 end
 
 function read_param(state, name::Symbol)
-    if haskey(state.params, name)
-        state.params[name]
-    else
-        throw(UndefVarError(name))
-    end
+    parameter_id = get_parameter_id(state, name)
+    store = get_parameter_store(state)
+    return get_parameter_value(store, parameter_id)
 end
 
 ##################

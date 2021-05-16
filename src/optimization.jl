@@ -6,11 +6,13 @@ import Parameters
 # so that everything is gradient descent instead of ascent. this will also fix
 # the misnomer names
 #
-# combinators and call_at! and choice_at! all need to implement get_parameters..
+# combinators (map etc.) and call_at! and choice_at! all need to implement get_parameters..
 # 
 # make changes to src/static_ir/backprop.jl
 #
 # make changes to src/dynamic/dynamic.jl (use the JuliaParameterStore)
+#
+# TODO GF untraced needs to reference a parameter store
 #
 # make changes to src/dynamic/backprop.jl
 
@@ -200,22 +202,24 @@ end
 # Julia #
 #########
 
-# TODO document
 const JuliaParameterID = Tuple{GenerativeFunction,Symbol}
 
 # TODO document
 struct JuliaParameterStore
-    values::Dict{JuliaParameterID,Any}
-    gradient_accumulators::Dict{JuliaParameterID,GradientAccumulator}
+    values::Dict{GenerativeFunction,Dict{Symbol,Any}}
+    gradient_accumulators::Dict{GenerativeFunction,Dict{Symbol,GradientAccumulator}}
 end
 
 function JuliaParameterStore()
     return JuliaParameterStore(
-        Dict{JuliaParameterID,Any}(),
-        Dict{JuliaParameterID,GradientAccumulator}())
+        Dict{GenerativeFunction,Dict{Symbol,Any}}(),
+        Dict{GenerativeFunction,Dict{Symbol,GradientAccumulator}}())
 end
 
+get_local_parameters(store::JuliaParameterStore, gen_fn) = store.values[gen_fn]
+
 # TODO document
+const default_parameter_context = Dict{Symbol,Any}()
 const default_julia_parameter_store = JuliaParameterStore()
 
 # for looking up in a parameter context when tracing (simulate, generate)
@@ -228,6 +232,7 @@ function get_julia_store(context::Dict{Symbol,Any})
         return context[JULIA_PARAMETER_STORE_KEY]
     else
         return default_julia_parameter_store
+    end
 end
 
 """
@@ -245,18 +250,31 @@ initialize_parameter!(foo, :theta, 0.6)
 Not thread-safe.
 """
 function initialize_parameter!(store::JuliaParameterStore, id::JuliaParameterID, value)
-    store.values[id] = value
+    (gen_fn, name) = id
+    if !haskey(store.values, gen_fn)
+        store.values[gen_fn] = Dict{Symbol,Any}()
+    end
+    store.values[gen_fn][name] = value
     reset_gradient!(store, id)
     return nothing
 end
 
 # TODO docstring (not thread-safe)
 function reset_gradient!(store::JuliaParameterStore, id::JuliaParameterID)
-    !haskey(store.values, id) && error("parameter not initialized: $id")
-    if haskey(store.gradient_accumulators, id)
-        fill_with_zeros!(store.gradient_accumulators[id])
+    (gen_fn, name) = id
+    try
+        value = store.values[gen_fn][name]
+    catch KeyError
+        @error "parameter not initialized: $id"
+        rethrow()
+    end
+    if !haskey(store.gradient_accumulators, gen_fn)
+        store.gradient_accumulators[gen_fn] = Dict{Symbol,Any}()
+    end
+    if haskey(store.gradient_accumulators[gen_fn], name)
+        fill_with_zeros!(store.gradient_accumulators[gen_fn][name])
     else
-        store.gradient_accumulators[id] = Accumulator(zero(store.values[id]))
+        store.gradient_accumulators[gen_fn][name] = Accumulator(zero(value))
     end
     return nothing
 end
@@ -265,7 +283,13 @@ end
 function increment_gradient!(
         store::JuliaParameterStore, id::JuliaParameterID,
         increment, scale_factor)
-    in_place_add!(store.gradient_accumulators[id], increment, scale_factor)
+    (gen_fn, name) = id
+    try
+        in_place_add!(store.gradient_accumulators[gen_fn][name], increment, scale_factor)
+    catch KeyError
+        @error "parameter not initialized: $id"
+        rethrow()
+    end
     return nothing
 end
 
@@ -273,24 +297,48 @@ end
 function increment_gradient!(
         store::JuliaParameterStore, id::JuliaParameterID,
         increment)
-    in_place_add!(store.gradient_accumulators[id], increment)
+    (gen_fn, name) = id
+    try
+        in_place_add!(store.gradient_accumulators[gen_fn][name], increment)
+    catch KeyError
+        @error "parameter not initialized: $id"
+        rethrow()
+    end
     return nothing
 end
 
 # TODO docstring (not thread-safe)
 function get_parameter_value(store::JuliaParameterStore, id::JuliaParameterID)
-    return store.values[id]
+    (gen_fn, name) = id
+    try
+        return state.values[gen_fn][name]
+    catch KeyError
+        @error "parameter not initialized: $id"
+        rethrow()
+    end
 end
 
 # TODO docstring (not thread-safe)
 function set_parameter_value!(store::JuliaParameterStore, id::JuliaParameterID, value)
-    store.values[id] = value
+    (gen_fn, name) = id
+    try
+        store.values[gen_fn][name] = value
+    catch KeyError
+        @error "parameter not initialized: $id"
+        rethrow()
+    end
     return nothing
 end
 
 # TODO docstring (not thread-safe)
 function get_gradient(store::JuliaParameterStore, id::JuliaParameterID)
-    return get_value(store.gradient_accumulators[id])
+    (gen_fn, name) = id
+    try
+        return get_value(store.gradient_accumulators[gen_fn][name])
+    catch KeyError
+        @error "parameter not initialized: $id"
+        rethrow()
+    end
 end
 
 #####################################################
