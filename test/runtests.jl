@@ -76,11 +76,11 @@ end
 
 const dx = 1e-6
 
-#include("autodiff.jl")
-#include("diff.jl")
-#include("selection.jl")
-#include("assignment.jl")
-#include("gen_fn_interface.jl")
+include("autodiff.jl")
+include("diff.jl")
+include("selection.jl")
+include("assignment.jl")
+include("gen_fn_interface.jl")
 include("dsl/dsl.jl")
 #include("optional_args.jl")
 include("static_ir/static_ir.jl")

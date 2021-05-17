@@ -37,6 +37,10 @@ function Base.show(io::IO, ::MIME"text/plain", gen_fn::DynamicDSLFunction)
     return "Gen DML generative function: $(gen_fn.julia_function)"
 end
 
+function get_parameters(gen_fn::DynamicDSLFunction, parameter_context)
+    # TODO for this, we need to walk the code... (and throw errors when the 
+end
+
 function DynamicDSLTrace(gen_fn::T, args, parameter_store::JuliaParameterStore) where {T<:DynamicDSLFunction}
     # pad args with default values, if available
     if gen_fn.has_defaults && length(args) < length(gen_fn.arg_defaults)

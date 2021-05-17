@@ -66,5 +66,5 @@ function simulate(
     state = GFSimulateState(gen_fn, args, parameter_context)
     retval = exec(gen_fn, state, args)
     set_retval!(state.trace, retval)
-    state.trace
+    return state.trace
 end

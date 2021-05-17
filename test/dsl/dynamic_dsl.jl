@@ -398,8 +398,6 @@ end
     conf = FixedStepGradientDescent(0.001)
     optimizer = init_optimizer(conf, [(foo, :theta)])
     apply_update!(optimizer)
-    println(get_parameter_value((foo, :theta)))
-    println(get_gradient((foo, :theta)))
     @test isapprox(get_parameter_value((foo, :theta)), 0.001)
     @test isapprox(get_gradient((foo, :theta)), 0.0)
 end

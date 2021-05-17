@@ -20,6 +20,7 @@ export FixedStepGradientDescent
 export DecayStepGradientDescent
 export init_optimizer
 export apply_update!
+export CompositeOptimizer
 
 export JuliaParameterStore
 export init_parameter!

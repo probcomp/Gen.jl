@@ -85,7 +85,8 @@
         value = get_parameter_value((student, name))
 
         # evaluate total log density at value + dx
-        set_param!(student, name, value + dx)
+        init_parameter!((student, name), value + dx)
+
         lpdf_pos = 0.
         for i=1:minibatch_size
             (incr, _) = assess(student, inputs[i], constraints[i])
@@ -93,7 +94,7 @@
         end
 
         # evaluate total log density at value - dx
-        set_param!(student, name, value - dx)
+        init_parameter!((student, name), value - dx)
         lpdf_neg = 0.
         for i=1:minibatch_size
             (incr, _) = assess(student, inputs[i], constraints[i])
@@ -103,11 +104,11 @@
         expected = (lpdf_pos - lpdf_neg) / (2 * dx)
         @test isapprox(actual, expected, atol=1e-4)
 
-        set_param!(student, name, value)
+        init_parameter!((student, name), value)
     end
 
     # use stochastic gradient descent
-    optimizer = CompositeOptimizer(GradientDescent(0.01, 1000000), student)
+    optimizer = CompositeOptimizer(DecayStepGradientDescent(0.01, 1000000), student)
     train!(student, data_generator, optimizer,
         num_epoch=2000, epoch_size=50, num_minibatch=1, minibatch_size=50,
         verbose=false)

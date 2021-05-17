@@ -277,7 +277,7 @@ function backward_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
             error("Distribution $dist does not logpdf gradient for its output value")
         end
         push!(stmts, :($(gradient_var(node)) = $(QuoteNode(in_place_add!))(
-            $(gradient_var(node)), retval_grad)))
+            $(gradient_var(node)), $logpdf_grad[1])))
     end
 end
 

@@ -491,7 +491,7 @@
         foo = Unfold(kernel)
 
         std = 1.
-        set_param!(kernel, :std, std)
+        init_parameter!((kernel, :std), std)
 
         x_init = 0.1
         alpha = 0.2

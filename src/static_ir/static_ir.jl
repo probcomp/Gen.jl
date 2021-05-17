@@ -46,6 +46,8 @@ function generate_generative_function(ir::StaticIR, name::Symbol, options::Stati
     has_argument_grads = tuple(map((node) -> node.compute_grad, ir.arg_nodes)...)
     accepts_output_grad = ir.accepts_output_grad
 
+    show_str = "Gen SML generative function: $name"
+
     gen_fn_defn = quote
         struct $gen_fn_type_name <: $(QuoteNode(StaticIRGenerativeFunction)){$return_type,$trace_type}
         end
@@ -62,7 +64,7 @@ function generate_generative_function(ir::StaticIR, name::Symbol, options::Stati
             return $(GlobalRef(Gen, :get_parameters))($(QuoteNode(ir)), gen_fn, context)
         end
         function Base.show(io::IO, ::MIME"text/plain", gen_fn::$gen_fn_type_name)
-            return "Gen SML generative function: $name)"
+            return $(QuoteNode(show_str))
         end
 
     end

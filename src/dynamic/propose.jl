@@ -2,11 +2,23 @@ mutable struct GFProposeState
     choices::DynamicChoiceMap
     weight::Float64
     visitor::AddressVisitor
-    params::Dict{Symbol,Any}
+    active_gen_fn::DynamicDSLFunction # mutated by splicing
+    parameter_context::Dict
+
+    function GFProposeState(
+        gen_fn::GenerativeFunction, parameter_context)
+        return new(choicemap(), 0.0, AddressVisitor(), gen_fn, parameter_context)
+    end
 end
 
-function GFProposeState(params::Dict{Symbol,Any})
-    GFProposeState(choicemap(), 0., AddressVisitor(), params)
+get_parameter_store(state::GFProposeState) = get_julia_store(state.parameter_context)
+
+get_parameter_id(state::GFProposeState, name::Symbol) = (state.active_gen_fn, name)
+
+get_active_gen_fn(state::GFProposeState) = state.active_gen_fn
+
+function set_active_gen_fn!(state::GFProposeState, gen_fn::GenerativeFunction)
+    state.active_gen_fn = gen_fn
 end
 
 function traceat(state::GFProposeState, dist::Distribution{T},
@@ -47,16 +59,10 @@ function traceat(state::GFProposeState, gen_fn::GenerativeFunction{T,U},
     retval
 end
 
-function splice(state::GFProposeState, gen_fn::DynamicDSLFunction, args::Tuple)
-    prev_params = state.params
-    state.params = gen_fn.params
+function propose(
+        gen_fn::DynamicDSLFunction, args::Tuple;
+        parameter_context=default_parameter_context)
+    state = GFProposeState(gen_fn, parameter_context)
     retval = exec(gen_fn, state, args)
-    state.params = prev_params
-    retval
-end
-
-function propose(gen_fn::DynamicDSLFunction, args::Tuple)
-    state = GFProposeState(gen_fn.params)
-    retval = exec(gen_fn, state, args)
-    (state.choices, state.weight, retval)
+    return (state.choices, state.weight, retval)
 end

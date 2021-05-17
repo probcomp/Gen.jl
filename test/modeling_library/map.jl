@@ -6,7 +6,7 @@
         return z
     end
 
-    set_param!(foo, :std, 1.)
+    init_parameter!((foo, :std), 1.0)
 
     bar = Map(foo)
     xs = [1.0, 2.0, 3.0, 4.0]
