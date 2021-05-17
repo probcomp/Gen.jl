@@ -246,7 +246,7 @@ t)\$, and return \$t\$
 \\log \\frac{p(r, t; x)}{q(r; x, t)}
 ```
 """
-function propose(gen_fn::GenerativeFunction, args::Tuple)
+function propose(gen_fn::GenerativeFunction, args::Tuple; parameter_context=Dict())
     trace = simulate(gen_fn, args)
     weight = get_score(trace)
     (get_choices(trace), weight, get_retval(trace))

@@ -7,30 +7,26 @@ import Parameters
 # the misnomer names
 #
 # combinators (map etc.) and call_at! and choice_at! all need to implement get_parameters..
-# 
-# make changes to src/static_ir/backprop.jl
-#
-# make changes to src/dynamic/dynamic.jl (use the JuliaParameterStore)
+# TODO add tests specifically for JuliaParameterStore etc.
 #
 # TODO GF untraced needs to reference a parameter store
 #
 # make changes to src/dynamic/backprop.jl
+# make changes to other dynamic methods
 
 export in_place_add!
 
 export FixedStepGradientDescent
 export DecayStepGradientDescent
-export make_optimizer
+export init_optimizer
 export apply_update!
 
-export ParameterStore
 export JuliaParameterStore
-export JuliaParameterID
-
-export initialize_parameter!
+export init_parameter!
 export increment_gradient!
 export reset_gradient!
 export get_parameter_value
+export get_gradient
 
 #################
 # in_place_add! #
@@ -80,7 +76,7 @@ end
 # thread-safe accumulator # 
 ###########################
 
-struct Accumulator{T<:Union{Real,Array}}
+mutable struct Accumulator{T<:Union{Real,Array}}
     value::T
     lock::ReentrantLock
 end
@@ -110,7 +106,7 @@ function fill_with_zeros!(accum::Accumulator{Array{T}}) where {T}
     return accum
 end
 
-function in_place_add!(accum::ThreadsafeAccumulator{Real}, increment::Real, scale_factor::Real)
+function in_place_add!(accum::Accumulator{<:Real}, increment::Real, scale_factor::Real)
     lock(accum.lock)
     try
         accum.value = accum.value + increment * scale_factor
@@ -120,7 +116,7 @@ function in_place_add!(accum::ThreadsafeAccumulator{Real}, increment::Real, scal
     return accum
 end
 
-function in_place_add!(accum::ThreadsafeAccumulator{Real}, increment::Real)
+function in_place_add!(accum::Accumulator{<:Real}, increment::Real)
     lock(accum.lock)
     try
         accum.value = accum.value + increment
@@ -130,7 +126,7 @@ function in_place_add!(accum::ThreadsafeAccumulator{Real}, increment::Real)
     return accum
 end
 
-function in_place_add!(accum::ThreadsafeAccumulator{<:Array}, increment, scale_factor::Real)
+function in_place_add!(accum::Accumulator{<:Array}, increment, scale_factor::Real)
     lock(accum.lock)
     try
         @simd for i in 1:length(accum.value)
@@ -142,7 +138,7 @@ function in_place_add!(accum::ThreadsafeAccumulator{<:Array}, increment, scale_f
     return accum
 end
 
-function in_place_add!(accum::ThreadsafeAccumulator{<:Array}, increment)
+function in_place_add!(accum::Accumulator{<:Array}, increment)
     lock(accum.lock)
     try
         @simd for i in 1:length(accum.value)
@@ -157,38 +153,79 @@ end
 
 
 
-#################################
-# ParameterStore and optimizers #
-#################################
+###################################
+# parameter stores and optimizers #
+###################################
+
+# TODO create diagram and document the overal framework
+# including parameter contexts and parameter stores,and the default beahviors
 
 abstract type ParameterStore end
 
-# TODO docstring, returns an optimizer that has an apply_update! method
-function make_optimizer(conf, store::ParameterStore, parameter_ids) end
+"""
+    optimizer = init_optimizer(
+        conf, parameter_ids,
+        store=default_julia_parameter_store)
 
-# TODO docstring
-function apply_update!(optimizer) end
+Initialize an iterative gradient-based optimizer.
 
+The first argument defines the mathematical behavior of the update, the second argument defines the set of parameters to which the update should be applied at each iteration, and the third argument gives the location of the parameter values and their gradient accumulators.
+
+See [`apply_update!`](@ref).
+
+Not thread-safe.
+"""
+function init_optimizer(conf, parameter_ids, store=default_julia_parameter_store)
+    error("Not implemented")
+end
+
+"""
+    apply_update!(optimizer)
+
+Apply one iteration of a gradient-based optimization update.
+
+See [`init_optimizer!`](@ref).
+
+Not thread-safe.
+"""
+function apply_update!(optimizer)
+    error("Not implemented")
+end
+
+"""
+
+    optimizer = CompositeOptimizer(conf, parameter_stores_to_ids::Dict{Any,Vector})
+
+Construct an optimizer that applies the given update to parameters in multiple parameter stores.
+
+The first argument defines the mathematical behavior of the update;
+the second argument defines the set of parameters to which the update should be applied at each iteration,
+as a map from parameter stores to a vector of IDs of parameters within that parameter store.
+
+    optimizer = CompositeOptimizer(conf, gen_fn::GenerativeFunction; parameter_context=default_parameter_context)
+
+Constructs a composite optimizer that applies the given update to all parameters used by the given generative function, even when the parameters exist in multiple parameter stores.
+"""
 struct CompositeOptimizer
     conf::Any
-    optimizers::Dict{ParameterStore,Any}
-    function CompositeOptimizer(conf, parameters::Dict{ParameterStore,Vector})
-        optimizers = Dict{ParameterStore,Any}()
+    optimizers::Dict{Any,Any}
+    function CompositeOptimizer(conf, parameter_stores_to_ids::Dict{Any,Vector})
+        optimizers = Dict{Any,Any}()
         for (store, parameter_ids) in parameters
-            optimizers[store] = make_optimizer(conf, store, parameter_ids)
+            optimizers[store] = init_optimizer(conf, parameter_ids, store)
         end
         new(states, conf)
     end
 end
 
-function CompositeOptimizer(conf, gen_fn::GenerativeFunction)
-    return CompositeOptimizer(conf, get_parameters(gen_fn))
+function CompositeOptimizer(conf, gen_fn::GenerativeFunction; parameter_context=default_parameter_context)
+    return CompositeOptimizer(conf, get_parameters(gen_fn, parameter_context))
 end
 
 """
-    apply_update!(update::ParamUpdate)
+    apply_update!(composite_opt::ComposieOptimizer)
 
-Perform one step of the update.
+Perform one step of an update, possibly mutating the values of parameters in multiple parameter stores.
 """
 function apply_update!(composite_opt::CompositeOptimizer)
     for opt in values(composite_opt.optimizers)
@@ -202,28 +239,39 @@ end
 # Julia #
 #########
 
-const JuliaParameterID = Tuple{GenerativeFunction,Symbol}
-
-# TODO document
 struct JuliaParameterStore
     values::Dict{GenerativeFunction,Dict{Symbol,Any}}
-    gradient_accumulators::Dict{GenerativeFunction,Dict{Symbol,GradientAccumulator}}
+    gradient_accumulators::Dict{GenerativeFunction,Dict{Symbol,Accumulator}}
 end
 
+"""
+    
+    store = JuliaParameterStore()
+
+Construct a parameter store stores the state of parameters in the memory of the Julia runtime as Julia values.
+
+There is a global Julia parameter store automatically created and named `Gen.default_julia_parameter_store`.
+
+Incrementing the gradients can be safely multi-threaded (see [`increment_gradient!`](@ref)).
+"""
 function JuliaParameterStore()
     return JuliaParameterStore(
         Dict{GenerativeFunction,Dict{Symbol,Any}}(),
-        Dict{GenerativeFunction,Dict{Symbol,GradientAccumulator}}())
+        Dict{GenerativeFunction,Dict{Symbol,Accumulator}}())
 end
 
-get_local_parameters(store::JuliaParameterStore, gen_fn) = store.values[gen_fn]
+function get_local_parameters(store::JuliaParameterStore, gen_fn)
+    if !haskey(store.values, gen_fn)
+        return Dict{Symbol,Any}()
+    else
+        return store.values[gen_fn]
+    end
+end
 
-# TODO document
 const default_parameter_context = Dict{Symbol,Any}()
 const default_julia_parameter_store = JuliaParameterStore()
 
 # for looking up in a parameter context when tracing (simulate, generate)
-# TODO make the parametr context another argument to simulate and generate
 # once a trace is generated, it is bound to use a particular store
 const JULIA_PARAMETER_STORE_KEY = :julia_parameter_store 
 
@@ -236,7 +284,9 @@ function get_julia_store(context::Dict{Symbol,Any})
 end
 
 """
-    initialize_parameter!(store::JuliaParameterStore, id::JuliaParameterID, value)
+    init_parameter!(
+        id::Tuple{GenerativeFunction,Symbol}, value,
+        store::JuliaParameterStore=default_julia_parameter_store)
 
 Initialize the the value of a named trainable parameter of a generative function.
 
@@ -244,28 +294,41 @@ Also generates the gradient accumulator for that parameter to `zero(value)`.
 
 Example:
 ```julia
-initialize_parameter!(foo, :theta, 0.6)
+init_parameter!((foo, :theta), 0.6)
 ```
 
 Not thread-safe.
 """
-function initialize_parameter!(store::JuliaParameterStore, id::JuliaParameterID, value)
+function init_parameter!(
+        id::Tuple{GenerativeFunction,Symbol}, value,
+        store::JuliaParameterStore=default_julia_parameter_store)
     (gen_fn, name) = id
     if !haskey(store.values, gen_fn)
         store.values[gen_fn] = Dict{Symbol,Any}()
     end
     store.values[gen_fn][name] = value
-    reset_gradient!(store, id)
+    reset_gradient!(id, store)
     return nothing
 end
 
-# TODO docstring (not thread-safe)
-function reset_gradient!(store::JuliaParameterStore, id::JuliaParameterID)
+"""
+    reset_gradient!(
+        id::Tuple{GenerativeFunction,Symbol},
+        store::JuliaParameterStore=default_julia_parameter_store)
+
+Reset the gradient accumulator for a trainable parameter.
+
+Not thread-safe.
+"""
+function reset_gradient!(
+        id::Tuple{GenerativeFunction,Symbol},
+        store::JuliaParameterStore=default_julia_parameter_store)
     (gen_fn, name) = id
+    local value::Any
     try
         value = store.values[gen_fn][name]
     catch KeyError
-        @error "parameter not initialized: $id"
+        @error "parameter $name of $gen_fn was not initialized"
         rethrow()
     end
     if !haskey(store.gradient_accumulators, gen_fn)
@@ -279,70 +342,129 @@ function reset_gradient!(store::JuliaParameterStore, id::JuliaParameterID)
     return nothing
 end
 
-# TODO docstring (thread-safe)
+"""
+    increment_gradient!(
+        id::Tuple{GenerativeFunction,Symbol}, increment, scale_factor::Real,
+        store::JuliaParameterStore=default_julia_parameter_store)
+
+Increment the gradient accumulator for a parameter.
+
+The increment is scaled by the given scale_factor.
+
+Thread-safe (multiple threads can increment the gradient of the same parameter concurrently).
+"""
 function increment_gradient!(
-        store::JuliaParameterStore, id::JuliaParameterID,
-        increment, scale_factor)
+        id::Tuple{GenerativeFunction,Symbol}, increment, scale_factor,
+        store::JuliaParameterStore=default_julia_parameter_store)
     (gen_fn, name) = id
     try
         in_place_add!(store.gradient_accumulators[gen_fn][name], increment, scale_factor)
     catch KeyError
-        @error "parameter not initialized: $id"
+        @error "parameter $name of $gen_fn was not initialized"
         rethrow()
     end
     return nothing
 end
 
-function get_gradient_accumulator(store::JuliaParameterStore, id::JuliaParameterID)
-    (gen_fn, name) = id
-    try
-        return store.gradient_accumulators[gen_fn][name]
-    catch KeyError
-        @error "parameter not initialized: $id"
-        rethrow()
-    end
-end
+"""
+    increment_gradient!(
+        id::Tuple{GenerativeFunction,Symbol}, increment,
+        store::JuliaParameterStore=default_julia_parameter_store)
 
-# TODO docstring (thread-safe)
+Increment the gradient accumulator for a parameter.
+
+Thread-safe (multiple threads can increment the gradient of the same parameter concurrently).
+"""
 function increment_gradient!(
-        store::JuliaParameterStore, id::JuliaParameterID,
-        increment)
+        id::Tuple{GenerativeFunction,Symbol}, increment,
+        store::JuliaParameterStore=default_julia_parameter_store)
     accumulator = get_gradient_accumulator(store, id)
     in_place_add!(accumulator, increment)
     return nothing
 end
 
-# TODO docstring (not thread-safe)
 
-function get_parameter_value(store::JuliaParameterStore, id::JuliaParameterID)
+"""
+    accum::Accumulator = get_gradient_accumulator!(
+        id::Tuple{GenerativeFunction,Symbol},
+        store::JuliaParameterStore=default_julia_parameter_store)
+
+Return the gradient accumulator for a parameter.
+
+Not thread-safe.
+"""
+function get_gradient_accumulator(
+        id::Tuple{GenerativeFunction,Symbol},
+        store::JuliaParameterStore=default_julia_parameter_store)
     (gen_fn, name) = id
     try
-        return state.values[gen_fn][name]
+        return store.gradient_accumulators[gen_fn][name]
     catch KeyError
-        @error "parameter not initialized: $id"
+        @error "parameter $name of $gen_fn was not initialized"
         rethrow()
     end
 end
 
-# TODO docstring (not thread-safe)
-function set_parameter_value!(store::JuliaParameterStore, id::JuliaParameterID, value)
+"""
+    value::Union{Real,Array} = get_parameter_value(
+        id::Tuple{GenerativeFunction,Symbol},
+        store::JuliaParameterStore=default_julia_parameter_store)
+
+Get the current value of a parameter.
+
+Not thread-safe.
+"""
+function get_parameter_value(
+        id::Tuple{GenerativeFunction,Symbol},
+        store::JuliaParameterStore=default_julia_parameter_store)
+    (gen_fn, name) = id
+    try
+        return store.values[gen_fn][name]
+    catch KeyError
+        @error "parameter $name of $gen_fn was not initialized"
+        rethrow()
+    end
+end
+
+"""
+    set_parameter_value!(
+        id::Tuple{GenerativeFunction,Symbol}, value::Union{Real,Array},
+        store::JuliaParameterStore=default_julia_parameter_store)
+
+Set the value of a parameter.
+
+Not thread-safe.
+"""
+function set_parameter_value!(
+        id::Tuple{GenerativeFunction,Symbol}, value::Union{Real,Array},
+        store::JuliaParameterStore=default_julia_parameter_store)
     (gen_fn, name) = id
     try
         store.values[gen_fn][name] = value
     catch KeyError
-        @error "parameter not initialized: $id"
+        @error "parameter $name of $gen_fn was not initialized"
         rethrow()
     end
     return nothing
 end
 
-# TODO docstring (not thread-safe)
-function get_gradient(store::JuliaParameterStore, id::JuliaParameterID)
+"""
+    gradient::Union{Real,Array} = get_gradient(
+        id::Tuple{GenerativeFunction,Symbol},
+        store::JuliaParameterStore=default_julia_parameter_store)
+
+Get the current value of the gradient accumulator for a parameter.
+
+Not thread-safe.
+"""
+function get_gradient(
+        id::Tuple{GenerativeFunction,Symbol},
+        store::JuliaParameterStore=default_julia_parameter_store)
     (gen_fn, name) = id
     try
         return get_value(store.gradient_accumulators[gen_fn][name])
     catch KeyError
-        @error "parameter not initialized: $id"
+        @error "parameter $name of $gen_fn was not initialized"
         rethrow()
     end
 end
@@ -354,25 +476,52 @@ end
 mutable struct FixedStepGradientDescentJulia
     conf::FixedStepGradientDescent
     store::JuliaParameterStore
-    parameters::Vector{JuliaParameterID}
+    parameters::Vector
 end
 
-function make_optimizer(
+function init_optimizer(
         conf::FixedStepGradientDescent,
-        store::JuliaParameterStore,
-        parameters::Vector{JuliaParameterID})
+        parameters::Vector,
+        store::JuliaParameterStore=default_julia_parameter_store)
     return FixedStepGradientDescentJulia(conf, store, parameters)
 end
 
-# TODO docstring (not thread-safe)
 function apply_update!(opt::FixedStepGradientDescentJulia)
-    for parameter_id in opt.parameters
-        value = get_parameter_value(opt.store, parameter_id)
-        gradient = get_gradient(opt.store, id)
+    for parameter_id::Tuple{GenerativeFunction,Symbol} in opt.parameters
+        value = get_parameter_value(parameter_id, opt.store)
+        gradient = get_gradient(parameter_id, opt.store)
         new_value = in_place_add!(value, gradient * opt.conf.step_size)
-        set_parameter_value!(store, parameter_id, new_value)
-        reset_gradient!(store, parameter_id)
+        set_parameter_value!(parameter_id, new_value, opt.store)
+        reset_gradient!(parameter_id, opt.store)
     end
 end
 
-# TODO implement other optimizers
+mutable struct DecayStepGradientDescentJulia
+    conf::DecayStepGradientDescent
+    store::JuliaParameterStore
+    parameters::Vector
+    t::Int
+end
+
+function init_optimizer(
+        conf::DecayStepGradientDescent,
+        parameters::Vector,
+        store::JuliaParameterStore=default_julia_parameter_store)
+    return DecayStepGradientDescentJulia(conf, store, parameters, 1)
+end
+
+function apply_update!(opt::DecayStepGradientDescentJulia)
+    step_size_init = opt.conf.step_size_init
+    step_size_beta = opt.conf.step_size_beta
+    step_size = step_size_init * (step_size_beta + 1) / (step_size_beta + opt.t)
+    for parameter_id::Tuple{GenerativeFunction,Symbol} in opt.parameters
+        value = get_parameter_value(parameter_id, opt.store)
+        gradient = get_gradient(parameter_id, opt.store)
+        new_value = in_place_add!(value, gradient * step_size)
+        set_parameter_value!(parameter_id, new_value, opt.store)
+        reset_gradient!(parameter_id, opt.store)
+    end
+    opt.t += 1
+end
+
+# TODO implement other optimizers (ADAM, etc.)

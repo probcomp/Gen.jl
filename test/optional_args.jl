@@ -10,7 +10,7 @@ using Gen
     end
 
     # initialize theta to zero for non-gradient tests
-    init_param!(foo, :theta, 0.)
+    init_parameter!((foo, :theta), 0.0)
 
     # test directly calling with varying args
     @test foo(1) == (1, 2, 3, 6)

@@ -2,16 +2,25 @@ mutable struct GFSimulateState
     trace::DynamicDSLTrace
     visitor::AddressVisitor
     active_gen_fn::DynamicDSLFunction # mutated by splicing
-    parameter_context::Dict{Symbol,Any}
-end
+    parameter_context::Dict
 
-function GFSimulateState(gen_fn::GenerativeFunction, args::Tuple, parameter_context)
-    trace = DynamicDSLTrace(gen_fn, args, parameter_context)
-    GFSimulateState(trace, AddressVisitor(), parameter_context)
+    function GFSimulateState(
+        gen_fn::GenerativeFunction, args::Tuple, parameter_context)
+        parameter_store = get_julia_store(parameter_context)
+        trace = DynamicDSLTrace(gen_fn, args, parameter_store)
+        return new(trace, AddressVisitor(), gen_fn, parameter_context)
+    end
 end
 
 get_parameter_store(state::GFSimulateState) = get_parameter_store(state.trace)
+
 get_parameter_id(state::GFSimulateState, name::Symbol) = (state.active_gen_fn, name)
+
+get_active_gen_fn(state::GFSimulateState) = state.active_gen_fn
+
+function set_active_gen_fn!(state::GFSimulateState, gen_fn::GenerativeFunction)
+    state.active_gen_fn = gen_fn
+end
 
 function traceat(state::GFSimulateState, dist::Distribution{T},
               args, key) where {T}
@@ -49,15 +58,6 @@ function traceat(state::GFSimulateState, gen_fn::GenerativeFunction{T,U},
     retval = get_retval(subtrace)
 
     retval
-end
-
-function splice(state::GFSimulateState, gen_fn::DynamicDSLFunction,
-                args::Tuple)
-    prev_gen_fn = state.active_gen_fn
-    state.active_gen_fn = gen_fn
-    retval = exec(gen_fn, state, args)
-    state.active_gen_fn = prev_gen_fn
-    return retval
 end
 
 function simulate(

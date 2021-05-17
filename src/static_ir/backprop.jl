@@ -21,42 +21,43 @@ maybe_tracked_value_var(node::JuliaNode) = Symbol("$(maybe_tracked_value_prefix)
 const maybe_tracked_arg_prefix = gensym("maybe_tracked_arg")
 maybe_tracked_arg_var(node::JuliaNode, i::Int) = Symbol("$(maybe_tracked_arg_prefix)_$(node.name)_$i")
 
-function fwd_pass!(selected_choices, selected_calls, fwd_marked, node::TrainableParameterNode, ::BackpropParamsMode)
-    push!(fwd_marked, node)
+function forward_marking!(
+        selected_choices, selected_calls, fwd_marked,
+        node::TrainableParameterNode, mode)
+    if mode == BackpropParamsMode()
+        push!(fwd_marked, node)
+    end
 end
 
-function fwd_pass!(selected_choices, selected_calls, fwd_marked, node::TrainableParameterNode, ::BackpropTraceMode)
-end
-
-function fwd_pass!(selected_choices, selected_calls, fwd_marked, node::ArgumentNode, mode)
+function forward_marking!(selected_choices, selected_calls, fwd_marked, node::ArgumentNode, mode)
     if node.compute_grad
         push!(fwd_marked, node)
     end
 end
 
-function fwd_pass!(selected_choices, selected_calls, fwd_marked, node::JuliaNode, mode)
+function forward_marking!(selected_choices, selected_calls, fwd_marked, node::JuliaNode, mode)
     if any(input_node in fwd_marked for input_node in node.inputs)
         push!(fwd_marked, node)
     end
 end
 
-function fwd_pass!(selected_choices, selected_calls, fwd_marked, node::RandomChoiceNode, mode)
+function forward_marking!(selected_choices, selected_calls, fwd_marked, node::RandomChoiceNode, mode)
     if node in selected_choices
         push!(fwd_marked, node)
     end
 end
 
-function fwd_pass!(selected_choices, selected_calls, fwd_marked, node::GenerativeFunctionCallNode, mode)
+function forward_marking!(selected_choices, selected_calls, fwd_marked, node::GenerativeFunctionCallNode, mode)
     if node in selected_calls || any(input_node in fwd_marked for input_node in node.inputs)
         push!(fwd_marked, node)
     end
 end
 
-function back_pass!(back_marked, node::TrainableParameterNode) end
+function backward_marking!(back_marked, node::TrainableParameterNode) end
 
-function back_pass!(back_marked, node::ArgumentNode) end
+function backward_marking!(back_marked, node::ArgumentNode) end
 
-function back_pass!(back_marked, node::JuliaNode)
+function backward_marking!(back_marked, node::JuliaNode)
     if node in back_marked
         for input_node in node.inputs
             push!(back_marked, input_node)
@@ -64,7 +65,7 @@ function back_pass!(back_marked, node::JuliaNode)
     end
 end
 
-function back_pass!(back_marked, node::RandomChoiceNode)
+function backward_marking!(back_marked, node::RandomChoiceNode)
     # the logpdf of every random choice is a SINK
     for input_node in node.inputs
         push!(back_marked, input_node)
@@ -73,7 +74,7 @@ function back_pass!(back_marked, node::RandomChoiceNode)
     push!(back_marked, node)
 end
 
-function back_pass!(back_marked, node::GenerativeFunctionCallNode)
+function backward_marking!(back_marked, node::GenerativeFunctionCallNode)
     # the logpdf of every generative function call is a SINK
     # (we could ask whether the generative function is deterministic or not
     # as a perforance optimization, because only stochsatic generative functions 
@@ -85,7 +86,7 @@ function back_pass!(back_marked, node::GenerativeFunctionCallNode)
     end
 end
 
-function fwd_codegen!(stmts, fwd_marked, back_marked, node::TrainableParameterNode)
+function forward_codegen!(stmts, fwd_marked, back_marked, node::TrainableParameterNode)
     if node in back_marked
         push!(stmts, :($(node.name) = $(QuoteNode(get_parameter_value))(trace, $(QuoteNode(node.name)))))
     end
@@ -99,7 +100,7 @@ function fwd_codegen!(stmts, fwd_marked, back_marked, node::TrainableParameterNo
     end
 end
 
-function fwd_codegen!(stmts, fwd_marked, back_marked, node::ArgumentNode)
+function forward_codegen!(stmts, fwd_marked, back_marked, node::ArgumentNode)
     if node in fwd_marked && node in back_marked
 
         # initialize gradient to zero
@@ -107,7 +108,7 @@ function fwd_codegen!(stmts, fwd_marked, back_marked, node::ArgumentNode)
     end
 end
 
-function fwd_codegen!(stmts, fwd_marked, back_marked, node::JuliaNode)
+function forward_codegen!(stmts, fwd_marked, back_marked, node::JuliaNode)
 
     if (node in fwd_marked) && (node in back_marked)
 
@@ -140,7 +141,7 @@ function fwd_codegen!(stmts, fwd_marked, back_marked, node::JuliaNode)
     end
 end
 
-function fwd_codegen!(stmts, fwd_marked, back_marked, node::RandomChoiceNode)
+function forward_codegen!(stmts, fwd_marked, back_marked, node::RandomChoiceNode)
     # every random choice is in back_marked, since it affects it logpdf, but
     # also possibly due to other downstream usage of the value
     @assert node in back_marked
@@ -155,10 +156,10 @@ function fwd_codegen!(stmts, fwd_marked, back_marked, node::RandomChoiceNode)
     end
 end
 
-function fwd_codegen!(stmts, fwd_marked, back_marked, node::GenerativeFunctionCallNode)
+function forward_codegen!(stmts, fwd_marked, back_marked, node::GenerativeFunctionCallNode)
 
     if node in back_marked
-        # for reference by other nodes during back_codegen!
+        # for reference by other nodes during backward_codegen!
         subtrace_fieldname = get_subtrace_fieldname(node)
         push!(stmts, :($(node.name) = $(QuoteNode(get_retval))(trace.$subtrace_fieldname)))
     end
@@ -171,18 +172,20 @@ function fwd_codegen!(stmts, fwd_marked, back_marked, node::GenerativeFunctionCa
     end
 end
 
-function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked, node::TrainableParameterNode, mode)
+function backward_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked, node::TrainableParameterNode, mode)
+    if mode == BackpropParamsMode()
 
-    # handle case when it is the return node
-    if node === ir.return_node && node in fwd_marked
-        @assert node in back_marked
-        push!(stmts, :(isnothing(retval_grad) && error("Required return value gradient but got nothing")))
-        push!(stmts, :($(gradient_var(node)) = $(QuoteNode(in_place_add!))(
-                $(gradient_var(node)), retval_grad, scale_factor)))
+        # handle case when it is the return node
+        if node === ir.return_node && node in fwd_marked
+            @assert node in back_marked
+            push!(stmts, :(isnothing(retval_grad) && error("Required return value gradient but got nothing")))
+            push!(stmts, :($(gradient_var(node)) = $(QuoteNode(in_place_add!))(
+                     $(gradient_var(node)), retval_grad, scale_factor)))
+        end
     end
 end
 
-function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked, node::ArgumentNode, mode)
+function backward_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked, node::ArgumentNode, mode)
 
     # handle case when it is the return node
     if node === ir.return_node && node in fwd_marked
@@ -192,7 +195,7 @@ function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked, node:
     end
 end
 
-function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked, node::JuliaNode, mode)
+function backward_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked, node::JuliaNode, mode)
     # handle case when it is the return node
     if node === ir.return_node && node in fwd_marked
         @assert node in back_marked
@@ -210,6 +213,7 @@ function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked, node:
             if input_node in fwd_marked
                 arg_maybe_tracked = maybe_tracked_arg_var(node, i)
                 if isa(input_node, TrainableParameterNode)
+                    @assert mode == BackpropParamsMode()
                     push!(stmts, :($(gradient_var(input_node)) = $(QuoteNode(in_place_add!))(
                         $(gradient_var(input_node)), $(QuoteNode(deriv))($arg_maybe_tracked), scale_factor)))
                 else
@@ -222,8 +226,11 @@ function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked, node:
 
 end
 
-function back_codegen_random_choice_to_inputs!(stmts, ir, fwd_marked, back_marked,
-                                               node::RandomChoiceNode, logpdf_grad::Symbol)
+function backward_codegen_random_choice_to_inputs!(
+        stmts, ir, fwd_marked, back_marked,
+        node::RandomChoiceNode, logpdf_grad::Symbol,
+        mode)
+
     # only evaluate the gradient of the logpdf if we need to
     if any(input_node in fwd_marked for input_node in node.inputs) || node in fwd_marked
         args = map((input_node) -> input_node.name, node.inputs)
@@ -239,7 +246,7 @@ function back_codegen_random_choice_to_inputs!(stmts, ir, fwd_marked, back_marke
             end
             input_node_grad = gradient_var(input_node)
             increment = :($logpdf_grad[$(QuoteNode(i+1))])
-            if isa(input_node, TrainableParameterNode)
+            if isa(input_node, TrainableParameterNode) && mode == BackpropParamsMode()
                 push!(stmts, :($input_node_grad = $(QuoteNode(in_place_add!))(
                     $input_node_grad, $increment, scale_factor)))
             else
@@ -253,16 +260,16 @@ function back_codegen_random_choice_to_inputs!(stmts, ir, fwd_marked, back_marke
     if node === ir.return_node && node in fwd_marked
         @assert node in back_marked
         push!(stmts, :($(gradient_var(node)) = $(QuoteNode(in_place_add!))(
-            $(gradient_var(node)), retval_grad, scale_factor)))
+            $(gradient_var(node)), retval_grad)))
     end
 end
 
-function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
-                       node::RandomChoiceNode, ::BackpropTraceMode)
+function backward_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
+                       node::RandomChoiceNode, mode::BackpropTraceMode)
     logpdf_grad = gensym("logpdf_grad")
 
     # backpropagate to the inputs
-    back_codegen_random_choice_to_inputs!(stmts, ir, fwd_marked, back_marked, node, logpdf_grad)
+    backward_codegen_random_choice_to_inputs!(stmts, ir, fwd_marked, back_marked, node, logpdf_grad, mode)
 
     # backpropagate to the value (if it was selected)
     if node in fwd_marked
@@ -274,13 +281,13 @@ function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
     end
 end
 
-function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
-                       node::RandomChoiceNode, ::BackpropParamsMode)
+function backward_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
+                       node::RandomChoiceNode, mode::BackpropParamsMode)
     logpdf_grad = gensym("logpdf_grad")
-    back_codegen_random_choice_to_inputs!(stmts, ir, fwd_marked, back_marked, node, logpdf_grad)
+    backward_codegen_random_choice_to_inputs!(stmts, ir, fwd_marked, back_marked, node, logpdf_grad, mode)
 end
 
-function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
+function backward_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
                        node::GenerativeFunctionCallNode, mode::BackpropTraceMode)
 
     # handle case when it is the return node
@@ -320,7 +327,7 @@ function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
     # NOTE: the value_trie and gradient_trie are dealt with later
 end
 
-function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
+function backward_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
                        node::GenerativeFunctionCallNode, mode::BackpropParamsMode)
 
     # handle case when it is the return node
@@ -393,15 +400,15 @@ function get_selected_choices(schema::StaticAddressSchema, ir::StaticIR)
             push!(selected_choices, node)
         end
     end
-    selected_choices
+    return selected_choices
 end
 
 function get_selected_calls(::EmptyAddressSchema, ::StaticIR)
-    Set{GenerativeFunctionCallNode}()
+    return Set{GenerativeFunctionCallNode}()
 end
 
 function get_selected_calls(::AllAddressSchema, ir::StaticIR)
-    Set{GenerativeFunctionCallNode}(ir.call_nodes)
+    return Set{GenerativeFunctionCallNode}(ir.call_nodes)
 end
 
 function get_selected_calls(schema::StaticAddressSchema, ir::StaticIR)
@@ -412,7 +419,7 @@ function get_selected_calls(schema::StaticAddressSchema, ir::StaticIR)
             push!(selected_calls, node)
         end
     end
-    selected_calls
+    return selected_calls
 end
 
 function codegen_choice_gradients(trace_type::Type{T}, selection_type::Type,
@@ -432,14 +439,14 @@ function codegen_choice_gradients(trace_type::Type{T}, selection_type::Type,
     # forward marking pass
     fwd_marked = Set{StaticIRNode}()
     for node in ir.nodes
-        fwd_pass!(selected_choices, selected_calls, fwd_marked, node, BackpropTraceMode())
+        forward_marking!(selected_choices, selected_calls, fwd_marked, node, BackpropTraceMode())
     end
 
     # backward marking pass
     back_marked = Set{StaticIRNode}()
     push!(back_marked, ir.return_node)
     for node in reverse(ir.nodes)
-        back_pass!(back_marked, node)
+        backward_marking!(back_marked, node)
     end
 
     stmts = Expr[]
@@ -450,12 +457,12 @@ function codegen_choice_gradients(trace_type::Type{T}, selection_type::Type,
 
     # forward code-generation pass (initialize gradients to zero, create needed references)
     for node in ir.nodes
-        fwd_codegen!(stmts, fwd_marked, back_marked, node)
+        forward_codegen!(stmts, fwd_marked, back_marked, node)
     end
 
     # backward code-generation pass (increment gradients)
     for node in reverse(ir.nodes)
-        back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked, node, BackpropTraceMode())
+        backward_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked, node, BackpropTraceMode())
     end
 
     # assemble value_trie and gradient_trie
@@ -471,7 +478,7 @@ function codegen_choice_gradients(trace_type::Type{T}, selection_type::Type,
     # return values
     push!(stmts, :(return ($input_grads, $value_trie, $gradient_trie)))
 
-    Expr(:block, stmts...)
+    return Expr(:block, stmts...)
 end
 
 function codegen_accumulate_param_gradients!(trace_type::Type{T},
@@ -490,14 +497,14 @@ function codegen_accumulate_param_gradients!(trace_type::Type{T},
     # forward marking pass (propagate forward from 'sources')
     fwd_marked = Set{StaticIRNode}()
     for node in ir.nodes
-        fwd_pass!(selected_choices, selected_calls, fwd_marked, node, BackpropParamsMode())
+        forward_marking!(selected_choices, selected_calls, fwd_marked, node, BackpropParamsMode())
     end
 
     # backward marking pass (propagate backwards from 'sinks')
     back_marked = Set{StaticIRNode}()
     push!(back_marked, ir.return_node)
     for node in reverse(ir.nodes)
-        back_pass!(back_marked, node)
+        backward_marking!(back_marked, node)
     end
 
     stmts = Expr[]
@@ -510,13 +517,13 @@ function codegen_accumulate_param_gradients!(trace_type::Type{T},
     # any node that is backward-marked creates a variable for its current value
     # any node that is forward-marked and backwards marked initializes a gradient variable
     for node in ir.nodes
-        fwd_codegen!(stmts, fwd_marked, back_marked, node)
+        forward_codegen!(stmts, fwd_marked, back_marked, node)
     end
 
     # backward code-generation pass
     # any node that is forward-marked and backwards marked increments its gradient variable
     for node in reverse(ir.nodes)
-        back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked, node, BackpropParamsMode())
+        backward_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked, node, BackpropParamsMode())
     end
 
     # gradients with respect to inputs
@@ -526,19 +533,21 @@ function codegen_accumulate_param_gradients!(trace_type::Type{T},
     # return values
     push!(stmts, :(return $input_grads))
 
-    Expr(:block, stmts...)
+    return Expr(:block, stmts...)
 end
 
 
 push!(generated_functions, quote
-@generated function $(GlobalRef(Gen, :choice_gradients))(trace::T, selection::$(QuoteNode(Selection)),
-                                       retval_grad) where {T<:$(QuoteNode(StaticIRTrace))}
-    $(QuoteNode(codegen_choice_gradients))(trace, selection, retval_grad)
+@generated function $(GlobalRef(Gen, :choice_gradients))(
+        trace::T, selection::$(QuoteNode(Selection)),
+        retval_grad) where {T<:$(QuoteNode(StaticIRTrace))}
+    return $(QuoteNode(codegen_choice_gradients))(trace, selection, retval_grad)
 end
 end)
 
 push!(generated_functions, quote
-@generated function $(GlobalRef(Gen, :accumulate_param_gradients!))(trace::T, retval_grad, scale_factor) where {T<:$(QuoteNode(StaticIRTrace))}
-    $(QuoteNode(codegen_accumulate_param_gradients!))(trace, retval_grad, scale_factor)
+@generated function $(GlobalRef(Gen, :accumulate_param_gradients!))(
+        trace::T, retval_grad, scale_factor) where {T<:$(QuoteNode(StaticIRTrace))}
+    return $(QuoteNode(codegen_accumulate_param_gradients!))(trace, retval_grad, scale_factor)
 end
 end)

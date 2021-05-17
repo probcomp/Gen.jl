@@ -29,14 +29,22 @@ function DynamicDSLFunction(arg_types::Vector{Type},
                 has_argument_grads, accepts_output_grad)
 end
 
-function DynamicDSLTrace(gen_fn::T, args) where {T<:DynamicDSLFunction}
+function Base.show(io::IO, gen_fn::DynamicDSLFunction)
+    return "Gen DML generative function: $(gen_fn.julia_function)"
+end
+
+function Base.show(io::IO, ::MIME"text/plain", gen_fn::DynamicDSLFunction)
+    return "Gen DML generative function: $(gen_fn.julia_function)"
+end
+
+function DynamicDSLTrace(gen_fn::T, args, parameter_store::JuliaParameterStore) where {T<:DynamicDSLFunction}
     # pad args with default values, if available
     if gen_fn.has_defaults && length(args) < length(gen_fn.arg_defaults)
         defaults = gen_fn.arg_defaults[length(args)+1:end]
         defaults = map(x -> something(x), defaults)
         args = Tuple(vcat(collect(args), defaults))
     end
-    return DynamicDSLTrace{T}(gen_fn, args)
+    return DynamicDSLTrace{T}(gen_fn, args, parameter_store)
 end
 
 accepts_output_grad(gen_fn::DynamicDSLFunction) = gen_fn.accepts_output_grad
@@ -56,6 +64,14 @@ end
 
 function exec(gen_fn::DynamicDSLFunction, state, args::Tuple)
     gen_fn.julia_function(state, args...)
+end
+
+function splice(state, gen_fn::DynamicDSLFunction, args::Tuple)
+    prev_gen_fn = get_active_gen_fn(state)
+    state.active_gen_fn = gen_fn
+    retval = exec(gen_fn, state, args)
+    set_active_gen_fn!(state, prev_gen_fn)
+    return retval
 end
 
 # whether there is a gradient of score with respect to each argument
@@ -104,7 +120,7 @@ end
 function read_param(state, name::Symbol)
     parameter_id = get_parameter_id(state, name)
     store = get_parameter_store(state)
-    return get_parameter_value(store, parameter_id)
+    return get_parameter_value(parameter_id, store)
 end
 
 ##################

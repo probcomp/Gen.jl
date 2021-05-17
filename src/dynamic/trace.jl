@@ -39,9 +39,8 @@ mutable struct DynamicDSLTrace{T} <: Trace
     args::Tuple
     parameter_store::JuliaParameterStore
     retval::Any
-    function DynamicDSLTrace{T}(gen_fn::T, args, parameter_context) where {T}
+    function DynamicDSLTrace{T}(gen_fn::T, args, parameter_store::JuliaParameterStore) where {T}
         trie = Trie{Any,ChoiceOrCallRecord}()
-        parameter_store = get_julia_store(parameter_context)
         # retval is not known yet
         new(gen_fn, trie, true, 0, 0, args, parameter_store)
     end

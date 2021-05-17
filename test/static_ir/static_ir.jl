@@ -49,7 +49,7 @@ foo = eval(generate_generative_function(ir, :foo, track_diffs=false, cache_julia
 @test occursin("== Static IR ==", repr("text/plain", ir))
 
 theta_val = rand()
-set_param!(foo, :theta, theta_val)
+init_parameter!((foo, :theta), theta_val)
 
 #@gen (static, nojuliacache) function const_fn()
     #return 1
@@ -338,10 +338,8 @@ end
     z = 4.
     out = 5.
 
-    init_param!(foo, :theta, theta)
-
-    @test get_param(foo, :theta) == theta
-    @test get_param_grad(foo, :theta) == 0.
+    # initialize the trainable parameter
+    init_parameter!((foo, :theta), theta)
 
     # get the initial trace
     constraints = choicemap()
@@ -376,11 +374,6 @@ end
     @test isapprox(get_value(gradient_trie, :out), finite_diff(f, (mu_a, theta, a, b, z, out), 6, dx))
     @test isapprox(get_value(gradient_trie, :bar => :z), finite_diff(f, (mu_a, theta, a, b, z, out), 5, dx))
 
-    # reset the trainable parameter gradient
-    zero_param_grad!(foo, :theta)
-    @test get_param(foo, :theta) == theta
-    @test get_param_grad(foo, :theta) == 0.
-
     # compute gradients with accumulate_param_gradients!
     retval_grad = 2.
     (mu_a_grad,) = accumulate_param_gradients!(trace, retval_grad)
@@ -389,7 +382,9 @@ end
     @test isapprox(mu_a_grad, finite_diff(f, (mu_a, theta, a, b, z, out), 1, dx))
 
     # check trainable parameter gradient
-    @test isapprox(get_param_grad(foo, :theta), finite_diff(f, (mu_a, theta, a, b, z, out), 2, dx))
+    @test isapprox(
+        get_gradient((foo, :theta)),
+        finite_diff(f, (mu_a, theta, a, b, z, out), 2, dx))
 
 end
 

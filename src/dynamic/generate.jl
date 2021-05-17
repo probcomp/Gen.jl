@@ -4,13 +4,25 @@ mutable struct GFGenerateState
     weight::Float64
     visitor::AddressVisitor
     active_gen_fn::DynamicDSLFunction # mutated by splicing
-    parameter_context::Dict{Symbol,Any}
+    parameter_context::Dict
+
+    function GFGenerateState(gen_fn, args, constraints, parameter_context)
+        parameter_store = get_julia_store(parameter_context)
+        trace = DynamicDSLTrace(gen_fn, args, parameter_store)
+        return new(trace, constraints, 0., AddressVisitor(), gen_fn, parameter_context)
+    end
 end
 
-function GFGenerateState(gen_fn, args, constraints, parameter_context)
-    trace = DynamicDSLTrace(gen_fn, args, parameter_context)
-    GFGenerateState(trace, constraints, 0., AddressVisitor(), parameter_context)
+get_parameter_store(state::GFGenerateState) = get_parameter_store(state.trace)
+
+get_parameter_id(state::GFGenerateState, name::Symbol) = (state.active_gen_fn, name)
+
+get_active_gen_fn(state::GFGenerateState) = state.active_gen_fn
+
+function set_active_gen_fn!(state::GFGenerateState, gen_fn::GenerativeFunction)
+    state.active_gen_fn = gen_fn
 end
+
 
 function traceat(state::GFGenerateState, dist::Distribution{T},
               args, key) where {T}
@@ -57,7 +69,8 @@ function traceat(state::GFGenerateState, gen_fn::GenerativeFunction{T,U},
 
     # get subtrace
     (subtrace, weight) = generate(
-        gen_fn, args, constraints; parameter_context=parameter_context)
+        gen_fn, args, constraints;
+        parameter_context=state.parameter_context)
 
     # add to the trace
     add_call!(state.trace, key, subtrace)
@@ -69,15 +82,6 @@ function traceat(state::GFGenerateState, gen_fn::GenerativeFunction{T,U},
     retval = get_retval(subtrace)
 
     retval
-end
-
-function splice(state::GFGenerateState, gen_fn::DynamicDSLFunction,
-                args::Tuple)
-    prev_gen_fn = state.active_gen_fn
-    state.active_gen_fn = gen_fn
-    retval = exec(gen_fn, state, args)
-    state.active_gen_fn = prev_gen_fn
-    return retval
 end
 
 function generate(

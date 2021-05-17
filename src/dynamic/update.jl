@@ -4,17 +4,28 @@ mutable struct GFUpdateState
     constraints::Any
     weight::Float64
     visitor::AddressVisitor
-    params::Dict{Symbol,Any}
     discard::DynamicChoiceMap
+    active_gen_fn::DynamicDSLFunction # mutated by splicing
+
+    function GFUpdateState(gen_fn, args, prev_trace, constraints)
+        visitor = AddressVisitor()
+        discard = choicemap()
+        trace = DynamicDSLTrace(gen_fn, args, get_parameter_store(prev_trace))
+        return new(prev_trace, trace, constraints,
+            0., visitor, discard, gen_fn)
+    end
 end
 
-function GFUpdateState(gen_fn, args, prev_trace, constraints, params)
-    visitor = AddressVisitor()
-    discard = choicemap()
-    trace = DynamicDSLTrace(gen_fn, args)
-    GFUpdateState(prev_trace, trace, constraints,
-        0., visitor, params, discard)
+get_parameter_store(state::GFUpdateState) = get_parameter_store(state.trace)
+
+get_parameter_id(state::GFUpdateState, name::Symbol) = (state.active_gen_fn, name)
+
+get_active_gen_fn(state::GFUpdateState) = state.active_gen_fn
+
+function set_active_gen_fn!(state::GFUpdateState, gen_fn::GenerativeFunction)
+    state.active_gen_fn = gen_fn
 end
+
 
 function traceat(state::GFUpdateState, dist::Distribution{T},
                  args::Tuple, key) where {T}
@@ -110,13 +121,13 @@ function traceat(state::GFUpdateState, gen_fn::GenerativeFunction{T,U},
     retval
 end
 
-function splice(state::GFUpdateState, gen_fn::DynamicDSLFunction,
-                args::Tuple)
-    prev_params = state.params
-    state.params = gen_fn.params
+function splice(
+        state::GFUpdateState, gen_fn::DynamicDSLFunction, args::Tuple)
+    prev_gen_fn = state.active_gen_fn
+    state.active_gen_fn = gen_fn
     retval = exec(gen_fn, state, args)
-    state.params = prev_params
-    retval
+    state.active_gen_fn = prev_gen_fn
+    return retval
 end
 
 function update_delete_recurse(prev_trie::Trie{Any,ChoiceOrCallRecord},
@@ -187,7 +198,7 @@ end
 function update(trace::DynamicDSLTrace, arg_values::Tuple, arg_diffs::Tuple,
                 constraints::ChoiceMap)
     gen_fn = trace.gen_fn
-    state = GFUpdateState(gen_fn, arg_values, trace, constraints, gen_fn.params)
+    state = GFUpdateState(gen_fn, arg_values, trace, constraints)
     retval = exec(gen_fn, state, arg_values)
     set_retval!(state.trace, retval)
     visited = get_visited(state.visitor)

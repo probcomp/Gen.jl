@@ -43,7 +43,7 @@ const total_score_fieldname = :score
 const total_noise_fieldname = :noise
 const return_value_fieldname = :retval
 const parameter_store_fieldname = :parameter_store
-
+const static_ir_gen_fn_fieldname = :gen_fn
 
 # other fields based on user-defined variable names are prefixed to avoid collisions
 get_value_fieldname(node::ArgumentNode) = Symbol("#arg#_$(node.name)")
@@ -52,17 +52,16 @@ get_value_fieldname(node::JuliaNode) = Symbol("#julia#_$(node.name)")
 get_score_fieldname(node::RandomChoiceNode) = Symbol("#choice_score#_$(node.addr)")
 get_subtrace_fieldname(node::GenerativeFunctionCallNode) = Symbol("#subtrace#_$(node.addr)")
 
-
 # getters
 
 function get_parameter_value(trace::StaticIRTrace, name)
     parameter_id = (get_gen_fn(trace), name)
-    return get_parameter_value(trace.parameter_store, parameter_id) 
+    return get_parameter_value(parameter_id, trace.parameter_store)
 end
 
 function get_gradient_accumulator(trace::StaticIRTrace, name)
     parameter_id = (get_gen_fn(trace), name)
-    return get_gradient_accumulator(trace.parameter_store, parameter_id)
+    return get_gradient_accumulator(parameter_id, trace.parameter_store)
 end
 
 @inline function static_get_subtrace(trace::StaticIRTrace, addr)
@@ -115,19 +114,17 @@ function get_trace_fields(ir::StaticIR, options::StaticIRGenerativeFunctionOptio
     push!(fields, TraceField(total_noise_fieldname, QuoteNode(Float64)))
     push!(fields, TraceField(num_nonempty_fieldname, QuoteNode(Int)))
     push!(fields, TraceField(return_value_fieldname, ir.return_node.typ))
-    push!(fields, parameter_store_fieldname, QuoteNode(JuliaParameterStore)())
+    push!(fields, TraceField(parameter_store_fieldname, QuoteNode(JuliaParameterStore)))
+    push!(fields, TraceField(static_ir_gen_fn_fieldname, QuoteNode(Any)))
     return fields
 end
-
-const static_ir_gen_fn_ref = gensym("gen_fn")
 
 function generate_trace_struct(ir::StaticIR, trace_struct_name::Symbol, options::StaticIRGenerativeFunctionOptions)
     mutable = false
     fields = get_trace_fields(ir, options)
     field_exprs = map((f) -> Expr(:(::), f.fieldname, f.typ), fields)
     Expr(:struct, mutable, Expr(:(<:), trace_struct_name, QuoteNode(StaticIRTrace)),
-        Expr(:block, field_exprs...,
-        Expr(:(::), static_ir_gen_fn_ref, QuoteNode(Any))))
+        Expr(:block, field_exprs...))
 end
 
 function generate_isempty(trace_struct_name::Symbol)

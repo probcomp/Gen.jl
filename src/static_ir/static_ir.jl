@@ -55,15 +55,18 @@ function generate_generative_function(ir::StaticIR, name::Symbol, options::Stati
         $(GlobalRef(Gen, :get_trace_type))(::Type{$gen_fn_type_name}) = $trace_struct_name
         $(GlobalRef(Gen, :has_argument_grads))(::$gen_fn_type_name) = $(QuoteNode(has_argument_grads))
         $(GlobalRef(Gen, :accepts_output_grad))(::$gen_fn_type_name) = $(QuoteNode(accepts_output_grad))
-        $(GlobalRef(Gen, :get_gen_fn))(trace::$trace_struct_name) = $(Expr(:(.), :trace, QuoteNode(static_ir_gen_fn_ref)))
+        $(GlobalRef(Gen, :get_gen_fn))(trace::$trace_struct_name) = $(Expr(:(.), :trace, QuoteNode(static_ir_gen_fn_fieldname)))
         $(GlobalRef(Gen, :get_gen_fn_type))(::Type{$trace_struct_name}) = $gen_fn_type_name
         $(GlobalRef(Gen, :get_options))(::Type{$gen_fn_type_name}) = $(QuoteNode(options))
-        function $(GlobalRef(Gen, :get_parameters))(gen_fn::Type{$gen_fn_type_name}, context)
+        function $(GlobalRef(Gen, :get_parameters))(gen_fn::$gen_fn_type_name, context)
             return $(GlobalRef(Gen, :get_parameters))($(QuoteNode(ir)), gen_fn, context)
         end
+        function Base.show(io::IO, ::MIME"text/plain", gen_fn::$gen_fn_type_name)
+            return "Gen SML generative function: $name)"
+        end
+
     end
-    Expr(:block, trace_defns, gen_fn_defn,
-        Expr(:call, gen_fn_type_name, :(Dict{Symbol,Any}()), :(Dict{Symbol,Any}()), :(ReentrantLock())))
+    Expr(:block, trace_defns, gen_fn_defn, Expr(:call, gen_fn_type_name))
 end
 
 include("print_ir.jl")

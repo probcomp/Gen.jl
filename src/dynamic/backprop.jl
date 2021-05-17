@@ -42,10 +42,10 @@ mutable struct GFBackpropParamsState
     visitor::AddressVisitor
     scale_factor::Float64
     active_gen_fn::GenerativeFunction
-    tracked_params::Dict{ParameterID,Any}
+    tracked_params::Dict{Tuple{GenerativeFunction,Symbol},Any}
 
     function GFBackpropParamsState(trace::DynamicDSLTrace, tape, scale_factor)
-        tracked_params = Dict{ParameterID,Any}()
+        tracked_params = Dict{Tuple{GenerativeFunction,Symbol},Any}()
         store = get_parameter_store(trace)
         gen_fn = get_gen_fn(trace)
         for (name, value) in get_local_parameters(store, gen_fn)
@@ -178,9 +178,10 @@ function accumulate_param_gradients!(trace::DynamicDSLTrace, retval_grad, scale_
     reverse_pass!(tape)
 
     # increment the gradient accumulators for trainable parameters in scope
+    store = get_parameter_store(trace)
     for ((active_gen_fn, name), tracked) in state.tracked_params
-        parameter_id = (active_gen_fn, parameter_id)
-	    increment_gradient!(store, parameter_id, deriv(tracked), state.scale_factor)
+        parameter_id = (active_gen_fn, name)
+	    increment_gradient!(parameter_id, deriv(tracked), state.scale_factor, store)
     end
 
     # return gradients with respect to arguments with gradients, or nothing
@@ -215,6 +216,16 @@ function GFBackpropTraceState(trace, selection, tape)
     GFBackpropTraceState(trace, score, tape, visitor,
         selection, tracked_choices, value_choices, gradient_choices,
         get_gen_fn(trace))
+end
+
+get_parameter_store(state::GFBackpropTraceState) = get_parameter_store(state.trace)
+
+get_parameter_id(state::GFBackpropTraceState, name::Symbol) = (state.active_gen_fn, name)
+
+get_active_gen_fn(state::GFBackpropTraceState) = state.active_gen_fn
+
+function set_active_gen_fn!(state::GFBackpropTraceState, gen_fn::GenerativeFunction)
+    state.active_gen_fn = gen_fn
 end
 
 function fill_submaps!(
@@ -302,15 +313,6 @@ function traceat(state::GFBackpropTraceState, gen_fn::GenerativeFunction{T,U},
         state.gradient_choices, key)
     record!(state.tape, ReverseDiff.SpecialInstruction, record, (args_maybe_tracked...,), retval_maybe_tracked)
     retval_maybe_tracked
-end
-
-function splice(state::GFBackpropTraceState, gen_fn::DynamicDSLFunction,
-                args_maybe_tracked::Tuple)
-    prev_gen_fn = state.active_gen_fn
-    state.active_gen_fn = gen_fn
-    retval = exec(gen_fn, state, args)
-    state.active_gen_fn = prev_gen_fn
-    return retval
 end
 
 @noinline function ReverseDiff.special_reverse_exec!(

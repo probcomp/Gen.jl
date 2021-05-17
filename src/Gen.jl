@@ -64,9 +64,6 @@ include("dynamic/dynamic.jl")
 # static IR generative function
 include("static_ir/static_ir.jl")
 
-# optimization for built-in generative functions (dynamic and static IR)
-include("builtin_optimization.jl")
-
 # DSLs for defining dynamic embedded and static IR generative functions
 # 'Dynamic DSL' and 'Static DSL'
 include("dsl/dsl.jl")

@@ -6,7 +6,9 @@ end
 function process!(::StaticIRGenerateState, node, options) end
 
 function process!(state::StaticIRGenerateState, node::TrainableParameterNode, options)
-    push!(stmts, :($(node.name) = $(QuoteNode(get_parameter_value))(trace, $(QuoteNode(node.name)))))
+    push!(state.stmts, :($(node.name) = $(QuoteNode(get_parameter_value))(
+        (gen_fn, $(QuoteNode(node.name))),
+        $parameter_store_fieldname)))
 end
 
 function process!(state::StaticIRGenerateState, node::ArgumentNode, options)
@@ -100,7 +102,7 @@ function codegen_generate(gen_fn_type::Type{T}, args,
     push!(stmts, :($return_value_fieldname = $(ir.return_node.name)))
 
     # construct trace
-    push!(stmts, :($static_ir_gen_fn_ref = gen_fn))
+    push!(stmts, :($static_ir_gen_fn_fieldname = gen_fn))
     push!(stmts, :($trace = $(QuoteNode(trace_type))($(fieldnames(trace_type)...))))
 
     # return trace and weight
@@ -113,7 +115,7 @@ push!(generated_functions, quote
 @generated function $(GlobalRef(Gen, :generate))(
         gen_fn::$(QuoteNode(StaticIRGenerativeFunction)),
         args::$(QuoteNode(Tuple)), constraints::$(QuoteNode(ChoiceMap));
-        parameter_context=default_parameter_context)
+        parameter_context=$(QuoteNode(default_parameter_context)))
     $(QuoteNode(codegen_generate))(gen_fn, args, constraints)
 end
 end)
