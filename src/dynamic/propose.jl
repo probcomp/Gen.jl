@@ -37,7 +37,7 @@ function traceat(state::GFProposeState, dist::Distribution{T},
     # update weight
     state.weight += logpdf(dist, retval, args...)
 
-    retval
+    return retval
 end
 
 function traceat(state::GFProposeState, gen_fn::GenerativeFunction{T,U},
@@ -56,12 +56,10 @@ function traceat(state::GFProposeState, gen_fn::GenerativeFunction{T,U},
     # update weight
     state.weight += weight
 
-    retval
+    return retval
 end
 
-function propose(
-        gen_fn::DynamicDSLFunction, args::Tuple;
-        parameter_context=default_parameter_context)
+function propose(gen_fn::DynamicDSLFunction, args::Tuple, parameter_context::Dict)
     state = GFProposeState(gen_fn, parameter_context)
     retval = exec(gen_fn, state, args)
     return (state.choices, state.weight, retval)

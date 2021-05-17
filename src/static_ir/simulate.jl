@@ -49,7 +49,9 @@ function process!(state::StaticIRSimulateState, node::GenerativeFunctionCallNode
     push!(state.stmts, :($total_noise_fieldname += $(GlobalRef(Gen, :project))($subtrace, $(GlobalRef(Gen, :EmptySelection))())))
 end
 
-function codegen_simulate(gen_fn_type::Type{T}, args, parameter_context_type) where {T <: StaticIRGenerativeFunction}
+function codegen_simulate(
+        gen_fn_type::Type{T}, args,
+        parameter_context_type) where {T <: StaticIRGenerativeFunction}
 
     ir = get_ir(gen_fn_type)
     options = get_options(gen_fn_type)
@@ -87,8 +89,8 @@ end
 
 push!(generated_functions, quote
 @generated function $(GlobalRef(Gen, :simulate))(
-        gen_fn::$(QuoteNode(StaticIRGenerativeFunction)), args::Tuple;
-        parameter_context=$(QuoteNode(default_parameter_context)))
+        gen_fn::$(QuoteNode(StaticIRGenerativeFunction)),
+        args::Tuple, parameter_context::Dict)
     $(QuoteNode(codegen_simulate))(gen_fn, args, parameter_context)
 end
 end)

@@ -112,13 +112,15 @@
         z = @trace(normal(x + y, std), :z)
         return z
     end
-    init_param!(bang1, :std, 3.0)
+    register_parameters!(bang1, [:std])
+    init_parameter!((bang1, :std), 3.0)
     @gen (grad) function fuzz1((grad)(x::Float64), (grad)(y::Float64))
         @param(std::Float64)
         z = @trace(normal(x + 2 * y, std), :z)
         return z
     end
-    init_param!(fuzz1, :std, 3.0)
+    register_parameters!(fuzz1, [:std])
+    init_parameter!((fuzz1, :std), 3.0)
     sc = Switch(bang1, fuzz1)
     @gen (grad) function bam(s::Int)
         x ~ sc(s, 5.0, 3.0)
@@ -195,15 +197,15 @@
         for z in [1.0, 3.0, 5.0, 10.0]
             chm = choicemap((:z, z))
             tr, _ = generate(bam, (1, ), chm)
-            zero_param_grad!(bang1, :std)
+            reset_gradient!((bang1, :std))
             input_grads = accumulate_param_gradients!(tr, 1.0)
             expected_std_grad = logpdf_grad(normal, tr[:x => :z], 5.0 + 3.0, 3.0)[3]
-            @test isapprox(get_param_grad(bang1, :std), expected_std_grad)
+            @test isapprox(get_gradient((bang1, :std)), expected_std_grad)
             tr, _ = generate(bam, (2, ), chm)
-            zero_param_grad!(fuzz1, :std)
+            reset_gradient!((fuzz1, :std))
             input_grads = accumulate_param_gradients!(tr, 1.0)
             expected_std_grad = logpdf_grad(normal, tr[:x => :z], 5.0 + 2 * 3.0, 3.0)[3]
-            @test isapprox(get_param_grad(fuzz1, :std), expected_std_grad)
+            @test isapprox(get_gradient((fuzz1, :std)), expected_std_grad)
         end
     end
 

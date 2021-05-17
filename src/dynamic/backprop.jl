@@ -58,8 +58,11 @@ mutable struct GFBackpropParamsState
     end
 end
 
-function read_param(state::GFBackpropParamsState, name::Symbol)
+function read_param!(state::GFBackpropParamsState, name::Symbol)
     parameter_id = (state.active_gen_fn, name)
+    if !(parameter_id in state.trace.registered_julia_parameters)
+        throw(ArgumentError("parameter $parameter_id was not registered using register_parameters!"))
+    end
     return state.tracked_params[parameter_id]
 end
 

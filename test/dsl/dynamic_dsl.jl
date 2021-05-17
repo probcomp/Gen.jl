@@ -285,6 +285,7 @@ end
         z = @trace(normal(mu_z + theta1, 1), :z)
         return z + mu_z
     end
+    register_parameters!(bar, [:theta1])
 
     @gen (grad) function foo((grad)(mu_a::Float64))
         @param theta2::Float64
@@ -294,6 +295,7 @@ end
         c = a * b * @trace(bar(a), :bar)
         return @trace(normal(c, 1), :out) + (theta2 * 3)
     end
+    register_parameters!(foo, [(bar, :theta1), :theta2])
 
     init_parameter!((bar, :theta1), 0.0)
     init_parameter!((foo, :theta2), 0.0)
@@ -371,12 +373,13 @@ end
         @param theta::Float64
         return theta
     end
-
+    register_parameters!(baz, [:theta])
     init_parameter!((baz, :theta), 0.0)
 
     @gen (grad) function foo()
         return @trace(baz())
     end
+    register_parameters!(foo, [(baz, :theta)])
 
     (trace, _) = generate(foo, ())
     retval_grad = 2.
@@ -389,6 +392,7 @@ end
         @param theta::Float64
         return theta
     end
+    register_parameters!(foo, [:theta])
 
     init_parameter!((foo, :theta), 0.0)
 
@@ -407,6 +411,7 @@ end
         @param theta::Float64
         return theta
     end
+    register_parameters!(foo, [:theta])
 
     init_parameter!((foo, :theta), 0.0)
 

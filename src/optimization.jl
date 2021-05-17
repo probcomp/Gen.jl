@@ -1,18 +1,12 @@
 import Parameters
 
-# TODO notes
-#
 # we should modify the semantics of the log probability contribution to the gradient
 # so that everything is gradient descent instead of ascent. this will also fix
 # the misnomer names
 #
-# combinators (map etc.) and call_at! and choice_at! all need to implement get_parameters..
 # TODO add tests specifically for JuliaParameterStore etc.
 #
-# TODO GF untraced needs to reference a parameter store
-#
-# make changes to src/dynamic/backprop.jl
-# make changes to other dynamic methods
+# TODO in all update and regenerate implementations, need to pass in the parameter context to inner calls to generate
 
 export in_place_add!
 
@@ -36,15 +30,15 @@ export get_gradient
 function in_place_add! end
 
 function in_place_add!(value::Array, increment)
-    @simd for i in 1:length(param)
+    @simd for i in 1:length(value)
         value[i] += increment[i]
     end
     return value
 end
 
 # this exists so user can use the same function on scalars and arrays
-function in_place_add!(param::Real, increment::Real)
-    return param + increment
+function in_place_add!(value::Real, increment::Real)
+    return value + increment
 end
 
 ############################
@@ -97,10 +91,10 @@ function fill_with_zeros!(accum::Accumulator{T}) where {T <: Real}
     return accum
 end
 
-function fill_with_zeros!(accum::Accumulator{Array{T}}) where {T}
+function fill_with_zeros!(accum::Accumulator{<:Array{T}}) where {T}
     lock(accum.lock)
     try
-        fill!(zero(T), accum.arr)
+        fill!(accum.value, zero(T))
     finally
         unlock(accum.lock)
     end
@@ -212,10 +206,10 @@ struct CompositeOptimizer
     optimizers::Dict{Any,Any}
     function CompositeOptimizer(conf, parameter_stores_to_ids::Dict{Any,Vector})
         optimizers = Dict{Any,Any}()
-        for (store, parameter_ids) in parameters
+        for (store, parameter_ids) in parameter_stores_to_ids
             optimizers[store] = init_optimizer(conf, parameter_ids, store)
         end
-        new(states, conf)
+        new(conf, optimizers)
     end
 end
 
@@ -276,7 +270,7 @@ const default_julia_parameter_store = JuliaParameterStore()
 # once a trace is generated, it is bound to use a particular store
 const JULIA_PARAMETER_STORE_KEY = :julia_parameter_store 
 
-function get_julia_store(context::Dict{Symbol,Any})
+function get_julia_store(context::Dict)
     if haskey(context, JULIA_PARAMETER_STORE_KEY)
         return context[JULIA_PARAMETER_STORE_KEY]
     else

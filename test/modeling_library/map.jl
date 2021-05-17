@@ -5,6 +5,7 @@
         z = @trace(normal(x + y, std), :z)
         return z
     end
+    register_parameters!(foo, [:std])
 
     init_parameter!((foo, :std), 1.0)
 
@@ -393,13 +394,13 @@
 
         # get gradients wrt xs and ys
         trace = get_initial_trace()
-        zero_param_grad!(foo, :std)
+        reset_gradient!((foo, :std))
         input_grads = accumulate_param_gradients!(trace, retval_grad)
         @test isapprox(input_grads[1], expected_xs_grad)
         @test isapprox(input_grads[2], expected_ys_grad)
         expected_std_grad = (logpdf_grad(normal, z1, 4., 1.)[3]
             + logpdf_grad(normal, z2, 6., 1.)[3])
-        @test isapprox(get_param_grad(foo, :std), expected_std_grad)
+        @test isapprox(get_gradient((foo, :std)), expected_std_grad)
     end
 
 end

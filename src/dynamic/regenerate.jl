@@ -8,9 +8,8 @@ mutable struct GFRegenerateState
 
     function GFRegenerateState(gen_fn, args, prev_trace, selection)
         visitor = AddressVisitor()
-        trace = DynamicDSLTrace(gen_fn, args, get_parameter_store(prev_trace))
-        return new(prev_trace, trace, selection,
-            0., visitor, gen_fn)
+        trace = initialize_from(prev_trace, args)
+        return new(prev_trace, trace, selection, 0.0, visitor, gen_fn)
     end
 end
 
@@ -23,7 +22,6 @@ get_active_gen_fn(state::GFRegenerateState) = state.active_gen_fn
 function set_active_gen_fn!(state::GFRegenerateState, gen_fn::GenerativeFunction)
     state.active_gen_fn = gen_fn
 end
-
 
 function traceat(state::GFRegenerateState, dist::Distribution{T},
                  args, key) where {T}
@@ -88,7 +86,8 @@ function traceat(state::GFRegenerateState, gen_fn::GenerativeFunction{T,U},
         (subtrace, weight, _) = regenerate(
             prev_subtrace, args, map((_) -> UnknownChange(), args), subselection)
     else
-        (subtrace, weight) = generate(gen_fn, args, EmptyChoiceMap())
+        (subtrace, weight) = generate(
+            gen_fn, args, EmptyChoiceMap(), state.trace.parameter_context)
     end
 
     # update weight

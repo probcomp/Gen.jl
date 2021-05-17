@@ -19,6 +19,14 @@ has_argument_grads(switch_fn::Switch) = map(zip(map(has_argument_grads, switch_f
 end
 accepts_output_grad(switch_fn::Switch) = all(accepts_output_grad, switch_fn.branches)
 
+function get_parameters(gen_fn::Switch, parameter_context)
+    parameter_stores_to_ids = Dict{Any,Vector}()
+    for branch_gen_fn in gen_fn.branches
+        merge!(parameter_stores_to_ids, get_parameters(branch_gen_fn.production_kernel, parameter_context))
+    end
+    return parameter_stores_to_ids
+end
+
 function (gen_fn::Switch)(index::Int, args...)
     (_, _, retval) = propose(gen_fn, (index, args...))
     retval

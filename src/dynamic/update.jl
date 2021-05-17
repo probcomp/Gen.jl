@@ -10,9 +10,9 @@ mutable struct GFUpdateState
     function GFUpdateState(gen_fn, args, prev_trace, constraints)
         visitor = AddressVisitor()
         discard = choicemap()
-        trace = DynamicDSLTrace(gen_fn, args, get_parameter_store(prev_trace))
-        return new(prev_trace, trace, constraints,
-            0., visitor, discard, gen_fn)
+        parameter_store = get_parameter_store(prev_trace)
+        trace = initialize_from(prev_trace, args)
+        return new(prev_trace, trace, constraints, 0.0, visitor, discard, gen_fn)
     end
 end
 
@@ -25,7 +25,6 @@ get_active_gen_fn(state::GFUpdateState) = state.active_gen_fn
 function set_active_gen_fn!(state::GFUpdateState, gen_fn::GenerativeFunction)
     state.active_gen_fn = gen_fn
 end
-
 
 function traceat(state::GFUpdateState, dist::Distribution{T},
                  args::Tuple, key) where {T}
@@ -101,7 +100,8 @@ function traceat(state::GFUpdateState, gen_fn::GenerativeFunction{T,U},
         (subtrace, weight, _, discard) = update(prev_subtrace,
             args, map((_) -> UnknownChange(), args), constraints)
     else
-        (subtrace, weight) = generate(gen_fn, args, constraints)
+        (subtrace, weight) = generate(
+            gen_fn, args, constraints, state.trace.parameter_context)
     end
 
     # update the weight

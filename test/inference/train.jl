@@ -48,6 +48,7 @@
         end
         @trace(bernoulli(prob_y), :y)
     end
+    register_parameters!(student, [:theta1, :theta2, :theta3, :theta4, :theta5])
 
     function data_generator()
         (choices, _, retval) = propose(teacher, ())
@@ -142,6 +143,7 @@ end
         z = @trace(normal(x + theta, exp(log_std)), :z)
         return z
     end
+    register_parameters!(q, [:theta, :log_std])
 
     # train simple q using lecture! to compute gradients
     init_parameter!((q, :theta), 0.0)
@@ -164,9 +166,10 @@ end
             @trace(normal(means[i], exp(log_std)), i => :z)
         end
     end
+    register_parameters!(q_batched, [:theta, :log_std])
 
     # train simple q using lecture_batched! to compute gradients
-    init_parameter!(q_batched(, :theta, 0).0)
+    init_parameter!((q_batched, :theta), 0.0)
     init_parameter!((q_batched, :log_std), 0.0)
     optimizer = CompositeOptimizer(FixedStepGradientDescent(0.001), q_batched)
     score = Inf

@@ -38,12 +38,25 @@ mutable struct DynamicDSLTrace{T} <: Trace
     noise::Float64
     args::Tuple
     parameter_store::JuliaParameterStore
+    parameter_context::Dict
+    registered_julia_parameters::Set{Tuple{GenerativeFunction,Symbol}} # for runtime cross-check
     retval::Any
-    function DynamicDSLTrace{T}(gen_fn::T, args, parameter_store::JuliaParameterStore) where {T}
+    function DynamicDSLTrace{T}(
+            gen_fn::T, args, parameter_store::JuliaParameterStore, parameter_context,
+            registered_julia_parameters::Set{Tuple{GenerativeFunction,Symbol}}) where {T}
         trie = Trie{Any,ChoiceOrCallRecord}()
         # retval is not known yet
-        new(gen_fn, trie, true, 0, 0, args, parameter_store)
+        new(
+            gen_fn, trie, true, 0, 0, args, parameter_store,
+            parameter_context, registered_julia_parameters)
     end
+end
+
+function initialize_from(other::DynamicDSLTrace, args)
+    gen_fn = get_gen_fn(other)
+    return DynamicDSLTrace(
+        gen_fn, args, other.parameter_store, other.parameter_context,
+        other.registered_julia_parameters)
 end
 
 get_parameter_store(trace::DynamicDSLTrace) = trace.parameter_store

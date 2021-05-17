@@ -7,7 +7,10 @@ mutable struct GFSimulateState
     function GFSimulateState(
         gen_fn::GenerativeFunction, args::Tuple, parameter_context)
         parameter_store = get_julia_store(parameter_context)
-        trace = DynamicDSLTrace(gen_fn, args, parameter_store)
+        registered_julia_parameters = Set{Tuple{GenerativeFunction,Symbol}}(
+            get_parameters(gen_fn, parameter_context)[parameter_store])
+        trace = DynamicDSLTrace(
+            gen_fn, args, parameter_store, parameter_context, registered_julia_parameters)
         return new(trace, AddressVisitor(), gen_fn, parameter_context)
     end
 end
@@ -49,7 +52,7 @@ function traceat(state::GFSimulateState, gen_fn::GenerativeFunction{T,U},
     visit!(state.visitor, key)
 
     # get subtrace
-    subtrace = simulate(gen_fn, args; parameter_context=state.parameter_context)
+    subtrace = simulate(gen_fn, args, state.parameter_context)
 
     # add to the trace
     add_call!(state.trace, key, subtrace)
@@ -60,9 +63,7 @@ function traceat(state::GFSimulateState, gen_fn::GenerativeFunction{T,U},
     retval
 end
 
-function simulate(
-        gen_fn::DynamicDSLFunction, args::Tuple;
-        parameter_context=default_parameter_context)
+function simulate(gen_fn::DynamicDSLFunction, args::Tuple, parameter_context::Dict)
     state = GFSimulateState(gen_fn, args, parameter_context)
     retval = exec(gen_fn, state, args)
     set_retval!(state.trace, retval)

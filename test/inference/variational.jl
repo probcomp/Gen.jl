@@ -15,16 +15,17 @@
         @trace(normal(slope_mu, exp(slope_log_std)), :slope)
         @trace(normal(intercept_mu, exp(intercept_log_std)), :intercept)
     end
+    register_parameters!(approx, [:slope_mu, :slope_log_std, :intercept_mu, :intercept_log_std])
 
     # to regular black box variational inference
-    init_param!((approx, :slope_mu), 0.0)
-    init_param!((approx, :slope_log_std), 0.0)
-    init_param!((approx, :intercept_mu), 0.0)
-    init_param!((approx, :intercept_log_std), 0.0)
+    init_parameter!((approx, :slope_mu), 0.0)
+    init_parameter!((approx, :slope_log_std), 0.0)
+    init_parameter!((approx, :intercept_mu), 0.0)
+    init_parameter!((approx, :intercept_log_std), 0.0)
 
     observations = choicemap()
-    optimizer = CompositeOptimizer(GradientDescent(1, 100000), approx)
-    optimizer = CompositeOptimizer(GradientDescent(1., 1000), approx)
+    optimizer = CompositeOptimizer(DecayStepGradientDescent(1, 100000), approx)
+    optimizer = CompositeOptimizer(DecayStepGradientDescent(1., 1000), approx)
     black_box_vi!(model, (), observations, approx, (), optimizer;
         iters=2000, samples_per_iter=100, verbose=false)
     slope_mu = get_parameter_value((approx, :slope_mu))
@@ -37,17 +38,17 @@
     @test isapprox(intercept_log_std, 2.0, atol=0.001)
 
     # smoke test for black box variational inference with Monte Carlo objectives
-    init_param!((approx, :slope_mu), 0.0)
-    init_param!((approx, :slope_log_std), 0.0)
-    init_param!((approx, :intercept_mu), 0.0)
-    init_param!((approx, :intercept_log_std), 0.0)
+    init_parameter!((approx, :slope_mu), 0.0)
+    init_parameter!((approx, :slope_log_std), 0.0)
+    init_parameter!((approx, :intercept_mu), 0.0)
+    init_parameter!((approx, :intercept_log_std), 0.0)
     black_box_vimco!(model, (), observations, approx, (), optimizer, 20;
         iters=50, samples_per_iter=100, verbose=false, geometric=false)
 
-    init_param!((approx, :slope_mu), 0.0)
-    init_param!((approx, :slope_log_std), 0.0)
-    init_param!((approx, :intercept_mu), 0.0)
-    init_param!((approx, :intercept_log_std), 0.0)
+    init_parameter!((approx, :slope_mu), 0.0)
+    init_parameter!((approx, :slope_log_std), 0.0)
+    init_parameter!((approx, :intercept_mu), 0.0)
+    init_parameter!((approx, :intercept_log_std), 0.0)
     black_box_vimco!(model, (), observations, approx, (), optimizer, 20;
         iters=50, samples_per_iter=100, verbose=false, geometric=true)
 
@@ -66,6 +67,7 @@ end
             {(:x, i)} ~ normal(z, 1)
         end
     end
+    register_parameters!(model, [:theta])
 
     @gen function approx(xs)
         @param mu_coeffs::Vector{Float64} # 2 x 1; should be [opt_theta / 2, 0.5]
@@ -75,6 +77,7 @@ end
             {(:z, i)} ~ normal(mu, exp(log_std))
         end
     end
+    register_parameters!(approx, [:mu_coeffs, :log_std])
 
     observations = choicemap()
     xs = Float64[]
@@ -97,7 +100,7 @@ end
             {(:z, i)} ~ normal(posterior_means[i], sqrt(1.0 / posterior_precisions))
         end
     end
-    init_param!((model, :theta), opt_theta)
+    init_parameter!((model, :theta), opt_theta)
     approx_trace = simulate(optimum_approx, ())
     (model_trace, _) = generate(model, (), merge(get_choices(approx_trace), observations))
     # note that p(z1..zn, x1..xn) / p(z1..zn | x1..xn) = p(x1...xn) - for all z1..zn
@@ -105,9 +108,9 @@ end
     println("true optimum log_marginal_likelihood: $log_marginal_likelihood")
 
     # using BBVI with score function estimator
-    init_param!((model, :theta), 0.0)
-    init_param!((approx, :mu_coeffs), zeros(2))
-    init_param!((approx, :log_std), 0.0)
+    init_parameter!((model, :theta), 0.0)
+    init_parameter!((approx, :mu_coeffs), zeros(2))
+    init_parameter!((approx, :log_std), 0.0)
     approx_optimizer = CompositeOptimizer(FixedStepGradientDescent(0.0001), approx)
     model_optimizer = CompositeOptimizer(FixedStepGradientDescent(0.002), model)
     @time (_, _, elbo_history, _) =
@@ -120,9 +123,9 @@ end
     @test isapprox(elbo_history[end], log_marginal_likelihood, rtol=0.1)
 
     # using VIMCO
-    init_param!((model, :theta), 0.0)
-    init_param!((approx, :mu_coeffs), zeros(2))
-    init_param!((approx, :log_std), 0.0)
+    init_parameter!((model, :theta), 0.0)
+    init_parameter!((approx, :mu_coeffs), zeros(2))
+    init_parameter!((approx, :log_std), 0.0)
     approx_optimizer = CompositeOptimizer(FixedStepGradientDescent(0.001), approx)
     model_optimizer = CompositeOptimizer(FixedStepGradientDescent(0.01), model)
     @time (_, _, elbo_history, _) =

@@ -64,6 +64,8 @@ function accepts_output_grad(gen_fn::CallAtCombinator)
     accepts_output_grad(gen_fn.kernel)
 end
 
+get_parameters(gen_fn::CallAtCombinator, context) = get_parameters(gen_fn.kernel, context)
+
 unpack_call_at_args(args) = (args[end], args[1:end-1])
 
 
@@ -89,13 +91,14 @@ function simulate(gen_fn::CallAtCombinator, args::Tuple)
     CallAtTrace(gen_fn, subtrace, key)
 end
 
-function generate(gen_fn::CallAtCombinator{T,U,K}, args::Tuple,
-                  choices::ChoiceMap) where {T,U,K}
+function generate(
+        gen_fn::CallAtCombinator{T,U,K}, args::Tuple,
+        choices::ChoiceMap, parameter_context::Dict) where {T,U,K}
     (key, kernel_args) = unpack_call_at_args(args)
     submap = get_submap(choices, key)
-    (subtrace, weight) = generate(gen_fn.kernel, kernel_args, submap)
+    (subtrace, weight) = generate(gen_fn.kernel, kernel_args, submap, parameter_context)
     trace = CallAtTrace(gen_fn, subtrace, key)
-    (trace, weight)
+    return (trace, weight)
 end
 
 function project(trace::CallAtTrace, selection::Selection)

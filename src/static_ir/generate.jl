@@ -114,8 +114,8 @@ end
 push!(generated_functions, quote
 @generated function $(GlobalRef(Gen, :generate))(
         gen_fn::$(QuoteNode(StaticIRGenerativeFunction)),
-        args::$(QuoteNode(Tuple)), constraints::$(QuoteNode(ChoiceMap));
-        parameter_context=$(QuoteNode(default_parameter_context)))
+        args::$(QuoteNode(Tuple)), constraints::$(QuoteNode(ChoiceMap)),
+        parameter_context::Dict)
     $(QuoteNode(codegen_generate))(gen_fn, args, constraints)
 end
 end)

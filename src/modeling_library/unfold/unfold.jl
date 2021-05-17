@@ -42,6 +42,9 @@ end
 # TODO
 accepts_output_grad(gen_fn::Unfold) = false
 
+get_parameters(gen_fn::Unfold, parameter_context) = get_parameters(gen_fn.kernel, parameter_context)
+
+
 function (gen_fn::Unfold)(args...)
     (_, _, retval) = propose(gen_fn, args)
     retval

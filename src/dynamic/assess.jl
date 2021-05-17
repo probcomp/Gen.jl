@@ -56,8 +56,8 @@ function traceat(state::GFAssessState, gen_fn::GenerativeFunction{T,U},
 end
 
 function assess(
-        gen_fn::DynamicDSLFunction, args::Tuple, choices::ChoiceMap;
-        parameter_context=default_parameter_context)
+        gen_fn::DynamicDSLFunction, args::Tuple, choices::ChoiceMap,
+        parameter_context::Dict)
     state = GFAssessState(gen_fn, choices, parameter_context)
     retval = exec(gen_fn, state, args)
 

@@ -93,12 +93,16 @@ function accumulate_param_gradients_determ!(
     gradient_with_state(gen_fn, state, args, retgrad)
 end
 
-function simulate(gen_fn::CustomDetermGF{T,S}, args::Tuple) where {T,S}
+function simulate(
+        gen_fn::CustomDetermGF{T,S}, args::Tuple,
+        parameter_context::Dict) where {T,S}
     retval, state = apply_with_state(gen_fn, args)
     CustomDetermGFTrace{T,S}(retval, state, args, gen_fn)
 end
 
-function generate(gen_fn::CustomDetermGF{T,S}, args::Tuple, choices::ChoiceMap) where {T,S}
+function generate(
+        gen_fn::CustomDetermGF{T,S}, args::Tuple,
+        choices::ChoiceMap, parameter_context::Dict) where {T,S}
     if !isempty(choices)
         error("Deterministic generative function makes no random choices")
     end
@@ -107,7 +111,9 @@ function generate(gen_fn::CustomDetermGF{T,S}, args::Tuple, choices::ChoiceMap) 
     trace, 0.
 end
 
-function update(trace::CustomDetermGFTrace{T,S}, args::Tuple, argdiffs::Tuple, choices::ChoiceMap) where {T,S}
+function update(
+        trace::CustomDetermGFTrace{T,S}, args::Tuple, argdiffs::Tuple,
+        choices::ChoiceMap) where {T,S}
     if !isempty(choices)
         error("Deterministic generative function makes no random choices")
     end
@@ -129,7 +135,8 @@ function accumulate_param_gradients!(trace::CustomDetermGFTrace, retgrad, scale_
     accumulate_param_gradients_determ!(trace.gen_fn, trace.state, trace.args, retgrad, scale_factor)
 end
 
-export CustomDetermGF, CustomDetermGFTrace, apply_with_state, update_with_state, gradient_with_state, accumulate_param_gradients_determ!
+export CustomDetermGF, CustomDetermGFTrace, apply_with_state, update_with_state
+export gradient_with_state, accumulate_param_gradients_determ!
 
 ####################
 # CustomGradientGF #
