@@ -51,10 +51,10 @@ end
 ```
 
 Let's suppose we are training the generative model.
-The first step is to initialize the values of the trainable parameters, which for generative functions constructed using the built-in modeling languages, we do with [`init_param!`](@ref):
+The first step is to initialize the values of the trainable parameters, which for generative functions constructed using the built-in modeling languages, we do with [`init_parameter!`](@ref):
 ```julia
-init_param!(model, :a, 0.)
-init_param!(model, :b, 0.)
+init_parameter!((model, :a), 0.0)
+init_parameter!((model, :b), 0.0)
 ```
 Each trace in the collection contains the observed data from an independent draw from our model.
 We can populate each trace with its observed data using [`generate`](@ref):
@@ -76,24 +76,24 @@ for trace in traces
     accumulate_param_gradients!(trace)
 end
 ```
-Finally, we can construct and gradient-based update with [`ParamUpdate`](@ref) and apply it with [`apply!`](@ref).
+Finally, we can construct and gradient-based update with [`init_optimizer`](@ref) and apply it with [`apply_update!`](@ref).
 We can put this all together into a function:
 ```julia
 function train_model(data::Vector{ChoiceMap})
-    init_param!(model, :theta, 0.1)
+    init_parameter!((model, :theta), 0.1)
     traces = []
     for observations in data
         trace, = generate(model, model_args, observations)
         push!(traces, trace)
     end
-    update = ParamUpdate(FixedStepSizeGradientDescent(0.001), model)
+    optimizer = init_optimizer(FixedStepGradientDescent(0.001), model)
     for iter=1:max_iter
         objective = sum([get_score(trace) for trace in traces])
         println("objective: $objective")
         for trace in traces
             accumulate_param_gradients!(trace)
         end
-        apply!(update)
+        apply_update!(optimizer)
     end
 end
 ```
@@ -139,14 +139,14 @@ There are many variants possible, based on which Monte Carlo inference algorithm
 For example:
 ```julia
 function train_model(data::Vector{ChoiceMap})
-    init_param!(model, :theta, 0.1)
-    update = ParamUpdate(FixedStepSizeGradientDescent(0.001), model)
+    init_parameter!((model, :theta), 0.1)
+    optimizer = init_optimizer(FixedStepGradientDescent(0.001), model)
     for iter=1:max_iter
         traces = do_monte_carlo_inference(data)
         for trace in traces
             accumulate_param_gradients!(trace)
         end
-        apply!(update)
+        apply_update!(optimizer)
     end
 end
 
@@ -160,14 +160,14 @@ end
 Note that it is also possible to use a weighted collection of traces directly without resampling:
 ```julia
 function train_model(data::Vector{ChoiceMap})
-    init_param!(model, :theta, 0.1)
-    update = ParamUpdate(FixedStepSizeGradientDescent(0.001), model)
+    init_parameter!((model, :theta), 0.1)
+    optimizer = init_optimizer(FixedStepGradientDescent(0.001), model)
     for iter=1:max_iter
         traces, weights = do_monte_carlo_inference_with_weights(data)
         for (trace, weight) in zip(traces, weights)
             accumulate_param_gradients!(trace, nothing, weight)
         end
-        apply!(update)
+        apply_update!(optimizer)
     end
 end
 ```

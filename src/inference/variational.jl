@@ -88,7 +88,7 @@ function multi_sample_gradient_estimate!(
     (L, traces, weights_normalized)
 end
 
-function _maybe_accumulate_param_grad!(trace, optimizer::CompositeOptimizer, scale_factor::Real)
+function _maybe_accumulate_param_grad!(trace, optimizer, scale_factor::Real)
     return accumulate_param_gradients!(trace, nothing, scale_factor)
 end
 
@@ -98,10 +98,10 @@ end
 """
     (elbo_estimate, traces, elbo_history) = black_box_vi!(
         model::GenerativeFunction, model_args::Tuple,
-        [model_optimizer::CompositeOptimizer,]
+        [model_optimizer,]
         observations::ChoiceMap,
         var_model::GenerativeFunction, var_model_args::Tuple,
-        var_model_optimizer::CompositeOptimizer;
+        var_model_optimizer;
         options...)
 
 Fit the parameters of a variational model (`var_model`) to the posterior
@@ -120,10 +120,10 @@ update the parameters of `model`.
 """
 function black_box_vi!(
         model::GenerativeFunction, model_args::Tuple,
-        model_optimizer::Union{CompositeOptimizer,Nothing},
+        model_optimizer,
         observations::ChoiceMap,
         var_model::GenerativeFunction, var_model_args::Tuple,
-        var_model_optimizer::CompositeOptimizer;
+        var_model_optimizer;
         iters=1000, samples_per_iter=100, verbose=false,
         callback=(iter, traces, elbo_estimate) -> nothing)
 
@@ -173,14 +173,14 @@ end
 black_box_vi!(model::GenerativeFunction, model_args::Tuple,
               observations::ChoiceMap,
               var_model::GenerativeFunction, var_model_args::Tuple,
-              var_model_optimizer::CompositeOptimizer; options...) =
+              var_model_optimizer; options...) =
     black_box_vi!(model, model_args, nothing, observations,
                   var_model, var_model_args, var_model_optimizer; options...)
 
 """
     (iwelbo_estimate, traces, iwelbo_history) = black_box_vimco!(
         model::GenerativeFunction, model_args::Tuple,
-        [model_optimizer::CompositeOptimizer,]
+        [model_optimizer,]
         observations::ChoiceMap,
         var_model::GenerativeFunction, var_model_args::Tuple,
         var_model_optimizer::CompositeOptimizer,

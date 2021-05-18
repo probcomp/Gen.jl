@@ -109,7 +109,7 @@
     end
 
     # use stochastic gradient descent
-    optimizer = CompositeOptimizer(DecayStepGradientDescent(0.01, 1000000), student)
+    optimizer = init_optimizer(DecayStepGradientDescent(0.01, 1000000), student)
     train!(student, data_generator, optimizer,
         num_epoch=2000, epoch_size=50, num_minibatch=1, minibatch_size=50,
         verbose=false)
@@ -148,7 +148,7 @@ end
     # train simple q using lecture! to compute gradients
     init_parameter!((q, :theta), 0.0)
     init_parameter!((q, :log_std), 0.0)
-    optimizer = CompositeOptimizer(FixedStepGradientDescent(1e-4), q)
+    optimizer = init_optimizer(FixedStepGradientDescent(1e-4), q)
     score = Inf
     for iter=1:100
         score = sum([lecture!(p, (), q, tr -> (tr[:x],)) for _=1:1000]) / 1000
@@ -171,7 +171,7 @@ end
     # train simple q using lecture_batched! to compute gradients
     init_parameter!((q_batched, :theta), 0.0)
     init_parameter!((q_batched, :log_std), 0.0)
-    optimizer = CompositeOptimizer(FixedStepGradientDescent(0.001), q_batched)
+    optimizer = init_optimizer(FixedStepGradientDescent(0.001), q_batched)
     score = Inf
     for iter=1:100
         score = lecture_batched!(p, (), q_batched, trs -> (map(tr -> tr[:x], trs),), 1000)

@@ -24,8 +24,8 @@
     init_parameter!((approx, :intercept_log_std), 0.0)
 
     observations = choicemap()
-    optimizer = CompositeOptimizer(DecayStepGradientDescent(1, 100000), approx)
-    optimizer = CompositeOptimizer(DecayStepGradientDescent(1., 1000), approx)
+    optimizer = init_optimizer(DecayStepGradientDescent(1, 100000), approx)
+    optimizer = init_optimizer(DecayStepGradientDescent(1., 1000), approx)
     black_box_vi!(model, (), observations, approx, (), optimizer;
         iters=2000, samples_per_iter=100, verbose=false)
     slope_mu = get_parameter_value((approx, :slope_mu))
@@ -111,8 +111,8 @@ end
     init_parameter!((model, :theta), 0.0)
     init_parameter!((approx, :mu_coeffs), zeros(2))
     init_parameter!((approx, :log_std), 0.0)
-    approx_optimizer = CompositeOptimizer(FixedStepGradientDescent(0.0001), approx)
-    model_optimizer = CompositeOptimizer(FixedStepGradientDescent(0.002), model)
+    approx_optimizer = init_optimizer(FixedStepGradientDescent(0.0001), approx)
+    model_optimizer = init_optimizer(FixedStepGradientDescent(0.002), model)
     @time (_, _, elbo_history, _) =
         black_box_vi!(model, (), model_optimizer, observations,
                       approx, (xs,), approx_optimizer;
@@ -126,8 +126,8 @@ end
     init_parameter!((model, :theta), 0.0)
     init_parameter!((approx, :mu_coeffs), zeros(2))
     init_parameter!((approx, :log_std), 0.0)
-    approx_optimizer = CompositeOptimizer(FixedStepGradientDescent(0.001), approx)
-    model_optimizer = CompositeOptimizer(FixedStepGradientDescent(0.01), model)
+    approx_optimizer = init_optimizer(FixedStepGradientDescent(0.001), approx)
+    model_optimizer = init_optimizer(FixedStepGradientDescent(0.01), model)
     @time (_, _, elbo_history, _) =
         black_box_vimco!(model, (), model_optimizer, observations,
                          approx, (xs,), approx_optimizer, 10;

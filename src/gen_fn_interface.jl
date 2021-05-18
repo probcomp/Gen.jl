@@ -160,7 +160,7 @@ Return an iterable over the trainable parameters of the generative function.
 get_params(::GenerativeFunction) = ()
 
 """
-    trace = simulate(gen_fn, args, parameter_context=Dict())
+    trace = simulate(gen_fn, args, parameter_context=default_parameter_context)
 
 Execute the generative function and return the trace.
 
@@ -175,14 +175,10 @@ function simulate(::GenerativeFunction, ::Tuple, parameter_context::Dict)
     error("Not implemented")
 end
 
-function simulate(gen_fn::GenerativeFunction, args::Tuple)
-    return simulate(gen_fn, args, Dict())
-end
-
 """
     (trace::U, weight) = generate(
         gen_fn::GenerativeFunction{T,U}, args::Tuple,
-        constraints=EmptyChoiceMap(), parameter_context=Dict())
+        constraints=EmptyChoiceMap(), parameter_context=default_parameter_context)
 
 Return a trace of a generative function that is consistent with the given
 constraints on the random choices, if any.
@@ -212,14 +208,6 @@ function generate(::GenerativeFunction, ::Tuple, ::ChoiceMap, parameter_context:
     error("Not implemented")
 end
 
-function generate(gen_fn::GenerativeFunction, args::Tuple, choices::ChoiceMap)
-    return generate(gen_fn, args, choices, Dict())
-end
-
-function generate(gen_fn::GenerativeFunction, args::Tuple)
-    return generate(gen_fn, args, EmptyChoiceMap(), Dict())
-end
-
 
 """
     weight = project(trace::U, selection::Selection)
@@ -241,7 +229,7 @@ end
 
 """
     (choices, weight, retval) = propose(
-        gen_fn::GenerativeFunction, args::Tuple, parameter_context=Dict())
+        gen_fn::GenerativeFunction, args::Tuple, parameter_context=default_parameter_context)
 
 Sample an assignment and compute the probability of proposing that assignment.
 
@@ -258,12 +246,11 @@ function propose(gen_fn::GenerativeFunction, args::Tuple, parameter_context::Dic
     return (get_choices(trace), weight, get_retval(trace))
 end
 
-propose(gen_fn::GenerativeFunction, args::Tuple) = propose(gen_fn, args, Dict())
 
 """
     (weight, retval) = assess(
         gen_fn::GenerativeFunction, args::Tuple, choices::ChoiceMap,
-        parameter_context=Dict())
+        parameter_context=default_parameter_context)
 
 Return the probability of proposing an assignment
 
@@ -279,10 +266,6 @@ function assess(
         gen_fn::GenerativeFunction, args::Tuple, choices::ChoiceMap, parameter_context::Dict)
     (trace, weight) = generate(gen_fn, args, choices, parameter_context)
     return (weight, get_retval(trace))
-end
-
-function assess(gen_fn::GenerativeFunction, args::Tuple, choices::ChoiceMap)
-    return assess(gen_fn, args, choices, Dict())
 end
 
 

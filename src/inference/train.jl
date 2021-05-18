@@ -1,7 +1,8 @@
 """
     train!(gen_fn::GenerativeFunction, data_generator::Function,
-           optimizer::CompositeOptimizer,
-           num_epoch, epoch_size, num_minibatch, minibatch_size; verbose::Bool=false)
+           optimizer;
+           num_epoch=1, epoch_size=1, num_minibatch=1, minibatch_size=1;
+            verbose::Bool=false)
 
 Train the given generative function to maximize the expected conditional log
 probability (density) that `gen_fn` generates the assignment `constraints`
@@ -22,7 +23,7 @@ taken under the marginal distribution on `inputs` determined by the data
 generator.
 """
 function train!(gen_fn::GenerativeFunction, data_generator::Function,
-                optimizer::CompositeOptimizer;
+                optimizer;
                 num_epoch=1, epoch_size=1, num_minibatch=1, minibatch_size=1,
                 evaluation_size=epoch_size, verbose=false,
                 callback=(epoch, minibatch, minibatch_objective) -> nothing)
@@ -101,7 +102,7 @@ function lecture!(
     q_args = get_q_args(p_trace)
     q_trace, score = generate(q, q_args, get_choices(p_trace)) # NOTE: q won't make all the random choices that p does
     accumulate_param_gradients!(q_trace)
-    score
+    return score
 end
 
 """
@@ -128,7 +129,7 @@ function lecture_batched!(
     q_args = get_q_args(p_traces)
     q_trace, score = generate(q_batched, q_args, constraints) # NOTE: q won't make all the random choices that p does
     accumulate_param_gradients!(q_trace)
-    score / batch_size
+    return score / batch_size
 end
 
 export train!
