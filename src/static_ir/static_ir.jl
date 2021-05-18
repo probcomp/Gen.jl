@@ -46,10 +46,10 @@ function generate_generative_function(ir::StaticIR, name::Symbol, options::Stati
     has_argument_grads = tuple(map((node) -> node.compute_grad, ir.arg_nodes)...)
     accepts_output_grad = ir.accepts_output_grad
 
+    show_str = "Gen SML generative function: $name"
+
     gen_fn_defn = quote
         struct $gen_fn_type_name <: $(QuoteNode(StaticIRGenerativeFunction)){$return_type,$trace_type}
-            params_grad::Dict{Symbol,Any}
-            params::Dict{Symbol,Any}
         end
         (gen_fn::$gen_fn_type_name)(args...) = $(GlobalRef(Gen, :propose))(gen_fn, args)[3]
         $(GlobalRef(Gen, :get_ir))(::$gen_fn_type_name) = $(QuoteNode(ir))
@@ -57,11 +57,18 @@ function generate_generative_function(ir::StaticIR, name::Symbol, options::Stati
         $(GlobalRef(Gen, :get_trace_type))(::Type{$gen_fn_type_name}) = $trace_struct_name
         $(GlobalRef(Gen, :has_argument_grads))(::$gen_fn_type_name) = $(QuoteNode(has_argument_grads))
         $(GlobalRef(Gen, :accepts_output_grad))(::$gen_fn_type_name) = $(QuoteNode(accepts_output_grad))
-        $(GlobalRef(Gen, :get_gen_fn))(trace::$trace_struct_name) = $(Expr(:(.), :trace, QuoteNode(static_ir_gen_fn_ref)))
+        $(GlobalRef(Gen, :get_gen_fn))(trace::$trace_struct_name) = $(Expr(:(.), :trace, QuoteNode(static_ir_gen_fn_fieldname)))
         $(GlobalRef(Gen, :get_gen_fn_type))(::Type{$trace_struct_name}) = $gen_fn_type_name
         $(GlobalRef(Gen, :get_options))(::Type{$gen_fn_type_name}) = $(QuoteNode(options))
+        function $(GlobalRef(Gen, :get_parameters))(gen_fn::$gen_fn_type_name, context)
+            return $(GlobalRef(Gen, :get_parameters))($(QuoteNode(ir)), gen_fn, context)
+        end
+        function Base.show(io::IO, ::MIME"text/plain", gen_fn::$gen_fn_type_name)
+            return $(QuoteNode(show_str))
+        end
+
     end
-    Expr(:block, trace_defns, gen_fn_defn, Expr(:call, gen_fn_type_name, :(Dict{Symbol,Any}()), :(Dict{Symbol,Any}())))
+    Expr(:block, trace_defns, gen_fn_defn, Expr(:call, gen_fn_type_name))
 end
 
 include("print_ir.jl")

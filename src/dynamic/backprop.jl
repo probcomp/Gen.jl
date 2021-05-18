@@ -31,9 +31,9 @@ end
 end
 
 
-###################
+###############################
 # accumulate_param_gradients! #
-###################
+###############################
 
 mutable struct GFBackpropParamsState
     trace::DynamicDSLTrace
@@ -41,33 +41,29 @@ mutable struct GFBackpropParamsState
     tape::InstructionTape
     visitor::AddressVisitor
     scale_factor::Float64
+    active_gen_fn::GenerativeFunction
+    tracked_params::Dict{Tuple{GenerativeFunction,Symbol},Any}
 
-    # only those tracked parameters that are in scope (not including splice calls)
-    tracked_params::Dict{Symbol,Any}
-
-    # tracked parameters for all (nested) splice calls
-    splice_tracked_params::Dict{Tuple{GenerativeFunction,Symbol},Any}
-end
-
-function track_params(tape, params)
-    tracked_params = Dict{Symbol,Any}()
-    for (name, value) in params
-        tracked_params[name] = track(value, tape)
+    function GFBackpropParamsState(trace::DynamicDSLTrace, tape, scale_factor)
+        tracked_params = Dict{Tuple{GenerativeFunction,Symbol},Any}()
+        store = get_parameter_store(trace)
+        gen_fn = get_gen_fn(trace)
+        for (name, value) in get_local_parameters(store, gen_fn)
+            parameter_id = (gen_fn, name)
+            tracked_params[parameter_id] = track(value, tape)
+        end
+        score = track(0., tape)
+        new(trace, score, tape, AddressVisitor(), scale_factor,
+            gen_fn, tracked_params)
     end
-    tracked_params
 end
 
-function GFBackpropParamsState(trace::DynamicDSLTrace, tape, params, scale_factor)
-    tracked_params = track_params(tape, params)
-    splice_tracked_params = Dict{Tuple{GenerativeFunction,Symbol},Any}()
-    score = track(0., tape)
-    GFBackpropParamsState(trace, score, tape, AddressVisitor(), scale_factor,
-        tracked_params, splice_tracked_params)
-end
-
-function read_param(state::GFBackpropParamsState, name::Symbol)
-    value = state.tracked_params[name]
-    value
+function read_param!(state::GFBackpropParamsState, name::Symbol)
+    parameter_id = (state.active_gen_fn, name)
+    if !(parameter_id in state.trace.registered_julia_parameters)
+        throw(ArgumentError("parameter $parameter_id was not registered using register_parameters!"))
+    end
+    return state.tracked_params[parameter_id]
 end
 
 function traceat(state::GFBackpropParamsState, dist::Distribution{T},
@@ -110,30 +106,20 @@ end
 
 function splice(state::GFBackpropParamsState, gen_fn::DynamicDSLFunction,
                 args_maybe_tracked::Tuple)
-
-    # save previous tracked parameter scope
-    prev_tracked_params = state.tracked_params
-
-    # construct new tracked parameter scope
-    state.tracked_params = Dict{Symbol,Any}()
-    for name in keys(gen_fn.params)
-        if haskey(state.splice_tracked_params, (gen_fn, name))
-            # parameter was already tracked in another splice call
-            state.tracked_params[name] = state.splice_tracked_params[(gen_fn, name)]
-        else
+    prev_gen_fn = state.active_gen_fn
+    state.active_gen_fn = gen_fn
+    store = get_parameter_store(state.trace)
+    for (name, value) in get_local_parameters(store, gen_fn)
+        parameter_id = (gen_fn, name)
+        if !haskey(state.tracked_params, parameter_id)
             # parameter was not already tracked
-            tracked = track(get_param(gen_fn, name), state.tape)
-            state.tracked_params[name] = tracked
-            state.splice_tracked_params[(gen_fn, name)] = tracked
+            tracked = track(value, state.tape)
+            state.tracked_params[parameter_id] = tracked
         end
     end
-
     retval_maybe_tracked = exec(gen_fn, state, args_maybe_tracked)
-
-    # restore previous tracked parameter scope
-    state.tracked_params = prev_tracked_params
-
-    retval_maybe_tracked
+    state.active_gen_fn = prev_gen_fn
+    return retval_maybe_tracked
 end
 
 @noinline function ReverseDiff.special_reverse_exec!(
@@ -185,7 +171,7 @@ end
 function accumulate_param_gradients!(trace::DynamicDSLTrace, retval_grad, scale_factor=1.)
     gen_fn = trace.gen_fn
     tape = new_tape()
-    state = GFBackpropParamsState(trace, tape, gen_fn.params, scale_factor)
+    state = GFBackpropParamsState(trace, tape, scale_factor)
     args = get_args(trace)
     args_maybe_tracked = (map(maybe_track,
         args, gen_fn.has_argument_grads, fill(tape, length(args)))...,)
@@ -195,13 +181,10 @@ function accumulate_param_gradients!(trace::DynamicDSLTrace, retval_grad, scale_
     reverse_pass!(tape)
 
     # increment the gradient accumulators for trainable parameters in scope
-    for (name, tracked) in state.tracked_params
-        gen_fn.params_grad[name] += deriv(tracked) * state.scale_factor
-    end
-
-    # increment the gradient accumulators for trainable parameters in splice calls
-    for ((spliced_gen_fn, name), tracked) in state.splice_tracked_params
-        spliced_gen_fn.params_grad[name] += deriv(tracked) * state.scale_factor
+    store = get_parameter_store(trace)
+    for ((active_gen_fn, name), tracked) in state.tracked_params
+        parameter_id = (active_gen_fn, name)
+	    increment_gradient!(parameter_id, deriv(tracked), state.scale_factor, store)
     end
 
     # return gradients with respect to arguments with gradients, or nothing
@@ -211,30 +194,41 @@ function accumulate_param_gradients!(trace::DynamicDSLTrace, retval_grad, scale_
 end
 
 
-##################
+####################
 # choice_gradients #
-##################
+####################
 
 mutable struct GFBackpropTraceState
     trace::DynamicDSLTrace
     score::TrackedReal
     tape::InstructionTape
     visitor::AddressVisitor
-    params::Dict{Symbol,Any}
     selection::Selection
     tracked_choices::Trie{Any,Union{TrackedReal,TrackedArray}}
     value_choices::DynamicChoiceMap
     gradient_choices::DynamicChoiceMap
+    active_gen_fn::GenerativeFunction
 end
 
-function GFBackpropTraceState(trace, selection, params, tape)
+function GFBackpropTraceState(trace, selection, tape)
     score = track(0., tape)
     visitor = AddressVisitor()
     tracked_choices = Trie{Any,Union{TrackedReal,TrackedArray}}()
     value_choices = choicemap()
     gradient_choices = choicemap()
-    GFBackpropTraceState(trace, score, tape, visitor, params,
-        selection, tracked_choices, value_choices, gradient_choices)
+    GFBackpropTraceState(trace, score, tape, visitor,
+        selection, tracked_choices, value_choices, gradient_choices,
+        get_gen_fn(trace))
+end
+
+get_parameter_store(state::GFBackpropTraceState) = get_parameter_store(state.trace)
+
+get_parameter_id(state::GFBackpropTraceState, name::Symbol) = (state.active_gen_fn, name)
+
+get_active_gen_fn(state::GFBackpropTraceState) = state.active_gen_fn
+
+function set_active_gen_fn!(state::GFBackpropTraceState, gen_fn::GenerativeFunction)
+    state.active_gen_fn = gen_fn
 end
 
 function fill_submaps!(
@@ -324,15 +318,6 @@ function traceat(state::GFBackpropTraceState, gen_fn::GenerativeFunction{T,U},
     retval_maybe_tracked
 end
 
-function splice(state::GFBackpropTraceState, gen_fn::DynamicDSLFunction,
-                args_maybe_tracked::Tuple)
-    prev_params = state.params
-    state.params = gen_fn.params
-    retval = exec(gen_fn, state, args_maybe_tracked)
-    state.params = prev_params
-    retval
-end
-
 @noinline function ReverseDiff.special_reverse_exec!(
         instruction::ReverseDiff.SpecialInstruction{BackpropTraceRecord})
     record = instruction.func
@@ -372,7 +357,7 @@ end
 function choice_gradients(trace::DynamicDSLTrace, selection::Selection, retval_grad)
     gen_fn = trace.gen_fn
     tape = new_tape()
-    state = GFBackpropTraceState(trace, selection, gen_fn.params, tape)
+    state = GFBackpropTraceState(trace, selection, tape)
     args = get_args(trace)
     args_maybe_tracked = (map(maybe_track,
         args, gen_fn.has_argument_grads, fill(tape, length(args)))...,)

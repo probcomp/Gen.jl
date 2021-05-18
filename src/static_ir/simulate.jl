@@ -5,7 +5,9 @@ end
 function process!(::StaticIRSimulateState, node, options) end
 
 function process!(state::StaticIRSimulateState, node::TrainableParameterNode, options)
-    push!(state.stmts, :($(node.name) = $(QuoteNode(get_param))(gen_fn, $(QuoteNode(node.name)))))
+    push!(state.stmts, :($(node.name) = $(QuoteNode(get_parameter_value))(
+        (gen_fn, $(QuoteNode(node.name))),
+        $parameter_store_fieldname)))
 end
 
 function process!(state::StaticIRSimulateState, node::ArgumentNode, options)
@@ -47,7 +49,9 @@ function process!(state::StaticIRSimulateState, node::GenerativeFunctionCallNode
     push!(state.stmts, :($total_noise_fieldname += $(GlobalRef(Gen, :project))($subtrace, $(GlobalRef(Gen, :EmptySelection))())))
 end
 
-function codegen_simulate(gen_fn_type::Type{T}, args) where {T <: StaticIRGenerativeFunction}
+function codegen_simulate(
+        gen_fn_type::Type{T}, args,
+        parameter_context_type) where {T <: StaticIRGenerativeFunction}
 
     ir = get_ir(gen_fn_type)
     options = get_options(gen_fn_type)
@@ -57,6 +61,7 @@ function codegen_simulate(gen_fn_type::Type{T}, args) where {T <: StaticIRGenera
     push!(stmts, :($total_score_fieldname = 0.))
     push!(stmts, :($total_noise_fieldname = 0.))
     push!(stmts, :($num_nonempty_fieldname = 0))
+    push!(stmts, :($parameter_store_fieldname = $(QuoteNode(get_julia_store))(parameter_context)))
 
     # unpack arguments
     arg_names = Symbol[arg_node.name for arg_node in ir.arg_nodes]
@@ -73,7 +78,7 @@ function codegen_simulate(gen_fn_type::Type{T}, args) where {T <: StaticIRGenera
 
     # construct trace
     trace_type = get_trace_type(gen_fn_type)
-    push!(stmts, :($static_ir_gen_fn_ref = gen_fn))
+    push!(stmts, :($static_ir_gen_fn_fieldname = gen_fn))
     push!(stmts, :($trace = $(QuoteNode(trace_type))($(fieldnames(trace_type)...))))
 
     # return trace
@@ -83,7 +88,9 @@ function codegen_simulate(gen_fn_type::Type{T}, args) where {T <: StaticIRGenera
 end
 
 push!(generated_functions, quote
-@generated function $(GlobalRef(Gen, :simulate))(gen_fn::$(QuoteNode(StaticIRGenerativeFunction)), args::Tuple)
-    $(QuoteNode(codegen_simulate))(gen_fn, args)
+@generated function $(GlobalRef(Gen, :simulate))(
+        gen_fn::$(QuoteNode(StaticIRGenerativeFunction)),
+        args::Tuple, parameter_context::Dict)
+    $(QuoteNode(codegen_simulate))(gen_fn, args, parameter_context)
 end
 end)

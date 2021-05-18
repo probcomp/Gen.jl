@@ -285,6 +285,7 @@ end
         z = @trace(normal(mu_z + theta1, 1), :z)
         return z + mu_z
     end
+    register_parameters!(bar, [:theta1])
 
     @gen (grad) function foo((grad)(mu_a::Float64))
         @param theta2::Float64
@@ -294,9 +295,10 @@ end
         c = a * b * @trace(bar(a), :bar)
         return @trace(normal(c, 1), :out) + (theta2 * 3)
     end
+    register_parameters!(foo, [(bar, :theta1), :theta2])
 
-    init_param!(bar, :theta1, 0.)
-    init_param!(foo, :theta2, 0.)
+    init_parameter!((bar, :theta1), 0.0)
+    init_parameter!((foo, :theta2), 0.0)
 
     function f(mu_a, a, b, z, out)
         lpdf = 0.
@@ -358,8 +360,8 @@ end
     @test isapprox(mu_a_grad, finite_diff(f, (mu_a, a, b, z, out), 1, dx))
 
     # check parameter gradient
-    theta1_grad = get_param_grad(bar, :theta1)
-    theta2_grad = get_param_grad(foo, :theta2)
+    theta1_grad = get_gradient((bar, :theta1))
+    theta2_grad = get_gradient((foo, :theta2))
     @test isapprox(theta1_grad, logpdf_grad(normal, z, a, 1)[2])
     @test isapprox(theta2_grad, 3 * 2)
 
@@ -371,17 +373,18 @@ end
         @param theta::Float64
         return theta
     end
-
-    init_param!(baz, :theta, 0.)
+    register_parameters!(baz, [:theta])
+    init_parameter!((baz, :theta), 0.0)
 
     @gen (grad) function foo()
         return @trace(baz())
     end
+    register_parameters!(foo, [(baz, :theta)])
 
     (trace, _) = generate(foo, ())
     retval_grad = 2.
     accumulate_param_gradients!(trace, retval_grad)
-    @test isapprox(get_param_grad(baz, :theta), retval_grad)
+    @test isapprox(get_gradient((baz, :theta)), retval_grad)
 end
 
 @testset "gradient descent with fixed step size" begin
@@ -389,14 +392,18 @@ end
         @param theta::Float64
         return theta
     end
-    init_param!(foo, :theta, 0.)
+    register_parameters!(foo, [:theta])
+
+    init_parameter!((foo, :theta), 0.0)
+
     (trace, ) = generate(foo, ())
-    accumulate_param_gradients!(trace, 1.)
+    accumulate_param_gradients!(trace, 1.0)
+    @test isapprox(get_gradient((foo, :theta)), 1.0)
     conf = FixedStepGradientDescent(0.001)
-    state = Gen.init_update_state(conf, foo, [:theta])
-    Gen.apply_update!(state)
-    @test isapprox(get_param(foo, :theta), 0.001)
-    @test isapprox(get_param_grad(foo, :theta), 0.)
+    optimizer = init_optimizer(conf, [(foo, :theta)])
+    apply_update!(optimizer)
+    @test isapprox(get_parameter_value((foo, :theta)), 0.001)
+    @test isapprox(get_gradient((foo, :theta)), 0.0)
 end
 
 @testset "gradient descent with shrinking step size" begin
@@ -404,14 +411,18 @@ end
         @param theta::Float64
         return theta
     end
-    init_param!(foo, :theta, 0.)
+    register_parameters!(foo, [:theta])
+
+    init_parameter!((foo, :theta), 0.0)
+
     (trace, ) = generate(foo, ())
     accumulate_param_gradients!(trace, 1.)
-    conf = GradientDescent(0.001, 1000)
-    state = Gen.init_update_state(conf, foo, [:theta])
-    Gen.apply_update!(state)
-    @test isapprox(get_param(foo, :theta), 0.001)
-    @test isapprox(get_param_grad(foo, :theta), 0.)
+    @test isapprox(get_gradient((foo, :theta)), 1.0)
+    conf = DecayStepGradientDescent(0.001, 1000)
+    optimizer = init_optimizer(conf, [(foo, :theta)])
+    apply_update!(optimizer)
+    @test isapprox(get_parameter_value((foo, :theta)), 0.001)
+    @test isapprox(get_gradient((foo, :theta)), 0.0)
 end
 
 @testset "multi-component addresses" begin

@@ -487,11 +487,12 @@
             x = @trace(normal(x_prev * alpha + beta, std), :x)
             return x
         end
+        register_parameters!(kernel, [:std])
 
         foo = Unfold(kernel)
 
         std = 1.
-        set_param!(kernel, :std, std)
+        init_parameter!((kernel, :std), std)
 
         x_init = 0.1
         alpha = 0.2
@@ -504,7 +505,7 @@
         constraints[2 => :x] = x2
         (trace, _) = generate(foo, (2, x_init, alpha, beta), constraints)
 
-        zero_param_grad!(kernel, :std)
+        reset_gradient!((kernel, :std))
         input_grads = accumulate_param_gradients!(trace, nothing)
         @test input_grads[1] == nothing # length
         @test input_grads[2] == nothing # inital state
@@ -512,7 +513,7 @@
         #@test isapprox(input_grads[4], expected_ys_grad) # beta
         expected_std_grad = (logpdf_grad(normal, x1, x_init * alpha + beta, std)[3]
                              + logpdf_grad(normal, x2, x1 * alpha + beta, std)[3])
-        @test isapprox(get_param_grad(kernel, :std), expected_std_grad)
+        @test isapprox(get_gradient((kernel, :std)), expected_std_grad)
     end
 
     @gen (grad) function ker(t, (grad)(x::Float64))

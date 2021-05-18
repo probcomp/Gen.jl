@@ -204,6 +204,18 @@ function set_accepts_output_grad!(builder::StaticIRBuilder, value::Bool)
     builder.accepts_output_grad = value
 end
 
+function get_parameters(ir::StaticIR, gen_fn::GenerativeFunction, parameter_context)
+    parameters = Dict()
+    for call_node in ir.call_nodes
+        merge!(parameters, get_parameters(call_node.generative_function, parameter_context))
+    end
+    julia_store = get_julia_store(parameter_context)
+    for param_node in ir.trainable_param_nodes
+        parameters[store] = (gen_fn, param_node.name)
+    end
+    return parameters
+end
+
 export StaticIR, StaticIRBuilder, build_ir
 export add_trainable_param_node!
 export add_argument_node!

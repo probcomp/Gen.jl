@@ -26,6 +26,7 @@ export Map
 
 has_argument_grads(map_gf::Map) = has_argument_grads(map_gf.kernel)
 accepts_output_grad(map_gf::Map) = accepts_output_grad(map_gf.kernel)
+get_parameters(map_gf::Map, parameter_context) = get_parameters(map_gf.kernel, parameter_context)
 
 function (gen_fn::Map)(args...)
     (_, _, retval) = propose(gen_fn, args)

@@ -1,6 +1,6 @@
 """
     train!(gen_fn::GenerativeFunction, data_generator::Function,
-           update::ParamUpdate,
+           optimizer::CompositeOptimizer,
            num_epoch, epoch_size, num_minibatch, minibatch_size; verbose::Bool=false)
 
 Train the given generative function to maximize the expected conditional log
@@ -22,7 +22,7 @@ taken under the marginal distribution on `inputs` determined by the data
 generator.
 """
 function train!(gen_fn::GenerativeFunction, data_generator::Function,
-                update::ParamUpdate;
+                optimizer::CompositeOptimizer;
                 num_epoch=1, epoch_size=1, num_minibatch=1, minibatch_size=1,
                 evaluation_size=epoch_size, verbose=false,
                 callback=(epoch, minibatch, minibatch_objective) -> nothing)
@@ -55,7 +55,7 @@ function train!(gen_fn::GenerativeFunction, data_generator::Function,
                 minibatch_objective += weight
                 accumulate_param_gradients!(trace)
             end
-            apply!(update)
+            apply_update!(optimizer)
             minibatch_objective /= minibatch_size
             callback(epoch, minibatch, minibatch_objective)
         end
@@ -87,7 +87,7 @@ end
         p::GenerativeFunction, p_args::Tuple,
         q::GenerativeFunction, get_q_args::Function)
 
-Simulate a trace of p representing a training example, and use to update the gradients of the trainable parameters of q.
+Simulate a trace of p representing a training example, and use to optimizer the gradients of the trainable parameters of q.
 
 Used for training q via maximum expected conditional likelihood.
 Random choices will be mapped from p to q based on their address.
@@ -109,7 +109,7 @@ end
         p::GenerativeFunction, p_args::Tuple,
         q::GenerativeFunction, get_q_args::Function)
 
-Simulate a batch of traces of p representing training samples, and use them to update the gradients of the trainable parameters of q.
+Simulate a batch of traces of p representing training samples, and use them to optimizer the gradients of the trainable parameters of q.
 
 Like `lecture!` but q is batched, and must make random choices for training sample i under hierarchical address namespace i::Int (e.g. i => :z).
 get_q_args maps a vector of traces of p to an argument tuple of q.

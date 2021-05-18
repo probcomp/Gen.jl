@@ -88,25 +88,25 @@ function multi_sample_gradient_estimate!(
     (L, traces, weights_normalized)
 end
 
-function _maybe_accumulate_param_grad!(trace, update::ParamUpdate, scale_factor::Real)
+function _maybe_accumulate_param_grad!(trace, optimizer::CompositeOptimizer, scale_factor::Real)
     return accumulate_param_gradients!(trace, nothing, scale_factor)
 end
 
-function _maybe_accumulate_param_grad!(trace, update::Nothing, scale_factor::Real)
+function _maybe_accumulate_param_grad!(trace, optimizer::Nothing, scale_factor::Real)
 end
 
 """
     (elbo_estimate, traces, elbo_history) = black_box_vi!(
         model::GenerativeFunction, model_args::Tuple,
-        [model_update::ParamUpdate,]
+        [model_optimizer::CompositeOptimizer,]
         observations::ChoiceMap,
         var_model::GenerativeFunction, var_model_args::Tuple,
-        var_model_update::ParamUpdate;
+        var_model_optimizer::CompositeOptimizer;
         options...)
 
 Fit the parameters of a variational model (`var_model`) to the posterior
 distribution implied by the given `model` and `observations` using stochastic
-gradient methods. Users may optionally specify a `model_update` to jointly
+gradient methods. Users may optionally specify a `model_optimizer` to jointly
 update the parameters of `model`.
 
 # Additional arguments:
@@ -120,10 +120,10 @@ update the parameters of `model`.
 """
 function black_box_vi!(
         model::GenerativeFunction, model_args::Tuple,
-        model_update::Union{ParamUpdate,Nothing},
+        model_optimizer::Union{CompositeOptimizer,Nothing},
         observations::ChoiceMap,
         var_model::GenerativeFunction, var_model_args::Tuple,
-        var_model_update::ParamUpdate;
+        var_model_optimizer::CompositeOptimizer;
         iters=1000, samples_per_iter=100, verbose=false,
         callback=(iter, traces, elbo_estimate) -> nothing)
 
@@ -144,7 +144,7 @@ function black_box_vi!(
             elbo_estimate += (log_weight / samples_per_iter)
 
             # accumulate the generative model gradients
-            _maybe_accumulate_param_grad!(model_trace, model_update, 1.0 / samples_per_iter)
+            _maybe_accumulate_param_grad!(model_trace, model_optimizer, 1.0 / samples_per_iter)
 
             # record the traces
             var_traces[sample] = var_trace
@@ -159,11 +159,11 @@ function black_box_vi!(
         callback(iter, var_traces, elbo_estimate)
 
         # update parameters of variational family
-        apply!(var_model_update)
+        apply_update!(var_model_optimizer)
 
         # update parameters of generative model
-        if !isnothing(model_update)
-            apply!(model_update)
+        if !isnothing(model_optimizer)
+            apply_update!(model_optimizer)
         end
     end
 
@@ -173,24 +173,24 @@ end
 black_box_vi!(model::GenerativeFunction, model_args::Tuple,
               observations::ChoiceMap,
               var_model::GenerativeFunction, var_model_args::Tuple,
-              var_model_update::ParamUpdate; options...) =
+              var_model_optimizer::CompositeOptimizer; options...) =
     black_box_vi!(model, model_args, nothing, observations,
-                  var_model, var_model_args, var_model_update; options...)
+                  var_model, var_model_args, var_model_optimizer; options...)
 
 """
     (iwelbo_estimate, traces, iwelbo_history) = black_box_vimco!(
         model::GenerativeFunction, model_args::Tuple,
-        [model_update::ParamUpdate,]
+        [model_optimizer::CompositeOptimizer,]
         observations::ChoiceMap,
         var_model::GenerativeFunction, var_model_args::Tuple,
-        var_model_update::ParamUpdate,
+        var_model_optimizer::CompositeOptimizer,
         grad_est_samples::Int; options...)
 
 Fit the parameters of a variational model (`var_model`) to the posterior
 distribution implied by the given `model` and `observations` using stochastic
 gradient methods applied to the [Variational Inference with Monte Carlo
 Objectives](https://arxiv.org/abs/1602.06725) (VIMCO) lower bound on the
-marginal likelihood. Users may optionally specify a `model_update` to jointly
+marginal likelihood. Users may optionally specify a `model_optimizer` to jointly
 update the parameters of `model`.
 
 # Additional arguments:
@@ -208,9 +208,9 @@ update the parameters of `model`.
 """
 function black_box_vimco!(
         model::GenerativeFunction, model_args::Tuple,
-        model_update::Union{ParamUpdate,Nothing}, observations::ChoiceMap,
+        model_optimizer::Union{CompositeOptimizer,Nothing}, observations::ChoiceMap,
         var_model::GenerativeFunction, var_model_args::Tuple,
-        var_model_update::ParamUpdate, grad_est_samples::Int;
+        var_model_optimizer::CompositeOptimizer, grad_est_samples::Int;
         iters=1000, samples_per_iter=100, geometric=true, verbose=false,
         callback=(iter, traces, elbo_estimate) -> nothing)
 
@@ -238,7 +238,7 @@ function black_box_vimco!(
             for (var_trace, weight) in zip(original_var_traces, weights)
                 constraints = merge(observations, get_choices(var_trace))
                 (model_trace, _) = generate(model, model_args, constraints)
-                _maybe_accumulate_param_grad!(model_trace, model_update, weight / samples_per_iter)
+                _maybe_accumulate_param_grad!(model_trace, model_optimizer, weight / samples_per_iter)
             end
         end
         iwelbo_history[iter] = iwelbo_estimate
@@ -250,11 +250,11 @@ function black_box_vimco!(
         callback(iter, resampled_var_traces, iwelbo_estimate)
 
         # update parameters of variational family
-        apply!(var_model_update)
+        apply_update!(var_model_optimizer)
 
         # update parameters of generative model
-        if !isnothing(model_update)
-            apply!(model_update)
+        if !isnothing(model_optimizer)
+            apply_update!(model_optimizer)
         end
 
     end
@@ -265,10 +265,10 @@ end
 black_box_vimco!(model::GenerativeFunction, model_args::Tuple,
                  observations::ChoiceMap,
                  var_model::GenerativeFunction, var_model_args::Tuple,
-                 var_model_update::ParamUpdate,
+                 var_model_optimizer::CompositeOptimizer,
                  grad_est_samples::Int; options...) =
     black_box_vimco!(model, model_args, nothing, observations,
-                     var_model, var_model_args, var_model_update,
+                     var_model, var_model_args, var_model_optimizer,
                      grad_est_samples; options...)
 
 export black_box_vi!, black_box_vimco!

@@ -1,3 +1,5 @@
+export register_parameters!
+
 include("trace.jl")
 
 """
@@ -8,15 +10,14 @@ A generative function based on a shallowly embedding modeling language based on 
 Constructed using the `@gen` keyword.
 Most methods in the generative function interface involve a end-to-end execution of the function.
 """
-struct DynamicDSLFunction{T} <: GenerativeFunction{T,DynamicDSLTrace}
-    params_grad::Dict{Symbol,Any}
-    params::Dict{Symbol,Any}
+mutable struct DynamicDSLFunction{T} <: GenerativeFunction{T,DynamicDSLTrace}
     arg_types::Vector{Type}
     has_defaults::Bool
     arg_defaults::Vector{Union{Some{Any},Nothing}}
     julia_function::Function
     has_argument_grads::Vector{Bool}
     accepts_output_grad::Bool
+    parameters::Union{Vector,Function}
 end
 
 function DynamicDSLFunction(arg_types::Vector{Type},
@@ -24,38 +25,97 @@ function DynamicDSLFunction(arg_types::Vector{Type},
                      julia_function::Function,
                      has_argument_grads, ::Type{T},
                      accepts_output_grad::Bool) where {T}
-    params_grad = Dict{Symbol,Any}()
-    params = Dict{Symbol,Any}()
     has_defaults = any(arg -> arg != nothing, arg_defaults)
-    DynamicDSLFunction{T}(params_grad, params, arg_types,
+    return DynamicDSLFunction{T}(arg_types,
                 has_defaults, arg_defaults,
                 julia_function,
-                has_argument_grads, accepts_output_grad)
+                has_argument_grads, accepts_output_grad, [])
 end
 
-function DynamicDSLTrace(gen_fn::T, args) where {T<:DynamicDSLFunction}
+function get_parameters(gen_fn::DynamicDSLFunction, parameter_context)
+    if isa(gen_fn.parameters, Vector)
+        julia_store = get_julia_store(parameter_context)
+        parameter_stores_to_ids = Dict{Any,Vector}()
+        parameter_ids = Tuple{GenerativeFunction,Symbol}[]
+        for param in gen_fn.parameters
+            if isa(param, Tuple{GenerativeFunction,Symbol})
+                push!(parameter_ids, param)
+            elseif isa(param, Symbol)
+                push!(parameter_ids, (gen_fn, param))
+            else
+                throw(ArgumentError("Invalid parameter declaration for DML generative function $gen_fn: $param"))
+            end
+        end
+        parameter_stores_to_ids[julia_store] = parameter_ids
+        return parameter_stores_to_ids
+    elseif isa(gen_fn.parameters, Function)
+        return gen_fn.parameters(parameter_context)
+    end
+end
+
+"""
+    register_parameters!(gen_fn::DynamicDSLFunction, parameters)
+
+Register the trainable parameters that used by a DML generative function.
+
+This includes all parameters used within any calls made by the generative function, and includes any parameters that may be used by any possible trace (stochastic control flow may cause a parameter to be used by one trace but not another).
+
+The second argument is either a `Vector` or a `Function` that takes a parameter context and returns a `Dict` that maps parameter stores to `Vector`s of parameter IDs.
+When the second argument is a `Vector`, each element is either a `Symbol` that is the name of a parameter declared in the body of `gen_fn` using `@param`, or is a tuple `(other_gen_fn::GenerativeFunction, name::Symbol)` where `@param <name>` was declared in the body of `other_gen_fn`.
+The `Function` input is used when `gen_fn` uses parameters that come from more than one parameter store, including parameters that are housed in parameter stores that are not `JuliaParameterStore`s (e.g. if `gen_fn` invokes a generative function that executes in another non-Julia runtime).
+See [Optimizing Trainable Parameters](@ref) for details on parameter contexts, and parameter stores.
+"""
+function register_parameters!(gen_fn::DynamicDSLFunction, parameters)
+    gen_fn.parameters = parameters
+    return nothing
+end
+
+function Base.show(io::IO, gen_fn::DynamicDSLFunction)
+    print(io, "Gen DML generative function: $(gen_fn.julia_function)")
+end
+
+function Base.show(io::IO, ::MIME"text/plain", gen_fn::DynamicDSLFunction)
+    print(io, "Gen DML generative function: $(gen_fn.julia_function)")
+end
+
+function DynamicDSLTrace(
+        gen_fn::T, args, parameter_store::JuliaParameterStore,
+        parameter_context, registered_julia_parameters) where {T<:DynamicDSLFunction}
     # pad args with default values, if available
     if gen_fn.has_defaults && length(args) < length(gen_fn.arg_defaults)
         defaults = gen_fn.arg_defaults[length(args)+1:end]
         defaults = map(x -> something(x), defaults)
         args = Tuple(vcat(collect(args), defaults))
     end
-    DynamicDSLTrace{T}(gen_fn, args)
+    return DynamicDSLTrace{T}(
+        gen_fn, args, parameter_store, parameter_context, registered_julia_parameters)
 end
 
 accepts_output_grad(gen_fn::DynamicDSLFunction) = gen_fn.accepts_output_grad
 
 mutable struct GFUntracedState
-    params::Dict{Symbol,Any}
+    gen_fn::GenerativeFunction
+    parameter_store::JuliaParameterStore
 end
 
+get_parameter_store(state::GFUntracedState) = state.parameter_store
+get_parameter_id(state::GFUntracedState, name::Symbol) = (state.gen_fn, name)
+
 function (gen_fn::DynamicDSLFunction)(args...)
-    state = GFUntracedState(gen_fn.params)
+    state = GFUntracedState(gen_fn, default_julia_parameter_store)
     gen_fn.julia_function(state, args...)
 end
 
 function exec(gen_fn::DynamicDSLFunction, state, args::Tuple)
     gen_fn.julia_function(state, args...)
+end
+
+function splice(state, gen_fn::DynamicDSLFunction, args::Tuple)
+    prev_gen_fn = get_active_gen_fn(state)
+    state.active_gen_fn = gen_fn
+    retval = exec(gen_fn, state, args)
+    set_active_gen_fn!(state, prev_gen_fn)
+    return retval
 end
 
 # whether there is a gradient of score with respect to each argument
@@ -98,15 +158,13 @@ end
 function dynamic_param_impl(expr::Expr)
     @assert expr.head == :genparam "Not a Gen param expression."
     name = expr.args[1]
-    Expr(:(=), name, Expr(:call, GlobalRef(@__MODULE__, :read_param), state, QuoteNode(name)))
+    Expr(:(=), name, Expr(:call, GlobalRef(@__MODULE__, :read_param!), state, QuoteNode(name)))
 end
 
-function read_param(state, name::Symbol)
-    if haskey(state.params, name)
-        state.params[name]
-    else
-        throw(UndefVarError(name))
-    end
+function read_param!(state, name::Symbol)
+    parameter_id = get_parameter_id(state, name)
+    store = get_parameter_store(state)
+    return get_parameter_value(parameter_id, store)
 end
 
 ##################

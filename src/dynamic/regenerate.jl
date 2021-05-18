@@ -4,14 +4,23 @@ mutable struct GFRegenerateState
     selection::Selection
     weight::Float64
     visitor::AddressVisitor
-    params::Dict{Symbol,Any}
+    active_gen_fn::DynamicDSLFunction # mutated by splicing
+
+    function GFRegenerateState(gen_fn, args, prev_trace, selection)
+        visitor = AddressVisitor()
+        trace = initialize_from(prev_trace, args)
+        return new(prev_trace, trace, selection, 0.0, visitor, gen_fn)
+    end
 end
 
-function GFRegenerateState(gen_fn, args, prev_trace,
-                           selection, params)
-    visitor = AddressVisitor()
-    GFRegenerateState(prev_trace, DynamicDSLTrace(gen_fn, args), selection,
-        0., visitor, params)
+get_parameter_store(state::GFRegenerateState) = get_parameter_store(state.trace)
+
+get_parameter_id(state::GFRegenerateState, name::Symbol) = (state.active_gen_fn, name)
+
+get_active_gen_fn(state::GFRegenerateState) = state.active_gen_fn
+
+function set_active_gen_fn!(state::GFRegenerateState, gen_fn::GenerativeFunction)
+    state.active_gen_fn = gen_fn
 end
 
 function traceat(state::GFRegenerateState, dist::Distribution{T},
@@ -77,7 +86,8 @@ function traceat(state::GFRegenerateState, gen_fn::GenerativeFunction{T,U},
         (subtrace, weight, _) = regenerate(
             prev_subtrace, args, map((_) -> UnknownChange(), args), subselection)
     else
-        (subtrace, weight) = generate(gen_fn, args, EmptyChoiceMap())
+        (subtrace, weight) = generate(
+            gen_fn, args, EmptyChoiceMap(), state.trace.parameter_context)
     end
 
     # update weight
@@ -89,15 +99,6 @@ function traceat(state::GFRegenerateState, gen_fn::GenerativeFunction{T,U},
     # get return value
     retval = get_retval(subtrace)
 
-    retval
-end
-
-function splice(state::GFRegenerateState, gen_fn::DynamicDSLFunction,
-                args::Tuple)
-    prev_params = state.params
-    state.params = gen_fn.params
-    retval = exec(gen_fn, state, args)
-    state.params = prev_params
     retval
 end
 
@@ -133,7 +134,7 @@ end
 function regenerate(trace::DynamicDSLTrace, args::Tuple, argdiffs::Tuple,
                     selection::Selection)
     gen_fn = trace.gen_fn
-    state = GFRegenerateState(gen_fn, args, trace, selection, gen_fn.params)
+    state = GFRegenerateState(gen_fn, args, trace, selection)
     retval = exec(gen_fn, state, args)
     set_retval!(state.trace, retval)
     visited = state.visitor.visited

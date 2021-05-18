@@ -1,3 +1,27 @@
+export GenerativeFunction
+export has_argument_grads
+export accepts_output_grad
+
+
+export get_parameters 
+
+export Trace
+export get_args
+export get_retval
+export get_choices
+export get_score
+export get_gen_fn
+
+export simulate
+export generate
+export project
+export propose
+export assess
+export update
+export regenerate
+export accumulate_param_gradients!
+export choice_gradients
+
 ##########
 # Traces #
 ##########
@@ -85,12 +109,6 @@ Synonym for [`get_retval`](@ref).
 """
 Base.getindex(trace::Trace) = get_retval(trace)
 
-export get_args
-export get_retval
-export get_choices
-export get_score
-export get_gen_fn
-
 ######################
 # GenerativeFunction #
 ######################
@@ -104,6 +122,13 @@ abstract type GenerativeFunction{T,U <: Trace} end
 
 get_return_type(::GenerativeFunction{T,U}) where {T,U} = T
 get_trace_type(::GenerativeFunction{T,U}) where {T,U} = U
+
+"""
+    parameters::Dict{ParameterStore,Vector} = get_parameters(gen_fn::GenerativeFunction, parameter_context)
+
+Returns the parameters used by the generative function (including all of its calls).
+"""
+function get_parameters end
 
 """
     bools::Tuple = has_argument_grads(gen_fn::Union{GenerativeFunction,Distribution})
@@ -135,7 +160,7 @@ Return an iterable over the trainable parameters of the generative function.
 get_params(::GenerativeFunction) = ()
 
 """
-    trace = simulate(gen_fn, args)
+    trace = simulate(gen_fn, args, parameter_context=Dict())
 
 Execute the generative function and return the trace.
 
@@ -146,20 +171,21 @@ If `gen_fn` has optional trailing arguments (i.e., default values are provided),
 the optional arguments can be omitted from the `args` tuple. The generated trace
  will have default values filled in.
 """
-function simulate(::GenerativeFunction, ::Tuple)
+function simulate(::GenerativeFunction, ::Tuple, parameter_context::Dict)
     error("Not implemented")
 end
 
+function simulate(gen_fn::GenerativeFunction, args::Tuple)
+    return simulate(gen_fn, args, Dict())
+end
+
 """
-    (trace::U, weight) = generate(gen_fn::GenerativeFunction{T,U}, args::Tuple)
-
-Return a trace of a generative function.
-
-    (trace::U, weight) = generate(gen_fn::GenerativeFunction{T,U}, args::Tuple,
-                                    constraints::ChoiceMap)
+    (trace::U, weight) = generate(
+        gen_fn::GenerativeFunction{T,U}, args::Tuple,
+        constraints=EmptyChoiceMap(), parameter_context=Dict())
 
 Return a trace of a generative function that is consistent with the given
-constraints on the random choices.
+constraints on the random choices, if any.
 
 Given arguments \$x\$ (`args`) and assignment \$u\$ (`constraints`) (which is empty for the first form), sample \$t \\sim
 q(\\cdot; u, x)\$ and \$r \\sim q(\\cdot; x, t)\$, and return the trace \$(x, t, r)\$ (`trace`).
@@ -182,13 +208,18 @@ Example with constraint that address `:z` takes value `true`.
 (trace, weight) = generate(foo, (2, 4), choicemap((:z, true))
 ```
 """
-function generate(::GenerativeFunction, ::Tuple, ::ChoiceMap)
+function generate(::GenerativeFunction, ::Tuple, ::ChoiceMap, parameter_context::Dict)
     error("Not implemented")
 end
 
-function generate(gen_fn::GenerativeFunction, args::Tuple)
-    generate(gen_fn, args, EmptyChoiceMap())
+function generate(gen_fn::GenerativeFunction, args::Tuple, choices::ChoiceMap)
+    return generate(gen_fn, args, choices, Dict())
 end
+
+function generate(gen_fn::GenerativeFunction, args::Tuple)
+    return generate(gen_fn, args, EmptyChoiceMap(), Dict())
+end
+
 
 """
     weight = project(trace::U, selection::Selection)
@@ -207,8 +238,10 @@ function project(trace, selection::Selection)
     error("Not implemented")
 end
 
+
 """
-    (choices, weight, retval) = propose(gen_fn::GenerativeFunction, args::Tuple)
+    (choices, weight, retval) = propose(
+        gen_fn::GenerativeFunction, args::Tuple, parameter_context=Dict())
 
 Sample an assignment and compute the probability of proposing that assignment.
 
@@ -219,14 +252,18 @@ t)\$, and return \$t\$
 \\log \\frac{p(r, t; x)}{q(r; x, t)}
 ```
 """
-function propose(gen_fn::GenerativeFunction, args::Tuple)
-    trace = simulate(gen_fn, args)
+function propose(gen_fn::GenerativeFunction, args::Tuple, parameter_context::Dict)
+    trace = simulate(gen_fn, args, parameter_context)
     weight = get_score(trace)
-    (get_choices(trace), weight, get_retval(trace))
+    return (get_choices(trace), weight, get_retval(trace))
 end
 
+propose(gen_fn::GenerativeFunction, args::Tuple) = propose(gen_fn, args, Dict())
+
 """
-    (weight, retval) = assess(gen_fn::GenerativeFunction, args::Tuple, choices::ChoiceMap)
+    (weight, retval) = assess(
+        gen_fn::GenerativeFunction, args::Tuple, choices::ChoiceMap,
+        parameter_context=Dict())
 
 Return the probability of proposing an assignment
 
@@ -238,14 +275,20 @@ return the weight (`weight`):
 ```
 It is an error if \$p(t; x) = 0\$.
 """
-function assess(gen_fn::GenerativeFunction, args::Tuple, choices::ChoiceMap)
-    (trace, weight) = generate(gen_fn, args, choices)
-    (weight, get_retval(trace))
+function assess(
+        gen_fn::GenerativeFunction, args::Tuple, choices::ChoiceMap, parameter_context::Dict)
+    (trace, weight) = generate(gen_fn, args, choices, parameter_context)
+    return (weight, get_retval(trace))
 end
 
+function assess(gen_fn::GenerativeFunction, args::Tuple, choices::ChoiceMap)
+    return assess(gen_fn, args, choices, Dict())
+end
+
+
 """
-    (new_trace, weight, retdiff, discard) = update(trace, args::Tuple, argdiffs::Tuple,
-                                                   constraints::ChoiceMap)
+    (new_trace, weight, retdiff, discard) = update(
+        trace, args::Tuple, argdiffs::Tuple, constraints::ChoiceMap)
 
 Update a trace by changing the arguments and/or providing new values for some
 existing random choice(s) and values for some newly introduced random choice(s).
@@ -290,8 +333,8 @@ function update(trace, constraints::ChoiceMap)
 end
 
 """
-    (new_trace, weight, retdiff) = regenerate(trace, args::Tuple, argdiffs::Tuple,
-                                              selection::Selection)
+    (new_trace, weight, retdiff) = regenerate(
+        trace, args::Tuple, argdiffs::Tuple, selection::Selection)
 
 Update a trace by changing the arguments and/or randomly sampling new values
 for selected random choices using the internal proposal distribution family.
@@ -408,18 +451,3 @@ end
 function choice_gradients(trace)
     choice_gradients(trace, EmptySelection(), nothing)
 end
-
-export GenerativeFunction
-export Trace
-export has_argument_grads
-export accepts_output_grad
-export get_params
-export simulate
-export generate
-export project
-export propose
-export assess
-export update
-export regenerate
-export accumulate_param_gradients!
-export choice_gradients

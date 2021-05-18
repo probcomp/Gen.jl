@@ -144,7 +144,7 @@ end
 function process_codegen!(stmts, ::ForwardPassState, back::BackwardPassState,
                           node::TrainableParameterNode, ::AbstractUpdateMode, options)
     if node in back.marked
-        push!(stmts, :($(node.name) = $(QuoteNode(get_param))($(QuoteNode(get_gen_fn))(trace), $(QuoteNode(node.name)))))
+        push!(stmts, :($(node.name) = $(QuoteNode(get_parameter_value))(trace, $(QuoteNode(node.name)))))
     end
 end
 
@@ -420,15 +420,16 @@ end
 
 function generate_new_trace!(stmts::Vector{Expr}, trace_type::Type, options)
     if options.track_diffs
-        # note that the generative function is the last field
-        constructor_args = map((name) -> Expr(:call, QuoteNode(strip_diff), name),
-                            fieldnames(trace_type)[1:end-1])
-        push!(stmts, :($trace = $(QuoteNode(trace_type))($(constructor_args...),
-                        $(Expr(:(.), :trace, QuoteNode(static_ir_gen_fn_ref))))))
+        # NOTE: applying 'strip_diff' to all of the fields, including fields that are not diffed, is a hack
+        constructor_args = map(
+            (name) -> Expr(:call, QuoteNode(strip_diff), name),
+            fieldnames(trace_type))
     else
-        push!(stmts, :($static_ir_gen_fn_ref = $(Expr(:(.), :trace, QuoteNode(static_ir_gen_fn_ref)))))
-        push!(stmts, :($trace = $(QuoteNode(trace_type))($(fieldnames(trace_type)...))))
+        constructor_args = fieldnames(trace_type)
     end
+    push!(stmts, :($static_ir_gen_fn_fieldname = $(Expr(:(.), :trace, QuoteNode(static_ir_gen_fn_fieldname)))))
+    push!(stmts, :($parameter_store_fieldname = $(Expr(:(.), :trace, QuoteNode(parameter_store_fieldname)))))
+    push!(stmts, :($trace = $(QuoteNode(trace_type))($(constructor_args...))))
 end
 
 function generate_discard!(stmts::Vector{Expr},

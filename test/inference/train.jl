@@ -48,6 +48,7 @@
         end
         @trace(bernoulli(prob_y), :y)
     end
+    register_parameters!(student, [:theta1, :theta2, :theta3, :theta4, :theta5])
 
     function data_generator()
         (choices, _, retval) = propose(teacher, ())
@@ -64,11 +65,11 @@
     # theta2 -> inf (prob_y -> 1)
     # theta3 -> -inf (prob_y -> 0)
 
-    init_param!(student, :theta1, 0.)
-    init_param!(student, :theta2, 0.)
-    init_param!(student, :theta3, 0.)
-    init_param!(student, :theta4, 0.)
-    init_param!(student, :theta5, 0.)
+    init_parameter!((student, :theta1), 0.0)
+    init_parameter!((student, :theta2), 0.0)
+    init_parameter!((student, :theta3), 0.0)
+    init_parameter!((student, :theta4), 0.0)
+    init_parameter!((student, :theta5), 0.0)
 
     # check gradients using finite differences on a simulated batch
     minibatch_size = 100
@@ -80,12 +81,13 @@
         accumulate_param_gradients!(student_trace, nothing)
     end
     for name in [:theta1, :theta2, :theta3, :theta4, :theta5]
-        actual = get_param_grad(student, name)
+        actual = get_gradient((student, name))
         dx = 1e-6
-        value = get_param(student, name)
+        value = get_parameter_value((student, name))
 
         # evaluate total log density at value + dx
-        set_param!(student, name, value + dx)
+        init_parameter!((student, name), value + dx)
+
         lpdf_pos = 0.
         for i=1:minibatch_size
             (incr, _) = assess(student, inputs[i], constraints[i])
@@ -93,7 +95,7 @@
         end
 
         # evaluate total log density at value - dx
-        set_param!(student, name, value - dx)
+        init_parameter!((student, name), value - dx)
         lpdf_neg = 0.
         for i=1:minibatch_size
             (incr, _) = assess(student, inputs[i], constraints[i])
@@ -103,23 +105,23 @@
         expected = (lpdf_pos - lpdf_neg) / (2 * dx)
         @test isapprox(actual, expected, atol=1e-4)
 
-        set_param!(student, name, value)
+        init_parameter!((student, name), value)
     end
 
     # use stochastic gradient descent
-    update = ParamUpdate(GradientDescent(0.01, 1000000), student)
-    train!(student, data_generator, update,
+    optimizer = CompositeOptimizer(DecayStepGradientDescent(0.01, 1000000), student)
+    train!(student, data_generator, optimizer,
         num_epoch=2000, epoch_size=50, num_minibatch=1, minibatch_size=50,
         verbose=false)
 
     # p(x | z=0) = p(x | z=1) = 0.5
-    @test isapprox(get_param(student, :theta1), 0., atol=0.2)
+    @test isapprox(get_parameter_value((student, :theta1)), 0.0, atol=0.2)
 
     # y | z, x = xor(x, z)
-    @test get_param(student, :theta2) < -5
-    @test get_param(student, :theta3) > 5
-    @test get_param(student, :theta4) > 5
-    @test get_param(student, :theta5) < -5
+    @test get_parameter_value((student, :theta2)) < -5
+    @test get_parameter_value((student, :theta3)) > 5
+    @test get_parameter_value((student, :theta4)) > 5
+    @test get_parameter_value((student, :theta5)) < -5
 end
 
 
@@ -141,15 +143,16 @@ end
         z = @trace(normal(x + theta, exp(log_std)), :z)
         return z
     end
+    register_parameters!(q, [:theta, :log_std])
 
     # train simple q using lecture! to compute gradients
-    init_param!(q, :theta, 0.)
-    init_param!(q, :log_std, 0.)
-    update = ParamUpdate(FixedStepGradientDescent(1e-4), q)
+    init_parameter!((q, :theta), 0.0)
+    init_parameter!((q, :log_std), 0.0)
+    optimizer = CompositeOptimizer(FixedStepGradientDescent(1e-4), q)
     score = Inf
     for iter=1:100
         score = sum([lecture!(p, (), q, tr -> (tr[:x],)) for _=1:1000]) / 1000
-        apply!(update)
+        apply_update!(optimizer)
     end
     score = sum([lecture!(p, (), q, tr -> (tr[:x],)) for _=1:10000]) / 10000
     @test isapprox(score, -0.21, atol=5e-2)
@@ -163,15 +166,16 @@ end
             @trace(normal(means[i], exp(log_std)), i => :z)
         end
     end
+    register_parameters!(q_batched, [:theta, :log_std])
 
     # train simple q using lecture_batched! to compute gradients
-    init_param!(q_batched, :theta, 0.)
-    init_param!(q_batched, :log_std, 0.)
-    update = ParamUpdate(FixedStepGradientDescent(0.001), q_batched)
+    init_parameter!((q_batched, :theta), 0.0)
+    init_parameter!((q_batched, :log_std), 0.0)
+    optimizer = CompositeOptimizer(FixedStepGradientDescent(0.001), q_batched)
     score = Inf
     for iter=1:100
         score = lecture_batched!(p, (), q_batched, trs -> (map(tr -> tr[:x], trs),), 1000)
-        apply!(update)
+        apply_update!(optimizer)
     end
     score = sum([lecture!(p, (), q, tr -> (tr[:x],)) for _=1:10000]) / 10000
     @test isapprox(score, -0.21, atol=5e-2)

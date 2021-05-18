@@ -2,11 +2,22 @@ mutable struct GFAssessState
     choices::ChoiceMap
     weight::Float64
     visitor::AddressVisitor
-    params::Dict{Symbol,Any}
+    active_gen_fn::DynamicDSLFunction # mutated by splicing
+    parameter_context::Dict
+
+    function GFAssessState(gen_fn, choices, parameter_context)
+        new(choices, 0.0, AddressVisitor(), gen_fn, parameter_context)
+    end
 end
 
-function GFAssessState(choices, params::Dict{Symbol,Any})
-    GFAssessState(choices, 0., AddressVisitor(), params)
+get_parameter_store(state::GFAssessState) = get_julia_store(state.parameter_context)
+
+get_parameter_id(state::GFAssessState, name::Symbol) = (state.active_gen_fn, name)
+
+get_active_gen_fn(state::GFAssessState) = state.active_gen_fn
+
+function set_active_gen_fn!(state::GFAssessState, gen_fn::GenerativeFunction)
+    state.active_gen_fn = gen_fn
 end
 
 function traceat(state::GFAssessState, dist::Distribution{T},
@@ -22,7 +33,7 @@ function traceat(state::GFAssessState, dist::Distribution{T},
     # update weight
     state.weight += logpdf(dist, retval, args...)
 
-    retval
+    return retval
 end
 
 function traceat(state::GFAssessState, gen_fn::GenerativeFunction{T,U},
@@ -41,19 +52,13 @@ function traceat(state::GFAssessState, gen_fn::GenerativeFunction{T,U},
     # update score
     state.weight += weight
 
-    retval
+    return retval
 end
 
-function splice(state::GFAssessState, gen_fn::DynamicDSLFunction, args::Tuple)
-    prev_params = state.params
-    state.params = gen_fn.params
-    retval = exec(gen_fn, state, args)
-    state.params = prev_params
-    retval
-end
-
-function assess(gen_fn::DynamicDSLFunction, args::Tuple, choices::ChoiceMap)
-    state = GFAssessState(choices, gen_fn.params)
+function assess(
+        gen_fn::DynamicDSLFunction, args::Tuple, choices::ChoiceMap,
+        parameter_context::Dict)
+    state = GFAssessState(gen_fn, choices, parameter_context)
     retval = exec(gen_fn, state, args)
 
     unvisited = get_unvisited(get_visited(state.visitor), choices)
@@ -61,5 +66,5 @@ function assess(gen_fn::DynamicDSLFunction, args::Tuple, choices::ChoiceMap)
         error("Assess did not visit the following constraint addresses:\n$unvisited")
     end
 
-    (state.weight, retval)
+    return (state.weight, retval)
 end
