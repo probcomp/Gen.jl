@@ -56,13 +56,14 @@ end
 """
     register_parameters!(gen_fn::DynamicDSLFunction, parameters)
 
-Register the altrainable parameters that are used by a DML generative function.
+Register the trainable parameters that used by a DML generative function.
 
-This includes all parameters used within any calls made by the generative function.
+This includes all parameters used within any calls made by the generative function, and includes any parameters that may be used by any possible trace (stochastic control flow may cause a parameter to be used by one trace but not another).
 
-There are two variants:
-
-# TODO document the variants
+The second argument is either a `Vector` or a `Function` that takes a parameter context and returns a `Dict` that maps parameter stores to `Vector`s of parameter IDs.
+When the second argument is a `Vector`, each element is either a `Symbol` that is the name of a parameter declared in the body of `gen_fn` using `@param`, or is a tuple `(other_gen_fn::GenerativeFunction, name::Symbol)` where `@param <name>` was declared in the body of `other_gen_fn`.
+The `Function` input is used when `gen_fn` uses parameters that come from more than one parameter store, including parameters that are housed in parameter stores that are not `JuliaParameterStore`s (e.g. if `gen_fn` invokes a generative function that executes in another non-Julia runtime).
+See [Optimizing Trainable Parameters](@ref) for details on parameter contexts, and parameter stores.
 """
 function register_parameters!(gen_fn::DynamicDSLFunction, parameters)
     gen_fn.parameters = parameters

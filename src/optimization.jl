@@ -1,14 +1,13 @@
 import Parameters
 
-# we should modify the semantics of the log probability contribution to the gradient
-# so that everything is gradient descent instead of ascent. this will also fix
-# the misnomer names
+# TODO we should modify the semantics of the log probability contribution to
+# the gradient so that everything is gradient descent instead of ascent. this
+# will also fix the misnomer names
 #
 # TODO add tests specifically for JuliaParameterStore etc.
-#
-# TODO in all update and regenerate implementations, need to pass in the parameter context to inner calls to generate
 
 export in_place_add!
+
 
 export FixedStepGradientDescent
 export DecayStepGradientDescent
@@ -22,6 +21,10 @@ export increment_gradient!
 export reset_gradient!
 export get_parameter_value
 export get_gradient
+export JULIA_PARAMETER_STORE_KEY
+
+export default_julia_parameter_store
+export default_parameter_context
 
 #################
 # in_place_add! #
@@ -155,11 +158,9 @@ end
 # TODO create diagram and document the overal framework
 # including parameter contexts and parameter stores,and the default beahviors
 
-abstract type ParameterStore end
-
 """
     optimizer = init_optimizer(
-        conf, parameter_ids,
+        conf, parameter_ids::Vector,
         store=default_julia_parameter_store)
 
 Initialize an iterative gradient-based optimizer.
@@ -187,24 +188,10 @@ function apply_update!(optimizer)
     error("Not implemented")
 end
 
-"""
-
-    optimizer = CompositeOptimizer(conf, parameter_stores_to_ids::Dict{Any,Vector})
-
-Construct an optimizer that applies the given update to parameters in multiple parameter stores.
-
-The first argument defines the mathematical behavior of the update;
-the second argument defines the set of parameters to which the update should be applied at each iteration,
-as a map from parameter stores to a vector of IDs of parameters within that parameter store.
-
-    optimizer = CompositeOptimizer(conf, gen_fn::GenerativeFunction; parameter_context=default_parameter_context)
-
-Constructs a composite optimizer that applies the given update to all parameters used by the given generative function, even when the parameters exist in multiple parameter stores.
-"""
 struct CompositeOptimizer
     conf::Any
     optimizers::Dict{Any,Any}
-    function CompositeOptimizer(conf, parameter_stores_to_ids::Dict{Any,Vector})
+    function CompositeOptimizer(conf, parameter_stores_to_ids)
         optimizers = Dict{Any,Any}()
         for (store, parameter_ids) in parameter_stores_to_ids
             optimizers[store] = init_optimizer(conf, parameter_ids, store)
@@ -218,10 +205,23 @@ function CompositeOptimizer(conf, gen_fn::GenerativeFunction; parameter_context=
 end
 
 """
-    apply_update!(composite_opt::ComposieOptimizer)
 
-Perform one step of an update, possibly mutating the values of parameters in multiple parameter stores.
+    optimizer = init_optimizer(conf, parameter_stores_to_ids::Dict{Any,Vector})
+
+Construct an optimizer that updates parameters in multiple parameter stores.
+
+The first argument configures the mathematical behavior of the update.
+The second argument defines the set of parameters to which the update should be applied at each iteration,
+The parameters are given in a map from parameter store to a vector of IDs of parameters within that parameter store.
+
+    optimizer = init_optimizer(conf, gen_fn::GenerativeFunction; parameter_context=default_parameter_context)
+
+Constructs a composite optimizer that updates all parameters used by the given generative function, even when the parameters exist in multiple parameter stores.
 """
+function init_optimizer(conf, parameter_stores_to_ids::Dict)
+    return CompositeOptimizer(conf, parameter_stores_to_ids)
+end
+
 function apply_update!(composite_opt::CompositeOptimizer)
     for opt in values(composite_opt.optimizers)
         apply_update!(opt)
@@ -247,7 +247,7 @@ Construct a parameter store stores the state of parameters in the memory of the 
 
 There is a global Julia parameter store automatically created and named `Gen.default_julia_parameter_store`.
 
-Incrementing the gradients can be safely multi-threaded (see [`increment_gradient!`](@ref)).
+Gradient accumulation is thread-safe (see [`increment_gradient!`](@ref)).
 """
 function JuliaParameterStore()
     return JuliaParameterStore(
@@ -263,20 +263,36 @@ function get_local_parameters(store::JuliaParameterStore, gen_fn)
     end
 end
 
-const default_parameter_context = Dict{Symbol,Any}()
-const default_julia_parameter_store = JuliaParameterStore()
-
 # for looking up in a parameter context when tracing (simulate, generate)
 # once a trace is generated, it is bound to use a particular store
+"""
+    JULIA_PARAMETER_STORE_KEY 
+
+If a parameter context contains a value for this key, then the value is a `JuliaParameterStore`.
+"""
 const JULIA_PARAMETER_STORE_KEY = :julia_parameter_store 
 
 function get_julia_store(context::Dict)
-    if haskey(context, JULIA_PARAMETER_STORE_KEY)
-        return context[JULIA_PARAMETER_STORE_KEY]
-    else
-        return default_julia_parameter_store
-    end
+    return context[JULIA_PARAMETER_STORE_KEY]::JuliaParameterStore
 end
+
+"""
+    default_julia_parameter_store::JuliaParameterStore
+
+The default global Julia parameter store.
+"""
+const default_julia_parameter_store = JuliaParameterStore()
+
+"""
+    default_parameter_context::Dict
+
+The default global parameter context, which is initialized to contain the mapping:
+
+    JULIA_PARAMETER_STORE_KEY => Gen.default_julia_parameter_store
+"""
+const default_parameter_context = Dict{Symbol,Any}(
+    JULIA_PARAMETER_STORE_KEY => default_julia_parameter_store)
+
 
 """
     init_parameter!(
@@ -285,7 +301,7 @@ end
 
 Initialize the the value of a named trainable parameter of a generative function.
 
-Also generates the gradient accumulator for that parameter to `zero(value)`.
+Also initializes the gradient accumulator for that parameter to `zero(value)`.
 
 Example:
 ```julia

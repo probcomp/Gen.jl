@@ -254,6 +254,7 @@ See [Generative Function Interface](@ref) for more information about traces.
 
 A `@gen` function may begin with an optional block of *trainable parameter declarations*.
 The block consists of a sequence of statements, beginning with `@param`, that declare the name and Julia type for each trainable parameter.
+The Julia type must be either a subtype of `Real` or subtype of `Array{<:Real}`.
 The function below has a single trainable parameter `theta` with type `Float64`:
 ```julia
 @gen function foo(prob::Float64)
@@ -264,22 +265,21 @@ The function below has a single trainable parameter `theta` with type `Float64`:
 end
 ```
 Trainable parameters obey the same scoping rules as Julia local variables defined at the beginning of the function body.
-The value of a trainable parameter is undefined until it is initialized using [`init_param!`](@ref).
+After the definition of the generative function, you must register all of the parameters used by the generative function using [`register_parameters!`](@ref) (this is not required if you instead use the [Static Modeling Language](@ref)):
+```julia
+register_parameters!(foo, [:theta])
+```
+The value of a trainable parameter is undefined until it is initialized using [`init_parameter!`](@ref):
+```julia
+init_parameter!((foo, :theta), 0.0)
+```
 In addition to the current value, each trainable parameter has a current **gradient accumulator** value.
 The gradient accumulator value has the same shape (e.g. array dimension) as the parameter value.
-It is initialized to all zeros, and is incremented by [`accumulate_param_gradients!`](@ref).
-
-The following methods are exported for the trainable parameters of `@gen` functions:
+It is initialized to all zeros, and is incremented by calling [`accumulate_param_gradients!`](@ref) on a trace.
+Additional functions for retrieving and manipulating the values of trainable parameters and their gradient accumulators are described in [Optimizing Trainable Parameters](@ref).
 ```@docs
-init_param!
-get_param
-get_param_grad
-set_param!
-zero_param_grad!
+register_parameters!
 ```
-
-Trainable parameters are designed to be trained using gradient-based methods.
-This is discussed in the next section.
 
 ## Differentiable programming
 
