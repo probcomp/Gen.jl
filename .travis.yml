@@ -6,6 +6,9 @@ julia:
   - 1.4
   - 1.5
   - 1.6
+env:
+  - JULIA_NUM_THREADS=1
+  - JULIA_NUM_THREADS=2
 
 services:
   - docker
