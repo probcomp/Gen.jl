@@ -1,13 +1,5 @@
 @testset "optimization" begin
 
-@testset "in_place_add!" begin
-    # TODO
-end
-
-@testset "Accumulator" begin
-    # TODO
-end
-
 @testset "Julia parameter store" begin
 
     store = JuliaParameterStore()
@@ -70,11 +62,30 @@ end
     @test get_parameter_value((foo, :phi), store) == [2.0, 3.0]
     @test Gen.get_value(Gen.get_gradient_accumulator((foo, :phi), store)) == [0.0, 0.0]
 
+    # check that the default global Julia store was unaffected
+    @test_throws KeyError get_parameter_value((foo, :theta))
+    @test_throws KeyError get_gradient((foo, :theta))
+    @test_throws KeyError increment_gradient!((foo, :theta), 1.0)
+
     # FixedStepGradientDescent
+    init_parameter!((foo, :theta), 1.0, store)
+    init_parameter!((foo, :phi), [1.0, 2.0], store)
+    increment_gradient!((foo, :theta), 2.0, store)
+    increment_gradient!((foo, :phi), [1.0, 3.0], store)
+    optimizer = init_optimizer(FixedStepGradientDescent(1e-2), [(foo, :theta)], store)
+    apply_update!(optimizer) # update just theta
+    @test get_gradient((foo, :theta), store) == 0.0
+    @test get_parameter_value((foo, :theta), store) == 1.0 + (2.0 * 1e-2)
+    @test get_gradient((foo, :phi), store) == [1.0, 3.0] # unchanged
+    @test get_parameter_value((foo, :phi), store) == [1.0, 2.0] # unchanged
+    optimizer = init_optimizer(FixedStepGradientDescent(1e-2), [(foo, :phi)], store)
+    apply_update!(optimizer) # update just phi
+    @test get_gradient((foo, :phi), store) == [0.0, 0.0]
+    @test get_parameter_value((foo, :phi), store) == ([1.0, 2.0] .+ 1e-2 * [1.0, 3.0])
 
     # DecayStepGradientDescent
+    # TODO
 
-    # init_optimizer and apply_update! for FixedStepGradientDescent and DecayStepGradientDescent
     # default_parameter_context and default_julia_parameter_store
 end
 

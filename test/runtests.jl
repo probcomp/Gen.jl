@@ -76,6 +76,7 @@ end
 
 const dx = 1e-6
 
+include("optimization.jl")
 include("autodiff.jl")
 include("diff.jl")
 include("selection.jl")

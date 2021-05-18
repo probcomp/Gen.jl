@@ -375,7 +375,7 @@ Thread-safe (multiple threads can increment the gradient of the same parameter c
 function increment_gradient!(
         id::Tuple{GenerativeFunction,Symbol}, increment,
         store::JuliaParameterStore=default_julia_parameter_store)
-    accumulator = get_gradient_accumulator(store, id)
+    accumulator = get_gradient_accumulator(id, store)
     in_place_add!(accumulator, increment)
     return nothing
 end
@@ -555,5 +555,3 @@ function assess(gen_fn::GenerativeFunction, args::Tuple, choices::ChoiceMap)
 end
 
 propose(gen_fn::GenerativeFunction, args::Tuple) = propose(gen_fn, args, default_parameter_context)
-
-

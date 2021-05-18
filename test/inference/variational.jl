@@ -17,40 +17,46 @@
     end
     register_parameters!(approx, [:slope_mu, :slope_log_std, :intercept_mu, :intercept_log_std])
 
-    # to regular black box variational inference
-    init_parameter!((approx, :slope_mu), 0.0)
-    init_parameter!((approx, :slope_log_std), 0.0)
-    init_parameter!((approx, :intercept_mu), 0.0)
-    init_parameter!((approx, :intercept_log_std), 0.0)
-
     observations = choicemap()
-    optimizer = init_optimizer(DecayStepGradientDescent(1, 100000), approx)
     optimizer = init_optimizer(DecayStepGradientDescent(1., 1000), approx)
-    black_box_vi!(model, (), observations, approx, (), optimizer;
-        iters=2000, samples_per_iter=100, verbose=false)
-    slope_mu = get_parameter_value((approx, :slope_mu))
-    slope_log_std = get_parameter_value((approx, :slope_log_std))
-    intercept_mu = get_parameter_value((approx, :intercept_mu))
-    intercept_log_std = get_parameter_value((approx, :intercept_log_std))
-    @test isapprox(slope_mu, -1., atol=0.001)
-    @test isapprox(slope_log_std, 0.5, atol=0.001)
-    @test isapprox(intercept_mu, 1., atol=0.001)
-    @test isapprox(intercept_log_std, 2.0, atol=0.001)
+
+    # test regular black box variational inference
+    for multithreaded in [false, true]
+        init_parameter!((approx, :slope_mu), 0.0)
+        init_parameter!((approx, :slope_log_std), 0.0)
+        init_parameter!((approx, :intercept_mu), 0.0)
+        init_parameter!((approx, :intercept_log_std), 0.0)
+        black_box_vi!(model, (), observations, approx, (), optimizer;
+            iters=2000, samples_per_iter=100, verbose=false, multithreaded=multithreaded)
+
+        slope_mu = get_parameter_value((approx, :slope_mu))
+        slope_log_std = get_parameter_value((approx, :slope_log_std))
+        intercept_mu = get_parameter_value((approx, :intercept_mu))
+        intercept_log_std = get_parameter_value((approx, :intercept_log_std))
+        @test isapprox(slope_mu, -1., atol=0.001)
+        @test isapprox(slope_log_std, 0.5, atol=0.001)
+        @test isapprox(intercept_mu, 1., atol=0.001)
+        @test isapprox(intercept_log_std, 2.0, atol=0.001)
+    end
 
     # smoke test for black box variational inference with Monte Carlo objectives
-    init_parameter!((approx, :slope_mu), 0.0)
-    init_parameter!((approx, :slope_log_std), 0.0)
-    init_parameter!((approx, :intercept_mu), 0.0)
-    init_parameter!((approx, :intercept_log_std), 0.0)
-    black_box_vimco!(model, (), observations, approx, (), optimizer, 20;
-        iters=50, samples_per_iter=100, verbose=false, geometric=false)
-
-    init_parameter!((approx, :slope_mu), 0.0)
-    init_parameter!((approx, :slope_log_std), 0.0)
-    init_parameter!((approx, :intercept_mu), 0.0)
-    init_parameter!((approx, :intercept_log_std), 0.0)
-    black_box_vimco!(model, (), observations, approx, (), optimizer, 20;
-        iters=50, samples_per_iter=100, verbose=false, geometric=true)
+    for multithreaded in [false, true]
+        init_parameter!((approx, :slope_mu), 0.0)
+        init_parameter!((approx, :slope_log_std), 0.0)
+        init_parameter!((approx, :intercept_mu), 0.0)
+        init_parameter!((approx, :intercept_log_std), 0.0)
+        black_box_vimco!(model, (), observations, approx, (), optimizer, 20;
+            iters=50, samples_per_iter=100, verbose=false, geometric=false,
+            multithreaded=multithreaded)
+    
+        init_parameter!((approx, :slope_mu), 0.0)
+        init_parameter!((approx, :slope_log_std), 0.0)
+        init_parameter!((approx, :intercept_mu), 0.0)
+        init_parameter!((approx, :intercept_log_std), 0.0)
+        black_box_vimco!(model, (), observations, approx, (), optimizer, 20;
+            iters=50, samples_per_iter=100, verbose=false, geometric=true,
+            multithreaded=multithreaded)
+    end
 
 end
 
