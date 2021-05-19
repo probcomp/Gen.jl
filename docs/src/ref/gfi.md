@@ -344,6 +344,7 @@ A generative function statically reports whether or not it is able to compute gr
 The **trainable parameters** of a generative function are (unlike arguments and random choices) *state* of the generative function itself, and are not contained in the trace.
 Generative functions that have trainable parameters maintain *gradient accumulators* for these parameters, which get incremented by the gradient induced by the given trace by a call to [`accumulate_param_gradients!`](@ref).
 Users then use these accumulated gradients to update to the values of the trainable parameters.
+Use [`get_parameters`](@ref) to obtain the full set of trainable parameters that a generative function uses (see [Optimizing Trainable Paramters](@ref) for more details).
 
 ### Return value gradient
 The set of elements (either arguments, random choices, or trainable parameters) for which gradients are available is called the **gradient source set**.
@@ -371,5 +372,5 @@ has_argument_grads
 accepts_output_grad
 accumulate_param_gradients!
 choice_gradients
-get_params
+get_parameters
 ```

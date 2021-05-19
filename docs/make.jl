@@ -29,7 +29,6 @@ makedocs(
             "Learning Generative Functions" => "ref/learning.md"
         ],
         "Internals" => [
-            "Optimizing Trainable Parameters" => "ref/internals/parameter_optimization.md",
             "Modeling Language Implementation" => "ref/internals/language_implementation.md"
          ]
     ]

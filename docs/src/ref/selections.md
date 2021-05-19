@@ -55,5 +55,4 @@ AllSelection
 HierarchicalSelection
 DynamicSelection
 StaticSelection
-ComplementSelection
 ```

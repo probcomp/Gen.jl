@@ -6,7 +6,7 @@
 Pages = [
     "getting_started.md",
     "tutorials.md",
-    "guide.md",
+    "guide.md"
 ]
 Depth = 2
 ```
@@ -21,8 +21,8 @@ Pages = [
     "ref/parameter_optimization.md",
     "ref/inference.md",
     "ref/gfi.md",
-    "ref/distributions.md"
-    "ref/extending.md",
+    "ref/distributions.md",
+    "ref/extending.md"
 ]
 Depth = 2
 ```
