@@ -8,8 +8,7 @@ mutable struct GFGenerateState
 
     function GFGenerateState(gen_fn, args, constraints, parameter_context)
         parameter_store = get_julia_store(parameter_context)
-        registered_julia_parameters = Set{Tuple{GenerativeFunction,Symbol}}(
-            get_parameters(gen_fn, parameter_context)[parameter_store])
+        registered_julia_parameters = get_parameters(gen_fn, parameter_context)[parameter_store]
         trace = DynamicDSLTrace(
             gen_fn, args, parameter_store, parameter_context, registered_julia_parameters)
         return new(trace, constraints, 0., AddressVisitor(), gen_fn, parameter_context)

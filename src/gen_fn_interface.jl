@@ -124,7 +124,9 @@ get_return_type(::GenerativeFunction{T,U}) where {T,U} = T
 get_trace_type(::GenerativeFunction{T,U}) where {T,U} = U
 
 """
-    parameters::Dict{ParameterStore,Vector} = get_parameters(gen_fn::GenerativeFunction, parameter_context)
+    parameters::Dict{ParameterStore,Set} = get_parameters(
+        gen_fn::GenerativeFunction,
+        parameter_context=default_parameter_context)
 
 Returns the parameters used by the generative function (including all of its calls).
 """

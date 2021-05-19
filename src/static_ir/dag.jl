@@ -205,13 +205,20 @@ function set_accepts_output_grad!(builder::StaticIRBuilder, value::Bool)
 end
 
 function get_parameters(ir::StaticIR, gen_fn::GenerativeFunction, parameter_context)
-    parameters = Dict()
-    for call_node in ir.call_nodes
-        merge!(parameters, get_parameters(call_node.generative_function, parameter_context))
-    end
     julia_store = get_julia_store(parameter_context)
+    parameters = Dict(julia_store => Set{Tuple{GenerativeFunction,Symbol}}())
     for param_node in ir.trainable_param_nodes
-        parameters[store] = (gen_fn, param_node.name)
+        push!(parameters[julia_store], (gen_fn, param_node.name))
+    end
+    for call_node in ir.call_nodes
+        callee_parameters = get_parameters(call_node.generative_function, parameter_context)
+        for (store, ids::Set) in callee_parameters
+            if haskey(parameters, store)
+                union!(parameters[store], ids)
+            else
+                parameters[store] = ids
+            end
+        end
     end
     return parameters
 end

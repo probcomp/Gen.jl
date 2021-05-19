@@ -17,7 +17,7 @@ mutable struct DynamicDSLFunction{T} <: GenerativeFunction{T,DynamicDSLTrace}
     julia_function::Function
     has_argument_grads::Vector{Bool}
     accepts_output_grad::Bool
-    parameters::Union{Vector,Function}
+    parameters::Union{Set{Tuple{GenerativeFunction,Symbol}},Function}
 end
 
 function DynamicDSLFunction(arg_types::Vector{Type},
@@ -29,28 +29,19 @@ function DynamicDSLFunction(arg_types::Vector{Type},
     return DynamicDSLFunction{T}(arg_types,
                 has_defaults, arg_defaults,
                 julia_function,
-                has_argument_grads, accepts_output_grad, [])
+                has_argument_grads, accepts_output_grad,
+                Set{Tuple{GenerativeFunction,Symbol}}())
 end
 
 function get_parameters(gen_fn::DynamicDSLFunction, parameter_context)
-    if isa(gen_fn.parameters, Vector)
+    if isa(gen_fn.parameters, Set)
         julia_store = get_julia_store(parameter_context)
-        parameter_stores_to_ids = Dict{Any,Vector}()
-        parameter_ids = Tuple{GenerativeFunction,Symbol}[]
-        for param in gen_fn.parameters
-            if isa(param, Tuple{GenerativeFunction,Symbol})
-                push!(parameter_ids, param)
-            elseif isa(param, Symbol)
-                push!(parameter_ids, (gen_fn, param))
-            else
-                throw(ArgumentError("Invalid parameter declaration for DML generative function $gen_fn: $param"))
-            end
-        end
-        parameter_stores_to_ids[julia_store] = parameter_ids
+        parameter_stores_to_ids = Dict{Any,Set}(julia_store => gen_fn.parameters)
         return parameter_stores_to_ids
     elseif isa(gen_fn.parameters, Function)
         return gen_fn.parameters(parameter_context)
     end
+    @assert false
 end
 
 """
@@ -60,13 +51,25 @@ Register the trainable parameters that used by a DML generative function.
 
 This includes all parameters used within any calls made by the generative function, and includes any parameters that may be used by any possible trace (stochastic control flow may cause a parameter to be used by one trace but not another).
 
-The second argument is either a `Vector` or a `Function` that takes a parameter context and returns a `Dict` that maps parameter stores to `Vector`s of parameter IDs.
-When the second argument is a `Vector`, each element is either a `Symbol` that is the name of a parameter declared in the body of `gen_fn` using `@param`, or is a tuple `(other_gen_fn::GenerativeFunction, name::Symbol)` where `@param <name>` was declared in the body of `other_gen_fn`.
+The second argument is either an iterable collection or a `Function` that takes a parameter context and returns a `Dict` that maps parameter stores to `Set`s of parameter IDs.
+When the second argument is an iterable collection, each element is either a `Symbol` that is the name of a parameter declared in the body of `gen_fn` using `@param`, or is a tuple `(other_gen_fn::GenerativeFunction, name::Symbol)` where `@param <name>` was declared in the body of `other_gen_fn`.
 The `Function` input is used when `gen_fn` uses parameters that come from more than one parameter store, including parameters that are housed in parameter stores that are not `JuliaParameterStore`s (e.g. if `gen_fn` invokes a generative function that executes in another non-Julia runtime).
 See [Optimizing Trainable Parameters](@ref) for details on parameter contexts, and parameter stores.
 """
-function register_parameters!(gen_fn::DynamicDSLFunction, parameters)
+function register_parameters!(gen_fn::DynamicDSLFunction, parameters::Function)
     gen_fn.parameters = parameters
+end
+function register_parameters!(gen_fn::DynamicDSLFunction, parameters)
+    gen_fn.parameters = Set{Tuple{GenerativeFunction,Symbol}}()
+    for param in parameters
+        if isa(param, Tuple{GenerativeFunction,Symbol})
+            push!(gen_fn.parameters, param)
+        elseif isa(param, Symbol)
+            push!(gen_fn.parameters, (gen_fn, param))
+        else
+            throw(ArgumentError("Invalid parameter declaration for DML generative function $gen_fn: $param"))
+        end
+    end
     return nothing
 end
 

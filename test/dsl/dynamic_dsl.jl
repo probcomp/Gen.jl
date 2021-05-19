@@ -297,6 +297,13 @@ end
     end
     register_parameters!(foo, [(bar, :theta1), :theta2])
 
+    store_to_ids = Gen.get_parameters(foo, Gen.default_parameter_context)
+    @test length(store_to_ids) == 1
+    ids = store_to_ids[Gen.default_julia_parameter_store]
+    @test length(ids) == 2
+    @test (foo, :theta2) in ids
+    @test (bar, :theta1) in ids
+
     init_parameter!((bar, :theta1), 0.0)
     init_parameter!((foo, :theta2), 0.0)
 

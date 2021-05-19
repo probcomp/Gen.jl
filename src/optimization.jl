@@ -538,6 +538,10 @@ The default global parameter context, which is initialized to contain the mappin
 const default_parameter_context = Dict{Symbol,Any}(
     JULIA_PARAMETER_STORE_KEY => default_julia_parameter_store)
 
+function get_parameters(gen_fn::GenerativeFunction)
+    return get_parameters(gen_fn, default_parameter_context)
+end
+
 function simulate(gen_fn::GenerativeFunction, args::Tuple)
     return simulate(gen_fn, args, default_parameter_context)
 end
