@@ -186,7 +186,7 @@ struct CompositeOptimizer
     function CompositeOptimizer(conf, parameter_stores_to_ids)
         optimizers = Dict{Any,Any}()
         for (store, parameter_ids) in parameter_stores_to_ids
-            optimizers[store] = init_optimizer(conf, parameter_ids, store)
+            optimizers[store] = init_optimizer(conf, collect(parameter_ids), store)
         end
         new(conf, optimizers)
     end
@@ -214,7 +214,7 @@ end
 Convenience method that constructs an optimizer that updates all parameters used by the given generative function, even when the parameters exist in multiple parameter stores.
 """
 function init_optimizer(
-        conf::T, gen_fn::GenerativeFunction; parameter_context=default_parameter_context) where {T}
+        conf, gen_fn::GenerativeFunction; parameter_context=default_parameter_context)
     return CompositeOptimizer(conf, get_parameters(gen_fn, parameter_context))
 end
 
