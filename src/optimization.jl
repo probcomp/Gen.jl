@@ -304,7 +304,10 @@ function init_parameter!(
         store.values[gen_fn] = Dict{Symbol,Any}()
     end
     store.values[gen_fn][name] = value
-    reset_gradient!(id, store)
+    if !haskey(store.gradient_accumulators, gen_fn)
+        store.gradient_accumulators[gen_fn] = Dict{Symbol,Any}()
+    end
+    store.gradient_accumulators[gen_fn][name] = Accumulator(zero(value))
     return nothing
 end
 
