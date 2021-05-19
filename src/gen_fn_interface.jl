@@ -124,13 +124,18 @@ get_return_type(::GenerativeFunction{T,U}) where {T,U} = T
 get_trace_type(::GenerativeFunction{T,U}) where {T,U} = U
 
 """
-    parameters::Dict{ParameterStore,Set} = get_parameters(
+    parameters::Dict{Any,Set} = get_parameters(
         gen_fn::GenerativeFunction,
         parameter_context=default_parameter_context)
 
 Returns the parameters used by the generative function (including all of its calls).
+
+The parameters are returned in a `Dict` that maps parameter stores to sets of
+parameter IDs within each store.
 """
-function get_parameters end
+function get_parameters(gen_fn::GenerativeFunction, parameter_context)
+    return Dict{Any,Set}()
+end
 
 """
     bools::Tuple = has_argument_grads(gen_fn::Union{GenerativeFunction,Distribution})
