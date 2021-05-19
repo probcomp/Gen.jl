@@ -213,7 +213,8 @@ end
 
 Convenience method that constructs an optimizer that updates all parameters used by the given generative function, even when the parameters exist in multiple parameter stores.
 """
-function init_optimizer(conf, gen_fn::GenerativeFunction; parameter_context=default_parameter_context)
+function init_optimizer(
+        conf::T, gen_fn::GenerativeFunction; parameter_context=default_parameter_context) where {T}
     return CompositeOptimizer(conf, get_parameters(gen_fn, parameter_context))
 end
 
