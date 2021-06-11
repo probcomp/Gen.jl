@@ -44,9 +44,6 @@ Building blocks for [modular probabilistic inference](https://arxiv.org/abs/1612
 #### [GenVariableElimination](https://github.com/probcomp/GenVariableElimination.jl)
 Compile portions of traces into factor graphs and use variable elimination on them.
 
-#### [GenHMM](https://github.com/probcomp/GenHMM.jl)
-Domain-specific modeling library for fast inference in hidden Markov models.
-
 #### [Gen2DAgentMotion](https://github.com/probcomp/Gen2DAgentMotion.jl)
 Components for building generative models of the motion of an agent moving around a 2D environment.
 
