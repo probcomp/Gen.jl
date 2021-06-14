@@ -1,0 +1,138 @@
+\documentclass{article}
+\usepackage{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{url}
+
+% bibliography
+\PassOptionsToPackage{numbers, compress}{natbib}
+\usepackage{natbib}
+
+\newcommand{\reals}{\mathbb{R}}
+\newcommand{\normal}{\mathcal{N}}
+\newcommand{\pathx}{x}
+\newcommand{\pathy}{y}
+\newcommand{\measx}{\tilde{x}}
+\newcommand{\measy}{\tilde{y}}
+
+\newtheorem{prop}{Proposition}
+
+\title{Formalizing Gen Selections}
+\author{Marco Cusumano-Towner}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\paragraph{Address keys}
+Let $K$ denote a countably infinite set of possible \emph{address keys}.
+Note that in the Gen Julia implementation, address keys are typically either Julia \texttt{String}, Julia \texttt{Symbol}, or Julia \texttt{Int}, of Julia \texttt{Tuple}s of these types, the union of which is a countably infinite set,
+but the Gen implementation does not currently restrict address keys to only be of these types.
+As a concrete example of a countably infinite set of address keys that is simpler than the set that is actually used in the Gen Julia implementation,
+consider the set of all strings that can be formed using some finite alphabet $\Sigma = \{\mathtt{a}, \mathtt{b}, \ldots, \mathtt{z}\}$:
+\[
+    K := \Sigma^*
+\]
+
+\paragraph{Addresses}
+Given a set of address keys $K$, the set of possible addresses $\mathcal{A}$ is the set of all sequences $[k_1, \ldots, k_n]$ of elements in $K$:
+\[
+    \mathcal{A} := K^*
+\]
+When $K$ is non-empty, $\mathcal{A}$ is a countably infinite set and when $K$ is empty, $\mathcal{A}$ contains only $[\,]$.
+We define an \emph{address concatenation} operation $\frown : \mathcal{A} \to \mathcal{A}$ as:
+\[
+    [k_1, \ldots, k_n] \frown [\ell_1, \ldots, \ell_m] := [k_1, \ldots, k_n, \ell_1, \ldots, \ell_m]
+\]
+
+\paragraph{Selections}
+A \emph{selection} $S$ is a set of addresses:
+\[
+    S \subseteq \mathcal{A}
+\]
+That is set of selections is the power set of $\mathcal{A}$ (denoted $\mathcal{P}(\mathcal{A})$).
+All selections support testing $a \in S$ for any $a \in \mathcal{A}$.
+Gen provides several ways to construct selections:
+\begin{enumerate}
+\item The selection $\mathcal{A}$ is provided as a constant called the \emph{all selection}.
+\item Given any finite set of tuples $\{(k_1, S_i), \ldots, (k_n, S_n)\}$ where each $k_i \in K$ is unique and where each $S_i \subseteq \mathcal{A}$,
+a \emph{hierarchical selection} $H \subseteq \mathcal{A}$ can be constructed as follows:
+\[
+    H = \bigcup_{i=1}^n \{[k_i] \frown a : a \in S_i\}
+\]
+\item Taking the union of two selections $S_1$ and $S_2$ ($S = S_1 \cup S_2$)
+\item Taking the complement of a selection $S_1$ ($S = S_1^{\mathsf{C}}$)
+\item Talking the intersection of two selections $S_2$ and $S_2$ (note that this can be reduced to taking unions and complements, but we intentionally list it as a separate constructor)
+\item Using $(S, a) \mapsto S[a] \subseteq \mathcal{A}$ for $a \in \mathcal{A}$ where $S[a]$ is defined as
+the selection that contains the suffix of each address in $S$ for which $a$ is a prefix:
+\[
+    S[a] := \{b \in \mathcal{A} : a \frown b \in S\} \subseteq \mathcal{A} 
+\]
+\end{enumerate}
+Note that $S[[\,]] = \{b \in \mathcal{A} : [\,] \frown b \in S\} = S$.
+Note that the empty selection $\varnothing$ is a special case of a hierarchical selection constructed from an empty set of tuples.
+Note that all selections that can be constructed using the above constructors are either \emph{empty} or \emph{infinite}:
+when users of Gen select a single address $a$, they are actually constructing a nested hierarchical selection where the last hierarchical selection has a single tuple $\{(k, \mathcal{A})\}$.
+This is because Gen traces never store a random choice at an address that is the prefix of any other random choice's address.
+
+\paragraph{Selections excluding complements}
+Consider the set of selections $\mathcal{H}(\mathcal{A}) \subset \mathcal{P}(\mathcal{A})$ that can be constructed recursively via all of the construction rules \emph{excluding complements}.
+Every $S \in \mathcal{H}(\mathcal{A})$ is either $\mathcal{A}$
+or is a hierarchical selection constructed by tuples $(k_i, S_i)$ where each $S_i \in \mathcal{H}(\mathcal{A})$.
+This can be shown inductively.
+It suffices to consider the union, intersection, and $S[a]$ constructors:
+For the union constructor, $\mathcal{A} \cup \mathcal{A} = H \cup \mathcal{A} = \mathcal{A} \in \mathcal{H}(\mathcal{A})$, and
+\[
+H \cup H' =
+\left( \bigcup_{i \in I} \{[k_i] \frown a : a \in S_i\} \right)
+\bigcup
+\left( \bigcup_{i \in I'} \{[k_i'] \frown a : a \in S_i'\} \right)
+\]
+is in $\mathcal{H}(\mathcal{A})$ because it is a hierarchical selection formed by a set of tuples of the form
+$(k, S \cup S')$ where $k$ ranges over all keys in either $H$ or $H'$ and where $S, S' \in \mathcal{H}(\mathcal{A})$;
+and similarly for the intersection constructor but where $H \cap H'$ is constructed from a set tuples of the form $(k, S \cap S')$.
+Finally, $\mathcal{A}[a] = \mathcal{A}$ for all $a \in \mathcal{A}$, and for hierarchical selections $H$ we have:
+$H[[k] \frown a] = S'[a]$ if a tuple $(k, S')$ is included in the constructor for $H$ and otherwise $H[[k] \frown a] = \varnothing$.
+
+The set $\mathcal{H}(\mathcal{A})$ is a useful class of selections because they efficiently support
+the following additional operations beyond the ability to test inclusion:
+\begin{enumerate}
+\item \emph{Testing if a selection is $\mathcal{A}$}.
+Note that the only way to construct $\mathcal{A}$ is by either
+(i) using the constant constructor,
+(ii) taking the union of $\mathcal{A}$ with an element of $\mathcal{H}(\mathcal{A})$, or
+(iii) taking $\mathcal{A}[a]$ for any $a$ or taking $H[[k]]$ where $(k, \mathcal{A})$ is in the tuple set for $H$, or by taking $H'[a']$ recursively where $a = [k] \frown a'$ and $(k, H')$ is in the tuple set for $H$.
+Therefore whether or not an element of $\mathcal{H}(\mathcal{A})$ is equal to $\mathcal{A}$ is implemented as a constant-time test of equivalence with the $\mathcal{A}$ singleton.
+\item \emph{Testing if a selection is empty:}
+$S \mapsto (|S| = 0)$.
+For $\mathcal{A}$, we have $|\mathcal{A}| > 0$.
+A hierarchical selection $H$ constructed from tuples $(k_i, S_i)$ is empty if and only if 
+each $S_i$ is empty.
+Since a hierarchical selection with a tuple $(k_i, \varnothing)$ is equivalent to the hierarchical selection with that tuple removed,
+and since we can recursively test whether each $S_i$ is empty, the implementation of the hierarachical selection constructor simplifies away empty $S_i$, and
+we can therefore later test for emptiness in constant time simply by checking whether there are any tuples or not.
+\item
+\emph{Deconstructing a hierarchical selection} into its constitutent components:
+\[
+V(H) := \{(k_1, S_1), \ldots, (k_n, S_n)\}
+\]
+for some $n \in \{0, 1, 2, \ldots\}$
+where $k_i \in K$ and $S_i \in \mathcal{H}(\mathcal{A})$ for all $i$.
+Note that this operation is an error for $\mathcal{A}$ (that is $V(\mathcal{A}) := \bot$) because the set of constituent tuples would be infinite.
+Recall that it is possible to test whether a selection is $\mathcal{A}$ by a separate operation above.
+\end{enumerate}
+These operations are non-trivial for selections that are constructed using complements,
+and so we do not implement these operations for such selections.
+
+%TODO: Is there a way to maintain a simplified symbolic representation that includes complements in a canonical representation that
+%(i) maintains compactness, and
+%(ii) supports all of the operations reasonably efficiently
+
+\bibliographystyle{unsrt}
+\bibliography{references} 
+
+
+\end{document}
