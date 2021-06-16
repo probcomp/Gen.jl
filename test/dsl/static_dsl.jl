@@ -83,6 +83,24 @@ end
 @load_generated_functions
 end
 
+# for testing that macros can generate SML function definitions
+macro make_foo_sml()
+    return quote
+        @gen (static) function foo_in_macro()
+            a = 1
+            return a + 1
+        end
+    end
+end
+
+# for testing that Julia expressions inside SML functions can
+# depend on variables defined in external lexical scope
+external_var = 1
+@gen (static) function uses_external()
+    return external_var + 1
+end
+@load_generated_functions()
+
 @testset "static DSL" begin
 
 function get_node_by_name(ir, name::Symbol)
@@ -601,6 +619,16 @@ ch = get_choices(tr)
 @test get_submap(ch, :y) == EmptyChoiceMap()
 @test length(get_values_shallow(ch)) == 1
 @test length(get_submaps_shallow(ch)) == 1
+end
+
+@testset "returning a SML function from macro" begin
+@make_foo_sml()
+Gen.load_generated_functions()
+@test get_retval(simulate(foo_in_macro, ())) == 2
+end # @testset
+
+@testset "using an externally-defined variable" begin
+@test uses_external() == 2
 end
 
 end # @testset "static DSL"
