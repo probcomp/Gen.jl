@@ -101,7 +101,7 @@ function parse_trace_expr!(stmts, bindings, fn, args, addr, __module__)
     return name
 end
 
-function set_external_vars_module(expr, bindings, __module__)
+function set_module_for_global_constants(expr, bindings, __module__)
     expr = MacroTools.postwalk(expr) do e
         if MacroTools.@capture(e, var_Symbol) && !haskey(bindings, var) && var != :end
             :($__module__.$var)
@@ -119,7 +119,7 @@ function parse_julia_expr!(stmts, bindings, name::Symbol, expr::Expr,
     inputs = collect(resolved)
     input_vars = map((x) -> x[1], inputs)
     input_nodes = map((x) -> esc(x[2]), inputs)
-    expr = set_external_vars_module(expr, bindings, __module__)
+    expr = set_module_for_global_constants(expr, bindings, __module__)
     fn = Expr(:function, Expr(:tuple, input_vars...), expr)
     node = gensym(name)
     push!(stmts, :($(esc(node)) = add_julia_node!(
