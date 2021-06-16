@@ -461,7 +461,7 @@ The functions are also subject to the following restrictions:
 
 - Default argument values are not supported.
 
-- Julia closures are not allowed.
+- Constructing named or anonymous Julia functions (and closures) is not allowed.
 
 - List comprehensions with internal `@trace` calls are not allowed.
 

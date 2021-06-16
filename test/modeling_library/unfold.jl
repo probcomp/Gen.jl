@@ -1,15 +1,15 @@
+std = 1.0
+
+@gen (static) function kernel(t::Int, x_prev::Float64, (grad)(alpha::Float64), (grad)(beta::Float64))
+    x = @trace(normal(x_prev * alpha + beta, std), :x)
+    return x
+end
+
+foo = Unfold(kernel)
+
+@load_generated_functions()
+
 @testset "unfold combinator" begin
-
-    std = 1.0
-
-    @gen (static) function kernel(t::Int, x_prev::Float64, (grad)(alpha::Float64), (grad)(beta::Float64))
-        x = @trace(normal(x_prev * alpha + beta, std), :x)
-        return x
-    end
-
-    Gen.load_generated_functions()
-
-    foo = Unfold(kernel)
 
     @testset "Julia call" begin
         @test length(foo(5, 0., 1.0, 1.0)) == 5

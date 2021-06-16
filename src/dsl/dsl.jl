@@ -147,7 +147,7 @@ function parse_gen_function(ast, annotations, __module__)
     return_type = get(def, :rtype, :Any)
     static = DSL_STATIC_ANNOTATION in annotations
     if static
-        make_static_gen_function(name, args, body, return_type, annotations)
+        make_static_gen_function(name, args, body, return_type, annotations, __module__)
     else
         args = map(a -> resolve_grad_arg(a, __module__), args)
         make_dynamic_gen_function(name, args, body, return_type, annotations)
