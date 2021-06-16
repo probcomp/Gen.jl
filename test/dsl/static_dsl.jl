@@ -95,11 +95,15 @@ end
 
 # for testing that Julia expressions inside SML functions can
 # depend on variables defined in external lexical scope
+module MyModuleC
+using Gen: @gen, @load_generated_functions
 external_var = 1
 @gen (static) function uses_external()
     return external_var + 1
 end
+
 @load_generated_functions()
+end
 
 @testset "static DSL" begin
 
@@ -627,8 +631,8 @@ Gen.load_generated_functions()
 @test get_retval(simulate(foo_in_macro, ())) == 2
 end # @testset
 
-@testset "using an externally-defined variable" begin
-@test uses_external() == 2
+@testset "global variables" begin
+@test MyModuleC.uses_external() == 2
 end
 
 end # @testset "static DSL"
