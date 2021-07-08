@@ -50,14 +50,6 @@ pkg> add Gen
 ```
 
 <br>
-# Gen is an open-source academic project
-{: class="homepage"}
-
-If you use Gen in your research, please cite our PLDI paper:
-
-Gen: A General-Purpose Probabilistic Programming System with Programmable Inference. Cusumano-Towner, M. F.; Saad, F. A.; Lew, A.; and Mansinghka, V. K. In Proceedings of the 40th ACM SIGPLAN Conference on Programming Language Design and Implementation (PLDI ‘19). ([pdf](https://dl.acm.org/doi/10.1145/3314221.3314642)) ([bibtex](assets/gen-pldi.txt))
-
-<br>
 # Institutions using Gen
 {: class="homepage"}
 
@@ -86,5 +78,9 @@ Gen: A General-Purpose Probabilistic Programming System with Programmable Infere
 Gen.jl was created by [Marco Cusumano-Towner](https://www.mct.dev) the [MIT Probabilistic Computing Project](http://probcomp.csail.mit.edu/), which is led by [Vikash Mansinghka](http://probcomp.csail.mit.edu/principal-investigator/).
 Gen.jl has grown and is maintained through the help of a core research and engineering team that includes Ben Zinberg, [Alex Lew](http://alexlew.net/), [Tan Zhi-Xuan](https://github.com/ztangent/), and [George Matheos](https://www.linkedin.com/in/george-matheos-429982160/), as well as a number of open-source [contributors](https://github.com/probcomp/Gen.jl/graphs/contributors).
 The Gen architecture is described in Marco's [PhD thesis](https://www.mct.dev/assets/mct-thesis.pdf).
+
+If you use Gen in your research, please cite our PLDI paper:
+
+Gen: A General-Purpose Probabilistic Programming System with Programmable Inference. Cusumano-Towner, M. F.; Saad, F. A.; Lew, A.; and Mansinghka, V. K. In Proceedings of the 40th ACM SIGPLAN Conference on Programming Language Design and Implementation (PLDI ‘19). ([pdf](https://dl.acm.org/doi/10.1145/3314221.3314642)) ([bibtex](assets/gen-pldi.txt))
 
 <br>
