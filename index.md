@@ -15,7 +15,7 @@ Gen helps users write hybrid algorithms that combine neural networks, variationa
 
 ### Gen allows users to flexibly navigate performance trade-offs
 {: class="homepage"}
-Gen features an easy-to-use modeling language for writing down generative models, inference models, variational families, and proposal distributions using ordinary Julia code. 
+Gen features an easy-to-use modeling language for writing down generative models, inference models, variational families, and proposal distributions using ordinary code. 
 But it also lets users migrate parts of their model or inference algorithm to specialized modeling languages for which it can generate especially fast code.
 Users can also hand-code parts of their models that demand better performance.
 
@@ -39,7 +39,8 @@ Gen's unique support for custom reversible jump and [involutive MCMC](https://ar
 {: class="homepage"}
 
 <br>
-First, [download Julia](https://julialang.org/downloads/).
+We maintain a Julia implementation of the Gen architecture, and we are currently working on porting Gen to other languages.
+To install the Julia implementation of Gen, [download Julia](https://julialang.org/downloads/).
 Then, install the Gen package with the Julia package manager:
 
 From the Julia REPL, type `]` to enter the Pkg REPL mode and then run:
@@ -79,10 +80,11 @@ Gen: A General-Purpose Probabilistic Programming System with Programmable Infere
 </div>
 
 <br>
-# The Gen team
+# The Gen.jl team
 {: class="homepage"}
 
-Gen was created by [Marco Cusumano-Towner](https://www.mct.dev) at the [MIT Probabilistic Computing Project](http://probcomp.csail.mit.edu/), which is led by [Vikash Mansinghka](http://probcomp.csail.mit.edu/principal-investigator/).
-Gen continues to actively grow with the help of a core research and engineering team that includes Ben Zinberg, [Alex Lew](http://alexlew.net/), [Tan Zhi-Xuan](https://github.com/ztangent/), and [George Matheos](https://www.linkedin.com/in/george-matheos-429982160/), as well as a number of open-source [contributors](https://github.com/probcomp/Gen.jl/graphs/contributors).
+Gen.jl was created by [Marco Cusumano-Towner](https://www.mct.dev) the [MIT Probabilistic Computing Project](http://probcomp.csail.mit.edu/), which is led by [Vikash Mansinghka](http://probcomp.csail.mit.edu/principal-investigator/).
+Gen.jl has grown and is maintained through the help of a core research and engineering team that includes Ben Zinberg, [Alex Lew](http://alexlew.net/), [Tan Zhi-Xuan](https://github.com/ztangent/), and [George Matheos](https://www.linkedin.com/in/george-matheos-429982160/), as well as a number of open-source [contributors](https://github.com/probcomp/Gen.jl/graphs/contributors).
+The Gen architecture is described in Marco's [PhD thesis](https://www.mct.dev/assets/mct-thesis.pdf).
 
 <br>
