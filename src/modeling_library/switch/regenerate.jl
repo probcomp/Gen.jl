@@ -53,8 +53,8 @@ function regenerate(trace::SwitchTrace{T},
                     argdiffs::Tuple,
                     selection::Selection) where T
     gen_fn = trace.gen_fn
-    index, index_argdiff = args[1], argdiffs[1]
+    index, index_argdiff = trace.index, NoChange()
     state = SwitchRegenerateState{T}(0.0, 0.0, 0.0, trace)
-    process!(gen_fn, index, index_argdiff, args[2 : end], argdiffs[2 : end], selection, state)
+    process!(gen_fn, index, index_argdiff, args, argdiffs, selection, state)
     return SwitchTrace(gen_fn, state.index, state.trace, get_retval(state.trace), args, state.score, state.noise), state.weight, state.retdiff
 end
