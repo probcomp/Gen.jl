@@ -28,5 +28,7 @@ function simulate(gen_fn::Switch{C, N, K, T},
     index = args[1]
     state = SwitchSimulateState{T}(0.0, 0.0)
     process!(gen_fn, index, args[2 : end], state)
-    return SwitchTrace{T}(gen_fn, state.index, state.subtrace, state.retval, args[2 : end], state.score, state.noise)
+    return SwitchTrace(gen_fn, state.subtrace, 
+                       state.retval, args, 
+                       state.score, state.noise)
 end

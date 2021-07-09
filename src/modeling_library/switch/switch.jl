@@ -29,6 +29,7 @@ function (gen_fn::Switch{C})(index::C, args...) where C
     retval
 end
 
+include("trace.jl")
 include("assess.jl")
 include("propose.jl")
 include("simulate.jl")

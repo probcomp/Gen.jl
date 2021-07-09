@@ -129,13 +129,16 @@ end
 
 @inline process!(gen_fn::Switch{C, N, K, T}, index::C, index_argdiff::Diff, args::Tuple, kernel_argdiffs::Tuple, choices::ChoiceMap, state::SwitchUpdateState{T}) where {C, N, K, T} = process!(gen_fn, getindex(gen_fn.cases, index), index_argdiff, args, kernel_argdiffs, choices, state)
 
-function update(trace::SwitchTrace{T},
+function update(trace::SwitchTrace{A, T, U},
         args::Tuple, 
         argdiffs::Tuple,
-        choices::ChoiceMap) where T
+        choices::ChoiceMap) where {A, T, U}
     gen_fn = trace.gen_fn
     index, index_argdiff = args[1], argdiffs[1]
     state = SwitchUpdateState{T}(0.0, 0.0, 0.0, trace)
-    process!(gen_fn, index, index_argdiff, args[2 : end], argdiffs[2 : end], choices, state)
-    return SwitchTrace(gen_fn, state.index, state.trace, get_retval(state.trace), args, state.score, state.noise), state.weight, state.updated_retdiff, state.discard
+    process!(gen_fn, index, index_argdiff, 
+             args[2 : end], argdiffs[2 : end], choices, state)
+    return SwitchTrace(gen_fn, state.trace, 
+                       get_retval(state.trace), args, 
+                       state.score, state.noise), state.weight, state.updated_retdiff, state.discard
 end
