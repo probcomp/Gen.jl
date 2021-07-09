@@ -9,7 +9,7 @@
 
     @testset "switch trace" begin
         tr = simulate(swtrg, ())
-        swtr = Gen.SwitchTrace(swtrg, 1, tr, get_retval(tr), (), get_score(tr), 0.0)
+        swtr = Gen.SwitchTrace(swtrg, tr, get_retval(tr), (1, ), get_score(tr), 0.0)
         @test swtr[:z] == tr[:z]
         @test project(swtr, AllSelection()) == project(swtr.branch, AllSelection())
         @test project(swtr, EmptySelection()) == swtr.noise

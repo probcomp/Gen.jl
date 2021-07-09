@@ -30,5 +30,7 @@ function generate(gen_fn::Switch{C, N, K, T},
     index = args[1]
     state = SwitchGenerateState{T}(0.0, 0.0, 0.0)
     process!(gen_fn, index, args[2 : end], choices, state)
-    return SwitchTrace{T}(gen_fn, state.index, state.subtrace, state.retval, args[2 : end], state.score, state.noise), state.weight
+    return SwitchTrace(gen_fn, state.subtrace, 
+                       state.retval, args, 
+                       state.score, state.noise), state.weight
 end
