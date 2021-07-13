@@ -48,13 +48,15 @@ end
 
 @inline process!(gen_fn::Switch{C, N, K, T}, index::C, index_argdiff::Diff, args::Tuple, kernel_argdiffs::Tuple, selection::Selection, state::SwitchRegenerateState{T}) where {C, N, K, T} = process!(gen_fn, getindex(gen_fn.cases, index), index_argdiff, args, kernel_argdiffs, selection, state)
 
-function regenerate(trace::SwitchTrace{T},
+function regenerate(trace::SwitchTrace{A, T, U},
                     args::Tuple, 
                     argdiffs::Tuple,
-                    selection::Selection) where T
+                    selection::Selection) where {A, T, U}
     gen_fn = trace.gen_fn
     index, index_argdiff = args[1], argdiffs[1]
     state = SwitchRegenerateState{T}(0.0, 0.0, 0.0, trace)
     process!(gen_fn, index, index_argdiff, args[2 : end], argdiffs[2 : end], selection, state)
-    return SwitchTrace(gen_fn, state.index, state.trace, get_retval(state.trace), args, state.score, state.noise), state.weight, state.retdiff
+    return SwitchTrace(gen_fn, state.trace, 
+                       get_retval(state.trace), args, 
+                       state.score, state.noise), state.weight, state.retdiff
 end

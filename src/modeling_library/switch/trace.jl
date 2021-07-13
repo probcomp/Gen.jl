@@ -1,13 +1,18 @@
 # ------------ Switch trace ------------ #
 
-struct SwitchTrace{T} <: Trace
-    gen_fn::GenerativeFunction{T}
-    index::Int
-    branch::Trace
+struct SwitchTrace{A <: Tuple, T, U <: Trace} <: Trace
+    gen_fn::GenerativeFunction{T, U}
+    branch::U
     retval::T
-    args::Tuple
+    args::A
     score::Float64
     noise::Float64
+    function SwitchTrace(gen_fn::GenerativeFunction{T, U}, 
+            branch::U,
+            retval::T, args::A, score::Float64,
+            noise::Float64) where {T, A, U}
+        new{A, T, U}(gen_fn, branch, retval, args, score, noise)
+    end
 end
 
 @inline get_choices(tr::SwitchTrace) = get_choices(tr.branch)

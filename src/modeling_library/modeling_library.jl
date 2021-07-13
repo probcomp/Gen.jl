@@ -69,9 +69,6 @@ include("mixture.jl")
 # code shared by vector-shaped combinators
 include("vector.jl")
 
-# traces for with prob/switch combinator
-include("cond.jl")
-
 # built-in generative function combinators
 include("choice_at/choice_at.jl")
 include("call_at/call_at.jl")
