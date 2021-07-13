@@ -15,7 +15,7 @@ abstract type SerializableTrace end
 Get a SerializableTrace representing the `trace` in a serializable manner.
 """
 function to_serializable_trace(trace::Trace)
-    return DefaultST(trace)
+    error("Not implemented")
 end
 
 """
@@ -26,38 +26,6 @@ Get the trace of the given generative function encoded by the serializable trace
 function from_serializable_trace(::SerializableTrace, ::GenerativeFunction)
     error("Not implemented.")
 end
-
-"""
-    DefaultST <: SerializableTrace
-
-A serializable trace which serializes by attempting to call `Base.serialize`
-on the original trace object.
-
-Many trace types cannot be reliably serialized using this.
-"""
-struct DefaultST{T} <: SerializableTrace
-    trace::T
-    DefaultST(trace::T) where {T <: Trace} = new{T}(trace)
-end
-from_serializable_trace(st::DefaultST, ::GenerativeFunction) = st.trace
-
-# """
-#     ChoiceMapST <: SerializableTrace
-
-# A serializable trace which encodes a choicemap,
-# and uses `Gen.generate` with the encoded choicemap to deserialize.
-
-# This may not save untraced randomness in a trace.
-# """
-# struct ChoiceMapST{A, C} <: SerializableTrace
-#     args::A
-#     cm::C
-#     ChoiceMapST(args::Tuple, cm::ChoiceMap) = new(args, cm)
-# end
-# function from_serializable_trace(st::ChoiceMapST, gf::GenerativeFunction)
-#     trace, _ = generate(gf, st.args, st.cm)
-#     return trace
-# end
 
 """
     serialize_trace(stream::IO, trace::Trace)
@@ -81,12 +49,12 @@ function deserialize_trace(filename_or_io::Union{IO, AbstractString}, gf::Genera
 end
 
 """
-    GenericST <: SerializableTrace
+    GenericSerializableTrace <: SerializableTrace
 
 A SerializableTrace which contains some subtraces which have been recursively converted
 to `SerializableTrace`s, and some properties which are directly serializable.
 """
-struct GenericST{S, P} <: SerializableTrace
+struct GenericSerializableTrace{S, P} <: SerializableTrace
     subtraces::S
     properties::P
 end

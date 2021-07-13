@@ -154,13 +154,13 @@ function generate_serialization_methods(ir::StaticIR, trace_struct_name::Symbol,
     
     quote
         function $(GlobalRef(Gen, :to_serializable_trace))(tr::$trace_struct_name)
-            return $(GlobalRef(Gen, :GenericST))(
+            return $(GlobalRef(Gen, :GenericSerializableTrace))(
                 $(Expr(:tuple, to_subtraces_exprs...)),
                 $(Expr(:tuple, to_properties_exprs...))
             )
         end
         function $(GlobalRef(Gen, :from_serializable_trace))(
-            st::$(GlobalRef(Gen, :GenericST)),
+            st::$(GlobalRef(Gen, :GenericSerializableTrace)),
             gf::$gen_fn_typename
         )
             return $trace_struct_name(

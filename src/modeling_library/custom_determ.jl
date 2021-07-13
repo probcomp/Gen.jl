@@ -205,9 +205,9 @@ has_argument_grads(gen_fn::CustomUpdateGF) = tuple(fill(nothing, num_args(gen_fn
 apply_with_state(gen_fn::CustomUpdateGF, args) = error("not implemented")
 
 function to_serializable_trace(tr::CustomDetermGFTrace)
-    return GenericST(nothing, (tr.retval, tr.state, tr.args))
+    return GenericSerializableTrace(nothing, (tr.retval, tr.state, tr.args))
 end
-function from_serializable_trace(st::GenericST, gf::CustomDetermGF)
+function from_serializable_trace(st::GenericSerializableTrace, gf::CustomDetermGF)
     return get_trace_type(gf)(st.properties..., gf)
 end
 

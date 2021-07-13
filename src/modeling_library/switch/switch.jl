@@ -32,11 +32,11 @@ end
 include("trace.jl")
 
 function to_serializable_trace(tr::SwitchTrace)
-    GenericST(to_serializable_trace(tr.branch), (tr.index, tr.retval, tr.args, tr.score, tr.noise))
+    GenericSerializableTrace(to_serializable_trace(tr.branch), (tr.index, tr.retval, tr.args, tr.score, tr.noise))
 end
-function from_serializable_trace(c::GenericST, gf::Switch)
+function from_serializable_trace(c::GenericSerializableTrace, gf::Switch)
     (index, retval, args, score, noise) = c.properties
-    GenericST(
+    GenericSerializableTrace(
         gf, index,
         from_serializable_trace(c.subtraces, gf.branches[index]),
         retval, args, score, noise

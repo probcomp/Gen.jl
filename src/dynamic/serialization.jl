@@ -18,7 +18,7 @@ function _trie_to_serializable(trie::Trie)
     triemap(trie, identity, _record_to_serializable)
 end
 function to_serializable_trace(tr::DynamicDSLTrace)
-    return GenericST(
+    return GenericSerializableTrace(
         _trie_to_serializable(tr.trie),
         (tr.isempty, tr.score, tr.noise, tr.args, tr.retval)
     )
@@ -29,9 +29,9 @@ end
 # we have to run the generative function to get access to this!
 mutable struct GFDeserializeState
     trace::DynamicDSLTrace
-    serialized::GenericST
+    serialized::GenericSerializableTrace
 end
-function from_serializable_trace(st::GenericST, gen_fn::DynamicDSLFunction{T}) where T
+function from_serializable_trace(st::GenericSerializableTrace, gen_fn::DynamicDSLFunction{T}) where T
     trace = DynamicDSLTrace{T}(gen_fn, Trie{Any, ChoiceOrCallRecord}(), st.properties...)
     state = GFDeserializeState(trace, st)
     exec(gen_fn, state, trace.args)

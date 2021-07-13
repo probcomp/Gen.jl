@@ -605,7 +605,7 @@ end
 
 @testset "serialization" begin
     tr = simulate(model, ([1., 2., 3., 4.],))
-    @test Gen.to_serializable_trace(tr) isa Gen.GenericST
+    @test Gen.to_serializable_trace(tr) isa Gen.GenericSerializableTrace
     io = IOBuffer()
     serialize_trace(io, tr)
     seek(io, 0)
