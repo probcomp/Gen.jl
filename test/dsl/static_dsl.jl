@@ -605,7 +605,12 @@ end
 
 @testset "serialization" begin
     tr = simulate(model, ([1., 2., 3., 4.],))
-    @test serialize_loop_successful(tr)
+    @test Gen.to_serializable_trace(tr) isa Gen.GenericST
+    io = IOBuffer()
+    serialize_trace(io, tr)
+    seek(io, 0)
+    deserialized_tr = deserialize_trace(io, model)
+    @test get_choices(deserialized_tr) == get_choices(tr)
 end
 
 end # @testset "static DSL"
