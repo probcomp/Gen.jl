@@ -29,6 +29,8 @@ function (gen_fn::Switch{C})(index::C, args...) where C
     retval
 end
 
+include("trace.jl")
+
 function to_serializable_trace(tr::SwitchTrace)
     GenericST(to_serializable_trace(tr.branch), (tr.index, tr.retval, tr.args, tr.score, tr.noise))
 end
@@ -41,7 +43,6 @@ function from_serializable_trace(c::GenericST, gf::Switch)
     )
 end
 
-include("trace.jl")
 include("assess.jl")
 include("propose.jl")
 include("simulate.jl")
