@@ -21,6 +21,10 @@ end
 
 Permit use of generative functions written in the static modeling language up
 to this point. Functions are loaded into the calling module.
+
+This macro is intended to be called as a
+[top-level expression](https://docs.julialang.org/en/v1/manual/modules/)
+only; use in non–top-level scopes may result in incorrect behavior.
 """
 macro load_generated_functions()
     for function_defn in generated_functions

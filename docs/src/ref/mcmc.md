@@ -143,7 +143,7 @@ Here is an example composite kernel for MCMC in this model:
 end
 ```
 
-In the DSL, the first arugment (`trace` in this case) represents the trace on which the kernel is acting.
+In the DSL, the first argument (`trace` in this case) represents the trace on which the kernel is acting.
 the kernel may have additional arguments.
 The code inside the body can read from the trace (e.g. `trace[:n]` reads the value of the random choice `:n`).
 Finally, the return value of the composite kernel is automatically set to the trace.
@@ -277,19 +277,19 @@ m = sqrt(m1 * m2)
 ```
 However, there are many combinations of `m1` and `m2` that have the same geometric mean.
 In other words, the geometric mean is not *invertible*.
-However, if we return the additional degree of freedom alongside the geometric mean (`dof`), then we do have an invertible function:
+However, if we return the additional degree of freedom alongside the geometric mean (`u`), then we do have an invertible function:
 ```julia
 function merge_means(m1, m2)
     m = sqrt(m1 * m2)
-    dof = m1 / (m1 + m2)
-    (m, dof)
+    u = m1 / (m1 + m2)
+    (m, u)
 end
 ```
 The inverse function is:
 ```julia
-function split_mean(m, dof)
-    m1 = m * sqrt((dof / (1 - dof)))
-    m2 = m * sqrt(((1 - dof) / dof))
+function split_mean(m, u)
+    m1 = m * sqrt((u / (1 - u)))
+    m2 = m * sqrt(((1 - u) / u))
     (m1, m2)
 end
 ```
@@ -301,7 +301,7 @@ The proposal is responsible for generating the extra degree of freedom when spli
         # currently two segments, switch to one
     else
         # currently one segment, switch to two
-        {:dof} ~ uniform_continuous(0, 1)
+        {:u} ~ uniform_continuous(0, 1)
     end
 end
 ```
@@ -314,7 +314,7 @@ Finally, we write the involution itself, using the [Trace Transform DSL](@ref):
         @write(model_out[:z], false, :discrete)
         m1 = @read(model_in[:m1], :continuous)
         m2 = @read(model_in[:m2], :continuous)
-        (m, u) = merge_mean(m1, m2)
+        (m, u) = merge_means(m1, m2)
         @write(model_out[:m], m, :continuous)
         @write(aux_out[:u], u, :continuous)
     else
@@ -335,7 +335,7 @@ You should convince yourself that this function is invertible and its own invers
 
 Finally, we compose a structure-changing MCMC kernel using this involution:
 ```julia
-split_merge_kernel(trace) = mh(trace, split_merge_proposal, (), split_merge_involution)
+split_merge_kernel(trace) = mh(trace, split_merge_proposal, (), split_merge_involution)[1]
 ```
 We then compose this move with the fixed structure move, and run it on the observed data:
 ```julia

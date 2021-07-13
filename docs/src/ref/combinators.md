@@ -119,4 +119,45 @@ TODO: document me
     <img src="../../images/recurse_combinator.png" alt="schematic of recurse combinatokr" width="70%"/>
 </div>
 ```
+## Switch combinator
 
+```@docs
+Switch
+```
+
+```@raw html
+<div style="text-align:center">
+    <img src="../../images/switch_combinator.png" alt="schematic of switch combinator" width="100%"/>
+</div>
+```
+
+Consider the following constructions:
+
+```julia
+@gen function bang((grad)(x::Float64), (grad)(y::Float64))
+    std::Float64 = 3.0
+    z = @trace(normal(x + y, std), :z)
+    return z
+end
+
+@gen function fuzz((grad)(x::Float64), (grad)(y::Float64))
+    std::Float64 = 3.0
+    z = @trace(normal(x + 2 * y, std), :z)
+    return z
+end
+
+sc = Switch(bang, fuzz)
+```
+
+This creates a new generative function `sc`. We can then obtain the trace of `sc`:
+
+```julia
+(trace, _) = simulate(sc, (2, 5.0, 3.0))
+```
+
+The resulting trace contains the subtrace from the branch with index `2` - in this case, a call to `fuzz`:
+
+```
+│
+└── :z : 13.552870875213735
+```

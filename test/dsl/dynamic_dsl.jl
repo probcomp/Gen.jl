@@ -25,9 +25,14 @@ end
 
     @test baz(5) == 5
 
-    @gen (grad) oneliner(x::Float64, (grad)(y::Float64=5)) = x+y
+    @gen (grad) oneliner(x::Float64, (grad)(y::Float64=5.0)) = x+y
 
-    @test oneliner(5) == 10
+    @test oneliner(5.0) == 10.0
+
+    @gen outer() = @trace(inner())
+    @gen inner() = 5.0
+
+    @test outer() == 5.0
 end
 
 @testset "return type" begin

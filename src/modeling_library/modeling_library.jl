@@ -40,7 +40,7 @@ Otherwise, this element contains the gradient with respect to the `i`th argument
 """
 function logpdf_grad end
 
-function is_discrete end
+is_discrete(::Distribution) = false # default
 
 # NOTE: has_argument_grad is documented and exported in gen_fn_interface.jl
 
@@ -59,6 +59,9 @@ include("distributions/distributions.jl")
 # @dist DSL
 include("dist_dsl/dist_dsl.jl")
 
+# mixtures of distributions
+include("mixture.jl")
+
 ###############
 # combinators #
 ###############
@@ -72,6 +75,7 @@ include("call_at/call_at.jl")
 include("map/map.jl")
 include("unfold/unfold.jl")
 include("recurse/recurse.jl")
+include("switch/switch.jl")
 
 #############################################################
 # abstractions for constructing custom generative functions #

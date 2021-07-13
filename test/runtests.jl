@@ -62,12 +62,25 @@ function finite_diff_mat_sym(f::Function, args::Tuple, i::Int, j::Int, k::Int, d
     return (f(pos_args...) - f(neg_args...)) / (2. * dx)
 end
 
+"""
+Compute a numerical partial derivative of `f` with respect to `idx`th element in the `i`th
+argument, which must be array-valued, using finite differences.
+"""
+function finite_diff_arr(f::Function, args::Tuple, i::Int, idx, dx::Float64)
+    pos_args = Any[deepcopy(args)...]
+    pos_args[i][idx] += dx
+    neg_args = Any[deepcopy(args)...]
+    neg_args[i][idx] -= dx
+    return (f(pos_args...) - f(neg_args...)) / (2. * dx)
+end
+
 const dx = 1e-6
 
 include("autodiff.jl")
 include("diff.jl")
 include("selection.jl")
 include("assignment.jl")
+include("gen_fn_interface.jl")
 include("dsl/dsl.jl")
 include("optional_args.jl")
 include("static_ir/static_ir.jl")

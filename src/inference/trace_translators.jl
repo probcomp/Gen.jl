@@ -1,7 +1,7 @@
 import ForwardDiff
 import MacroTools
 import LinearAlgebra
-import Parameters: @with_kw
+import Parameters: @with_kw, @unpack
 
 #######################
 # trace transform DSL #
@@ -23,7 +23,8 @@ end
 """
     pair_bijections!(f1::TraceTransformDSLProgram, f2::TraceTransformDSLProgram)
 
-Assert that a pair of bijections contsructed using the [Trace Transform DSL](@ref) are inverses of one another.
+Assert that a pair of bijections contsructed using the [Trace Transform DSL](@ref) are
+inverses of one another.
 """
 function pair_bijections!(f1::TraceTransformDSLProgram, f2::TraceTransformDSLProgram)
     f1.inverse = f2
@@ -46,7 +47,8 @@ end
 
 Obtain the inverse of a bijection that was constructed with the [Trace Transform DSL](@ref).
 
-The inverse must have been associated with the bijection either via [`pair_bijections!`](@ref) or [`is_involution!`])(@ref).
+The inverse must have been associated with the bijection either via
+[`pair_bijections!`](@ref) or [`is_involution!`])(@ref).
 """
 function inverse(bijection::TraceTransformDSLProgram)
     if isnothing(bijection.inverse)
@@ -69,7 +71,7 @@ end
 struct AuxInputTraceRetValToken
 end
 
-struct ModelOutputTraceToken 
+struct ModelOutputTraceToken
 end
 
 struct AuxOutputTraceToken
@@ -110,7 +112,9 @@ const bij_state = gensym("bij_state")
 Write a program in the [Trace Transform DSL](@ref).
 """
 macro transform(f_expr, src_expr, to_symbol::Symbol, dest_expr, body)
-    syntax_err = "valid syntactic forms:\n@transform f (..) to (..) begin .. end\n@transform f(..) (..) to (..) begin .. end"
+    syntax_err = """valid syntactic forms:
+        @transform f (..) to (..) begin .. end
+        @transform f(..) (..) to (..) begin .. end"""
     err = false
     if MacroTools.@capture(f_expr, f_(args__))
     elseif MacroTools.@capture(f_expr, f_)
@@ -126,22 +130,21 @@ macro transform(f_expr, src_expr, to_symbol::Symbol, dest_expr, body)
         err = true
     end
     if MacroTools.@capture(dest_expr, (model_out_, aux_out_))
-    elseif MacroTools.@capture(src_expr, (model_out_))
+    elseif MacroTools.@capture(dest_expr, (model_out_))
         aux_out = gensym("dummy_aux")
     else
         err = true
     end
+    if err error(syntax_err) end
 
-    fn! = gensym("$(esc(f))_fn!")
-
+    fn! = gensym(Symbol(f, "_fn!"))
     return quote
-
         # mutates the state
         function $fn!(
                 $(esc(bij_state))::Union{FirstPassState,JacobianPassState},
                 $(map(esc, args)...))
-            model_args = get_args($(esc(bij_state)).model_trace)
-            aux_args = get_args($(esc(bij_state)).aux_trace)
+            model_args = get_model_args($(esc(bij_state)))
+            aux_args = get_aux_args($(esc(bij_state)))
             $(esc(model_in)) = ModelInputTraceToken(model_args)
             $(esc(model_out)) = ModelOutputTraceToken()
             $(esc(aux_in)) = AuxInputTraceToken(aux_args)
@@ -149,9 +152,7 @@ macro transform(f_expr, src_expr, to_symbol::Symbol, dest_expr, body)
             $(esc(body))
             return nothing
         end
-
         Core.@__doc__ $(esc(f)) = TraceTransformDSLProgram($fn!, nothing)
-
     end
 end
 
@@ -183,7 +184,8 @@ end
 
 Macro for reading the value of a random choice from an input trace in the [Trace Transform DSL](@ref).
 
-<source> is of the form <trace>[<addr>] where <trace> is an input trace, and <annotation> is either :discrete or :continuous.
+<source> is of the form <trace>[<addr>] where <trace> is an input trace, and <annotation>
+is either :discrete or :continuous.
 """
 macro read(src, ann::QuoteNode)
     return quote read($(esc(bij_state)), $(esc(src)), $(esc(typed(ann.value)))) end
@@ -194,7 +196,8 @@ end
 
 Macro for writing the value of a random choice to an output trace in the [Trace Transform DSL](@ref).
 
-<destination> is of the form <trace>[<addr>] where <trace> is an input trace, and <annotation> is either :discrete or :continuous.
+<destination> is of the form <trace>[<addr>] where <trace> is an input trace, and
+<annotation> is either :discrete or :continuous.
 """
 macro write(dest, val, ann::QuoteNode)
     return quote write($(esc(bij_state)), $(esc(dest)), $(esc(val)), $(esc(typed(ann.value)))) end
@@ -203,9 +206,11 @@ end
 """
     @copy(<source>, <destination>)
 
-Macro for copying the value of a random choice (or a whole namespace of random choices) from an input trace to an output trace in the [Trace Transform DSL](@ref).
+Macro for copying the value of a random choice (or a whole namespace of random choices)
+from an input trace to an output trace in the [Trace Transform DSL](@ref).
 
-<destination> is of the form <trace>[<addr>] where <trace> is an input trace, and <annotation> is either :discrete or :continuous.
+<destination> is of the form <trace>[<addr>] where <trace> is an input trace,
+and <annotation> is either :discrete or :continuous.
 """
 macro copy(src, dest)
     return quote copy($(esc(bij_state)), $(esc(src)), $(esc(dest))) end
@@ -227,7 +232,7 @@ struct FirstPassResults
 
     "output proposal choice map ``u'``"
     u_back::ChoiceMap
-    
+
     t_cont_reads::Dict
     u_cont_reads::Dict
     t_cont_writes::Dict
@@ -244,22 +249,31 @@ function FirstPassResults()
 end
 
 struct FirstPassState
-
-    "trace containing the input model choice map ``t``"
+    "Trace containing the input model choice map ``t``"
     model_trace::Trace
     model_choices::ChoiceMap
 
-    "the input proposal choice map ``u``"
-    aux_trace::Trace
+    "The input proposal choice map ``u``"
+    aux_trace::Union{Trace,Nothing}
     aux_choices::ChoiceMap
 
     results::FirstPassResults
 end
 
-function FirstPassState(model_trace, aux_trace)
-    return FirstPassState(
-        model_trace, get_choices(model_trace),
-        aux_trace, get_choices(aux_trace), FirstPassResults())
+FirstPassState(model_trace::Trace, aux_trace::Trace) =
+    FirstPassState(model_trace, get_choices(model_trace),
+                   aux_trace, get_choices(aux_trace), FirstPassResults())
+
+FirstPassState(model_trace::Trace, aux_trace::Nothing) =
+    FirstPassState(model_trace, get_choices(model_trace),
+                   aux_trace, EmptyChoiceMap(), FirstPassResults())
+
+function get_model_args(state::FirstPassState)
+    return get_args(state.model_trace)
+end
+
+function get_aux_args(state::FirstPassState)
+    return state.aux_trace === nothing ? () : get_args(state.aux_trace)
 end
 
 function run_first_pass(transform::TraceTransformDSLProgram, model_trace, aux_trace)
@@ -326,7 +340,7 @@ function write(state::FirstPassState, dest::AuxOutputAddress, value, ::Continuou
     return value
 end
 
-function copy(state::FirstPassState, src::ModelInputAddress, dest::ModelOutputAddress) 
+function copy(state::FirstPassState, src::ModelInputAddress, dest::ModelOutputAddress)
     from_addr, to_addr = src.addr, dest.addr
     model_choices = get_choices(state.model_trace)
     push!(state.results.t_copy_reads, from_addr)
@@ -379,14 +393,22 @@ end
 #####################################################################
 
 struct JacobianPassState{T<:Real}
-    model_trace
-    aux_trace
+    model_trace::Trace
+    aux_trace::Union{Trace,Nothing}
     input_arr::AbstractArray{T}
     output_arr::Array{T}
     t_key_to_index::Dict
     u_key_to_index::Dict
     cont_constraints_key_to_index::Dict
     cont_u_back_key_to_index::Dict
+end
+
+function get_model_args(state::JacobianPassState)
+    return get_args(state.model_trace)
+end
+
+function get_aux_args(state::JacobianPassState)
+    return state.aux_trace === nothing ? () : get_args(state.aux_trace)
 end
 
 function read(state::JacobianPassState, src::ModelInputTraceRetValToken, ::DiscreteAnn)
@@ -474,7 +496,7 @@ discard_skip_read_addr(addr, discard::ChoiceMap) = !has_value(discard, addr)
 discard_skip_read_addr(addr, discard::Nothing) = false
 
 function store_addr_info!(dict::Dict, addr, value::Real, next_index::Int)
-    dict[addr] = next_index 
+    dict[addr] = next_index
     return 1 # number of elements of array
 end
 
@@ -484,9 +506,9 @@ function store_addr_info!(dict::Dict, addr, value::AbstractArray{<:Real}, next_i
     return len # number of elements of array
 end
 
-function assemble_input_array_and_maps(
-        t_cont_reads, t_copy_reads, u_cont_reads, u_copy_reads, discard::Union{ChoiceMap,Nothing})
-
+function assemble_input_array_and_maps(t_cont_reads, t_copy_reads,
+                                       u_cont_reads, u_copy_reads,
+                                       discard::Union{ChoiceMap,Nothing})
     input_arr = Vector{Float64}()
     next_input_index = 1
 
@@ -520,18 +542,21 @@ function assemble_output_maps(t_cont_writes, u_cont_writes)
 
     cont_constraints_key_to_index = Dict()
     for (addr, v) in t_cont_writes
-        next_output_index += store_addr_info!(cont_constraints_key_to_index, addr, v, next_output_index)
+        next_output_index +=
+            store_addr_info!(cont_constraints_key_to_index, addr, v, next_output_index)
     end
 
     cont_u_back_key_to_index = Dict()
     for (addr, v) in u_cont_writes
-        next_output_index += store_addr_info!(cont_u_back_key_to_index, addr, v, next_output_index)
+        next_output_index +=
+            store_addr_info!(cont_u_back_key_to_index, addr, v, next_output_index)
     end
 
     return (cont_constraints_key_to_index, cont_u_back_key_to_index, next_output_index-1)
 end
 
-function jacobian_correction(transform::TraceTransformDSLProgram, prev_model_trace, proposal_trace, first_pass_results, discard)
+function jacobian_correction(transform::TraceTransformDSLProgram,
+        prev_model_trace, proposal_trace, first_pass_results, discard)
 
     # create input array and mappings input addresses that are needed for Jacobian
     # exclude addresses that were copied explicitly to another address
@@ -540,7 +565,7 @@ function jacobian_correction(transform::TraceTransformDSLProgram, prev_model_tra
         first_pass_results.t_copy_reads,
         first_pass_results.u_cont_reads,
         first_pass_results.u_copy_reads, discard)
-    
+
     # create mappings for output addresses that are needed for Jacobian
     (cont_constraints_key_to_index, cont_u_back_key_to_index, n_output) = assemble_output_maps(
         first_pass_results.t_cont_writes,
@@ -559,7 +584,7 @@ function jacobian_correction(transform::TraceTransformDSLProgram, prev_model_tra
         output_arr = Vector{T}(undef, n_output)
 
         jacobian_pass_state = JacobianPassState(
-            prev_model_trace, proposal_trace, input_arr, output_arr, 
+            prev_model_trace, proposal_trace, input_arr, output_arr,
             t_key_to_index, u_key_to_index,
             cont_constraints_key_to_index,
             cont_u_back_key_to_index)
@@ -584,7 +609,7 @@ function jacobian_correction(transform::TraceTransformDSLProgram, prev_model_tra
     if isinf(correction)
         @error "Weight correction is infinite; the function may not be an bijection"
     end
-    
+
     return correction
 end
 
@@ -608,6 +633,21 @@ function check_round_trip(
 end
 
 ################################
+# TraceTranslator #
+################################
+
+"Abstract type for trace translators."
+abstract type TraceTranslator end
+
+"""
+    (new_trace, log_weight) = (translator::TraceTranslator)(trace)
+
+Apply a trace translator on an input trace, returning a new trace and an incremental
+log weight.
+"""
+(translator::TraceTranslator)(trace::Trace; kwargs...) = error("Not implemented.")
+
+################################
 # DeterministicTraceTranslator #
 ################################
 
@@ -623,35 +663,37 @@ Run the translator with:
 
     (output_trace, log_weight) = translator(input_trace)
 """
-@with_kw struct DeterministicTraceTranslator
+@with_kw mutable struct DeterministicTraceTranslator <: TraceTranslator
     p_new::GenerativeFunction
     p_args::Tuple = ()
     new_observations::ChoiceMap = EmptyChoiceMap()
     f::TraceTransformDSLProgram # a bijection
 end
 
-function deterministic_trace_translator_run_transform(
-        f::TraceTransformDSLProgram, new_observations::ChoiceMap,
-        prev_model_trace::Trace, p_new::GenerativeFunction, p_new_args::Tuple)
+function inverse(translator::DeterministicTraceTranslator,
+        prev_model_trace::Trace, prev_observations::ChoiceMap=EmptyChoiceMap())
+    return DeterministicTraceTranslator(
+        get_gen_fn(prev_model_trace), get_args(prev_model_trace),
+        prev_observations, inverse(translator.f))
+end
+
+function run_transform(translator::DeterministicTraceTranslator,
+                       prev_model_trace::Trace)
+    @unpack p_new, p_args, new_observations, f = translator
     first_pass_results = run_first_pass(f, prev_model_trace, nothing)
     log_abs_determinant = jacobian_correction(
         f, prev_model_trace, nothing, first_pass_results, nothing)
     constraints = merge(first_pass_results.constraints, new_observations)
-    (new_model_trace, _) = generate(p_new, p_new_args, constraints)
+    (new_model_trace, _) = generate(p_new, p_args, constraints)
     return (new_model_trace, log_abs_determinant)
 end
 
-"""
-    (new_trace, log_weight) = (translator::DeterministicTraceTranslator)(trace)
-
-Apply a trace translator.
-"""
 function (translator::DeterministicTraceTranslator)(
         prev_model_trace::Trace; check=false, prev_observations=EmptyChoiceMap())
 
     # apply trace transform
-    (new_model_trace, log_abs_determinant) = deterministic_trace_translator_run_transform(
-        translator.f, translator.new_observations, prev_model_trace, translator.p_new, translator.p_new_args)
+    (new_model_trace, log_abs_determinant) =
+        run_transform(translator, prev_model_trace)
 
     # compute log weight
     prev_model_score = get_score(prev_model_trace)
@@ -659,10 +701,10 @@ function (translator::DeterministicTraceTranslator)(
     log_weight = new_model_score - prev_model_score + log_abs_determinant
 
     if check
-        check_observations(get_choices(new_model_trace), observations)
-        (prev_model_trace_rt, _) = deterministic_trace_translator_run_transform(
-            inverse(translator.f), prev_observations, new_model_trace,
-            get_gen_fn(prev_model_trace), get_args(prev_model_trace))
+        check_observations(get_choices(new_model_trace),
+                           translator.new_observations)
+        inverter = inverse(translator, prev_model_trace)
+        prev_model_trace_rt, _ = run_transform(inverter, new_model_trace)
         check_round_trip(prev_model_trace, prev_model_trace_rt)
     end
 
@@ -690,11 +732,13 @@ Run the translator with:
 
     (output_trace, log_weight) = translator(input_trace; check=false, prev_observations=EmptyChoiceMap())
 
-Use `check` to enable a bijection check (this requires that the transform `f` has been paired with its inverse using [`pair_bijections!](@ref) or [`is_involution`](@ref)).
+Use `check` to enable a bijection check (this requires that the transform `f` has been
+paired with its inverse using [`pair_bijections!](@ref) or [`is_involution`](@ref)).
 
-If `check` is enabled, then `prev_observations` is a choice map containing the observed random choices in the previous trace.
+If `check` is enabled, then `prev_observations` is a choice map containing the observed
+random choices in the previous trace.
 """
-@with_kw struct GeneralTraceTranslator
+@with_kw mutable struct GeneralTraceTranslator <: TraceTranslator
     p_new::GenerativeFunction
     p_new_args::Tuple = ()
     new_observations::ChoiceMap = EmptyChoiceMap()
@@ -705,11 +749,19 @@ If `check` is enabled, then `prev_observations` is a choice map containing the o
     f::TraceTransformDSLProgram # a bijection
 end
 
-function general_trace_translator_run_transform(
-        f::TraceTransformDSLProgram, new_observations::ChoiceMap,
-        prev_model_trace::Trace, forward_proposal_trace::Trace,
-        p_new::GenerativeFunction, p_new_args::Tuple,
-        q_backard::GenerativeFunction, q_backward_args::Tuple)
+function inverse(translator::GeneralTraceTranslator, prev_model_trace::Trace,
+                 prev_observations::ChoiceMap=EmptyChoiceMap())
+    return GeneralTraceTranslator(
+        get_gen_fn(prev_model_trace), get_args(prev_model_trace),
+        prev_observations, translator.q_backward, translator.q_backward_args,
+        translator.q_forward, translator.q_forward_args,
+        inverse(translator.f))
+end
+
+function run_transform(translator::GeneralTraceTranslator,
+                       prev_model_trace::Trace, forward_proposal_trace::Trace)
+    @unpack f, new_observations = translator
+    @unpack p_new, p_new_args, q_backward, q_backward_args = translator
     first_pass_results = run_first_pass(f, prev_model_trace, forward_proposal_trace)
     log_abs_determinant = jacobian_correction(
         f, prev_model_trace, forward_proposal_trace, first_pass_results, nothing)
@@ -724,31 +776,27 @@ function (translator::GeneralTraceTranslator)(
         prev_model_trace::Trace; check=false, prev_observations=EmptyChoiceMap())
 
     # sample auxiliary trace
-    forward_proposal_trace = simulate(proposal, (prev_model_trace, translator.q_forward_args...,))
+    forward_proposal_trace =
+        simulate(translator.q_forward, (prev_model_trace, translator.q_forward_args...,))
 
     # apply trace transform
-    (new_model_trace, backward_proposal_trace, log_abs_determinant) = general_trace_translator_run_transform(
-        translator.f, prev_model_trace, forward_proposal_trace, translator.new_observations,
-        translator.p_new, translator.p_new_args, translator.q_backward, translator.q_backward_args)
+    (new_model_trace, backward_proposal_trace, log_abs_determinant) =
+        run_transform(translator, prev_model_trace, forward_proposal_trace)
 
     # compute log weight
     prev_model_score = get_score(prev_model_trace)
     new_model_score = get_score(new_model_trace)
     forward_proposal_score = get_score(forward_proposal_trace)
     backward_proposal_score = get_score(backward_proposal_trace)
-    log_weight = new_model_score - prev_model_score + backward_proposal_score + forward_proposal_score + log_abs_determinant
+    log_weight = new_model_score - prev_model_score +
+        backward_proposal_score + forward_proposal_score + log_abs_determinant
 
     if check
-        forward_proposal_choices = get_choices(forward_proposal_trace)
-        f_inv = inverse(translator.f)
-        (prev_model_trace_rt, forward_proposal_trace_rt, _) = general_trace_translator_run_transform(
-            inverse(translator.f), prev_observations,
-            new_model_trace, backward_proposal_trace,
-            get_gen_fn(prev_model_trace), get_args(prev_model_trace),
-            translator.q_forward, translator.q_forward_args)
-        check_round_trip(
-            prev_model_trace, prev_model_trace_rt,
-            forward_proposal_trace, forward_proposal_trace_rt)
+        inverter = inverse(translator, prev_model_trace, prev_observations)
+        (prev_model_trace_rt, forward_proposal_trace_rt, _) =
+            run_transform(inverter, new_model_trace, backward_proposal_trace)
+        check_round_trip(prev_model_trace, prev_model_trace_rt,
+                         forward_proposal_trace, forward_proposal_trace_rt)
     end
 
     return (new_model_trace, log_weight)
@@ -761,10 +809,10 @@ end
 """
     translator = SimpleExtendingTraceTranslator(;
         p_new_args::Tuple = (),
-        argdiffs::Tuple = (),
-        new_obs::ChoiceMap = EmptyChoiceMap(),
-        q_fwd::GenerativeFunction,
-        q_fwd_args::Tuple  = ())
+        p_argdiffs::Tuple = (),
+        new_observations::ChoiceMap = EmptyChoiceMap(),
+        q_forward::GenerativeFunction,
+        q_forward_args::Tuple  = ())
 
 Constructor for a simple extending trace translator.
 
@@ -772,28 +820,29 @@ Run the translator with:
 
     (output_trace, log_weight) = translator(input_trace)
 """
-@with_kw struct SimpleExtendingTraceTranslator 
+@with_kw mutable struct SimpleExtendingTraceTranslator <: TraceTranslator
     p_new_args::Tuple = ()
-    argdiffs::Tuple = ()
-    new_obs::ChoiceMap = EmptyChoiceMap()
-    q_fwd::GenerativeFunction
-    q_fwd_args::Tuple  = ()
+    p_argdiffs::Tuple = ()
+    new_observations::ChoiceMap = EmptyChoiceMap()
+    q_forward::GenerativeFunction
+    q_forward_args::Tuple  = ()
 end
 
 function (translator::SimpleExtendingTraceTranslator)(prev_model_trace::Trace)
 
     # simulate from auxiliary program
-    forward_proposal_trace = simulate(translator.q_fwd, (prev_model_trace, translator.q_fwd_args...,))
+    forward_proposal_trace =
+        simulate(translator.q_forward, (prev_model_trace, translator.q_forward_args...,))
     forward_proposal_score = get_score(forward_proposal_trace)
 
     # computing the new trace via update
-    constraints = merge(get_choices(forward_proposal_trace), translator.new_obs)
+    constraints = merge(get_choices(forward_proposal_trace), translator.new_observations)
     (new_model_trace, log_model_weight, _, discard) = update(
         prev_model_trace, translator.p_new_args,
-        translator.argdiffs, constraints)
+        translator.p_argdiffs, constraints)
 
     if !isempty(discard)
-        @error("can only extend the trace with random choices, cannot remove random choices")
+        @error("Can only extend the trace with random choices, not remove them.")
         error("Invalid SimpleExtendingTraceTranslator")
     end
 
@@ -805,6 +854,8 @@ end
 # SymmetricTraceTranslator #
 ############################
 
+const TransformFunction = Union{TraceTransformDSLProgram,Function}
+
 """
     translator = SymmetricTraceTranslator(;
         q::GenerativeFunction,
@@ -813,26 +864,32 @@ end
 
 Constructor for a symmetric trace translator.
 
-The involution is either constructed via the [`@transform`](@ref) macro (recommended), or can be provided as a Julia function.
+The involution is either constructed via the [`@transform`](@ref) macro (recommended),
+or can be provided as a Julia function.
 
 Run the translator with:
 
     (output_trace, log_weight) = translator(input_trace; check=false, observations=EmptyChoiceMap())
 
-Use `check` to enable the involution check (this requires that the transform `f` has been marked with [`is_involution`](@ref)).
+Use `check` to enable the involution check (this requires that the transform `f` has been
+marked with [`is_involution`](@ref)).
 
-If `check` is enabled, then `observations` is a choice map containing the observed random choices, and the check will additionally ensure they are not mutated by the involution.
+If `check` is enabled, then `observations` is a choice map containing the observed random
+choices, and the check will additionally ensure they are not mutated by the involution.
 """
-@with_kw struct SymmetricTraceTranslator{T <: Union{TraceTransformDSLProgram,Function}}
+@with_kw mutable struct SymmetricTraceTranslator{T <: TransformFunction} <: TraceTranslator
     q::GenerativeFunction
     q_args::Tuple = ()
     involution::T # an involution
 end
 
-function symmetric_trace_translator_run_transform(
-        involution::TraceTransformDSLProgram,
-        prev_model_trace::Trace, forward_proposal_trace::Trace,
-        q::GenerativeFunction, q_args::Tuple)
+function inverse(translator::SymmetricTraceTranslator, prev_model_trace=nothing)
+    return translator
+end
+
+function run_transform(translator::SymmetricTraceTranslator,
+                       prev_model_trace::Trace, forward_proposal_trace::Trace)
+    @unpack involution, q, q_args = translator
     first_pass_results = run_first_pass(involution, prev_model_trace, forward_proposal_trace)
     (new_model_trace, log_model_weight, _, discard) = update(
         prev_model_trace, get_args(prev_model_trace),
@@ -849,27 +906,27 @@ function (translator::SymmetricTraceTranslator{TraceTransformDSLProgram})(
         prev_model_trace::Trace; check=false, observations=EmptyChoiceMap())
 
     # simulate from auxiliary program
-    forward_proposal_trace = simulate(translator.q, (prev_model_trace, translator.q_args...,))
+    forward_proposal_trace =
+        simulate(translator.q, (prev_model_trace, translator.q_args...,))
 
     # apply trace transform
-    (new_model_trace, backward_proposal_trace, log_abs_determinant) = symmetric_trace_translator_run_transform(
-        translator.involution, prev_model_trace, forward_proposal_trace, translator.q, translator.q_args)
+    (new_model_trace, backward_proposal_trace, log_abs_determinant) =
+        run_transform(translator, prev_model_trace, forward_proposal_trace)
 
     # compute log weight
     prev_model_score = get_score(prev_model_trace)
     new_model_score = get_score(new_model_trace)
     forward_proposal_score = get_score(forward_proposal_trace)
     backward_proposal_score = get_score(backward_proposal_trace)
-    log_weight = new_model_score - prev_model_score + backward_proposal_score - forward_proposal_score + log_abs_determinant
+    log_weight = new_model_score - prev_model_score +
+        backward_proposal_score - forward_proposal_score + log_abs_determinant
 
     if check
         check_observations(get_choices(new_model_trace), observations)
-        forward_proposal_choices = get_choices(forward_proposal_trace)
-        (prev_model_trace_rt, forward_proposal_trace_rt, _) = symmetric_trace_translator_run_transform(
-            translator.involution, new_model_trace, backward_proposal_trace, translator.q, translator.q_args)
-        check_round_trip(
-            prev_model_trace, prev_model_trace_rt,
-            forward_proposal_trace, forward_proposal_trace_rt)
+        (prev_model_trace_rt, forward_proposal_trace_rt, _) =
+            run_transform(translator, new_model_trace, backward_proposal_trace)
+        check_round_trip(prev_model_trace, prev_model_trace_rt,
+                         forward_proposal_trace, forward_proposal_trace_rt)
     end
 
     return (new_model_trace, log_weight)
@@ -884,7 +941,8 @@ function (translator::SymmetricTraceTranslator{<:Function})(
     forward_retval = get_retval(forward_trace)
     (new_model_trace, backward_choices, log_weight) = translator.involution(
         prev_model_trace, forward_choices, forward_retval, translator.q_args)
-    (backward_score, backward_retval) = assess(translator.q, (new_model_trace, translator.q_args...), backward_choices) 
+    (backward_score, backward_retval) =
+        assess(translator.q, (new_model_trace, translator.q_args...), backward_choices)
 
     log_weight += (backward_score - forward_score)
 
@@ -892,10 +950,10 @@ function (translator::SymmetricTraceTranslator{<:Function})(
         check_observations(get_choices(new_model_trace), observations)
         (prev_model_trace_rt, forward_choices_rt, _) = translator.involution(
             new_model_trace, backward_choices, backward_retval, translator.q_args)
-        (forward_trace_rt, _) = generate(translator.q, (prev_model_trace, translator.q_args...), forward_choices_rt)
-        check_round_trip(
-            prev_model_trace, prev_model_trace_rt,
-            forward_trace, forward_trace_rt)
+        (forward_trace_rt, _) = generate(
+            translator.q, (prev_model_trace, translator.q_args...), forward_choices_rt)
+        check_round_trip(prev_model_trace, prev_model_trace_rt,
+                         forward_trace, forward_trace_rt)
     end
 
     return (new_model_trace, log_weight)
@@ -905,4 +963,5 @@ end
 export @transform
 export @read, @write, @copy, @tcall
 export TraceTransformDSLProgram, pair_bijections!, is_involution!, inverse
-export DeterministicTraceTranslator, SymmetricTraceTranslator, SimpleExtendingTraceTranslator, GeneralTraceTranslator
+export TraceTranslator, DeterministicTraceTranslator, SymmetricTraceTranslator,
+       SimpleExtendingTraceTranslator, GeneralTraceTranslator

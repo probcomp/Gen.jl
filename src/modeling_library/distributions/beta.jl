@@ -12,7 +12,15 @@ const beta = Beta()
 
 function logpdf(::Beta, x::Real, alpha::Real, beta::Real)
     (x < 0 || x > 1 ? -Inf :
-    (alpha - 1) * log(x) + (beta - 1) * log1p(-x) - logbeta(alpha, beta) )
+        ((x == 0 && alpha <= 1) ?      #Special case to avoid infinite PDF at 0
+            (alpha - 1) * log(eps(typeof(x))) -
+            alpha + 1 + #as if we were using x=(eps / e); even smaller than eps
+            (beta - 1) * log1p(-eps(typeof(x))) - logbeta(alpha, beta) :
+        ((x == 1 && beta <= 1) ?       #Special case to avoid infinite PDF at 1
+            (alpha - 1) * log1p(-eps(typeof(x))) -
+            beta + 1 + #as if we were using 1-x=(eps / e)
+            (beta - 1) * log(eps(typeof(x))) - logbeta(alpha, beta) :
+    (alpha - 1) * log(x) + (beta - 1) * log1p(-x) - logbeta(alpha, beta) )))
 end
 
 function logpdf_grad(::Beta, x::Real, alpha::Real, beta::Real)

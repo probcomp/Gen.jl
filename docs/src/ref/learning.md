@@ -86,7 +86,7 @@ function train_model(data::Vector{ChoiceMap})
         trace, = generate(model, model_args, observations)
         push!(traces, trace)
     end
-    update = ParamUpdate(FixedStepSizeGradientDescent(0.001), model)
+    update = ParamUpdate(FixedStepGradientDescent(0.001), model)
     for iter=1:max_iter
         objective = sum([get_score(trace) for trace in traces])
         println("objective: $objective")
@@ -140,7 +140,7 @@ For example:
 ```julia
 function train_model(data::Vector{ChoiceMap})
     init_param!(model, :theta, 0.1)
-    update = ParamUpdate(FixedStepSizeGradientDescent(0.001), model)
+    update = ParamUpdate(FixedStepGradientDescent(0.001), model)
     for iter=1:max_iter
         traces = do_monte_carlo_inference(data)
         for trace in traces
@@ -161,7 +161,7 @@ Note that it is also possible to use a weighted collection of traces directly wi
 ```julia
 function train_model(data::Vector{ChoiceMap})
     init_param!(model, :theta, 0.1)
-    update = ParamUpdate(FixedStepSizeGradientDescent(0.001), model)
+    update = ParamUpdate(FixedStepGradientDescent(0.001), model)
     for iter=1:max_iter
         traces, weights = do_monte_carlo_inference_with_weights(data)
         for (trace, weight) in zip(traces, weights)

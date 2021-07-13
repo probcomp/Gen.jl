@@ -353,7 +353,7 @@ function get_selected_choices(::EmptyAddressSchema, ::StaticIR)
 end
 
 function get_selected_choices(::AllAddressSchema, ir::StaticIR)
-    Set{RandomChoiceNodes}(ir.choice_nodes)
+    Set{RandomChoiceNode}(ir.choice_nodes)
 end
 
 function get_selected_choices(schema::StaticAddressSchema, ir::StaticIR)
