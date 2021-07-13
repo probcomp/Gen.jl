@@ -85,8 +85,6 @@ function logpdf_grad(::BroadcastedNormal,
     assert_has_shape(x, broadcast_shapes_or_crash(mu, std);
                      msg="Shape of `x` does not agree with the sample space")
     z = (x .- mu) ./ std
-    precision = 1.0 ./ (std .* std)
-    diff = mu .- x
     deriv_x = sum(- z ./ std)
     deriv_mu = -deriv_x
     deriv_std = sum(-1. ./ std .+ abs2.(z) ./ std)
