@@ -134,11 +134,13 @@ function generate_trace_struct(ir::StaticIR, trace_struct_name::Symbol, options:
 end
 
 function generate_serialization_methods(ir::StaticIR, trace_struct_name::Symbol, gen_fn_typename::Symbol, fields)
-    to_subtraces_exprs = [:(tr.$(field.fieldname)) for field in fields if field.holds_subtrace]
+    to_subtraces_exprs = [
+        :($(GlobalRef(Gen, :to_serializable_trace))(tr.$(field.fieldname)))
+        for field in fields if field.holds_subtrace
+    ]
     to_properties_exprs = [:(tr.$(field.fieldname)) for field in fields if !field.holds_subtrace]
     
     # fields will have a bunch of properties, then the subtraces, then more properties
-
     num_initial_props = 0
     for field in fields
         if !field.holds_subtrace
@@ -147,7 +149,8 @@ function generate_serialization_methods(ir::StaticIR, trace_struct_name::Symbol,
             break;
         end
     end
-    gen_fns = [QuoteNode(node.generative_function) for node in ir.call_nodes]
+    
+    gen_fns = [node.generative_function for node in ir.call_nodes]
     
     quote
         function $(GlobalRef(Gen, :to_serializable_trace))(tr::$trace_struct_name)
@@ -156,11 +159,18 @@ function generate_serialization_methods(ir::StaticIR, trace_struct_name::Symbol,
                 $(Expr(:tuple, to_properties_exprs...))
             )
         end
-        function $(GlobalRef(Gen, :from_serializable_trace))(st::$(GlobalRef(Gen, :GenericST)), gf::$gen_fn_typename)
+        function $(GlobalRef(Gen, :from_serializable_trace))(
+            st::$(GlobalRef(Gen, :GenericST)),
+            gf::$gen_fn_typename
+        )
             return $trace_struct_name(
                 st.properties[1:$num_initial_props]...,
-                ($(GlobalRef(Gen, :from_serializable_trace))(args...) for args in zip(st.subtraces, $gen_fns))...,
-                st.properties[$(num_initial_props + 1):end]...
+                (
+                    $(GlobalRef(Gen, :from_serializable_trace))(args...)
+                    for args in zip(st.subtraces, $gen_fns)
+                )...,
+                st.properties[$(num_initial_props + 1):end]...,
+                gf
             )
         end
     end
@@ -340,7 +350,9 @@ function generate_trace_type_and_methods(ir::StaticIR, name::Symbol, options::St
                  get_args_expr, get_retval_expr,
                  get_choices_expr, get_schema_expr, get_values_shallow_expr,
                  get_submaps_shallow_expr, static_get_value_exprs...,
-                 static_has_value_exprs..., static_get_submap_exprs..., getindex_exprs...)
+                 static_has_value_exprs..., static_get_submap_exprs...,
+                 getindex_exprs...
+                )
     (exprs, trace_struct_name, fields)
 end
 
