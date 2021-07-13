@@ -69,7 +69,7 @@ unpack_call_at_args(args) = (args[end], args[1:end-1])
 
 function assess(gen_fn::CallAtCombinator, args::Tuple, choices::ChoiceMap)
     (key, kernel_args) = unpack_call_at_args(args)
-    if length(get_submaps_shallow(choices)) > 1 || length(get_values_shallow(choices)) > 0
+    if length(collect(get_submaps_shallow(choices))) > 1 || !isempty(get_values_shallow(choices))
         error("Not all constraints were consumed")
     end
     submap = get_submap(choices, key)

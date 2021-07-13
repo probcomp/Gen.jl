@@ -9,7 +9,7 @@
 
     @testset "switch trace" begin
         tr = simulate(swtrg, ())
-        swtr = Gen.SwitchTrace(swtrg, 1, tr, get_retval(tr), (), get_score(tr), 0.0)
+        swtr = Gen.SwitchTrace(swtrg, tr, get_retval(tr), (1, ), get_score(tr), 0.0)
         @test swtr[:z] == tr[:z]
         @test project(swtr, AllSelection()) == project(swtr.branch, AllSelection())
         @test project(swtr, EmptySelection()) == swtr.noise
@@ -88,6 +88,11 @@
         new_tr, w, rd = regenerate(tr, (1, 5.0, 3.0), 
                                    (UnknownChange(), NoChange(), NoChange()), 
                                    sel)
+        @test isapprox(old_sc, get_score(new_tr) - w)
+        args = map(x -> 2 * x, get_args(new_tr))
+        argdiffs = map(_ -> UnknownChange(), args)
+        old_sc = get_score(new_tr)
+        new_tr, w, rd = regenerate(new_tr, args, argdiffs, sel)
         @test isapprox(old_sc, get_score(new_tr) - w)
     end
 
@@ -303,7 +308,7 @@
     end
 
     # ------------ (More complex) hierarchy to test discard ------------ #
-    
+
     # Model chunk.
     @gen (grad) function bang3((grad)(x::Float64), (grad)(y::Float64))
         std::Float64 = 3.0
@@ -324,7 +329,7 @@
         return x
     end
     # ----.
-    
+
     @testset "update" begin
         tr = simulate(bam3, (2, ))
         old_sc = get_score(tr)

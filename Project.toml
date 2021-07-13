@@ -1,9 +1,10 @@
 name = "Gen"
 uuid = "ea4f424c-a589-11e8-07c0-fd5c91b9da4a"
 authors = ["Marco Cusumano-Towner <imarcoam@gmail.com>"]
-version = "0.4.1"
+version = "0.4.3"
 
 [deps]
+Compat = "34da2185-b29b-5c13-b0c7-acf172513d20"
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
@@ -17,8 +18,9 @@ ReverseDiff = "37e2e3b7-166d-5795-8a7a-e32c996b4267"
 SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
 
 [compat]
+Compat = "3.25"
 DataStructures = "0.15, 0.16, 0.17, 0.18"
-Distributions = "0.21, 0.22, 0.23, 0.24"
+Distributions = "0.24, 0.25"
 ForwardDiff = "0.10.10"
 FunctionalCollections = "0.5"
 JSON = "0.20, 0.21"

@@ -24,6 +24,12 @@ end
     # out of support
     @test logpdf(beta, -1, 0.5, 0.5) == -Inf
 
+    # avoid infinities, sanely
+    @test logpdf(beta, eps(typeof(0.)), 0.5, 0.5) < logpdf(beta, 0., 0.5, 0.5) < Inf
+    @test logpdf(beta, eps(typeof(0.)), 0.5, 1.5) < logpdf(beta, 0., 0.5, 1.5) < Inf
+    @test logpdf(beta, 1-eps(typeof(0.)), 0.5, 0.5) < logpdf(beta, 1., 0.5, 0.5) < Inf
+    @test logpdf(beta, 1-eps(typeof(0.)), 1.5, 0.5) < logpdf(beta, 1., 1.5, 0.5) < Inf
+
     # logpdf_grad
     f = (x, alpha, beta_param) -> logpdf(beta, x, alpha, beta_param)
     args = (0.4, 0.2, 0.3)
@@ -41,6 +47,10 @@ end
 
     # out of support
     @test logpdf(categorical, -1, [0.2, 0.3, 0.5]) == -Inf
+
+    # integer-1 probability bug
+    N = 20
+    @test sum([rand(Gen.Distributions.Categorical([1, 0])) for i in 1:N]) == N
 
     # logpdf_grad
     f = (x, probs) -> logpdf(categorical, x, probs)

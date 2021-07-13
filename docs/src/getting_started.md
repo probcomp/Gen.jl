@@ -6,9 +6,9 @@ First, obtain Julia 1.3 or later, available [here](https://julialang.org/downloa
 
 The Gen package can be installed with the Julia package manager. From the Julia REPL, type `]` to enter the Pkg REPL mode and then run:
 ```
-pkg> add https://github.com/probcomp/Gen
+pkg> add Gen
 ```
-To test the installation, run the example in the next section, or run the tests with:
+To test the installation locally, you can run the tests with:
 ```julia
 using Pkg; Pkg.test("Gen")
 ```
@@ -72,39 +72,4 @@ xs = [1., 2., 3., 4., 5., 6., 7., 8., 9., 10.]
 ys = [8.23, 5.87, 3.99, 2.59, 0.23, -0.66, -3.53, -6.91, -7.24, -9.90]
 (slope, intercept) = my_inference_program(xs, ys, 1000)
 println("slope: $slope, intercept: $intercept")
-```
-
-## Visualization Framework
-
-Because inference programs are regular Julia code, users can use whatever visualization or plotting libraries from the Julia ecosystem that they want.
-However, we have paired Gen with the [GenViz](https://github.com/probcomp/GenViz) package, which is specialized for visualizing the output and operation of inference algorithms written in Gen.
-
-An example demonstrating the use of GenViz for this example linear regression problem is available in the [gen-quickstart](https://github.com/probcomp/gen-quickstart) repository. The code there is mostly the same as above, with a few small changes to incorporate an animated visualization of the inference process:
-
-1. It starts a visualization server and initializes a visualization before performing inference:
-```julia
-# Start a visualization server on port 8000
-server = VizServer(8000)
-
-# Initialize a visualization with some parameters
-viz = Viz(server, joinpath(@__DIR__, "vue/dist"), Dict("xs" => xs, "ys" => ys, "num" => length(xs), "xlim" => [minimum(xs), maximum(xs)], "ylim" => [minimum(ys), maximum(ys)]))
-
-# Open the visualization in a browser
-openInBrowser(viz)
-```
-
-The `"vue/dist"` is a path to a custom _trace renderer_ that draws the (x, y) points and the line represented by a trace; see the GenViz documentation for more details. The code for the renderer is [here](https://github.com/probcomp/gen-quickstart/blob/master/quickstart/vue/src/components/Trace.vue).
-
-2. It passes the visualization object into the inference program.
-```julia
-(slope, intercept) = my_inference_program(xs, ys, 1000000, viz)
-```
-
-3. In the inference program, it puts the current trace into the visualization at each iteration:
-```julia
-for iter=1:num_iters
-    putTrace!(viz, 1, trace_to_dict(trace))
-    (trace, _) = metropolis_hastings(trace, select(:slope))
-    (trace, _) = metropolis_hastings(trace, select(:intercept))
-end
 ```

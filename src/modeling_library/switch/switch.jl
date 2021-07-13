@@ -41,6 +41,7 @@ function from_serializable_trace(c::GenericST, gf::Switch)
     )
 end
 
+include("trace.jl")
 include("assess.jl")
 include("propose.jl")
 include("simulate.jl")
