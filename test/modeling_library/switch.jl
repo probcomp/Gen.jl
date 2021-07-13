@@ -87,6 +87,11 @@
                                    (UnknownChange(), NoChange(), NoChange()), 
                                    sel)
         @test isapprox(old_sc, get_score(new_tr) - w)
+        args = map(x -> 2 * x, get_args(new_tr))
+        argdiffs = map(_ -> UnknownChange(), args)
+        old_sc = get_score(new_tr)
+        new_tr, w, rd = regenerate(new_tr, args, argdiffs, sel)
+        @test isapprox(old_sc, get_score(new_tr) - w)
     end
 
     @testset "choice gradients" begin
@@ -336,19 +341,5 @@
         new_tr, w, rd, discard = update(tr, (1, ), (UnknownChange(), ), chm)
         @test discard[:x => :q => :q => :z] == future_discarded
         @test isapprox(old_sc, get_score(new_tr) - w)
-    end
-
-    @gen function f1(x)
-        @trace(bernoulli(0.5), :a)
-    end
-
-    @gen function f2(x)
-        @trace(bernoulli(0.5), :a)
-    end
-
-    @testset "mh -- 1" begin
-        F = Switch(f1,f2)
-        tr = simulate(F, (1, 0.0))
-        tr = mh(tr, select(:a))
     end
 end
