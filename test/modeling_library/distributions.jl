@@ -162,9 +162,9 @@ end
     ## Return shape of `logpdf` and `logpdf_grad`
     @test size(logpdf(broadcasted_normal,
                       ones(2, 4), ones(2, 1), ones(1, 4))) == ()
-    @test all(size(g) == ()
-              for g in logpdf_grad(
-                  broadcasted_normal, ones(2, 4), ones(2, 1), ones(1, 4)))
+    @test [size(g) for g in logpdf_grad(
+                  broadcasted_normal, ones(2, 4), ones(2, 1), ones(1, 4))
+          ] == [(2, 4), (2, 1), (1, 4)]
     # `x` has the wrong shape
     @test_throws DimensionMismatch logpdf(broadcasted_normal,
                                           ones(1, 2), ones(1,3), ones(2,1))
@@ -195,8 +195,6 @@ end
                            :std => repeat(compact[:std], outer=(1, 4)))
     @test (logpdf(broadcasted_normal, values(compact)...) ==
            logpdf(broadcasted_normal, values(expanded)...))
-    @test (logpdf_grad(broadcasted_normal, values(compact)...) ==
-           logpdf_grad(broadcasted_normal, values(expanded)...))
 end
 
 @testset "multivariate normal" begin
