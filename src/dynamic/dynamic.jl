@@ -17,7 +17,7 @@ mutable struct DynamicDSLFunction{T} <: GenerativeFunction{T,DynamicDSLTrace}
     julia_function::Function
     has_argument_grads::Vector{Bool}
     accepts_output_grad::Bool
-    parameters::Union{Set{Tuple{GenerativeFunction,Symbol}},Function}
+    parameters::Union{Nothing,Set{Tuple{GenerativeFunction,Symbol}},Function}
 end
 
 function DynamicDSLFunction(arg_types::Vector{Type},
@@ -30,7 +30,7 @@ function DynamicDSLFunction(arg_types::Vector{Type},
                 has_defaults, arg_defaults,
                 julia_function,
                 has_argument_grads, accepts_output_grad,
-                Set{Tuple{GenerativeFunction,Symbol}}())
+                nothing)
 end
 
 function get_parameters(gen_fn::DynamicDSLFunction, parameter_context)
@@ -57,9 +57,17 @@ The `Function` input is used when `gen_fn` uses parameters that come from more t
 See [Optimizing Trainable Parameters](@ref) for details on parameter contexts, and parameter stores.
 """
 function register_parameters!(gen_fn::DynamicDSLFunction, parameters::Function)
+    if gen_fn.parameters !== nothing
+        throw(ArgumentError("parameters for $gen_fn were already registered"))
+    end
     gen_fn.parameters = parameters
+    return nothing
 end
+
 function register_parameters!(gen_fn::DynamicDSLFunction, parameters)
+    if gen_fn.parameters !== nothing
+        throw(ArgumentError("parameters for $gen_fn were already registered"))
+    end
     gen_fn.parameters = Set{Tuple{GenerativeFunction,Symbol}}()
     for param in parameters
         if isa(param, Tuple{GenerativeFunction,Symbol})
