@@ -65,8 +65,6 @@ function logpdf(::BroadcastedNormal,
     assert_has_shape(x, broadcast_shapes_or_crash(mu, std);
                      msg="Shape of `x` does not agree with the sample space")
     z = (x .- mu) ./ std
-    var = std .* std
-    diff = x .- mu
     sum(- (abs2.(z) .+ log(2π)) / 2 .- log.(std))
 end
 
@@ -84,17 +82,17 @@ function logpdf_grad(::BroadcastedNormal,
                      std::Union{AbstractArray{<:Real}, Real})
     assert_has_shape(x, broadcast_shapes_or_crash(mu, std);
                      msg="Shape of `x` does not agree with the sample space")
-    precision = 1.0 ./ (std .* std)
-    diff = mu .- x
-    deriv_x = diff .* precision
+    z = (x .- mu) ./ std
+    deriv_x = - z ./ std
     deriv_mu = -deriv_x
-    deriv_std = -1.0 ./ std .+ (diff .* diff) ./ (std .* std .* std)
+    deriv_std = -1. ./ std .+ abs2(z) ./ std
     (unbroadcast_for_arg(x, deriv_x), 
     unbroadcast_for_arg(mu, deriv_mu), 
     unbroadcast_for_arg(std, deriv_std))
 end
 
 unbroadcast_for_arg(::Real, grad) = sum(grad)
+unbroadcast_for_arg(::Array{Float64, 0}, grad::Real) = fill(grad)
 function unbroadcast_for_arg(
     arg::AbstractArray{<:Real, N}, grad::AbstractArray{T}
 )::AbstractArray{T, N} where {N,T}
@@ -107,7 +105,7 @@ function unbroadcast_grad(
     @assert l_new >= l_old  
     new_shape = size(grad)
     dims=filter(i -> i > l_old || old_shape[i] == 1 && new_shape[i] > 1, 1:l_new)
-    dropdims(sum(grad; dims); dims=tuple((l_old+1:l_new)...))::AbstractArray{T, l_old}
+    dropdims(sum(grad; dims=dims); dims=tuple((l_old+1:l_new)...))::AbstractArray{T, l_old}
 end
 
 random(::Normal, mu::Real, std::Real) = mu + std * randn()
