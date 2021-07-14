@@ -144,12 +144,12 @@ end
     broadcasted_normal(mu, std)
 
     # logpdf_grad
-    f = (x, mu, std) -> logpdf(broadcasted_normal, x, mu, std)
-    args = (mu, std, x)
+    f(x_, mu_, std_) = logpdf(broadcasted_normal, x_, mu_, std_)
+    args = (x, mu, std)
     actual = logpdf_grad(broadcasted_normal, args...)
-    @test isapprox(actual[1], finite_diff(f, args, 1, dx; broadcast=true))
-    @test isapprox(actual[2], finite_diff(f, args, 2, dx; broadcast=true))
-    @test isapprox(actual[3], finite_diff(f, args, 3, dx; broadcast=true))
+    @test isapprox(actual[1], finite_diff_arr_fullarg(f, args, 1, dx); rtol=1e-7)
+    @test isapprox(actual[2], finite_diff_arr_fullarg(f, args, 2, dx); rtol=1e-7)
+    @test isapprox(actual[3], finite_diff_arr_fullarg(f, args, 3, dx); rtol=1e-7)
 end
 
 @testset "broadcasted normal" begin
