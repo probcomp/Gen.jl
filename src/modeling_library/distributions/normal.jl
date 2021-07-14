@@ -84,11 +84,30 @@ function logpdf_grad(::BroadcastedNormal,
                      std::Union{AbstractArray{<:Real}, Real})
     assert_has_shape(x, broadcast_shapes_or_crash(mu, std);
                      msg="Shape of `x` does not agree with the sample space")
-    z = (x .- mu) ./ std
-    deriv_x = sum(- z ./ std)
+    precision = 1.0 ./ (std .* std)
+    diff = mu .- x
+    deriv_x = diff .* precision
     deriv_mu = -deriv_x
-    deriv_std = sum(-1. ./ std .+ abs2.(z) ./ std)
-    (deriv_x, deriv_mu, deriv_std)
+    deriv_std = -1.0 ./ std .+ (diff .* diff) ./ (std .* std .* std)
+    (unbroadcast_for_arg(x, deriv_x), 
+    unbroadcast_for_arg(mu, deriv_mu), 
+    unbroadcast_for_arg(std, deriv_std))
+end
+
+unbroadcast_for_arg(::Real, grad) = sum(grad)
+function unbroadcast_for_arg(
+    arg::AbstractArray{<:Real, N}, grad::AbstractArray{T}
+)::AbstractArray{T, N} where {N,T}
+    size(arg) == size(grad) ? grad : unbroadcast_grad(size(arg), grad)
+end
+
+function unbroadcast_grad(
+    old_shape::NTuple{l_old, Int}, grad::AbstractArray{T, l_new}
+) where {T, l_old, l_new}
+    @assert l_new >= l_old  
+    new_shape = size(grad)
+    dims=filter(i -> i > l_old || old_shape[i] == 1 && new_shape[i] > 1, 1:l_new)
+    dropdims(sum(grad; dims); dims=tuple((l_old+1:l_new)...))::AbstractArray{T, l_old}
 end
 
 random(::Normal, mu::Real, std::Real) = mu + std * randn()
