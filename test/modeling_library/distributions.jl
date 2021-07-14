@@ -123,12 +123,12 @@ end
     x = broadcasted_normal(fill(0), fill(1))
 
     # logpdf_grad
-    f = (x, mu, std) -> logpdf(broadcasted_normal, x, mu, std)
+    f(x, mu, std) = logpdf(broadcasted_normal, x, mu, std)
     args = (fill(0.4), fill(0.2), fill(0.3))
     actual = logpdf_grad(broadcasted_normal, args...)
-    @test isapprox(actual[1][], finite_diff(f, args, 1, dx))
-    @test isapprox(actual[2][], finite_diff(f, args, 2, dx))
-    @test isapprox(actual[3][], finite_diff(f, args, 3, dx))
+    @test isapprox(actual[1], finite_diff(f, args, 1, dx; broadcast=true))
+    @test isapprox(actual[2], finite_diff(f, args, 2, dx; broadcast=true))
+    @test isapprox(actual[3], finite_diff(f, args, 3, dx; broadcast=true))
 end
 
 @testset "array normal (trivially broadcasted: all args have same shape)" begin

@@ -21,7 +21,13 @@ function finite_diff(f::Function, args::Tuple, i::Int, dx::Float64;
     if broadcast
         pos_args[i] = copy(args[i]) .+ dx
         neg_args[i] = copy(args[i]) .- dx
-        return (f(pos_args...) - f(neg_args...)) ./ (2. * dx)
+        ans = (f(pos_args...) - f(neg_args...)) ./ (2. * dx)
+        # Workaround for
+        # https://github.com/probcomp/Gen.jl/pull/433#discussion_r669958584
+        if args[i] isa AbstractArray && ndims(args[i]) == 0
+            return fill(ans)
+        end
+        return ans
     else
         pos_args[i] += dx
         neg_args[i] -= dx
