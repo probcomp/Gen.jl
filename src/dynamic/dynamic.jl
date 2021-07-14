@@ -40,8 +40,10 @@ function get_parameters(gen_fn::DynamicDSLFunction, parameter_context)
         return parameter_stores_to_ids
     elseif isa(gen_fn.parameters, Function)
         return gen_fn.parameters(parameter_context)
+    else
+        # no parameters were registered
+        return Dict{Any,Set}()
     end
-    @assert false
 end
 
 """
