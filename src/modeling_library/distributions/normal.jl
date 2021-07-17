@@ -87,8 +87,8 @@ function logpdf_grad(::BroadcastedNormal,
     deriv_mu = -deriv_x
     deriv_std = -1. ./ std .+ abs2.(z) ./ std
     (unbroadcast_for_arg(x, deriv_x), 
-    unbroadcast_for_arg(mu, deriv_mu), 
-    unbroadcast_for_arg(std, deriv_std))
+     unbroadcast_for_arg(mu, deriv_mu), 
+     unbroadcast_for_arg(std, deriv_std))
 end
 
 unbroadcast_for_arg(::Real, grad) = sum(grad)
