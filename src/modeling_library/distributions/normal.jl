@@ -86,26 +86,26 @@ function logpdf_grad(::BroadcastedNormal,
     deriv_x = - z ./ std
     deriv_mu = -deriv_x
     deriv_std = -1. ./ std .+ abs2.(z) ./ std
-    (_unbroadcast_for_arg(x, deriv_x), 
-     _unbroadcast_for_arg(mu, deriv_mu), 
-     _unbroadcast_for_arg(std, deriv_std))
+    (_unbroadcast_like(x, deriv_x), 
+     _unbroadcast_like(mu, deriv_mu), 
+     _unbroadcast_like(std, deriv_std))
 end
 
-_unbroadcast_for_arg(::Real, grad) = sum(grad)
-_unbroadcast_for_arg(::Array{Float64, 0}, grad::Real) = fill(grad)
-function _unbroadcast_for_arg(arg::AbstractArray{<:Real, N},
-                              grad::AbstractArray{T}
-                             )::AbstractArray{T, N} where {N,T}
-    size(arg) == size(grad) ? grad : unbroadcast_grad(size(arg), grad)
+_unbroadcast_like(::Real, full_arr) = sum(full_arr)
+_unbroadcast_like(::AbstractArray{<:Real, 0}, full_arr::Real) = fill(full_arr)
+function _unbroadcast_like(arg::AbstractArray{<:Real, N},
+                           full_arr::AbstractArray{T}
+                          )::AbstractArray{T, N} where {N,T}
+    size(arg) == size(full_arr) ? full_arr : _unbroadcast_to_shape(size(arg), full_arr)
 end
 
-function unbroadcast_grad(old_shape::NTuple{l_old, Int},
-                          grad::AbstractArray{T, l_new}
-                         ) where {T, l_old, l_new}
-    @assert l_new >= l_old  
-    new_shape = size(grad)
-    dims=filter(i -> i > l_old || old_shape[i] == 1 && new_shape[i] > 1, 1:l_new)
-    dropdims(sum(grad; dims=dims); dims=tuple((l_old+1:l_new)...))::AbstractArray{T, l_old}
+function _unbroadcast_to_shape(target_shape::NTuple{target_ndims, Int},
+                               full_arr::AbstractArray{T, full_ndims}
+                         ) where {T, target_ndims, full_ndims}
+    @assert full_ndims >= target_ndims  
+    full_shape = size(full_arr)
+    dims=filter(i -> i > target_ndims || target_shape[i] == 1 && full_shape[i] > 1, 1:full_ndims)
+    dropdims(sum(full_arr; dims=dims); dims=tuple((target_ndims+1:full_ndims)...))::AbstractArray{T, target_ndims}
 end
 
 random(::Normal, mu::Real, std::Real) = mu + std * randn()
