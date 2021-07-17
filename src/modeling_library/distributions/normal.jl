@@ -105,10 +105,11 @@ end
 function _unbroadcast_to_shape(target_shape::NTuple{target_ndims, Int},
                                full_arr::AbstractArray{T, full_ndims}
                          ) where {T, target_ndims, full_ndims}
-    @assert full_ndims >= target_ndims  
-    full_shape = size(full_arr)
-    dims=filter(i -> i > target_ndims || target_shape[i] == 1 && full_shape[i] > 1, 1:full_ndims)
-    dropdims(sum(full_arr; dims=dims); dims=tuple((target_ndims+1:full_ndims)...))::AbstractArray{T, target_ndims}
+    @assert full_ndims >= target_ndims
+    should_sum_dim(i) = (i > target_ndims) || (target_shape[i] == 1 &&
+                                               size(full_arr, i) > 1)
+    dropdims(sum(full_arr; dims=filter(should_sum_dim, 1:full_ndims));
+             dims=Dims(target_ndims + 1 : full_ndims))
 end
 
 random(::Normal, mu::Real, std::Real) = mu + std * randn()
