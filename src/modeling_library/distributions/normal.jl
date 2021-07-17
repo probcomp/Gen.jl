@@ -34,7 +34,7 @@ Samples an `Array{Float64, max(N1, N2)}` of shape
 `Broadcast.broadcast_shapes(size(mu), size(std))` where each element is
 independently normally distributed.  This is equivalent to (a reshape of) a
 multivariate normal with diagonal covariance matrix, but its implementation is
-more efficient than that of the more general `mvnormal` for this case.
+more efficient than that of the more general [`mvnormal`](@ref) for this case.
 
 The shapes of `mu` and `std` must be broadcast-compatible.
 
