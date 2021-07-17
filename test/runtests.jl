@@ -85,7 +85,7 @@ Returns the partial derivatives of `f` with respect to all entries of
 `args[i]`.
 
 That is, returns an array of the same shape as `args[i]`, each entry of which
-is `finite_diff_arr` applied to the corresponding entry of `args[i]`.
+is [`finite_diff_arr`](@ref) applied to the corresponding entry of `args[i]`.
 
 Requires that `args[i]` have nonzero rank.  Due to [1], handling
 zero-dimensional arrays properly in this function is not feasible; the caller
