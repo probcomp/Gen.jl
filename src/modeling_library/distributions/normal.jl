@@ -93,13 +93,13 @@ end
 
 _unbroadcast_like(::Real, full_arr) = sum(full_arr)
 _unbroadcast_like(::AbstractArray{<:Real, 0}, full_arr::Real) = fill(full_arr)
-function _unbroadcast_like(arg::AbstractArray{<:Real, N},
+function _unbroadcast_like(a::AbstractArray{<:Real, N},
                            full_arr::AbstractArray{T}
                           )::AbstractArray{T, N} where {N,T}
-    if size(arg) == size(full_arr)
+    if size(a) == size(full_arr)
         return full_arr
     end
-    return _unbroadcast_to_shape(size(arg), full_arr)
+    return _unbroadcast_to_shape(size(a), full_arr)
 end
 
 """
