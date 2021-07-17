@@ -93,15 +93,15 @@ end
 
 _unbroadcast_for_arg(::Real, grad) = sum(grad)
 _unbroadcast_for_arg(::Array{Float64, 0}, grad::Real) = fill(grad)
-function _unbroadcast_for_arg(
-    arg::AbstractArray{<:Real, N}, grad::AbstractArray{T}
-)::AbstractArray{T, N} where {N,T}
+function _unbroadcast_for_arg(arg::AbstractArray{<:Real, N},
+                              grad::AbstractArray{T}
+                             )::AbstractArray{T, N} where {N,T}
     size(arg) == size(grad) ? grad : unbroadcast_grad(size(arg), grad)
 end
 
-function unbroadcast_grad(
-    old_shape::NTuple{l_old, Int}, grad::AbstractArray{T, l_new}
-) where {T, l_old, l_new}
+function unbroadcast_grad(old_shape::NTuple{l_old, Int},
+                          grad::AbstractArray{T, l_new}
+                         ) where {T, l_old, l_new}
     @assert l_new >= l_old  
     new_shape = size(grad)
     dims=filter(i -> i > l_old || old_shape[i] == 1 && new_shape[i] > 1, 1:l_new)
