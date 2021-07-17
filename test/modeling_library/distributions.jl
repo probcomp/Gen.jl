@@ -192,7 +192,8 @@ end
     @test_throws DimensionMismatch logpdf_grad(broadcasted_normal,
                                                ones(2, 1), ones(1,2), ones(1,3))
 
-    ## Equivalence of broadcast to supplying bigger arrays for `mu` and `std`
+    ## For `logpdf`, equivalence of broadcast to supplying bigger arrays for
+    ## `mu` and `std`
     compact = OrderedDict(:x => reshape([ 0.2  0.3  0.4  0.5 ;
                                           0.5  0.4  0.3  0.2 ],
                                         (2, 4)),
