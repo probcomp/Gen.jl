@@ -86,14 +86,14 @@ function logpdf_grad(::BroadcastedNormal,
     deriv_x = - z ./ std
     deriv_mu = -deriv_x
     deriv_std = -1. ./ std .+ abs2.(z) ./ std
-    (unbroadcast_for_arg(x, deriv_x), 
-     unbroadcast_for_arg(mu, deriv_mu), 
-     unbroadcast_for_arg(std, deriv_std))
+    (_unbroadcast_for_arg(x, deriv_x), 
+     _unbroadcast_for_arg(mu, deriv_mu), 
+     _unbroadcast_for_arg(std, deriv_std))
 end
 
-unbroadcast_for_arg(::Real, grad) = sum(grad)
-unbroadcast_for_arg(::Array{Float64, 0}, grad::Real) = fill(grad)
-function unbroadcast_for_arg(
+_unbroadcast_for_arg(::Real, grad) = sum(grad)
+_unbroadcast_for_arg(::Array{Float64, 0}, grad::Real) = fill(grad)
+function _unbroadcast_for_arg(
     arg::AbstractArray{<:Real, N}, grad::AbstractArray{T}
 )::AbstractArray{T, N} where {N,T}
     size(arg) == size(grad) ? grad : unbroadcast_grad(size(arg), grad)
