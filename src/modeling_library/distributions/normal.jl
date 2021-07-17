@@ -102,6 +102,19 @@ function _unbroadcast_like(arg::AbstractArray{<:Real, N},
     return _unbroadcast_to_shape(size(arg), full_arr)
 end
 
+"""
+"Unbroadcasts" `full_arr` to have shape `target_shape` by:
+
+* Summing over all dims that would be increased by a broadcast from shape
+  `target_shape` to shape `size(full_arr)`
+* Then dropping trailing dims (which will all be 1's) as needed so that the
+  result has shape `target_shape`.
+
+Requires that `size(full_arr)` is "strictly bigger" than `target_shape`, in the
+sense that
+
+    Broadcast.broadcast_shapes(target_shape, size(full_arr)) == size(full_arr)
+"""
 function _unbroadcast_to_shape(target_shape::NTuple{target_ndims, Int},
                                full_arr::AbstractArray{T, full_ndims}
                          ) where {T, target_ndims, full_ndims}
