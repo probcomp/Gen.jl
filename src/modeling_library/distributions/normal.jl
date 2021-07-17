@@ -96,7 +96,10 @@ _unbroadcast_like(::AbstractArray{<:Real, 0}, full_arr::Real) = fill(full_arr)
 function _unbroadcast_like(arg::AbstractArray{<:Real, N},
                            full_arr::AbstractArray{T}
                           )::AbstractArray{T, N} where {N,T}
-    size(arg) == size(full_arr) ? full_arr : _unbroadcast_to_shape(size(arg), full_arr)
+    if size(arg) == size(full_arr)
+        return full_arr
+    end
+    return _unbroadcast_to_shape(size(arg), full_arr)
 end
 
 function _unbroadcast_to_shape(target_shape::NTuple{target_ndims, Int},
