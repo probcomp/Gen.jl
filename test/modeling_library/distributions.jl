@@ -126,6 +126,11 @@ end
     f(x, mu, std) = logpdf(broadcasted_normal, x, mu, std)
     args = (fill(0.4), fill(0.2), fill(0.3))
     actual = logpdf_grad(broadcasted_normal, args...)
+
+    @test actual[1] isa AbstractArray && size(actual[1]) == ()
+    @test actual[2] isa AbstractArray && size(actual[2]) == ()
+    @test actual[3] isa AbstractArray && size(actual[3]) == ()
+
     @test isapprox(actual[1], finite_diff(f, args, 1, dx; broadcast=true))
     @test isapprox(actual[2], finite_diff(f, args, 2, dx; broadcast=true))
     @test isapprox(actual[3], finite_diff(f, args, 3, dx; broadcast=true))
@@ -147,6 +152,11 @@ end
     f(x_, mu_, std_) = logpdf(broadcasted_normal, x_, mu_, std_)
     args = (x, mu, std)
     actual = logpdf_grad(broadcasted_normal, args...)
+
+    @test actual[1] isa AbstractArray && size(actual[1]) == (2, 3)
+    @test actual[2] isa AbstractArray && size(actual[2]) == (2, 3)
+    @test actual[3] isa AbstractArray && size(actual[3]) == (2, 3)
+
     @test isapprox(actual[1], finite_diff_arr_fullarg(f, args, 1, dx); rtol=1e-7)
     @test isapprox(actual[2], finite_diff_arr_fullarg(f, args, 2, dx); rtol=1e-7)
     @test isapprox(actual[3], finite_diff_arr_fullarg(f, args, 3, dx); rtol=1e-7)
