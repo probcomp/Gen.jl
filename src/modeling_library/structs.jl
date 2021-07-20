@@ -20,10 +20,12 @@ end
 end
 
 """
-    gen_fn = Construct(type::Type)
+    gen_fn = Construct(T::Type)
 
-Constructs instances of user-defined composite types while supporting
-incremental computation. Changes to fields are propogated accordingly.
+Constructs instances of a user-defined composite type `T` while supporting
+incremental computation. Changes to fields are propagated as long as `gen_fn`
+called with `args` invokes a type constructor `T(args...)` such that the
+``n``th argument corresponds to the ``n``th field of the type.
 """
 struct Construct{T} <: CustomUpdateGF{T, T} end
 
@@ -66,10 +68,12 @@ end
 end
 
 """
-    gen_fn = GetField(type::Type, fieldname::Symbol)
+    gen_fn = GetField(T::Type, fieldname::Symbol)
 
-Returns the field value of a user-defined composite type while supporting
-incremental computation. Changes to fields are propagated accordingly.
+Returns the field value of a user-defined composite type `T` while supporting
+incremental computation. Changes to fields are propagated accordingly as long
+`gen_fn` is called on an instance of `T` created by [`Construct`](@ref)
+according to the documented requiments.
 """
 struct GetField{T, F, FT} <: CustomUpdateGF{FT, Nothing}
     function GetField{T, F}() where {T, F}
