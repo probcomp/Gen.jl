@@ -97,6 +97,55 @@ apply_with_state
 update_with_state
 ```
 
+### Incremental computation for user-defined types
+
+Gen provides the generative functions [`Construct`](@ref) and
+[`GetField`](@ref) to support incremental computation for user-defined composite
+types, i.e., structs. They are useful when structs contain fields which are
+returned by other generative functions, or sampled from distributions. For
+example, we might define a struct representing 2D points:
+```julia
+struct Point2f0
+    x::Float64
+    y::Float64
+end
+```
+We might then use [`Construct`](@ref) and [`GetField`](@ref) within the
+following model of point motion:
+```julia
+@gen (static) function point_motion()
+    x ~ normal(0, 1)
+    y ~ normal(0, 1)
+    p ~ Construct(Point2f0)(x, y)
+    new_x ~ x_motion(p)
+    new_y ~ y_motion(p)
+end
+
+@gen (static) function x_motion(p::Point2f0)
+    x ~ GetField(Point2f0, :x)(p::Point2f0)
+    new_x = long_computation_for_x(x)
+    return new_x
+end
+
+@gen (static) function y_motion(p::Point2f0)
+    y ~ GetField(Point2f0, :y)(p::Point2f0)
+    new_y = long_computation_for_y(y)
+    return new_y
+end
+```
+Because [`Construct`](@ref) propagates changes to each field of `Point2f0`
+separately, writing the model in this way ensures that MCMC moves that adjust
+`x` only result in `x_motion` being re-run, while `y_motion` is not recomputed.
+
+Note that that `Construct` should be used with constructors `T(args...)`
+where the ``n``th argument corresponds to the ``n``th field of the type `T`.
+Default constructors meet this requirement. Other constructors are not
+guaranteed to propagate changes correctly.
+
+```@docs
+Construct
+GetField
+```
 
 ## [Custom distributions](@id custom_distributions)
 
