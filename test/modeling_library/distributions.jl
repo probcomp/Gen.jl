@@ -167,7 +167,12 @@ end
     ## Return shape of `broadcasted_normal`
     @test size(broadcasted_normal([0. 0. 0.], 1.)) == (1, 3)
     @test size(broadcasted_normal(zeros(1, 3, 4), ones(2, 1, 4))) == (2, 3, 4)
+    @test size(broadcasted_normal(zeros(1, 3), ones(2, 1, 1))) == (2, 3, 1)
     @test_throws DimensionMismatch broadcasted_normal([0 0 0], [1 1])
+    # Numpy and Julia use different conventions for which direction the
+    # implicit 1-padding goes.  In Julia, it's not `(1, 2, 3)` but rather
+    # `(2, 3, 1)` that is broadcast-compatible with the shape `(2, 3)`.
+    @test_throws DimensionMismatch broadcasted_normal(zeros(2, 3), ones(1, 2, 3))
 
     ## Return shape of `logpdf` and `logpdf_grad`
     @test size(logpdf(broadcasted_normal,
@@ -196,14 +201,14 @@ end
     ## `mu` and `std`
     compact = OrderedDict(:x => reshape([ 0.2  0.3  0.4  0.5 ;
                                           0.5  0.4  0.3  0.2 ],
-                                        (2, 4)),
+                                        (2, 4, 1)),
                           :mu => reshape([0.7  0.7  0.8  0.6],
                                          (1, 4)),
                           :std => reshape([0.2, 0.1],
-                                          (2, 1)))
+                                          (2, 1, 1)))
     expanded = OrderedDict(:x => compact[:x],
-                           :mu => repeat(compact[:mu], outer=(2, 1)),
-                           :std => repeat(compact[:std], outer=(1, 4)))
+                           :mu => repeat(compact[:mu], outer=(2, 1, 1)),
+                           :std => repeat(compact[:std], outer=(1, 4, 1)))
     @test (logpdf(broadcasted_normal, values(compact)...) ==
            logpdf(broadcasted_normal, values(expanded)...))
 end
