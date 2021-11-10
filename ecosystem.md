@@ -47,6 +47,9 @@ Compile portions of traces into factor graphs and use variable elimination on th
 #### [Gen2DAgentMotion](https://github.com/probcomp/Gen2DAgentMotion.jl)
 Components for building generative models of the motion of an agent moving around a 2D environment.
 
+#### [GenDirectionalStats](https://github.com/probcomp/GenDirectionalStats.jl)
+Probability distributions and involutive MCMC kernels on orientations and rotations.
+
 #### [GenRedner](https://github.com/probcomp/GenRedner.jl)
 Wrapper for employing the [Redner](https://github.com/BachiLi/redner) differentiable renderer in Gen generative models.
 
