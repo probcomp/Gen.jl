@@ -17,7 +17,7 @@ If we use this selection in the context of a trace of the function `baz` below, 
 end
 ```
 
-If we use this selection in the context of a trace of the function `bar` below, we are actually selecting three random choices---the one random choice made by `bar` at address `:x` and the two random choices made by `foo` at addresses `:y => :z` and :y => :w`:
+If we use this selection in the context of a trace of the function `bar` below, we are actually selecting three random choices---the one random choice made by `bar` at address `:x` and the two random choices made by `foo` at addresses `:y => :z` and `:y => :w`:
 ```julia
 @gen function foo()
     @trace(normal(0, 1), :z)
