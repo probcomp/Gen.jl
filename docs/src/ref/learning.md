@@ -118,7 +118,7 @@ Most techniques for learning models from incomplete data, from the EM algorithm 
 
 Various algorithms can be understood as examples of this general pattern, although they differ in several details including (i) how they represent the results of inferences, (ii) how they perform the inference step, (iii) whether they try to solve each of the inference and parameter-optimization problems incrementally or not, and (iv) their formal theoretical justification and analysis:
 
-- [Expectation maximization (EM) [1], including incremental variants [2]
+- Expectation maximization (EM) [1], including incremental variants [2]
 
 - Monte Carlo EM [3] and online variants [4]
 
