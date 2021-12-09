@@ -154,7 +154,7 @@ render(trace)
 
 In Gen, a **particle is represented as a trace** and the particle filter state contains a weighted collection of traces. Below we define an inference program that runs a particle filter on an observed data set of bearings (`zs`). We use `num_particles` particles internally, and then we return a sample of `num_samples` traces from the weighted collection that the particle filter produces.
 
-Gen provides methods for initializing and updating the state of a particle filter, documented in [Particle Filtering](https://probcomp.github.io/Gen/dev/ref/inference/#Particle-Filtering-1).
+Gen provides methods for initializing and updating the state of a particle filter, documented in [Particle Filtering](https://www.gen.dev/dev/ref/pf/).
 
 - `Gen.initialize_particle_filter`
 
@@ -204,7 +204,7 @@ At each step, we resample from the collection of traces (`maybe_resample!`) and 
 
 - The new arguments to the generative function for this step. In our case, this is the number of measurements beyond the first measurement.
 
-- The [argdiff](https://probcomp.github.io/Gen/dev/ref/gfi/#Argdiffs-1) value, which provides detailed information about the change to the arguments between the previous step and this step. We will revisit this value later. For now, we indicat ethat we do not know how the `T::Int` argument will change with each step.
+- The [argdiff](https://www.gen.dev/dev/ref/gfi/#Argdiffs-1) value, which provides detailed information about the change to the arguments between the previous step and this step. We will revisit this value later. For now, we indicat ethat we do not know how the `T::Int` argument will change with each step.
 
 - The new observations associated with the new step. In our case, this just contains the latest measurement.
 
@@ -326,7 +326,7 @@ overlay(render, pf_rejuv_traces, same_data=true)
 
 For the particle filtering algorithms above, within an update step it is only necessary to revisit the most recent state (or the most recent 5 states if the rejuvenation moves are used) because the initial states are never updated, and the contribution of these states to the weight computation cancel.
 
-However, each update step of the particle filter inference programs above scales *linearly* in the size of the trace because it visits every state when computing the weight update. This is because the built-in modeling DSL by default always performs an end-to-end execution of the generative function body whenever performing a trace update. This allows the built-in modeling DSL to be very flexible and to have a simple implementation, at the cost of performance. There are several ways of improving performance after one has a prototype written in the built-in modeling DSL. One of these is [Generative Function Combinators](https://probcomp.github.io/Gen/dev/ref/combinators/), which make the flow of information through the generative process more explicit to Gen, and enable asymptotically more efficient inference programs.
+However, each update step of the particle filter inference programs above scales *linearly* in the size of the trace because it visits every state when computing the weight update. This is because the built-in modeling DSL by default always performs an end-to-end execution of the generative function body whenever performing a trace update. This allows the built-in modeling DSL to be very flexible and to have a simple implementation, at the cost of performance. There are several ways of improving performance after one has a prototype written in the built-in modeling DSL. One of these is [Generative Function Combinators](https://www.gen.dev/dev/ref/combinators/), which make the flow of information through the generative process more explicit to Gen, and enable asymptotically more efficient inference programs.
 
 To exploit the opportunity for incremental computation, and improve the scaling behavior of our particle filter inference programs, we will write a new model that replaces the following Julia `for` loop in our model, using a generative function combinator.
 
@@ -349,7 +349,7 @@ To exploit the opportunity for incremental computation, and improve the scaling 
     end
 ```
 
-This `for` loop has a very specific pattern of information flow---there is a sequence of states (represented by `x, y, vx, and vy), and each state is generated from the previous state. This is exactly the pattern that the [Unfold](https://probcomp.github.io/Gen/dev/ref/combinators/#Unfold-combinator-1) generative function combinator is designed to handle.
+This `for` loop has a very specific pattern of information flow---there is a sequence of states (represented by `x, y, vx, and vy), and each state is generated from the previous state. This is exactly the pattern that the [Unfold](https://www.gen.dev/dev/ref/combinators/#Unfold-combinator-1) generative function combinator is designed to handle.
 
 Below, we re-express the Julia for loop over the state sequence using the Unfold combinator. Specifically, we define a generative function (kernel) that takes the prevous state as its second argument, and returns the new state. The Unfold combinator takes the kernel and returns a new generative function (chain) that applies kernel repeatedly. Read the Unfold combinator documentation for details on the behavior of the resulting generative function (chain).
 

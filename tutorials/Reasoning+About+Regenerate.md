@@ -5,7 +5,7 @@ layout: splash
 
 # Reasoning About Regenerate
 
-Gen provides a primitive called [`regenerate`](https://probcomp.github.io/Gen/dev/ref/gfi/#Regenerate-1) that allows users to ask for certain random choices in a trace to be re-generated from scratch. `regenerate` is the basis of one variant of the [`metropolis_hastings`](https://probcomp.github.io/Gen/dev/ref/inference/#Gen.metropolis_hastings) operator in Gen's inference library.
+Gen provides a primitive called [`regenerate`](https://www.gen.dev/dev/ref/gfi/#Regenerate-1) that allows users to ask for certain random choices in a trace to be re-generated from scratch. `regenerate` is the basis of one variant of the [`metropolis_hastings`](https://www.gen.dev/dev/ref/mcmc/#Gen.metropolis_hastings) operator in Gen's inference library.
 
 This notebook aims to help you understand the computation that `regenerate` is performing.
 
@@ -61,7 +61,7 @@ using Gen: regenerate, select, NoChange
 (trace, weight, retdiff) = regenerate(trace, (0.3,), (NoChange(),), select(:a));
 ```
 
-Note that unlike [`update`](https://probcomp.github.io/Gen/dev/ref/gfi/#Gen.update), we do not provide the new values for the random choices that we want to change. Instead, we simply pass in a [selection](https://probcomp.github.io/Gen/dev/ref/selections/#Selections-1) indicating the addresses that we want to propose new values for.
+Note that unlike [`update`](https://www.gen.dev/dev/ref/gfi/#Gen.update), we do not provide the new values for the random choices that we want to change. Instead, we simply pass in a [selection](https://www.gen.dev/dev/ref/selections/#Selections-1) indicating the addresses that we want to propose new values for.
 
 Note that `select(:a)` is equivalent to:
 ```julia
@@ -89,7 +89,7 @@ println(get_choices(trace))
 
 Re-run the regenerate command until you get a trace where `a` is `false`. Note that the address `b` doesn't appear in the resulting trace. Then, run the command again until you get a trace where `a` is `true`. Note that now there is a value for `b`. This value of `b` was sampled along with the new value for `a`---`regenerate` will regenerate new values for the selected adddresses, but also any new addresses that may be introduced as a consequence of stochastic control flow.
 
-What distribution is `regenerate` sampling the selected values from? It turns out that `regenerate` is using the [*internal proposal distribution family*](https://probcomp.github.io/Gen/dev/ref/gfi/#.-Internal-proposal-distribution-family-1) $q(t; x, u)$, just like like `generate`. Recall that for `@gen` functions, the internal proposal distribution is based on *ancestral sampling*.  But whereas `generate` was given the expicit choice map of constraints ($u$) as an argument, `regenerate` constructs $u$ by starting with the previous trace $t$ and then removing any selected addresses. In other words, `regenerate` is like `generate`, but where the constraints are the choices made in the previous trace less the selected choices.
+What distribution is `regenerate` sampling the selected values from? It turns out that `regenerate` is using the [*internal proposal distribution family*](https://www.gen.dev/dev/ref/gfi/#Internal-proposal-distribution-family-1) $q(t; x, u)$, just like like `generate`. Recall that for `@gen` functions, the internal proposal distribution is based on *ancestral sampling*.  But whereas `generate` was given the expicit choice map of constraints ($u$) as an argument, `regenerate` constructs $u$ by starting with the previous trace $t$ and then removing any selected addresses. In other words, `regenerate` is like `generate`, but where the constraints are the choices made in the previous trace less the selected choices.
 
 We can make this concrete. Let us start with a deterministic trace again:
 

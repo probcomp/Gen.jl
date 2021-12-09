@@ -103,7 +103,7 @@ typeof("foo")
 ## 2. Writing a probabilistic model as a generative function  <a name="writing-model"></a>
 
 Probabilistic models are represented in Gen as *generative functions*.
-The simplest way to construct a generative function is by using the [built-in modeling DSL](https://probcomp.github.io/Gen/dev/ref/modeling/). Generative functions written in the built-in modeling DSL are based on Julia function definition syntax, but are prefixed with the `@gen` keyword. The function represents the data-generating process we are modeling: each random choice it makes can be thought of as a random variable in the model.
+The simplest way to construct a generative function is by using the [built-in modeling DSL](https://www.gen.dev/dev/ref/modeling/). Generative functions written in the built-in modeling DSL are based on Julia function definition syntax, but are prefixed with the `@gen` keyword. The function represents the data-generating process we are modeling: each random choice it makes can be thought of as a random variable in the model.
 The generative function below represents a probabilistic model of a linear relationship in the x-y plane. Given a set of $x$ coordinates, it randomly chooses a line in the plane and generates corresponding $y$ coordinates so that each $(x, y)$ is near the line. We might think of this function as modeling house prices as a function of square footage, or the measured volume of a gas as a function of its measured temperature.
 
 
@@ -155,7 +155,7 @@ println(n)
 More interesting than `n` are the values of the random choies that `line_model` makes. **Crucially, each random choice is annotated with a unique *address*.** A random choice is assigned an address using the `@trace` keyword. Addresses can be any Julia value. In this program, there are two types of addresses used -- Julia symbols and tuples of symbols and integers. Note that within the `for` loop, the same line of code is executed multiple times, but each time, the random choice it makes is given a distinct address.
 
 Although the random choices are not included in the return value, they *are* included in the *execution trace* of the generative function. We can run the generative function and obtain its trace using the [`
-simulate`](https://probcomp.github.io/Gen/dev/ref/gfi/#Gen.simulate) method from the Gen API:
+simulate`](https://www.gen.dev/dev/ref/gfi/#Gen.simulate) method from the Gen API:
 
 
 ```julia
@@ -186,7 +186,7 @@ Gen.get_args(trace)
 
 
 
-The trace also contains the value of the random choices, stored in map from address to value called a *choice map*. This map is available through the API method [`get_choices`]():
+The trace also contains the value of the random choices, stored in map from address to value called a *choice map*. This map is available through the API method [`get_choices`](https://www.gen.dev/dev/ref/gfi/#Gen.get_choices):
 
 
 ```julia
@@ -327,7 +327,7 @@ Write a generative function that uses the same address twice. Run it to see what
 ### Exercise
 
 Write a model that generates a sine wave with random phase, period and amplitude, and then generates y-coordinates from a given vector of x-coordinates by adding noise to the value of the wave at each x-coordinate.
-Use a  `gamma(5, 1)` prior distribution for the period, and a `gamma(1, 1)` prior distribution on the amplitude (see [`Gen.gamma`](https://probcomp.github.io/Gen/dev/ref/distributions/#Gen.gamma)). Use a uniform distribution for the phase (see [`Gen.uniform`](https://probcomp.github.io/Gen/dev/ref/distributions/#Gen.uniform)). Write a function that renders the trace by showing the data set and the sine wave. Visualize a grid of traces and discuss the distribution. Try tweaking the parameters of each of the prior distributions and seeing how the behavior changes.
+Use a  `gamma(5, 1)` prior distribution for the period, and a `gamma(1, 1)` prior distribution on the amplitude (see [`Gen.gamma`](https://www.gen.dev/dev/ref/distributions/#Gen.gamma)). Use a uniform distribution for the phase (see [`Gen.uniform`](https://www.gen.dev/dev/ref/distributions/#Gen.uniform)). Write a function that renders the trace by showing the data set and the sine wave. Visualize a grid of traces and discuss the distribution. Try tweaking the parameters of each of the prior distributions and seeing how the behavior changes.
 
 ### Solution
 
@@ -510,7 +510,7 @@ Write an inference program that generates traces of `sine_model` that explain th
 
 ## 4. Predicting new data  <a name="predicting-data"></a>
 
-Using the API method [`generate`](https://probcomp.github.io/Gen/dev/ref/gfi/#Gen.generate), we can generate a trace of a generative function in which the values of certain random choices constrained to given values. The constraints are a choice map that maps the addresses of the constrained random choices to their desired values. 
+Using the API method [`generate`](https://www.gen.dev/dev/ref/gfi/#Gen.generate), we can generate a trace of a generative function in which the values of certain random choices constrained to given values. The constraints are a choice map that maps the addresses of the constrained random choices to their desired values. 
 
 For example:
 
