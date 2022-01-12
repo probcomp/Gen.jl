@@ -9,7 +9,7 @@ layout: splash
 ### What is this tutorial about?
 
 In our 
-[introduction to modeling tutorial](Introduction%20to%20Modeling%20in%20Gen.jl), we used **Importance Sampling** for inference: the inference engine _proposed_ many possible explanations for a dataset, and then chose one. Importance sampling can be difficult to scale to more complex problems, because it is essentially "guessing and checking." If we ran importance sampling with 1000 particles, for example, 
+[introduction to modeling tutorial](../intro-to-modeling/tutorial), we used **Importance Sampling** for inference: the inference engine _proposed_ many possible explanations for a dataset, and then chose one. Importance sampling can be difficult to scale to more complex problems, because it is essentially "guessing and checking." If we ran importance sampling with 1000 particles, for example, 
 the method would fail unless those 1000 proposed solutions (blind guesses, essentially)
 contained _something_ close to the true answer. In complex problems, it is difficult
 to "guess" (or "propose") an entire solution all at once.
@@ -28,7 +28,7 @@ process is sometimes called 'amortized inference' or 'inference compilation'.
 
 Although we focus on using data-driven proposals with importance sampling in this notebok,
 data-driven proposals can also be used with Markov Chain Monte Carlo (MCMC) and
-sequential Monte Carlo (SMC), covered in [other](Iterative%20Inference%20in%20Gen.jl) [tutorials](Particle%20Filtering%20in%20Gen.jl).
+sequential Monte Carlo (SMC), covered in [other](../iterative-inference/tutorial) [tutorials](../particle-filtering/tutorial).
 
 ### Application to Inverse Planning
 This notebook begins by introducing a probabilistic model for the motion of 

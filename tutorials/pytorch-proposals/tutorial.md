@@ -5,7 +5,7 @@ layout: splash
 
 # Tutorial: Data-Driven Proposals with PyTorch
 
-This tutorial is a short extension to [Data-Driven Proposals in Gen](../Data-Driven%20Proposals%20in%20Gen.jl), 
+This tutorial is a short extension to [Data-Driven Proposals in Gen](../data-driven-proposals/tutorial), 
 which shows how to use PyTorch for easier specification of the proposal.
 
 For this tutorial, you'll need to ensure that you have PyCall installed, and pointing to a Python that has Torch installed.

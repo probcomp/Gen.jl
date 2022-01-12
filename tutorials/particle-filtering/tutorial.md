@@ -52,7 +52,7 @@ improving performance; once you understand it, you can check
 Gen's documentation to see how similar principles apply to the 
 [`Map`](https://www.gen.dev/dev/ref/combinators/#Map-combinator-1) combinator 
 and to the static DSL. (These features are also covered in the previous tutorial,
-[Scaling with Combinators and the Static Modeling Language](Scaling%20with%20Combinators%20and%20the%20Static%20Modeling%20Language.ipynb).)
+[Scaling with Combinators and the Static Modeling Language](../scaling-with-combinators-new/tutorial).)
 
 
 
