@@ -4,6 +4,9 @@
 @inline fold_sum(::Nothing, a::A) where A = a
 @inline fold_sum(a::A, b::A) where A = a + b
 
+@inline _sum(::Nothing) = nothing
+@inline _sum(x::Vector) = sum(x)
+
 function choice_gradients(trace::VectorTrace{UnfoldType,T,U}, selection::Selection, retval_grad) where {T,U}
     kernel_has_grads = has_argument_grads(trace.gen_fn.kernel)
     if kernel_has_grads[1]
@@ -44,7 +47,7 @@ function choice_gradients(trace::VectorTrace{UnfoldType,T,U}, selection::Selecti
             end
         end
     end
-    ((nothing, kernel_arg_grads[2], params_grad...), value_choices, gradient_choices)
+    ((nothing, kernel_arg_grads[2], map(_sum, params_grad)...), value_choices, gradient_choices)
 end
 
 function accumulate_param_gradients!(trace::VectorTrace{UnfoldType,T,U}, retval_grad) where {T,U}
@@ -82,5 +85,5 @@ function accumulate_param_gradients!(trace::VectorTrace{UnfoldType,T,U}, retval_
             end
         end
     end
-    (nothing, kernel_arg_grads[2], params_grad...)
+    (nothing, kernel_arg_grads[2], map(_sum, params_grad)...)
 end
