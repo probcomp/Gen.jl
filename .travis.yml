@@ -6,12 +6,10 @@ julia:
   - 1.4
   - 1.5
   - 1.6
+  - nightly
 
 jobs:
   include:
-    - stage: test
-      script:
-        - julia -e 'using Pkg; Pkg.build(); Pkg.test()'
     - stage: docs
       julia: 1.6
       os: linux
