@@ -114,7 +114,7 @@ function Gen.logpdf_grad(dist::HomogeneousMixture, x, weights, args...)
                     dims=dist.dims[i]+1)
                 grad_weights = reshape(
                     relative_weighted_densities,
-                    (1 for d in 1:dist.dims[i])..., length(dist.dims))
+                    (1 for d in 1:dist.dims[i])..., K)
             end
             push!(arg_grads, grads .* grad_weights)
         else
