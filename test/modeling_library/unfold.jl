@@ -506,10 +506,13 @@ foo = Unfold(kernel)
 
         zero_param_grad!(kernel, :std)
         input_grads = accumulate_param_gradients!(trace, nothing)
+        expected_xs_grad = logpdf_grad(normal, x1, x_init * alpha + beta, std)[2] * x_init + logpdf_grad(normal, x2, x1 * alpha + beta, std)[2] * x1
+        expected_ys_grad = logpdf_grad(normal, x1, x_init * alpha + beta, std)[2] + logpdf_grad(normal, x2, x1 * alpha + beta, std)[2]
+
         @test input_grads[1] == nothing # length
         @test input_grads[2] == nothing # inital state
-        #@test isapprox(input_grads[3], expected_xs_grad) # alpha
-        #@test isapprox(input_grads[4], expected_ys_grad) # beta
+        @test isapprox(input_grads[3], expected_xs_grad) # alpha
+        @test isapprox(input_grads[4], expected_ys_grad) # beta
         expected_std_grad = (logpdf_grad(normal, x1, x_init * alpha + beta, std)[3]
                              + logpdf_grad(normal, x2, x1 * alpha + beta, std)[3])
         @test isapprox(get_param_grad(kernel, :std), expected_std_grad)
