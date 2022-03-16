@@ -218,5 +218,40 @@ function maybe_resample!(state::ParticleFilterState{U};
     return do_resample
 end
 
+"""
+    did_resample::Bool = maybe_resample!(state::ParticleFilterState, resampler::Function;
+        ess_threshold::Float64=length(state.traces)/2, verbose=false)
+
+Do a resampling step if the effective sample size is below the given threshold.
+{resampler} is a function that takes in a vector of log normalized weights corresponding to each particle,
+and returns a vector of sampled particle indices.
+
+Return `true` if a resample occurred, `false` otherwise.
+"""
+function maybe_resample!(state::ParticleFilterState{U}, resampler::Function;
+                        ess_threshold::Real=length(state.traces)/2, verbose=false) where {U}
+    num_particles = length(state.traces)
+    (log_total_weight, log_normalized_weights) = normalize_weights(state.log_weights)
+    ess = effective_sample_size(log_normalized_weights)
+    do_resample = ess < ess_threshold
+    if verbose
+        println("effective sample size: $ess, doing resample: $do_resample")
+    end
+    if do_resample
+        state.parents = resampler(log_normalized_weights)
+        state.log_ml_est += log_total_weight - log(num_particles)
+        for i=1:num_particles
+            state.new_traces[i] = state.traces[state.parents[i]]
+            state.log_weights[i] = 0.
+        end
+
+        # swap references
+        tmp = state.traces
+        state.traces = state.new_traces
+        state.new_traces = tmp
+    end
+    return do_resample
+end
+
 export initialize_particle_filter, particle_filter_step!, maybe_resample!
 export get_traces, get_log_weights, log_ml_estimate, sample_unweighted_traces
