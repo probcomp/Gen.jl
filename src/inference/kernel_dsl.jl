@@ -14,8 +14,9 @@ is_custom_primitive_kernel(::Function) = false
 check_is_kernel(::Function) = false
 
 """
-    @pkern function k(trace, ..; check=false, observations=EmptyChoiceMap())
-        ..
+    @pkern function k(trace, args...; 
+                      check=false, observations=EmptyChoiceMap())
+        ...
         return trace
     end
 
@@ -53,7 +54,7 @@ function expand_kern_ex(ex)
 
         elseif @capture(x, if cond_ body_ end)
 
-            # if .. end
+            # if ... end
             quote
                 cond = $(cond)
                 if cond
@@ -202,6 +203,7 @@ The resulting object is a Julia function that is annotated as a composite MCMC k
 macro kern(ex)
     kern_ex, kern = expand_kern_ex(ex)
     rev_kern_ex, rev_kern = reversal_ex(ex)
+    rev_kern_ex, _ = expand_kern_ex(rev_kern_ex)
     expr = quote
         # define forward kerel
         $kern_ex
@@ -214,6 +216,7 @@ macro kern(ex)
         Gen.reversal(::typeof($(rev_kern))) = $(kern)
     end
     expr = postwalk(flatten ∘ unblock ∘ rmlines, expr)
+    display(expr)
     esc(expr)
 end
 
