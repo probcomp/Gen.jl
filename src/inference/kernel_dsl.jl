@@ -40,7 +40,7 @@ function expand_kern_ex(ex)
     ex = MacroTools.postwalk(MacroTools.unblock, ex)
     MacroTools.@capture(ex, function f_(T_, args__) body_ end) || error("expected kernel syntax: function my_kernel(trace, .) .. end")
     trace = T
-    toplevel_args = args
+    toplevel_args = map(esc, args)
 
     body = MacroTools.postwalk(body) do x
         if MacroTools.@capture(x, for idx_ in range_ body_ end)
@@ -152,7 +152,6 @@ end
 
 
 function reversal_ex(ex)
-
     ex = MacroTools.postwalk(MacroTools.unblock, ex)
     MacroTools.@capture(ex, function f_(args__) body_ end) || error("expected a function")
     toplevel_args = args
