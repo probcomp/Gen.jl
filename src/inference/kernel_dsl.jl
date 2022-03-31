@@ -216,7 +216,6 @@ macro kern(ex)
         Gen.reversal(::typeof($(rev_kern))) = $(kern)
     end
     expr = postwalk(flatten ∘ unblock ∘ rmlines, expr)
-    display(expr)
     esc(expr)
 end
 
