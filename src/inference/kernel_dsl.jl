@@ -228,10 +228,4 @@ macro kern(ex)
     esc(expr)
 end
 
-macro kern(debug_flag, ex)
-    expr = toplevel(ex)
-    debug_flag == :debug && display(expr)
-    esc(expr)
-end
-
 export @pkern, @rkern, @kern, reversal
