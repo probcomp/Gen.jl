@@ -36,10 +36,10 @@ macro pkern(ex)
         end)
 end
 
-function expand_kern_ex(ex)
+function expand_kern_ex(ex, checkname, obsname)
     @capture(ex, function f_(T_, toplevel_args__) body_ end) || error("expected kernel syntax: function my_kernel(trace, args...) (...) end")
     trace = T
-
+    
     body = postwalk(body) do x
         if @capture(x, for idx_ in range_ body_ end)
 
@@ -49,7 +49,7 @@ function expand_kern_ex(ex)
                 for $(idx) in loop_range
                     $body
                 end
-                check && (loop_range != $(range)) && error("Check failed in loop")
+                $checkname && (loop_range != $(range)) && error("Check failed in loop")
             end
 
         elseif @capture(x, if cond_ body_ end)
@@ -60,7 +60,7 @@ function expand_kern_ex(ex)
                 if cond
                     $body
                 end
-                check && (cond != $(cond)) && error("Check failed in if-end")
+                $checkname && (cond != $(cond)) && error("Check failed in if-end")
             end
 
         elseif @capture(x, let var_ = rhs_; body_ end)
@@ -71,7 +71,7 @@ function expand_kern_ex(ex)
                 let $(var) = rhs
                     $body
                 end
-                check && (rhs != $(rhs)) && error("Check failed in let")
+                $checkname && (rhs != $(rhs)) && error("Check failed in let")
             end
 
         elseif @capture(x, let idx_ ~ dist_(args__); body_ end)
@@ -83,17 +83,17 @@ function expand_kern_ex(ex)
                 let $(idx) = dist($(args...))
                     $body
                 end
-                check && (dist != $(dist)) && error("Check failed in mixture (distribution)")
-                check && (args != ($(args...),)) && error("Check failed in mixture (arguments)")
+                $checkname && (dist != $(dist)) && error("Check failed in mixture (distribution)")
+                $checkname && (args != ($(args...),)) && error("Check failed in mixture (arguments)")
             end
 
         elseif @capture(x, T_ ~ k_(T_, args__))
 
             # applying a kernel
             quote
-                check && Gen.check_is_kernel($(k))
+                $checkname && Gen.check_is_kernel($(k))
                 $(T) = $(k)($(T), $(args...),
-                            check=check, observations=observations)[1]
+                            $checkname=$checkname, $obsname=$obsname)[1]
             end
 
         else
@@ -105,9 +105,9 @@ function expand_kern_ex(ex)
 
     ex = quote
         function $(f)($(trace)::Trace, $(toplevel_args...);
-                      check=false, observations=EmptyChoiceMap())
+                      $checkname=false, $obsname=EmptyChoiceMap())
             $body
-            check && check_observations(get_choices($(trace)), observations)
+            $checkname && check_observations(get_choices($(trace)), $obsname)
             metadata = nothing
             ($(trace), metadata)
         end
@@ -145,7 +145,7 @@ macro rkern(ex)
 end
 
 
-function reversal_ex(ex)
+function reversal_ex(ex, checkname, obsname)
     @capture(ex, function f_(toplevel_args__) body_ end) || error("expected a function")
 
     # modify the body
@@ -163,9 +163,9 @@ function reversal_ex(ex)
 
             # applying a kernel - apply the reverse kernel
             quote
-                check && Gen.check_is_kernel(Gen.reversal($k))
+                $checkname && Gen.check_is_kernel(Gen.reversal($k))
                 $(T) = Gen.reversal($k)($(T), $(args...),
-                            check=check, observations=observations)[1]
+                            $checkname=$checkname, $obsname=$obsname)[1]
             end
 
         elseif isa(x, Expr) && x.head == :block
@@ -201,9 +201,14 @@ Construct a composite MCMC kernel.
 The resulting object is a Julia function that is annotated as a composite MCMC kernel, and can be called as a Julia function or applied within other composite kernels.
 """
 macro kern(ex)
-    kern_ex, kern = expand_kern_ex(ex)
-    rev_kern_ex, rev_kern = reversal_ex(ex)
-    rev_kern_ex, _ = expand_kern_ex(rev_kern_ex)
+    
+    # Generate fresh names for keyword arguments.
+    checkname = gensym("check")
+    obsname = gensym("observations")
+
+    kern_ex, kern = expand_kern_ex(ex, checkname, obsname)
+    rev_kern_ex, rev_kern = reversal_ex(ex, checkname, obsname)
+    rev_kern_ex, _ = expand_kern_ex(rev_kern_ex, checkname, obsname)
     expr = quote
         # define forward kerel
         $kern_ex
