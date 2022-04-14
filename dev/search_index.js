@@ -1717,7 +1717,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Markov chain Monte Carlo",
     "title": "Gen.@pkern",
     "category": "macro",
-    "text": "@pkern function k(trace, ..; check=false, observations=EmptyChoiceMap())\n    ..\n    return trace\nend\n\nDeclare a Julia function as a primitive stationary kernel.\n\nThe first argument of the function should be a trace, and the return value of the function should be a trace. There should be keyword arguments check and observations.\n\n\n\n\n\n"
+    "text": "@pkern function k(trace, args...; \n                  check=false, observations=EmptyChoiceMap())\n    ...\n    return trace\nend\n\nDeclare a Julia function as a primitive stationary kernel.\n\nThe first argument of the function should be a trace, and the return value of the function should be a trace. There should be keyword arguments check and observations.\n\n\n\n\n\n"
 },
 
 {
@@ -1725,7 +1725,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Markov chain Monte Carlo",
     "title": "Gen.@kern",
     "category": "macro",
-    "text": "@kern function k(trace, ..)\n    ..\nend\n\nConstruct a composite MCMC kernel.\n\nThe resulting object is a Julia function that is annotated as a composite MCMC kernel, and can be called as a Julia function or applied within other composite kernels.\n\n\n\n\n\n"
+    "text": "@kern function k(trace, args...)\n    ...\nend\n\nConstruct a composite MCMC kernel.\n\nThe resulting object is a Julia function that is annotated as a composite MCMC kernel, and can be called as a Julia function or applied within other composite kernels.\n\n\n\n\n\n"
 },
 
 {
