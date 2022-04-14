@@ -13,6 +13,11 @@ end
 is_custom_primitive_kernel(::Function) = false
 check_is_kernel(::Function) = false
 
+_is_custom_primitive_kernel = GlobalRef(Gen, :is_custom_primitive_kernel)
+_check_is_kernel = GlobalRef(Gen, :check_is_kernel)
+_check_observations = GlobalRef(Gen, :check_observations)
+_reversal = GlobalRef(Gen, :reversal)
+
 """
     @pkern function k(trace, args...; 
                       check=false, observations=EmptyChoiceMap())
@@ -27,21 +32,19 @@ There should be keyword arguments check and observations.
 """
 macro pkern(ex)
     @capture(ex, function f_(args__) body_ end) || error("expected a function")
-    gr1 = GlobalRef(Gen, :is_custom_primitive_kernel)
-    gr2 = GlobalRef(Gen, :check_is_kernel)
     quote
         function $(f)($(args...))
-                $body
-            end
-            $(gr1)(::typeof($f)) = true
-            $(gr2)(::typeof($f)) = true
+            $body
+        end
+        $(is_custom_primitive_kernel)(::typeof($f)) = true
+        $(_check_is_kernel)(::typeof($f)) = true
     end
 end
 
 function expand_kern_ex(ex)
     @capture(ex, function f_(T_, toplevel_args__) body_ end) || error("expected kernel syntax: function my_kernel(trace, args...) (...) end")
     trace = T
-    
+
     body = postwalk(body) do x
         if @capture(x, for idx_ in range_ body_ end)
 
@@ -91,9 +94,8 @@ function expand_kern_ex(ex)
 
         elseif @capture(x, T_ ~ k_(T_, args__))
             # applying a kernel
-            gr = GlobalRef(Gen, :check_is_kernel)
             quote
-                check && $(gr)($(k))
+                check && $(_check_is_kernel)($(k))
                 $(T) = $(k)($(T), $(args...),
                             check=check, observations=observations)[1]
             end
@@ -105,17 +107,15 @@ function expand_kern_ex(ex)
         end
     end
 
-    gr1 = GlobalRef(Gen, :check_is_kernel)
-    gr2 = GlobalRef(Gen, :check_observations)
     ex = quote
         function $(f)($(trace)::Trace, $(toplevel_args...);
                       check=false, observations=EmptyChoiceMap())
             $body
-            check && $(gr2)(get_choices($(trace)), observations)
+            check && $(_check_observations)(get_choices($(trace)), observations)
             metadata = nothing
             ($(trace), metadata)
         end
-        $(gr1)(::typeof($f)) = true
+        $(_check_observations)(::typeof($f)) = true
     end
 
     ex, f
@@ -140,13 +140,11 @@ The two kernels must have the same argument type signatures.
 """
 macro rkern(ex)
     @capture(ex, k_ : l_) || error("expected a pair of functions")
-    gr1 = GlobalRef(Gen, :is_custom_primitive_kernel)
-    gr2 = GlobalRef(Gen, :reversal)
     quote
-        $(gr1)($k) || error("first function is not a custom primitive kernel")
-        $(gr1)($l) || error("second function is not a custom primitive kernel")
-        $(gr2)(::typeof($k)) = $(l)
-        $(gr2)(::typeof($l)) = $(k)
+        $(_is_custom_primitive_kernel)($k) || error("first function is not a custom primitive kernel")
+        $(_is_custom_primitive_kernel)($l) || error("second function is not a custom primitive kernel")
+        $(_reversal)(::typeof($k)) = $(l)
+        $(_reversal)(::typeof($l)) = $(k)
     end
 end
 
@@ -168,12 +166,10 @@ function reversal_ex(ex)
         elseif @capture(x, T_ ~ k_(T_, args__))
 
             # applying a kernel - apply the reverse kernel
-            gr1 = GlobalRef(Gen, :check_is_kernel)
-            gr2 = GlobalRef(Gen, :reversal)
             quote
-                check && $(gr1)($(gr2)($k))
-                $(T) = $(gr2)($k)($(T), $(args...),
-                            check=check, observations=observations)[1]
+                check && $(_check_is_kernel)($(_reversal)($k))
+                $(T) = $(_reversal)($k)($(T), $(args...),
+                                  check=check, observations=observations)[1]
             end
 
         elseif isa(x, Expr) && x.head == :block
@@ -203,7 +199,6 @@ function toplevel(ex::Expr)
     kern_ex, kern = expand_kern_ex(ex)
     rev_kern_ex, rev_kern = reversal_ex(ex)
     rev_kern_ex, _ = expand_kern_ex(rev_kern_ex)
-    gr = GlobalRef(Gen, :reversal)
     expr = quote
         # define forward kerel
         $kern_ex
@@ -212,8 +207,8 @@ function toplevel(ex::Expr)
         $rev_kern_ex
 
         # bind the reversals for both
-        $(gr)(::typeof($kern)) = $(rev_kern)
-        $(gr)(::typeof($rev_kern)) = $(kern)
+        $(_reversal)(::typeof($kern)) = $(rev_kern)
+        $(_reversal)(::typeof($rev_kern)) = $(kern)
     end
     expr = postwalk(flatten ∘ unblock ∘ rmlines, expr)
     expr
