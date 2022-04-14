@@ -107,7 +107,7 @@ function expand_kern_ex(ex, checkname, obsname)
         function $(f)($(trace)::Trace, $(toplevel_args...);
                       $checkname=false, $obsname=EmptyChoiceMap())
             $body
-            $checkname && check_observations(get_choices($(trace)), $obsname)
+            $checkname && Gen.check_observations(get_choices($(trace)), $obsname)
             metadata = nothing
             ($(trace), metadata)
         end
