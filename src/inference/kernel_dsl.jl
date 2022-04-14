@@ -27,12 +27,14 @@ There should be keyword arguments check and observations.
 """
 macro pkern(ex)
     @capture(ex, function f_(args__) body_ end) || error("expected a function")
+    gr1 = GlobalRef(Gen, :is_custom_primitive_kernel)
+    gr2 = GlobalRef(Gen, :check_is_kernel)
     quote
-        function $(esc(f))($(args...))
+        function $(f)($(args...))
                 $body
             end
-            Gen.is_custom_primitive_kernel(::typeof($(esc(f)))) = true
-            Gen.check_is_kernel(::typeof($(esc(f)))) = true
+            $(gr1)(::typeof($f)) = true
+            $(gr2)(::typeof($f)) = true
     end
 end
 
@@ -88,10 +90,10 @@ function expand_kern_ex(ex)
             end
 
         elseif @capture(x, T_ ~ k_(T_, args__))
-
             # applying a kernel
+            gr = GlobalRef(Gen, :check_is_kernel)
             quote
-                check && Gen.check_is_kernel($(k))
+                check && $(gr)($(k))
                 $(T) = $(k)($(T), $(args...),
                             check=check, observations=observations)[1]
             end
@@ -103,15 +105,17 @@ function expand_kern_ex(ex)
         end
     end
 
+    gr1 = GlobalRef(Gen, :check_is_kernel)
+    gr2 = GlobalRef(Gen, :check_observations)
     ex = quote
-        function $(esc(f))($(trace)::Trace, $(toplevel_args...);
+        function $(f)($(trace)::Trace, $(toplevel_args...);
                       check=false, observations=EmptyChoiceMap())
             $body
-            check && Gen.check_observations(get_choices($(trace)), observations)
+            check && $(gr2)(get_choices($(trace)), observations)
             metadata = nothing
             ($(trace), metadata)
         end
-        Gen.check_is_kernel(::typeof($(esc(f)))) = true
+        $(gr1)(::typeof($f)) = true
     end
 
     ex, f
@@ -136,11 +140,13 @@ The two kernels must have the same argument type signatures.
 """
 macro rkern(ex)
     @capture(ex, k_ : l_) || error("expected a pair of functions")
+    gr1 = GlobalRef(Gen, :is_custom_primitive_kernel)
+    gr2 = GlobalRef(Gen, :reversal)
     quote
-        Gen.is_custom_primitive_kernel($(esc(k))) || error("first function is not a custom primitive kernel")
-        Gen.is_custom_primitive_kernel($(esc(l))) || error("second function is not a custom primitive kernel")
-        Gen.reversal(::typeof($(esc(k)))) = $(esc(l))
-        Gen.reversal(::typeof($(esc(l)))) = $(esc(k))
+        $(gr1)($k) || error("first function is not a custom primitive kernel")
+        $(gr1)($l) || error("second function is not a custom primitive kernel")
+        $(gr2)(::typeof($k)) = $(l)
+        $(gr2)(::typeof($l)) = $(k)
     end
 end
 
@@ -162,9 +168,11 @@ function reversal_ex(ex)
         elseif @capture(x, T_ ~ k_(T_, args__))
 
             # applying a kernel - apply the reverse kernel
+            gr1 = GlobalRef(Gen, :check_is_kernel)
+            gr2 = GlobalRef(Gen, :reversal)
             quote
-                check && Gen.check_is_kernel(Gen.reversal($k))
-                $(T) = Gen.reversal($k)($(T), $(args...),
+                check && $(gr1)($(gr2)($k))
+                $(T) = $(gr2)($k)($(T), $(args...),
                             check=check, observations=observations)[1]
             end
 
@@ -191,6 +199,26 @@ function reversal_ex(ex)
     ex, rev
 end
 
+function toplevel(ex::Expr)
+    kern_ex, kern = expand_kern_ex(ex)
+    rev_kern_ex, rev_kern = reversal_ex(ex)
+    rev_kern_ex, _ = expand_kern_ex(rev_kern_ex)
+    gr = GlobalRef(Gen, :reversal)
+    expr = quote
+        # define forward kerel
+        $kern_ex
+
+        # define reversal kernel
+        $rev_kern_ex
+
+        # bind the reversals for both
+        $(gr)(::typeof($kern)) = $(rev_kern)
+        $(gr)(::typeof($rev_kern)) = $(kern)
+    end
+    expr = postwalk(flatten ∘ unblock ∘ rmlines, expr)
+    expr
+end
+
 """
     @kern function k(trace, args...)
         ...
@@ -201,22 +229,14 @@ Construct a composite MCMC kernel.
 The resulting object is a Julia function that is annotated as a composite MCMC kernel, and can be called as a Julia function or applied within other composite kernels.
 """
 macro kern(ex)
-    kern_ex, kern = expand_kern_ex(ex)
-    rev_kern_ex, rev_kern = reversal_ex(ex)
-    rev_kern_ex, _ = expand_kern_ex(rev_kern_ex)
-    expr = quote
-        # define forward kerel
-        $kern_ex
+    expr = toplevel(ex)
+    esc(expr)
+end
 
-        # define reversal kernel
-        $rev_kern_ex
-
-        # bind the reversals for both
-        Gen.reversal(::typeof($(esc(kern)))) = $(esc(rev_kern))
-        Gen.reversal(::typeof($(esc(rev_kern)))) = $(esc(kern))
-    end
-    expr = postwalk(flatten ∘ unblock ∘ rmlines, expr)
-    expr
+macro kern(debug_flag, ex)
+    expr = toplevel(ex)
+    debug_flag == :debug && display(expr)
+    esc(expr)
 end
 
 export @pkern, @rkern, @kern, reversal
