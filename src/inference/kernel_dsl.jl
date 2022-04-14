@@ -27,13 +27,13 @@ There should be keyword arguments check and observations.
 """
 macro pkern(ex)
     @capture(ex, function f_(args__) body_ end) || error("expected a function")
-    esc(quote
-            function $(f)($(args...))
+    quote
+        function $(esc(f))($(args...))
                 $body
             end
-            Gen.is_custom_primitive_kernel(::typeof($(f))) = true
-            Gen.check_is_kernel(::typeof($(f))) = true
-        end)
+            Gen.is_custom_primitive_kernel(::typeof($(esc(f)))) = true
+            Gen.check_is_kernel(::typeof($(esc(f)))) = true
+    end
 end
 
 function expand_kern_ex(ex)
@@ -104,14 +104,14 @@ function expand_kern_ex(ex)
     end
 
     ex = quote
-        function $(f)($(trace)::Trace, $(toplevel_args...);
+        function $(esc(f))($(trace)::Trace, $(toplevel_args...);
                       check=false, observations=EmptyChoiceMap())
             $body
             check && Gen.check_observations(get_choices($(trace)), observations)
             metadata = nothing
             ($(trace), metadata)
         end
-        Gen.check_is_kernel(::typeof($(f))) = true
+        Gen.check_is_kernel(::typeof($(esc(f)))) = true
     end
 
     ex, f
@@ -137,10 +137,10 @@ The two kernels must have the same argument type signatures.
 macro rkern(ex)
     @capture(ex, k_ : l_) || error("expected a pair of functions")
     quote
-        Gen.is_custom_primitive_kernel($(k)) || error("first function is not a custom primitive kernel")
-        Gen.is_custom_primitive_kernel($(l)) || error("second function is not a custom primitive kernel")
-        Gen.reversal(::typeof($(k))) = $(l)
-        Gen.reversal(::typeof($(l))) = $(k)
+        Gen.is_custom_primitive_kernel($(esc(k))) || error("first function is not a custom primitive kernel")
+        Gen.is_custom_primitive_kernel($(esc(l))) || error("second function is not a custom primitive kernel")
+        Gen.reversal(::typeof($(esc(k)))) = $(esc(l))
+        Gen.reversal(::typeof($(esc(l)))) = $(esc(k))
     end
 end
 
@@ -183,7 +183,7 @@ function reversal_ex(ex)
     # change the name
     rev = gensym("reverse_kernel")
     ex = quote
-        function $rev($(toplevel_args...))
+        function $(rev)($(toplevel_args...))
             $body
         end
     end
@@ -212,12 +212,11 @@ macro kern(ex)
         $rev_kern_ex
 
         # bind the reversals for both
-        Gen.reversal(::typeof($(kern))) = $(rev_kern)
-        Gen.reversal(::typeof($(rev_kern))) = $(kern)
+        Gen.reversal(::typeof($(esc(kern)))) = $(esc(rev_kern))
+        Gen.reversal(::typeof($(esc(rev_kern)))) = $(esc(kern))
     end
     expr = postwalk(flatten ∘ unblock ∘ rmlines, expr)
-    display(expr)
-    esc(expr)
+    expr
 end
 
 export @pkern, @rkern, @kern, reversal
