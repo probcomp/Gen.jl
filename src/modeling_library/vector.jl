@@ -100,7 +100,7 @@ function _fill_array!(chm::VectorTraceChoiceMap, v::Vector{T}, start_idx::Int64)
     idx = start_idx
     tr = chm.trace
     for k in 1 : tr.len
-        sub_tr = chm.subtraces[k]
+        sub_tr = tr.subtraces[k]
         sub_chm = get_choices(sub_tr)
         n = _fill_array!(sub_chm, v, idx)
         idx += n
