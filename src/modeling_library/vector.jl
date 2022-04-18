@@ -96,6 +96,17 @@ end
 @inline has_value(choices::VectorTraceChoiceMap, addr::Pair) = _has_value(choices, addr)
 @inline get_values_shallow(::VectorTraceChoiceMap) = ()
 
+function _fill_array!(chm::VectorTraceChoiceMap, v::Vector{T}, start_idx::Int64) where T
+    idx = start_idx
+    tr = chm.trace
+    for k in 1 : tr.len
+        sub_tr = chm.subtraces[k]
+        sub_chm = get_choices(sub_tr)
+        n = _fill_array!(sub_chm, v, idx)
+        idx += n
+    end
+    return idx - start_idx
+end
 
 ############################################
 # code shared by vector-shaped combinators #
