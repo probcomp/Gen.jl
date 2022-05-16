@@ -13,10 +13,10 @@ end
 is_custom_primitive_kernel(::Function) = false
 check_is_kernel(::Function) = false
 
-_is_custom_primitive_kernel = GlobalRef(Gen, :is_custom_primitive_kernel)
-_check_is_kernel = GlobalRef(Gen, :check_is_kernel)
-_check_observations = GlobalRef(Gen, :check_observations)
-_reversal = GlobalRef(Gen, :reversal)
+const _is_custom_primitive_kernel = GlobalRef(Gen, :is_custom_primitive_kernel)
+const _check_is_kernel = GlobalRef(Gen, :check_is_kernel)
+const _check_observations = GlobalRef(Gen, :check_observations)
+const _reversal = GlobalRef(Gen, :reversal)
 
 """
     @pkern function k(trace, args...; 
