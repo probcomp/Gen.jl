@@ -27,18 +27,21 @@ const _reversal = GlobalRef(Gen, :reversal)
 
 Declare a Julia function as a primitive stationary kernel.
 
-The first argument of the function should be a trace, and the return value of the function should be a trace.
+The first argument of the function should be a trace, and the return value of the function should be a `(trace, metadata)` where `metadata` is user-provided (but could be useful information, like the result of an accept-reject decision.
+
 There should be keyword arguments check and observations.
 """
 macro pkern(ex)
     @capture(ex, function f_(args__) body_ end) || error("expected a function")
-    quote
+    expr = quote
         function $(f)($(args...))
             $body
         end
-        $(is_custom_primitive_kernel)(::typeof($f)) = true
+        $(_is_custom_primitive_kernel)(::typeof($f)) = true
         $(_check_is_kernel)(::typeof($f)) = true
     end
+    expr = postwalk(flatten ∘ unblock ∘ rmlines, expr)
+    esc(expr)
 end
 
 function expand_kern_ex(ex)
