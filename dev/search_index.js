@@ -1717,7 +1717,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Markov chain Monte Carlo",
     "title": "Gen.@pkern",
     "category": "macro",
-    "text": "@pkern function k(trace, args...; \n                  check=false, observations=EmptyChoiceMap())\n    ...\n    return trace\nend\n\nDeclare a Julia function as a primitive stationary kernel.\n\nThe first argument of the function should be a trace, and the return value of the function should be a trace. There should be keyword arguments check and observations.\n\n\n\n\n\n"
+    "text": "@pkern function k(trace, args...; \n                  check=false, observations=EmptyChoiceMap())\n    ...\n    return trace\nend\n\nDeclare a Julia function as a primitive stationary kernel.\n\nThe first argument of the function should be a trace, and the return value of the function should be a (trace, metadata) where metadata is user-provided (but could be useful information, like the result of an accept-reject decision.\n\nThere should be keyword arguments check and observations.\n\n\n\n\n\n"
 },
 
 {
