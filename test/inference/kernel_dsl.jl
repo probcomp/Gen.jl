@@ -15,9 +15,13 @@ end
     return tr, metadata
 end
 
+@gen function k1_proposal(tr)
+    x ~ normal(0.0, 1.0)
+end
+
 @kern function k1_non_primitive(tr, t)
     for _ in 1 : t
-        tr ~ mh(tr, select(:x))
+        tr ~ mh(tr, k1_proposal, ())
     end
 end
 
