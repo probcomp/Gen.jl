@@ -379,3 +379,26 @@ end
     try c = choicemap((:a, 1, :b, 2)) catch Exception threw = true end
     @test threw
 end
+
+@testset "choicemap hashing" begin
+    d = Dict()
+    d[choicemap((:x, 1))] = 2
+    d[choicemap((:x, 2), (:y, 3))] = 5
+    d[choicemap((:x, 3), (:y => :z, 4))] = 7
+    d[choicemap((:x, 3), (:y => :z, 5), (:y => :z, 2))] = 10
+
+    @test !haskey(d, choicemap())
+    @test !haskey(d, EmptyChoiceMap())
+    @test !haskey(d, choicemap((:a, 3)))
+    @test !haskey(d, choicemap((:x, 2)))
+    @test d[choicemap((:x, 1))] == 2
+    @test d[choicemap((:x, 2), (:y, 3))] == 5
+    @test d[choicemap((:x, 3), (:y => :z, 4))] == 7
+    @test d[choicemap((:x, 3), (:y => :z, 5), (:y => :z, 2))] == 10
+
+    @test d[StaticChoiceMap(choicemap((:x, 1)))] == 2
+
+    e = Dict()
+    e[EmptyChoiceMap()] = 10
+    @test e[choicemap()] == 10
+end

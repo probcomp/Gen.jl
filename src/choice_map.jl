@@ -304,6 +304,16 @@ function Base.:(==)(a::ChoiceMap, b::ChoiceMap)
     end
     return true
 end
+function Base.hash(a::ChoiceMap, h::UInt)
+    running_hash = h
+    for (addr, value) in get_values_shallow(a)
+        running_hash = Base.hash(addr, Base.hash(value, running_hash))
+    end
+    for (addr, submap) in get_submaps_shallow(a)
+        running_hash = Base.hash(addr, Base.hash(submap, running_hash))
+    end
+    return running_hash
+end
 
 function Base.isapprox(a::ChoiceMap, b::ChoiceMap)
     for (addr, value) in get_values_shallow(a)
