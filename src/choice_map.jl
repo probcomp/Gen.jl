@@ -305,6 +305,21 @@ function Base.:(==)(a::ChoiceMap, b::ChoiceMap)
     return true
 end
 
+# This is modeled after
+# https://github.com/JuliaLang/julia/blob/7bff5cdd0fab8d625e48b3a9bb4e94286f2ba18c/base/abstractdict.jl#L530-L537
+const hasha_seed = UInt === UInt64 ? 0x6d35bb51952d5539 : 0x952d5539
+function Base.hash(a::ChoiceMap, h::UInt)
+    hv = hasha_seed
+    for (addr, value) in get_values_shallow(a)
+        hv = xor(hv, hash(addr, hash(value)))
+    end
+    for (addr, submap) in get_submaps_shallow(a)
+        hv = xor(hv, hash(addr, hash(submap)))
+    end
+    
+    return hash(hv, h)
+end
+
 function Base.isapprox(a::ChoiceMap, b::ChoiceMap)
     for (addr, value) in get_values_shallow(a)
         if !has_value(b, addr) || !isapprox(get_value(b, addr), value)
