@@ -385,7 +385,7 @@ end
     d[choicemap((:x, 1))] = 2
     d[choicemap((:x, 2), (:y, 3))] = 5
     d[choicemap((:x, 3), (:y => :z, 4))] = 7
-    d[choicemap((:x, 3), (:y => :z, 5), (:y => :z, 2))] = 10
+    d[choicemap((:x, 3), (:y => :w, 5), (:y => :z, 2))] = 10
 
     @test !haskey(d, choicemap())
     @test !haskey(d, EmptyChoiceMap())
@@ -394,11 +394,28 @@ end
     @test d[choicemap((:x, 1))] == 2
     @test d[choicemap((:x, 2), (:y, 3))] == 5
     @test d[choicemap((:x, 3), (:y => :z, 4))] == 7
-    @test d[choicemap((:x, 3), (:y => :z, 5), (:y => :z, 2))] == 10
+    @test d[choicemap((:x, 3), (:y => :w, 5), (:y => :z, 2))] == 10
+
+    # test that we can change the order and it still works
+    @test d[choicemap((:y, 3), (:x, 2))] == 5
+    @test d[choicemap((:y => :z, 4), (:x, 3))] == 7
+    @test d[choicemap((:y => :z, 2), (:y => :w, 5), (:x, 3))] == 10
 
     @test d[StaticChoiceMap(choicemap((:x, 1)))] == 2
 
     e = Dict()
     e[EmptyChoiceMap()] = 10
     @test e[choicemap()] == 10
+
+    # Non-exhaustive test that choicemap hash values don't collide too often.
+    # (This test works just by making sure that none of the 4 choicemaps used as keys
+    # in `d` collide; we may be able to come up with choicemaps that are more likely
+    # to collide if we think about it more.)
+    for a in keys(d)
+        for b in keys(d)
+            if a != b
+                @test hash(a) != hash(b)
+            end
+        end
+    end
 end
