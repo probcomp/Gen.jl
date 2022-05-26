@@ -1,16 +1,11 @@
 # See http://docs.travis-ci.com/user/languages/julia/ and https://juliadocs.github.io/Documenter.jl/stable/man/hosting/#Hosting-Documentation-1
 # See status of Travis builds at https://travis-ci.org/probcomp/Gen
 
-# As of March 2022, Gen is not compatible with Julia 1.7,
-# due to a regression involving NamedTuples:
-# https://github.com/JuliaLang/julia/issues/43783
-# The fix is already in `nightly` and slated for 1.8;
-# hopefully it will also be backported 
-# to a future minor release of 1.7.
 language: julia
 julia:
-  - 1.3 # earliest supported version
+  - 1.3 # Earliest supported version
   - 1.6 # LTS
+  - 1   # Stable
   - nightly
 
 jobs:
