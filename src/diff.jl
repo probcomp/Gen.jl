@@ -412,5 +412,3 @@ end
 function ifelse(c::Bool, x, y)
     c ? x : y
 end
-
-export ifelse
