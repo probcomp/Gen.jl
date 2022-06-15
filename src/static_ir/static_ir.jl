@@ -47,11 +47,12 @@ function generate_generative_function(ir::StaticIR, name::Symbol, options::Stati
     accepts_output_grad = ir.accepts_output_grad
 
     gen_fn_defn = quote
+        # Generate type definition
         struct $gen_fn_type_name <: $(QuoteNode(StaticIRGenerativeFunction)){$return_type,$trace_type}
             params_grad::Dict{Symbol,Any}
             params::Dict{Symbol,Any}
         end
-        (gen_fn::$gen_fn_type_name)(args...) = $(GlobalRef(Gen, :propose))(gen_fn, args)[3]
+        # Generate accessors
         $(GlobalRef(Gen, :get_ir))(::$gen_fn_type_name) = $(QuoteNode(ir))
         $(GlobalRef(Gen, :get_ir))(::Type{$gen_fn_type_name}) = $(QuoteNode(ir))
         $(GlobalRef(Gen, :get_trace_type))(::Type{$gen_fn_type_name}) = $trace_struct_name
@@ -60,6 +61,36 @@ function generate_generative_function(ir::StaticIR, name::Symbol, options::Stati
         $(GlobalRef(Gen, :get_gen_fn))(trace::$trace_struct_name) = $(Expr(:(.), :trace, QuoteNode(static_ir_gen_fn_ref)))
         $(GlobalRef(Gen, :get_gen_fn_type))(::Type{$trace_struct_name}) = $gen_fn_type_name
         $(GlobalRef(Gen, :get_options))(::Type{$gen_fn_type_name}) = $(QuoteNode(options))
+        # Generate GFI definitions
+        (gen_fn::$gen_fn_type_name)(args...) = $(GlobalRef(Gen, :propose))(gen_fn, args)[3]
+        @generated function $(GlobalRef(Gen, :simulate))(gen_fn::$gen_fn_type_name, args::$(QuoteNode(Tuple)))
+            $(QuoteNode(codegen_simulate))(gen_fn, args)
+        end
+        @generated function $(GlobalRef(Gen, :generate))(gen_fn::$gen_fn_type_name, args::$(QuoteNode(Tuple)),
+                                                         constraints::$(QuoteNode(ChoiceMap)))
+            $(QuoteNode(codegen_generate))(gen_fn, args, constraints)
+        end
+        @generated function $(GlobalRef(Gen, :update))(trace::$trace_type, args::$(QuoteNode(Tuple)),
+                                                       argdiffs::$(QuoteNode(Tuple)), constraints::$(QuoteNode(ChoiceMap)))
+            $(QuoteNode(codegen_update))(trace, args, argdiffs, constraints)
+        end
+        @generated function $(GlobalRef(Gen, :regenerate))(trace::$trace_type, args::$(QuoteNode(Tuple)),
+                                                           argdiffs::$(QuoteNode(Tuple)), selection::$(QuoteNode(Selection)))
+            $(QuoteNode(codegen_regenerate))(trace, args, argdiffs, selection)
+        end
+        @generated function $(GlobalRef(Gen, :project))(trace::$trace_type, selection::$(QuoteNode(Selection)))
+            $(QuoteNode(codegen_project))(trace, selection)
+        end
+        function $(GlobalRef(Gen, :project))(trace::$trace_type, selection::$(QuoteNode(EmptySelection)))
+            trace.$total_noise_fieldname
+        end
+        @generated function $(GlobalRef(Gen, :choice_gradients))(trace::$trace_type, selection::$(QuoteNode(Selection)),
+                                                                 retval_grad)
+            $(QuoteNode(codegen_choice_gradients))(trace, selection, retval_grad)
+        end
+        @generated function $(GlobalRef(Gen, :accumulate_param_gradients!))(trace::$trace_type, retval_grad)
+            $(QuoteNode(codegen_accumulate_param_gradients!))(trace, retval_grad)
+        end
     end
     Expr(:block, trace_defns, gen_fn_defn, Expr(:call, gen_fn_type_name, :(Dict{Symbol,Any}()), :(Dict{Symbol,Any}())))
 end

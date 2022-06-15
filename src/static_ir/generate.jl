@@ -107,10 +107,3 @@ function codegen_generate(gen_fn_type::Type{T}, args,
 
     Expr(:block, stmts...)
 end
-
-push!(generated_functions, quote
-@generated function $(GlobalRef(Gen, :generate))(gen_fn::$(QuoteNode(StaticIRGenerativeFunction)),
-                                   args::$(QuoteNode(Tuple)), constraints::$(QuoteNode(ChoiceMap)))
-    $(QuoteNode(codegen_generate))(gen_fn, args, constraints)
-end
-end)
