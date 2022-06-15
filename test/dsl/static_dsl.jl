@@ -64,14 +64,13 @@ end
     ret = @trace(foo(mu), :x => i => :y)
 end
 
-# Modules to test load_generated_functions
+# Modules to test generated function definitions
 module MyModuleA
 using Gen
 @gen (static) function foo(mu)
     y = @trace(normal(mu, 1), :y)
     return y
 end
-load_generated_functions(@__MODULE__)
 end
 
 module MyModuleB
@@ -80,7 +79,6 @@ using Gen
     y = @trace(normal(mu, 1), :y)
     return y
 end
-@load_generated_functions
 end
 
 # for testing that macros can generate SML function definitions
@@ -96,13 +94,11 @@ end
 # for testing that Julia expressions inside SML functions can
 # depend on variables defined in external lexical scope
 module MyModuleC
-using Gen: @gen, @load_generated_functions
+using Gen: @gen
 external_var = 1
 @gen (static) function uses_external()
     return external_var + 1
 end
-
-@load_generated_functions()
 end
 
 @testset "static DSL" begin
@@ -422,8 +418,6 @@ end
     return @trace(bernoulli(@trace(beta(1, 1), :z)), :x)
 end
 
-load_generated_functions()
-
 x, y = circle(2, pi/2, 0)
 @test isapprox(x, 0.0, atol=1e-8) && isapprox(y, 2.0, atol=1e-8)
 tr, w = generate(circle, (1, 0, 1), choicemap(:x => 1, :y => 1))
@@ -450,8 +444,6 @@ end
     y = y + 1
     return y + 1
 end
-
-load_generated_functions()
 
 ir = Gen.get_ir(typeof(foo))
 x1 = get_node_by_name(ir, :x)
@@ -495,8 +487,6 @@ inputs = return_node.inputs
 @test inputs[1].fn((:fst, :snd)) == :fst
 @test inputs[2].fn((:fst, :snd)) == :snd
 
-load_generated_functions()
-
 params = (0.5, (0, 1), (1, 2))
 tr, w = generate(foo, (params,), choicemap(:x => true, :y => 1))
 @test get_retval(tr) == 1
@@ -516,8 +506,6 @@ end
     return y
 end
 
-load_generated_functions()
-
 @test foo() == [3, 4, 5, 6]
 
 end
@@ -527,8 +515,6 @@ end
 @gen (static) function foo()
     return nothing
 end
-
-load_generated_functions()
 
 @test foo() == nothing
 
@@ -548,8 +534,6 @@ end
     ret = 7
     return ret
 end
-
-Gen.load_generated_functions()
 
 constraints = choicemap()
 constraints[:u] = 1.1
@@ -583,7 +567,6 @@ end
 
 @gen (static) foo(x) = (y = @trace(normal(x, 1), :y); return y)
 
-load_generated_functions()
 
 tr, w = generate(foo, (0,), choicemap(:y => 1))
 @test get_retval(tr) == 1
@@ -604,16 +587,18 @@ tr, w = generate(MyModuleB.foo, (0,), choicemap(:y => 1))
 end
 
 @testset "static gen function choicemaps" begin
+
 @gen (static) function bar2()
     b ~ normal(0, 1)
     return b
 end
+
 @gen (static) function bar1()
     a ~ bar2()
     x ~ normal(0, 1)
     return x
 end
-Gen.load_generated_functions()
+
 tr = simulate(bar1, ())
 ch = get_choices(tr)
 @test has_value(ch, :x)
@@ -623,16 +608,20 @@ ch = get_choices(tr)
 @test get_submap(ch, :y) == EmptyChoiceMap()
 @test length(get_values_shallow(ch)) == 1
 @test length(get_submaps_shallow(ch)) == 1
+
 end
 
 @testset "returning a SML function from macro" begin
+
 @make_foo_sml()
-Gen.load_generated_functions()
 @test get_retval(simulate(foo_in_macro, ())) == 2
+
 end # @testset
 
 @testset "global variables" begin
+
 @test MyModuleC.uses_external() == 2
+
 end
 
 end # @testset "static DSL"

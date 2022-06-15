@@ -6,7 +6,6 @@ end
     z ~ normal(0, 1)
     return x + y + z
 end
-@load_generated_functions()
 
 for (lang, f) in [:dynamic => f_dynamic,
                   :static  => f_static]
