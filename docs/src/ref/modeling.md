@@ -427,7 +427,6 @@ This will produce a file `test.pdf` in the current working directory containing 
 ### Restrictions
 
 First, the definition of a `(static)` generative function is always expected to occur as a [top-level definition](https://docs.julialang.org/en/v1/manual/modules/) (aka global variable); usage in non–top-level scopes is unsupported and may result in incorrect behavior.
-Recall also that the macro [`@load_generated_functions`](@ref) is expected to be called as a top-level expression only.
 
 Next, in order to be able to construct the static graph, Gen restricts the permitted syntax that can be used in functions annotated with `static`.
 In particular, each statement in the body must be one of the following:
@@ -485,43 +484,8 @@ can instead be implemented as:
 ```
 
 ### Loading generated functions
-Before a function with a static annotation can be used, the [`@load_generated_functions`](@ref) macro must be called:
-```@docs
-@load_generated_functions
-```
-Typically, one call to this function, at the top level of a script, separates the definition of generative functions from the execution of inference code, e.g.:
-```julia
-using Gen: @load_generated_functions
 
-# define generative functions and inference code
-..
-
-# allow static generative functions defined above to be used
-@load_generated_functions()
-
-# run inference code
-..
-```
-
-When static generative functions are defined in a Julia module, [`@load_generated_functions`](@ref) should be called after all static functions are defined:
-
-```julia
-module MyModule
-using Gen
-# Include code that defines static generative functions
-include("my_static_gen_functions.jl")
-# Load generated functions defined in this module
-@load_generated_functions()
-end
-```
-
-Any script that imports or uses `MyModule` will then no longer need to call `@load_generated_functions` in order to use the static generative functions defined in that module:
-
-```julia
-using Gen
-using MyModule: my_static_gen_fn
-trace = simulate(my_static_gen_fn, ())
-```
+Once a `(static)` generative function is defined, it can be used in the same way as a non-static generative function. In previous versions of Gen, the `@load_generated_functions` macro had to be called before a function with a `(static)` annotation could be used. This macro is no longer necessary, and will be removed in a future release.
 
 ### Performance tips
 For better performance when the arguments are simple data types like `Float64`, annotate the arguments with the concrete type.
