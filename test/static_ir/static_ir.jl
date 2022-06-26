@@ -62,8 +62,6 @@ ir = build_ir(builder)
 const_fn = eval(generate_generative_function(ir, :const_fn, track_diffs=false, cache_julia_nodes=false))
 @test occursin("== Static IR ==", repr("text/plain", ir))
 
-Gen.load_generated_functions()
-
 @testset "Julia call" begin
     @test const_fn() == 2
 end
@@ -318,8 +316,6 @@ end
     ir = build_ir(builder)
     foo = eval(generate_generative_function(ir, :foo, track_diffs=false, cache_julia_nodes=false))
 
-    Gen.load_generated_functions()
-
     function f(mu_a, theta, a, b, z, out)
         lpdf = 0.
         mu_z = a
@@ -433,8 +429,6 @@ foo = eval(generate_generative_function(ir, :foo, track_diffs=true, cache_julia_
 # generate a version of the function without tracked diffs
 foo_without_tracked_diffs = eval(generate_generative_function(ir, :foo, track_diffs=false, cache_julia_nodes=false))
 
-Gen.load_generated_functions()
-
 @testset "update with tracked diffs" begin
 
     # generate initial trace from function with tracked diffs
@@ -524,8 +518,6 @@ set_return_node!(builder, x)
 ir = build_ir(builder)
 foo = eval(generate_generative_function(ir, :foo, track_diffs=false, cache_julia_nodes=true))
 
-Gen.load_generated_functions()
-
 @testset "cached julia nodes" begin
 
     counter = 0
@@ -563,7 +555,6 @@ end
         T = @trace(normal(mean, var), :T)
         return T
     end
-    load_generated_functions()
     selection = StaticSelection(select(:mean))
     (tr, _) = generate(model, (1,))
     # At the time the issue was filed, this line produced a crash

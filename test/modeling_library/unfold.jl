@@ -7,8 +7,6 @@ end
 
 foo = Unfold(kernel)
 
-@load_generated_functions()
-
 @testset "unfold combinator" begin
 
     @testset "Julia call" begin
@@ -529,9 +527,9 @@ foo = Unfold(kernel)
         @test isapprox(k_grads[2], 1024.0)
     end
 
-    @gen (grad) function kernel(t::Int, 
-            (grad)(x_prev::Float64), 
-            (grad)(alpha::Float64), 
+    @gen (grad) function kernel(t::Int,
+            (grad)(x_prev::Float64),
+            (grad)(alpha::Float64),
             (grad)(beta::Float64))
         x = @trace(normal(x_prev * alpha + beta, 1.0), :x)
         return x

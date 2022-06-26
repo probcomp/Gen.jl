@@ -31,8 +31,6 @@ end
         return {:ret} ~ poisson(retrate)
     end
 
-    Gen.load_generated_functions()
-
     trace = simulate(foo, ())
 
     # random choices
@@ -74,7 +72,6 @@ end
     @gen (static) function tilde_expr()
         return :(x ~ normal(0, 1))
     end
-    Gen.load_generated_functions()
     @test tilde_expr() == :(x ~ normal(0, 1))
 end
 

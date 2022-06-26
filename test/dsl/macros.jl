@@ -119,8 +119,6 @@ end
     @set_x_to_normal_traceexpr y # x = Gen.@trace(normal(y, 1), :y) USING EXPR(:GENTRACE)
 end
 
-@load_generated_functions()
-
 @testset "macros in static DSL" begin
     trace = simulate(foo1, ())
     @test trace[:y] != trace[:x]

@@ -81,9 +81,3 @@ function codegen_simulate(gen_fn_type::Type{T}, args) where {T <: StaticIRGenera
 
     Expr(:block, stmts...)
 end
-
-push!(generated_functions, quote
-@generated function $(GlobalRef(Gen, :simulate))(gen_fn::$(QuoteNode(StaticIRGenerativeFunction)), args::Tuple)
-    $(QuoteNode(codegen_simulate))(gen_fn, args)
-end
-end)
