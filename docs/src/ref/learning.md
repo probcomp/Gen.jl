@@ -86,7 +86,7 @@ function train_model(data::Vector{ChoiceMap})
         trace, = generate(model, model_args, observations)
         push!(traces, trace)
     end
-    update = ParamUpdate(FixedStepSizeGradientDescent(0.001), model)
+    update = ParamUpdate(FixedStepGradientDescent(0.001), model)
     for iter=1:max_iter
         objective = sum([get_score(trace) for trace in traces])
         println("objective: $objective")
@@ -118,7 +118,7 @@ Most techniques for learning models from incomplete data, from the EM algorithm 
 
 Various algorithms can be understood as examples of this general pattern, although they differ in several details including (i) how they represent the results of inferences, (ii) how they perform the inference step, (iii) whether they try to solve each of the inference and parameter-optimization problems incrementally or not, and (iv) their formal theoretical justification and analysis:
 
-- [Expectation maximization (EM) [1], including incremental variants [2]
+- Expectation maximization (EM) [1], including incremental variants [2]
 
 - Monte Carlo EM [3] and online variants [4]
 
@@ -140,7 +140,7 @@ For example:
 ```julia
 function train_model(data::Vector{ChoiceMap})
     init_param!(model, :theta, 0.1)
-    update = ParamUpdate(FixedStepSizeGradientDescent(0.001), model)
+    update = ParamUpdate(FixedStepGradientDescent(0.001), model)
     for iter=1:max_iter
         traces = do_monte_carlo_inference(data)
         for trace in traces
@@ -161,7 +161,7 @@ Note that it is also possible to use a weighted collection of traces directly wi
 ```julia
 function train_model(data::Vector{ChoiceMap})
     init_param!(model, :theta, 0.1)
-    update = ParamUpdate(FixedStepSizeGradientDescent(0.001), model)
+    update = ParamUpdate(FixedStepGradientDescent(0.001), model)
     for iter=1:max_iter
         traces, weights = do_monte_carlo_inference_with_weights(data)
         for (trace, weight) in zip(traces, weights)

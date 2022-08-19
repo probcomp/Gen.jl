@@ -22,6 +22,7 @@ z = add_julia_node!(builder, (u, v) -> u + v, inputs=[u, v], name=:z)
 set_return_node!(builder, z)
 ir = build_ir(builder)
 bar = eval(generate_generative_function(ir, :bar, track_diffs=false, cache_julia_nodes=false))
+@test occursin("== Static IR ==", repr("text/plain", ir))
 
 #@gen (static, nojuliacache) function foo(a, b)
     #@param theta::Float64
@@ -45,6 +46,7 @@ w = add_julia_node!(builder, (z, a, theta) -> z + 1 + a + theta, inputs=[z, a, t
 set_return_node!(builder, w)
 ir = build_ir(builder)
 foo = eval(generate_generative_function(ir, :foo, track_diffs=false, cache_julia_nodes=false))
+@test occursin("== Static IR ==", repr("text/plain", ir))
 
 theta_val = rand()
 set_param!(foo, :theta, theta_val)
@@ -58,8 +60,7 @@ one = add_constant_node!(builder, 2)
 set_return_node!(builder, one)
 ir = build_ir(builder)
 const_fn = eval(generate_generative_function(ir, :const_fn, track_diffs=false, cache_julia_nodes=false))
-
-Gen.load_generated_functions()
+@test occursin("== Static IR ==", repr("text/plain", ir))
 
 @testset "Julia call" begin
     @test const_fn() == 2
@@ -299,7 +300,7 @@ end
         #out = @trace(normal(c, 1), :out)
         #return out
     #end
-    
+
     # foo
     builder = StaticIRBuilder()
     mu_a = add_argument_node!(builder, name=:mu_a, typ=:Float64, compute_grad=true)
@@ -314,8 +315,6 @@ end
     set_return_node!(builder, retval)
     ir = build_ir(builder)
     foo = eval(generate_generative_function(ir, :foo, track_diffs=false, cache_julia_nodes=false))
-
-    Gen.load_generated_functions()
 
     function f(mu_a, theta, a, b, z, out)
         lpdf = 0.
@@ -430,8 +429,6 @@ foo = eval(generate_generative_function(ir, :foo, track_diffs=true, cache_julia_
 # generate a version of the function without tracked diffs
 foo_without_tracked_diffs = eval(generate_generative_function(ir, :foo, track_diffs=false, cache_julia_nodes=false))
 
-Gen.load_generated_functions()
-
 @testset "update with tracked diffs" begin
 
     # generate initial trace from function with tracked diffs
@@ -521,8 +518,6 @@ set_return_node!(builder, x)
 ir = build_ir(builder)
 foo = eval(generate_generative_function(ir, :foo, track_diffs=false, cache_julia_nodes=true))
 
-Gen.load_generated_functions()
-
 @testset "cached julia nodes" begin
 
     counter = 0
@@ -560,7 +555,6 @@ end
         T = @trace(normal(mean, var), :T)
         return T
     end
-    load_generated_functions()
     selection = StaticSelection(select(:mean))
     (tr, _) = generate(model, (1,))
     # At the time the issue was filed, this line produced a crash

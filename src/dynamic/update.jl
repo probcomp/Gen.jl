@@ -34,13 +34,13 @@ function traceat(state::GFUpdateState, gen_fn::GenerativeFunction{T,U},
     if has_previous
         prev_call = get_call(state.prev_trace, key)
         prev_subtrace = prev_call.subtrace
-        get_gen_fn(prev_subtrace) === gen_fn || gen_fn_changed_error(key)
+        get_gen_fn(prev_subtrace) == gen_fn || gen_fn_changed_error(key)
         (subtrace, weight, _, discard) = update(prev_subtrace,
             args, map((_) -> UnknownChange(), args), constraints)
     else
         (subtrace, weight) = generate(gen_fn, args, constraints)
     end
-    
+
     # update the weight
     state.weight += weight
 
@@ -94,6 +94,11 @@ function update_delete_recurse(prev_trie::Trie{Any,CallRecord},
     score
 end
 
+function update_delete_recurse(prev_trie::Trie{Any,ChoiceOrCallRecord},
+                               visited::AllSelection)
+    0.
+end
+
 function add_unvisited_to_discard!(discard::DynamicChoiceMap,
                                    visited::DynamicSelection,
                                    prev_choices::ChoiceMap)
@@ -121,7 +126,7 @@ function update(trace::DynamicDSLTrace, arg_values::Tuple, arg_diffs::Tuple,
                 constraints::ChoiceMap)
     gen_fn = trace.gen_fn
     state = GFUpdateState(gen_fn, arg_values, trace, constraints, gen_fn.params)
-    retval = exec(gen_fn, state, arg_values) 
+    retval = exec(gen_fn, state, arg_values)
     set_retval!(state.trace, retval)
     visited = get_visited(state.visitor)
     state.weight -= update_delete_recurse(trace.trie, visited)

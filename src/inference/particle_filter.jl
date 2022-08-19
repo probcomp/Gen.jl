@@ -71,7 +71,7 @@ end
 
 """
     state = initialize_particle_filter(model::GenerativeFunction, model_args::Tuple,
-        observations::ChoiceMap proposal::GenerativeFunction, proposal_args::Tuple,
+        observations::ChoiceMap, proposal::GenerativeFunction, proposal_args::Tuple,
         num_particles::Int)
 
 Initialize the state of a particle filter using a custom proposal for the initial latent state.
@@ -108,7 +108,8 @@ function initialize_particle_filter(model::GenerativeFunction{T,U}, model_args::
 end
 
 """
-    particle_filter_step!(state::ParticleFilterState, new_args::Tuple, argdiffs,
+    (log_incremental_weights,) = particle_filter_step!(
+        state::ParticleFilterState, new_args::Tuple, argdiffs,
         observations::ChoiceMap, proposal::GenerativeFunction, proposal_args::Tuple)
 
 Perform a particle filter update, where the model arguments are adjusted, new
@@ -138,25 +139,26 @@ the internal proposal.
 """
 function particle_filter_step!(state::ParticleFilterState{U}, new_args::Tuple, argdiffs::Tuple,
         observations::ChoiceMap, proposal::GenerativeFunction, proposal_args::Tuple) where {U}
+    trace_translator = SimpleExtendingTraceTranslator(new_args, argdiffs, observations, proposal, proposal_args)
     num_particles = length(state.traces)
+    log_incremental_weights = Vector{Float64}(undef, num_particles) 
     for i=1:num_particles
-        (prop_choices, prop_weight, _) = propose(proposal, (state.traces[i], proposal_args...))
-        constraints = merge(observations, prop_choices)
-        (state.new_traces[i], up_weight, _, disc) = update(state.traces[i], new_args, argdiffs, constraints)
-        @assert isempty(disc)
-        state.log_weights[i] += up_weight - prop_weight
+        (state.new_traces[i], log_weight) = trace_translator(state.traces[i])
+        log_incremental_weights[i] = log_weight
+        state.log_weights[i] += log_weight
     end
-    
+
     # swap references
     tmp = state.traces
     state.traces = state.new_traces
     state.new_traces = tmp
-    
-    return nothing
+
+    return (log_incremental_weights,)
 end
 
 """
-    particle_filter_step!(state::ParticleFilterState, new_args::Tuple, argdiffs,
+    (log_incremental_weights,) = particle_filter_step!(
+        state::ParticleFilterState, new_args::Tuple, argdiffs,
         observations::ChoiceMap)
 
 Perform a particle filter update, where the model arguments are adjusted, new observations are added, and the default proposal is used for new latent state.
@@ -164,21 +166,23 @@ Perform a particle filter update, where the model arguments are adjusted, new ob
 function particle_filter_step!(state::ParticleFilterState{U}, new_args::Tuple, argdiffs::Tuple,
         observations::ChoiceMap) where {U}
     num_particles = length(state.traces)
+    log_incremental_weights = Vector{Float64}(undef, num_particles) 
     for i=1:num_particles
         (state.new_traces[i], increment, _, discard) = update(
             state.traces[i], new_args, argdiffs, observations)
         if !isempty(discard)
             error("Choices were updated or deleted inside particle filter step: $discard")
         end
+        log_incremental_weights[i] = increment
         state.log_weights[i] += increment
     end
-    
+
     # swap references
     tmp = state.traces
     state.traces = state.new_traces
     state.new_traces = tmp
-    
-    return nothing
+
+    return (log_incremental_weights,)
 end
 
 """
@@ -205,7 +209,7 @@ function maybe_resample!(state::ParticleFilterState{U};
             state.new_traces[i] = state.traces[state.parents[i]]
             state.log_weights[i] = 0.
         end
-        
+
         # swap references
         tmp = state.traces
         state.traces = state.new_traces

@@ -26,7 +26,7 @@ function process_all_retained!(gen_fn::Map{T,U}, args::Tuple, argdiffs::Tuple,
     if all(diff == NoChange() for diff in argdiffs)
 
         # only visit retained applications that were targeted
-        for key in retained_and_targeted 
+        for key in retained_and_targeted
             @assert key <= min(new_length, prev_length)
             process_retained!(gen_fn, args, choices_or_selection, key, kernel_no_change_argdiffs, state)
         end
@@ -53,7 +53,7 @@ function process_all_retained!(gen_fn::Map{T,U}, args::Tuple, argdiffs::Tuple,
             end
             process_retained!(gen_fn, args, choices_or_selection, key, kernel_argdiffs, state)
         end
-    
+
     end
 end
 

@@ -14,7 +14,7 @@ function process!(gen_fn::Map{T,U}, args::Tuple, choices::ChoiceMap,
     kernel_args = get_args_for_key(args, key)
     submap = get_submap(choices, key)
     (subtrace, weight) = generate(gen_fn.kernel, kernel_args, submap)
-    state.weight += weight 
+    state.weight += weight
     state.noise += project(subtrace, EmptySelection())
     state.num_nonempty += (isempty(get_choices(subtrace)) ? 0 : 1)
     state.score += get_score(subtrace)

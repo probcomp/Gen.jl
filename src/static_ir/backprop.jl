@@ -489,17 +489,3 @@ function codegen_accumulate_param_gradients!(trace_type::Type{T},
 
     Expr(:block, stmts...)
 end
-
-
-push!(generated_functions, quote
-@generated function $(GlobalRef(Gen, :choice_gradients))(trace::T, selection::$(QuoteNode(Selection)),
-                                       retval_grad) where {T<:$(QuoteNode(StaticIRTrace))}
-    $(QuoteNode(codegen_choice_gradients))(trace, selection, retval_grad)
-end
-end)
-
-push!(generated_functions, quote
-@generated function $(GlobalRef(Gen, :accumulate_param_gradients!))(trace::T, retval_grad) where {T<:$(QuoteNode(StaticIRTrace))}
-    $(QuoteNode(codegen_accumulate_param_gradients!))(trace, retval_grad)
-end
-end)

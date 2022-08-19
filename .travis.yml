@@ -3,15 +3,15 @@
 
 language: julia
 julia:
-  - 1.4
+  - 1.3 # Earliest supported version
+  - 1.6 # LTS
+  - 1   # Stable
+  - nightly
 
 jobs:
   include:
-    - stage: test
-      script:
-        - julia -e 'using Pkg; Pkg.build(); Pkg.test()'
     - stage: docs
-      julia: 1.4
+      julia: 1.6
       os: linux
       script:
         - julia --project=docs/ -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd()));

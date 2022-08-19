@@ -1,7 +1,7 @@
 # Built-in Modeling Language
 
 Gen provides a built-in embedded modeling language for defining generative functions.
-The language uses a syntax that extends Julia's syntax for defining regular Julia functions.
+The language uses a syntax that extends Julia's syntax for defining regular Julia functions, and is also referred to as the **Dynamic Modeling Language**.
 
 Generative functions in the modeling language are identified using the `@gen` keyword in front of a Julia function definition.
 Here is an example `@gen` function that samples two random choices:
@@ -36,7 +36,7 @@ julia> get_args(trace)
 See [Generative Functions](@ref) for the full set of operations supported by a generative function.
 Note that the built-in modeling language described in this section is only one of many ways of defining a generative function -- generative functions can also be constructed using other embedded languages, or by directly implementing the methods of the generative function interface.
 However, the built-in modeling language is intended to being flexible enough cover a wide range of use cases.
-In the remainder of this section, we refer to generative functions defined using the built-in modeling language as `@gen` functions.
+In the remainder of this section, we refer to generative functions defined using the built-in modeling language as `@gen` functions. Details about the implementation of `@gen` functions can be found in the [Modeling Language Implementation](@ref) section.
 
 ## Annotations
 
@@ -211,6 +211,37 @@ This example is **valid** because `:a => :b` and `:a => :c` are not prefixes of 
 @trace(normal(0, 1), :a => :b)
 @trace(foo(0.5), :a => :c)
 ```
+
+## Tilde syntax
+
+As a short-hand for `@trace` expressions, the tilde operator `~` can also be used to make random choices and traced calls to generative functions. For example, the expression
+```julia
+{:x} ~ normal(0, 1)
+```
+is equivalent to:
+```julia
+@trace(normal(0, 1), :x)
+```
+
+One can also conveniently assign random values to variables using the syntax:
+```julia
+x ~ normal(0, 1)
+```
+which is equivalent to:
+```julia
+x = @trace(normal(0, 1), :x)
+```
+
+Finally, one can make traced calls using a shared address namespace with the syntax:
+```julia
+{*} ~ foo(0.5)
+```
+which is equivalent to:
+```julia
+@trace(foo(0.5))
+```
+
+Note that `~` is also defined in `Base` as a unary operator that performs the bitwise-not operation (see [`Base.:~`](https://docs.julialang.org/en/v1/base/math/#Base.:~)). This use of `~` is also supported within `@gen` functions. However, uses of `~` as a *binary* infix operator within an `@gen` function will *always* be treated as equivalent to an `@trace` expression. If your module contains its own two-argument definition `YourModule.:~(a, b)` of the `~` function, calls to that function within `@gen` functions have to be in qualified prefix form, i.e., you have to write `YourModule.:~(a, b)` instead of `a ~ b`.
 
 ## Return value
 
@@ -395,7 +426,9 @@ This will produce a file `test.pdf` in the current working directory containing 
 
 ### Restrictions
 
-In order to be able to construct the static graph, Gen restricts the permitted syntax that can be used in functions annotated with `static`.
+First, the definition of a `(static)` generative function is always expected to occur as a [top-level definition](https://docs.julialang.org/en/v1/manual/modules/) (aka global variable); usage in non–top-level scopes is unsupported and may result in incorrect behavior.
+
+Next, in order to be able to construct the static graph, Gen restricts the permitted syntax that can be used in functions annotated with `static`.
 In particular, each statement in the body must be one of the following:
 
 - A `@param` statement specifying any [Trainable parameters](@ref), e.g.:
@@ -427,7 +460,7 @@ The functions are also subject to the following restrictions:
 
 - Default argument values are not supported.
 
-- Julia closures are not allowed.
+- Constructing named or anonymous Julia functions (and closures) is not allowed.
 
 - List comprehensions with internal `@trace` calls are not allowed.
 
@@ -451,43 +484,8 @@ can instead be implemented as:
 ```
 
 ### Loading generated functions
-Before a function with a static annotation can be used, the [`@load_generated_functions`](@ref) macro must be called:
-```@docs
-@load_generated_functions
-```
-Typically, one call to this function, at the top level of a script, separates the definition of generative functions from the execution of inference code, e.g.:
-```julia
-using Gen: @load_generated_functions
 
-# define generative functions and inference code
-..
-
-# allow static generative functions defined above to be used
-@load_generated_functions()
-
-# run inference code
-..
-```
-
-When static generative functions are defined in a Julia module, [`@load_generated_functions`](@ref) should be called after all static functions are defined:
-
-```julia
-module MyModule
-using Gen
-# Include code that defines static generative functions
-include("my_static_gen_functions.jl")
-# Load generated functions defined in this module
-@load_generated_functions()
-end
-```
-
-Any script that imports or uses `MyModule` will then no longer need to call `@load_generated_functions` in order to use the static generative functions defined in that module:
-
-```julia
-using Gen
-using MyModule: my_static_gen_fn
-trace = simulate(my_static_gen_fn, ())
-```
+Once a `(static)` generative function is defined, it can be used in the same way as a non-static generative function. In previous versions of Gen, the `@load_generated_functions` macro had to be called before a function with a `(static)` annotation could be used. This macro is no longer necessary, and will be removed in a future release.
 
 ### Performance tips
 For better performance when the arguments are simple data types like `Float64`, annotate the arguments with the concrete type.

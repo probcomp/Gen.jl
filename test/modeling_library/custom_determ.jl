@@ -66,7 +66,7 @@
             gen_fn::MyDeterministicGF, state, args, retgrad, scaler)
         gen_fn.my_grad += (retgrad * state.sum) * scaler
         arr_gradient = fill(retgrad * state.my_param, length(state.prev))
-        (arr_gradient,)        
+        (arr_gradient,)
     end
 
     # simulate
@@ -111,7 +111,7 @@
 
     # choice gradients
     trace = simulate(MyDeterministicGF(), ([1, 2, 3],))
-    arg_grads, _, _ = choice_gradients(trace, EmptySelection(), 2.) 
+    arg_grads, _, _ = choice_gradients(trace, EmptySelection(), 2.)
     @test arg_grads[1] == [2., 2., 2.]
 
     # accumulate parameter gradients
@@ -131,9 +131,9 @@ end
     Gen.gradient(::CustomPlus, args, retval, retgrad) = (retgrad, retgrad)
     custom_plus = CustomPlus()
     trace = simulate(custom_plus, (1., 2.))
-    
+
     # choice gradients
-    arg_grads, _, _ = choice_gradients(trace, EmptySelection(), 2.) 
+    arg_grads, _, _ = choice_gradients(trace, EmptySelection(), 2.)
     @test arg_grads == (2., 2.)
 
     # accumulate parameter gradients
@@ -147,17 +147,17 @@ end
         prev_arr::Vector{Float64}
         sum::Float64
     end
-    
+
     struct MySum <: CustomUpdateGF{Float64,MyState} end
     mysum = MySum()
-    
+
     function Gen.apply_with_state(::MySum, args)
         arr = args[1]
         s = sum(arr)
         state = MyState(arr, s)
         (s, state)
     end
-    
+
     function Gen.update_with_state(::MySum, state, args, argdiffs::Tuple{VectorDiff})
         arr = args[1]
         prev_sum = state.sum
@@ -176,7 +176,7 @@ end
         state = MyState(arr, retval)
         (state, retval, UnknownChange())
     end
-    
+
     Gen.num_args(::MySum) = 1
 
     # simulate

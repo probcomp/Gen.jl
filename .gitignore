@@ -1,3 +1,4 @@
+Manifest.toml
 *.pdf
 *.png
 *.jld
@@ -7,3 +8,4 @@
 *.log
 docs/build/
 docs/site/
+.DS_Store

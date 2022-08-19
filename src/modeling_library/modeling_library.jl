@@ -11,6 +11,9 @@ include("distributions/distributions.jl")
 # @dist DSL
 include("dist_dsl/dist_dsl.jl")
 
+# mixtures of distributions
+include("mixture.jl")
+
 ###############
 # combinators #
 ###############
@@ -23,6 +26,7 @@ include("call_at/call_at.jl")
 include("map/map.jl")
 include("unfold/unfold.jl")
 include("recurse/recurse.jl")
+include("switch/switch.jl")
 
 #############################################################
 # abstractions for constructing custom generative functions #

@@ -2,30 +2,36 @@
 
 module Gen
 
-const generated_functions = []
-
 """
     load_generated_functions(__module__=Main)
 
-Permit use of generative functions written in the static modeling language up
-to this point. Functions are loaded into Main by default.
+!!! warning "Deprecation Warning"
+    As of Gen 0.4.6, this macro is no longer necessary in order to use the
+    static modeling language. It will be removed in a future release.
+
+Previously, this permitted the use of generative functions written in the
+static modeling language by loading their associated function definitions into
+the specified module.
 """
 function load_generated_functions(__module__::Module=Main)
-    for function_defn in generated_functions
-        Core.eval(__module__, function_defn)
-    end
+    @warn "`Gen.load_generated_functions` is no longer necessary" *
+          " and will be removed in a future release."
 end
 
 """
     @load_generated_functions
 
-Permit use of generative functions written in the static modeling language up
-to this point. Functions are loaded into the calling module.
+!!! warning "Deprecation Warning"
+    As of Gen 0.4.6, this macro is no longer necessary in order to use the
+    static modeling language. It will be removed in a future release.
+
+Previously, this permitted the use of generative functions written in the
+static modeling language by loading their associated function definitions into
+the calling module.
 """
 macro load_generated_functions()
-    for function_defn in generated_functions
-        Core.eval(__module__, function_defn)
-    end
+    @warn "`Gen.@load_generated_functions` is no longer necessary" *
+          " and will be removed in a future release."
 end
 
 export load_generated_functions, @load_generated_functions

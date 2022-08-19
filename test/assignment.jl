@@ -43,10 +43,10 @@ end
 @testset "static assignment to/from array" begin
     submap = StaticChoiceMap(a=1., b=[2., 2.5])
     outer = StaticChoiceMap(c=3., d=submap, e=submap)
-    
+
     arr = to_array(outer, Float64)
     @test to_array(outer, Float64) == Float64[3.0, 1.0, 2.0, 2.5, 1.0, 2.0, 2.5]
-    
+
     choices = from_array(outer, Float64[1, 2, 3, 4, 5, 6, 7])
     @test choices[:c] == 1.0
     @test choices[:d => :a] == 2.0
@@ -73,10 +73,10 @@ end
     set_value!(submap, :b, [2., 2.5])
     set_submap!(outer, :d, submap)
     set_submap!(outer, :e, submap)
-    
+
     arr = to_array(outer, Float64)
     @test to_array(outer, Float64) == Float64[3.0, 1.0, 2.0, 2.5, 1.0, 2.0, 2.5]
-    
+
     choices = from_array(outer, Float64[1, 2, 3, 4, 5, 6, 7])
     @test choices[:c] == 1.0
     @test choices[:d => :a] == 2.0
@@ -263,10 +263,13 @@ end
     # overwrite value with a submap
     choices = choicemap()
     choices[:x] = 1
+    @test has_value(choices, :x)
+    @test !has_submap(choices, :x)
     submap = choicemap(); submap[:y] = 2
     set_submap!(choices, :x, submap)
     @test !has_value(choices, :x)
     @test !isempty(get_submap(choices, :x))
+    @test has_submap(choices, :x)
 
     # overwrite subassignment with a value
     choices = choicemap()
@@ -278,6 +281,8 @@ end
     # overwrite subassignment with a subassignment
     choices = choicemap()
     choices[:x => :y] = 1
+    @test has_submap(choices, :x)
+    @test !has_submap(choices, :x => :y)
     submap = choicemap(); submap[:z] = 2
     set_submap!(choices, :x,  submap)
     @test !isempty(get_submap(choices, :x))
@@ -343,7 +348,7 @@ end
 
     c = choicemap((:a, 1), (:b, 2))
 
-    filtered = get_selected(c, select(:a))    
+    filtered = get_selected(c, select(:a))
     @test filtered[:a] == 1
     @test !has_value(filtered, :b)
 
@@ -356,4 +361,50 @@ end
     filtered = get_selected(c, select(:x => :y))
     @test filtered[:x => :y] == 1
     @test !has_value(filtered, :x => :z)
+end
+
+@testset "invalid choice map constructor" begin
+    threw = false
+    try c = choicemap((:a, 1, :b, 2)) catch Exception threw = true end
+    @test threw
+end
+
+@testset "choicemap hashing" begin
+    d = Dict()
+    d[choicemap((:x, 1))] = 2
+    d[choicemap((:x, 2), (:y, 3))] = 5
+    d[choicemap((:x, 3), (:y => :z, 4))] = 7
+    d[choicemap((:x, 3), (:y => :w, 5), (:y => :z, 2))] = 10
+
+    @test !haskey(d, choicemap())
+    @test !haskey(d, EmptyChoiceMap())
+    @test !haskey(d, choicemap((:a, 3)))
+    @test !haskey(d, choicemap((:x, 2)))
+    @test d[choicemap((:x, 1))] == 2
+    @test d[choicemap((:x, 2), (:y, 3))] == 5
+    @test d[choicemap((:x, 3), (:y => :z, 4))] == 7
+    @test d[choicemap((:x, 3), (:y => :w, 5), (:y => :z, 2))] == 10
+
+    # test that we can change the order and it still works
+    @test d[choicemap((:y, 3), (:x, 2))] == 5
+    @test d[choicemap((:y => :z, 4), (:x, 3))] == 7
+    @test d[choicemap((:y => :z, 2), (:y => :w, 5), (:x, 3))] == 10
+
+    @test d[StaticChoiceMap(choicemap((:x, 1)))] == 2
+
+    e = Dict()
+    e[EmptyChoiceMap()] = 10
+    @test e[choicemap()] == 10
+
+    # Non-exhaustive test that choicemap hash values don't collide too often.
+    # (This test works just by making sure that none of the 4 choicemaps used as keys
+    # in `d` collide; we may be able to come up with choicemaps that are more likely
+    # to collide if we think about it more.)
+    for a in keys(d)
+        for b in keys(d)
+            if a != b
+                @test hash(a) != hash(b)
+            end
+        end
+    end
 end

@@ -12,7 +12,7 @@ using Gen: get_child, get_child_num, get_parent
     @test get_parent(2, 1) == 1
     @test get_parent(3, 1) == 2
     @test get_parent(4, 1) == 3
-    
+
     # max_branch = 2
     @test get_child(1, 1, 2) == 2
     @test get_child(1, 2, 2) == 3
@@ -83,7 +83,7 @@ end
 
         return Production(production_rule, [nothing for _=1:num_children])
     end
-    
+
     @gen function pcfg_aggregation(production_rule::Int, child_outputs::Vector{String})
         prefix = @trace(bernoulli(0.4), :prefix) ? "." : "-"
         local str::String
@@ -149,7 +149,7 @@ end
         push!(strings, get_retval(trace))
     end
     test_strings(strings)
-    
+
     # apply generate to a complete choice map that produces "(.b(.a(.b(-bb)b)a)b)"
     # sequence of production rules: 2 -> 1 -> 2 -> 4
     expected_weight = log(0.26) + log(0.24) + log(0.26) + log(0.27) + log(0.4) + log(0.4) + log(0.4) + log(0.6)
