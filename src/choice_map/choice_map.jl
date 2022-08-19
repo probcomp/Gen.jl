@@ -76,6 +76,13 @@ function get_value end
 @inline Base.getindex(choices::ChoiceMap, addr...) = get_value(choices, addr...)
 
 """
+    has_submap(choices::ChoiceMap, addr)
+Return true if there is a non-empty sub-assignment at the given address.
+"""
+function has_submap end
+@inline has_submap(choices::ChoiceMap, addr) = !isempty(get_submap(choices, addr))
+
+"""
 schema = get_address_schema(::Type{T}) where {T <: ChoiceMap}
 
 Return the (top-level) address schema for the given choice map.
@@ -198,6 +205,20 @@ function Base.:(==)(a::ChoiceMap, b::ChoiceMap)
     return true
 end
 
+# This is modeled after
+# https://github.com/JuliaLang/julia/blob/7bff5cdd0fab8d625e48b3a9bb4e94286f2ba18c/base/abstractdict.jl#L530-L537
+const hasha_seed = UInt === UInt64 ? 0x6d35bb51952d5539 : 0x952d5539
+function Base.hash(a::ChoiceMap, h::UInt)
+    hv = hasha_seed
+    for (addr, value) in get_values_shallow(a)
+        hv = xor(hv, hash(addr, hash(value)))
+    end
+    for (addr, submap) in get_submaps_shallow(a)
+        hv = xor(hv, hash(addr, hash(submap)))
+    end
+    return hash(hv, h)
+end
+
 function Base.isapprox(a::ChoiceMap, b::ChoiceMap)
     for (addr, submap) in get_submaps_shallow(a)
         if !isapprox(get_submap(b, addr), submap)
@@ -271,7 +292,7 @@ function Base.show(io::IO, ::MIME"text/plain", choices::ChoiceMap)
 end
 
 export ChoiceMap, ValueChoiceMap, EmptyChoiceMap
-export _get_submap, get_submap, get_submaps_shallow
+export _get_submap, get_submap, get_submaps_shallow, has_submap
 export get_value, has_value
 export get_values_shallow, get_nonvalue_submaps_shallow
 export get_address_schema, get_selected
