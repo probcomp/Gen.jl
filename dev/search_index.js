@@ -493,7 +493,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Probability Distributions",
     "title": "Gen.laplace",
     "category": "constant",
-    "text": "laplce(loc::Real, scale::Real)\n\nSample a Float64 from a laplace distribution.\n\n\n\n\n\n"
+    "text": "laplace(loc::Real, scale::Real)\n\nSample a Float64 from a laplace distribution.\n\n\n\n\n\n"
 },
 
 {
