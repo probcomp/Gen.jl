@@ -19,14 +19,14 @@ function update_recurse_merge(prev_choices::ChoiceMap, choices::ChoiceMap)
 
     # Add (address, value) to new_choices from prev_choices if address does not occur in choices.
     for (address, value) in prev_choice_value_iterator
-        address in keys(choice_value_iterator) && continue
+        address in map(first, collect(choice_value_iterator)) && continue
         set_value!(new_choices, address, value)
     end
     
     # Add (address, submap) to new_choices from prev_choices if address does not occur in choices. 
     # If it does, enter a recursive call to update_recurse_merge.
     for (address, node1) in prev_choice_submap_iterator
-        if address in keys(choice_submap_iterator)
+        if address in map(first, collect(choice_submap_iterator))
             node2 = get_submap(choices, address)
             node = update_recurse_merge(node1, node2)
             set_submap!(new_choices, address, node)
