@@ -264,7 +264,8 @@ end
     choices = choicemap()
     choices[:x] = 1
     @test has_value(choices, :x)
-    @test !has_submap(choices, :x)
+    @test has_submap(choices, :x)
+    @test !has_submap(choices, :z)
     submap = choicemap(); submap[:y] = 2
     set_submap!(choices, :x, submap)
     @test !has_value(choices, :x)
@@ -282,7 +283,8 @@ end
     choices = choicemap()
     choices[:x => :y] = 1
     @test has_submap(choices, :x)
-    @test !has_submap(choices, :x => :y)
+    @test has_submap(choices, :x => :y) # valuechoicemap
+    @test !has_submap(choices, :x => :z)
     submap = choicemap(); submap[:z] = 2
     set_submap!(choices, :x,  submap)
     @test !isempty(get_submap(choices, :x))
