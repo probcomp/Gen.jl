@@ -136,8 +136,6 @@ struct EmptyChoiceMap <: ChoiceMap end
 @inline get_submaps_shallow(::EmptyChoiceMap) = ()
 @inline get_address_schema(::Type{EmptyChoiceMap}) = EmptyAddressSchema()
 @inline Base.:(==)(::EmptyChoiceMap, ::EmptyChoiceMap) = true
-@inline Base.:(==)(::ChoiceMap, ::EmptyChoiceMap) = false
-@inline Base.:(==)(::EmptyChoiceMap, ::ChoiceMap) = false
 
 """
     ValueChoiceMap
@@ -153,6 +151,8 @@ end
 @inline get_submap(choices::ValueChoiceMap, addr) = EmptyChoiceMap()
 @inline get_submaps_shallow(choices::ValueChoiceMap) = ()
 @inline Base.:(==)(a::ValueChoiceMap, b::ValueChoiceMap) = a.val == b.val
+@inline Base.:(==)(a::ValueChoiceMap, b::ChoiceMap) = false
+@inline Base.:(==)(a::ChoiceMap, b::ValueChoiceMap) = false
 @inline Base.isapprox(a::ValueChoiceMap, b::ValueChoiceMap) = isapprox(a.val, b.val)
 @inline get_address_schema(::Type{<:ValueChoiceMap}) = AllAddressSchema()
 
