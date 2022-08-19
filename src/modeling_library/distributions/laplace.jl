@@ -1,7 +1,7 @@
 struct Laplace <: Distribution{Float64} end
 
 """
-    laplce(loc::Real, scale::Real)
+    laplace(loc::Real, scale::Real)
 
 Sample a `Float64` from a laplace distribution.
 """
