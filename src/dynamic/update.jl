@@ -94,11 +94,6 @@ function update_delete_recurse(prev_trie::Trie{Any,CallRecord},
     score
 end
 
-function update_delete_recurse(prev_trie::Trie{Any,ChoiceOrCallRecord},
-                               visited::AllSelection)
-    0.
-end
-
 function add_unvisited_to_discard!(discard::DynamicChoiceMap,
                                    visited::DynamicSelection,
                                    prev_choices::ChoiceMap)
