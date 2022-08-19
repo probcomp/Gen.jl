@@ -72,7 +72,10 @@ get_return_type(::Distribution{T}) where {T} = T
 @inline Gen.get_score(trace::DistributionTrace) = trace.score
 @inline Gen.project(trace::DistributionTrace, ::EmptySelection) = 0.
 @inline Gen.project(trace::DistributionTrace, ::AllSelection) = get_score(trace)
-
+@inline Gen.project(trace::DistributionTrace, c::ComplementSelection) = project_complement(trace, c.complement)
+@inline project_complement(trace::DistributionTrace, ::EmptySelection) = get_score(trace)
+@inline project_complement(trace::DistributionTrace, ::AllSelection) = 0.
+@inline project_complement(trace::DistributionTrace, c::ComplementSelection) = project_complement(trace, c.complement)
 @inline function Gen.simulate(dist::Distribution, args::Tuple)
     val = random(dist, args...)
     DistributionTrace(val, args, dist)
