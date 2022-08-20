@@ -128,14 +128,16 @@ function Gen.choice_gradients(tr::DistributionTrace, ::AllSelection, retgrad)
     if !has_output_grad(dist(tr))
         error("Distribution $(dist(tr)) does not compute gradient of logpdf with respect to value")
     end
-    output_grad, arg_grads... = logpdf_grad(dist(tr), tr.val, tr.args...)
+    grads = logpdf_grad(dist(tr), tr.val, tr.args...)
+    output_grad = grads[1]
+    arg_grads = grads[2:end]
     choice_values = ValueChoiceMap(tr.val)
     choice_grads = ValueChoiceMap(isnothing(retgrad) ? output_grad : output_grad .+ retgrad)
     return arg_grads, choice_values, choice_grads
 end
 
 @inline function Gen.choice_gradients(tr::DistributionTrace, ::EmptySelection, retgrad)
-    _, arg_grads... = logpdf_grad(dist(tr), tr.val, tr.args...)
+    arg_grads = logpdf_grad(dist(tr), tr.val, tr.args...)[2:end]
     choice_values = EmptyChoiceMap()
     choice_grads = EmptyChoiceMap()
     return arg_grads, choice_values, choice_grads
@@ -154,7 +156,7 @@ function Gen.choice_gradients(tr::DistributionTrace, c::ComplementSelection, ret
 end
 
 @inline function Gen.accumulate_param_gradients!(tr::DistributionTrace, retgrad, scale_factor)
-    _, arg_grads... = logpdf_grad(dist(tr), tr.val, tr.args...)
+    arg_grads = logpdf_grad(dist(tr), tr.val, tr.args...)[2:end]
     return arg_grads
 end
 
