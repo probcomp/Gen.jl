@@ -38,7 +38,7 @@ function logpdf end
 """
     has::Bool = has_output_grad(dist::Distribution)
 
-Return true of the gradient if the distribution computes the gradient of the logpdf with respect to the value of the random choice.
+Return true if the distribution computes the gradient of the logpdf with respect to the value of the random choice.
 """
 function has_output_grad end
 
@@ -119,6 +119,45 @@ end
     weight = logpdf(dist, get_value(choices), args...)
     (weight, choices.val)
 end
+
+
+# Gradient-based methods
+@inline Gen.accepts_output_grad(dist::Distribution) = has_output_grad(dist)
+
+function Gen.choice_gradients(tr::DistributionTrace, ::AllSelection, retgrad)
+    if !has_output_grad(dist(tr))
+        error("Distribution $(dist(tr)) does not compute gradient of logpdf with respect to value")
+    end
+    output_grad, arg_grads... = logpdf_grad(dist(tr), tr.val, tr.args...)
+    choice_values = ValueChoiceMap(tr.val)
+    choice_grads = ValueChoiceMap(output_grad + retgrad)
+    return arg_grads, choice_values, choice_grads
+end
+
+@inline function Gen.choice_gradients(tr::DistributionTrace, ::EmptySelection, retgrad)
+    _, arg_grads... = logpdf_grad(dist(tr), tr.val, tr.args...)
+    choice_values = EmptyChoiceMap()
+    choice_grads = EmptyChoiceMap()
+    return arg_grads, choice_values, choice_grads
+end
+
+function Gen.choice_gradients(tr::DistributionTrace, c::ComplementSelection, retgrad)
+    if c.complement isa EmptySelection
+        return choice_gradients(tr, AllSelection(), retgrad)
+    elseif c.complement isa AllSelection
+        return choice_gradients(tr, EmptySelection(), retgrad)
+    elseif c.complement isa ComplementSelection
+        return choice_gradients(tr, c.complement.complement, retgrad)
+    else
+        error("Choice gradients not implemented for generic complement selection")
+    end
+end
+
+@inline function Gen.accumulate_param_gradients!(tr::DistributionTrace, retgrad, scale_factor)
+    _, arg_grads... = logpdf_grad(dist(tr), tr.val, tr.args...)
+    return arg_grads
+end
+
 
 ###########
 # Exports #
