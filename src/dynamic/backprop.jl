@@ -2,34 +2,6 @@ function maybe_track(arg, has_argument_grad::Bool, tape)
     has_argument_grad ? track(arg, tape) : arg
 end
 
-@noinline function ReverseDiff.special_reverse_exec!(
-        instruction::ReverseDiff.SpecialInstruction{D}) where {D <: Distribution}
-    dist::D = instruction.func
-    args_maybe_tracked = instruction.input
-    score_tracked = instruction.output
-    arg_grads = logpdf_grad(dist, map(value, args_maybe_tracked)...)
-    value_tracked = args_maybe_tracked[1]
-    value_grad = arg_grads[1]
-    if istracked(value_tracked)
-        if has_output_grad(dist)
-            increment_deriv!(value_tracked, value_grad * deriv(score_tracked))
-        else
-            error("Gradient required but not available for return value of distribution $dist")
-        end
-    end
-    for (i, (arg_maybe_tracked, grad, has_grad)) in enumerate(
-            zip(args_maybe_tracked[2:end], arg_grads[2:end], has_argument_grads(dist)))
-        if istracked(arg_maybe_tracked)
-            if has_grad
-                increment_deriv!(arg_maybe_tracked, grad * deriv(score_tracked))
-            else
-                error("Gradient required but not available for argument $i of $dist")
-            end
-        end
-    end
-    nothing
-end
-
 
 ###################
 # accumulate_param_gradients! #
@@ -68,19 +40,6 @@ end
 function read_param(state::GFBackpropParamsState, name::Symbol)
     value = state.tracked_params[name]
     value
-end
-
-function traceat(state::GFBackpropParamsState, dist::Distribution{T},
-              args_maybe_tracked, key) where {T}
-    local retval::T
-    visit!(state.visitor, key)
-    retval = get_retval(get_call(state.trace, key).subtrace)
-    args = map(value, args_maybe_tracked)
-    score_tracked = track(logpdf(dist, retval, args...), state.tape)
-    record!(state.tape, ReverseDiff.SpecialInstruction, dist,
-        (retval, args_maybe_tracked...,), score_tracked)
-    state.score += score_tracked
-    retval
 end
 
 struct BackpropParamsRecord
@@ -269,28 +228,6 @@ function fill_map!(
         set_value!(map, key, value(tracked))
     end
     fill_submaps!(map, tracked_trie, mode)
-end
-
-function traceat(state::GFBackpropTraceState, dist::Distribution{T},
-              args_maybe_tracked, key) where {T}
-    local retval::T
-    visit!(state.visitor, key)
-    retval = get_retval(get_call(state.trace, key).subtrace)
-    args = map(value, args_maybe_tracked)
-    score_tracked = track(logpdf(dist, retval, args...), state.tape)
-    if key in state.selection
-        tracked_retval = track(retval, state.tape)
-        set_leaf_node!(state.tracked_choices, key, tracked_retval)
-        record!(state.tape, ReverseDiff.SpecialInstruction, dist,
-            (tracked_retval, args_maybe_tracked...,), score_tracked)
-        state.score += score_tracked
-        return tracked_retval
-    else
-        record!(state.tape, ReverseDiff.SpecialInstruction, dist,
-            (retval, args_maybe_tracked...,), score_tracked)
-        state.score += score_tracked
-        return retval
-    end
 end
 
 struct BackpropTraceRecord
