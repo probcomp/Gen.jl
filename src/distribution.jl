@@ -130,7 +130,7 @@ function Gen.choice_gradients(tr::DistributionTrace, ::AllSelection, retgrad)
     end
     output_grad, arg_grads... = logpdf_grad(dist(tr), tr.val, tr.args...)
     choice_values = ValueChoiceMap(tr.val)
-    choice_grads = ValueChoiceMap(output_grad + retgrad)
+    choice_grads = ValueChoiceMap(isnothing(retgrad) ? output_grad : output_grad .+ retgrad)
     return arg_grads, choice_values, choice_grads
 end
 

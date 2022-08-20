@@ -140,50 +140,18 @@ function regenerate(trace::CallAtTrace, args::Tuple, argdiffs::Tuple,
 end
 
 function choice_gradients(trace::CallAtTrace, selection::Selection, retval_grad)
-    if trace.subtrace isa DistributionTrace
-        if retval_grad !== nothing && !has_output_grad(get_gen_fn(trace.subtrace))
-            error("return value gradient not accepted but one was provided")
-        end
-        kernel_arg_grads = logpdf_grad(get_gen_fn(trace.subtrace), get_retval(trace.subtrace), get_args(trace.subtrace)...)
-        if trace.key in selection
-            value_choices = CallAtChoiceMap(trace.key, get_choices(trace.subtrace))
-            choice_grad = kernel_arg_grads[1]
-            if choice_grad === nothing
-                error("gradient not available for selected choice")
-            end
-            if retval_grad !== nothing
-                choice_grad += retval_grad
-            end
-            gradient_choices = CallAtChoiceMap(trace.key, ValueChoiceMap(choice_grad))
-        else
-            value_choices = EmptyChoiceMap()
-            gradient_choices = EmptyChoiceMap()
-        end
-        input_grads = (kernel_arg_grads[2:end]..., nothing)
-        return (input_grads, value_choices, gradient_choices)
-    else
-        subselection = selection[trace.key]
-        (kernel_input_grads, value_submap, gradient_submap) = choice_gradients(
-            trace.subtrace, subselection, retval_grad)
-        input_grads = (kernel_input_grads..., nothing)
-        value_choices = CallAtChoiceMap(trace.key, value_submap)
-        gradient_choices = CallAtChoiceMap(trace.key, gradient_submap)
-        return (input_grads, value_choices, gradient_choices)
-    end
+    subselection = selection[trace.key]
+    (kernel_input_grads, value_submap, gradient_submap) = choice_gradients(
+        trace.subtrace, subselection, retval_grad)
+    input_grads = (kernel_input_grads..., nothing)
+    value_choices = CallAtChoiceMap(trace.key, value_submap)
+    gradient_choices = CallAtChoiceMap(trace.key, gradient_submap)
+    return (input_grads, value_choices, gradient_choices)
 end
 
 function accumulate_param_gradients!(trace::CallAtTrace, retval_grad)
-    if trace.subtrace isa DistributionTrace
-        if retval_grad !== nothing && !has_output_grad(trace.gen_fn.dist)
-            error("return value gradient not accepted but one was provided")
-        end
-        kernel_arg_grads = logpdf_grad(get_gen_fn(trace.subtrace), get_retval(trace.subtrace), get_args(trace.subtrace)...)
-        return (kernel_arg_grads[2:end]..., nothing)
-    else
-        kernel_input_grads = accumulate_param_gradients!(trace.subtrace, retval_grad)
-        return (kernel_input_grads..., nothing)    
-    end
-
+    kernel_input_grads = accumulate_param_gradients!(trace.subtrace, retval_grad)
+    return (kernel_input_grads..., nothing)    
 end
 
 export call_at
