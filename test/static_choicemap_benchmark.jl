@@ -34,8 +34,6 @@ end
     b ~ inner()
 end
 
-load_generated_functions()
-
 tr, _ = generate(outer, ())
 choices = get_choices(tr)
 

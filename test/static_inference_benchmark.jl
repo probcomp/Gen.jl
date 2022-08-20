@@ -6,8 +6,6 @@ using Gen
     c ~ normal(b, 1)
 end
 
-@load_generated_functions
-
 observations = StaticChoiceMap(choicemap((:b,2), (:c,1.5)))
 tr, _ = generate(foo, (), observations)
 
