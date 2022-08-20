@@ -6,18 +6,19 @@ struct DistributionTrace{T, Dist} <: Trace
     val::T
     args
     score::Float64
+    dist::Dist
 end
-@inline dist(::DistributionTrace{T, Dist}) where {T, Dist} = Dist()
+@inline dist(tr::DistributionTrace{T, Dist}) where {T, Dist} = tr.dist
 
 abstract type Distribution{T} <: GenerativeFunction{T, DistributionTrace{T}} end
-DistributionTrace{T, Dist}(val::T, args::Tuple, dist::Dist) where {T, Dist <: Distribution} = DistributionTrace{T, Dist}(val, args, logpdf(dist, val, args...))
-@inline DistributionTrace(val::T, args::Tuple, dist::Dist) where {T, Dist <: Distribution} = DistributionTrace{T, Dist}(val, args, logpdf(dist, val, args...))
+DistributionTrace{T, Dist}(val::T, args::Tuple, dist::Dist) where {T, Dist <: Distribution} = DistributionTrace{T, Dist}(val, args, logpdf(dist, val, args...), dist)
+@inline DistributionTrace(val::T, args::Tuple, dist::Dist) where {T, Dist <: Distribution} = DistributionTrace{T, Dist}(val, args, logpdf(dist, val, args...), dist)
 
 # we need to know the specific distribution in the trace type so the compiler can specialize GFI calls fully
 @inline get_trace_type(::Dist) where {T, Dist <: Distribution{T}} = DistributionTrace{T, Dist}
 
 function Base.convert(::Type{<:DistributionTrace{U, <:Any}}, tr::DistributionTrace{<:Any, Dist}) where {U, Dist}
-    DistributionTrace{U, Dist}(convert(U, tr.val), tr.args, tr.score)
+    DistributionTrace{U, Dist}(convert(U, tr.val), tr.args, tr.score, tr.dist)
 end
 
 """
