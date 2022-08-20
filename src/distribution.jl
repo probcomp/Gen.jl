@@ -106,8 +106,7 @@ end
     (new_tr, weight, NoChange())
 end
 @inline function Gen.regenerate(tr::DistributionTrace, args::Tuple, argdiffs::Tuple, selection::AllSelection)
-    new_val = random(dist(tr), args...)
-    new_tr = DistributionTrace(new_val, args, dist(tr))
+    new_tr = simulate(dist(tr), args)
     (new_tr, 0., UnknownChange())
 end
 @inline function Gen.propose(dist::Distribution, args::Tuple)
