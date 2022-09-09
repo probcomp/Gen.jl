@@ -88,7 +88,7 @@ function process!(gen_fn::Switch{C, N, K, T},
         args::Tuple,
         kernel_argdiffs::Tuple,
         choices::ChoiceMap, 
-        state::SwitchUpdateState{T}) where {C, N, K, T, DV}
+        state::SwitchUpdateState{T}) where {C, N, K, T}
 
     # Generate new trace.
     merged = update_recurse_merge(get_choices(state.prev_trace), choices)
