@@ -222,8 +222,8 @@ and `discard` will be:
 Note that the discard contains both the previous values of addresses that were overwritten, and the values for addresses that were in the previous trace but are no longer in the new trace.
 The weight (`w`) is computed as:
 ```math
-p(t'; x) = 0.7 × 0.4 × 0.4 × 0.7 = 0.0784\\
-p(t; x') = 0.7 × 0.6 × 0.1 × 0.7 = 0.0294\\
+p(t; x) = 0.7 × 0.4 × 0.4 × 0.7 = 0.0784\\
+p(t'; x') = 0.7 × 0.6 × 0.1 × 0.7 = 0.0294\\
 w = \log p(t'; x')/p(t; x) = \log 0.0294/0.0784 = \log 0.375
 ```
 
