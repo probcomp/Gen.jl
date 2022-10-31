@@ -1,11 +1,11 @@
 """
     (traces, log_norm_weights, lml_est) = importance_sampling(model::GenerativeFunction,
-        model_args::Tuple, observations::ChoiceMap, num_samples::Int, verbose=false)
+        model_args::Tuple, observations::ChoiceMap, num_samples::Int; verbose=false)
 
     (traces, log_norm_weights, lml_est) = importance_sampling(model::GenerativeFunction,
         model_args::Tuple, observations::ChoiceMap,
         proposal::GenerativeFunction, proposal_args::Tuple,
-        num_samples::Int, verbose=false)
+        num_samples::Int; verbose=false)
 
 Run importance sampling, returning a vector of traces with associated log weights.
 
@@ -21,7 +21,7 @@ function importance_sampling(
         model::GenerativeFunction{T,U},
         model_args::Tuple,
         observations::ChoiceMap,
-        num_samples::Int,
+        num_samples::Int;
         verbose=false) where {T,U}
     traces = Vector{U}(undef, num_samples)
     log_weights = Vector{Float64}(undef, num_samples)
@@ -41,7 +41,7 @@ function importance_sampling(
         observations::ChoiceMap,
         proposal::GenerativeFunction,
         proposal_args::Tuple,
-        num_samples::Int,
+        num_samples::Int;
         verbose=false) where {T,U}
     traces = Vector{U}(undef, num_samples)
     log_weights = Vector{Float64}(undef, num_samples)
@@ -60,13 +60,13 @@ end
 
 """
     (trace, lml_est) = importance_resampling(model::GenerativeFunction,
-        model_args::Tuple, observations::ChoiceMap, num_samples::Int,
+        model_args::Tuple, observations::ChoiceMap, num_samples::Int;
         verbose=false)
 
     (traces, lml_est) = importance_resampling(model::GenerativeFunction,
         model_args::Tuple, observations::ChoiceMap,
         proposal::GenerativeFunction, proposal_args::Tuple,
-        num_samples::Int, verbose=false)
+        num_samples::Int; verbose=false)
 
 Run sampling importance resampling, returning a single trace.
 
