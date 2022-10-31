@@ -141,7 +141,7 @@ function particle_filter_step!(state::ParticleFilterState{U}, new_args::Tuple, a
         observations::ChoiceMap, proposal::GenerativeFunction, proposal_args::Tuple) where {U}
     trace_translator = SimpleExtendingTraceTranslator(new_args, argdiffs, observations, proposal, proposal_args)
     num_particles = length(state.traces)
-    log_incremental_weights = Vector{Float64}(undef, num_particles) 
+    log_incremental_weights = Vector{Float64}(undef, num_particles)
     for i=1:num_particles
         (state.new_traces[i], log_weight) = trace_translator(state.traces[i])
         log_incremental_weights[i] = log_weight
@@ -166,7 +166,7 @@ Perform a particle filter update, where the model arguments are adjusted, new ob
 function particle_filter_step!(state::ParticleFilterState{U}, new_args::Tuple, argdiffs::Tuple,
         observations::ChoiceMap) where {U}
     num_particles = length(state.traces)
-    log_incremental_weights = Vector{Float64}(undef, num_particles) 
+    log_incremental_weights = Vector{Float64}(undef, num_particles)
     for i=1:num_particles
         (state.new_traces[i], increment, _, discard) = update(
             state.traces[i], new_args, argdiffs, observations)
