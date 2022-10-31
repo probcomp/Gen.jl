@@ -22,8 +22,8 @@ function update_recurse_merge(prev_choices::ChoiceMap, choices::ChoiceMap)
         address in keys(choice_value_iterator) && continue
         set_value!(new_choices, address, value)
     end
-    
-    # Add (address, submap) to new_choices from prev_choices if address does not occur in choices. 
+
+    # Add (address, submap) to new_choices from prev_choices if address does not occur in choices.
     # If it does, enter a recursive call to update_recurse_merge.
     for (address, node1) in prev_choice_submap_iterator
         if address in keys(choice_submap_iterator)
@@ -87,8 +87,8 @@ function process!(gen_fn::Switch{C, N, K, T},
         index_argdiff::UnknownChange,
         args::Tuple,
         kernel_argdiffs::Tuple,
-        choices::ChoiceMap, 
-        state::SwitchUpdateState{T}) where {C, N, K, T, DV}
+        choices::ChoiceMap,
+        state::SwitchUpdateState{T}) where {C, N, K, T}
 
     # Generate new trace.
     merged = update_recurse_merge(get_choices(state.prev_trace), choices)
@@ -111,7 +111,7 @@ function process!(gen_fn::Switch{C, N, K, T},
         index_argdiff::NoChange, # TODO: Diffed wrapper?
         args::Tuple,
         kernel_argdiffs::Tuple,
-        choices::ChoiceMap, 
+        choices::ChoiceMap,
         state::SwitchUpdateState{T}) where {C, N, K, T}
 
     # Update trace.
@@ -130,15 +130,15 @@ end
 @inline process!(gen_fn::Switch{C, N, K, T}, index::C, index_argdiff::Diff, args::Tuple, kernel_argdiffs::Tuple, choices::ChoiceMap, state::SwitchUpdateState{T}) where {C, N, K, T} = process!(gen_fn, getindex(gen_fn.cases, index), index_argdiff, args, kernel_argdiffs, choices, state)
 
 function update(trace::SwitchTrace{A, T, U},
-        args::Tuple, 
+        args::Tuple,
         argdiffs::Tuple,
         choices::ChoiceMap) where {A, T, U}
     gen_fn = trace.gen_fn
     index, index_argdiff = args[1], argdiffs[1]
     state = SwitchUpdateState{T}(0.0, 0.0, 0.0, trace)
-    process!(gen_fn, index, index_argdiff, 
+    process!(gen_fn, index, index_argdiff,
              args[2 : end], argdiffs[2 : end], choices, state)
-    return SwitchTrace(gen_fn, state.trace, 
-                       get_retval(state.trace), args, 
+    return SwitchTrace(gen_fn, state.trace,
+                       get_retval(state.trace), args,
                        state.score, state.noise), state.weight, state.updated_retdiff, state.discard
 end

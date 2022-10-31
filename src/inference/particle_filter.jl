@@ -76,8 +76,12 @@ end
 
 Initialize the state of a particle filter using a custom proposal for the initial latent state.
 """
-function initialize_particle_filter(model::GenerativeFunction{T,U}, model_args::Tuple,
-        observations::ChoiceMap, proposal::GenerativeFunction, proposal_args::Tuple,
+function initialize_particle_filter(
+        model::GenerativeFunction{T,U},
+        model_args::Tuple,
+        observations::ChoiceMap,
+        proposal::GenerativeFunction,
+        proposal_args::Tuple,
         num_particles::Int) where {T,U}
     traces = Vector{Any}(undef, num_particles)
     log_weights = Vector{Float64}(undef, num_particles)
@@ -96,8 +100,11 @@ end
 
 Initialize the state of a particle filter, using the default proposal for the initial latent state.
 """
-function initialize_particle_filter(model::GenerativeFunction{T,U}, model_args::Tuple,
-        observations::ChoiceMap, num_particles::Int) where {T,U}
+function initialize_particle_filter(
+        model::GenerativeFunction{T,U},
+        model_args::Tuple,
+        observations::ChoiceMap,
+        num_particles::Int) where {T,U}
     traces = Vector{Any}(undef, num_particles)
     log_weights = Vector{Float64}(undef, num_particles)
     for i=1:num_particles
@@ -137,11 +144,16 @@ the support of the model (with the new arguments). If such a trace exists, then
 the random choices not determined by the above requirements are sampled using
 the internal proposal.
 """
-function particle_filter_step!(state::ParticleFilterState{U}, new_args::Tuple, argdiffs::Tuple,
-        observations::ChoiceMap, proposal::GenerativeFunction, proposal_args::Tuple) where {U}
+function particle_filter_step!(
+        state::ParticleFilterState{U},
+        new_args::Tuple,
+        argdiffs::Tuple,
+        observations::ChoiceMap,
+        proposal::GenerativeFunction,
+        proposal_args::Tuple) where {U}
     trace_translator = SimpleExtendingTraceTranslator(new_args, argdiffs, observations, proposal, proposal_args)
     num_particles = length(state.traces)
-    log_incremental_weights = Vector{Float64}(undef, num_particles) 
+    log_incremental_weights = Vector{Float64}(undef, num_particles)
     for i=1:num_particles
         (state.new_traces[i], log_weight) = trace_translator(state.traces[i])
         log_incremental_weights[i] = log_weight
@@ -163,10 +175,13 @@ end
 
 Perform a particle filter update, where the model arguments are adjusted, new observations are added, and the default proposal is used for new latent state.
 """
-function particle_filter_step!(state::ParticleFilterState{U}, new_args::Tuple, argdiffs::Tuple,
+function particle_filter_step!(
+        state::ParticleFilterState{U},
+        new_args::Tuple,
+        argdiffs::Tuple,
         observations::ChoiceMap) where {U}
     num_particles = length(state.traces)
-    log_incremental_weights = Vector{Float64}(undef, num_particles) 
+    log_incremental_weights = Vector{Float64}(undef, num_particles)
     for i=1:num_particles
         (state.new_traces[i], increment, _, discard) = update(
             state.traces[i], new_args, argdiffs, observations)
@@ -192,8 +207,10 @@ end
 Do a resampling step if the effective sample size is below the given threshold.
 Return `true` if a resample thus occurred, `false` otherwise.
 """
-function maybe_resample!(state::ParticleFilterState{U};
-                        ess_threshold::Real=length(state.traces)/2, verbose=false) where {U}
+function maybe_resample!(
+        state::ParticleFilterState{U};
+        ess_threshold::Real=length(state.traces)/2,
+        verbose=false) where {U}
     num_particles = length(state.traces)
     (log_total_weight, log_normalized_weights) = normalize_weights(state.log_weights)
     ess = effective_sample_size(log_normalized_weights)
