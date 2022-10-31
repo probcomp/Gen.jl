@@ -69,7 +69,7 @@ Setting `verbose=true` prints a progress message every sample.
 """
 function importance_resampling(model::GenerativeFunction{T,U}, model_args::Tuple,
                                observations::ChoiceMap,
-                               num_samples::Int; verbose=false)  where {T,U,V,W}
+                               num_samples::Int; verbose=false)  where {T,U}
     (model_trace::U, log_weight) = generate(model, model_args, observations)
     log_total_weight = log_weight
     for i=2:num_samples
