@@ -1,4 +1,4 @@
-@testset "call_at combinator" begin
+@testset "call_at combinator on non-distribution" begin
 
     @gen (grad) function foo((grad)(x::Float64))
         return x + @trace(normal(x, 1), :y)
@@ -20,7 +20,7 @@
         y = choices[3 => :y]
         @test isapprox(weight, logpdf(normal, y, 0.4, 1))
         @test length(collect(get_values_shallow(choices))) == 0
-        @test length(collect(get_submaps_shallow(choices))) == 1
+        @test length(collect(get_nonvalue_submaps_shallow(choices))) == 1
     end
 
     @testset "generate" begin
@@ -32,7 +32,7 @@
         y = choices[3 => :y]
         @test get_retval(trace) == 0.4 + y
         @test length(collect(get_values_shallow(choices))) == 0
-        @test length(collect(get_submaps_shallow(choices))) == 1
+        @test length(collect(get_nonvalue_submaps_shallow(choices))) == 1
 
         # with constraints
         y = 1.234
@@ -44,7 +44,7 @@
         @test get_retval(trace) == 0.4 + y
         @test isapprox(weight, logpdf(normal, y, 0.4, 1.))
         @test length(collect(get_values_shallow(choices))) == 0
-        @test length(collect(get_submaps_shallow(choices))) == 1
+        @test length(collect(get_nonvalue_submaps_shallow(choices))) == 1
     end
 
     function get_trace()
@@ -71,7 +71,7 @@
         choices = get_choices(new_trace)
         @test choices[3 => :y] == y
         @test length(collect(get_values_shallow(choices))) == 0
-        @test length(collect(get_submaps_shallow(choices))) == 1
+        @test length(collect(get_nonvalue_submaps_shallow(choices))) == 1
         @test isapprox(weight, logpdf(normal, y, 0.2, 1) - logpdf(normal, y, 0.4, 1))
         @test get_retval(new_trace) == 0.2 + y
         @test isempty(discard)
@@ -86,12 +86,12 @@
         choices = get_choices(new_trace)
         @test choices[3 => :y] == y_new
         @test length(collect(get_values_shallow(choices))) == 0
-        @test length(collect(get_submaps_shallow(choices))) == 1
+        @test length(collect(get_nonvalue_submaps_shallow(choices))) == 1
         @test isapprox(weight, logpdf(normal, y_new, 0.2, 1) - logpdf(normal, y, 0.4, 1))
         @test get_retval(new_trace) == 0.2 + y_new
         @test discard[3 => :y] == y
         @test length(collect(get_values_shallow(discard))) == 0
-        @test length(collect(get_submaps_shallow(discard))) == 1
+        @test length(collect(get_nonvalue_submaps_shallow(discard))) == 1
         @test isapprox(get_score(new_trace), logpdf(normal, y_new, 0.2, 1))
 
         # change kernel_args, different key, with constraint
@@ -103,12 +103,12 @@
         choices = get_choices(new_trace)
         @test choices[4 => :y] == y_new
         @test length(collect(get_values_shallow(choices))) == 0
-        @test length(collect(get_submaps_shallow(choices))) == 1
+        @test length(collect(get_nonvalue_submaps_shallow(choices))) == 1
         @test isapprox(weight, logpdf(normal, y_new, 0.2, 1) - logpdf(normal, y, 0.4, 1))
         @test get_retval(new_trace) == 0.2 + y_new
         @test discard[3 => :y] == y
         @test length(collect(get_values_shallow(discard))) == 0
-        @test length(collect(get_submaps_shallow(discard))) == 1
+        @test length(collect(get_nonvalue_submaps_shallow(discard))) == 1
         @test isapprox(get_score(new_trace), logpdf(normal, y_new, 0.2, 1))
     end
 
@@ -121,7 +121,7 @@
         choices = get_choices(new_trace)
         @test choices[3 => :y] == y
         @test length(collect(get_values_shallow(choices))) == 0
-        @test length(collect(get_submaps_shallow(choices))) == 1
+        @test length(collect(get_nonvalue_submaps_shallow(choices))) == 1
         @test isapprox(weight, logpdf(normal, y, 0.2, 1) - logpdf(normal, y, 0.4, 1))
         @test get_retval(new_trace) == 0.2 + y
         @test isapprox(get_score(new_trace), logpdf(normal, y, 0.2, 1))
@@ -133,7 +133,7 @@
         choices = get_choices(new_trace)
         y_new = choices[3 => :y]
         @test length(collect(get_values_shallow(choices))) == 0
-        @test length(collect(get_submaps_shallow(choices))) == 1
+        @test length(collect(get_nonvalue_submaps_shallow(choices))) == 1
         @test weight == 0.
         @test get_retval(new_trace) == 0.2 + y_new
         @test isapprox(get_score(new_trace), logpdf(normal, y_new, 0.2, 1))
@@ -144,7 +144,7 @@
         choices = get_choices(new_trace)
         y_new = choices[4 => :y]
         @test length(collect(get_values_shallow(choices))) == 0
-        @test length(collect(get_submaps_shallow(choices))) == 1
+        @test length(collect(get_nonvalue_submaps_shallow(choices))) == 1
         @test weight == 0.
         @test get_retval(new_trace) == 0.2 + y_new
         @test isapprox(get_score(new_trace), logpdf(normal, y_new, 0.2, 1))
@@ -171,9 +171,9 @@
         @test choices[3 => :y] == y
         @test isapprox(gradients[3 => :y], logpdf_grad(normal, y, 0.4, 1.0)[1] + retval_grad)
         @test length(collect(get_values_shallow(gradients))) == 0
-        @test length(collect(get_submaps_shallow(gradients))) == 1
+        @test length(collect(get_nonvalue_submaps_shallow(gradients))) == 1
         @test length(collect(get_values_shallow(choices))) == 0
-        @test length(collect(get_submaps_shallow(choices))) == 1
+        @test length(collect(get_nonvalue_submaps_shallow(choices))) == 1
         @test length(input_grads) == 2
         @test isapprox(input_grads[1], logpdf_grad(normal, y, 0.4, 1.0)[2] + retval_grad)
         @test input_grads[2] == nothing # the key has no gradient

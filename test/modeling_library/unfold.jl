@@ -26,7 +26,7 @@ foo = Unfold(kernel)
         x3 = trace[3 => :x]
         choices = get_choices(trace)
         @test length(collect(get_values_shallow(choices))) == 0
-        @test length(collect(get_submaps_shallow(choices))) == 3
+        @test length(collect(get_nonvalue_submaps_shallow(choices))) == 3
         expected_score = (logpdf(normal, x1, x_init * alpha + beta, std)
                           + logpdf(normal, x2, x1 * alpha + beta, std)
                           + logpdf(normal, x3, x2 * alpha + beta, std))
@@ -53,7 +53,7 @@ foo = Unfold(kernel)
         @test choices[1 => :x] == x1
         @test choices[3 => :x] == x3
         @test length(collect(get_values_shallow(choices))) == 0
-        @test length(collect(get_submaps_shallow(choices))) == 3
+        @test length(collect(get_nonvalue_submaps_shallow(choices))) == 3
         x2 = choices[2 => :x]
         expected_weight = (logpdf(normal, x1, x_init * alpha + beta, std)
                            + logpdf(normal, x3, x2 * alpha + beta, std))
@@ -75,7 +75,7 @@ foo = Unfold(kernel)
         beta = 0.3
         (choices, weight, retval) = propose(foo, (3, x_init, alpha, beta))
         @test length(collect(get_values_shallow(choices))) == 0
-        @test length(collect(get_submaps_shallow(choices))) == 3
+        @test length(collect(get_nonvalue_submaps_shallow(choices))) == 3
         x1 = choices[1 => :x]
         x2 = choices[2 => :x]
         x3 = choices[3 => :x]

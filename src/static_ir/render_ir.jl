@@ -1,7 +1,12 @@
 label(node::ArgumentNode) = String(node.name)
 label(node::JuliaNode) = String(node.name)
-label(node::RandomChoiceNode) = "$(node.dist) $(node.addr) $(node.name)"
-label(node::GenerativeFunctionCallNode) = "$(node.addr) $(node.name)"
+function label(node::GenerativeFunctionCallNode)
+    if node.generative_function isa Distribution
+        "$(node.generative_function) $(node.addr) $(node.name)"
+    else
+        "$(node.addr) $(node.name)"
+    end
+end
 
 function draw_graph(ir::StaticIR, graphviz, fname)
     dot = graphviz.Digraph()
@@ -14,7 +19,7 @@ function draw_graph(ir::StaticIR, graphviz, fname)
             shape = "diamond"
             color = "white"
             parents = []
-        elseif isa(node, RandomChoiceNode)
+        elseif isa(node, GenerativeFunctionCallNode) && node.generative_function isa Distribution
             shape = "ellipse"
             color = "white"
             parents = node.inputs

@@ -14,10 +14,7 @@ function get_submap(choices::CallAtChoiceMap{K,T}, addr::K) where {K,T}
 end
 
 get_submap(choices::CallAtChoiceMap, addr::Pair) = _get_submap(choices, addr)
-get_value(choices::CallAtChoiceMap, addr::Pair) = _get_value(choices, addr)
-has_value(choices::CallAtChoiceMap, addr::Pair) = _has_value(choices, addr)
 get_submaps_shallow(choices::CallAtChoiceMap) = ((choices.key, choices.submap),)
-get_values_shallow(::CallAtChoiceMap) = ()
 
 # TODO optimize CallAtTrace using type parameters
 
@@ -69,7 +66,7 @@ unpack_call_at_args(args) = (args[end], args[1:end-1])
 
 function assess(gen_fn::CallAtCombinator, args::Tuple, choices::ChoiceMap)
     (key, kernel_args) = unpack_call_at_args(args)
-    if length(collect(get_submaps_shallow(choices))) > 1 || !isempty(get_values_shallow(choices))
+    if length(collect(get_submaps_shallow(choices))) > 1
         error("Not all constraints were consumed")
     end
     submap = get_submap(choices, key)
@@ -149,12 +146,12 @@ function choice_gradients(trace::CallAtTrace, selection::Selection, retval_grad)
     input_grads = (kernel_input_grads..., nothing)
     value_choices = CallAtChoiceMap(trace.key, value_submap)
     gradient_choices = CallAtChoiceMap(trace.key, gradient_submap)
-    (input_grads, value_choices, gradient_choices)
+    return (input_grads, value_choices, gradient_choices)
 end
 
 function accumulate_param_gradients!(trace::CallAtTrace, retval_grad)
     kernel_input_grads = accumulate_param_gradients!(trace.subtrace, retval_grad)
-    (kernel_input_grads..., nothing)
+    return (kernel_input_grads..., nothing)    
 end
 
 export call_at

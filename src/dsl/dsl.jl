@@ -7,6 +7,7 @@ const DSL_ARG_GRAD_ANNOTATION = :grad
 const DSL_RET_GRAD_ANNOTATION = :grad
 const DSL_TRACK_DIFFS_ANNOTATION = :diffs
 const DSL_NO_JULIA_CACHE_ANNOTATION = :nojuliacache
+const DSL_MACROS = Set([Symbol("@trace"), Symbol("@param")])
 
 struct Argument
     name::Symbol
@@ -81,6 +82,8 @@ include("dynamic.jl")
 include("static.jl")
 
 function desugar_tildes(expr)
+    trace_ref = GlobalRef(@__MODULE__, Symbol("@trace"))
+    line_num = LineNumberNode(1, :none)
     MacroTools.postwalk(expr) do e
         # Replace tilde statements with :gentrace expressions
         if MacroTools.@capture(e, {*} ~ rhs_call)

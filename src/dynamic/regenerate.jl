@@ -14,48 +14,6 @@ function GFRegenerateState(gen_fn, args, prev_trace,
         0., visitor, params)
 end
 
-function traceat(state::GFRegenerateState, dist::Distribution{T},
-                 args, key) where {T}
-    local prev_retval::T
-    local retval::T
-
-    # check that key was not already visited, and mark it as visited
-    visit!(state.visitor, key)
-
-    # check for previous choice at this key
-    has_previous = has_choice(state.prev_trace, key)
-    if has_previous
-        prev_choice = get_choice(state.prev_trace, key)
-        prev_retval = prev_choice.retval
-        prev_score = prev_choice.score
-    end
-
-    # check whether the key was selected
-    in_selection = key in state.selection
-
-    # get return value
-    if has_previous && in_selection
-        retval = random(dist, args...)
-    elseif has_previous
-        retval = prev_retval
-    else
-        retval = random(dist, args...)
-    end
-
-    # compute logpdf
-    score = logpdf(dist, retval, args...)
-
-    # update weight
-    if has_previous && !in_selection
-        state.weight += score - prev_score
-    end
-
-    # add to the trace
-    add_choice!(state.trace, key, retval, score)
-
-    retval
-end
-
 function traceat(state::GFRegenerateState, gen_fn::GenerativeFunction{T,U},
                  args, key) where {T,U}
     local prev_retval::T
@@ -101,13 +59,11 @@ function splice(state::GFRegenerateState, gen_fn::DynamicDSLFunction,
     retval
 end
 
-function regenerate_delete_recurse(prev_trie::Trie{Any,ChoiceOrCallRecord},
+function regenerate_delete_recurse(prev_trie::Trie{Any,CallRecord},
                              visited::EmptySelection)
     noise = 0.
-    for (key, choice_or_call) in get_leaf_nodes(prev_trie)
-        if !choice_or_call.is_choice
-            noise += choice_or_call.noise
-        end
+    for (key, call) in get_leaf_nodes(prev_trie)
+        noise += call.noise
     end
     for (key, subtrie) in get_internal_nodes(prev_trie)
         noise += regenerate_delete_recurse(subtrie, EmptySelection())
@@ -115,12 +71,12 @@ function regenerate_delete_recurse(prev_trie::Trie{Any,ChoiceOrCallRecord},
     noise
 end
 
-function regenerate_delete_recurse(prev_trie::Trie{Any,ChoiceOrCallRecord},
+function regenerate_delete_recurse(prev_trie::Trie{Any,CallRecord},
                              visited::DynamicSelection)
     noise = 0.
-    for (key, choice_or_call) in get_leaf_nodes(prev_trie)
-        if !(key in visited) && !choice_or_call.is_choice
-            noise += choice_or_call.noise
+    for (key, call) in get_leaf_nodes(prev_trie)
+        if !(key in visited)
+            noise += call.noise
         end
     end
     for (key, subtrie) in get_internal_nodes(prev_trie)

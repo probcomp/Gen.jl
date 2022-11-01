@@ -52,6 +52,7 @@ function generate_generative_function(ir::StaticIR, name::Symbol, options::Stati
             params_grad::Dict{Symbol,Any}
             params::Dict{Symbol,Any}
         end
+
         # Generate accessors
         $(GlobalRef(Gen, :get_ir))(::$gen_fn_type_name) = $(QuoteNode(ir))
         $(GlobalRef(Gen, :get_ir))(::Type{$gen_fn_type_name}) = $(QuoteNode(ir))

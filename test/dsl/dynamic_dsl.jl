@@ -124,7 +124,7 @@ end
     @test get_value(discard, :x) == x
     @test get_value(discard, :u => :a) == a
     @test length(collect(get_values_shallow(discard))) == 2
-    @test length(collect(get_submaps_shallow(discard))) == 1
+    @test length(collect(get_nonvalue_submaps_shallow(discard))) == 1
 
     # test new trace
     new_assignment = get_choices(new_trace)
@@ -132,7 +132,7 @@ end
     @test get_value(new_assignment, :y) == y
     @test get_value(new_assignment, :v => :b) == b
     @test length(collect(get_values_shallow(new_assignment))) == 2
-    @test length(collect(get_submaps_shallow(new_assignment))) == 1
+    @test length(collect(get_nonvalue_submaps_shallow(new_assignment))) == 1
 
     # test score and weight
     prev_score = (
@@ -247,7 +247,7 @@ end
             @test !isempty(get_submap(assignment, :v))
         end
         @test length(collect(get_values_shallow(assignment))) == 2
-        @test length(collect(get_submaps_shallow(assignment))) == 1
+        @test length(collect(get_nonvalue_submaps_shallow(assignment))) == 1
 
         # test weight
         if assignment[:branch] == prev_assignment[:branch]
@@ -337,11 +337,11 @@ end
     @test get_value(choices, :out) == out
     @test get_value(choices, :bar => :z) == z
     @test !has_value(choices, :b) # was not selected
-    @test length(collect(get_submaps_shallow(choices))) == 1
+    @test length(collect(get_nonvalue_submaps_shallow(choices))) == 1
     @test length(collect(get_values_shallow(choices))) == 2
 
     # check gradient trie
-    @test length(collect(get_submaps_shallow(gradients))) == 1
+    @test length(collect(get_nonvalue_submaps_shallow(gradients))) == 1
     @test length(collect(get_values_shallow(gradients))) == 2
     @test !has_value(gradients, :b) # was not selected
     @test isapprox(get_value(gradients, :bar => :z),
@@ -436,14 +436,14 @@ end
     @test choices[:x => 2] == 2
     @test choices[:x => 3 => :z] == 3
     @test length(collect(get_values_shallow(choices))) == 1 # :y
-    @test length(collect(get_submaps_shallow(choices))) == 1 # :x
+    @test length(collect(get_nonvalue_submaps_shallow(choices))) == 1 # :x
 
     submap = get_submap(choices, :x)
     @test submap[1] == 1
     @test submap[2] == 2
     @test submap[3 => :z] == 3
     @test length(collect(get_values_shallow(submap))) == 2 # 1, 2
-    @test length(collect(get_submaps_shallow(submap))) == 1 # 3
+    @test length(collect(get_nonvalue_submaps_shallow(submap))) == 1 # 3
 
     bar_submap = get_submap(submap, 3)
     @test bar_submap[:z] == 3

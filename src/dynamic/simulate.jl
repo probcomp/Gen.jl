@@ -9,24 +9,6 @@ function GFSimulateState(gen_fn::GenerativeFunction, args::Tuple, params)
     GFSimulateState(trace, AddressVisitor(), params)
 end
 
-function traceat(state::GFSimulateState, dist::Distribution{T},
-              args, key) where {T}
-    local retval::T
-
-    # check that key was not already visited, and mark it as visited
-    visit!(state.visitor, key)
-
-    retval = random(dist, args...)
-
-    # compute logpdf
-    score = logpdf(dist, retval, args...)
-
-    # add to the trace
-    add_choice!(state.trace, key, retval, score)
-
-    retval
-end
-
 function traceat(state::GFSimulateState, gen_fn::GenerativeFunction{T,U},
               args, key) where {T,U}
     local subtrace::U

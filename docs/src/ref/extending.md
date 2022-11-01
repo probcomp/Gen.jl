@@ -110,7 +110,7 @@ Gen's Distribution interface directly, as defined below.
 Probability distributions are singleton types whose supertype is `Distribution{T}`, where `T` indicates the data type of the random sample.
 
 ```julia
-abstract type Distribution{T} end
+abstract type Distribution{T} <: GenerativeFunction{T, DistributionTrace} end
 ```
 
 A new Distribution type must implement the following methods:
@@ -145,6 +145,9 @@ logpdf
 has_output_grad
 logpdf_grad
 ```
+
+Any custom distribution will automatically be a `GenerativeFunction` since `Distribution <: GenerativeFunction`;
+implementations of all GFI methods are automatically provided in terms of `random` and `logpdf`.
 
 ## Custom generative functions
 

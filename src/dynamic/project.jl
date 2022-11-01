@@ -1,15 +1,9 @@
-function project_recurse(trie::Trie{Any,ChoiceOrCallRecord},
+function project_recurse(trie::Trie{Any, CallRecord},
                          selection::Selection)
     weight = 0.
-    for (key, choice_or_call) in get_leaf_nodes(trie)
-        if choice_or_call.is_choice
-            if key in selection
-                weight += choice_or_call.score
-            end
-        else
-            subselection = selection[key]
-            weight += project(choice_or_call.subtrace_or_retval, subselection)
-        end
+    for (key, call) in get_leaf_nodes(trie)
+        subselection = selection[key]
+        weight += project(call.subtrace, subselection)
     end
     for (key, subtrie) in get_internal_nodes(trie)
         subselection = selection[key]

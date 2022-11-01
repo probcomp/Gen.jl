@@ -19,7 +19,7 @@ for (lang, f) in [:dynamic => f_dynamic,
         # sanity-check that `update` did what it's supposed to.
         @test get_args(trace1) == (5, 6)
         @test trace1[:z] == 0
-        @test :z in keys(get_values_shallow(discard))
+        @test :z in map(first, get_values_shallow(discard))
     end
 
     @testset "regenerate(...) shorthand assuming unchanged args ($lang modeling lang)" begin

@@ -97,7 +97,7 @@ end
         else
             @write(p2_trace[:z], true, :discrete)
             x = @read(p1_trace[:x], :continuous)
-            i = ceil(x * 10)
+            i = Int(ceil(x * 10))
             @write(p2_trace[:i], i, :discrete)
             @write(q2_trace[:dx], x - (i-1)/10, :continuous)
         end
@@ -135,8 +135,8 @@ end
     @transform f (p1_trace, q1_trace) to (p2_trace, q2_trace) begin
         x = @read(p1_trace[:x], :continuous)
         y = @read(p1_trace[:y], :continuous)
-        i = ceil(x * 10)
-        j = ceil(y * 10)
+        i = Int(ceil(x * 10))
+        j = Int(ceil(y * 10))
         @write(p2_trace[:i], i, :discrete)
         @write(p2_trace[:j], j, :discrete)
         @write(q2_trace[:dx], x - (i-1)/10, :continuous)

@@ -92,10 +92,6 @@ end
 end
 
 @inline get_submap(choices::VectorTraceChoiceMap, addr::Pair) = _get_submap(choices, addr)
-@inline get_value(choices::VectorTraceChoiceMap, addr::Pair) = _get_value(choices, addr)
-@inline has_value(choices::VectorTraceChoiceMap, addr::Pair) = _has_value(choices, addr)
-@inline get_values_shallow(::VectorTraceChoiceMap) = ()
-
 
 ############################################
 # code shared by vector-shaped combinators #

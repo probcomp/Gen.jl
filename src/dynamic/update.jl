@@ -16,57 +16,6 @@ function GFUpdateState(gen_fn, args, prev_trace, constraints, params)
         0., visitor, params, discard)
 end
 
-function traceat(state::GFUpdateState, dist::Distribution{T},
-                 args::Tuple, key) where {T}
-
-    local prev_retval::T
-    local retval::T
-
-    # check that key was not already visited, and mark it as visited
-    visit!(state.visitor, key)
-
-    # check for previous choice at this key
-    has_previous = has_choice(state.prev_trace, key)
-    if has_previous
-        prev_choice = get_choice(state.prev_trace, key)
-        prev_retval = prev_choice.retval
-        prev_score = prev_choice.score
-    end
-
-    # check for constraints at this key
-    constrained = has_value(state.constraints, key)
-    !constrained && check_no_submap(state.constraints, key)
-
-    # record the previous value as discarded if it is replaced
-    if constrained && has_previous
-        set_value!(state.discard, key, prev_retval)
-    end
-
-    # get return value
-    if constrained
-        retval = get_value(state.constraints, key)
-    elseif has_previous
-        retval = prev_retval
-    else
-        retval = random(dist, args...)
-    end
-
-    # compute logpdf
-    score = logpdf(dist, retval, args...)
-
-    # update the weight
-    if has_previous
-        state.weight += score - prev_score
-    elseif constrained
-        state.weight += score
-    end
-
-    # add to the trace
-    add_choice!(state.trace, key, retval, score)
-
-    retval
-end
-
 function traceat(state::GFUpdateState, gen_fn::GenerativeFunction{T,U},
                  args::Tuple, key) where {T,U}
 
@@ -78,7 +27,6 @@ function traceat(state::GFUpdateState, gen_fn::GenerativeFunction{T,U},
     visit!(state.visitor, key)
 
     # check for constraints at this key
-    check_no_value(state.constraints, key)
     constraints = get_submap(state.constraints, key)
 
     # get subtrace
@@ -119,11 +67,11 @@ function splice(state::GFUpdateState, gen_fn::DynamicDSLFunction,
     retval
 end
 
-function update_delete_recurse(prev_trie::Trie{Any,ChoiceOrCallRecord},
+function update_delete_recurse(prev_trie::Trie{Any,CallRecord},
                                visited::EmptySelection)
     score = 0.
-    for (key, choice_or_call) in get_leaf_nodes(prev_trie)
-        score += choice_or_call.score
+    for (key, call) in get_leaf_nodes(prev_trie)
+        score += call.score
     end
     for (key, subtrie) in get_internal_nodes(prev_trie)
         score += update_delete_recurse(subtrie, EmptySelection())
@@ -131,12 +79,12 @@ function update_delete_recurse(prev_trie::Trie{Any,ChoiceOrCallRecord},
     score
 end
 
-function update_delete_recurse(prev_trie::Trie{Any,ChoiceOrCallRecord},
+function update_delete_recurse(prev_trie::Trie{Any,CallRecord},
                                visited::DynamicSelection)
     score = 0.
-    for (key, choice_or_call) in get_leaf_nodes(prev_trie)
+    for (key, call) in get_leaf_nodes(prev_trie)
         if !(key in visited)
-            score += choice_or_call.score
+            score += call.score
         end
     end
     for (key, subtrie) in get_internal_nodes(prev_trie)
@@ -146,40 +94,25 @@ function update_delete_recurse(prev_trie::Trie{Any,ChoiceOrCallRecord},
     score
 end
 
-function update_delete_recurse(prev_trie::Trie{Any,ChoiceOrCallRecord},
-                               visited::AllSelection)
-    0.
-end
-
 function add_unvisited_to_discard!(discard::DynamicChoiceMap,
                                    visited::DynamicSelection,
                                    prev_choices::ChoiceMap)
-    for (key, value) in get_values_shallow(prev_choices)
-        if !(key in visited)
-            @assert !has_value(discard, key)
-            @assert isempty(get_submap(discard, key))
-            set_value!(discard, key, value)
-        end
-    end
     for (key, submap) in get_submaps_shallow(prev_choices)
-        @assert !has_value(discard, key)
-        if key in visited
-            # the recursive call to update already handled the discard
-            # for this entire submap
-            continue
-        else
+        # if key IS in visited, 
+        # the recursive call to update already handled the discard
+        # for this entire submap; else we need to handle it
+        if !(key in visited)
+            @assert isempty(get_submap(discard, key))
             subvisited = visited[key]
             if isempty(subvisited)
                 # none of this submap was visited, so we discard the whole thing
-                @assert isempty(get_submap(discard, key))
                 set_submap!(discard, key, submap)
             else
                 subdiscard = get_submap(discard, key)
-                add_unvisited_to_discard!(
-                    isempty(subdiscard) ? choicemap() : subdiscard,
-                    subvisited, submap)
+                subdiscard = isempty(subdiscard) ? choicemap() : subdiscard
+                add_unvisited_to_discard!(subdiscard, subvisited, submap)
                 set_submap!(discard, key, subdiscard)
-            end
+            end 
         end
     end
 end

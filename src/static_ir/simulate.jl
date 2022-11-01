@@ -20,19 +20,6 @@ function process!(state::StaticIRSimulateState, node::JuliaNode, options)
     end
 end
 
-function process!(state::StaticIRSimulateState, node::RandomChoiceNode, options)
-    args = map((input_node) -> input_node.name, node.inputs)
-    incr = gensym("logpdf")
-    addr = QuoteNode(node.addr)
-    dist = QuoteNode(node.dist)
-    push!(state.stmts, :($(node.name) = $(GlobalRef(Gen, :random))($dist, $(args...))))
-    push!(state.stmts, :($incr = $(GlobalRef(Gen, :logpdf))($dist, $(node.name), $(args...))))
-    push!(state.stmts, :($(get_value_fieldname(node)) = $(node.name)))
-    push!(state.stmts, :($(get_score_fieldname(node)) = $incr))
-    push!(state.stmts, :($num_nonempty_fieldname += 1))
-    push!(state.stmts, :($total_score_fieldname += $incr))
-end
-
 function process!(state::StaticIRSimulateState, node::GenerativeFunctionCallNode, options)
     args = map((input_node) -> input_node.name, node.inputs)
     args_tuple = Expr(:tuple, args...)

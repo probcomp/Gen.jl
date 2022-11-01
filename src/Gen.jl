@@ -43,18 +43,21 @@ include("backprop.jl")
 include("address.jl")
 
 # abstract and built-in concrete choice map data types
-include("choice_map.jl")
+include("choice_map/choice_map.jl")
 
 # a homogeneous trie data type (not for use as choice map)
 include("trie.jl")
 
-# generative function interface
-include("gen_fn_interface.jl")
-
 # built-in data types for arg-diff and ret-diff values
 include("diff.jl")
 
-# built-in probability disributions
+# generative function interface
+include("gen_fn_interface.jl")
+
+# distribution abstract type
+include("distribution.jl")
+
+# built-in probability disributions; distribution dsl; combinators
 include("modeling_library/modeling_library.jl")
 
 # optimization of trainable parameters

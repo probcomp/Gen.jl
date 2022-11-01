@@ -1,6 +1,48 @@
+@testset "ValueChoiceMap" begin
+    vcm1 = ValueChoiceMap(2)
+    vcm2 = ValueChoiceMap(2.)
+    vcm3 = ValueChoiceMap([1,2])
+    @test vcm1 isa ValueChoiceMap{Int}
+    @test vcm2 isa ValueChoiceMap{Float64}
+    @test vcm3 isa ValueChoiceMap{Vector{Int}}
+    @test vcm1[] == 2
+    @test vcm1[] == get_value(vcm1)
+
+    @test !isempty(vcm1)
+    @test has_value(vcm1)
+    @test get_value(vcm1) == 2
+    @test vcm1 == vcm2
+    @test isempty(get_submaps_shallow(vcm1))
+    @test isempty(get_values_shallow(vcm1))
+    @test isempty(get_nonvalue_submaps_shallow(vcm1))
+    @test to_array(vcm1, Int) == [2]
+    @test from_array(vcm1, [4]) == ValueChoiceMap(4)
+    @test from_array(vcm3, [4, 5]) == ValueChoiceMap([4, 5])
+    @test_throws Exception merge(vcm1, vcm2)
+    @test_throws Exception merge(vcm1, choicemap(:a, 5))
+    @test merge(vcm1, EmptyChoiceMap()) == vcm1
+    @test merge(EmptyChoiceMap(), vcm1) == vcm1
+    @test get_submap(vcm1, :addr) == EmptyChoiceMap()
+    @test_throws ChoiceMapGetValueError get_value(vcm1, :addr)
+    @test !has_value(vcm1, :addr)
+    @test isapprox(vcm2, ValueChoiceMap(prevfloat(2.)))
+    @test isapprox(vcm1, ValueChoiceMap(prevfloat(2.)))
+    @test get_address_schema(typeof(vcm1)) == AllAddressSchema()
+    @test get_address_schema(ValueChoiceMap) == AllAddressSchema()
+    @test nested_view(vcm1) == 2
+end
+
+@testset "static choicemap constructor" begin
+    @test StaticChoiceMap((a=ValueChoiceMap(5), b=ValueChoiceMap(6))) == StaticChoiceMap(a=5, b=6)
+    submap = StaticChoiceMap(a=1., b=[2., 2.5])
+    @test submap == StaticChoiceMap((a=ValueChoiceMap(1.), b=ValueChoiceMap([2., 2.5])))
+    outer = StaticChoiceMap(c=3, d=submap, e=submap)
+    @test outer == StaticChoiceMap((c=ValueChoiceMap(3), d=submap, e=submap))
+end
+
 @testset "static assignment to/from array" begin
-    submap = StaticChoiceMap((a=1., b=[2., 2.5]),NamedTuple())
-    outer = StaticChoiceMap((c=3.,), (d=submap, e=submap))
+    submap = StaticChoiceMap(a=1., b=[2., 2.5])
+    outer = StaticChoiceMap(c=3., d=submap, e=submap)
 
     arr = to_array(outer, Float64)
     @test to_array(outer, Float64) == Float64[3.0, 1.0, 2.0, 2.5, 1.0, 2.0, 2.5]
@@ -11,14 +53,16 @@
     @test choices[:d => :b] == [3.0, 4.0]
     @test choices[:e => :a] == 5.0
     @test choices[:e => :b] == [6.0, 7.0]
-    @test length(collect(get_submaps_shallow(choices))) == 2
+    @test length(collect(get_submaps_shallow(choices))) == 3
+    @test length(collect(get_nonvalue_submaps_shallow(choices))) == 2
     @test length(collect(get_values_shallow(choices))) == 1
     submap1 = get_submap(choices, :d)
     @test length(collect(get_values_shallow(submap1))) == 2
-    @test length(collect(get_submaps_shallow(submap1))) == 0
+    @test length(collect(get_submaps_shallow(submap1))) == 2
+    @test length(collect(get_nonvalue_submaps_shallow(submap1))) == 0
     submap2 = get_submap(choices, :e)
     @test length(collect(get_values_shallow(submap2))) == 2
-    @test length(collect(get_submaps_shallow(submap2))) == 0
+    @test length(collect(get_nonvalue_submaps_shallow(submap2))) == 0
 end
 
 @testset "dynamic assignment to/from array" begin
@@ -39,14 +83,18 @@ end
     @test choices[:d => :b] == [3.0, 4.0]
     @test choices[:e => :a] == 5.0
     @test choices[:e => :b] == [6.0, 7.0]
-    @test length(collect(get_submaps_shallow(choices))) == 2
+    @test get_submap(choices, :c) == ValueChoiceMap(1.0)
+    @test get_submap(choices, :d => :b) == ValueChoiceMap([3.0, 4.0])
+    @test length(collect(get_submaps_shallow(choices))) == 3
+    @test length(collect(get_nonvalue_submaps_shallow(choices))) == 2
     @test length(collect(get_values_shallow(choices))) == 1
     submap1 = get_submap(choices, :d)
     @test length(collect(get_values_shallow(submap1))) == 2
-    @test length(collect(get_submaps_shallow(submap1))) == 0
+    @test length(collect(get_submaps_shallow(submap1))) == 2
+    @test length(collect(get_nonvalue_submaps_shallow(submap1))) == 0
     submap2 = get_submap(choices, :e)
     @test length(collect(get_values_shallow(submap2))) == 2
-    @test length(collect(get_submaps_shallow(submap2))) == 0
+    @test length(collect(get_nonvalue_submaps_shallow(submap2))) == 0
 end
 
 @testset "dynamic assignment copy constructor" begin
@@ -62,25 +110,6 @@ end
     @test choices[:y] == 2
     @test choices[:u => :z] == 3
     @test choices[:u => :w] == 4
-end
-
-@testset "internal vector assignment to/from array" begin
-    inner = choicemap()
-    set_value!(inner, :a, 1.)
-    set_value!(inner, :b, 2.)
-    outer = vectorize_internal([inner, inner, inner])
-
-    arr = to_array(outer, Float64)
-    @test to_array(outer, Float64) == Float64[1, 2, 1, 2, 1, 2]
-
-    choices = from_array(outer, Float64[1, 2, 3, 4, 5, 6])
-    @test choices[1 => :a] == 1.0
-    @test choices[1 => :b] == 2.0
-    @test choices[2 => :a] == 3.0
-    @test choices[2 => :b] == 4.0
-    @test choices[3 => :a] == 5.0
-    @test choices[3 => :b] == 6.0
-    @test length(collect(get_submaps_shallow(choices))) == 3
 end
 
 @testset "dynamic assignment merge" begin
@@ -107,7 +136,7 @@ end
     @test choices[:f => :x] == 1
     @test choices[:shared => :x] == 1
     @test choices[:shared => :y] == 4.
-    @test length(collect(get_submaps_shallow(choices))) == 4
+    @test length(collect(get_nonvalue_submaps_shallow(choices))) == 4
     @test length(collect(get_values_shallow(choices))) == 3
 end
 
@@ -125,8 +154,8 @@ end
     set_value!(submap, :x, 1)
     submap2 = choicemap()
     set_value!(submap2, :y, 4.)
-    choices1 = StaticChoiceMap((a=1., b=2.), (c=submap, shared=submap))
-    choices2 = StaticChoiceMap((d=3.,), (e=submap, f=submap, shared=submap2))
+    choices1 = StaticChoiceMap(a=1., b=2., c=submap, shared=submap)
+    choices2 = StaticChoiceMap(d=3., e=submap, f=submap, shared=submap2)
     choices = merge(choices1, choices2)
     @test choices[:a] == 1.
     @test choices[:b] == 2.
@@ -136,124 +165,91 @@ end
     @test choices[:f => :x] == 1
     @test choices[:shared => :x] == 1
     @test choices[:shared => :y] == 4.
-    @test length(collect(get_submaps_shallow(choices))) == 4
+    @test length(collect(get_nonvalue_submaps_shallow(choices))) == 4
     @test length(collect(get_values_shallow(choices))) == 3
 end
 
 @testset "static assignment variadic merge" begin
-    choices1 = StaticChoiceMap((a=1,), NamedTuple())
-    choices2 = StaticChoiceMap((b=2,), NamedTuple())
-    choices3 = StaticChoiceMap((c=3,), NamedTuple())
-    choices_all = StaticChoiceMap((a=1, b=2, c=3), NamedTuple())
+    choices1 = StaticChoiceMap(a=1)
+    choices2 = StaticChoiceMap(b=2)
+    choices3 = StaticChoiceMap(c=3)
+    choices_all = StaticChoiceMap(a=1, b=2, c=3)
     @test merge(choices1) == choices1
     @test merge(choices1, choices2, choices3) == choices_all
 end
 
+# TODO: in changing a lot of these to reflect the new behavior of choicemap,
+# they are mostly not error checks, but instead checks for returning `EmptyChoiceMap`;
+# should we relabel this testset?
 @testset "static assignment errors" begin
+    # get_choices on an address that returns a ValueChoiceMap
+    choices = StaticChoiceMap(x=1)
+    @test get_submap(choices, :x) == ValueChoiceMap(1)
 
-    # get_choices on an address that contains a value throws a KeyError
-    choices = StaticChoiceMap((x=1,), NamedTuple())
-    threw = false
-    try get_submap(choices, :x) catch KeyError threw = true end
-    @test threw
+    # static_get_submap on an address that contains a value returns a ValueChoiceMap
+    choices = StaticChoiceMap(x=1)
+    @test static_get_submap(choices, Val(:x)) == ValueChoiceMap(1)
 
-    # static_get_submap on an address that contains a value throws a KeyError
-    choices = StaticChoiceMap((x=1,), NamedTuple())
-    threw = false
-    try static_get_submap(choices, Val(:x)) catch KeyError threw = true end
-    @test threw
-
-    # get_choices on an address whose prefix contains a value throws a KeyError
-    choices = StaticChoiceMap((x=1,), NamedTuple())
-    threw = false
-    try get_submap(choices, :x => :y) catch KeyError threw = true end
-    @test threw
-
-    # static_get_choices on an address whose prefix contains a value throws a KeyError
-    choices = StaticChoiceMap((x=1,), NamedTuple())
-    threw = false
-    try static_get_submap(choices, Val(:x)) catch KeyError threw = true end
-    @test threw
+    # get_submap on an address whose prefix contains a value returns EmptyChoiceMap
+    choices = StaticChoiceMap(x=1)
+    @test get_submap(choices, :x => :y) == EmptyChoiceMap()
 
     # get_choices on an address that contains nothing gives empty assignment
-    choices = StaticChoiceMap(NamedTuple(), NamedTuple())
+    choices = StaticChoiceMap()
     @test isempty(get_submap(choices, :x))
     @test isempty(get_submap(choices, :x => :y))
 
-    # static_get_choices on an address that contains nothing throws a KeyError
-    choices = StaticChoiceMap(NamedTuple(), NamedTuple())
-    threw = false
-    try static_get_submap(choices, Val(:x)) catch KeyError threw = true end
-    @test threw
+    # static_get_choices on an address that contains nothing returns an EmptyChoiceMap
+    choices = StaticChoiceMap()
+    @test static_get_submap(choices, Val(:x)) == EmptyChoiceMap()
 
-    # get_value on an address that contains a submap throws a KeyError
+    # get_value on an address that contains a submap throws a ChoiceMapGetValueError
     submap = choicemap()
     submap[:y] = 1
-    choices = StaticChoiceMap(NamedTuple(), (x=submap,))
-    threw = false
-    try get_value(choices, :x) catch KeyError threw = true end
-    @test threw
+    choices = StaticChoiceMap(x=submap)
+    @test_throws ChoiceMapGetValueError get_value(choices, :x)
 
-    # static_get_value on an address that contains a submap throws a KeyError
+    # static_get_value on an address that contains a submap throws a ChoiceMapGetValueError
     submap = choicemap()
     submap[:y] = 1
-    choices = StaticChoiceMap(NamedTuple(), (x=submap,))
-    threw = false
-    try static_get_value(choices, Val(:x)) catch KeyError threw = true end
-    @test threw
+    choices = StaticChoiceMap(x=submap)
+    @test_throws ChoiceMapGetValueError static_get_value(choices, Val(:x))
 
-    # get_value on an address that contains nothing throws a KeyError
-    choices = StaticChoiceMap(NamedTuple(), NamedTuple())
-    threw = false
-    try get_value(choices, :x) catch KeyError threw = true end
-    @test threw
-    threw = false
-    try get_value(choices, :x => :y) catch KeyError threw = true end
-    @test threw
+    # get_value on an address that contains nothing throws a ChoiceMapGetValueError
+    choices = StaticChoiceMap()
+    @test_throws ChoiceMapGetValueError get_value(choices, :x)
+    @test_throws ChoiceMapGetValueError get_value(choices, :x => :y)
 
-    # static_get_value on an address that contains nothing throws a KeyError
-    choices = StaticChoiceMap(NamedTuple(), NamedTuple())
-    threw = false
-    try static_get_value(choices, Val(:x)) catch KeyError threw = true end
-    @test threw
+    # static_get_value on an address that contains nothing throws a ChoiceMapGetValueError
+    choices = StaticChoiceMap()
+    @test_throws ChoiceMapGetValueError static_get_value(choices, Val(:x))
 end
 
 @testset "dynamic assignment errors" begin
-
-    # get_choices on an address that contains a value throws a KeyError
+    # get_choices on an address that contains a value returns a ValueChoiceMap
     choices = choicemap()
     choices[:x] = 1
-    threw = false
-    try get_submap(choices, :x) catch KeyError threw = true end
-    @test threw
+    @test get_submap(choices, :x) == ValueChoiceMap(1)
 
-    # get_choices on an address whose prefix contains a value throws a KeyError
+    # get_choices on an address whose prefix contains a value returns EmptyChoiceMap
     choices = choicemap()
     choices[:x] = 1
-    threw = false
-    try get_submap(choices, :x => :y) catch KeyError threw = true end
-    @test threw
+    @test get_submap(choices, :x => :y) == EmptyChoiceMap()
 
     # get_choices on an address that contains nothing gives empty assignment
     choices = choicemap()
     @test isempty(get_submap(choices, :x))
     @test isempty(get_submap(choices, :x => :y))
 
-    # get_value on an address that contains a submap throws a KeyError
+    # get_value on an address that contains a submap throws a ChoiceMapGetValueError
     choices = choicemap()
     choices[:x => :y] = 1
-    threw = false
-    try get_value(choices, :x) catch KeyError threw = true end
-    @test threw
+    @test_throws ChoiceMapGetValueError get_value(choices, :x)
 
-    # get_value on an address that contains nothing throws a KeyError
+    # get_value on an address that contains nothing throws a ChoiceMapGetValueError
     choices = choicemap()
-    threw = false
-    try get_value(choices, :x) catch KeyError threw = true end
-    @test threw
-    threw = false
-    try get_value(choices, :x => :y) catch KeyError threw = true end
-    @test threw
+    @test_throws ChoiceMapGetValueError get_value(choices, :x)
+    @test_throws ChoiceMapGetValueError get_value(choices, :x => :y)
 end
 
 @testset "dynamic assignment overwrite" begin
@@ -268,7 +264,8 @@ end
     choices = choicemap()
     choices[:x] = 1
     @test has_value(choices, :x)
-    @test !has_submap(choices, :x)
+    @test has_submap(choices, :x)
+    @test !has_submap(choices, :z)
     submap = choicemap(); submap[:y] = 2
     set_submap!(choices, :x, submap)
     @test !has_value(choices, :x)
@@ -279,17 +276,15 @@ end
     choices = choicemap()
     choices[:x => :y] = 1
     choices[:x] = 2
-    threw = false
-    @test !has_submap(choices, :x)
-    try get_submap(choices, :x) catch KeyError threw = true end
-    @test threw
+    @test get_submap(choices, :x) == ValueChoiceMap(2)
     @test choices[:x] == 2
 
     # overwrite subassignment with a subassignment
     choices = choicemap()
     choices[:x => :y] = 1
     @test has_submap(choices, :x)
-    @test !has_submap(choices, :x => :y)
+    @test has_submap(choices, :x => :y) # valuechoicemap
+    @test !has_submap(choices, :x => :z)
     submap = choicemap(); submap[:z] = 2
     set_submap!(choices, :x,  submap)
     @test !isempty(get_submap(choices, :x))
@@ -299,17 +294,13 @@ end
     # illegal set value under existing value
     choices = choicemap()
     choices[:x] = 1
-    threw = false
-    try set_value!(choices, :x => :y, 2) catch KeyError threw = true end
-    @test threw
+    @test_throws Exception set_value!(choices, :x => :y, 2)
 
     # illegal set submap under existing value
     choices = choicemap()
     choices[:x] = 1
     submap = choicemap(); choices[:z] = 2
-    threw = false
-    try set_submap!(choices, :x => :y, submap) catch KeyError threw = true end
-    @test threw
+    @test_throws Exception set_submap!(choices, :x => :y, submap)
 end
 
 @testset "dynamic assignment constructor" begin

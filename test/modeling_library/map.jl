@@ -402,4 +402,19 @@
         @test isapprox(get_param_grad(foo, :std), expected_std_grad)
     end
 
+    @testset "map over distribution" begin
+        flip_coins = Map(bernoulli)
+        coinflips_tr, weight = generate(flip_coins, (fill(0.4, 100),))
+        @test weight == 0.
+        @test coinflips_tr[20] isa Bool
+        choices = get_choices(coinflips_tr)
+        @test get_submap(choices, 42) isa ValueChoiceMap{Bool}
+        val42 = get_value(choices, 42)
+        new_tr, weight, retdiff, discard = update(coinflips_tr, (fill(0.4, 100),), (NoChange(),), choicemap((42, !val42)))
+        @test new_tr[42] == !val42
+        expected_score_change = logpdf(bernoulli, !val42, 0.4) - logpdf(bernoulli, val42, 0.4)
+        @test isapprox(get_score(new_tr) - get_score(coinflips_tr), expected_score_change)
+        @test isapprox(weight, expected_score_change)
+    end
+
 end
