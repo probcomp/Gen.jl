@@ -76,7 +76,7 @@ pkg> add Gen
 {: class="homepage"}
 
 Gen.jl was created by [Marco Cusumano-Towner](https://www.mct.dev) the [MIT Probabilistic Computing Project](http://probcomp.csail.mit.edu/), which is led by [Vikash Mansinghka](http://probcomp.csail.mit.edu/principal-investigator/).
-Gen.jl has grown and is maintained through the help of a core research and engineering team that includes Ben Zinberg, [Alex Lew](http://alexlew.net/), [Tan Zhi-Xuan](https://github.com/ztangent/), and [George Matheos](https://www.linkedin.com/in/george-matheos-429982160/), as well as a number of open-source [contributors](https://github.com/probcomp/Gen.jl/graphs/contributors).
+Gen.jl has grown and is maintained through the help of a core research and engineering team that includes [Alex Lew](http://alexlew.net/), [Tan Zhi-Xuan](https://github.com/ztangent/), [George Matheos](https://www.linkedin.com/in/george-matheos-429982160/), [McCoy Becker](https://femtomc.github.io/), and [Feras Saad](http://fsaad.mit.edu), as well as a number of open-source [contributors](https://github.com/probcomp/Gen.jl/graphs/contributors).
 The Gen architecture is described in Marco's [PhD thesis](https://www.mct.dev/assets/mct-thesis.pdf).
 
 If you use Gen in your research, please cite our PLDI paper:
