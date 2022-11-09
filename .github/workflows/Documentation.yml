@@ -1,8 +1,5 @@
 # Adapted from
 # https://juliadocs.github.io/Documenter.jl/stable/man/hosting/#GitHub-Actions
-#
-# TODO: Do we need to install TagBot.yml for documenting tagged versions?
-# See discussion in the above URL regarding permissions for tagged release.
 
 name: Documentation
 
