@@ -262,7 +262,8 @@ q(\\cdot; x', t')\$, where \$t + u\$ is the choice map obtained by merging
 \$t\$ and \$u\$ with \$u\$ taking precedence for overlapping addresses.  Also
 return a weight (`weight`):
 ```math
-\\log \\frac{p(r', t'; x') q(r; x, t)}{p(r, t; x) q(r'; x', t') q(t'; x', t + u)}
+\\log \\frac{p(r', t'; x')}{q(r'; x', t') q(t'; x', t + u)}
+- \\log \\frac{p(r, t; x)}{q(r; x, t)}
 ```
 
 Note that `argdiffs` is expected to be the same length as `args`. If the
@@ -305,7 +306,8 @@ u, x')\$ and sample \$r' \\sim Q(\\cdot; x', t')\$.
 Return the new trace \$(x', t', r')\$ (`new_trace`) and the weight
 (`weight`):
 ```math
-\\log \\frac{p(r', t'; x') q(t; u', x) q(r; x, t)}{p(r, t; x) q(t'; u, x') q(r'; x', t')}
+\\log \\frac{p(r', t'; x')}{q(t'; u, x') q(r'; x', t')}
+- \\log \\frac{p(r, t; x)}{q(t; u', x) q(r; x, t)}
 ```
 where \$u'\$ is the restriction of \$t'\$ to the complement of \$A\$.
 
