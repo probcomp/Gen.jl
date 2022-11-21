@@ -2,9 +2,9 @@ import ReverseDiff
 
 # Gen versions of certain ReverseDiff functions
 # this is because the generated code for the static IR is currently loaded in
-# the Main module. to avoid requiring the Main module environment to import the
+# the Main module. To avoid requiring the Main module environment to import the
 # name ReverseDiff, these aliases allow us to only require that the Main module
-# environmment have Gen imported.
+# environment have Gen imported.
 new_tape() = ReverseDiff.InstructionTape()
 track(value, tape) = ReverseDiff.track(value, tape)
 value(maybe_tracked) = ReverseDiff.value(maybe_tracked)
