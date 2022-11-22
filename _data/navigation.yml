@@ -1,7 +1,7 @@
   - name: Home
     link: /
   - name: "Documentation"
-    link: https://www.gen.dev/dev/
+    link: /docs/
   - name: "Tutorials"
     link: /tutorials/
   - name: "Source"
