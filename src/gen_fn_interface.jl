@@ -54,7 +54,7 @@ function get_choices end
 
 Return:
 ```math
-\\log \\frac{p(t, r; x)}{q(r; x, t)}
+\\log \\frac{p(r, t; x)}{q(r; x, t)}
 ```
 
 When there is no non-addressed randomness, this simplifies to the log probability \$\\log p(t; x)\$.
@@ -139,8 +139,7 @@ get_params(::GenerativeFunction) = ()
 
 Execute the generative function and return the trace.
 
-Given arguments (`args`), sample \$t \\sim p(\\cdot; x)\$ and \$r \\sim p(\\cdot; x,
-t)\$, and return a trace with choice map \$t\$.
+Given arguments (`args`), sample \$(r, t) \\sim p(\\cdot; x)\$ and return a trace with choice map \$t\$.
 
 If `gen_fn` has optional trailing arguments (i.e., default values are provided),
 the optional arguments can be omitted from the `args` tuple. The generated trace
@@ -162,10 +161,10 @@ Return a trace of a generative function that is consistent with the given
 constraints on the random choices.
 
 Given arguments \$x\$ (`args`) and assignment \$u\$ (`constraints`) (which is empty for the first form), sample \$t \\sim
-q(\\cdot; u, x)\$ and \$r \\sim q(\\cdot; x, t)\$, and return the trace \$(x, t, r)\$ (`trace`).
+q(\\cdot; u, x)\$ and \$r \\sim q(\\cdot; x, t)\$, and return the trace \$(x, r, t)\$ (`trace`).
 Also return the weight (`weight`):
 ```math
-\\log \\frac{p(t, r; x)}{q(t; u, x) q(r; x, t)}
+\\log \\frac{p(r, t; x)}{q(t; u, x) q(r; x, t)}
 ```
 
 If `gen_fn` has optional trailing arguments (i.e., default values are provided),
@@ -196,7 +195,7 @@ end
 Estimate the probability that the selected choices take the values they do in a
 trace.
 
-Given a trace \$(x, t, r)\$ (`trace`) and a set of addresses \$A\$ (`selection`),
+Given a trace \$(x, r, t)\$ (`trace`) and a set of addresses \$A\$ (`selection`),
 let \$u\$ denote the restriction of \$t\$ to \$A\$. Return the weight
 (`weight`):
 ```math
@@ -250,8 +249,8 @@ end
 Update a trace by changing the arguments and/or providing new values for some
 existing random choice(s) and values for some newly introduced random choice(s).
 
-Given a previous trace \$(x, t, r)\$ (`trace`), new arguments \$x'\$ (`args`), and
-a map \$u\$ (`constraints`), return a new trace \$(x', t', r')\$ (`new_trace`)
+Given a previous trace \$(x, r, t)\$ (`trace`), new arguments \$x'\$ (`args`), and
+a map \$u\$ (`constraints`), return a new trace \$(x', r', t')\$ (`new_trace`)
 that is consistent with \$u\$.  The values of choices in \$t'\$ are
 either copied from \$t\$ or from \$u\$ (with \$u\$ taking
 precedence) or are sampled from the internal proposal distribution.  All choices in \$u\$ must appear in \$t'\$.  Also return an
@@ -297,13 +296,13 @@ end
 Update a trace by changing the arguments and/or randomly sampling new values
 for selected random choices using the internal proposal distribution family.
 
-Given a previous trace \$(x, t, r)\$ (`trace`), new arguments \$x'\$ (`args`), and
+Given a previous trace \$(x, r, t)\$ (`trace`), new arguments \$x'\$ (`args`), and
 a set of addresses \$A\$ (`selection`), return a new trace \$(x', t')\$
 (`new_trace`) such that \$t'\$ agrees with \$t\$ on all addresses not in \$A\$
 (\$t\$ and \$t'\$ may have different sets of addresses).  Let \$u\$ denote the
 restriction of \$t\$ to the complement of \$A\$.  Sample \$t' \\sim Q(\\cdot;
 u, x')\$ and sample \$r' \\sim Q(\\cdot; x', t')\$.
-Return the new trace \$(x', t', r')\$ (`new_trace`) and the weight
+Return the new trace \$(x', r', t')\$ (`new_trace`) and the weight
 (`weight`):
 ```math
 \\log \\frac{p(r', t'; x')}{q(t'; u, x') q(r'; x', t')}
