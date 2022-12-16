@@ -61,7 +61,7 @@ p(t; x) := \sum_{r} p(t, r; x)
 ```
 And we denote the conditional distribution on non-addressable randomness ``r``, given the map ``t``, as:
 ```math
-p(r; x, t) := p(t, r; x) / p(t; x)
+p(r | t; x) := p(t, r; x) / p(t; x)
 ```
 
 ### Return value function
@@ -90,7 +90,7 @@ q(t; x, u) > 0 \mbox{ implies that } u \mbox{ and } t \mbox{ agree }.
 ```
 There is also a family of probability distributions ``q(r; x, t)`` on non-addressable randomness, that satisfies:
 ```math
-q(r; x, t) > 0 \mbox{ if and only if } p(r; x, t) > 0
+q(r; x, t) > 0 \mbox{ if and only if } p(r | t, x) > 0
 ```
 
 
