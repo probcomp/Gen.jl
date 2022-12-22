@@ -1,8 +1,8 @@
 # Gen.jl
 
 [![Build Status](https://github.com/probcomp/Gen/workflows/ContinuousIntegration/badge.svg)](https://github.com/probcomp/Gen/actions)
-[![](https://img.shields.io/badge/docs-stable-blue.svg)](https://probcomp.github.io/Gen.jl/stable)
-[![](https://img.shields.io/badge/docs-dev-blue.svg)](https://probcomp.github.io/Gen.jl/dev)
+[![](https://img.shields.io/badge/docs-stable-blue.svg)](https://probcomp.github.io/Gen.jl/docs/stable)
+[![](https://img.shields.io/badge/docs-dev-blue.svg)](https://probcomp.github.io/Gen.jl/docs/dev)
 
 Gen: A General-Purpose Probabilistic Programming System with Programmable Inference
 
