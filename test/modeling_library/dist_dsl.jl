@@ -5,20 +5,40 @@
   @test isapprox(logpdf(f, 1., 0.), logpdf(normal, 0., 0., 0.001))
 
   # Test gradients of transformed distributions
-  @dist shifted_normal(mu, sigma) = Gen.normal(mu, sigma) + 1.
-  @test isapprox(logpdf(shifted_normal, 1., 0., 1.), logpdf(normal, 0., 0., 1.))
+  @dist shifted_normal(mu, sigma) = normal(mu, sigma) + 1.
+  @test logpdf(shifted_normal, 1., 0., 1.) == logpdf(normal, 0., 0., 1.)
   @test logpdf_grad(shifted_normal, 0., 0., 1.) == logpdf_grad(normal, -1., 0., 1.)
 
   # Test gradients of transformed distributions with no parameters
-  @dist shifted_std_normal() = Gen.normal(0., 1.) + 1.
-  @test isapprox(logpdf(shifted_std_normal, 1.), logpdf(normal, 0., 0., 1.))
+  @dist shifted_std_normal() = normal(0., 1.) + 1.
+  @test logpdf(shifted_std_normal, 1.) == logpdf(normal, 0., 0., 1.)
   @test logpdf_grad(shifted_std_normal, 0.) == (logpdf_grad(normal, -1., 0., 1.)[1],)
+
+  # Test gradients of multivariate distributions
+  @dist vec_normal(mu, sigma) = broadcasted_normal(broadcast(+, mu, 1.0), broadcast(*, sigma, 2.0))
+  @test logpdf(vec_normal, zeros(2), zeros(2), ones(2)) ==
+        logpdf(broadcasted_normal, zeros(2), ones(2), 2 .* ones(2))
+  transformed_grads = logpdf_grad(vec_normal, zeros(2), zeros(2), ones(2))
+  orig_grads = logpdf_grad(broadcasted_normal, zeros(2), ones(2), 2 .* ones(2)) 
+  @test transformed_grads[1] == orig_grads[1]
+  @test transformed_grads[2] == orig_grads[2]
+  @test transformed_grads[3] == 2.0 * orig_grads[3]
+      
+  # Test gradients of multivariate distributions with multi-dimensional arguments
+  @dist transformed_mvnormal(mu, sigma) = mvnormal(broadcast(+, mu, 1.0), broadcast(*, sigma, 2.0))
+  @test logpdf(transformed_mvnormal, zeros(2), zeros(2), ones(2, 2)) ==
+        logpdf(mvnormal, zeros(2), ones(2), 2 .* ones(2, 2))
+  transformed_grads = logpdf_grad(transformed_mvnormal, zeros(2), zeros(2), ones(2, 2))
+  orig_grads = logpdf_grad(mvnormal, zeros(2), ones(2), 2 .* ones(2, 2)) 
+  @test transformed_grads[1] == orig_grads[1]
+  @test transformed_grads[2] == orig_grads[2]
+  @test transformed_grads[3] == 2.0 * orig_grads[3]
 
   # Test relabeled distributions with labels provided as an Array
   @dist labeled_cat(labels, probs) = labels[categorical(probs)]
   @test labeled_cat([:a, :b], [0., 1.]) == :b
   @test isapprox(logpdf(labeled_cat, :b, [:a, :b], [0.5, 0.5]), log(0.5))
-  @test logpdf_grad(labeled_cat, :b, [:a, :b], [0.5, 0.5]) == logpdf_grad(categorical, 2, [0.5, 0.5])
+  @test logpdf_grad(labeled_cat, :b, [:a, :b], [0.5, 0.5]) == (nothing, logpdf_grad(categorical, 2, [0.5, 0.5])...)
   @test logpdf(labeled_cat, :c, [:a, :b], [0.5, 0.5]) == -Inf
 
   # Test relabeled distributions with labels provided in a Dict
@@ -55,7 +75,7 @@ end
   @test symbol_cat([:a, :b], [0., 1.]) == :b
   @test_throws MethodError symbol_cat(["a", "b"], [0., 1.])
   @test logpdf(symbol_cat, :c, [:a, :b], [0.5, 0.5]) == -Inf
-  @test logpdf_grad(symbol_cat, :b, [:a, :b], [0.5, 0.5]) == logpdf_grad(categorical, 2, [0.5, 0.5])
+  @test logpdf_grad(symbol_cat, :b, [:a, :b], [0.5, 0.5]) == (nothing, logpdf_grad(categorical, 2, [0.5, 0.5])...)
   @test_throws MethodError logpdf(symbol_cat, "c", [:a, :b], [0.5, 0.5])
 
   # Test typed parameters
