@@ -76,8 +76,11 @@ function logpdf_grad(d::CompiledDistWithArgs{T}, x::T, args...) where T
     base_arg_grads = [g for (i, g) in enumerate(base_grads[2:end])
                       if base_has_arg_grads[i]]
     argvec = collect(args)
-    eval_arg_grads = hcat([ReverseDiff.gradient(xs -> eval_arg(arg, xs), argvec)
-        for (i, arg) in enumerate(d.arglist) if base_has_arg_grads[i]]...)
+    if !isempty(argvec)
+        eval_arg_grads = [ReverseDiff.gradient(xs -> eval_arg(arg, xs), argvec) for
+                          (i, arg) in enumerate(d.arglist) if base_has_arg_grads[i]]
+        eval_arg_grads = reduce(hcat, eval_arg_grads)
+    end
 
     retval = [base_grads[1]]
     for i in 1:d.n_args
@@ -87,7 +90,7 @@ function logpdf_grad(d::CompiledDistWithArgs{T}, x::T, args...) where T
             push!(retval, nothing)
         end
     end
-    retval
+    return Tuple(retval)
 end
 
 function random(d::CompiledDistWithArgs{T}, args...)::T where T

@@ -41,14 +41,14 @@ function logpdf_grad(d::TransformedDistribution{T, U}, x::T, args...) where {T, 
 
     if is_discrete(d.base) || !has_output_grad(d.base)
         # TODO: should this be nothing or 0?
-        [base_grad[1], fill(nothing, d.nArgs)..., base_grad[2:end]...]
+        return (base_grad[1], fill(nothing, d.nArgs)..., base_grad[2:end]...)
     else
         transformation_grad = d.backward_grad(x, args[1:d.nArgs]...)
         correction_grad = ReverseDiff.gradient(v -> logpdf_correction(d, v[1], v[2:end]), [x, args[1:d.nArgs]...])
         # TODO: Will this sort of thing work if the arguments w.r.t. which we are taking
         # gradients are themselves vector-valued?
         full_grad = (transformation_grad .* base_grad[1]) .+ correction_grad
-        [full_grad..., base_grad[2:end]...]
+        return (full_grad..., base_grad[2:end]...)
     end
 end
 
@@ -62,8 +62,8 @@ end
 
 function has_argument_grads(d::TransformedDistribution{T, U}) where {T, U}
     if is_discrete(d.base) || !has_output_grad(d.base)
-        [fill(false, d.nArgs)..., has_argument_grads(d.base)...]
+        (fill(false, d.nArgs)..., has_argument_grads(d.base)...)
     else
-        [fill(true, d.nArgs)..., has_argument_grads(d.base)...]
+        (fill(true, d.nArgs)..., has_argument_grads(d.base)...)
     end
 end
