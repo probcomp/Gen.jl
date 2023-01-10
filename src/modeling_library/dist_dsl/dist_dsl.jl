@@ -33,6 +33,7 @@ eval_arg(x::TransformedArg, args) =
 
 # Type of SimpleArg must match arg, otherwise a MethodError will be thrown
 typecheck_arg(x::SimpleArg{T}, arg::T) where {T} = arg
+typecheck_arg(x::SimpleArg{T}, arg::ReverseDiff.TrackedReal{T}) where {T <: Real} = arg
 
 # DistWithArgs
 struct DistWithArgs{T}
