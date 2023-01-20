@@ -1,6 +1,7 @@
 using Gen
 using Test
 import Random
+import Distributions
 
 """
 Compute a numerical partial derivative of `f` with respect to the `i`th

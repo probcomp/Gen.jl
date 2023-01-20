@@ -1,4 +1,5 @@
 import DataStructures: OrderedDict
+import LinearAlgebra: diagm
 
 @testset "bernoulli" begin
 
@@ -231,6 +232,61 @@ end
     @test isapprox(actual[3][1, 2], finite_diff_mat_sym(f, args, 3, 1, 2, dx))
     @test isapprox(actual[3][2, 1], finite_diff_mat_sym(f, args, 3, 2, 1, dx))
     @test isapprox(actual[3][2, 2], finite_diff_mat_sym(f, args, 3, 2, 2, dx))
+end
+
+@testset "dirichlet" begin
+    x = dirichlet([1., 1., 1., 1.])
+    @test length(x) == 4
+    @test isapprox(sum(x), 1.)
+
+    # bounds checking
+    @test logpdf(dirichlet, [0., 0], [1., 1.]) == -Inf
+    @test logpdf(dirichlet, [1., 1.], [1., 1.]) == -Inf
+    @test logpdf(dirichlet, [2., -1], [1., 1.]) == -Inf
+    @test logpdf(dirichlet, [.5, .5], [-1., 1.]) == -Inf
+    @test logpdf(dirichlet, [.5, .5], [-1., 1.]) == -Inf
+    @test logpdf(dirichlet, [0., 1], [1., 1.]) != -Inf
+
+    @test isapprox(logpdf(dirichlet, [.01, .99], [2., 2.]),
+                   Distributions.logpdf(Distributions.Dirichlet([2., 2.]), [.01, .99]))
+    @test isapprox(logpdf(dirichlet, [.01, .99], [1., 4.]),
+                   Distributions.logpdf(Distributions.Dirichlet([1., 4.]), [.01, .99]))
+    @test isapprox(logpdf(dirichlet, [.01, .99], [.01, .01]),
+                   Distributions.logpdf(Distributions.Dirichlet([.01, .01]), [.01, .99]))
+
+    # for d > 2
+    @test isapprox(logpdf(dirichlet, [.2, .2, .6], [2., 2., 4.]),
+                   Distributions.logpdf(Distributions.Dirichlet([2., 2., 4.]), [.2, .2, .6]))
+
+    function softmax(x)
+      exp.(x) / sum(exp.(x))
+    end
+
+    function softmax_grad(x)
+      diagm(x) .- (x .* x')
+    end
+
+    f = (x, alpha) -> logpdf(dirichlet, x, alpha)
+    f_normalized = (x, alpha) -> logpdf(dirichlet, softmax(x), alpha)
+
+    args = ([0., 0., 0., 0.], [1., 2., 3., 3.])
+    normalized_args = ([.25, .25, .25, .25], [1., 2., 3., 3.])
+
+    actual = logpdf_grad(dirichlet, normalized_args...)
+
+    # gradients with respect to x
+    actual_x_grad = actual[1]' * softmax_grad(normalized_args[1])
+
+    @test isapprox(actual_x_grad[1], finite_diff_vec(f_normalized, args, 1, 1, dx))
+    @test isapprox(actual_x_grad[2], finite_diff_vec(f_normalized, args, 1, 2, dx))
+    @test isapprox(actual_x_grad[3], finite_diff_vec(f_normalized, args, 1, 3, dx))
+    @test isapprox(actual_x_grad[4], finite_diff_vec(f_normalized, args, 1, 4, dx))
+
+    # gradients with respect to alpha
+    @test isapprox(actual[2][1], finite_diff_vec(f, normalized_args, 2, 1, dx))
+    @test isapprox(actual[2][2], finite_diff_vec(f, normalized_args, 2, 2, dx))
+    @test isapprox(actual[2][3], finite_diff_vec(f, normalized_args, 2, 3, dx))
+    @test isapprox(actual[2][4], finite_diff_vec(f, normalized_args, 2, 4, dx))
 end
 
 @testset "uniform" begin
