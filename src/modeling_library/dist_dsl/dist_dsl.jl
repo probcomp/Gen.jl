@@ -26,13 +26,73 @@ all_indices(arg::SimpleArg) = [arg.i]
 all_indices(arg::TransformedArg) = vcat([all_indices(a) for a in arg.f_args]...)
 
 # Evaluate user-facing args to concrete values passed to the base distribution
-eval_arg(x::Any, args) = x
-eval_arg(x::SimpleArg, args) = typecheck_arg(x, args[x.i])
-eval_arg(x::TransformedArg, args) =
-    x.arg_passer(x.orig_f, [eval_arg(a, args) for a in x.f_args]...)
+eval_arg(base_arg::Any, args) = base_arg
+eval_arg(base_arg::SimpleArg, args) = typecheck_arg(base_arg, args[base_arg.i])
+eval_arg(base_arg::TransformedArg, args) =
+    base_arg.arg_passer(base_arg.orig_f, (eval_arg(a, args) for a in base_arg.f_args)...)
+
+# Evaluate gradients of base distribution args with respect to user-facing args
+function eval_arg_gradient(base_arg::Any, base_type::Type, args)
+    grads = map(enumerate(args)) do (i, arg)
+        if arg isa Real || arg isa AbstractArray && eltype(arg) <: Real
+            zero(arg) # Base arg is always constant with respect to input args
+        else
+            nothing
+        end
+    end
+    return grads
+end
+
+function eval_arg_gradient(base_arg::SimpleArg{T}, base_type::Type, args) where {T}
+    grads = map(enumerate(args)) do (i, arg)
+        if arg isa Real # Base arg is either equal to or unaffected by input arg
+            i == base_arg.i ? one(arg) : zero(arg)
+        elseif arg isa AbstractArray && eltype(arg) <: Real
+            N, V = length(arg), eltype(arg)
+            i == base_arg.i ? Matrix{V}(LinearAlgebra.I, N, N) : zeros(V, N, N) 
+        else
+            nothing
+        end
+    end
+    return grads
+end
+
+# Compute gradients when base arg is a scalar type
+function eval_arg_gradient(base_arg::TransformedArg, base_type::Type{<:Real}, args)
+    splice_arg(arg, i) = [args[1:i-1]..., arg, args[i+1:end]...]
+    per_arg_eval(arg, i) = eval_arg(base_arg, splice_arg(arg, i))
+    grads = map(enumerate(args)) do (i, arg)
+        if arg isa Real
+            ReverseDiff.gradient(a -> per_arg_eval(a, i), [arg])[1]
+        elseif arg isa AbstractArray && eltype(arg) <: Real
+            ReverseDiff.gradient(a -> per_arg_eval(a, i), arg)
+        else
+            nothing
+        end
+    end
+    return grads
+end
+
+# Compute Jacobians when base arg is an array type
+function eval_arg_gradient(base_arg::TransformedArg, base_type::Type{<:AbstractArray{<:Real}}, args)
+    splice_arg(arg, i) = [args[1:i-1]..., arg, args[i+1:end]...]
+    per_arg_eval(arg, i) = eval_arg(base_arg, splice_arg(arg, i))
+    grads = map(enumerate(args)) do (i, arg)
+        if arg isa Real
+            ReverseDiff.jacobian(a -> per_arg_eval(a, i), [arg])
+        elseif arg isa AbstractArray && eltype(arg) <: Real
+            ReverseDiff.jacobian(a -> per_arg_eval(a, i), arg)
+        else
+            nothing
+        end
+    end
+    return grads
+end
 
 # Type of SimpleArg must match arg, otherwise a MethodError will be thrown
-typecheck_arg(x::SimpleArg{T}, arg::T) where {T} = arg
+typecheck_arg(base_arg::SimpleArg{T}, arg::T) where {T} = arg
+typecheck_arg(base_arg::SimpleArg{T}, arg::ReverseDiff.TrackedReal{T}) where {T <: Real} = arg
+typecheck_arg(base_arg::SimpleArg{T}, arg::ReverseDiff.TrackedArray{V, D, N, T}) where {V, D, N, T} = arg
 
 # DistWithArgs
 struct DistWithArgs{T}
@@ -71,22 +131,32 @@ function logpdf_grad(d::CompiledDistWithArgs{T}, x::T, args...) where T
     concrete_args = [eval_arg(arg, args) for arg in d.arglist]
     base_has_arg_grads = has_argument_grads(d.base)
     base_grads = logpdf_grad(d.base, x, concrete_args...)
+    base_arg_grads = base_grads[2:end]
 
-    base_arg_grads = [g for (i, g) in enumerate(base_grads[2:end])
-                      if base_has_arg_grads[i]]
-    argvec = collect(args)
-    eval_arg_grads = hcat([ReverseDiff.gradient(xs -> eval_arg(arg, xs), argvec)
-        for (i, arg) in enumerate(d.arglist) if base_has_arg_grads[i]]...)
+    # Set gradient with respect to output
+    self_output_grad = base_grads[1] 
 
-    retval = [base_grads[1]]
-    for i in 1:d.n_args
-        if self_has_arg_grads[i]
-            push!(retval, eval_arg_grads[i,:]' * base_arg_grads)
-        else
-            push!(retval, nothing)
+    # Backpropagate gradients from base arguments to arguments
+    self_arg_grads = [self_has_arg_grads[i] ? zero(arg) : nothing
+                      for (i, arg) in enumerate(args)]
+
+    for (i, base_arg) in enumerate(d.arglist)
+        base_has_arg_grads[i] || continue
+        base_grad = base_arg_grads[i]
+        base_arg_type = typeof(concrete_args[i])
+        eval_arg_grad = eval_arg_gradient(base_arg, base_arg_type, args) 
+        for (j, g) in enumerate(eval_arg_grad)
+            (isnothing(g) || !self_has_arg_grads[j]) && continue
+            if base_grad isa AbstractArray
+                increment = reshape(g' * vec(base_grad), size(self_arg_grads[j]))
+            else
+                increment = g * base_grad
+            end
+            self_arg_grads[j] = self_arg_grads[j] .+ increment
         end
     end
-    retval
+
+    return (self_output_grad, self_arg_grads...)
 end
 
 function random(d::CompiledDistWithArgs{T}, args...)::T where T

@@ -19,13 +19,13 @@ function logpdf(d::WithLabelArg{T, U}, x::T, collection, base_args...) where {T,
 end
 
 function logpdf_grad(d::WithLabelArg{T, U}, x::T, collection, base_args...) where {T, U}
-    base_arg_grads = fill(nothing, length(base_args))
+    base_arg_grads = Vector{Any}(nothing, length(base_args))
 
     for p in pairs(collection)
         (index, item) = (p.first, p.second)
         if item == x
             new_grads = logpdf_grad(d.base, index, base_args...)
-            for (arg_idx, grad) in enumerate(new_grads)
+            for (arg_idx, grad) in enumerate(new_grads[2:end])
                 if base_arg_grads[arg_idx] === nothing
                     base_arg_grads[arg_idx] = grad
                 elseif grad !== nothing
@@ -73,13 +73,13 @@ function logpdf(d::RelabeledDistribution{T, U}, x::T, base_args...) where {T, U}
 end
 
 function logpdf_grad(d::RelabeledDistribution{T, U}, x::T, base_args...) where {T, U}
-    base_arg_grads = fill(nothing, length(base_args))
+    base_arg_grads = Vector{Any}(nothing, length(base_args))
 
     for p in pairs(d.collection)
         (index, item) = (p.first, p.second)
         if item == x
             new_grads = logpdf_grad(d.base, index, base_args...)
-            for (arg_idx, grad) in enumerate(new_grads)
+            for (arg_idx, grad) in enumerate(new_grads[2:end])
                 if base_arg_grads[arg_idx] === nothing
                     base_arg_grads[arg_idx] = grad
                 elseif grad !== nothing
