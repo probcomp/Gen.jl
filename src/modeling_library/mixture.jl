@@ -178,7 +178,7 @@ Gen.is_discrete(dist::HeterogeneousMixture) = dist.is_discrete
 
 const MIXTURE_WRONG_NUM_COMPONENTS_ERR = "the length of the weights vector does not match the number of mixture components"
 
-function HeterogeneousMixture(distributions::Vector{Distribution{T}}) where {T}
+function HeterogeneousMixture(distributions::Vector{D}) where {T, D <: Distribution{T}}
     _has_output_grad = true
     _has_argument_grads = Bool[true] # weights
     _is_discrete = true
