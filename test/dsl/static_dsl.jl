@@ -609,6 +609,18 @@ ch = get_choices(tr)
 @test length(get_values_shallow(ch)) == 1
 @test length(get_submaps_shallow(ch)) == 1
 
+@gen (static) function baz(trace)
+    x ~ normal(trace[:x], 0.1)
+    return x
+end
+
+ch, w, rval = propose(baz, (tr,))
+@test has_value(ch, :x)
+@test ch[:x] == rval
+
+new_tr, _ = generate(bar1, (), ch)
+@test new_tr[:x] == ch[:x]
+
 end
 
 @testset "returning a SML function from macro" begin
