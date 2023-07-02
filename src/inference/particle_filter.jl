@@ -24,13 +24,27 @@ mutable struct ParticleFilterState{U}
 end
 
 function Base.copy(state::ParticleFilterState{U}) where U
-    ParticleFilterState{U}(
-        copy(state.traces),
-        copy(state.new_traces),
-        copy(state.log_weights),
+    return ParticleFilterState{U}(
+        Base.copy(state.traces),
+        Base.copy(state.new_traces),
+        Base.copy(state.log_weights),
         state.log_ml_est,
-        copy(state.parents)
+        Base.copy(state.parents)
     )
+end
+function Base.:(==)(a::ParticleFilterState{U}, b::ParticleFilterState{V}) where {U, V}
+    return U == V &&
+        a.traces == b.traces &&
+        a.log_weights == b.log_weights &&
+        a.log_ml_est == b.log_ml_est &&
+        a.parents == b.parents
+end
+function Base.hash(state::ParticleFilterState{U}, h::UInt) where {U}
+    return hash(U,
+    hash(state.traces,
+    hash(state.log_weights .+ (state.log_ml_est - log(length(state.log_weights))),
+    hash(state.parents, 
+         h))))
 end
 
 """
