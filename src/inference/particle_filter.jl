@@ -40,11 +40,9 @@ function Base.:(==)(a::ParticleFilterState{U}, b::ParticleFilterState{V}) where 
         a.parents == b.parents
 end
 function Base.hash(state::ParticleFilterState{U}, h::UInt) where {U}
-    return hash(U,
-    hash(state.traces,
-    hash(state.log_weights .+ (state.log_ml_est - log(length(state.log_weights))),
-    hash(state.parents, 
-         h))))
+    return hash(U, hash(state.traces,
+                        hash(state.log_weights,
+                             hash(state.log_ml_est, hash(state.parents, h)))))
 end
 
 """
