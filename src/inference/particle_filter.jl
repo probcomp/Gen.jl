@@ -23,6 +23,28 @@ mutable struct ParticleFilterState{U}
     parents::Vector{Int}
 end
 
+function Base.copy(state::ParticleFilterState{U}) where U
+    return ParticleFilterState{U}(
+        Base.copy(state.traces),
+        Base.copy(state.new_traces),
+        Base.copy(state.log_weights),
+        state.log_ml_est,
+        Base.copy(state.parents)
+    )
+end
+function Base.:(==)(a::ParticleFilterState{U}, b::ParticleFilterState{V}) where {U, V}
+    return U == V &&
+        a.traces == b.traces &&
+        a.log_weights == b.log_weights &&
+        a.log_ml_est == b.log_ml_est &&
+        a.parents == b.parents
+end
+function Base.hash(state::ParticleFilterState{U}, h::UInt) where {U}
+    return hash(U, hash(state.traces,
+                        hash(state.log_weights,
+                             hash(state.log_ml_est, hash(state.parents, h)))))
+end
+
 """
     traces = get_traces(state::ParticleFilterState)
 
