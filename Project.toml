@@ -1,7 +1,7 @@
 name = "Gen"
 uuid = "ea4f424c-a589-11e8-07c0-fd5c91b9da4a"
 authors = ["Marco Cusumano-Towner <imarcoam@gmail.com>"]
-version = "0.4.5"
+version = "0.4.6"
 
 [deps]
 Compat = "34da2185-b29b-5c13-b0c7-acf172513d20"
