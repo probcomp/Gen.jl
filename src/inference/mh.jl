@@ -14,9 +14,7 @@ Perform a Metropolis-Hastings update that proposes new values for the selected a
 function metropolis_hastings(
         trace, selection::Selection;
         check=false, observations=EmptyChoiceMap())
-    args = get_args(trace)
-    argdiffs = map((_) -> NoChange(), args)
-    (new_trace, weight) = regenerate(trace, args, argdiffs, selection)
+    (new_trace, weight) = regenerate(trace, selection)
     check && check_observations(get_choices(new_trace), observations)
     if log(rand()) < weight
         # accept
