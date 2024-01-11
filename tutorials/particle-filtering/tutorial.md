@@ -45,12 +45,12 @@ We show how Gen's support for SMC integrates with its support for MCMC, enabling
 "bearings only tracking" problem described in [4]. 
 
 This notebook will also introduce you to the 
-[`Unfold`](https://www.gen.dev/dev/ref/combinators/#Unfold-combinator-1) combinator, 
+[`Unfold`](https://www.gen.dev/docs/dev/ref/combinators/#Unfold-combinator-1) combinator, 
 which can be used to improve performance of SMC.
 `Unfold` is just one example of the levers that Gen provides for
 improving performance; once you understand it, you can check
 Gen's documentation to see how similar principles apply to the 
-[`Map`](https://www.gen.dev/dev/ref/combinators/#Map-combinator-1) combinator 
+[`Map`](https://www.gen.dev/docs/dev/ref/combinators/#Map-combinator-1) combinator 
 and to the static DSL. (These features are also covered in the previous tutorial,
 [Scaling with Combinators and the Static Modeling Language](../scaling-with-combinators-new/tutorial).)
 
@@ -238,7 +238,7 @@ sample of `num_samples` traces from the weighted collection that the particle
 filter produces.
 
 Gen provides methods for initializing and updating the state of a particle
-filter, documented in [Particle Filtering](https://www.gen.dev/dev/ref/pf/).
+filter, documented in [Particle Filtering](https://www.gen.dev/docs/dev/ref/pf/).
 
 - `Gen.initialize_particle_filter`
 
@@ -300,7 +300,7 @@ and then we introduce one additional bearing measurement by calling
 - The new arguments to the generative function for this step. In our case,
   this is the number of measurements beyond the first measurement.
 
-- The [argdiff](https://www.gen.dev/dev/ref/gfi/#Argdiffs-1)
+- The [argdiff](https://www.gen.dev/docs/dev/ref/gfi/#Argdiffs-1)
   value, which provides detailed information about the change to the
   arguments between the previous step and this step. We will revisit this
   value later.  For now, we indicate that we do not know how the `T::Int`
@@ -645,7 +645,7 @@ body whenever performing a trace update. This allows the built-in modeling
 DSL to be very flexible and to have a simple implementation, at the cost of
 performance. There are several ways of improving performance after one has a
 prototype written in the built-in modeling DSL. One of these is [Generative
-Function Combinators](https://www.gen.dev/dev/ref/combinators/), which make 
+Function Combinators](https://www.gen.dev/docs/dev/ref/combinators/), which make 
 the flow of information through the generative process more explicit to Gen, 
 and enable asymptotically more efficient inference programs.
 
@@ -676,7 +676,7 @@ Julia `for` loop in our model.
 This `for` loop has a very specific pattern of information flow&mdash;there is a
 sequence of states (represented by `x`, `y`, `vx`, and `vy`), and each state is
 generated from the previous state. This is exactly the pattern that the
-[Unfold](https://www.gen.dev/dev/ref/combinators/#Unfold-combinator-1)
+[Unfold](https://www.gen.dev/docs/dev/ref/combinators/#Unfold-combinator-1)
 generative function combinator is designed to handle.
 
 Below, we re-express the Julia `for` loop over the state sequence using the

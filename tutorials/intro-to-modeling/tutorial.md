@@ -771,7 +771,7 @@ Write an inference program that generates traces of `sine_model` that explain th
 What if we'd want to predict `ys` given `xs`?
 
 Using the API method
-[`generate`](https://www.gen.dev/dev/ref/gfi/#Gen.generate), we
+[`generate`](https://www.gen.dev/docs/dev/ref/gfi/#Gen.generate), we
 can generate a trace of a generative function in which the values of certain
 random choices are constrained to given values. The constraints are a choice
 map that maps the addresses of the constrained random choices to their

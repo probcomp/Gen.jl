@@ -5,11 +5,11 @@ layout: splash
 
 # Scaling with Combinators and the Static Modeling Language
 
-Up until this point, we have been using [Gen's generic built-in modeling language](https://www.gen.dev/dev/ref/modeling/), which is a very flexible modeling language that is shallowly embedded in Julia. However, better performance and scaling characteristics can be obtained using specialized modeling languages or modeling constructs. This notebook introduces two built-in features of Gen:
+Up until this point, we have been using [Gen's generic built-in modeling language](https://www.gen.dev/docs/dev/ref/modeling/), which is a very flexible modeling language that is shallowly embedded in Julia. However, better performance and scaling characteristics can be obtained using specialized modeling languages or modeling constructs. This notebook introduces two built-in features of Gen:
 
-- A more specialized [Static Modeling Language](https://www.gen.dev/dev/ref/modeling/#Static-Modeling-Language-1) which is built-in to Gen.
+- A more specialized [Static Modeling Language](https://www.gen.dev/docs/dev/ref/modeling/#Static-Modeling-Language-1) which is built-in to Gen.
 
-- A class of modeling constructs called [Generative function combinators](https://www.gen.dev/dev/ref/combinators/).
+- A class of modeling constructs called [Generative function combinators](https://www.gen.dev/docs/dev/ref/combinators/).
 
 These features provide both constant-factor speedups, as well as improvements in asymptotic orders of growth, over the generic built-in modeling language.
 
