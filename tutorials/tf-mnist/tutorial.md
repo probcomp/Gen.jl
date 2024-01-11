@@ -5,7 +5,7 @@ layout: splash
 
 # Modeling with TensorFlow code
 
-So far, we have seen generative functions that are defined only using the built-in modeling language, which uses the `@gen` keyword. However, Gen can also be extended with other modeling languages, as long as they produce generative functions that implement the [Generative Function Interface](https://probcomp.github.io/Gen/dev/ref/gfi/). The [GenTF](https://github.com/probcomp/GenTF) Julia package provides one such modeling language which allow generative functions to be constructed from user-defined TensorFlow computation graphs. Generative functions written in the built-in language can invoke generative functions defined using the GenTF language.
+So far, we have seen generative functions that are defined only using the built-in modeling language, which uses the `@gen` keyword. However, Gen can also be extended with other modeling languages, as long as they produce generative functions that implement the [Generative Function Interface](https://www.gen.dev/docs/stable/ref/gfi/). The [GenTF](https://github.com/probcomp/GenTF) Julia package provides one such modeling language which allow generative functions to be constructed from user-defined TensorFlow computation graphs. Generative functions written in the built-in language can invoke generative functions defined using the GenTF language.
 
 This notebook shows how to write a generative function in the GenTF language, how to invoke a GenTF generative function from a `@gen` function, and how to perform basic supervised training of a generative function. Specifically, we will train a softmax regression conditional inference model to generate the label of an MNIST digit given the pixels. Later tutorials will show how to use deep learning and TensorFlow to accelerate inference in generative models, using ideas from "amortized inference".
 
@@ -208,7 +208,7 @@ training_data_loader = MNISTTrainDataLoader();
     [y/n]
 
 
-Now, we train the trainable parameters of the `tf_softmax_model` generative function  (`W` and `b`) on the MNIST traing data. Note that these parameters are stored as the state of the TensorFlow variables. We will use the [`Gen.train!`](https://probcomp.github.io/Gen/dev/ref/inference/#Gen.train!) method, which supports supervised training of generative functions using stochastic gradient opimization methods. In particular, this method takes the generative function to be trained (`digit_model`), a Julia function of no arguments that generates a batch of training data, and the update to apply to the trainable parameters.
+Now, we train the trainable parameters of the `tf_softmax_model` generative function  (`W` and `b`) on the MNIST traing data. Note that these parameters are stored as the state of the TensorFlow variables. We will use the [`Gen.train!`](https://www.gen.dev/docs/stable/ref/inference/#Gen.train!) method, which supports supervised training of generative functions using stochastic gradient opimization methods. In particular, this method takes the generative function to be trained (`digit_model`), a Julia function of no arguments that generates a batch of training data, and the update to apply to the trainable parameters.
 
 The `ParamUpdate` constructor takes the type of update to perform (in this case a gradient descent update with step size 0.00001), and a specification of which trainable parameters should be updated). Here, we request that the `W` and `b` trainable parameters of the `tf_softmax_model` generative function should be trained.
 

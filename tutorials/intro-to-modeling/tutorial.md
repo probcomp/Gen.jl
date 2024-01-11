@@ -148,7 +148,7 @@ Probabilistic models are represented in Gen as *generative functions*.
 Generative functions are used to represent a variety of different types of
 probabilistic computations including generative models, inference models,
 custom proposal distributions, and variational approximations (see the [Gen
-documentation](https://probcomp.github.io/Gen/dev/ref/gfi/) or the 
+documentation](https://www.gen.dev/docs/stable/ref/gfi/) or the 
 [paper](https://dl.acm.org/doi/10.1145/3314221.3314642)). In this
 tutorial,
 we focus on implementing _generative models_. A generative model represents
@@ -157,7 +157,7 @@ our data and our problem domain.
 
 
 The simplest way to construct a generative function is by using the [built-in
-modeling DSL](https://probcomp.github.io/Gen/dev/ref/modeling/). Generative
+modeling DSL](https://www.gen.dev/docs/stable/ref/modeling/). Generative
 functions written in the built-in modeling DSL are based on Julia function
 definition syntax, but are prefixed with the `@gen` macro:
 
@@ -312,7 +312,7 @@ times, but each time, the random choice it makes is given a distinct address.
 Although the random choices are not included in the return value, they *are*
 included in the *execution trace* of the generative function. We can run the
 generative function and obtain its trace using the [`
-simulate`](https://probcomp.github.io/Gen/dev/ref/gfi/#Gen.simulate) method
+simulate`](https://www.gen.dev/docs/stable/ref/gfi/#Gen.simulate) method
 from the Gen API:
 
 
@@ -523,10 +523,10 @@ amplitude, and then generates y-coordinates from a given vector of
 x-coordinates by adding noise to the value of the wave at each x-coordinate.
 Use a  `gamma(1, 1)` prior distribution for the period, and a `gamma(1, 1)`
 prior distribution on the amplitude (see
-[`Gen.gamma`](https://probcomp.github.io/Gen/dev/ref/distributions/#Gen.gamma)).
+[`Gen.gamma`](https://www.gen.dev/docs/stable/ref/distributions/#Gen.gamma)).
 Sampling from a Gamma distribution will ensure to give us postive real values.
 Use a uniform distribution between 0 and $2\pi$ for the phase (see
-[`Gen.uniform`](https://probcomp.github.io/Gen/dev/ref/distributions/#Gen.uniform)).
+[`Gen.uniform`](https://www.gen.dev/docs/stable/ref/distributions/#Gen.uniform)).
 
 The sine wave should implement:
 
