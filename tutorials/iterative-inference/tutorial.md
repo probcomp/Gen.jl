@@ -1097,7 +1097,7 @@ For example, let's say we wanted to take a trace and assign each point's
 `is_outlier` score to the most likely possibility. We can do this by
 iterating over both possible traces, scoring them, and choosing the one with
 the higher score. We can do this using Gen's
-[`update`](https://www.gen.dev/dev/ref/gfi/#Update-1) function,
+[`update`](https://www.gen.dev/docs/dev/ref/gfi/#Update-1) function,
 which allows us to manually update a trace to satisfy some constraints:
 
 

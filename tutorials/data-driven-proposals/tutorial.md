@@ -513,7 +513,7 @@ Run inference using Gen's built-in importance resampling implementation. Use
 
 To see how to use the built-in importance resampling function, run
 ```?Gen.importance_resampling``` or check out the
-[documentation](https://www.gen.dev/dev/ref/importance/#Gen.importance_resampling).
+[documentation](https://www.gen.dev/docs/dev/ref/importance/#Gen.importance_resampling).
 
 We have provided some starter code.
 
@@ -709,7 +709,7 @@ visualize_inference(measurements, scene_2doors, start, computation_amt=50, sampl
 ## 2. Writing a data-driven proposal as a generative function <a name="custom-proposal"></a>
 
 The inference algorithm above used a variant of
-[`Gen.importance_resampling`](https://probcomp.github.io/Gen/dev/ref/importance/#Gen.importance_resampling)
+[`Gen.importance_resampling`](https://www.gen.dev/docs/stable/ref/importance/#Gen.importance_resampling)
 that does not take a custom proposal distribution. It uses the default
 proposal distribution associated with the generative model. For generative
 functions defined using the built-in modeling DSL, the default proposal
@@ -780,7 +780,7 @@ num_y_bins = 5;
 ```
 
 We will propose the x-coordinate of the destination from a
-[piecewise_uniform](https://www.gen.dev/dev/ref/distributions/#Gen.piecewise_uniform)
+[piecewise_uniform](https://www.gen.dev/docs/dev/ref/distributions/#Gen.piecewise_uniform)
 distribution, where we set higher probability for certain bins based on the
 heuristic described above and use a uniform continuous distribution for the
 coordinate within a bin. The `compute_bin_probs` function below computes the
@@ -861,7 +861,7 @@ end;
 ```
 
 We can propose values of random choices from the proposal function using
-[`Gen.propose`](https://probcomp.github.io/Gen/dev/ref/gfi/#Gen.propose).
+[`Gen.propose`](https://www.gen.dev/docs/stable/ref/gfi/#Gen.propose).
 This method returns the choices, as well as some other information, which we
 won't need for our purposes. For now, you can think of `Gen.propose` as
 similar to `Gen.generate` except that it does not produce a full execution
@@ -937,7 +937,7 @@ Alone, this is just a heuristic. But we can use it as a proposal for importance 
 
 We now use our data-driven proposal within an inference algorithm. There is a
 second variant of
-[`Gen.importance_resampling`](https://probcomp.github.io/Gen/dev/ref/importance/#Gen.importance_resampling)
+[`Gen.importance_resampling`](https://www.gen.dev/docs/stable/ref/importance/#Gen.importance_resampling)
 that accepts a generative function representing a custom proposal. This
 proposal generative function makes traced random choices at the addresses of
 a subset of the unobserved random choices made by the generative model. In
@@ -956,7 +956,7 @@ proposal accepts arguments `(measurements, scene)`.
 
 This time, use only 5 importance samples (`amt_computation`). You can run
 `?Gen.importance_resampling` or check out the
-[documentation](https://probcomp.github.io/Gen/dev/ref/inference/#Importance-Sampling-1)
+[documentation](https://www.gen.dev/docs/stable/ref/inference/#Importance-Sampling-1)
 to understand how to supply the arguments to invoke this second version of of
 importance resampling.
 
@@ -1075,7 +1075,7 @@ end;
 
 Our choice of the `score_high` value of 5. was somewhat arbitrary. To use
 more informed value, we can make `score_high` into a [*trainable
-parameter*](https://www.gen.dev/dev/ref/gfi/#Trainable-parameters-1)
+parameter*](https://www.gen.dev/docs/dev/ref/gfi/#Trainable-parameters-1)
 of the generative function. Below, we write a new version of the proposal
 function that makes `score_high` trainable. However, the optimization
 algorithms we will use for training work best with *unconstrained* parameters
@@ -1184,7 +1184,7 @@ end;
 Next, we choose type of optimization algorithm we will use for training. Gen
 supports a set of gradient-based optimization algorithms (see [Optimizing
 Trainable
-Parameters](https://www.gen.dev/dev/ref/parameter_optimization/#Optimizing-Trainable-Parameters-1)).
+Parameters](https://www.gen.dev/docs/dev/ref/parameter_optimization/#Optimizing-Trainable-Parameters-1)).
 Here we will use gradient descent with a fixed step size of 0.001.
 
 
@@ -1193,7 +1193,7 @@ update = Gen.ParamUpdate(Gen.FixedStepGradientDescent(0.001), custom_dest_propos
 ```
 
 Finally, we use the
-[`Gen.train!`](https://probcomp.github.io/Gen/dev/ref/inference/#Gen.train!)
+[`Gen.train!`](https://www.gen.dev/docs/stable/ref/inference/#Gen.train!)
 method to actually do the training.
 
 For each epoch, `Gen.train!` makes `epoch_size` calls to the data-generator
