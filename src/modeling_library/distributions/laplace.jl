@@ -25,13 +25,14 @@ function logpdf_grad(::Laplace, x::Real, loc::Real, scale::Real)
     (deriv_x, deriv_loc, deriv_scale)
 end
 
-function random(::Laplace, loc::Real, scale::Real)
-    rand(Distributions.Laplace(loc, scale))
+function random(rng::AbstractRNG, ::Laplace, loc::Real, scale::Real)
+    rand(rng, Distributions.Laplace(loc, scale))
 end
 
 is_discrete(::Laplace) = false
 
-(::Laplace)(loc, scale) = random(Laplace(), loc, scale)
+(dist::Laplace)(loc, scale) = dist(default_rng(), loc, scale)
+(::Laplace)(rng::AbstractRNG, loc, scale) = random(rng, Laplace(), loc, scale)
 
 has_output_grad(::Laplace) = true
 has_argument_grads(::Laplace) = (true, true)

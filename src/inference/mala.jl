@@ -2,15 +2,18 @@
 """
     (new_trace, accepted) = mala(
         trace, selection::Selection, tau::Real;
-        check=false, observations=EmptyChoiceMap())
+        check=false, observations=EmptyChoiceMap(),
+        rng::Random.AbstractRNG=Random.default_rng())
 
 Apply a Metropolis-Adjusted Langevin Algorithm (MALA) update.
 
 [Reference URL](https://en.wikipedia.org/wiki/Metropolis-adjusted_Langevin_algorithm)
 """
 function mala(
-        trace, selection::Selection, tau::Real;
-        check=false, observations=EmptyChoiceMap())
+    trace, selection::Selection, tau::Real;
+    check=false, observations=EmptyChoiceMap(),
+    rng::Random.AbstractRNG=Random.default_rng()
+)
     args = get_args(trace)
     argdiffs = map((_) -> NoChange(), args)
     std = sqrt(2 * tau)
@@ -24,13 +27,13 @@ function mala(
     forward_score = 0.
     proposed_values = Vector{Float64}(undef, length(values))
     for i=1:length(values)
-        proposed_values[i] = random(normal, forward_mu[i], std)
+        proposed_values[i] = random(rng, normal, forward_mu[i], std)
         forward_score += logpdf(normal, proposed_values[i], forward_mu[i], std)
     end
 
     # evaluate model weight
     constraints = from_array(values_trie, proposed_values)
-    (new_trace, weight, _, discard) = update(trace,
+    (new_trace, weight, _, discard) = update(rng, trace,
         args, argdiffs, constraints)
     check && check_observations(get_choices(new_trace), observations)
 
@@ -46,7 +49,7 @@ function mala(
 
     # accept or reject
     alpha = weight - forward_score + backward_score
-    if log(rand()) < alpha
+    if log(rand(rng)) < alpha
         (new_trace, true)
     else
         (trace, false)

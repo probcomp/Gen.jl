@@ -34,12 +34,13 @@ function logpdf_grad(::Beta, x::Real, alpha::Real, beta::Real)
     (deriv_x, deriv_alpha, deriv_beta)
 end
 
-function random(::Beta, alpha::Real, beta::Real)
-    rand(Distributions.Beta(alpha, beta))
+function random(rng::AbstractRNG, ::Beta, alpha::Real, beta::Real)
+    rand(rng, Distributions.Beta(alpha, beta))
 end
 is_discrete(::Beta) = false
 
-(::Beta)(alpha, beta) = random(Beta(), alpha, beta)
+(dist::Beta)(alpha, beta) = dist(default_rng(), alpha, beta)
+(::Beta)(rng::AbstractRNG, alpha, beta) = random(rng, Beta(), alpha, beta)
 
 has_output_grad(::Beta) = true
 has_argument_grads(::Beta) = (true, true)

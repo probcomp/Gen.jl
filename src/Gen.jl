@@ -2,6 +2,8 @@
 
 module Gen
 
+using Random: AbstractRNG, default_rng
+
 """
     load_generated_functions(__module__=Main)
 

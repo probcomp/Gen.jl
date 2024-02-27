@@ -19,14 +19,15 @@ function Gen.logpdf_grad(::Exponential, x::Real, rate::Real)
     (x_grad, rate_grad)
 end
 
-function Gen.random(::Exponential, rate::Real)
+function Gen.random(rng::AbstractRNG, ::Exponential, rate::Real)
     scale = 1/rate
-    rand(Distributions.Exponential(scale))
+    rand(rng, Distributions.Exponential(scale))
 end
 
 is_discrete(::Exponential) = false
 
-(::Exponential)(rate) = random(Exponential(), rate)
+(dist::Exponential)(rate) = dist(default_rng(), rate)
+(::Exponential)(rng::AbstractRNG, rate) = random(rng, Exponential(), rate)
 
 Gen.has_output_grad(::Exponential) = true
 Gen.has_argument_grads(::Exponential) = (true,)

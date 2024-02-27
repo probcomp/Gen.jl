@@ -27,12 +27,13 @@ function logpdf_grad(::MultivariateNormal, x::AbstractVector{T}, mu::AbstractVec
     (x_deriv, mu_deriv, cov_deriv)
 end
 
-function random(::MultivariateNormal, mu::AbstractVector{U},
+function random(rng::AbstractRNG, ::MultivariateNormal, mu::AbstractVector{U},
                 cov::AbstractMatrix{V}) where {U <: Real, V <: Real}
-    rand(Distributions.MvNormal(mu, LinearAlgebra.Symmetric(cov)))
+    rand(rng, Distributions.MvNormal(mu, LinearAlgebra.Symmetric(cov)))
 end
 
-(::MultivariateNormal)(mu, cov) = random(MultivariateNormal(), mu, cov)
+(dist::MultivariateNormal)(mu, cov) = dist(default_rng(), mu, cov)
+(::MultivariateNormal)(rng::AbstractRNG, mu, cov) = random(rng, MultivariateNormal(), mu, cov)
 
 has_output_grad(::MultivariateNormal) = true
 has_argument_grads(::MultivariateNormal) = (true, true)

@@ -16,8 +16,8 @@ struct TransformedDistribution{T, U} <: Distribution{T}
     backward_grad :: Function
 end
 
-function random(d::TransformedDistribution{T, U}, args...)::T where {T, U}
-    d.forward(random(d.base, args[d.nArgs+1:end]...), args[1:d.nArgs]...)
+function random(rng::AbstractRNG, d::TransformedDistribution{T, U}, args...)::T where {T, U}
+    d.forward(random(rng, d.base, args[d.nArgs+1:end]...), args[1:d.nArgs]...)
 end
 
 function logpdf_correction(d::TransformedDistribution{T, U}, x, args) where {T, U}
@@ -54,7 +54,8 @@ end
 
 is_discrete(d::TransformedDistribution{T, U}) where {T, U} = is_discrete(d.base)
 
-(d::TransformedDistribution{T, U})(args...) where {T, U} = random(d, args...)
+(d::TransformedDistribution)(args...) = d(default_rng(), args...)
+(d::TransformedDistribution{T, U})(rng::AbstractRNG, args...) where {T, U} = random(rng, d, args...)
 
 function has_output_grad(d::TransformedDistribution{T, U}) where {T, U}
     has_output_grad(d.base)

@@ -27,13 +27,14 @@ function logpdf_grad(::Dirichlet, x::AbstractVector{T}, alpha::AbstractVector{U}
     end
 end
 
-function random(::Dirichlet, alpha::AbstractVector{T}) where {T <: Real}
-    rand(Distributions.Dirichlet(alpha))
+function random(rng::AbstractRNG, ::Dirichlet, alpha::AbstractVector{T}) where {T <: Real}
+    rand(rng, Distributions.Dirichlet(alpha))
 end
 
 is_discrete(::Dirichlet) = false
 
-(::Dirichlet)(alpha) = random(Dirichlet(), alpha)
+(dist::Dirichlet)(alpha) = dist(default_rng(), alpha)
+(::Dirichlet)(rng::AbstractRNG, alpha) = random(rng, Dirichlet(), alpha)
 
 has_output_grad(::Dirichlet) = true
 has_argument_grads(::Dirichlet) = (true,)

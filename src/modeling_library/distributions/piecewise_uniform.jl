@@ -42,13 +42,14 @@ function logpdf(::PiecewiseUniform, x::Real, bounds::AbstractVector{T},
     end
 end
 
-function random(::PiecewiseUniform, bounds::Vector{T},
+function random(rng::AbstractRNG, ::PiecewiseUniform, bounds::Vector{T},
                     probs::Vector{U}) where {T <: Real, U <: Real}
     bin = categorical(probs)
-    uniform_continuous(bounds[bin], bounds[bin+1])
+    uniform_continuous(rng, bounds[bin], bounds[bin+1])
 end
 
-(::PiecewiseUniform)(bounds, probs) = random(PiecewiseUniform(), bounds, probs)
+(dist::PiecewiseUniform)(bounds, probs) = dist(default_rng(), bounds, probs)
+(::PiecewiseUniform)(rng::AbstractRNG, bounds, probs) = random(rng, PiecewiseUniform(), bounds, probs)
 
 function logpdf_grad(::PiecewiseUniform, x::Real, bounds, probs)
     check_dims(piecewise_uniform, bounds, probs)

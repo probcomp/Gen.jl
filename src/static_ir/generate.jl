@@ -72,7 +72,7 @@ function codegen_generate(gen_fn_type::Type{T}, args,
 
     # convert the constraints to a static assignment if it is not already one
     if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
-        return quote $(GlobalRef(Gen, :generate))(gen_fn, args, $(QuoteNode(StaticChoiceMap))(constraints)) end
+        return quote $(GlobalRef(Gen, :generate))(rng, gen_fn, args, $(QuoteNode(StaticChoiceMap))(constraints)) end
     end
 
     ir = get_ir(gen_fn_type)

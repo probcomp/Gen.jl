@@ -16,11 +16,12 @@ function logpdf_grad(::Bernoulli, x::Bool, prob::Real)
     (nothing, prob_grad)
 end
 
-random(::Bernoulli, prob::Real) = rand() < prob
+random(rng::AbstractRNG, ::Bernoulli, prob::Real) = rand(rng) < prob
 
 is_discrete(::Bernoulli) = true
 
-(::Bernoulli)(prob) = random(Bernoulli(), prob)
+(dist::Bernoulli)(prob) = dist(default_rng, prob)
+(::Bernoulli)(rng::AbstractRNG, prob) = random(rng, Bernoulli(), prob)
 
 has_output_grad(::Bernoulli) = false
 has_argument_grads(::Bernoulli) = (true,)
