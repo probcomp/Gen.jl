@@ -20,7 +20,7 @@ random(rng::AbstractRNG, ::Bernoulli, prob::Real) = rand(rng) < prob
 
 is_discrete(::Bernoulli) = true
 
-(dist::Bernoulli)(prob) = dist(default_rng, prob)
+(dist::Bernoulli)(prob) = dist(default_rng(), prob)
 (::Bernoulli)(rng::AbstractRNG, prob) = random(rng, Bernoulli(), prob)
 
 has_output_grad(::Bernoulli) = false
