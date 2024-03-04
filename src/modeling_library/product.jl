@@ -78,28 +78,26 @@ function ProductDistribution(distributions::Vararg{<:Distribution})
         _starting_args)
 end
 
-function Gen.random(dist::ProductDistribution, factor_args_flat...)
-    factor_args = [factor_args_flat[dist.starting_args[i]:dist.starting_args[i]+dist.num_args[i]-1] for i in 1:dist.K]
-    return [random(dist.distributions[i], factor_args[i]...) for i in 1:dist.K]
+function extract_args_for_component(dist::ProductDistribution, component_args_flat, k::Int)
+    start_arg = dist.starting_args[k]
+    n = dist.num_args[k]
+    return component_args_flat[start_arg:start_arg+n-1]
 end
 
-function Gen.logpdf(dist::ProductDistribution, x, factor_args_flat...)
-    factor_args = [factor_args_flat[dist.starting_args[i]:dist.starting_args[i]+dist.num_args[i]-1] for i in 1:dist.K]
-    return sum(Gen.logpdf(dist.distributions[i], x[i], factor_args[i]...) for i in 1:dist.K)
-end
+Gen.random(dist::ProductDistribution, component_args_flat...) =
+    [random(dist.distributions[k], extract_args_for_component(dist, component_args_flat, k)...) for k in 1:dist.K]
 
-function Gen.logpdf_grad(dist::ProductDistribution, x, factor_args_flat...)
-    factor_args = [factor_args_flat[dist.starting_args[i]:(dist.starting_args[i]+dist.num_args[i]-1)] for i in 1:dist.K]
-    logpdf_grads = [Gen.logpdf_grad(dist.distributions[i], x[i], factor_args[i]...) for i in 1:dist.K]
+Gen.logpdf(dist::ProductDistribution, x, component_args_flat...) =
+    sum(Gen.logpdf(dist.distributions[k], x[k], extract_args_for_component(dist, component_args_flat, k)...) for k in 1:dist.K)
 
+function Gen.logpdf_grad(dist::ProductDistribution, x, component_args_flat...)
+    logpdf_grads = [Gen.logpdf_grad(dist.distributions[k], x[k], extract_args_for_component(dist, component_args_flat, k)...) for k in 1:dist.K]
     x_grad = if dist.has_output_grad
         tuple((grads[1] for grads in logpdf_grads)...)
     else
         nothing
     end
-
     arg_grads = vcat((collect(grads[2:end]) for grads in logpdf_grads)...)
-
     return (x_grad, arg_grads...)
 end
 
