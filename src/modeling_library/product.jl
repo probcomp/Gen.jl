@@ -41,7 +41,11 @@ Gen.has_argument_grads(dist::ProductDistribution) = dist.has_argument_grads
 Gen.is_discrete(dist::ProductDistribution) = dist.is_discrete
 
 function ProductDistribution(distributions::Vararg{<:Distribution})
+    _has_output_grads = true
+    _is_discrete = true
+
     types = Type[]
+
     _has_argument_grads = Bool[]
     _num_args = Int[]
     _starting_args = Int[]
@@ -54,6 +58,9 @@ function ProductDistribution(distributions::Vararg{<:Distribution})
         end
         push!(types, type.parameters[1])
 
+        _has_output_grads = _has_output_grads && has_output_grad(dist)
+        _is_discrete = _is_discrete && is_discrete(dist)
+
         grads_data = has_argument_grads(dist)
         append!(_has_argument_grads, grads_data)
         push!(_num_args, length(grads_data))
@@ -64,9 +71,9 @@ function ProductDistribution(distributions::Vararg{<:Distribution})
     return ProductDistribution{Tuple{types...}}(
         length(distributions),
         collect(distributions),
-        all(has_output_grad(dist) for dist in distributions),
+        _has_output_grads,
         Tuple(_has_argument_grads),
-        all(is_discrete(dist) for dist in distributions),
+        _is_discrete,
         _num_args,
         _starting_args)
 end
