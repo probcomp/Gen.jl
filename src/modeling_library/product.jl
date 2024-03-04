@@ -86,7 +86,7 @@ function Gen.logpdf_grad(dist::ProductDistribution, x, factor_args_flat...)
     logpdf_grads = [Gen.logpdf_grad(dist.distributions[i], x[i], factor_args[i]...) for i in 1:dist.K]
 
     x_grad = if dist.has_output_grad
-        [grads[1] for grads in logpdf_grads]
+        tuple((grads[1] for grads in logpdf_grads)...)
     else
         nothing
     end
