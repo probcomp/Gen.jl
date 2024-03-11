@@ -9,18 +9,18 @@ discrete_product = ProductDistribution(bernoulli, binom)
     (n, p2) = (3, 0.9)
 
     # random
-    x = unrelated_pair_product(p1, n, p2)
+    x = discrete_product(p1, n, p2)
 
     # logpdf
     x = (true, 2)
-    actual = logpdf(unrelated_pair_product, x, p1, n, p2)
+    actual = logpdf(discrete_product, x, p1, n, p2)
     expected = logpdf(bernoulli, x[1], p1) + logpdf(binom, x[2], n, p2)
     @test isapprox(actual, expected)
 
     # test logpdf_grad against finite differencing
-    f = (x, p, mu, std) -> logpdf(unrelated_pair_product, x, p, mu, std)
+    f = (x, p, mu, std) -> logpdf(discrete_product, x, p, mu, std)
     args = (x, p, mu, std)
-    actual = logpdf_grad(unrelated_pair_product, args...)
+    actual = logpdf_grad(discrete_product, args...)
     for (i, b) in enumerate(grad_bools)
         if b
             @test isapprox(actual[i], finite_diff(f, args, i, dx))
