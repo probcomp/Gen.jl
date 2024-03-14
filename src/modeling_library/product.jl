@@ -24,9 +24,9 @@ Example:
 end
 ```
 """
-struct ProductDistribution{T} <: Distribution{T}
+struct ProductDistribution{T, Ds} <: Distribution{T}
     K::Int
-    distributions::Vector{<:Distribution}
+    distributions::Ds
     has_output_grad::Bool
     has_argument_grads::Tuple
     is_discrete::Bool
@@ -64,9 +64,9 @@ function ProductDistribution(distributions::Vararg{<:Distribution})
         start_pos += length(grads_data)
     end
 
-    return ProductDistribution{Tuple{types...}}(
+    return ProductDistribution{Tuple{types...}, typeof(distributions)}(
         length(distributions),
-        collect(distributions),
+        distributions,
         _has_output_grads,
         Tuple(_has_argument_grads),
         _is_discrete,
