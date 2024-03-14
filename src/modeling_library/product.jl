@@ -80,11 +80,11 @@ function extract_args_for_component(dist::ProductDistribution, component_args_fl
     return component_args_flat[start_arg:start_arg+n-1]
 end
 
-Gen.random(dist::ProductDistribution, component_args_flat...) =
-    [random(dist.distributions[k], extract_args_for_component(dist, component_args_flat, k)...) for k in 1:dist.K]
+Gen.random(dist::ProductDistribution, args...) =
+    Tuple(random(d, extract_args_for_component(dist, args, k)...) for (k, d) in enumerate(dist.distributions))
 
-Gen.logpdf(dist::ProductDistribution, x, component_args_flat...) =
-    sum(Gen.logpdf(dist.distributions[k], x[k], extract_args_for_component(dist, component_args_flat, k)...) for k in 1:dist.K)
+Gen.logpdf(dist::ProductDistribution, x, args...) =
+    sum(Gen.logpdf(d, x[k], extract_args_for_component(dist, args, k)...) for (k, d) in enumerate(dist.distributions))
 
 function Gen.logpdf_grad(dist::ProductDistribution, x, component_args_flat...)
     logpdf_grads = [Gen.logpdf_grad(dist.distributions[k], x[k], extract_args_for_component(dist, component_args_flat, k)...) for k in 1:dist.K]
