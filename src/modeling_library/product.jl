@@ -86,14 +86,15 @@ Gen.random(dist::ProductDistribution, args...) =
 Gen.logpdf(dist::ProductDistribution, x, args...) =
     sum(Gen.logpdf(d, x[k], extract_args_for_component(dist, args, k)...) for (k, d) in enumerate(dist.distributions))
 
-function Gen.logpdf_grad(dist::ProductDistribution, x, component_args_flat...)
-    logpdf_grads = [Gen.logpdf_grad(dist.distributions[k], x[k], extract_args_for_component(dist, component_args_flat, k)...) for k in 1:dist.K]
-    x_grad = if dist.has_output_grad
-        tuple((grads[1] for grads in logpdf_grads)...)
-    else
-        nothing
+function Gen.logpdf_grad(dist::ProductDistribution, x, args...)
+    x_grad = ()
+    arg_grads = ()
+    for (k, d) in enumerate(dist.distributions)
+        grads = Gen.logpdf_grad(d, x[k], extract_args_for_component(dist, args, k)...)
+        x_grad = (x_grad..., grads[1])
+        arg_grads = (arg_grads..., grads[2:end]...)
     end
-    arg_grads = vcat((collect(grads[2:end]) for grads in logpdf_grads)...)
+    x_grad = dist.has_output_grad ? x_grad : nothing
     return (x_grad, arg_grads...)
 end
 
