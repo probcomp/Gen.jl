@@ -52,11 +52,7 @@ function ProductDistribution(distributions::Vararg{<:Distribution})
     start_pos = 1
 
     for dist in distributions
-        type = typeof(dist)
-        while supertype(type) != Any
-            type = supertype(type)
-        end
-        push!(types, type.parameters[1])
+        push!(types, get_return_type(dist))
 
         _has_output_grads = _has_output_grads && has_output_grad(dist)
         _is_discrete = _is_discrete && is_discrete(dist)
