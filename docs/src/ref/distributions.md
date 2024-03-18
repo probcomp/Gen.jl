@@ -23,6 +23,7 @@ beta_uniform
 binom
 categorical
 cauchy
+dirichlet
 exponential
 gamma
 geometric
