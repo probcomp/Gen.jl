@@ -52,7 +52,7 @@ function ProductDistribution(distributions::Vararg{<:Distribution})
     start_pos = 1
 
     for dist in distributions
-        push!(types, get_return_type(dist))
+        push!(types, Gen.get_return_type(dist))
 
         _has_output_grads = _has_output_grads && has_output_grad(dist)
         _is_discrete = _is_discrete && is_discrete(dist)
