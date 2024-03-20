@@ -16,12 +16,13 @@ function logpdf_grad(::UniformDiscrete, x::Int, lower::Integer, high::Integer)
     (nothing, nothing, nothing)
 end
 
-function random(::UniformDiscrete, low::Integer, high::Integer)
-    rand(Distributions.DiscreteUniform(low, high))
+function random(rng::AbstractRNG, ::UniformDiscrete, low::Integer, high::Integer)
+    rand(rng, Distributions.DiscreteUniform(low, high))
 end
 is_discrete(::UniformDiscrete) = true
 
-(::UniformDiscrete)(low, high) = random(UniformDiscrete(), low, high)
+(dist::UniformDiscrete)(low, high) = dist(default_rng(), low, high)
+(::UniformDiscrete)(rng::AbstractRNG, low, high) = random(rng, UniformDiscrete(), low, high)
 
 has_output_grad(::UniformDiscrete) = false
 has_argument_grads(::UniformDiscrete) = (false, false)

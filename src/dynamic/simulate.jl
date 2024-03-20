@@ -2,11 +2,12 @@ mutable struct GFSimulateState
     trace::DynamicDSLTrace
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
+    rng::AbstractRNG
 end
 
-function GFSimulateState(gen_fn::GenerativeFunction, args::Tuple, params)
+function GFSimulateState(gen_fn::GenerativeFunction, args::Tuple, params, rng::AbstractRNG)
     trace = DynamicDSLTrace(gen_fn, args)
-    GFSimulateState(trace, AddressVisitor(), params)
+    GFSimulateState(trace, AddressVisitor(), params, rng)
 end
 
 function traceat(state::GFSimulateState, dist::Distribution{T},
@@ -16,7 +17,7 @@ function traceat(state::GFSimulateState, dist::Distribution{T},
     # check that key was not already visited, and mark it as visited
     visit!(state.visitor, key)
 
-    retval = random(dist, args...)
+    retval = random(state.rng, dist, args...)
 
     # compute logpdf
     score = logpdf(dist, retval, args...)
@@ -56,8 +57,8 @@ function splice(state::GFSimulateState, gen_fn::DynamicDSLFunction,
     retval
 end
 
-function simulate(gen_fn::DynamicDSLFunction, args::Tuple)
-    state = GFSimulateState(gen_fn, args, gen_fn.params)
+function simulate(rng::AbstractRNG, gen_fn::DynamicDSLFunction, args::Tuple)
+    state = GFSimulateState(gen_fn, args, gen_fn.params, rng)
     retval = exec(gen_fn, state, args)
     set_retval!(state.trace, retval)
     state.trace

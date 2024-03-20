@@ -59,29 +59,35 @@ function assess(gen_fn::ChoiceAtCombinator{T,K}, args::Tuple, choices::ChoiceMap
     (weight, value)
 end
 
-function propose(gen_fn::ChoiceAtCombinator{T,K}, args::Tuple) where {T,K}
+propose(gen_fn::ChoiceAtCombinator, args::Tuple) = propose(default_rng(), gen_fn, args)
+
+function propose(rng::AbstractRNG, gen_fn::ChoiceAtCombinator{T,K}, args::Tuple) where {T,K}
     local key::K
     local value::T
     (key, kernel_args) = unpack_choice_at_args(args)
-    value = random(gen_fn.dist, kernel_args...)
+    value = random(rng, gen_fn.dist, kernel_args...)
     score = logpdf(gen_fn.dist, value, kernel_args...)
     choices = ChoiceAtChoiceMap(key, value)
     (choices, score, value)
 end
 
-function simulate(gen_fn::ChoiceAtCombinator, args::Tuple)
+simulate(gen_fn::ChoiceAtCombinator, args::Tuple) = simulate(default_rng(), gen_fn, args)
+
+function simulate(rng::AbstractRNG, gen_fn::ChoiceAtCombinator, args::Tuple)
     (key, kernel_args) = unpack_choice_at_args(args)
-    value = random(gen_fn.dist, kernel_args...)
+    value = random(rng, gen_fn.dist, kernel_args...)
     score = logpdf(gen_fn.dist, value, kernel_args...)
     ChoiceAtTrace(gen_fn, value, key, kernel_args, score)
 end
 
-function generate(gen_fn::ChoiceAtCombinator{T,K}, args::Tuple, choices::ChoiceMap) where {T,K}
+generate(gen_fn::ChoiceAtCombinator, args::Tuple, choices::ChoiceMap) = generate(default_rng(), gen_fn, args, choices)
+
+function generate(rng::AbstractRNG, gen_fn::ChoiceAtCombinator{T,K}, args::Tuple, choices::ChoiceMap) where {T,K}
     local key::K
     local value::T
     (key, kernel_args) = unpack_choice_at_args(args)
     constrained = has_value(choices, key)
-    value = constrained ? get_value(choices, key) : random(gen_fn.dist, kernel_args...)
+    value = constrained ? get_value(choices, key) : random(rng, gen_fn.dist, kernel_args...)
     score = logpdf(gen_fn.dist, value, kernel_args...)
     trace = ChoiceAtTrace(gen_fn, value, key, kernel_args, score)
     weight = constrained ? score : 0.
@@ -115,17 +121,20 @@ function update(trace::ChoiceAtTrace, args::Tuple, argdiffs::Tuple,
     (new_trace, weight, UnknownChange(), discard)
 end
 
-function regenerate(trace::ChoiceAtTrace, args::Tuple, argdiffs::Tuple,
-                    selection::Selection)
+regenerate(trace::ChoiceAtTrace, args::Tuple, argdiffs::Tuple, selection::Selection) =
+    regenerate(default_rng(), trace, args, argdiffs, selection)
+
+function regenerate(rng::AbstractRNG, trace::ChoiceAtTrace, args::Tuple,
+                    argdiffs::Tuple, selection::Selection)
     (key, kernel_args) = unpack_choice_at_args(args)
     key_changed = (key != trace.key)
     selected = key in selection
     if !key_changed && selected
-        new_value = random(trace.gen_fn.dist, kernel_args...)
+        new_value = random(rng, trace.gen_fn.dist, kernel_args...)
     elseif !key_changed && !selected
         new_value = trace.value
     elseif key_changed && !selected
-        new_value = random(trace.gen_fn.dist, kernel_args...)
+        new_value = random(rng, trace.gen_fn.dist, kernel_args...)
     else
         error("Cannot select new address $key in regenerate")
     end

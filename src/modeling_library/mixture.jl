@@ -57,7 +57,8 @@ struct HomogeneousMixture{T} <: Distribution{T}
     dims::Vector{Int}
 end
 
-(dist::HomogeneousMixture)(args...) = random(dist, args...)
+(dist::HomogeneousMixture)(args...) = dist(default_rng(), args...)
+(dist::HomogeneousMixture)(rng::AbstractRNG, args...) = random(rng, dist, args...)
 
 Gen.has_output_grad(dist::HomogeneousMixture) = has_output_grad(dist.base_dist)
 Gen.has_argument_grads(dist::HomogeneousMixture) = (true, has_argument_grads(dist.base_dist)...)
@@ -69,9 +70,9 @@ function args_for_component(dist::HomogeneousMixture, k::Int, args)
             for (arg, dim) in zip(args, dist.dims))
 end
 
-function Gen.random(dist::HomogeneousMixture, weights, args...)
+function Gen.random(rng::AbstractRNG, dist::HomogeneousMixture, weights, args...)
     k = categorical(weights)
-    return random(dist.base_dist, args_for_component(dist, k, args)...)
+    return random(rng, dist.base_dist, args_for_component(dist, k, args)...)
 end
 
 function Gen.logpdf(dist::HomogeneousMixture, x, weights, args...)
@@ -170,7 +171,8 @@ struct HeterogeneousMixture{T} <: Distribution{T}
     starting_args::Vector{Int}
 end
 
-(dist::HeterogeneousMixture)(args...) = random(dist, args...)
+(dist::HeterogeneousMixture)(args...) = dist(default_rng(), args...)
+(dist::HeterogeneousMixture)(rng::AbstractRNG, args...) = random(rng, dist, args...)
 
 Gen.has_output_grad(dist::HeterogeneousMixture) = dist.has_output_grad
 Gen.has_argument_grads(dist::HeterogeneousMixture) = dist.has_argument_grads
@@ -211,10 +213,11 @@ function extract_args_for_component(dist::HeterogeneousMixture, component_args_f
     return component_args_flat[start_arg:start_arg+n-1]
 end
 
-function Gen.random(dist::HeterogeneousMixture{T}, weights, component_args_flat...) where {T}
+function Gen.random(rng::AbstractRNG, dist::HeterogeneousMixture{T}, weights, component_args_flat...) where {T}
     (length(weights) != dist.K) && error(MIXTURE_WRONG_NUM_COMPONENTS_ERR)
     k = categorical(weights)
     value::T = random(
+        rng,
         dist.distributions[k],
         extract_args_for_component(dist, component_args_flat, k)...)
     return value

@@ -7,16 +7,18 @@ reversal(::typeof(metropolis_hastings)) = metropolis_hastings
 """
     (new_trace, accepted) = metropolis_hastings(
         trace, selection::Selection;
-        check=false, observations=EmptyChoiceMap())
+        check=false, observations=EmptyChoiceMap(),
+        rng::Random.AbstractRNG=Random.default_rng())
 
 Perform a Metropolis-Hastings update that proposes new values for the selected addresses from the internal proposal (often using ancestral sampling), returning the new trace (which is equal to the previous trace if the move was not accepted) and a Bool indicating whether the move was accepted or not.
 """
 function metropolis_hastings(
         trace, selection::Selection;
-        check=false, observations=EmptyChoiceMap())
-    (new_trace, weight) = regenerate(trace, selection)
+        check=false, observations=EmptyChoiceMap(),
+        rng::Random.AbstractRNG=Random.default_rng())
+    (new_trace, weight) = regenerate(rng, trace, selection)
     check && check_observations(get_choices(new_trace), observations)
-    if log(rand()) < weight
+    if log(rand(rng)) < weight
         # accept
         return (new_trace, true)
     else
@@ -38,19 +40,20 @@ If the proposal modifies addresses that determine the control flow in the model,
 """
 function metropolis_hastings(
         trace, proposal::GenerativeFunction, proposal_args::Tuple;
-        check=false, observations=EmptyChoiceMap())
+        check=false, observations=EmptyChoiceMap(),
+        rng::Random.AbstractRNG=Random.default_rng())
     # TODO add a round trip check
     model_args = get_args(trace)
     argdiffs = map((_) -> NoChange(), model_args)
     proposal_args_forward = (trace, proposal_args...,)
-    (fwd_choices, fwd_weight, _) = propose(proposal, proposal_args_forward)
-    (new_trace, weight, _, discard) = update(trace,
+    (fwd_choices, fwd_weight, _) = propose(rng, proposal, proposal_args_forward)
+    (new_trace, weight, _, discard) = update(rng, trace,
         model_args, argdiffs, fwd_choices)
     proposal_args_backward = (new_trace, proposal_args...,)
     (bwd_weight, _) = assess(proposal, proposal_args_backward, discard)
     alpha = weight - fwd_weight + bwd_weight
     check && check_observations(get_choices(new_trace), observations)
-    if log(rand()) < alpha
+    if log(rand(rng)) < alpha
         # accept
         return (new_trace, true)
     else
@@ -83,10 +86,11 @@ The `check` keyword argument to the involution can be used to enable or disable 
 function metropolis_hastings(
         trace, proposal::GenerativeFunction,
         proposal_args::Tuple, involution::Union{TraceTransformDSLProgram,Function};
-        check=false, observations=EmptyChoiceMap())
+        check=false, observations=EmptyChoiceMap(),
+        rng::Random.AbstractRNG=Random.default_rng())
     trace_translator = SymmetricTraceTranslator(proposal, proposal_args, involution)
     (new_trace, log_weight) = trace_translator(trace; check=check, observations=observations)
-    if log(rand()) < log_weight
+    if log(rand(rng)) < log_weight
         # accept
         (new_trace, true)
     else

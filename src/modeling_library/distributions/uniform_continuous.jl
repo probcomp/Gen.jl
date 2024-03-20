@@ -18,11 +18,13 @@ function logpdf_grad(::UniformContinuous, x::Real, low::Real, high::Real)
     (0., inv_diff, -inv_diff)
 end
 
-function random(::UniformContinuous, low::Real, high::Real)
-    rand() * (high - low) + low
+function random(rng::AbstractRNG, ::UniformContinuous, low::Real, high::Real)
+    rand(rng) * (high - low) + low
 end
 
-(::UniformContinuous)(low, high) = random(UniformContinuous(), low, high)
+(dist::UniformContinuous)(low, high) = dist(default_rng(), low, high)
+(::UniformContinuous)(rng::AbstractRNG, low, high) = random(rng, UniformContinuous(), low, high)
+
 is_discrete(::UniformContinuous) = false
 
 has_output_grad(::UniformContinuous) = true

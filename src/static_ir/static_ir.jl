@@ -63,18 +63,18 @@ function generate_generative_function(ir::StaticIR, name::Symbol, options::Stati
         $(GlobalRef(Gen, :get_options))(::Type{$gen_fn_type_name}) = $(QuoteNode(options))
         # Generate GFI definitions
         (gen_fn::$gen_fn_type_name)(args...) = $(GlobalRef(Gen, :propose))(gen_fn, args)[3]
-        @generated function $(GlobalRef(Gen, :simulate))(gen_fn::$gen_fn_type_name, args::$(QuoteNode(Tuple)))
+        @generated function $(GlobalRef(Gen, :simulate))(rng::$AbstractRNG, gen_fn::$gen_fn_type_name, args::$(QuoteNode(Tuple)))
             $(QuoteNode(codegen_simulate))(gen_fn, args)
         end
-        @generated function $(GlobalRef(Gen, :generate))(gen_fn::$gen_fn_type_name, args::$(QuoteNode(Tuple)),
+        @generated function $(GlobalRef(Gen, :generate))(rng::$AbstractRNG, gen_fn::$gen_fn_type_name, args::$(QuoteNode(Tuple)),
                                                          constraints::$(QuoteNode(ChoiceMap)))
             $(QuoteNode(codegen_generate))(gen_fn, args, constraints)
         end
-        @generated function $(GlobalRef(Gen, :update))(trace::$trace_type, args::$(QuoteNode(Tuple)),
+        @generated function $(GlobalRef(Gen, :update))(rng::$AbstractRNG, trace::$trace_type, args::$(QuoteNode(Tuple)),
                                                        argdiffs::$(QuoteNode(Tuple)), constraints::$(QuoteNode(ChoiceMap)))
             $(QuoteNode(codegen_update))(trace, args, argdiffs, constraints)
         end
-        @generated function $(GlobalRef(Gen, :regenerate))(trace::$trace_type, args::$(QuoteNode(Tuple)),
+        @generated function $(GlobalRef(Gen, :regenerate))(rng::$AbstractRNG, trace::$trace_type, args::$(QuoteNode(Tuple)),
                                                            argdiffs::$(QuoteNode(Tuple)), selection::$(QuoteNode(Selection)))
             $(QuoteNode(codegen_regenerate))(trace, args, argdiffs, selection)
         end

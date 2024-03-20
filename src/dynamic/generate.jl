@@ -4,11 +4,12 @@ mutable struct GFGenerateState
     weight::Float64
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
+    rng::AbstractRNG
 end
 
-function GFGenerateState(gen_fn, args, constraints, params)
+function GFGenerateState(gen_fn, args, constraints, params, rng::AbstractRNG)
     trace = DynamicDSLTrace(gen_fn, args)
-    GFGenerateState(trace, constraints, 0., AddressVisitor(), params)
+    GFGenerateState(trace, constraints, 0., AddressVisitor(), params, rng)
 end
 
 function traceat(state::GFGenerateState, dist::Distribution{T},
@@ -26,7 +27,7 @@ function traceat(state::GFGenerateState, dist::Distribution{T},
     if constrained
         retval = get_value(state.constraints, key)
     else
-        retval = random(dist, args...)
+        retval = random(state.rng, dist, args...)
     end
 
     # compute logpdf
@@ -78,9 +79,12 @@ function splice(state::GFGenerateState, gen_fn::DynamicDSLFunction,
     retval
 end
 
-function generate(gen_fn::DynamicDSLFunction, args::Tuple,
-                    constraints::ChoiceMap)
-    state = GFGenerateState(gen_fn, args, constraints, gen_fn.params)
+generate(gen_fn::DynamicDSLFunction, args::Tuple, constraints::ChoiceMap) =
+    generate(default_rng(), gen_fn, args, constraints)
+
+function generate(rng::AbstractRNG, gen_fn::DynamicDSLFunction, args::Tuple,
+                  constraints::ChoiceMap)
+    state = GFGenerateState(gen_fn, args, constraints, gen_fn.params, rng)
     retval = exec(gen_fn, state, args)
     set_retval!(state.trace, retval)
     (state.trace, state.weight)

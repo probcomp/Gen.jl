@@ -93,10 +93,14 @@ function accumulate_param_gradients_determ!(
     gradient_with_state(gen_fn, state, args, retgrad)
 end
 
+simulate(::AbstractRNG, gen_fn::CustomDetermGF, args::Tuple) = simulate(gen_fn, args)
+
 function simulate(gen_fn::CustomDetermGF{T,S}, args::Tuple) where {T,S}
     retval, state = apply_with_state(gen_fn, args)
     CustomDetermGFTrace{T,S}(retval, state, args, gen_fn)
 end
+
+generate(::AbstractRNG, gen_fn::CustomDetermGF, args::Tuple, choices::ChoiceMap) = generate(gen_fn, args, choices)
 
 function generate(gen_fn::CustomDetermGF{T,S}, args::Tuple, choices::ChoiceMap) where {T,S}
     if !isempty(choices)
@@ -107,6 +111,8 @@ function generate(gen_fn::CustomDetermGF{T,S}, args::Tuple, choices::ChoiceMap) 
     trace, 0.
 end
 
+update(::AbstractRNG, trace::CustomDetermGFTrace, args::Tuple, argdiffs::Tuple, choices::ChoiceMap) = update(trace, args, argdiffs, choices)
+
 function update(trace::CustomDetermGFTrace{T,S}, args::Tuple, argdiffs::Tuple, choices::ChoiceMap) where {T,S}
     if !isempty(choices)
         error("Deterministic generative function makes no random choices")
@@ -115,6 +121,8 @@ function update(trace::CustomDetermGFTrace{T,S}, args::Tuple, argdiffs::Tuple, c
     new_trace = CustomDetermGFTrace{T,S}(retval, state, args, trace.gen_fn)
     (new_trace, 0., retdiff, choicemap())
 end
+
+regenerate(::AbstractRNG, trace::CustomDetermGFTrace, args::Tuple, argdiffs::Tuple, selection::Selection) = regenerate(trace, args, argdiffs, selection)
 
 function regenerate(trace::CustomDetermGFTrace, args::Tuple, argdiffs::Tuple, selection::Selection)
     update(trace, args, argdiffs, EmptyChoiceMap())

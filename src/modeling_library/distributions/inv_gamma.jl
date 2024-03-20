@@ -25,13 +25,14 @@ function logpdf_grad(::InverseGamma, x::Real, shape::Real, scale::Real)
 end
 
 
-function random(::InverseGamma, shape::Real, scale::Real)
-    rand(Distributions.InverseGamma(shape, scale))
+function random(rng::AbstractRNG, ::InverseGamma, shape::Real, scale::Real)
+    rand(rng, Distributions.InverseGamma(shape, scale))
 end
 
 is_discrete(::InverseGamma) = false
 
-(::InverseGamma)(shape, scale) = random(InverseGamma(), shape, scale)
+(dist::InverseGamma)(shape, scale) = dist(default_rng(), shape, scale)
+(::InverseGamma)(rng::AbstractRNG, shape, scale) = random(rng, InverseGamma(), shape, scale)
 
 has_output_grad(::InverseGamma) = true
 has_argument_grads(::InverseGamma) = (true, true)

@@ -6,14 +6,15 @@ mutable struct GFUpdateState
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
     discard::DynamicChoiceMap
+    rng::AbstractRNG
 end
 
-function GFUpdateState(gen_fn, args, prev_trace, constraints, params)
+function GFUpdateState(gen_fn, args, prev_trace, constraints, params, rng::AbstractRNG)
     visitor = AddressVisitor()
     discard = choicemap()
     trace = DynamicDSLTrace(gen_fn, args)
     GFUpdateState(prev_trace, trace, constraints,
-        0., visitor, params, discard)
+        0., visitor, params, discard, rng)
 end
 
 function traceat(state::GFUpdateState, dist::Distribution{T},
@@ -48,7 +49,7 @@ function traceat(state::GFUpdateState, dist::Distribution{T},
     elseif has_previous
         retval = prev_retval
     else
-        retval = random(dist, args...)
+        retval = random(state.rng, dist, args...)
     end
 
     # compute logpdf
@@ -184,10 +185,10 @@ function add_unvisited_to_discard!(discard::DynamicChoiceMap,
     end
 end
 
-function update(trace::DynamicDSLTrace, arg_values::Tuple, arg_diffs::Tuple,
+function update(rng::AbstractRNG, trace::DynamicDSLTrace, arg_values::Tuple, arg_diffs::Tuple,
                 constraints::ChoiceMap)
     gen_fn = trace.gen_fn
-    state = GFUpdateState(gen_fn, arg_values, trace, constraints, gen_fn.params)
+    state = GFUpdateState(gen_fn, arg_values, trace, constraints, gen_fn.params, rng)
     retval = exec(gen_fn, state, arg_values)
     set_retval!(state.trace, retval)
     visited = get_visited(state.visitor)

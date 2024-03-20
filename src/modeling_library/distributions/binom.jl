@@ -15,11 +15,12 @@ function logpdf_grad(::Binomial, x::Integer, n::Integer, p::Real)
 	(nothing, nothing, (x / p - (n - x) / (1 - p)))
 end
 
-function random(::Binomial, n::Integer, p::Real)
-	rand(Distributions.Binomial(n, p))
+function random(rng::AbstractRNG, ::Binomial, n::Integer, p::Real)
+	rand(rng, Distributions.Binomial(n, p))
 end
 
-(::Binomial)(n, p) = random(Binomial(), n, p)
+(dist::Binomial)(n, p) = dist(default_rng(), n, p)
+(::Binomial)(rng::AbstractRNG, n, p) = random(rng, Binomial(), n, p)
 
 has_output_grad(::Binomial) = false
 has_argument_grads(::Binomial) = (false, true)

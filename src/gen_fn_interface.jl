@@ -135,7 +135,7 @@ Return an iterable over the trainable parameters of the generative function.
 get_params(::GenerativeFunction) = ()
 
 """
-    trace = simulate(gen_fn, args)
+    trace = simulate([rng::AbstractRNG], gen_fn, args)
 
 Execute the generative function and return the trace.
 
@@ -145,16 +145,18 @@ If `gen_fn` has optional trailing arguments (i.e., default values are provided),
 the optional arguments can be omitted from the `args` tuple. The generated trace
  will have default values filled in.
 """
-function simulate(::GenerativeFunction, ::Tuple)
+function simulate(::AbstractRNG, ::GenerativeFunction, ::Tuple)
     error("Not implemented")
 end
 
+simulate(gen_fn::GenerativeFunction, args::Tuple) = simulate(default_rng(), gen_fn, args)
+
 """
-    (trace::U, weight) = generate(gen_fn::GenerativeFunction{T,U}, args::Tuple)
+    (trace::U, weight) = generate([rng::AbstractRNG], gen_fn::GenerativeFunction{T,U}, args::Tuple)
 
 Return a trace of a generative function.
 
-    (trace::U, weight) = generate(gen_fn::GenerativeFunction{T,U}, args::Tuple,
+    (trace::U, weight) = generate(rng, gen_fn::GenerativeFunction{T,U}, args::Tuple,
                                     constraints::ChoiceMap)
 
 Return a trace of a generative function that is consistent with the given
@@ -181,13 +183,17 @@ Example with constraint that address `:z` takes value `true`.
 (trace, weight) = generate(foo, (2, 4), choicemap((:z, true))
 ```
 """
-function generate(::GenerativeFunction, ::Tuple, ::ChoiceMap)
+function generate(::AbstractRNG, ::GenerativeFunction, ::Tuple, ::ChoiceMap)
     error("Not implemented")
 end
 
-function generate(gen_fn::GenerativeFunction, args::Tuple)
-    generate(gen_fn, args, EmptyChoiceMap())
+generate(gen_fn::GenerativeFunction, args::Tuple, choices::ChoiceMap) = generate(default_rng(), gen_fn, args, choices)
+
+function generate(rng::AbstractRNG, gen_fn::GenerativeFunction, args::Tuple)
+    generate(rng, gen_fn, args, EmptyChoiceMap())
 end
+
+generate(gen_fn::GenerativeFunction, args::Tuple) = generate(default_rng(), gen_fn, args)
 
 """
     weight = project(trace::U, selection::Selection)
@@ -207,7 +213,7 @@ function project(trace, selection::Selection)
 end
 
 """
-    (choices, weight, retval) = propose(gen_fn::GenerativeFunction, args::Tuple)
+    (choices, weight, retval) = propose([rng::AbstractRNG], gen_fn::GenerativeFunction, args::Tuple)
 
 Sample an assignment and compute the probability of proposing that assignment.
 
@@ -218,11 +224,13 @@ t)\$, and return \$t\$
 \\log \\frac{p(r, t; x)}{q(r; x, t)}
 ```
 """
-function propose(gen_fn::GenerativeFunction, args::Tuple)
-    trace = simulate(gen_fn, args)
+function propose(rng::AbstractRNG, gen_fn::GenerativeFunction, args::Tuple)
+    trace = simulate(rng, gen_fn, args)
     weight = get_score(trace)
     (get_choices(trace), weight, get_retval(trace))
 end
+
+propose(gen_fn::GenerativeFunction, args::Tuple) = propose(default_rng(), gen_fn, args)
 
 """
     (weight, retval) = assess(gen_fn::GenerativeFunction, args::Tuple, choices::ChoiceMap)
@@ -243,8 +251,8 @@ function assess(gen_fn::GenerativeFunction, args::Tuple, choices::ChoiceMap)
 end
 
 """
-    (new_trace, weight, retdiff, discard) = update(trace, args::Tuple, argdiffs::Tuple,
-                                                   constraints::ChoiceMap)
+    (new_trace, weight, retdiff, discard) = update([rng::AbstractRNG], trace, args::Tuple,
+                                                   argdiffs::Tuple, constraints::ChoiceMap)
 
 Update a trace by changing the arguments and/or providing new values for some
 existing random choice(s) and values for some newly introduced random choice(s).
@@ -272,25 +280,30 @@ that if the original `trace` was generated using non-default argument values,
 then for each optional argument that is omitted, the old value will be
 over-written by the default argument value in the updated trace.
 """
-function update(trace, args::Tuple, argdiffs::Tuple, ::ChoiceMap)
+function update(::AbstractRNG, trace, ::Tuple, ::Tuple, ::ChoiceMap)
     error("Not implemented")
 end
 
+update(trace, args::Tuple, argdiffs::Tuple, choices::ChoiceMap) =
+    update(default_rng(), trace, args, argdiffs, choices)
+
 """
-    (new_trace, weight, retdiff, discard) = update(trace, constraints::ChoiceMap)
+    (new_trace, weight, retdiff, discard) = update([rng::AbstractRNG], trace, constraints::ChoiceMap)
 
 Shorthand variant of
 [`update`](@ref update(::Any, ::Tuple, ::Tuple, ::ChoiceMap))
 which assumes the arguments are unchanged.
 """
-function update(trace, constraints::ChoiceMap)
+function update(rng::AbstractRNG, trace, constraints::ChoiceMap)
     args = get_args(trace)
     argdiffs = Tuple(NoChange() for _ in args)
-    return update(trace, args, argdiffs, constraints)
+    return update(rng, trace, args, argdiffs, constraints)
 end
 
+update(trace, constraints::ChoiceMap) = update(default_rng(), trace, constraints)
+
 """
-    (new_trace, weight, retdiff) = regenerate(trace, args::Tuple, argdiffs::Tuple,
+    (new_trace, weight, retdiff) = regenerate([rng::AbstractRNG], trace, args::Tuple, argdiffs::Tuple,
                                               selection::Selection)
 
 Update a trace by changing the arguments and/or randomly sampling new values
@@ -317,22 +330,27 @@ that if the original `trace` was generated using non-default argument values,
 then for each optional argument that is omitted, the old value will be
 over-written by the default argument value in the regenerated trace.
 """
-function regenerate(trace, args::Tuple, argdiffs::Tuple, selection::Selection)
+function regenerate(::AbstractRNG, trace, ::Tuple, ::Tuple, ::Selection)
     error("Not implemented")
 end
 
+regenerate(trace, args::Tuple, argdiffs::Tuple, selection::Selection) =
+    regenerate(default_rng(), trace, args, argdiffs, selection)
+
 """
-    (new_trace, weight, retdiff) = regenerate(trace, selection::Selection)
+    (new_trace, weight, retdiff) = regenerate([rng::AbstractRNG], trace, selection::Selection)
 
 Shorthand variant of
 [`regenerate`](@ref regenerate(::Any, ::Tuple, ::Tuple, ::Selection))
 which assumes the arguments are unchanged.
 """
-function regenerate(trace, selection::Selection)
+function regenerate(rng::AbstractRNG, trace, selection::Selection)
     args = get_args(trace)
     argdiffs = Tuple(NoChange() for _ in args)
-    return regenerate(trace, args, argdiffs, selection)
+    return regenerate(rng, trace, args, argdiffs, selection)
 end
+
+regenerate(trace, selection::Selection) = regenerate(default_rng(), trace, selection)
 
 """
     arg_grads = accumulate_param_gradients!(trace, retgrad=nothing, scale_factor=1.)

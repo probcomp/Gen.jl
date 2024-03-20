@@ -23,9 +23,10 @@ end
 
 is_discrete(::Cauchy) = false
 
-random(::Cauchy, x0::Real, gamma::Real) = rand(Distributions.Cauchy(x0, gamma))
+random(rng::AbstractRNG, ::Cauchy, x0::Real, gamma::Real) = rand(rng, Distributions.Cauchy(x0, gamma))
 
-(::Cauchy)(x0::Real, gamma::Real) = random(Cauchy(), x0, gamma)
+(dist::Cauchy)(x0::Real, gamma::Real) = dist(default_rng(), x0, gamma)
+(::Cauchy)(rng::AbstractRNG, x0::Real, gamma::Real) = random(rng, Cauchy(), x0, gamma)
 
 has_output_grad(::Cauchy) = true
 has_argument_grads(::Cauchy) = (true, true)

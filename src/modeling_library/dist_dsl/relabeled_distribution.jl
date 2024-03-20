@@ -37,13 +37,14 @@ function logpdf_grad(d::WithLabelArg{T, U}, x::T, collection, base_args...) wher
     (nothing, nothing, base_arg_grads...)
 end
 
-function random(d::WithLabelArg{T, U}, collection, base_args...)::T where {T, U}
-    collection[random(d.base, base_args...)]
+function random(rng::AbstractRNG, d::WithLabelArg{T, U}, collection, base_args...)::T where {T, U}
+    collection[random(rng, d.base, base_args...)]
 end
 
 is_discrete(d::WithLabelArg{T, U}) where {T, U} = true
 
-(d::WithLabelArg{T, U})(collection, base_args...) where {T, U} = random(d, collection, base_args...)
+(d::WithLabelArg)(collection, base_args...) = d(default_rng(), collection, base_args...)
+(d::WithLabelArg{T, U})(rng::AbstractRNG, collection, base_args...) where {T, U} = random(rng, d, collection, base_args...)
 
 function has_output_grad(d::WithLabelArg{T, U}) where {T, U}
     false
@@ -91,13 +92,14 @@ function logpdf_grad(d::RelabeledDistribution{T, U}, x::T, base_args...) where {
     (nothing, base_arg_grads...)
 end
 
-function random(d::RelabeledDistribution{T, U}, base_args...)::T where {T, U}
-    d.collection[random(d.base, base_args...)]
+function random(rng::AbstractRNG, d::RelabeledDistribution{T, U}, base_args...)::T where {T, U}
+    d.collection[random(rng, d.base, base_args...)]
 end
 
 is_discrete(d::RelabeledDistribution{T, U}) where {T, U} = true
 
-(d::RelabeledDistribution{T, U})(base_args...) where {T, U} = random(d, base_args...)
+(d::RelabeledDistribution)(base_args...) = d(default_rng(), base_args...)
+(d::RelabeledDistribution{T, U})(rng::AbstractRNG, base_args...) where {T, U} = random(rng, d, base_args...)
 
 function has_output_grad(d::RelabeledDistribution{T, U}) where {T, U}
     false

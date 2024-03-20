@@ -159,14 +159,15 @@ function logpdf_grad(d::CompiledDistWithArgs{T}, x::T, args...) where T
     return (self_output_grad, self_arg_grads...)
 end
 
-function random(d::CompiledDistWithArgs{T}, args...)::T where T
+function random(rng::AbstractRNG, d::CompiledDistWithArgs{T}, args...)::T where T
     concrete_args = [eval_arg(arg, args) for arg in d.arglist]
-    random(d.base, concrete_args...)
+    random(rng, d.base, concrete_args...)
 end
 
 is_discrete(d::CompiledDistWithArgs{T}) where T = is_discrete(d.base)
 
-(d::CompiledDistWithArgs{T})(args...) where T = random(d, args...)
+(d::CompiledDistWithArgs)(args...) = d(default_rng(), args...)
+(d::CompiledDistWithArgs{T})(rng::AbstractRNG, args...) where T = random(rng, d, args...)
 
 function has_output_grad(d::CompiledDistWithArgs{T}) where T
     has_output_grad(d.base)

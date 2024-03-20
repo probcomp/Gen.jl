@@ -3,10 +3,11 @@ mutable struct GFProposeState
     weight::Float64
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
+    rng::AbstractRNG
 end
 
-function GFProposeState(params::Dict{Symbol,Any})
-    GFProposeState(choicemap(), 0., AddressVisitor(), params)
+function GFProposeState(params::Dict{Symbol,Any}, rng::AbstractRNG)
+    GFProposeState(choicemap(), 0., AddressVisitor(), params, rng)
 end
 
 function traceat(state::GFProposeState, dist::Distribution{T},
@@ -17,7 +18,7 @@ function traceat(state::GFProposeState, dist::Distribution{T},
     visit!(state.visitor, key)
 
     # sample return value
-    retval = random(dist, args...)
+    retval = random(state.rng, dist, args...)
 
     # update assignment
     set_value!(state.choices, key, retval)
@@ -55,8 +56,8 @@ function splice(state::GFProposeState, gen_fn::DynamicDSLFunction, args::Tuple)
     retval
 end
 
-function propose(gen_fn::DynamicDSLFunction, args::Tuple)
-    state = GFProposeState(gen_fn.params)
+function propose(rng::AbstractRNG, gen_fn::DynamicDSLFunction, args::Tuple)
+    state = GFProposeState(gen_fn.params, rng)
     retval = exec(gen_fn, state, args)
     (state.choices, state.weight, retval)
 end

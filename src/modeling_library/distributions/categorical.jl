@@ -17,12 +17,13 @@ function logpdf_grad(::Categorical, x::Int, probs::AbstractArray{U,1})  where {U
     (nothing, grad)
 end
 
-function random(::Categorical, probs::AbstractArray{U,1}) where {U <: Real}
-    rand(Distributions.Categorical(probs))
+function random(rng::AbstractRNG, ::Categorical, probs::AbstractArray{U,1}) where {U <: Real}
+    rand(rng, Distributions.Categorical(probs))
 end
 is_discrete(::Categorical) = true
 
-(::Categorical)(probs) = random(Categorical(), probs)
+(dist::Categorical)(probs) = dist(default_rng(), probs)
+(::Categorical)(rng::AbstractRNG, probs) = random(rng, Categorical(), probs)
 
 has_output_grad(::Categorical) = false
 has_argument_grads(::Categorical) = (true,)

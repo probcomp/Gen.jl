@@ -33,15 +33,16 @@ function logpdf_grad(::BetaUniformMixture, x::Real, theta::Real, alpha::Real, be
     (x_deriv, theta_deriv, alpha_deriv, beta_deriv)
 end
 
-function random(::BetaUniformMixture, theta::Real, alpha::Real, beta::Real)
+function random(rng::AbstractRNG, ::BetaUniformMixture, theta::Real, alpha::Real, beta::Real)
     if bernoulli(theta)
-        random(Beta(), alpha, beta)
+        random(rng, Beta(), alpha, beta)
     else
-        random(uniform_continuous, 0., 1.)
+        random(rng, uniform_continuous, 0., 1.)
     end
 end
 
-(::BetaUniformMixture)(theta, alpha, beta) = random(BetaUniformMixture(), theta, alpha, beta)
+(dist::BetaUniformMixture)(theta, alpha, beta) = dist(default_rng(), theta, alpha, beta)
+(::BetaUniformMixture)(rng::AbstractRNG, theta, alpha, beta) = random(rng, BetaUniformMixture(), theta, alpha, beta)
 
 is_discrete(::BetaUniformMixture) = false
 

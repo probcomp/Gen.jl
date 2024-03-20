@@ -20,13 +20,14 @@ function Gen.logpdf_grad(::Geometric, x::Int, p::Real)
     (nothing, p_grad)
 end
 
-function Gen.random(::Geometric, p::Real)
-    rand(Distributions.Geometric(p))
+function Gen.random(rng::AbstractRNG, ::Geometric, p::Real)
+    rand(rng, Distributions.Geometric(p))
 end
 
 is_discrete(::Geometric) = true
 
-(::Geometric)(p) = random(Geometric(), p)
+(dist::Geometric)(p) = dist(default_rng(), p)
+(::Geometric)(rng::AbstractRNG, p) = random(rng, Geometric(), p)
 
 Gen.has_output_grad(::Geometric) = false
 Gen.has_argument_grads(::Geometric) = (true,)
