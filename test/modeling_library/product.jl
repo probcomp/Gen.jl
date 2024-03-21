@@ -10,7 +10,7 @@ discrete_product = ProductDistribution(bernoulli, binom)
 
     # random
     x = discrete_product(p1, n, p2)
-    @assert typeof(x) == get_return_type(discrete_product) == Tuple{Bool, Int}
+    @assert typeof(x) == Gen.get_return_type(discrete_product) == Tuple{Bool, Int}
 
     # logpdf
     x = (true, 2)
@@ -41,7 +41,7 @@ continuous_product = ProductDistribution(uniform, normal)
 
     # random
     x = continuous_product(low, high, mu, std)
-    @asssert typeof(x) == get_return_type(continuous_product) == Typle{Float64, Float64}
+    @asssert typeof(x) == Gen.get_return_type(continuous_product) == Typle{Float64, Float64}
 
     # logpdf
     x = (0.1, 0.7)
@@ -72,7 +72,7 @@ dissimilar_product = ProductDistribution(bernoulli, normal)
 
     # random
     x = dissimilar_product(p, mu, std)
-    @assert typeof(x) == get_return_type(dissimilar_product) == Tuple{Bool, Float64}
+    @assert typeof(x) == Gen.get_return_type(dissimilar_product) == Tuple{Bool, Float64}
 
     # logpdf
     x = (false, 0.3)
