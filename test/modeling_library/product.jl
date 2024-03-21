@@ -19,8 +19,8 @@ discrete_product = ProductDistribution(bernoulli, binom)
     @test isapprox(actual, expected)
 
     # test logpdf_grad against finite differencing
-    f = (x, p, mu, std) -> logpdf(discrete_product, x, p, mu, std)
-    args = (x, p, mu, std)
+    f = (x, p1, n, p2) -> logpdf(discrete_product, x, p1, n, p2)
+    args = (x, p1, n, p2)
     actual = logpdf_grad(discrete_product, args...)
     for (i, b) in enumerate(grad_bools)
         if b
