@@ -41,7 +41,7 @@ continuous_product = ProductDistribution(uniform, normal)
 
     # random
     x = continuous_product(low, high, mu, std)
-    @assert typeof(x) == Gen.get_return_type(continuous_product) == Typle{Float64, Float64}
+    @assert typeof(x) == Gen.get_return_type(continuous_product) == Tuple{Float64, Float64}
 
     # logpdf
     x = (0.1, 0.7)
