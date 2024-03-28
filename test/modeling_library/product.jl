@@ -22,10 +22,8 @@ discrete_product = ProductDistribution(bernoulli, binom)
     f = (x, p1, n, p2) -> logpdf(discrete_product, x, p1, n, p2)
     args = (x, p1, n, p2)
     actual = logpdf_grad(discrete_product, args...)
-    for (i, b) in enumerate(grad_bools)
-        if b
-            @test isapprox(actual[i], finite_diff(f, args, i, dx))
-        end
+    for i in [2, 4]
+        @test isapprox(actual[i], finite_diff(f, args, i, dx))
     end
 end
 
@@ -51,12 +49,13 @@ continuous_product = ProductDistribution(uniform, normal)
 
     # test logpdf_grad against finite differencing
     f = (x, low, high, mu, std) -> logpdf(continuous_product, x, low, high, mu, std)
-    args = (x, low, high, mu, std)
+    # A mutable indexable is required by `finite_diff_vec`, hence the `collect` here:
+    args = (collect(x), low, high, mu, std)
     actual = logpdf_grad(continuous_product, args...)
-    for (i, b) in enumerate(grad_bools)
-        if b
-            @test isapprox(actual[i], finite_diff(f, args, i, dx))
-        end
+    @test isapprox(actual[1][1], finite_diff_vec(f, args, 1, 1, dx))
+    @test isapprox(actual[1][2], finite_diff_vec(f, args, 1, 2, dx))
+    for i in 2:5
+        @test isapprox(actual[i], finite_diff(f, args, i, dx))
     end
 end
 
@@ -84,9 +83,7 @@ dissimilar_product = ProductDistribution(bernoulli, normal)
     f = (x, p, mu, std) -> logpdf(dissimilar_product, x, p, mu, std)
     args = (x, p, mu, std)
     actual = logpdf_grad(dissimilar_product, args...)
-    for (i, b) in enumerate(grad_bools)
-        if b
-            @test isapprox(actual[i], finite_diff(f, args, i, dx))
-        end
+    for i in 2:4
+        @test isapprox(actual[i], finite_diff(f, args, i, dx))
     end
 end
