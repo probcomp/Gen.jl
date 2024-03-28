@@ -62,6 +62,9 @@ include("dist_dsl/dist_dsl.jl")
 # mixtures of distributions
 include("mixture.jl")
 
+# products of distributions
+include("product.jl")
+
 ###############
 # combinators #
 ###############
