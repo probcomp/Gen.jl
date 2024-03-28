@@ -1,4 +1,4 @@
-struct Dirichlet <: Distribution{Float64} end
+struct Dirichlet <: Distribution{Vector{Float64}} end
 
 """
     Dirichlet(alpha::Vector{Float64})
