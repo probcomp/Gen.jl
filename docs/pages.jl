@@ -8,13 +8,18 @@ pages = [
         "Basics" => [
             "tutorials/modeling_in_gen.md",
             "tutorials/combinators.md",
+            "tutorials/gfi.md",
+            "tutorials/mcmc.md",
+            "tutorials/vi.md"
         ],
         "Advanced" => [
             "tutorials/modeling_in_gen.md",
+            "tutorials/trace_translators.md"
             # "tutorials/data_driven_proposals.md",
         ],
         "Modeling Languages" => [
             "tutorials/languages/static_dsl.md",
+            "tutorials/languages/extending.md"
         ],
     ],
     "Modeling Languages and APIs" => [
@@ -26,7 +31,6 @@ pages = [
         "Selections" => "api/selections.md",
         "Optimizing Trainable Parameters" => "api/parameter_optimization.md",
         "Trace Translators" => "api/trace_translators.md",
-        "Extending Gen" => "api/extending.md"
      ],
     "Standard Inference Library" => [
         "Importance Sampling" => "api/importance.md",
@@ -40,5 +44,10 @@ pages = [
     "Internals" => [
         "Optimizing Trainable Parameters" => "api/internals/parameter_optimization.md",
         "Modeling Language Implementation" => "api/internals/language_implementation.md"
-     ]
+    ],
+    "Miscellanea" => [
+        "Changelog" => "misc/changelog.md",
+        "Contributing" => "misc/contributing.md",
+        "References" => "misc/references.md"
+    ]
 ]
