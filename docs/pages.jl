@@ -2,7 +2,7 @@ pages = [
     "Home" => "index.md",
     "Getting Started" => [
         "Example 1: Linear Regression" => "getting_started/linear_regression.md",
-        "Example 2: Hidden Markov Models" => "getting_started/linear_regression.md",
+        "Example 2: Hidden Markov Models" => "getting_started/hidden_markov_model.md",
     ],
     "Tutorials" => [
         "Basics" => [
