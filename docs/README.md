@@ -2,7 +2,10 @@
 - `pages.jl` to find skeleton of website.
 - `make.jl` to build the website index.
 
-# How to add tutorials
+# Build Docs Locally
+Open the Julia REPL and include `make.jl`. 
+
+# Add Tutorial Code
 Currently you must write the tutorial directly in the docs rather than a source file (e.g. Quarto). See `getting_started` or `tutorials` for examples.
 
 Code snippets must use the triple backtick with a label to run. The environment carries over so long as the labels match. Example:

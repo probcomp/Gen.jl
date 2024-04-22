@@ -4,11 +4,9 @@ using Documenter, Gen
 include("pages.jl")
 makedocs(
     modules = [Gen],
-    # linkcheck = true,
     doctest = false,
     clean = true,
     warnonly = true,
-    # warnonly = [:missing_docs],
     format = Documenter.HTML(;
         assets = String["assets/header.js", "assets/header.css", "assets/theme.css"]
     ),

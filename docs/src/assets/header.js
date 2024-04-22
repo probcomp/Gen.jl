@@ -1,3 +1,5 @@
+// Source: 
+// https://github.com/ReactiveBayes/RxInfer.jl/blob/246b196a3ea29d0b5744ce241a923c7a3b30eaf4/docs/src/assets/header.js#L4
 
 // We add a simple `onload` hook to inject the custom header for our `HTML`-generated pages
 window.onload = function() {

@@ -45,9 +45,9 @@ pages = [
         "Optimizing Trainable Parameters" => "api/internals/parameter_optimization.md",
         "Modeling Language Implementation" => "api/internals/language_implementation.md"
     ],
-    "Miscellanea" => [
-        "Changelog" => "misc/changelog.md",
-        "Contributing" => "misc/contributing.md",
-        "References" => "misc/references.md"
-    ]
+    # "Miscellanea" => [
+    #     "Changelog" => "misc/changelog.md",
+    #     "Contributing" => "misc/contributing.md",
+    #     "References" => "misc/references.md"
+    # ]
 ]
