@@ -2,11 +2,11 @@
 
 ## Parsing `@gen` functions
 
-Gen's built-in modeling languages are designed to preserve Julia's syntax as far as possible, apart from the [Tilde syntax](@ref) for calling generative functions, and the restrictions imposed on the [Static Modeling Language](@ref). In order to preserve that syntax, including the use of non-Gen macros within `@gen` functions, we relegate as much of the parsing of `@gen` functions as possible to Julia's macro-expander and parser.
+Gen's built-in modeling languages are designed to preserve Julia's syntax as far as possible, apart from the [Tilde syntax](@ref) for calling generative functions, and the restrictions imposed on the [Static Modeling Language](@ref sml). In order to preserve that syntax, including the use of non-Gen macros within `@gen` functions, we relegate as much of the parsing of `@gen` functions as possible to Julia's macro-expander and parser.
 
 In particular, we adopt an implementation strategy that enforces a separation between the surface syntax associated with Gen-specific macros (i.e., `@trace` and `@param`) and their corresponding implementations, which differ across the Dynamic Modeling Language (DML) and the Static Modeling Language (SML). We do this by introducing the custom expressions `Expr(:gentrace, call, addr)` and `Expr(:genparam, name, type)`, which serve as intermediate representations in the macro-expanded [abstract syntax tree](https://docs.julialang.org/en/v1/manual/metaprogramming/#Program-representation-1).
 
-Each modeling language can then handle these custom expressions in their own manner, either by parsing them to nodes in the [Static Computation Graph](@ref) (for the SML), or by substituting them with their implementations (for the DML). This effectively allows the SML and DML to have separate implementations of `@trace` and `@param`.
+Each modeling language can then handle these custom expressions in their own manner, either by parsing them to nodes in the [Static Computation Graphs](@ref) (for the SML), or by substituting them with their implementations (for the DML). This effectively allows the SML and DML to have separate implementations of `@trace` and `@param`.
 
 For clarity, below is a procedural description of how the `@gen` macro processes Julia function syntax:
 

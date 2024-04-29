@@ -146,7 +146,7 @@ has_output_grad
 logpdf_grad
 ```
 
-## Custom generative functions
+## [Custom Generative Functions](@id custom_generative_functions)
 
 We recommend the following steps for implementing a new type of generative function, and also looking at the implementation for the [`DynamicDSLFunction`](@ref) type as an example.
 

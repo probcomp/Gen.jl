@@ -110,7 +110,7 @@ end
 # production_kern::GenerativeFunction{Tuple{V,Vector{U}},S}
 # aggregation_kern::GenerativeFunction{W,T}
 
-""""
+"""
     Recurse(production_kernel, aggregation_kernel, max_branch,
          ::Type{U}, ::Type{V}, ::Type{W})
 

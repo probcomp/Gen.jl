@@ -50,3 +50,8 @@ choicemap
 set_value!
 set_submap!
 ```
+
+```@docs
+DynamicChoiceMap
+EmptyChoiceMap
+```

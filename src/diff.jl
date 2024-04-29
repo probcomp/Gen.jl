@@ -25,26 +25,29 @@
 # a value with type Diffed should never appear outside of the update context.
 
 """
-    abstract type Diff end
+    Diff
 
-Abstract type for information about a change to a value.
+Abstract supertype for information about a change to a value.
 """
 abstract type Diff end
 
 """
     UnknownChange
 
-No information is provided about the change to the value.
+Singleton to indicate the change to the value is unknown or unprovided.
 """
 struct UnknownChange <: Diff end
 
 """
     NoChange
 
-The value did not change.
+Singleton to indicate the value did not change.
 """
 struct NoChange <: Diff end
 
+"""
+    SetDiff <: Diff
+"""
 struct SetDiff{V} <: Diff
 
     # elements that were added

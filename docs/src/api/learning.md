@@ -209,7 +209,7 @@ Then, the traces of the model can be obtained by simulating from the variational
 Instead of fitting the variational approximation from scratch for each observation, it is possible to fit an *inference model* instead, that takes as input the observation, and generates a distribution on latent variables as output (as in the wake sleep algorithm).
 When we train the variational approximation by minimizing the evidence lower bound (ELBO) this is called amortized variational inference.
 Variational autencoders are an example.
-It is possible to perform amortized variational inference using [`black_box_vi`](@ref) or [`black_box_vimco!`](@ref).
+It is possible to perform amortized variational inference using [`black_box_vi!`](@ref) or [`black_box_vimco!`](@ref).
 
 ## References
 

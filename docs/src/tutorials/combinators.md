@@ -87,54 +87,28 @@ get_retval(trace)
 
 Consider the following constructions:
 
-```@example switch_combinator
+```@setup switch_combinator
 using Gen
-@gen function bang((grad)(x::Float64), (grad)(y::Float64))
-    std::Float64 = 3.0
-    z = @trace(normal(x + y, std), :z)
+```
+
+```@example switch_combinator
+@gen function line(x)
+    z ~ normal(3*x+1,1.0)
     return z
 end
 
-@gen function fuzz((grad)(x::Float64), (grad)(y::Float64))
-    std::Float64 = 3.0
-    z = @trace(normal(x + 2 * y, std), :z)
+@gen function outlier(x)
+    z ~ normal(3*x+1, 10.0)
     return z
 end
 
-sc = Switch(bang, fuzz)
+switch_model = Switch(line, outlier)
 ```
 
-This creates a new generative function `sc`. We can then obtain the trace of `sc`:
+This creates a new generative function `switch_model` whose arguments take the form `(branch, args...)`. By default,
+branch is an integer indicating which generative function to execute. For example, branch `2` corresponds to `outlier`:
 
 ```@example switch_combinator
-trace, _ = simulate(sc, (2, 5.0, 3.0))
-trace
-```
-
-The resulting trace contains the subtrace from the branch with index `2` - in this case, a call to `fuzz`:
-
-```@example switch_combinator
+trace = simulate(switch_model, (2, 5.0))
 get_choices(trace)
-```
-```
-│
-└── :z : 13.552870875213735
-```
-
-## Recurse combinator
-
-TODO: document me
-
-```@raw html
-<div style="text-align:center">
-    <img src="../../images/recurse_combinator.png" alt="schematic of recurse combinatokr" width="70%"/>
-</div>
-```
-
-TODO: document me
-
-```@raw html
-<div style="text-align:center">
-    <img src="../../images/recurse_combinator.png" alt="schematic of recurse combinatokr" width="70%"/>
-</div>
 ```

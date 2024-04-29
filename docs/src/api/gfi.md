@@ -1,7 +1,8 @@
-## Generative Functions
+## [Generative Functions](@id gfi_api)
 
 ```@docs
 GenerativeFunction
+Trace
 ```
 
 add example
@@ -30,4 +31,9 @@ accepts_output_grad
 accumulate_param_gradients!
 choice_gradients
 get_params
+```
+
+```@docs
+NoChange
+UnknownChange
 ```

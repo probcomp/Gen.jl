@@ -1,4 +1,4 @@
-# [Getting Started with Gen.jl: Linear Regression](@id gen_linear_regression)
+# Getting Started with Gen.jl: Linear Regression
 
 
 Let's write a short Gen program that does Bayesian linear regression - that is, given a set of observation points in the xy-plane, we want to find a line that fits them "well". What does "well" mean in Bayesian linear regression? Well one way of interpreting this is by proposing a line that makes the data highly likely - as in a high probability of occuring. 

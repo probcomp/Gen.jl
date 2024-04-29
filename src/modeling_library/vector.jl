@@ -5,6 +5,7 @@ using FunctionalCollections: PersistentVector, assoc, push, pop
 ###########################################
 
 """
+    VectorTrace <: Trace
 
 U is the type of the subtrace, R is the return value type for the kernel
 """

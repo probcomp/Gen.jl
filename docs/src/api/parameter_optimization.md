@@ -1,4 +1,4 @@
-# Optimizing Trainable Parameters
+# Trainable Parameters(@trainable_parameter_optimization)
 
 Trainable parameters of generative functions are initialized differently depending on the type of generative function.
 Trainable parameters of the built-in modeling language are initialized with [`init_param!`](@ref).

@@ -1,4 +1,4 @@
-# Probability Distributions
+# [Probability Distributions](@id distributions)
 
 Gen provides a library of built-in probability distributions, and three ways of
 defining custom distributions, each of which are explained below:

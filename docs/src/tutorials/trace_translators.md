@@ -1,6 +1,6 @@
 # Trace Translators
 
-While [Generative Functions](@ref) define probability distributions on traces, **Trace Translators** convert from one space of traces to another space of traces.
+While [generative functions](@ref gfi_api) define probability distributions on traces, **Trace Translators** convert from one space of traces to another space of traces.
 Trace translators are building blocks of inference programs that utilize multiple model representations, like [Involutive MCMC](@ref).
 
 Trace translators are significantly more general than [Bijectors](https://www.tensorflow.org/probability/api_docs/python/tfp/bijectors/Bijector).

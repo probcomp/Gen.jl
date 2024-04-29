@@ -73,7 +73,7 @@ Gen programs typically consist of a combination of (i) probabilistic models writ
 using Plots
 ```
 
-## Generative Functions
+## [Generative Functions](@id gfi_tutorial_section)
 
 Probabilistic models are represented in Gen as *generative functions*.
 Generative functions are used to represent a variety of different types of

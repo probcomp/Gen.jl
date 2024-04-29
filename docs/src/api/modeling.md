@@ -1,4 +1,4 @@
-# Built-in Modeling Language
+# [The Dynamic Modeling Language](@id dynamic_modeling_language)
 
 Gen provides a built-in embedded modeling language for defining generative functions.
 The language uses a syntax that extends Julia's syntax for defining regular Julia functions, and is also referred to as the **Dynamic Modeling Language**.
@@ -29,14 +29,14 @@ We can also trace its execution:
 ```
 Optional arguments can be left out of the above operations, and default values will be filled in automatically:
 ```julia
-julia> (trace, _) = generate(foo, (,));
+julia> (trace, _) = generate(foo, ())
 julia> get_args(trace)
 (0.1,)
 ```
-See [Generative Functions](@ref) for the full set of operations supported by a generative function.
+See [Generative Functions](@ref gfi_api) for the full set of operations supported by a generative function.
 Note that the built-in modeling language described in this section is only one of many ways of defining a generative function -- generative functions can also be constructed using other embedded languages, or by directly implementing the methods of the generative function interface.
 However, the built-in modeling language is intended to being flexible enough cover a wide range of use cases.
-In the remainder of this section, we refer to generative functions defined using the built-in modeling language as `@gen` functions. Details about the implementation of `@gen` functions can be found in the [Modeling Language Implementation](@ref) section.
+In the remainder of this section, we refer to generative functions defined using the built-in modeling language as `@gen` functions. Details about the implementation of `@gen` functions can be found in the [Modeling Language Implementation](@ref language-implementation) section.
 
 ## Annotations
 
@@ -57,7 +57,7 @@ Each argument can have the following different syntactic forms:
 
 Currently, the possible argument annotations are:
 
-- `grad` (see [Differentiable programming](@ref)).
+- `grad` (see [Differentiable programming](@ref differentiable_modeling)).
 
 **Function annotations.** The `@gen` function itself can also be optionally associated with zero or more annotations, which are separate from the per-argument annotations.
 Function-level annotations use the following different syntactic forms:
@@ -70,11 +70,11 @@ Function-level annotations use the following different syntactic forms:
 
 Currently the possible function annotations are:
 
-- `grad` (see [Differentiable programming](@ref)).
+- `grad` (see [Differentiable programming](@ref differentiable_modeling)).
 
-- `static` (see [Static Modeling Language](@ref)).
+- `static` (see [Static Modeling Language](@ref sml)).
 
-- `nojuliacache` (see [Static Modeling Language](@ref)).
+- `nojuliacache` (see [Static Modeling Language](@ref sml)).
 
 ## Making random choices
 
@@ -82,7 +82,7 @@ Random choices are made by calling a probability distribution on some arguments:
 ```julia
 val::Bool = bernoulli(0.5)
 ```
-See [Probability Distributions](@ref) for the set of built-in probability distributions, and for information on implementing new probability distributions.
+See [Probability Distributions](@ref distributions) for the set of built-in probability distributions, and for information on implementing new probability distributions.
 
 In the body of a `@gen` function, wrapping a call to a random choice with an `@trace` expression associates the random choice with an *address*, and evaluates to the value of the random choice.
 The syntax is:
@@ -145,7 +145,7 @@ It is recommended to write disciplined generative functions when possible.
 
 **Untraced call**:
 If `foo` is a generative function, we can invoke `foo` from within the body of a `@gen` function using regular call syntax.
-The random choices made within the call are not given addresses in our trace, and are therefore *untraced* random choices (see [Generative Function Interface](@ref) for details on untraced random choices).
+The random choices made within the call are not given addresses in our trace, and are therefore *untraced* random choices (see [Generative Function Interface](@ref gfi) for details on untraced random choices).
 ```julia
 val = foo(0.5)
 ```
@@ -247,10 +247,10 @@ Note that `~` is also defined in `Base` as a unary operator that performs the bi
 
 Like regular Julia functions, `@gen` functions return either the expression used in a `return` keyword, or by evaluating the last expression in the function body.
 Note that the return value of a `@gen` function is different from a trace of `@gen` function, which contains the return value associated with an execution as well as the assignment to each random choice made during the execution.
-See [Generative Function Interface](@ref) for more information about traces.
+See [Generative Function Interface](@ref gfi) for more information about traces.
 
 
-## Trainable parameters
+## [Trainable Parameters](@id trainable_parameters_modeling)
 
 A `@gen` function may begin with an optional block of *trainable parameter declarations*.
 The block consists of a sequence of statements, beginning with `@param`, that declare the name and Julia type for each trainable parameter.
@@ -281,7 +281,7 @@ zero_param_grad!
 Trainable parameters are designed to be trained using gradient-based methods.
 This is discussed in the next section.
 
-## Differentiable programming
+## [Differentiable Programming](@id differentiable_modeling)
 
 Given a trace of a `@gen` function, Gen supports automatic differentiation of the log probability (density) of all of the random choices made in the trace with respect to the following types of inputs:
 
@@ -371,7 +371,7 @@ See [ReverseDiff](https://github.com/JuliaDiff/ReverseDiff.jl) for more details.
 When making a random choice, each argument is either a tracked value or not.
 If the argument is a tracked value, then the probability distribution must support differentiation of the log probability (density) with respect to that argument.
 Otherwise, an error is thrown.
-The [`has_argument_grads`](@ref) function indicates which arguments support differentiation for a given distribution (see [Probability Distributions](@ref)).
+The [`has_argument_grads`](@ref) function indicates which arguments support differentiation for a given distribution (see [Probability Distributions](@ref distributions)).
 If the gradient is required for the *value* of a random choice, the distribution must support differentiation of the log probability (density) with respect to the value.
 This is indicated by the [`has_output_grad`](@ref) function.
 
@@ -381,7 +381,7 @@ It is an error if a tracked value is passed as an argument of a generative funct
 If a generative function `gen_fn` has `accepts_output_grad(gen_fn) = true`, then the return value of the generative function call will be tracked and will propagate further through the caller `@gen` function's computation.
 
 
-## Static Modeling Language
+## [Static Modeling Language](@id sml)
 
 The *static modeling language* is a restricted variant of the built-in modeling language.
 Models written in the static modeling language can result in better inference performance (more inference operations per second and less memory consumption), than the full built-in modeling language, especially for models used with iterative inference algorithms like Markov chain Monte Carlo.
@@ -399,7 +399,7 @@ end
 ```
 After running this code, `foo` is a Julia value whose type is a subtype of `StaticIRGenerativeFunction`, which is a subtype of [`GenerativeFunction`](@ref).
 
-### Static computation graph
+### Static Computation Graphs
 Using the `static` annotation instructs Gen to statically construct a directed acyclic graph for the computation represented by the body of the function.
 For the function `foo` above, the static graph looks like:
 ```@raw html
@@ -431,7 +431,7 @@ First, the definition of a `(static)` generative function is always expected to 
 Next, in order to be able to construct the static graph, Gen restricts the permitted syntax that can be used in functions annotated with `static`.
 In particular, each statement in the body must be one of the following:
 
-- A `@param` statement specifying any [Trainable parameters](@ref), e.g.:
+- A `@param` statement specifying any [trainable parameters](@ref trainable_parameters_modeling), e.g.:
 
 ```julia
 @param theta::Float64

@@ -169,7 +169,7 @@ The predicate condition may be a deterministic function of the trace, but it als
 We can use `let x = value .. end` to bind values to a variable, but the expression on the right-hand-side must be deterministic function of its free variables, its value must be invariant under all possible executions of the body.
 
 **Stochastic let expressions.**
-We can use `let x ~ dist(args...) .. end` to sample a stochastic value and bind to a variable, but the expression on the right-hand-side must be the application of a Gen [`Distribution`](@ref) to arguments, and the distribution and its arguments must be invariant under all possible executions of the body.
+We can use `let x ~ dist(args...) .. end` to sample a stochastic value and bind to a variable, but the expression on the right-hand-side must be the application of a Gen [`Distribution`](@ref distributions) to arguments, and the distribution and its arguments must be invariant under all possible executions of the body.
 
 
 ### Declaring primitive kernels for use in composite kernels
@@ -211,7 +211,7 @@ These kernels are particularly useful for inferring the structure (e.g. control 
 
 An involutive MCMC kernel in Gen takes as input a previous trace of the model (whose choice map we will denote by ``t``), and performs three phases to obtain a new trace of the model:
 
-- First, it traces the execution of a **proposal**, which is an auxiliary generative function that takes the previous trace of the model as its first argument. Mathematically, we will denote the choice map associated with the trace of the proposal by ``u``. The proposal can of course be defined using the [Built-In Modeling Languages](@ref), just like the model itself. However, unlike many other uses of proposals in Gen, these proposals *can make random choices at addresses that the model does not*.
+- First, it traces the execution of a **proposal**, which is an auxiliary generative function that takes the previous trace of the model as its first argument. Mathematically, we will denote the choice map associated with the trace of the proposal by ``u``. The proposal can of course be defined using the [built-in modeling language](@ref dynamic_modeling_language), just like the model itself. However, unlike many other uses of proposals in Gen, these proposals *can make random choices at addresses that the model does not*.
 
 - Next, it takes the tuple ``(t, u)`` and passes it into an **involution** (denoted mathematically by ``h``), which is a function that returns a new tuple ``(t', u')``, where ``t'`` is the choice map for a new proposed trace of the model, and ``u'`` are random choices for a new trace of the proposal. The defining property of the involution is that *it is invertible*, and *it is its own inverse*; i.e. ``(t, u) = h(h(t, u))``. Intuitively, ``u'`` is a description of a way that the proposal could be reversed, taking ``t'`` to ``t``.
 

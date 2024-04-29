@@ -8,8 +8,8 @@ Generative functions are used to represent a variety of different types of proba
 Generative functions are represented by the following abstact type:
 
 There are various kinds of generative functions, which are represented by concrete subtypes of [`GenerativeFunction`](@ref).
-For example, the [Built-in Modeling Language](@ref) allows generative functions to be constructed using Julia function definition syntax:
-```@example gfi_example
+For example, the [Built-in Modeling Language](@ref dynamic_modeling_language) allows generative functions to be constructed using Julia function definition syntax:
+```@example gfi_tutorial
 using Gen # hide
 @gen function foo(a, b=0)
     if @trace(bernoulli(0.5), :z)
@@ -19,11 +19,11 @@ using Gen # hide
     end
 end
 ```
-Users can also extend Gen by implementing their own [Custom generative function types](@ref), which can be new modeling languages, or just specialized optimized implementations of a fragment of a specific model.
+Users can also extend Gen by implementing their own [custom generative functions](@ref custom_generative_functions), which can be new modeling languages, or just specialized optimized implementations of a fragment of a specific model.
 
 Generative functions behave like Julia functions in some respects.
 For example, we can call a generative function `foo` on arguments and get an output value using regular Julia call syntax:
-```@example gfi_example
+```@example gfi_tutorial
 foo(2, 4)
 ```
 
@@ -50,7 +50,7 @@ The set of valid argument tuples to the function, denoted ``X``.
 A family of probability distributions ``p(t, r; x)`` on maps ``t`` from random choice addresses to their values, and non-addressable randomness ``r``, indexed by arguments ``x``, for all ``x \in X``.
 Note that the distribution must be normalized:
 ```math
-\sum_{t, r} p(t, r; x) = 1 \;\; \mbox{for all} \;\; x \in X
+\sum_{t, r} p(t, r; x) = 1 \;\; \text{for all} \;\; x \in X
 ```
 This corresponds to a requirement that the function terminate with probabability 1 for all valid arguments.
 We use ``p(t; x)`` to denote the marginal distribution on the map ``t``:
@@ -78,17 +78,17 @@ It is typically used by inference programs, for logging and for caching the resu
 A family of probability distributions ``q(t; x, u)`` on maps ``t`` from random choice addresses to their values, indexed by tuples ``(x, u)`` where ``u`` is a map from random choice addresses to values, and where ``x`` are the arguments to the function.
 It must satisfy the following conditions:
 ```math
-\sum_{t} q(t; x, u) = 1 \;\; \mbox{for all} \;\; x \in X, u
+\sum_{t} q(t; x, u) = 1 \;\; \text{for all} \;\; x \in X, u
 ```
 ```math
-p(t; x) > 0 \mbox{ if and only if } q(t; x, u) > 0 \mbox{ for all } u \mbox{ where } u \mbox{ and } t \mbox{ agree }
+p(t; x) > 0 \text{ if and only if } q(t; x, u) > 0 \text{ for all } u \text{ where } u \text{ and } t \text{ agree }
 ```
 ```math
-q(t; x, u) > 0 \mbox{ implies that } u \mbox{ and } t \mbox{ agree }.
+q(t; x, u) > 0 \text{ implies that } u \text{ and } t \text{ agree }.
 ```
 There is also a family of probability distributions ``q(r; x, t)`` on non-addressable randomness, that satisfies:
 ```math
-q(r; x, t) > 0 \mbox{ if and only if } p(r | t, x) > 0
+q(r; x, t) > 0 \text{ if and only if } p(r | t, x) > 0
 ```
 
 
@@ -113,9 +113,7 @@ Traces contain:
 
 
 Different concrete types of generative functions use different data structures and different Julia types for their traces, but traces are subtypes of [`Trace`](@ref).
-```@docs
-Trace
-```
+
 The concrete trace type that a generative function uses is the second type parameter of the [`GenerativeFunction`](@ref) abstract type.
 For example, the trace type of [`DynamicDSLFunction`](@ref) is `DynamicDSLTrace`.
 
@@ -147,10 +145,9 @@ z = trace[:z]
 ```
 
 When a generative function has default values specified for trailing arguments, those arguments can be left out when calling [`simulate`](@ref), [`generate`](@ref), and other functions provided by the generative function interface. The default values will automatically be filled in:
-```julia
-julia> trace = simulate(foo, (2,));
-julia> get_args(trace)
-(2, 0)
+```@example gfi_tutorial
+trace = simulate(foo, (2,));
+get_args(trace)
 ```
 
 ## Updating traces
@@ -159,7 +156,7 @@ It is often important to incrementally modify the trace of a generative function
 In Gen, traces are **functional data structures**, meaning they can be treated as immutable values.
 There are several methods that take a trace of a generative function as input and return a new trace of the generative function based on adjustments to the execution history of the function.
 We will illustrate these methods using the following generative function:
-```@example gfi_example
+```@example gfi_tutorial
 @gen function bar()
     val = @trace(bernoulli(0.3), :a)
     if @trace(bernoulli(0.4), :b)
@@ -172,7 +169,7 @@ We will illustrate these methods using the following generative function:
 end
 ```
 Suppose we have a trace (`trace`) of `bar` with initial choices:
-```@example gfi_example
+```@example gfi_tutorial
 a = 1
 ```
 ```
@@ -234,7 +231,7 @@ Suppose we run [`update`](@ref) on the example `trace`, with the following const
 │
 └── :b : false
 ```
-```@example gfi_example
+```@example gfi_tutorial
 constraints = choicemap((:b, false))
 (new_trace, w, _, discard) = update(trace, (), (), constraints)
 ```
@@ -282,7 +279,7 @@ The [`regenerate`](@ref) method takes a trace and generates an adjusted trace th
 
 **Example.**
 Suppose we run [`regenerate`](@ref) on the example `trace`, with selection `:a` and `:b`:
-```@example gfi_example
+```@example gfi_tutorial
 (new_trace, w, _) = regenerate(trace, (), (), select(:a, :b))
 ```
 Then, a new value for `:a` will be sampled from `bernoulli(0.3)`, and a new value for `:b` will be sampled from `bernoulli(0.4)`.
@@ -291,7 +288,7 @@ If the new value for `:b` is `false`, then a new value for `:d` will be sampled 
 The previous value for `:c` will always be retained.
 Suppose the new value for `:a` is `true`, and the new value for `:b` is `true`.
 Then `get_choices(new_trace)` will be:
-```@example gfi_example
+```@example gfi_tutorial
 get_choices(new_trace)
 ```
 <!-- ```
@@ -319,17 +316,16 @@ This argdiff information permits the implementation of the update method to avoi
 Note that the correctness of the argdiff is in general not verified by Gen---passing incorrect argdiff information may result in incorrect behavior.
 
 The trace update methods for all generative functions above should accept at least the following types of argdiffs:
-```@docs
-NoChange
-UnknownChange
-```
+- [`NoChange`](@ref)
+- [`UnknownChange`](@ref)
+
 Generative functions may also be able to process more specialized diff data types for each of their arguments, that allow more precise information about the different to be supplied.
 
 ### Retdiffs
 
 To enable generative functions that invoke other functions to efficiently make use of incremental computation, the trace update methods of generative functions also return a **retdiff** value, which provides information about the difference in the return value of the previous trace an the return value of the new trace.
 
-## Differentiable programming
+## [Differentiable Programming](@id differentiable_programming_tutorial)
 
 
 The trace of a generative function may support computation of gradients of its log probability with respect to some subset of (i) its arguments, (ii) values of random choice, and (iii) any of its **trainable parameters** (see below).

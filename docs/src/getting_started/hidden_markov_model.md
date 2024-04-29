@@ -20,7 +20,7 @@ hmm_model = Unfold(kernel)
 
 # Plot this trajectory multiple times...
 ```@example hmm_tutorial
-traces = [simulate(hmm_mode, (0,0)) for i in range(1000)]
+traces = [simulate(hmm_model, (0,0)) for i in 1:1000]
 ```
 
 ```@example hmm_tutorial
