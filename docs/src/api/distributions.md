@@ -1,6 +1,6 @@
 # [Probability Distributions](@id distributions)
 
-Gen provides a library of built-in probability distributions, and three ways of
+Gen provides a library of built-in probability distributions, and four ways of
 defining custom distributions, each of which are explained below:
 
 1. The [`@dist` constructor](@ref dist_dsl), for a distribution that can be expressed as a
@@ -11,7 +11,10 @@ defining custom distributions, each of which are explained below:
 2. The [`HeterogeneousMixture`](@ref) and [`HomogeneousMixture`](@ref) constructors
    for distributions that are mixtures of other distributions.
 
-3. An API for defining arbitrary [custom distributions](@ref
+3. The [`ProductDistribution`](@ref) constructor for  distributions that are products of
+   other distributions.
+
+4. An API for defining arbitrary [custom distributions](@ref
    custom_distributions) in plain Julia code.
 
 ## Built-In Distributions
@@ -218,6 +221,13 @@ There are two built-in constructors for defining mixture distributions:
 ```@docs
 HomogeneousMixture
 HeterogeneousMixture
+```
+
+## Product Distribution Constructors
+
+There is a built-in constructor for defining product distributions:
+```@docs
+ProductDistribution
 ```
 
 ## Defining New Distributions From Scratch

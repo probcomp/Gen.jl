@@ -96,8 +96,8 @@ end
 @testset "custom proposal" begin
 
     Random.seed!(1)
-    num_particles = 10000
-    ess_threshold = 10000 # make sure we exercise resampling
+    num_particles = 20000
+    ess_threshold = 20000 # make sure we exercise resampling
 
     # initialize particle filter
 
@@ -146,8 +146,8 @@ end
 @testset "default proposal" begin
 
     Random.seed!(1)
-    num_particles = 10000
-    ess_threshold = 10000 # make sure we exercise resampling
+    num_particles = 20000
+    ess_threshold = 20000 # make sure we exercise resampling
 
     # initialize the particle filter
     init_observations = choicemap((:x_init, obs_x[1]))

@@ -1,7 +1,7 @@
-struct Dirichlet <: Distribution{Float64} end
+struct Dirichlet <: Distribution{Vector{Float64}} end
 
 """
-    Dirichlet(alpha::Vector{Float64})
+    dirichlet(alpha::Vector{Float64})
 
 Sample a simplex Vector{Float64} from a Dirichlet distribution.
 """
