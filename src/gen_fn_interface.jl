@@ -143,10 +143,16 @@ Given arguments (`args`), sample \$(r, t) \\sim p(\\cdot; x)\$ and return a trac
 
 If `gen_fn` has optional trailing arguments (i.e., default values are provided),
 the optional arguments can be omitted from the `args` tuple. The generated trace
- will have default values filled in.
+will have default values filled in.
+
+The RNG state can be optionally supplied as the first argument. If no RNG is supplied, `Random.default_rng()`
+will be used by default.
 """
 function simulate(::AbstractRNG, ::GenerativeFunction, ::Tuple)
-    error("Not implemented")
+    # TODO: For backwards compatibility only. Remove in next breaking version.
+    @warn "Missing concrete implementation of `simulate(::AbstractRNG, ::$(typeof(gen_fn)), ::Tuple), `" *
+                "falling back to `simulate(::$(typeof(gen_fn)), ::Tuple)`."
+    return simulate(gen_fn, args)
 end
 
 simulate(gen_fn::GenerativeFunction, args::Tuple) = simulate(default_rng(), gen_fn, args)
@@ -169,6 +175,9 @@ Also return the weight (`weight`):
 \\log \\frac{p(r, t; x)}{q(t; u, x) q(r; x, t)}
 ```
 
+The RNG state can be optionally supplied as the first argument. If no RNG is supplied, `Random.default_rng()`
+will be used by default.
+
 If `gen_fn` has optional trailing arguments (i.e., default values are provided),
 the optional arguments can be omitted from the `args` tuple. The generated trace
  will have default values filled in.
@@ -184,7 +193,10 @@ Example with constraint that address `:z` takes value `true`.
 ```
 """
 function generate(::AbstractRNG, ::GenerativeFunction, ::Tuple, ::ChoiceMap)
-    error("Not implemented")
+    # TODO: For backwards compatibility only. Remove in next breaking version.
+    @warn "Missing concrete implementation of `generate(::AbstractRNG, ::$(typeof(gen_fn)), ::Tuple), `" *
+                "falling back to `generate(::$(typeof(gen_fn)), ::Tuple)`."
+    return generate(gen_fn, args)
 end
 
 generate(gen_fn::GenerativeFunction, args::Tuple, choices::ChoiceMap) = generate(default_rng(), gen_fn, args, choices)
@@ -223,6 +235,9 @@ t)\$, and return \$t\$
 ```math
 \\log \\frac{p(r, t; x)}{q(r; x, t)}
 ```
+
+The RNG state can be optionally supplied as the first argument. If no RNG is supplied, `Random.default_rng()`
+will be used by default.
 """
 function propose(rng::AbstractRNG, gen_fn::GenerativeFunction, args::Tuple)
     trace = simulate(rng, gen_fn, args)
@@ -279,9 +294,15 @@ then these arguments can be omitted from `args` and `argdiffs`. Note
 that if the original `trace` was generated using non-default argument values,
 then for each optional argument that is omitted, the old value will be
 over-written by the default argument value in the updated trace.
+
+The RNG state can be optionally supplied as the first argument. If no RNG is supplied, `Random.default_rng()`
+will be used by default.
 """
 function update(::AbstractRNG, trace, ::Tuple, ::Tuple, ::ChoiceMap)
-    error("Not implemented")
+    # TODO: For backwards compatibility only. Remove in next breaking version.
+    @warn "Missing concrete implementation of `update(::AbstractRNG, ::$(typeof(gen_fn)), ::Tuple), `" *
+                "falling back to `update(::$(typeof(gen_fn)), ::Tuple)`."
+    return update(gen_fn, args)
 end
 
 update(trace, args::Tuple, argdiffs::Tuple, choices::ChoiceMap) =
@@ -329,9 +350,15 @@ then these arguments can be omitted from `args` and `argdiffs`. Note
 that if the original `trace` was generated using non-default argument values,
 then for each optional argument that is omitted, the old value will be
 over-written by the default argument value in the regenerated trace.
+
+The RNG state can be optionally supplied as the first argument. If no RNG is supplied,
+`Random.default_rng()` will be used by default.
 """
 function regenerate(::AbstractRNG, trace, ::Tuple, ::Tuple, ::Selection)
-    error("Not implemented")
+    # TODO: For backwards compatibility only. Remove in next breaking version.
+    @warn "Missing concrete implementation of `regenerate(::AbstractRNG, ::$(typeof(gen_fn)), ::Tuple), `" *
+                "falling back to `regenerate(::$(typeof(gen_fn)), ::Tuple)`."
+    return regenerate(gen_fn, args)
 end
 
 regenerate(trace, args::Tuple, argdiffs::Tuple, selection::Selection) =
