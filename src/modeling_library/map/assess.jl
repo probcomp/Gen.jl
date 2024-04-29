@@ -3,7 +3,7 @@ mutable struct MapAssessState{T}
     retvals::Vector{T}
 end
 
-function process_new!(gen_fn::Map{T,U}, args::Tuple, choices::ChoiceMap,
+function process_new!(rng::AbstractRNG, gen_fn::Map{T,U}, args::Tuple, choices::ChoiceMap,
                       key::Int, state::MapAssessState{T}) where {T,U}
     kernel_args = get_args_for_key(args, key)
     submap = get_submap(choices, key)
@@ -16,7 +16,8 @@ function assess(gen_fn::Map{T,U}, args::Tuple, choices::ChoiceMap) where {T,U}
     len = length(args[1])
     state = MapAssessState{T}(0., Vector{T}(undef,len))
     for key=1:len
-        process_new!(gen_fn, args, choices, key, state)
+        # pass default rng to satisfy the interface; note, however, that it will not be used.
+        process_new!(default_rng(), gen_fn, args, choices, key, state)
     end
     (state.weight, PersistentVector{T}(state.retvals))
 end

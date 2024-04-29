@@ -10,7 +10,7 @@ mutable struct UnfoldUpdateState{T,U}
     updated_retdiffs::Dict{Int,Diff}
 end
 
-function process_retained!(gen_fn::Unfold{T,U}, params::Tuple,
+function process_retained!(rng::AbstractRNG, gen_fn::Unfold{T,U}, params::Tuple,
                            choices::ChoiceMap, key::Int, kernel_argdiffs::Tuple,
                            state::UnfoldUpdateState{T,U}) where {T,U}
     local subtrace::U
@@ -25,7 +25,7 @@ function process_retained!(gen_fn::Unfold{T,U}, params::Tuple,
     # get new subtrace with recursive call to update()
     prev_subtrace = state.subtraces[key]
     (subtrace, weight, retdiff, discard) = update(
-        prev_subtrace, kernel_args, kernel_argdiffs, submap)
+        rng, prev_subtrace, kernel_args, kernel_argdiffs, submap)
 
     # retrieve retdiff
     if retdiff != NoChange()
@@ -51,7 +51,7 @@ function process_retained!(gen_fn::Unfold{T,U}, params::Tuple,
     retdiff
 end
 
-function process_new!(gen_fn::Unfold{T,U}, params::Tuple, choices, key::Int,
+function process_new!(rng::AbstractRNG, gen_fn::Unfold{T,U}, params::Tuple, choices, key::Int,
                       state::UnfoldUpdateState{T,U}) where {T,U}
     local subtrace::U
     local prev_state::T
@@ -62,7 +62,7 @@ function process_new!(gen_fn::Unfold{T,U}, params::Tuple, choices, key::Int,
     kernel_args = (key, prev_state, params...)
 
     # get subtrace and weight
-    (subtrace, weight) = generate(gen_fn.kernel, kernel_args, submap)
+    (subtrace, weight) = generate(rng, gen_fn.kernel, kernel_args, submap)
 
     # update state
     state.weight += weight
@@ -77,7 +77,7 @@ function process_new!(gen_fn::Unfold{T,U}, params::Tuple, choices, key::Int,
     end
 end
 
-function update(trace::VectorTrace{UnfoldType,T,U},
+function update(rng::AbstractRNG, trace::VectorTrace{UnfoldType,T,U},
                 args::Tuple, argdiffs::Tuple,
                 choices::ChoiceMap) where {T,U}
     gen_fn = trace.gen_fn
@@ -98,9 +98,9 @@ function update(trace::VectorTrace{UnfoldType,T,U},
     # handle retained and new applications
     state = UnfoldUpdateState{T,U}(init_state, -score_decrement, score, noise,
         subtraces, retval, discard, num_nonempty, Dict{Int,Diff}())
-    process_all_retained!(gen_fn, params, argdiffs, choices, prev_length, new_length,
+    process_all_retained!(rng, gen_fn, params, argdiffs, choices, prev_length, new_length,
                           retained_and_constrained, state)
-    process_all_new!(gen_fn, params, choices, prev_length, new_length, state)
+    process_all_new!(rng, gen_fn, params, choices, prev_length, new_length, state)
 
     # retdiff
     retdiff = vector_compute_retdiff(state.updated_retdiffs, new_length, prev_length)

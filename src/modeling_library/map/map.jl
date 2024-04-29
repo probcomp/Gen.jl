@@ -27,8 +27,9 @@ export Map
 has_argument_grads(map_gf::Map) = has_argument_grads(map_gf.kernel)
 accepts_output_grad(map_gf::Map) = accepts_output_grad(map_gf.kernel)
 
-function (gen_fn::Map)(args...)
-    (_, _, retval) = propose(gen_fn, args)
+(gen_fn::Map)(args...) = gen_fn(default_rng(), args...)
+function (gen_fn::Map)(rng::AbstractRNG, args...)
+    (_, _, retval) = propose(rng, gen_fn, args)
     retval
 end
 

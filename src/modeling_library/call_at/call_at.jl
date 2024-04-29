@@ -76,24 +76,24 @@ function assess(gen_fn::CallAtCombinator, args::Tuple, choices::ChoiceMap)
     assess(gen_fn.kernel, kernel_args, submap)
 end
 
-function propose(gen_fn::CallAtCombinator, args::Tuple)
+function propose(rng::AbstractRNG, gen_fn::CallAtCombinator, args::Tuple)
     (key, kernel_args) = unpack_call_at_args(args)
-    (submap, weight, retval) = propose(gen_fn.kernel, kernel_args)
+    (submap, weight, retval) = propose(rng, gen_fn.kernel, kernel_args)
     choices = CallAtChoiceMap(key, submap)
     (choices, weight, retval)
 end
 
-function simulate(gen_fn::CallAtCombinator, args::Tuple)
+function simulate(rng::AbstractRNG, gen_fn::CallAtCombinator, args::Tuple)
     (key, kernel_args) = unpack_call_at_args(args)
-    subtrace = simulate(gen_fn.kernel, kernel_args)
+    subtrace = simulate(rng, gen_fn.kernel, kernel_args)
     CallAtTrace(gen_fn, subtrace, key)
 end
 
-function generate(gen_fn::CallAtCombinator{T,U,K}, args::Tuple,
+function generate(rng::AbstractRNG, gen_fn::CallAtCombinator{T,U,K}, args::Tuple,
                   choices::ChoiceMap) where {T,U,K}
     (key, kernel_args) = unpack_call_at_args(args)
     submap = get_submap(choices, key)
-    (subtrace, weight) = generate(gen_fn.kernel, kernel_args, submap)
+    (subtrace, weight) = generate(rng, gen_fn.kernel, kernel_args, submap)
     trace = CallAtTrace(gen_fn, subtrace, key)
     (trace, weight)
 end
@@ -103,26 +103,26 @@ function project(trace::CallAtTrace, selection::Selection)
     project(trace.subtrace, subselection)
 end
 
-function update(trace::CallAtTrace, args::Tuple, argdiffs::Tuple,
-                choices::ChoiceMap)
+function update(rng::AbstractRNG, trace::CallAtTrace, args::Tuple,
+                argdiffs::Tuple, choices::ChoiceMap)
     (key, kernel_args) = unpack_call_at_args(args)
     key_changed = (key != trace.key)
     submap = get_submap(choices, key)
     if key_changed
-        (subtrace, weight) = generate(trace.gen_fn.kernel, kernel_args, submap)
+        (subtrace, weight) = generate(rng, trace.gen_fn.kernel, kernel_args, submap)
         weight -= get_score(trace.subtrace)
         discard = get_choices(trace)
         retdiff = UnknownChange()
     else
         (subtrace, weight, retdiff, subdiscard) = update(
-            trace.subtrace, kernel_args, argdiffs[1:end-1], submap)
+            rng, trace.subtrace, kernel_args, argdiffs[1:end-1], submap)
         discard = CallAtChoiceMap(key, subdiscard)
     end
     new_trace = CallAtTrace(trace.gen_fn, subtrace, key)
     (new_trace, weight, retdiff, discard)
 end
 
-function regenerate(trace::CallAtTrace, args::Tuple, argdiffs::Tuple,
+function regenerate(rng::AbstractRNG, trace::CallAtTrace, args::Tuple, argdiffs::Tuple,
                     selection::Selection)
     (key, kernel_args) = unpack_call_at_args(args)
     key_changed = (key != trace.key)
@@ -131,12 +131,12 @@ function regenerate(trace::CallAtTrace, args::Tuple, argdiffs::Tuple,
         if !isempty(subselection)
             error("Cannot select addresses under new key $key in regenerate")
         end
-        (subtrace, weight) = generate(trace.gen_fn.kernel, kernel_args, EmptyChoiceMap())
+        (subtrace, weight) = generate(rng, trace.gen_fn.kernel, kernel_args, EmptyChoiceMap())
         weight -= project(trace.subtrace, EmptySelection())
         retdiff = UnknownChange()
     else
         (subtrace, weight, retdiff) = regenerate(
-            trace.subtrace, kernel_args, argdiffs[1:end-1], subselection)
+            rng, trace.subtrace, kernel_args, argdiffs[1:end-1], subselection)
     end
     new_trace = CallAtTrace(trace.gen_fn, subtrace, key)
     (new_trace, weight, retdiff)

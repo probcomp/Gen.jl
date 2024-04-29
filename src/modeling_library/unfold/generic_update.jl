@@ -1,4 +1,4 @@
-function process_all_retained!(gen_fn::Unfold{T,U}, params::Tuple, argdiffs::Tuple,
+function process_all_retained!(rng::AbstractRNG, gen_fn::Unfold{T,U}, params::Tuple, argdiffs::Tuple,
                                choices_or_selection, prev_length::Int, new_length::Int,
                                retained_and_targeted::Set{Int}, state) where {T,U}
 
@@ -11,7 +11,7 @@ function process_all_retained!(gen_fn::Unfold{T,U}, params::Tuple, argdiffs::Tup
         # visit every retained kernel application
         state_diff = init_state_diff
         for key=1:min(prev_length,new_length)
-            state_diff = process_retained!(gen_fn, params, choices_or_selection,
+            state_diff = process_retained!(rng, gen_fn, params, choices_or_selection,
                 key, (NoChange(), state_diff, param_diffs...), state)
         end
 
@@ -26,7 +26,7 @@ function process_all_retained!(gen_fn::Unfold{T,U}, params::Tuple, argdiffs::Tup
             key = 1
             visit = true
             while visit && key <= min(prev_length, new_length)
-                state_diff = process_retained!(gen_fn, params, choices_or_selection,
+                state_diff = process_retained!(rng, gen_fn, params, choices_or_selection,
                     key, (NoChange(), state_diff, param_diffs...), state)
                 key += 1
                 visit = (state_diff != NoChange())
@@ -40,7 +40,7 @@ function process_all_retained!(gen_fn::Unfold{T,U}, params::Tuple, argdiffs::Tup
             key = to_visit[i]
             visit = true
             while visit && key <= min(prev_length, new_length)
-                state_diff = process_retained!(gen_fn, params, choices_or_selection,
+                state_diff = process_retained!(rng, gen_fn, params, choices_or_selection,
                     key, (NoChange(), state_diff, param_diffs...), state)
                 key += 1
                 visit = (state_diff != NoChange())
@@ -52,9 +52,9 @@ end
 """
 Process all new applications.
 """
-function process_all_new!(gen_fn::Unfold{T,U}, params::Tuple, choices_or_selection,
+function process_all_new!(rng::AbstractRNG, gen_fn::Unfold{T,U}, params::Tuple, choices_or_selection,
                           prev_len::Int, new_len::Int, state) where {T,U}
     for key=prev_len+1:new_len
-        process_new!(gen_fn, params, choices_or_selection, key, state)
+        process_new!(rng, gen_fn, params, choices_or_selection, key, state)
     end
 end

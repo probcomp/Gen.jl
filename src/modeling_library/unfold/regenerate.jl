@@ -49,7 +49,7 @@ function process_retained!(gen_fn::Unfold{T,U}, params::Tuple,
     retdiff
 end
 
-function process_new!(gen_fn::Unfold{T,U}, params::Tuple, selection::Selection, key::Int,
+function process_new!(rng::AbstractRNG, gen_fn::Unfold{T,U}, params::Tuple, selection::Selection, key::Int,
                       state::UnfoldRegenerateState{T,U}) where {T,U}
     local subtrace::U
     local prev_state::T
@@ -62,7 +62,7 @@ function process_new!(gen_fn::Unfold{T,U}, params::Tuple, selection::Selection, 
     kernel_args = (key, prev_state, params...)
 
     # get subtrace and weight
-    (subtrace, weight) = generate(gen_fn.kernel, kernel_args, EmptyChoiceMap())
+    (subtrace, weight) = generate(rng, gen_fn.kernel, kernel_args, EmptyChoiceMap())
 
     # update state
     state.weight += weight
@@ -77,7 +77,7 @@ function process_new!(gen_fn::Unfold{T,U}, params::Tuple, selection::Selection, 
     end
 end
 
-function regenerate(trace::VectorTrace{UnfoldType,T,U},
+function regenerate(rng::AbstractRNG, trace::VectorTrace{UnfoldType,T,U},
                     args::Tuple, argdiffs::Tuple,
                     selection::Selection) where {T,U}
     gen_fn = trace.gen_fn
@@ -98,9 +98,9 @@ function regenerate(trace::VectorTrace{UnfoldType,T,U},
     # handle retained and new applications
     state = UnfoldRegenerateState{T,U}(init_state, -noise_decrement, score, noise,
         subtraces, retval, num_nonempty, Dict{Int,Diff}())
-    process_all_retained!(gen_fn, params, argdiffs, selection, prev_length, new_length,
+    process_all_retained!(rng, gen_fn, params, argdiffs, selection, prev_length, new_length,
                           retained_and_selected, state)
-    process_all_new!(gen_fn, params, selection, prev_length, new_length, state)
+    process_all_new!(rng, gen_fn, params, selection, prev_length, new_length, state)
 
     # retdiff
     retdiff = vector_compute_retdiff(state.updated_retdiffs, new_length, prev_length)

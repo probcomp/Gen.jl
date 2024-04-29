@@ -5,7 +5,7 @@ mutable struct UnfoldProposeState{T}
     state::T
 end
 
-function process_new!(gen_fn::Unfold{T,U}, params::Tuple, key::Int,
+function process_new!(rng::AbstractRNG, gen_fn::Unfold{T,U}, params::Tuple, key::Int,
                       state::UnfoldProposeState{T}) where {T,U}
     local new_state::T
     kernel_args = (key, state.state, params...)
@@ -16,14 +16,14 @@ function process_new!(gen_fn::Unfold{T,U}, params::Tuple, key::Int,
     state.state = new_state
 end
 
-function propose(gen_fn::Unfold{T,U}, args::Tuple) where {T,U}
+function propose(rng::AbstractRNG, gen_fn::Unfold{T,U}, args::Tuple) where {T,U}
     len = args[1]
     init_state = args[2]
     params = args[3:end]
     choices = choicemap()
     state = UnfoldProposeState{T}(choices, 0., Vector{T}(undef,len), init_state)
     for key=1:len
-        process_new!(gen_fn, params, key, state)
+        process_new!(rng, gen_fn, params, key, state)
     end
     (state.choices, state.weight, PersistentVector{T}(state.retvals))
 end

@@ -8,7 +8,7 @@ mutable struct MapRegenerateState{T,U}
     updated_retdiffs::Dict{Int,Diff}
 end
 
-function process_retained!(gen_fn::Map{T,U}, args::Tuple,
+function process_retained!(rng::AbstractRNG, gen_fn::Map{T,U}, args::Tuple,
                            selection::Selection, key::Int, kernel_argdiffs::Tuple,
                            state::MapRegenerateState{T,U}) where {T,U}
     local subtrace::U
@@ -21,7 +21,7 @@ function process_retained!(gen_fn::Map{T,U}, args::Tuple,
     # get new subtrace with recursive call to regenerate()
     prev_subtrace = state.subtraces[key]
     (subtrace, weight, retdiff) = regenerate(
-        prev_subtrace, kernel_args, kernel_argdiffs, subselection)
+        rng, prev_subtrace, kernel_args, kernel_argdiffs, subselection)
 
     # retrieve retdiff
     if retdiff != NoChange()
@@ -44,7 +44,7 @@ function process_retained!(gen_fn::Map{T,U}, args::Tuple,
     end
 end
 
-function process_new!(gen_fn::Map{T,U}, args::Tuple, selection::Selection, key::Int,
+function process_new!(rng::AbstractRNG, gen_fn::Map{T,U}, args::Tuple, selection::Selection, key::Int,
                       state::MapRegenerateState{T,U}) where {T,U}
     local subtrace::U
     local retval::T
@@ -54,7 +54,7 @@ function process_new!(gen_fn::Map{T,U}, args::Tuple, selection::Selection, key::
     kernel_args = get_args_for_key(args, key)
 
     # get subtrace and weight
-    (subtrace, weight) = generate(gen_fn.kernel, kernel_args, EmptyChoiceMap())
+    (subtrace, weight) = generate(rng, gen_fn.kernel, kernel_args, EmptyChoiceMap())
 
     # update state
     state.weight += weight
@@ -70,7 +70,7 @@ function process_new!(gen_fn::Map{T,U}, args::Tuple, selection::Selection, key::
 end
 
 
-function regenerate(trace::VectorTrace{MapType,T,U}, args::Tuple, argdiffs::Tuple,
+function regenerate(rng::AbstractRNG, trace::VectorTrace{MapType,T,U}, args::Tuple, argdiffs::Tuple,
                     selection::Selection) where {T,U}
     gen_fn = trace.gen_fn
     (new_length, prev_length) = get_prev_and_new_lengths(args, trace)
@@ -88,9 +88,9 @@ function regenerate(trace::VectorTrace{MapType,T,U}, args::Tuple, argdiffs::Tupl
     state = MapRegenerateState{T,U}(-noise_decrement, score, noise,
                                    subtraces, retval,
                                    num_nonempty, Dict{Int,Diff}())
-    process_all_retained!(gen_fn, args, argdiffs, selection,
+    process_all_retained!(rng, gen_fn, args, argdiffs, selection,
                           prev_length, new_length, retained_and_selected, state)
-    process_all_new!(gen_fn, args, selection, prev_length, new_length, state)
+    process_all_new!(rng, gen_fn, args, selection, prev_length, new_length, state)
 
     # retdiff
     retdiff = vector_compute_retdiff(state.updated_retdiffs, new_length, prev_length)

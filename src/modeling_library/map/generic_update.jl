@@ -17,7 +17,7 @@ function get_kernel_argdiffs(argdiffs::Tuple)
     kernel_argdiffs
 end
 
-function process_all_retained!(gen_fn::Map{T,U}, args::Tuple, argdiffs::Tuple,
+function process_all_retained!(rng::AbstractRNG, gen_fn::Map{T,U}, args::Tuple, argdiffs::Tuple,
                                choices_or_selection, prev_length::Int, new_length::Int,
                                retained_and_targeted::Set{Int}, state) where {T,U}
     kernel_no_change_argdiffs = map((_) -> NoChange(), args)
@@ -28,7 +28,7 @@ function process_all_retained!(gen_fn::Map{T,U}, args::Tuple, argdiffs::Tuple,
         # only visit retained applications that were targeted
         for key in retained_and_targeted
             @assert key <= min(new_length, prev_length)
-            process_retained!(gen_fn, args, choices_or_selection, key, kernel_no_change_argdiffs, state)
+            process_retained!(rng, gen_fn, args, choices_or_selection, key, kernel_no_change_argdiffs, state)
         end
 
     elseif any(diff == UnknownChange() for diff in argdiffs)
@@ -36,7 +36,7 @@ function process_all_retained!(gen_fn::Map{T,U}, args::Tuple, argdiffs::Tuple,
         # visit every retained application
         for key in 1:min(prev_length, new_length)
             @assert key <= min(new_length, prev_length)
-            process_retained!(gen_fn, args, choices_or_selection, key, kernel_unknown_change_argdiffs, state)
+            process_retained!(rng, gen_fn, args, choices_or_selection, key, kernel_unknown_change_argdiffs, state)
         end
 
     else
@@ -51,7 +51,7 @@ function process_all_retained!(gen_fn::Map{T,U}, args::Tuple, argdiffs::Tuple,
             else
                 kernel_argdiffs = kernel_no_change_argdiffs
             end
-            process_retained!(gen_fn, args, choices_or_selection, key, kernel_argdiffs, state)
+            process_retained!(rng, gen_fn, args, choices_or_selection, key, kernel_argdiffs, state)
         end
 
     end
@@ -60,9 +60,9 @@ end
 """
 Process all new applications.
 """
-function process_all_new!(gen_fn::Map{T,U}, args::Tuple, choices_or_selection,
+function process_all_new!(rng::AbstractRNG, gen_fn::Map{T,U}, args::Tuple, choices_or_selection,
                           prev_len::Int, new_len::Int, state) where {T,U}
     for key=prev_len+1:new_len
-        process_new!(gen_fn, args, choices_or_selection, key, state)
+        process_new!(rng, gen_fn, args, choices_or_selection, key, state)
     end
 end
