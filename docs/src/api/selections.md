@@ -23,7 +23,6 @@ If we use this selection in the context of a trace of the function `bar` below, 
     @trace(normal(0, 1), :z)
     @trace(normal(0, 1), :w)
 end
-end
 
 @gen function bar()
     @trace(bernoulli(0.5), :x)

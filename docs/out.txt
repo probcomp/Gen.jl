@@ -1,0 +1,78 @@
+  Activating project at `~/Documents/probcomp/Gen/docs`
+[ Info: SetupBuildDirectory: setting up build directory.
+[ Info: Doctest: skipped.
+[ Info: ExpandTemplates: expanding markdown templates.
+[ Info: CrossReferences: building cross-references.
+┌ Warning: invalid local link/image: file does not exist in src/tutorials/mcmc.md
+│   link =
+│    @ast MarkdownAST.Image("images/rjmcmc.png", "") do
+│      MarkdownAST.Text("rjmcmc plot")
+│    end
+│    
+└ @ Documenter ~/.julia/packages/Documenter/2OZOh/src/utilities/utilities.jl:46
+[ Info: CheckDocument: running document checks.
+┌ Warning: 53 docstrings not included in the manual:
+│ 
+│     Gen.SetDiff
+│     Gen.pair :: Tuple{ChoiceMap, ChoiceMap, Symbol, Symbol}
+│     Gen.make_dynamic_gen_function :: NTuple{5, Any}
+│     Gen.Diffed
+│     Gen.ChoiceMapNestedView
+│     Gen.broadcasted_normal
+│     Gen.Recurse
+│     Gen.parse_static_dsl_function_body! :: Tuple{Vector{Expr}, Dict{Symbol, Symbol}, Any, Any}
+│     Gen.set_param_grad! :: Tuple{Union{DynamicDSLFunction, Gen.StaticIRGenerativeFunction}, Symbol, Any}
+│     Gen.dynamic_param_impl :: Tuple{Expr}
+│     Gen.parse_typed_var :: Tuple{Any}
+│     Gen.get_address_schema
+│     Gen.arg_to_ast :: Tuple{Gen.Argument}
+│     Gen.update_discard
+│     Gen.gradient_with_state :: Tuple{CustomDetermGF, Any, Any, Any}
+│     Gen.VectorTrace
+│     Gen.resolve_symbols :: Tuple{Dict{Symbol, Symbol}, Expr}
+│     Gen.accumulate_param_gradients_determ! :: Tuple{CustomDetermGF, Vararg{Any, 4}}
+│     Gen.state
+│     Gen.gen_node_name :: Tuple{Any}
+│     Gen._unbroadcast_to_shape :: Union{Tuple{full_ndims}, Tuple{target_ndims}, Tuple{T}, Tuple{Tuple{Vararg{Int64, target_ndims}}, AbstractArray{T, full_ndims}}} where {T, target_ndims, full_ndims}
+│     Gen.unpair :: Tuple{ChoiceMap, Symbol, Symbol}
+│     Gen.parse_assignment_line! :: NTuple{5, Any}
+│     Gen.StaticChoiceMap
+│     Gen.parse_return_line! :: NTuple{4, Any}
+│     Gen.@load_generated_functions :: Tuple{}
+│     Gen.num_args :: Tuple{CustomUpdateGF}
+│     Base.merge :: Tuple{ChoiceMap, ChoiceMap}
+│     Base.merge :: Tuple{ChoiceMap, Vararg{ChoiceMap}}
+│     Gen.parse_static_dsl_line! :: NTuple{4, Any}
+│     Base.isempty :: Tuple{ChoiceMap}
+│     Gen.parse_julia_expr! :: Tuple{Any, Any, Symbol, Expr, Union{Expr, QuoteNode, Symbol}, Any}
+│     Gen.escape_default :: Tuple{Any}
+│     Gen.rewrite_dynamic_gen_exprs :: Tuple{Any}
+│     Gen.CustomDetermGF
+│     Gen.make_static_gen_function :: NTuple{6, Any}
+│     Gen.parse_and_rewrite_trace! :: NTuple{4, Any}
+│     Gen.parse_param_line! :: Tuple{Vector{Expr}, Any, Symbol, Any}
+│     Gen.TraceTransformDSLProgram
+│     Gen.load_generated_functions :: Union{Tuple{}, Tuple{Module}}
+│     Gen.process_all_new! :: Union{Tuple{U}, Tuple{T}, Tuple{Map{T, U}, Tuple, Any, Int64, Int64, Any}} where {T, U}
+│     Gen.process_all_new! :: Union{Tuple{U}, Tuple{T}, Tuple{Unfold{T, U}, Tuple, Any, Int64, Int64, Any}} where {T, U}
+│     Gen.split_addr! :: Tuple{Any, Expr}
+│     Gen.update_recurse_merge
+│     Gen.CustomDetermGFTrace
+│     Gen.parse_trace_expr! :: NTuple{6, Any}
+│     Gen.has_submap
+│     Gen.TraceTranslator
+│     Gen.TraceTranslator :: Tuple{Trace}
+│     Gen.choice_or_call_at :: Tuple{GenerativeFunction, Any}
+│     Gen.StaticIRGenerativeFunction
+│     Gen.dynamic_trace_impl :: Tuple{Expr}
+│     Gen.Diff
+│ 
+│ These are docstrings in the checked modules (configured with the modules keyword)
+│ that are not included in canonical @docs or @autodocs blocks.
+└ @ Documenter ~/.julia/packages/Documenter/2OZOh/src/utilities/utilities.jl:46
+[ Info: Populate: populating indices.
+[ Info: RenderDocument: rendering document.
+[ Info: HTMLWriter: rendering HTML pages.
+[ Info: Automatic `version="0.4.6"` for inventory from ../Project.toml
+┌ Warning: Documenter could not auto-detect the building environment Skipping deployment.
+└ @ Documenter ~/.julia/packages/Documenter/2OZOh/src/deployconfig.jl:76
