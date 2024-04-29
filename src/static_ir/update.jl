@@ -256,7 +256,7 @@ function process_codegen!(stmts, fwd::ForwardPassState, back::BackwardPassState,
             output_value = Expr(:call, (GlobalRef(Gen, :strip_diff)), node.name)
             if node in fwd.constrained_or_selected_choices
                 # the choice was selected, it does not contribute to the weight
-                push!(stmts, :($(node.name) = $(GlobalRef(Gen, :Diffed))($(GlobalRef(Gen, :random))($dist, $(arg_values...)), UnknownChange())))
+                push!(stmts, :($(node.name) = $(GlobalRef(Gen, :Diffed))($(GlobalRef(Gen, :random))($STATIC_RNG, $dist, $(arg_values...)), UnknownChange())))
                 push!(stmts, :($new_logpdf = $(GlobalRef(Gen, :logpdf))($dist, $output_value, $(arg_values...))))
             else
                 # the choice was not selected, and the input to the choice changed
@@ -282,7 +282,7 @@ function process_codegen!(stmts, fwd::ForwardPassState, back::BackwardPassState,
         if node in fwd.constrained_or_selected_choices || node in fwd.input_changed
             if node in fwd.constrained_or_selected_choices
                 # the choice was selected, it does not contribute to the weight
-                push!(stmts, :($(node.name) = $(GlobalRef(Gen, :random))($dist, $(arg_values...))))
+                push!(stmts, :($(node.name) = $(GlobalRef(Gen, :random))($STATIC_RNG, $dist, $(arg_values...))))
                 push!(stmts, :($new_logpdf = $(GlobalRef(Gen, :logpdf))($dist, $(node.name), $(arg_values...))))
             else
                 # the choice was not selected, and the input to the choice changed
@@ -323,7 +323,7 @@ function process_codegen!(stmts, fwd::ForwardPassState, back::BackwardPassState,
             push!(stmts, :($call_constraints = $(GlobalRef(Gen, :EmptyChoiceMap))()))
         end
         push!(stmts, :(($subtrace, $call_weight, $(calldiff_var(node)), $(call_discard_var(node))) =
-            $(GlobalRef(Gen, :update))($prev_subtrace, $(Expr(:tuple, arg_values...)), $(Expr(:tuple, arg_diffs...)), $call_constraints)))
+            $(GlobalRef(Gen, :update))($STATIC_RNG, $prev_subtrace, $(Expr(:tuple, arg_values...)), $(Expr(:tuple, arg_diffs...)), $call_constraints)))
         push!(stmts, :($weight += $call_weight))
         push!(stmts, :($total_score_fieldname += $(GlobalRef(Gen, :get_score))($subtrace) - $(GlobalRef(Gen, :get_score))($prev_subtrace)))
         push!(stmts, :($total_noise_fieldname += $(GlobalRef(Gen, :project))($subtrace, $(GlobalRef(Gen, :EmptySelection))()) - $(GlobalRef(Gen, :project))($prev_subtrace, $(GlobalRef(Gen, :EmptySelection))())))
@@ -471,7 +471,7 @@ function codegen_update(trace_type::Type{T}, args_type::Type, argdiffs_type::Typ
 
     # convert the constraints to a static assignment if it is not already one
     if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
-        return quote $(GlobalRef(Gen, :update))(rng, trace, args, argdiffs, $(QuoteNode(StaticChoiceMap))(constraints)) end
+        return quote $(GlobalRef(Gen, :update))($STATIC_RNG, trace, args, argdiffs, $(QuoteNode(StaticChoiceMap))(constraints)) end
     end
 
     ir = get_ir(gen_fn_type)

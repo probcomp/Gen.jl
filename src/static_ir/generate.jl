@@ -33,7 +33,7 @@ function process!(state::StaticIRGenerateState, node::RandomChoiceNode, options)
         push!(state.stmts, :($incr = $(GlobalRef(Gen, :logpdf))($dist, $(node.name), $(args...))))
         push!(state.stmts, :($weight += $incr))
     else
-        push!(state.stmts, :($(node.name) = $(GlobalRef(Gen, :random))($dist, $(args...))))
+        push!(state.stmts, :($(node.name) = $(GlobalRef(Gen, :random))($STATIC_RNG, $dist, $(args...))))
         push!(state.stmts, :($incr = $(GlobalRef(Gen, :logpdf))($dist, $(node.name), $(args...))))
     end
     push!(state.stmts, :($(get_value_fieldname(node)) = $(node.name)))
@@ -54,9 +54,9 @@ function process!(state::StaticIRGenerateState, node::GenerativeFunctionCallNode
     subconstraints = gensym("subconstraints")
     if isa(schema, StaticAddressSchema) && (node.addr in keys(schema))
         push!(state.stmts, :($subconstraints = $(GlobalRef(Gen, :static_get_submap))(constraints, Val($addr))))
-        push!(state.stmts, :(($subtrace, $incr) = $(GlobalRef(Gen, :generate))($gen_fn, $args_tuple, $subconstraints)))
+        push!(state.stmts, :(($subtrace, $incr) = $(GlobalRef(Gen, :generate))($STATIC_RNG, $gen_fn, $args_tuple, $subconstraints)))
     else
-        push!(state.stmts, :(($subtrace, $incr) = $(GlobalRef(Gen, :generate))($gen_fn, $args_tuple, $(GlobalRef(Gen, :EmptyChoiceMap))())))
+        push!(state.stmts, :(($subtrace, $incr) = $(GlobalRef(Gen, :generate))($STATIC_RNG, $gen_fn, $args_tuple, $(GlobalRef(Gen, :EmptyChoiceMap))())))
     end
     push!(state.stmts, :($weight += $incr))
     push!(state.stmts, :($num_nonempty_fieldname += !$(GlobalRef(Gen, :isempty))($(GlobalRef(Gen, :get_choices))($subtrace)) ? 1 : 0))
@@ -72,7 +72,7 @@ function codegen_generate(gen_fn_type::Type{T}, args,
 
     # convert the constraints to a static assignment if it is not already one
     if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema))
-        return quote $(GlobalRef(Gen, :generate))(rng, gen_fn, args, $(QuoteNode(StaticChoiceMap))(constraints)) end
+        return quote $(GlobalRef(Gen, :generate))($STATIC_RNG, gen_fn, args, $(QuoteNode(StaticChoiceMap))(constraints)) end
     end
 
     ir = get_ir(gen_fn_type)
