@@ -1,8 +1,8 @@
-mutable struct GFSimulateState
+mutable struct GFSimulateState{R<:AbstractRNG}
     trace::DynamicDSLTrace
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
-    rng::AbstractRNG
+    rng::R
 end
 
 function GFSimulateState(gen_fn::GenerativeFunction, args::Tuple, params, rng::AbstractRNG)
@@ -37,7 +37,7 @@ function traceat(state::GFSimulateState, gen_fn::GenerativeFunction{T,U},
     visit!(state.visitor, key)
 
     # get subtrace
-    subtrace = simulate(gen_fn, args)
+    subtrace = simulate(state.rng, gen_fn, args)
 
     # add to the trace
     add_call!(state.trace, key, subtrace)

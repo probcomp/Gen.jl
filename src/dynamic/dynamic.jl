@@ -45,9 +45,9 @@ end
 
 accepts_output_grad(gen_fn::DynamicDSLFunction) = gen_fn.accepts_output_grad
 
-mutable struct GFUntracedState
+mutable struct GFUntracedState{R<:AbstractRNG}
     params::Dict{Symbol,Any}
-    rng::AbstractRNG
+    rng::R
 end
 
 (gen_fn::DynamicDSLFunction)(args...) = gen_fn(default_rng(), args...)
@@ -85,13 +85,13 @@ end
 
 # Defaults for untraced execution
 @inline traceat(state::GFUntracedState, gen_fn::GenerativeFunction, args, key) =
-    gen_fn(args...)
+    gen_fn(state.rng, args...)
 
 @inline traceat(state::GFUntracedState, dist::Distribution, args, key) =
     random(state.rng, dist, args...)
 
 @inline splice(state::GFUntracedState, gen_fn::DynamicDSLFunction, args::Tuple) =
-    gen_fn(args...)
+    gen_fn(state.rng, args...)
 
 ########################
 # trainable parameters #

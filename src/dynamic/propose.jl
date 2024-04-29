@@ -1,9 +1,9 @@
-mutable struct GFProposeState
+mutable struct GFProposeState{R<:AbstractRNG}
     choices::DynamicChoiceMap
     weight::Float64
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
-    rng::AbstractRNG
+    rng::R
 end
 
 function GFProposeState(params::Dict{Symbol,Any}, rng::AbstractRNG)
@@ -37,7 +37,7 @@ function traceat(state::GFProposeState, gen_fn::GenerativeFunction{T,U},
     visit!(state.visitor, key)
 
     # get subtrace
-    (submap, weight, retval) = propose(gen_fn, args)
+    (submap, weight, retval) = propose(state.rng, gen_fn, args)
 
     # update assignment
     set_submap!(state.choices, key, submap)

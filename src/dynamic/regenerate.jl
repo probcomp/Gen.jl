@@ -1,11 +1,11 @@
-mutable struct GFRegenerateState
+mutable struct GFRegenerateState{R<:AbstractRNG}
     prev_trace::DynamicDSLTrace
     trace::DynamicDSLTrace
     selection::Selection
     weight::Float64
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
-    rng::AbstractRNG
+    rng::R
 end
 
 function GFRegenerateState(gen_fn, args, prev_trace,
@@ -76,9 +76,9 @@ function traceat(state::GFRegenerateState, gen_fn::GenerativeFunction{T,U},
         prev_subtrace = prev_call.subtrace
         get_gen_fn(prev_subtrace) === gen_fn || gen_fn_changed_error(key)
         (subtrace, weight, _) = regenerate(
-            prev_subtrace, args, map((_) -> UnknownChange(), args), subselection)
+            state.rng, prev_subtrace, args, map((_) -> UnknownChange(), args), subselection)
     else
-        (subtrace, weight) = generate(gen_fn, args, EmptyChoiceMap())
+        (subtrace, weight) = generate(state.rng, gen_fn, args, EmptyChoiceMap())
     end
 
     # update weight

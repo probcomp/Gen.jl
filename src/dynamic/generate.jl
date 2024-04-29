@@ -1,10 +1,10 @@
-mutable struct GFGenerateState
+mutable struct GFGenerateState{R<:AbstractRNG}
     trace::DynamicDSLTrace
     constraints::ChoiceMap
     weight::Float64
     visitor::AddressVisitor
     params::Dict{Symbol,Any}
-    rng::AbstractRNG
+    rng::R
 end
 
 function GFGenerateState(gen_fn, args, constraints, params, rng::AbstractRNG)
@@ -56,7 +56,7 @@ function traceat(state::GFGenerateState, gen_fn::GenerativeFunction{T,U},
     constraints = get_submap(state.constraints, key)
 
     # get subtrace
-    (subtrace, weight) = generate(gen_fn, args, constraints)
+    (subtrace, weight) = generate(state.rng, gen_fn, args, constraints)
 
     # add to the trace
     add_call!(state.trace, key, subtrace)
