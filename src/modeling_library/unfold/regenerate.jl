@@ -9,7 +9,7 @@ mutable struct UnfoldRegenerateState{T,U}
     updated_retdiffs::Dict{Int,Diff}
 end
 
-function process_retained!(gen_fn::Unfold{T,U}, params::Tuple,
+function process_retained!(rng::AbstractRNG, gen_fn::Unfold{T,U}, params::Tuple,
                            selection::Selection, key::Int, kernel_argdiffs::Tuple,
                            state::UnfoldRegenerateState{T,U}) where {T,U}
     local subtrace::U
@@ -24,7 +24,7 @@ function process_retained!(gen_fn::Unfold{T,U}, params::Tuple,
     # get new subtrace with recursive call to regenerate()
     prev_subtrace = state.subtraces[key]
     (subtrace, weight, retdiff) = regenerate(
-        prev_subtrace, kernel_args, kernel_argdiffs, subselection)
+        rng, prev_subtrace, kernel_args, kernel_argdiffs, subselection)
 
     # retrieve retdiff
     if retdiff != NoChange()

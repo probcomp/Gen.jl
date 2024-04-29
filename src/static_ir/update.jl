@@ -519,7 +519,7 @@ function codegen_regenerate(trace_type::Type{T}, args_type::Type, argdiffs_type:
 
     # convert a hierarchical selection to a static selection if it is not alreay one
     if !(isa(schema, StaticAddressSchema) || isa(schema, EmptyAddressSchema) || isa(schema, AllAddressSchema))
-        return quote $(GlobalRef(Gen, :regenerate))(rng, trace, args, argdiffs, $(QuoteNode(StaticSelection))(selection)) end
+        return quote $(GlobalRef(Gen, :regenerate))($STATIC_RNG, trace, args, argdiffs, $(QuoteNode(StaticSelection))(selection)) end
     end
 
     ir = get_ir(gen_fn_type)
