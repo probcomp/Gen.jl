@@ -32,3 +32,15 @@ get_params
 NoChange
 UnknownChange
 ```
+
+```@docs
+CustomUpdateGF
+apply_with_state
+update_with_state
+```
+
+```@docs
+CustomGradientGF
+apply
+gradient
+```

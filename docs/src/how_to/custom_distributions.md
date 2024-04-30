@@ -1,103 +1,5 @@
 # How to write custom Gen distribution
 
-Gen is designed for extensibility.
-To implement behaviors that are not directly supported by the existing modeling languages, users can implement `black-box' generative functions directly, without using built-in modeling language.
-These generative functions can then be invoked by generative functions defined using the built-in modeling language.
-This includes several special cases:
-
-- Extending Gen with custom gradient computations
-
-- Extending Gen with custom incremental computation of return values
-
-- Extending Gen with new modeling languages.
-
-## Custom gradients
-
-To add a custom gradient for a differentiable deterministic computation, define a concrete subtype of [`CustomGradientGF`](@ref) with the following methods:
-
-- [`apply`](@ref)
-
-- [`gradient`](@ref)
-
-- [`has_argument_grads`](@ref)
-
-For example:
-
-```julia
-struct MyPlus <: CustomGradientGF{Float64} end
-
-Gen.apply(::MyPlus, args) = args[1] + args[2]
-Gen.gradient(::MyPlus, args, retval, retgrad) = (retgrad, retgrad)
-Gen.has_argument_grads(::MyPlus) = (true, true)
-```
-
-```@docs
-CustomGradientGF
-apply
-gradient
-```
-
-## Custom incremental computation
-
-Iterative inference techniques like Markov chain Monte Carlo involve repeatedly updating the execution traces of generative models.
-In some cases, the output of a deterministic computation within the model can be incrementally computed during each of these updates, instead of being computed from scratch.
-
-To add a custom incremental computation for a deterministic computation, define a concrete subtype of [`CustomUpdateGF`](@ref) with the following methods:
-
-- [`apply_with_state`](@ref)
-
-- [`update_with_state`](@ref)
-
-- [`has_argument_grads`](@ref)
-
-The second type parameter of `CustomUpdateGF` is the type of the state that may be used internally to facilitate incremental computation within `update_with_state`.
-
-For example, we can implement a function for computing the sum of a vector that efficiently computes the new sum when a small fraction of the vector elements change:
-
-```julia
-struct MyState
-    prev_arr::Vector{Float64}
-    sum::Float64
-end
-
-struct MySum <: CustomUpdateGF{Float64,MyState} end
-
-function Gen.apply_with_state(::MySum, args)
-    arr = args[1]
-    s = sum(arr)
-    state = MyState(arr, s)
-    (s, state)
-end
-
-function Gen.update_with_state(::MySum, state, args, argdiffs::Tuple{VectorDiff})
-    arr = args[1]
-    prev_sum = state.sum
-    retval = prev_sum
-    for i in keys(argdiffs[1].updated)
-        retval += (arr[i] - state.prev_arr[i])
-    end
-    prev_length = length(state.prev_arr)
-    new_length = length(arr)
-    for i=prev_length+1:new_length
-        retval += arr[i]
-    end
-    for i=new_length+1:prev_length
-        retval -= arr[i]
-    end
-    state = MyState(arr, retval)
-    (state, retval, UnknownChange())
-end
-
-Gen.num_args(::MySum) = 1
-```
-
-```@docs
-CustomUpdateGF
-apply_with_state
-update_with_state
-```
-
-
 ## [Custom distributions](@id custom_distributions)
 
 Users can extend Gen with new probability distributions, which can then be used
@@ -113,7 +15,7 @@ Probability distributions are singleton types whose supertype is `Distribution{T
 abstract type Distribution{T} end
 ```
 
-A new Distribution type must implement the following methods:
+A new `Distribution` type must implement the following methods:
 
 - [`random`](@ref)
 
@@ -137,13 +39,6 @@ Distribution values should also be callable, which is a syntactic sugar with the
 
 ```julia
 bernoulli(0.5) # identical to random(bernoulli, 0.5) and random(Bernoulli(), 0.5)
-```
-
-```@docs
-random
-logpdf
-has_output_grad
-logpdf_grad
 ```
 
 ## [Custom Generative Functions](@id custom_generative_functions)
@@ -229,7 +124,3 @@ If your generative function has trainable parameters, then implement:
 - [`accumulate_param_gradients!`](@ref)
 
 
-## Custom modeling languages
-
-Gen can be extended with new modeling languages by implementing new generative function types, and constructors for these types that take models as input.
-This typically requires implementing the entire generative function interface, and is advanced usage of Gen.

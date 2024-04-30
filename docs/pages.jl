@@ -19,7 +19,10 @@ pages = [
         ],
     ],
     "How-to Guides" => [
-        "Custom Gen Distributions" => "how_to/extending.md" 
+        "Custom Distributions" => "how_to/custom_distributions.md",
+        "Custom Modeling Languages" => "how_to/custom_dsl.md",
+        "Custom Gradients" => "how_to/custom_derivatives.md",
+        "Incremental Computation" => "how_to/custom_incremental_computation.md",
     ],
     "API Reference" => [
         "Modeling Library" => [
@@ -31,6 +34,7 @@ pages = [
         "Selections" => "api/model/selections.md",
         "Optimizing Trainable Parameters" => "api/model/parameter_optimization.md",
         "Trace Translators" => "api/model/trace_translators.md",
+        "Differential Programming" => "api/model/differential_programming.md"
         ],
         "Standard Inference Library" => [
             "Importance Sampling" => "api/inference/importance.md",

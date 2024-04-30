@@ -1,5 +1,12 @@
 # [Probability Distributions](@id distributions)
 
+```@docs
+random
+logpdf
+has_output_grad
+logpdf_grad
+```
+
 Gen provides a library of built-in probability distributions, and four ways of
 defining custom distributions, each of which are explained below:
 
