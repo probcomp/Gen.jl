@@ -13,22 +13,20 @@ pages = [
         ],
         "Advanced" => [
             "tutorials/modeling_in_gen.md",
-            "tutorials/trace_translators.md"
-            # "tutorials/data_driven_proposals.md",
+            "tutorials/trace_translators.md",
         ],
         "Modeling Languages" => [
-            "tutorials/languages/extending.md"
         ],
     ],
     "How-to Guides" => [
-        
+        "Custom Gen Distributions" => "how_to/extending.md" 
     ],
     "API Reference" => [
         "Modeling Library" => [
         "Generative Functions" => "api/model/gfi.md",
         "Probability Distributions" => "api/model/distributions.md",
         "Built-in Modeling Languages" => "api/model/modeling.md",
-        "Generative Function Combinators" => "api/model/combinators.md",
+        "Combinators" => "api/model/combinators.md",
         "Choice Maps" => "api/model/choice_maps.md",
         "Selections" => "api/model/selections.md",
         "Optimizing Trainable Parameters" => "api/model/parameter_optimization.md",

@@ -8,7 +8,8 @@ makedocs(
     clean = true,
     warnonly = true,
     format = Documenter.HTML(;
-        assets = String["assets/header.js", "assets/header.css", "assets/theme.css"]
+        assets = String["assets/header.js", "assets/header.css", "assets/theme.css"],
+        collapselevel=1,
     ),
     sitename = "Gen.jl",
     pages = pages,

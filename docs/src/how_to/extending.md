@@ -1,4 +1,4 @@
-# Extending Gen
+# How to write custom Gen distribution
 
 Gen is designed for extensibility.
 To implement behaviors that are not directly supported by the existing modeling languages, users can implement `black-box' generative functions directly, without using built-in modeling language.

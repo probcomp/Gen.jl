@@ -25,6 +25,9 @@ using Pkg; Pkg.test("Gen")
 ```
 
 ## Getting Started
+!!! warning "Tutorial Redirect"
+    We are in the process of moving tutorial docs around. For more stable tutorial docs, see [these tutorials](https://www.gen.dev/tutorials/) instead. See more examples [here](https://github.com/probcomp/GenExamples.jl).
+
 To see a overview of the package, check out the [examples](getting_started/linear_regression.md). For a deep-dive on how to do inference with Gen.jl, check out the [tutorials](tutorials/modeling_in_gen.md). 
 
 ```@contents
