@@ -24,28 +24,28 @@ pages = [
         
     ],
     "API Reference" => [
-        "Modeling Language" => [
-        "Generative Functions" => "api/gfi.md",
-        "Probability Distributions" => "api/distributions.md",
-        "Built-in Modeling Languages" => "api/modeling.md",
-        "Generative Function Combinators" => "api/combinators.md",
-        "Choice Maps" => "api/choice_maps.md",
-        "Selections" => "api/selections.md",
-        "Optimizing Trainable Parameters" => "api/parameter_optimization.md",
-        "Trace Translators" => "api/trace_translators.md",
+        "Modeling Library" => [
+        "Generative Functions" => "api/model/gfi.md",
+        "Probability Distributions" => "api/model/distributions.md",
+        "Built-in Modeling Languages" => "api/model/modeling.md",
+        "Generative Function Combinators" => "api/model/combinators.md",
+        "Choice Maps" => "api/model/choice_maps.md",
+        "Selections" => "api/model/selections.md",
+        "Optimizing Trainable Parameters" => "api/model/parameter_optimization.md",
+        "Trace Translators" => "api/model/trace_translators.md",
         ],
         "Standard Inference Library" => [
-            "Importance Sampling" => "api/importance.md",
-            "MAP Optimization" => "api/map.md",
-            "Markov chain Monte Carlo" => "api/mcmc.md",
-            "MAP Optimization" => "api/map.md",
-            "Particle Filtering" => "api/pf.md",
-            "Variational Inference" => "api/vi.md",
-            "Learning Generative Functions" => "api/learning.md"
+            "Importance Sampling" => "api/inference/importance.md",
+            "MAP Optimization" => "api/inference/map.md",
+            "Markov chain Monte Carlo" => "api/inference/mcmc.md",
+            "MAP Optimization" => "api/inference/map.md",
+            "Particle Filtering" => "api/inference/pf.md",
+            "Variational Inference" => "api/inference/vi.md",
+            "Learning Generative Functions" => "api/inference/learning.md"
         ],
     ],
     "Explanation and Internals" => [
-        "Optimizing Trainable Parameters" => "api/internals/parameter_optimization.md",
-        "Modeling Language Implementation" => "api/internals/language_implementation.md"
+        "Optimizing Trainable Parameters" => "explanations/internals/parameter_optimization.md",
+        "Modeling Language Implementation" => "explanations/internals/language_implementation.md"
     ]
 ]

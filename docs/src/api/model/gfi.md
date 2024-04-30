@@ -5,13 +5,8 @@ GenerativeFunction
 Trace
 ```
 
-add example
-```julia
-@gen function model()
-end
-```
-
 The complete set of methods in the generative function interface (GFI) is:
+
 ```@docs
 simulate
 generate

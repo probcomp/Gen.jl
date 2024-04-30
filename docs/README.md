@@ -2,6 +2,12 @@
 - `pages.jl` to find skeleton of website.
 - `make.jl` to build the website index.
 
+The docs are divided in roughly four sections:
+- Getting Started + Tutorials
+- How-to Guides
+- API = Modeling API + Inference API
+- Explanations + Internals
+
 # Build Docs Locally
 To build the docs, run `julia --make.jl` or alternatively startup the Julia REPL and include `make.jl`.
 

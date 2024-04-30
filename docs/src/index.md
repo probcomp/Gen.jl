@@ -30,8 +30,6 @@ To see a overview of the package, check out the [examples](getting_started/linea
 ```@contents
 Pages = [
     "getting_started/linear_regression.md",
-    "getting_started/hidden_markov_model.md",
-    "getting_started/gaussian_processes.md"
     ]
 Depth = 2
 ```
@@ -40,9 +38,8 @@ Depth = 2
 See the [Developer's Guide](https://gen.dev) on how to contribute to the Gen ecosystem.
 
 ## Supporting and Citing
-- this repo is academic research
-- please star repo
-- please cite
+This repo is part of ongoing research at [ProbComp](http://probcomp.csail.mit.edu) and may later include new experimental  (for the better)! If you use Gen for your work, please consider citing us:
+
 ```bibtex
 @inproceedings{Cusumano-Towner:2019:GGP:3314221.3314642,
  author = {Cusumano-Towner, Marco F. and Saad, Feras A. and Lew, Alexander K. and Mansinghka, Vikash K.},
