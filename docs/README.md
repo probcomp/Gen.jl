@@ -3,7 +3,7 @@
 - `make.jl` to build the website index.
 
 # Build Docs Locally
-Open the Julia REPL and include `make.jl`. 
+To build the docs, run `julia --make.jl` or alternatively startup the Julia REPL and include `make.jl`.
 
 # Add Tutorial Code
 Currently you must write the tutorial directly in the docs rather than a source file (e.g. Quarto). See `getting_started` or `tutorials` for examples.
