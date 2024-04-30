@@ -6,8 +6,8 @@ pages = [
     "Tutorials" => [
         "Basics" => [
             "tutorials/modeling_in_gen.md",
-            "tutorials/combinators.md",
             "tutorials/gfi.md",
+            "tutorials/combinators.md",
             "tutorials/mcmc.md",
             "tutorials/vi.md"
         ],
@@ -45,7 +45,7 @@ pages = [
         ],
     ],
     "Explanation and Internals" => [
-        "Optimizing Trainable Parameters" => "explanations/internals/parameter_optimization.md",
-        "Modeling Language Implementation" => "explanations/internals/language_implementation.md"
+        "Optimizing Trainable Parameters" => "explanations/parameter_optimization.md",
+        "Modeling Language Implementation" => "explanations/language_implementation.md"
     ]
 ]

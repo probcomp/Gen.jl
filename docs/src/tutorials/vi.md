@@ -1,4 +1,4 @@
-# Variational Inference (@id vi)
+# [Variational Inference] (@id vi_tutorial)
 
 Variational inference involves optimizing the parameters of a variational family to maximize a lower bound on the marginal likelihood called the ELBO.
 In Gen, variational families are represented as generative functions, and variational inference typically involves optimizing the trainable parameters of generative functions.

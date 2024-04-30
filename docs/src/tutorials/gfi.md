@@ -168,20 +168,17 @@ We will illustrate these methods using the following generative function:
     return val
 end
 ```
+
 Suppose we have a trace (`trace`) of `bar` with initial choices:
 ```@example gfi_tutorial
-a = 1
+trace, _ = generate(bar, (), choicemap(:a=>false, :b=>true, :c=>false, :e=>true)) # hide
+nothing # hide
 ```
+
+```@example gfi_tutorial
+get_choices(trace) # hide
 ```
-│
-├── :a : false
-│
-├── :b : true
-│
-├── :c : false
-│
-└── :e : true
-```
+
 Note that address `:d` is not present because the branch in which `:d` is sampled was not taken because random choice `:b` had value `true`.
 
 ### Update
@@ -189,34 +186,27 @@ The [`update`](@ref) method takes a trace and generates an adjusted trace that i
 
 **Example.**
 Suppose we run [`update`](@ref) on the example `trace`, with the following constraints:
+
+```@example gfi_tutorial
+choicemap(:b=>false, :d=>true) #hide
 ```
-│
-├── :b : false
-│
-└── :d : true
-```
-```julia
+
+```@example gfi_tutorial
 constraints = choicemap((:b, false), (:d, true))
 (new_trace, w, _, discard) = update(trace, (), (), constraints)
 ```
 Then `get_choices(new_trace)` will be:
+
+```@example gfi_tutorial
+get_choices(new_trace)
 ```
-│
-├── :a : false
-│
-├── :b : false
-│
-├── :d : true
-│
-└── :e : true
-```
+
 and `discard` will be:
+
+```@example gfi_tutorial
+discard
 ```
-│
-├── :b : true
-│
-└── :c : false
-```
+
 Note that the discard contains both the previous values of addresses that were overwritten, and the values for addresses that were in the previous trace but are no longer in the new trace.
 The weight (`w`) is computed as:
 ```math
@@ -227,44 +217,34 @@ w = \log p(t'; x')/p(t; x) = \log 0.0294/0.0784 = \log 0.375
 
 **Example.**
 Suppose we run [`update`](@ref) on the example `trace`, with the following constraints, which *do not* contain a value for `:d`:
+
+```@example gfi_tutorial
+choicemap(:b=>false) # hide
 ```
-│
-└── :b : false
-```
+
 ```@example gfi_tutorial
 constraints = choicemap((:b, false))
 (new_trace, w, _, discard) = update(trace, (), (), constraints)
 ```
-Then `get_choices(new_trace)` will be:
+
+Since `b` is constrained to `false`, the updated trace must now sample at address `d` (note address `e` remains fixed). There two possibilities for `get_choices(new_trace)`:
+
+The first choicemap:
+```@example gfi_tutorial
+choicemap(:a=>false, :b=>false, :d=>true, :e=>true) # hide
 ```
-│
-├── :a : false
-│
-├── :b : false
-│
-├── :d : true
-│
-└── :e : true
+occurs with probability 0.1. The second:
+
+```@example gfi_tutorial
+choicemap(:a=>false, :b=>false, :d=>false, :e=>true) # hide
 ```
-with probability 0.1, or:
-```
-│
-├── :a : false
-│
-├── :b : false
-│
-├── :d : false
-│
-└── :e : true
-```
-with probability 0.9.
+
+occurs with probability 0.9.
 Also, `discard` will be:
+```@example gfi_tutorial
+discard # hide
 ```
-│
-├── :b : true
-│
-└── :c : false
-```
+
 If the former case occurs and `:d` is assigned to `true`, then the weight (`w`) is computed as:
 ```math
 p(t; x) = 0.7 × 0.4 × 0.4 × 0.7 = 0.0784\\
