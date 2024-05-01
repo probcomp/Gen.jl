@@ -1,4 +1,4 @@
-# Generative Combinators
+# [Generative Combinators](@id combinators_tutorial)
 
 Generative function combinators are Julia functions that take one or more generative functions as input and return a new generative function. Generative function combinators are used to express patterns of repeated computation that appear frequently in generative models. Some generative function combinators are similar to higher order functions from functional programming languages.
 
@@ -7,7 +7,7 @@ Generative function combinators are Julia functions that take one or more genera
 In the schematic below, the kernel is denoted ``\mathcal{G}_{\mathrm{k}}``.
 ```@raw html
 <div style="text-align:center">
-    <img src="../../images/map_combinator.png" alt="schematic of map combinator" width="50%"/>
+    <img src="./images/map_combinator.png" alt="schematic of map combinator" width="50%"/>
 </div>
 ```
 
@@ -46,7 +46,7 @@ In the schematic below, the kernel is denoted ``\mathcal{G}_{\mathrm{k}}``.
 The initial state is denoted ``y_0``, the number of applications is ``n``, and the remaining arguments to the kernel not including the state, are ``z``.
 ```@raw html
 <div style="text-align:center">
-    <img src="../../images/unfold_combinator.png" alt="schematic of unfold combinator" width="70%"/>
+    <img src="./images/unfold_combinator.png" alt="schematic of unfold combinator" width="70%"/>
 </div>
 ```
 
@@ -81,7 +81,7 @@ get_retval(trace)
 
 ```@raw html
 <div style="text-align:center">
-    <img src="../../images/switch_combinator.png" alt="schematic of switch combinator" width="100%"/>
+    <img src="./images/switch_combinator.png" alt="schematic of switch combinator" width="100%"/>
 </div>
 ```
 

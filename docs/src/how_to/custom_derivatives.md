@@ -1,4 +1,4 @@
-# How to Write Custom Gradients
+# How to write custom gradients
 
 To add a custom gradient for a differentiable deterministic computation, define a concrete subtype of [`CustomGradientGF`](@ref) with the following methods:
 
@@ -18,3 +18,9 @@ Gen.gradient(::MyPlus, args, retval, retgrad) = (retgrad, retgrad)
 Gen.has_argument_grads(::MyPlus) = (true, true)
 ```
 
+# [Optimizing Trainable Parameters](@id optimizing-internal)
+
+To add support for a new type of gradient-based parameter update, create a new type with the following methods defined for the types of generative functions that are to be supported.
+- [Gen.init_update_state](@ref)
+- [Gen.apply_update!](@ref)
+```

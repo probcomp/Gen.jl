@@ -5,20 +5,20 @@ pages = [
     ],
     "Tutorials" => [
         "Basics" => [
-            "tutorials/modeling_in_gen.md",
-            "tutorials/gfi.md",
-            "tutorials/combinators.md",
-            "tutorials/mcmc.md",
-            "tutorials/vi.md"
+            "tutorials/basics/modeling_in_gen.md",
+            "tutorials/basics/gfi.md",
+            "tutorials/basics/combinators.md",
+            "tutorials/basics/vi.md"
         ],
         "Advanced" => [
-            "tutorials/modeling_in_gen.md",
             "tutorials/trace_translators.md",
         ],
-        "Modeling Languages" => [
+        "Model Optmizations" => [
+            "Speeding Inference with the Static Modeling Language" => "tutorials/model_optimizations/scaling_with_sml.md",
         ],
     ],
     "How-to Guides" => [
+        "MCMC Kernels" => "how_to/mcmc_kernels.md",
         "Custom Distributions" => "how_to/custom_distributions.md",
         "Custom Modeling Languages" => "how_to/custom_dsl.md",
         "Custom Gradients" => "how_to/custom_derivatives.md",
@@ -26,17 +26,17 @@ pages = [
     ],
     "API Reference" => [
         "Modeling Library" => [
-        "Generative Functions" => "api/model/gfi.md",
-        "Probability Distributions" => "api/model/distributions.md",
-        "Built-in Modeling Languages" => "api/model/modeling.md",
-        "Combinators" => "api/model/combinators.md",
-        "Choice Maps" => "api/model/choice_maps.md",
-        "Selections" => "api/model/selections.md",
-        "Optimizing Trainable Parameters" => "api/model/parameter_optimization.md",
-        "Trace Translators" => "api/model/trace_translators.md",
-        "Differential Programming" => "api/model/differential_programming.md"
+            "Generative Functions" => "api/model/gfi.md",
+            "Probability Distributions" => "api/model/distributions.md",
+            "Built-in Modeling Languages" => "api/model/modeling.md",
+            "Combinators" => "api/model/combinators.md",
+            "Choice Maps" => "api/model/choice_maps.md",
+            "Selections" => "api/model/selections.md",
+            "Optimizing Trainable Parameters" => "api/model/parameter_optimization.md",
+            "Trace Translators" => "api/model/trace_translators.md",
+            "Differential Programming" => "api/model/differential_programming.md"
         ],
-        "Standard Inference Library" => [
+        "Inference Library" => [
             "Importance Sampling" => "api/inference/importance.md",
             "MAP Optimization" => "api/inference/map.md",
             "Markov chain Monte Carlo" => "api/inference/mcmc.md",
@@ -47,7 +47,6 @@ pages = [
         ],
     ],
     "Explanation and Internals" => [
-        "Optimizing Trainable Parameters" => "explanations/parameter_optimization.md",
         "Modeling Language Implementation" => "explanations/language_implementation.md"
     ]
 ]

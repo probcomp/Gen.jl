@@ -1,4 +1,4 @@
-## How to write a Custom modeling languages
+# How to write a custom modeling languages
 
 Gen can be extended with new modeling languages by implementing new generative function types, and constructors for these types that take models as input.
 This typically requires implementing the entire generative function interface, and is advanced usage of Gen.

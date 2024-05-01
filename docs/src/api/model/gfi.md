@@ -44,3 +44,8 @@ CustomGradientGF
 apply
 gradient
 ```
+
+```@docs
+Gen.init_update_state
+Gen.apply_update!
+```
