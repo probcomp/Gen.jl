@@ -19,13 +19,14 @@ function logpdf_grad(::NegativeBinomial, x::Int, r::Real, p::Real)
     return (nothing, r_grad, p_grad)
 end
 
-function random(::NegativeBinomial, r::Real, p::Real)
-    rand(Distributions.NegativeBinomial(r, p))
+function random(rng::AbstractRNG, ::NegativeBinomial, r::Real, p::Real)
+    rand(rng, Distributions.NegativeBinomial(r, p))
 end
 
 is_discrete(::NegativeBinomial) = true
 
-(::NegativeBinomial)(r, p) = random(NegativeBinomial(), r, p)
+(dist::NegativeBinomial)(r, p) = dist(default_rng(), r, p)
+(::NegativeBinomial)(rng::AbstractRNG, r, p) = random(rng, NegativeBinomial(), r, p)
 
 has_output_grad(::NegativeBinomial) = false
 has_argument_grads(::NegativeBinomial) = (true, true)

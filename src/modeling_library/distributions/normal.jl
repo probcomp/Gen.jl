@@ -125,18 +125,22 @@ function _unbroadcast_to_shape(target_shape::NTuple{target_ndims, Int},
              dims=Dims(target_ndims + 1 : full_ndims))
 end
 
-random(::Normal, mu::Real, std::Real) = mu + std * randn()
+random(rng::AbstractRNG, ::Normal, mu::Real, std::Real) = mu + std * randn(rng)
+
 is_discrete(::Normal) = false
 
-function random(::BroadcastedNormal,
+function random(rng::AbstractRNG, ::BroadcastedNormal,
                 mu::Union{AbstractArray{<:Real}, Real},
                 std::Union{AbstractArray{<:Real}, Real})
     broadcast_shape = broadcast_shapes_or_crash(mu, std)
-    mu .+ std .* randn(broadcast_shape)
+    mu .+ std .* randn(rng, broadcast_shape)
 end
 
-(::Normal)(mu, std) = random(Normal(), mu, std)
-(::BroadcastedNormal)(mu, std) = random(BroadcastedNormal(), mu, std)
+(dist::Normal)(mu, std) = dist(default_rng(), mu, std)
+(::Normal)(rng::AbstractRNG, mu, std) = random(rng, Normal(), mu, std)
+
+(dist::BroadcastedNormal)(mu, std) = dist(default_rng(), mu, std)
+(::BroadcastedNormal)(rng::AbstractRNG, mu, std) = random(rng, BroadcastedNormal(), mu, std)
 
 has_output_grad(::Normal) = true
 has_argument_grads(::Normal) = (true, true)

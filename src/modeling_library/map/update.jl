@@ -9,7 +9,7 @@ mutable struct MapUpdateState{T,U}
     updated_retdiffs::Dict{Int,Diff}
 end
 
-function process_retained!(gen_fn::Map{T,U}, args::Tuple,
+function process_retained!(rng::AbstractRNG, gen_fn::Map{T,U}, args::Tuple,
                            choices::ChoiceMap, key::Int, kernel_argdiffs::Tuple,
                            state::MapUpdateState{T,U}) where {T,U}
     local subtrace::U
@@ -22,7 +22,7 @@ function process_retained!(gen_fn::Map{T,U}, args::Tuple,
     # get new subtrace with recursive call to update()
     prev_subtrace = state.subtraces[key]
     (subtrace, weight, retdiff, discard) = update(
-        prev_subtrace, kernel_args, kernel_argdiffs, submap)
+        rng, prev_subtrace, kernel_args, kernel_argdiffs, submap)
 
     # retrieve retdiff
     if retdiff != NoChange()
@@ -46,7 +46,7 @@ function process_retained!(gen_fn::Map{T,U}, args::Tuple,
     end
 end
 
-function process_new!(gen_fn::Map{T,U}, args::Tuple, choices, key::Int,
+function process_new!(rng::AbstractRNG, gen_fn::Map{T,U}, args::Tuple, choices, key::Int,
                       state::MapUpdateState{T,U}) where {T,U}
     local subtrace::U
     local retval::T
@@ -55,7 +55,7 @@ function process_new!(gen_fn::Map{T,U}, args::Tuple, choices, key::Int,
     kernel_args = get_args_for_key(args, key)
 
     # get subtrace and weight
-    (subtrace, weight) = generate(gen_fn.kernel, kernel_args, submap)
+    (subtrace, weight) = generate(rng, gen_fn.kernel, kernel_args, submap)
 
     # update state
     state.weight += weight
@@ -71,7 +71,7 @@ function process_new!(gen_fn::Map{T,U}, args::Tuple, choices, key::Int,
 end
 
 
-function update(trace::VectorTrace{MapType,T,U}, args::Tuple, argdiffs::Tuple,
+function update(rng::AbstractRNG, trace::VectorTrace{MapType,T,U}, args::Tuple, argdiffs::Tuple,
                 choices::ChoiceMap) where {T,U}
     gen_fn = trace.gen_fn
     (new_length, prev_length) = get_prev_and_new_lengths(args, trace)
@@ -89,9 +89,9 @@ function update(trace::VectorTrace{MapType,T,U}, args::Tuple, argdiffs::Tuple,
     state = MapUpdateState{T,U}(-score_decrement, score, noise,
                                      subtraces, retval, discard, num_nonempty,
                                      Dict{Int,Diff}())
-    process_all_retained!(gen_fn, args, argdiffs, choices, prev_length, new_length,
+    process_all_retained!(rng, gen_fn, args, argdiffs, choices, prev_length, new_length,
                           retained_and_constrained, state)
-    process_all_new!(gen_fn, args, choices, prev_length, new_length, state)
+    process_all_new!(rng, gen_fn, args, choices, prev_length, new_length, state)
 
     # retdiff
     retdiff = vector_compute_retdiff(state.updated_retdiffs, new_length, prev_length)

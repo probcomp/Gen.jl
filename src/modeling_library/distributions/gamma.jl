@@ -26,13 +26,14 @@ function logpdf_grad(::Gamma, x::Real, shape::Real, scale::Real)
     end
 end
 
-function random(::Gamma, shape::Real, scale::Real)
-    rand(Distributions.Gamma(shape, scale))
+function random(rng::AbstractRNG, ::Gamma, shape::Real, scale::Real)
+    rand(rng, Distributions.Gamma(shape, scale))
 end
 
 is_discrete(::Gamma) = false
 
-(::Gamma)(shape, scale) = random(Gamma(), shape, scale)
+(dist::Gamma)(shape, scale) = dist(default_rng(), shape, scale)
+(::Gamma)(rng::AbstractRNG, shape, scale) = random(rng, Gamma(), shape, scale)
 
 has_output_grad(::Gamma) = true
 has_argument_grads(::Gamma) = (true, true)

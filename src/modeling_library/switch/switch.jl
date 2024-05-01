@@ -19,13 +19,15 @@ has_argument_grads(switch_fn::Switch) = map(zip(map(has_argument_grads, switch_f
 end
 accepts_output_grad(switch_fn::Switch) = all(accepts_output_grad, switch_fn.branches)
 
-function (gen_fn::Switch)(index::Int, args...)
-    (_, _, retval) = propose(gen_fn, (index, args...))
+(gen_fn::Switch)(index, args...) = gen_fn(default_rng(), index, args...)
+
+function (gen_fn::Switch)(rng::AbstractRNG, index::Int, args...)
+    (_, _, retval) = propose(rng, gen_fn, (index, args...))
     retval
 end
 
-function (gen_fn::Switch{C})(index::C, args...) where C
-    (_, _, retval) = propose(gen_fn, (gen_fn.cases[index], args...))
+function (gen_fn::Switch{C})(rng::AbstractRNG, index::C, args...) where C
+    (_, _, retval) = propose(rng, gen_fn, (gen_fn.cases[index], args...))
     retval
 end
 

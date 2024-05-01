@@ -82,18 +82,21 @@ Returns choices from previous trace that:
 
 @inline update_discard(prev_trace::Trace, choices::ChoiceMap, new_trace::Trace) = update_discard(get_choices(prev_trace), choices, get_choices(new_trace))
 
-function process!(gen_fn::Switch{C, N, K, T},
-        index::Int,
-        index_argdiff::UnknownChange,
-        args::Tuple,
-        kernel_argdiffs::Tuple,
-        choices::ChoiceMap,
-        state::SwitchUpdateState{T}) where {C, N, K, T}
+function process!(
+    rng::AbstractRNG,
+    gen_fn::Switch{C, N, K, T},
+    index::Int,
+    index_argdiff::UnknownChange,
+    args::Tuple,
+    kernel_argdiffs::Tuple,
+    choices::ChoiceMap,
+    state::SwitchUpdateState{T}
+) where {C, N, K, T}
 
     # Generate new trace.
     merged = update_recurse_merge(get_choices(state.prev_trace), choices)
     branch_fn = getfield(gen_fn.branches, index)
-    new_trace, weight = generate(branch_fn, args, merged)
+    new_trace, weight = generate(rng, branch_fn, args, merged)
     weight -= get_score(state.prev_trace)
     state.discard = update_discard(state.prev_trace, choices, new_trace)
 
@@ -106,16 +109,19 @@ function process!(gen_fn::Switch{C, N, K, T},
     state.updated_retdiff = UnknownChange()
 end
 
-function process!(gen_fn::Switch{C, N, K, T},
-        index::Int,
-        index_argdiff::NoChange, # TODO: Diffed wrapper?
-        args::Tuple,
-        kernel_argdiffs::Tuple,
-        choices::ChoiceMap,
-        state::SwitchUpdateState{T}) where {C, N, K, T}
+function process!(
+    rng::AbstractRNG,
+    gen_fn::Switch{C, N, K, T},
+    index::Int,
+    index_argdiff::NoChange, # TODO: Diffed wrapper?
+    args::Tuple,
+    kernel_argdiffs::Tuple,
+    choices::ChoiceMap,
+    state::SwitchUpdateState{T}
+) where {C, N, K, T}
 
     # Update trace.
-    new_trace, weight, retdiff, discard = update(getfield(state.prev_trace, :branch), args, kernel_argdiffs, choices)
+    new_trace, weight, retdiff, discard = update(rng, getfield(state.prev_trace, :branch), args, kernel_argdiffs, choices)
 
     # Set state.
     state.index = index
@@ -127,16 +133,19 @@ function process!(gen_fn::Switch{C, N, K, T},
     state.discard = discard
 end
 
-@inline process!(gen_fn::Switch{C, N, K, T}, index::C, index_argdiff::Diff, args::Tuple, kernel_argdiffs::Tuple, choices::ChoiceMap, state::SwitchUpdateState{T}) where {C, N, K, T} = process!(gen_fn, getindex(gen_fn.cases, index), index_argdiff, args, kernel_argdiffs, choices, state)
+@inline process!(rng::AbstractRNG, gen_fn::Switch{C, N, K, T}, index::C, index_argdiff::Diff, args::Tuple, kernel_argdiffs::Tuple, choices::ChoiceMap, state::SwitchUpdateState{T}) where {C, N, K, T} = process!(rng, gen_fn, getindex(gen_fn.cases, index), index_argdiff, args, kernel_argdiffs, choices, state)
 
-function update(trace::SwitchTrace{A, T, U},
-        args::Tuple,
-        argdiffs::Tuple,
-        choices::ChoiceMap) where {A, T, U}
+function update(
+    rng::AbstractRNG,
+    trace::SwitchTrace{A, T, U},
+    args::Tuple,
+    argdiffs::Tuple,
+    choices::ChoiceMap
+) where {A, T, U}
     gen_fn = trace.gen_fn
     index, index_argdiff = args[1], argdiffs[1]
     state = SwitchUpdateState{T}(0.0, 0.0, 0.0, trace)
-    process!(gen_fn, index, index_argdiff,
+    process!(rng, gen_fn, index, index_argdiff,
              args[2 : end], argdiffs[2 : end], choices, state)
     return SwitchTrace(gen_fn, state.trace,
                        get_retval(state.trace), args,

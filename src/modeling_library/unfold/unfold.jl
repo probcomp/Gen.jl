@@ -42,8 +42,9 @@ end
 # TODO
 accepts_output_grad(gen_fn::Unfold) = false
 
-function (gen_fn::Unfold)(args...)
-    (_, _, retval) = propose(gen_fn, args)
+(gen_fn::Unfold)(args...) = gen_fn(default_rng(), args...)
+function (gen_fn::Unfold)(rng::AbstractRNG, args...)
+    (_, _, retval) = propose(rng, gen_fn, args)
     retval
 end
 

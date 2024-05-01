@@ -4,7 +4,7 @@ mutable struct UnfoldAssessState{T}
     state::T
 end
 
-function process_new!(gen_fn::Unfold{T,U}, params::Tuple, choices::ChoiceMap,
+function process_new!(rng::AbstractRNG, gen_fn::Unfold{T,U}, params::Tuple, choices::ChoiceMap,
                       key::Int, state::UnfoldAssessState{T}) where {T,U}
     local new_state::T
     kernel_args = (key, state.state, params...)
@@ -21,7 +21,7 @@ function assess(gen_fn::Unfold{T,U}, args::Tuple, choices::ChoiceMap) where {T,U
     params = args[3:end]
     state = UnfoldAssessState{T}(0., Vector{T}(undef,len), init_state)
     for key=1:len
-        process_new!(gen_fn, params, choices, key, state)
+        process_new!(default_rng(), gen_fn, params, choices, key, state)
     end
     (state.weight, PersistentVector{T}(state.retvals))
 end

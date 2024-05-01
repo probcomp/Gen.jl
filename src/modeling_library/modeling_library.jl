@@ -3,14 +3,16 @@
 #############################
 
 import Distributions
+
 using SpecialFunctions: loggamma, logbeta, digamma
 
 abstract type Distribution{T} end
 
 """
-    val::T = random(dist::Distribution{T}, args...)
+    val::T = random([rng::AbstractRNG], dist::Distribution{T}, args...)
 
-Sample a random choice from the given distribution with the given arguments.
+Sample a random choice from the given distribution with the given arguments. The RNG state can be optionally supplied as the first
+argument. If `rng` is not supplied, `Random.default_rng()` will be used by default.
 """
 function random end
 
@@ -39,6 +41,14 @@ If the return value of `has_argument_grads` has a false value for at position `i
 Otherwise, this element contains the gradient with respect to the `i`th argument.
 """
 function logpdf_grad end
+
+random(dist::Distribution, args...) = random(default_rng(), dist, args...)
+function random(rng::AbstractRNG, dist::Distribution, args...)
+    # TODO: For backwards compatibility only. Remove in next breaking version.
+    @warn "Missing concrete implementation of `random(::AbstractRNG, ::$(typeof(dist)), args...), `" *
+                "falling back to `random(::$(typeof(dist)), args...)`."
+    return random(dist, args)
+end
 
 is_discrete(::Distribution) = false # default
 
