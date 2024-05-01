@@ -46,6 +46,7 @@ piecewise_uniform
 poisson
 uniform
 uniform_discrete
+broadcasted_normal
 ```
 
 ## [Defining New Distributions Inline with the `@dist` DSL](@id dist_dsl)

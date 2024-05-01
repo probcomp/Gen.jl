@@ -8,7 +8,8 @@ pages = [
             "tutorials/basics/modeling_in_gen.md",
             "tutorials/basics/gfi.md",
             "tutorials/basics/combinators.md",
-            "tutorials/basics/vi.md"
+            "tutorials/basics/particle_filter.md",
+            "tutorials/basics/vi.md",
         ],
         "Advanced" => [
             "tutorials/trace_translators.md",
@@ -28,13 +29,12 @@ pages = [
         "Modeling Library" => [
             "Generative Functions" => "api/model/gfi.md",
             "Probability Distributions" => "api/model/distributions.md",
+            "Choice Maps" => "api/model/choice_maps.md",
             "Built-in Modeling Languages" => "api/model/modeling.md",
             "Combinators" => "api/model/combinators.md",
-            "Choice Maps" => "api/model/choice_maps.md",
             "Selections" => "api/model/selections.md",
             "Optimizing Trainable Parameters" => "api/model/parameter_optimization.md",
             "Trace Translators" => "api/model/trace_translators.md",
-            "Differential Programming" => "api/model/differential_programming.md"
         ],
         "Inference Library" => [
             "Importance Sampling" => "api/inference/importance.md",
@@ -47,6 +47,7 @@ pages = [
         ],
     ],
     "Explanation and Internals" => [
-        "Modeling Language Implementation" => "explanations/language_implementation.md"
+        "Modeling Language Implementation" => "explanations/language_implementation.md",
+        "explanations/combinator_design.md"
     ]
 ]

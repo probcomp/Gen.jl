@@ -56,3 +56,6 @@ DynamicSelection
 StaticSelection
 ComplementSelection
 ```
+```@docs
+Gen.get_address_schema
+```

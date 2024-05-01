@@ -29,7 +29,7 @@ export AllAddressSchema
 ######################
 
 """
-    abstract type Selection end
+    Selection
 
 Abstract type for selections of addresses.
 

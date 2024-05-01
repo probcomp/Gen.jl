@@ -112,7 +112,9 @@ FunctionalCollections.PersistentVector{Any}[true, false, true, false, true]
 
 ## Recurse combinator
 
-TODO: document me
+```@docs
+Recurse
+```
 
 ```@raw html
 <div style="text-align:center">
@@ -161,3 +163,4 @@ The resulting trace contains the subtrace from the branch with index `2` - in th
 │
 └── :z : 13.552870875213735
 ```
+

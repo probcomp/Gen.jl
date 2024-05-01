@@ -274,8 +274,11 @@ The following methods are exported for the trainable parameters of `@gen` functi
 init_param!
 get_param
 get_param_grad
+set_param_grad!
 set_param!
 zero_param_grad!
+accumulate_param_gradients_determ!
+gradient_with_state
 ```
 
 Trainable parameters are designed to be trained using gradient-based methods.

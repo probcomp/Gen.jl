@@ -31,3 +31,4 @@ GradientDescent
 ADAM
 ```
 For adding new types of update configurations, see [Optimizing Trainable Parameters (Internal)](@ref optimizing-internal).
+

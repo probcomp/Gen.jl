@@ -30,7 +30,13 @@ Choice maps also implement:
 - `==`, which tests if two choice maps have the same addresses and values at those addresses.
 
 
-## Mutable Choice Maps
+
+```@docs
+DynamicChoiceMap
+EmptyChoiceMap
+StaticChoiceMap
+choicemap
+```
 
 A mutable choice map can be constructed with [`choicemap`](@ref), and then populated:
 ```julia
@@ -45,13 +51,18 @@ There is also a constructor that takes initial (address, value) pairs:
 choices = choicemap((:x, true), ("foo", 1.25), (:y => 1 => :z, -6.3))
 ```
 
+
 ```@docs
-choicemap
 set_value!
 set_submap!
+Base.merge(::ChoiceMap, ::ChoiceMap)
+Base.merge(::ChoiceMap, ::Vararg{ChoiceMap})
+Base.isempty(::ChoiceMap)
 ```
 
 ```@docs
-DynamicChoiceMap
-EmptyChoiceMap
+Gen.pair
+Gen.unpair
+Gen.ChoiceMapNestedView
 ```
+

@@ -10,6 +10,11 @@ mutable struct SwitchUpdateState{T}
     SwitchUpdateState{T}(weight::Float64, score::Float64, noise::Float64, prev_trace::Trace) where T = new{T}(weight, score, noise, prev_trace)
 end
 
+"""
+    update_recurse_merge(prev_choices::ChoiceMap, choices::ChoiceMap)
+
+Returns choices that are in constraints, merged with all choices in the previous trace that do not have the same address as some choice in the constraints."
+"""
 function update_recurse_merge(prev_choices::ChoiceMap, choices::ChoiceMap)
     prev_choice_submap_iterator = get_submaps_shallow(prev_choices)
     prev_choice_value_iterator = get_values_shallow(prev_choices)
@@ -48,13 +53,14 @@ function update_recurse_merge(prev_choices::ChoiceMap, choices::ChoiceMap)
     return new_choices
 end
 
-@doc(
+
 """
-update_recurse_merge(prev_choices::ChoiceMap, choices::ChoiceMap)
+    update_discard(prev_choices::ChoiceMap, choices::ChoiceMap, new_choices::ChoiceMap)
 
-Returns choices that are in constraints, merged with all choices in the previous trace that do not have the same address as some choice in the constraints."
-""", update_recurse_merge)
-
+Returns choices from previous trace that:
+   1. have an address which does not appear in the new trace.
+   2. have an address which does appear in the constraints.
+"""
 function update_discard(prev_choices::ChoiceMap, choices::ChoiceMap, new_choices::ChoiceMap)
     discard = choicemap()
     for (k, v) in get_submaps_shallow(prev_choices)
@@ -71,14 +77,6 @@ function update_discard(prev_choices::ChoiceMap, choices::ChoiceMap, new_choices
     discard
 end
 
-@doc(
-"""
-update_discard(prev_choices::ChoiceMap, choices::ChoiceMap, new_choices::ChoiceMap)
-
-Returns choices from previous trace that:
-   1. have an address which does not appear in the new trace.
-   2. have an address which does appear in the constraints.
-""", update_discard)
 
 @inline update_discard(prev_trace::Trace, choices::ChoiceMap, new_trace::Trace) = update_discard(get_choices(prev_trace), choices, get_choices(new_trace))
 

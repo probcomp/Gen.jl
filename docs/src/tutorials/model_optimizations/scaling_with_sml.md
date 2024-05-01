@@ -1,10 +1,10 @@
-# Scaling with the Static Modeling Language
+# [Scaling with the Static Modeling Language](@id scaling_with_sml_tutorial)
 
 ## Introduction
 For prototyping models and working with dynamic structures, Gen's [Dynamic Modeling Language](@ref dynamic_modeling_language) is a great (and the default) way of writing probabilistic programs in nearly pure Julia. However, better performance and scaling characteristics can be obtained using specialized modeling languages or modeling constructs. This notebook introduces a more specialized modeling language known as the [Static Modeling Language](@ref sml) (SML) which is also built into Gen. The SML provides model speedups by carefully analyzing what work is necessary during inference.
 
 **Prerequisites for this tutorial**
-- [Using Generative Combinators](@ref combinators_tutorial)
+- [Generative Combinators](@ref combinators_tutorial)
 
 This tutorial will take the robust regression model used to introduce iterative inference in [an earlier tutorial] and optimize the speed of inference using the SML.
 

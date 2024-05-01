@@ -13,7 +13,8 @@ makedocs(
     ),
     sitename = "Gen.jl",
     pages = pages,
-    # draft = true,
+    checkdocs=:exports,
+    pagesonly=true,
 )
 
 deploydocs(

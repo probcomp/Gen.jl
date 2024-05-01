@@ -21,6 +21,5 @@ Gen.has_argument_grads(::MyPlus) = (true, true)
 # [Optimizing Trainable Parameters](@id optimizing-internal)
 
 To add support for a new type of gradient-based parameter update, create a new type with the following methods defined for the types of generative functions that are to be supported.
-- [Gen.init_update_state](@ref)
-- [Gen.apply_update!](@ref)
-```
+- [`Gen.init_update_state`](@ref)
+- [`Gen.apply_update!`](@ref)

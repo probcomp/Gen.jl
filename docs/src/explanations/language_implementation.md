@@ -1,4 +1,6 @@
 # [Modeling Language Implementation](@id language-implementation)
+!!! warning
+    The API described here is internal to Gen's design and is subject to changes with no deprecation.
 
 ## Parsing `@gen` functions
 
@@ -15,3 +17,32 @@ For clarity, below is a procedural description of how the `@gen` macro processes
 3. Pass the macro-expanded and de-sugared function body on to `make_static_gen_function` or `make_dynamic_gen_function` accordingly.
 4. For static `@gen` functions, match `:gentrace` expressions when adding address nodes to the static computation graph, and match `:genparam` expressions when adding parameter nodes to the static computation graph. A `StaticIRGenerativeFunction` is then compiled from the static computation graph.
 5. For dynamic `@gen` functions, rewrite any `:gentrace` expression with its implementation `dynamic_trace_impl`, and rewrite any `:genparam` expression with its implementation `dynamic_param_impl`. The rewritten syntax tree is then evaluated as a standard Julia function, which serves as the implementation of the constructed `DynamicDSLFunction`.
+
+```@docs
+Gen.make_dynamic_gen_function
+Gen.dynamic_param_impl
+Gen.rewrite_dynamic_gen_exprs
+Gen.dynamic_trace_impl
+Gen.arg_to_ast
+Gen.escape_default
+Gen.state
+Gen.choice_or_call_at
+```
+## Static Modeling Language Tooling
+
+```@docs
+Gen.StaticIRGenerativeFunction
+Gen.make_static_gen_function
+Gen.gen_node_name
+Gen.parse_static_dsl_line!
+Gen.parse_typed_var
+Gen.parse_julia_expr!
+Gen.parse_param_line!
+Gen.parse_trace_expr!
+Gen.parse_and_rewrite_trace!
+Gen.parse_assignment_line!
+Gen.parse_return_line!
+Gen.parse_static_dsl_function_body!
+Gen.split_addr!
+Gen.resolve_symbols
+```
