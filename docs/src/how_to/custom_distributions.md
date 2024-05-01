@@ -1,4 +1,4 @@
-# How to write custom Gen distributions
+# How to Write Custom Gen Distributions
 
 ## [Custom distributions](@id custom_distributions)
 

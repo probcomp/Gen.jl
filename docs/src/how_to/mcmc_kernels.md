@@ -1,16 +1,13 @@
-# Markov chain Monte Carlo (MCMC)
+# How to Write Markov Chain Monte Carlo Kernels
 
-Markov chain Monte Carlo (MCMC) is an approach to inference which involves initializing a hypothesis and then repeatedly sampling a new hypotheses given the previous hypothesis by making a change to the previous hypothesis.
-The function that samples the new hypothesis given the previous hypothesis is called the **MCMC kernel** (or `kernel' for short).
-If we design the kernel appropriately, then the distribution of the hypotheses will converge to the conditional (i.e. posterior) distribution as we increase the number of times we apply the kernel.
+Markov chain Monte Carlo (MCMC) is an approach to inference which involves initializing a hypothesis and then repeatedly sampling a new hypotheses given the previous hypothesis by making a change to the previous hypothesis.[^1] 
+
+[^1]: For background on MCMC, see Andrieu, Christophe, et al. "An introduction to MCMC for machine learning." Machine learning 50.1-2 (2003): 5-43. [Link](https://www.cs.ubc.ca/~arnaud/andrieu_defreitas_doucet_jordan_intromontecarlomachinelearning.pdf).
+
+The function that samples the new hypothesis given the previous hypothesis is called the **MCMC kernel** (or `kernel' for short). If we design the kernel appropriately, then the distribution of the hypotheses will converge to the conditional (i.e. posterior) distribution as we increase the number of times we apply the kernel.
 
 Gen includes primitives for constructing MCMC kernels and composing them into MCMC algorithms.
-Although Gen encourages you to write MCMC algorithms that converge to the conditional distribution, Gen does not enforce this requirement.
-You may use Gen's MCMC primitives in other ways, including for stochastic optimization.
-
-For background on MCMC see [1].
-
-[1] Andrieu, Christophe, et al. "An introduction to MCMC for machine learning." Machine learning 50.1-2 (2003): 5-43. [Link](https://www.cs.ubc.ca/~arnaud/andrieu_defreitas_doucet_jordan_intromontecarlomachinelearning.pdf).
+Although Gen encourages you to write MCMC algorithms that converge to the conditional distribution, Gen does not enforce this requirement. You may use Gen's MCMC primitives in other ways, including for stochastic optimization.
 
 ## MCMC in Gen
 Suppose we are doing inference in the following toy model:
@@ -162,7 +159,7 @@ The range of the for loop may be a deterministic function of the trace (as in `t
 The range must be *invariant* under all possible executions of the body of the for loop.
 For example, the random walk based kernel embedded in the for loop in our example above cannot modify the value of the random choice `:n` in the trace.
 
-**If-end expressions**
+**If-end expressions.**
 The predicate condition may be a deterministic function of the trace, but it also must be invariant (i.e. remain true) under all possible executions of the body.
 
 **Deterministic let expressions.**
@@ -203,11 +200,11 @@ Indeed, they are just regular Julia functions, but with some extra information a
 
 ## Involutive MCMC
 
-Gen's most flexible variant of [`metropolis_hastings`](@ref), called **Involutive MCMC**, allows users to specify any MCMC kernel in the reversible jump MCMC (RJMCMC) framework [2].
+Gen's most flexible variant of [`metropolis_hastings`](@ref), called **Involutive MCMC**, allows users to specify any MCMC kernel in the reversible jump MCMC (RJMCMC) framework. [^2]
 Involution MCMC allows you to express a broad class of custom MCMC kernels that are not expressible using the other, simpler variants of Metropolis-Hastings supported by Gen.
 These kernels are particularly useful for inferring the structure (e.g. control flow) of a model.
 
-[2] Green, Peter J. "Reversible jump Markov chain Monte Carlo computation and Bayesian model determination." Biometrika 82.4 (1995): 711-732. [Link](https://academic.oup.com/biomet/article-abstract/82/4/711/252058)
+[^2]: Green, Peter J. "Reversible jump Markov chain Monte Carlo computation and Bayesian model determination." Biometrika 82.4 (1995): 711-732. [Link](https://academic.oup.com/biomet/article-abstract/82/4/711/252058)
 
 An involutive MCMC kernel in Gen takes as input a previous trace of the model (whose choice map we will denote by ``t``), and performs three phases to obtain a new trace of the model:
 

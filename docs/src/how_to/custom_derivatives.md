@@ -1,4 +1,4 @@
-# How to write custom gradients
+# How to Write Custom Gradients
 
 To add a custom gradient for a differentiable deterministic computation, define a concrete subtype of [`CustomGradientGF`](@ref) with the following methods:
 
