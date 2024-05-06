@@ -156,6 +156,11 @@ macro transform(f_expr, src_expr, to_symbol::Symbol, dest_expr, body)
     end
 end
 
+"""
+    @tcall(ex)
+
+A macro to call a transformation function from inside another transformation fuction.
+"""
 macro tcall(ex)
     MacroTools.@capture(ex, f_(args__)) || error("expected syntax: f(..)")
     return quote $(esc(f)).fn!($(esc(bij_state)), $(map(esc, args)...)) end
@@ -733,7 +738,7 @@ Run the translator with:
     (output_trace, log_weight) = translator(input_trace; check=false, prev_observations=EmptyChoiceMap())
 
 Use `check` to enable a bijection check (this requires that the transform `f` has been
-paired with its inverse using [`pair_bijections!](@ref) or [`is_involution`](@ref)).
+paired with its inverse using [`pair_bijections!](@ref) or [`is_involution!`](@ref)).
 
 If `check` is enabled, then `prev_observations` is a choice map containing the observed
 random choices in the previous trace.
@@ -872,7 +877,7 @@ Run the translator with:
     (output_trace, log_weight) = translator(input_trace; check=false, observations=EmptyChoiceMap())
 
 Use `check` to enable the involution check (this requires that the transform `f` has been
-marked with [`is_involution`](@ref)).
+marked with [`is_involution!`](@ref)).
 
 If `check` is enabled, then `observations` is a choice map containing the observed random
 choices, and the check will additionally ensure they are not mutated by the involution.

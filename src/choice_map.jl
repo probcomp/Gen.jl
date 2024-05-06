@@ -362,6 +362,11 @@ export to_array, from_array
 # static assignment #
 ######################
 
+"""
+    StaticChoiceMap <: ChoiceMap
+
+An immutable mapping statically-traced addresses to values.
+"""
 struct StaticChoiceMap{R,S,T,U} <: ChoiceMap
     leaf_nodes::NamedTuple{R,S}
     internal_nodes::NamedTuple{T,U}
@@ -621,6 +626,12 @@ export pair, unpair
 # dynamic assignment #
 #######################
 
+"""
+    DynamicChoiceMap <: ChoiceMap
+
+A mutable map from arbitrary hierarchical addresses to values.
+
+"""
 struct DynamicChoiceMap <: ChoiceMap
     leaf_nodes::Dict{Any,Any}
     internal_nodes::Dict{Any,Any}
@@ -632,22 +643,19 @@ end
 # invariant: all internal nodes are nonempty
 
 """
-    struct DynamicChoiceMap <: ChoiceMap .. end
-
-A mutable map from arbitrary hierarchical addresses to values.
-
     choices = DynamicChoiceMap()
 
 Construct an empty map.
-
-    choices = DynamicChoiceMap(tuples...)
-
-Construct a map containing each of the given (addr, value) tuples.
 """
 function DynamicChoiceMap()
     DynamicChoiceMap(Dict(), Dict())
 end
 
+"""
+    choices = DynamicChoiceMap(tuples...)
+
+Construct a map containing each of the given (addr, value) tuples.
+"""
 function DynamicChoiceMap(tuples...)
     choices = DynamicChoiceMap()
     for tuple in tuples
@@ -906,6 +914,11 @@ export vectorize_internal
 # empty assignment #
 ####################
 
+"""
+    EmptyChoiceMap <: ChoiceMap
+
+An empty choice map.
+"""
 struct EmptyChoiceMap <: ChoiceMap end
 
 Base.isempty(::EmptyChoiceMap) = true

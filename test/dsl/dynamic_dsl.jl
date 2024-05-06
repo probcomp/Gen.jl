@@ -526,7 +526,7 @@ end
     """
     @gen function foo(x)
             return x + 1
-        end
+    end
 
     io = IOBuffer()
     print(io, @doc foo)
