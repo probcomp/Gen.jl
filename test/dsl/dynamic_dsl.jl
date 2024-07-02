@@ -181,6 +181,19 @@ end
     @test isapprox(expected_new_score, get_score(new_trace))
     @test isapprox(expected_weight, weight)
     @test retdiff === UnknownChange()
+
+    # Test correct discarding for hierarchical choicemap update 
+    @gen function hierarchical_update()
+        k ~ poisson(5)
+        for i=1:k
+            {:value => i} ~ uniform(0,1)
+        end
+    end
+    tr, = Gen.generate(hierarchical_update, (), choicemap(:k=>3));
+    # update k, affecting the number of children
+    (new_trace, weight, _, discard) = Gen.update(tr, Gen.choicemap(:k=>1));
+    @test Gen.has_value(discard, :value => 2)
+    @test Gen.has_value(discard, :value => 3)
 end
 
 @testset "regenerate" begin
