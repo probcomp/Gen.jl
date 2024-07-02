@@ -175,10 +175,11 @@ function add_unvisited_to_discard!(discard::DynamicChoiceMap,
                 set_submap!(discard, key, submap)
             else
                 subdiscard = get_submap(discard, key)
+                subdiscard_recursive = isempty(subdiscard) ? choicemap() : subdiscard
                 add_unvisited_to_discard!(
-                    isempty(subdiscard) ? choicemap() : subdiscard,
+                    subdiscard_recursive,
                     subvisited, submap)
-                set_submap!(discard, key, subdiscard)
+                set_submap!(discard, key, subdiscard_recursive)
             end
         end
     end
