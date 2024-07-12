@@ -62,6 +62,8 @@ And we denote the conditional distribution on non-addressable randomness ``r``, 
 p(r | t; x) := p(t, r; x) / p(t; x)
 ```
 
+We require that the marginal distribution on choice maps be **structured** in the sense that if both ``p(t; x) > 0`` and ``p(t'; x) > 0`` and if ``t != t'`` then for some address ``a`` common to the domains of ``t`` and ``t'`` one has ``t(a) != t'(a)``.  In particular, if ``t'`` extends ``t`` (so ``t`` is the restriction of ``t'`` to a subset of the latter's addresses), and both ``p(t; x) > 0`` and ``p(t'; x) > 0``, then ``t = t'``.
+
 ### Return value function
 A (deterministic) function ``f`` that maps the tuple ``(x, t)`` of the arguments and the choice map to the return value of the function (which we denote by ``y``).
 Note that the return value cannot depend on the non-addressable randomness.
@@ -81,11 +83,10 @@ It must satisfy the following conditions:
 \sum_{t} q(t; x, u) = 1 \;\; \text{for all} \;\; x \in X, u
 ```
 ```math
-p(t; x) > 0 \text{ if and only if } q(t; x, u) > 0 \text{ for all } u \text{ where } u \text{ and } t \text{ agree }
+q(t; x, u) > 0 \text{ if and only if } p(t; x) > 0 \text{ and } u \text{ and } t \text{ agree}
 ```
-```math
-q(t; x, u) > 0 \text{ implies that } u \text{ and } t \text{ agree }.
-```
+The structuredness requirement on ``p(t; x)`` implies that if ``p(t; x) > 0`` then ``q(t; x, t) = 1``.
+
 There is also a family of probability distributions ``q(r; x, t)`` on non-addressable randomness, that satisfies:
 ```math
 q(r; x, t) > 0 \text{ if and only if } p(r | t, x) > 0
