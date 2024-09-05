@@ -564,7 +564,7 @@ end
             return doc.text[1]
         else
             # Handle pre-Julia 1.11 behavior of @doc
-            return strip(string(doc))
+            return string(doc)
         end
     end
     @test doc_to_str(@doc(model)) == "my documentation\n"
