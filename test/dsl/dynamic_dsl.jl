@@ -540,7 +540,7 @@ end
             return doc.text[1]
         else
             # Handle pre-Julia 1.11 behavior of @doc
-            return strip(string(doc))
+            return string(doc)
         end
     end
         
@@ -551,7 +551,7 @@ end
             return x + 1
     end
 
-    @test doc_to_str(@doc(foo)) == "my documentation"
+    @test doc_to_str(@doc(foo)) == "my documentation\n"
 
 end
 
