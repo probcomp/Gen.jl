@@ -24,6 +24,6 @@ end
 is_discrete(::Poisson) = true
 
 has_output_grad(::Poisson) = false
-has_argument_grads(::Poisson) = (false,)
+has_argument_grads(::Poisson) = (true,)
 
 export poisson
