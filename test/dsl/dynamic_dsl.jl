@@ -534,6 +534,16 @@ end
 
 @testset "docstrings" begin
 
+    function doc_to_str(doc)
+        if doc isa Base.Docs.DocStr
+            # Handle @doc behavior in Julia 1.11 when REPL is not loaded
+            return doc.text[1]
+        else
+            # Handle pre-Julia 1.11 behavior of @doc
+            return string(doc)
+        end
+    end
+        
     """
     my documentation
     """
@@ -541,9 +551,7 @@ end
             return x + 1
     end
 
-    io = IOBuffer()
-    print(io, @doc foo)
-    @test String(take!(io)) == "my documentation\n"
+    @test doc_to_str(@doc(foo)) == "my documentation\n"
 
 end
 
