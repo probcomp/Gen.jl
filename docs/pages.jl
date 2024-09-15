@@ -24,6 +24,7 @@ pages = [
         "Custom Modeling Languages" => "how_to/custom_dsl.md",
         "Custom Gradients" => "how_to/custom_derivatives.md",
         "Incremental Computation" => "how_to/custom_incremental_computation.md",
+        "Serializing Dynamic DSL Traces" => "how_to/serialization.md"
     ],
     "API Reference" => [
         "Modeling Library" => [
