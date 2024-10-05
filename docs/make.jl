@@ -20,4 +20,5 @@ deploydocs(
     repo = "github.com/probcomp/Gen.jl.git",
     target = "build",
     dirname = "docs",
+    push_preview = true,
 )

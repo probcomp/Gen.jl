@@ -1,0 +1,36 @@
+# Adapted from
+# https://documenter.juliadocs.org/stable/man/hosting/#Cleaning-up-gh-pages
+
+name: Doc Preview Cleanup
+
+on:
+  pull_request:
+    types: [closed]
+
+# Ensure that only one "Doc Preview Cleanup" workflow is force pushing at a time
+concurrency:
+  group: doc-preview-cleanup
+  cancel-in-progress: false
+
+jobs:
+  doc-preview-cleanup:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+      - name: Delete preview and history + push changes
+        run: |
+          if [ -d "${preview_dir}" ]; then
+              git config user.name "Documenter.jl"
+              git config user.email "documenter@juliadocs.github.io"
+              git rm -rf "${preview_dir}"
+              git commit -m "delete preview"
+              git branch gh-pages-new $(echo "delete history" | git commit-tree HEAD^{tree})
+              git push --force origin gh-pages-new:gh-pages
+          fi
+        env:
+          preview_dir: docs/previews/PR${{ github.event.number }}
