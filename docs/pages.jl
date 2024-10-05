@@ -4,6 +4,7 @@ pages = [
         "Getting Started" => "tutorials/getting_started.md",
         "Introduction to Modeling in Gen" => "tutorials/modeling_in_gen.md",
         "Object Tracking with SMC" => "tutorials/smc.md",
+        "Variational Inference in Gen" => "tutorials/vi.md",
         "Learning Generative Functions" => "tutorials/learning_gen_fns.md",
         "Speeding Up Inference with the SML" => "tutorials/scaling_with_sml.md",
     ],
