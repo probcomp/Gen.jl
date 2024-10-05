@@ -356,8 +356,9 @@ If an argument is not annotated with `(grad)`, the corresponding value in
 Also increment the gradient accumulators for the trainable parameters \$Θ\$ of
 the function by:
 ```math
-∇_Θ \\left( \\log P(t; x) + J \\right)
+s * ∇_Θ \\left( \\log P(t; x) + J \\right)
 ```
+where \$s\$ is `scale_factor`.
 """
 function accumulate_param_gradients!(trace, retgrad, scale_factor)
     error("Not implemented")
