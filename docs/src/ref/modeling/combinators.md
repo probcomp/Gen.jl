@@ -14,7 +14,7 @@ Map
 In the schematic below, the kernel is denoted ``\mathcal{G}_{\mathrm{k}}``.
 ```@raw html
 <div style="text-align:center">
-    <img src="../../assets/map_combinator.png" alt="schematic of map combinator" width="50%"/>
+    <img src="../../../assets/map_combinator.png" alt="schematic of map combinator" width="50%"/>
 </div>
 ```
 
@@ -61,7 +61,7 @@ In the schematic below, the kernel is denoted ``\mathcal{G}_{\mathrm{k}}``.
 The initial state is denoted ``y_0``, the number of applications is ``n``, and the remaining arguments to the kernel not including the state, are ``z``.
 ```@raw html
 <div style="text-align:center">
-    <img src="../../assets/unfold_combinator.png" alt="schematic of unfold combinator" width="70%"/>
+    <img src="../../../assets/unfold_combinator.png" alt="schematic of unfold combinator" width="70%"/>
 </div>
 ```
 
@@ -118,7 +118,7 @@ Recurse
 
 ```@raw html
 <div style="text-align:center">
-    <img src="../../assets/recurse_combinator.png" alt="schematic of recurse combinatokr" width="70%"/>
+    <img src="../../../assets/recurse_combinator.png" alt="schematic of recurse combinatokr" width="70%"/>
 </div>
 ```
 ## Switch combinator
@@ -129,7 +129,7 @@ Switch
 
 ```@raw html
 <div style="text-align:center">
-    <img src="../../assets/switch_combinator.png" alt="schematic of switch combinator" width="100%"/>
+    <img src="../../../assets/switch_combinator.png" alt="schematic of switch combinator" width="100%"/>
 </div>
 ```
 

@@ -244,7 +244,7 @@ Below, we show the static dependency graph that Gen builds for this function. Ar
 
 ```@raw html
 <div style="text-align:center">
-    <img src="../../../assets/scaling_with_sml_graph.png" alt="static dependency graph" width="100%"/>
+    <img src="../../assets/scaling_with_sml_graph.png" alt="static dependency graph" width="100%"/>
 </div>
 ```
 

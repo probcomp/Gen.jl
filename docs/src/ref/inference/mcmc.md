@@ -345,7 +345,7 @@ end
 ```
 We can then compare the results to the results from the Markov chain that used the selection-based structure-changing kernel:
 
-![rjmcmc plot](../../assets/rjmcmc.png)
+![rjmcmc plot](../../../assets/rjmcmc.png)
 
 We see that if we initialize the Markov chains from the same state with a single mean (`:z` is `false`) then the selection-based kernel fails to accept any moves to the two-mean structure within 100 iterations, whereas the split-merge kernel transitions back and forth many times,
 If we repeated the selection-based kernel for enough iterations, it would eventually transition back and forth at the same rate as the split-merge.
