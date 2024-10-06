@@ -6,8 +6,18 @@ name: ContinuousIntegration
 on:
   push:
     branches: [ master ]
+    paths-ignore:
+      - 'docs/**'
+      - 'README.md'
+      - 'CONTRIBUTING.md'
+      - 'WEBSITE.md'
   pull_request:
     branches: [ master ]
+    paths-ignore:
+      - 'docs/**'
+      - 'README.md'
+      - 'CONTRIBUTING.md'
+      - 'WEBSITE.md'
 
 jobs:
   ContinuousIntegration:
