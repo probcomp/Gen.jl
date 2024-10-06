@@ -58,7 +58,7 @@ Additional examples of Gen usage can be found in [GenExamples.jl](https://github
 
 ## Questions and Contributions
 
-If you have questions about using Gen.jl, feel free to open a [discussion on GitHub](https://github.com/probcomp/Gen.jl/discussions). If you encounter a bug, please [open an issue](https://github.com/probcomp/Gen.jl/issues). We also welcome bug fixes and feature additions as [pull requests](https://github.com/probcomp/Gen.jl/pulls).
+If you have questions about using Gen.jl, feel free to open a [discussion on GitHub](https://github.com/probcomp/Gen.jl/discussions). If you encounter a bug, please [open an issue](https://github.com/probcomp/Gen.jl/issues). We also welcome bug fixes and feature additions as [pull requests](https://github.com/probcomp/Gen.jl/pulls). Please refer to our [contribution guidelines](https://github.com/probcomp/Gen.jl/blob/master/CONTRIBUTING.md) for more details.
 
 ## Supporting and Citing
  
