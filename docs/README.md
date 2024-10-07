@@ -10,7 +10,7 @@ The docs are divided in roughly four sections:
 
 
 # Developing
-To build the docs, run `julia --make.jl` or alternatively startup the Julia REPL and include `make.jl`. For debugging, consider setting `draft=true` in the `makedocs` function found in `make.jl`.
+To build the docs, run `julia -- make.jl` or alternatively startup the Julia REPL and include `make.jl`. For debugging, consider setting `draft=true` in the `makedocs` function found in `make.jl`.
 Currently you must write the tutorial directly in the docs rather than a source file (e.g. Quarto). See `getting_started` or `tutorials` for examples.
 
 Code snippets must use the triple backtick with a label to run. The environment carries over so long as the labels match. Example:
