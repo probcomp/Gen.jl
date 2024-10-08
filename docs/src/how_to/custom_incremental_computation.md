@@ -1,6 +1,7 @@
-# How to Customize Incremental Computation
+# [Customizing Incremental Computation](@id custom_incremental_computation_howto)
 
-Iterative inference techniques like Markov chain Monte Carlo involve repeatedly updating the execution traces of generative models.
+Iterative inference techniques like Markov Chain Monte Carlo and Sequential Monte Carlo involve repeatedly updating the execution traces of generative models.
+
 In some cases, the output of a deterministic computation within the model can be incrementally computed during each of these updates, instead of being computed from scratch.
 
 To add a custom incremental computation for a deterministic computation, define a concrete subtype of [`CustomUpdateGF`](@ref) with the following methods:

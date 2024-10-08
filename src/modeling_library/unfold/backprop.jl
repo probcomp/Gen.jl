@@ -50,7 +50,7 @@ function choice_gradients(trace::VectorTrace{UnfoldType,T,U}, selection::Selecti
     ((nothing, kernel_arg_grads[2], map(_sum, params_grad)...), value_choices, gradient_choices)
 end
 
-function accumulate_param_gradients!(trace::VectorTrace{UnfoldType,T,U}, retval_grad) where {T,U}
+function accumulate_param_gradients!(trace::VectorTrace{UnfoldType,T,U}, retval_grad, scale_factor) where {T,U}
     kernel_has_grads = has_argument_grads(trace.gen_fn.kernel)
     if kernel_has_grads[1]
         error("Cannot differentiate with respect to index in unfold")
@@ -76,7 +76,7 @@ function accumulate_param_gradients!(trace::VectorTrace{UnfoldType,T,U}, retval_
         if state_has_grad
             kernel_retval_grad = fold_sum(kernel_retval_grad, kernel_arg_grads[2])
         end
-        kernel_arg_grads = accumulate_param_gradients!(subtrace, kernel_retval_grad)
+        kernel_arg_grads = accumulate_param_gradients!(subtrace, kernel_retval_grad, scale_factor)
         @assert kernel_arg_grads[1] == nothing
         state_has_grad || @assert kernel_arg_grads[2] == nothing
         for (i, (grad, has_grad)) in enumerate(zip(kernel_arg_grads[3:end], params_has_grad))

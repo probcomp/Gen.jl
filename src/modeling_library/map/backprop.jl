@@ -35,7 +35,7 @@ function choice_gradients(trace::VectorTrace{MapType,T,U}, selection::Selection,
     ((arg_grad...,), value_choices, gradient_choices)
 end
 
-function accumulate_param_gradients!(trace::VectorTrace{MapType,T,U}, retval_grad) where {T,U}
+function accumulate_param_gradients!(trace::VectorTrace{MapType,T,U}, retval_grad, scale_factor) where {T,U}
 
     args = get_args(trace)
     n_args = length(args)
@@ -54,7 +54,7 @@ function accumulate_param_gradients!(trace::VectorTrace{MapType,T,U}, retval_gra
     for key=1:len
         subtrace = trace.subtraces[key]
         kernel_retval_grad = (retval_grad == nothing) ? nothing : retval_grad[key]
-        kernel_arg_grad::Tuple = accumulate_param_gradients!(subtrace, kernel_retval_grad)
+        kernel_arg_grad::Tuple = accumulate_param_gradients!(subtrace, kernel_retval_grad, scale_factor)
         for (i, grad, has_grad) in zip(1:n_args, kernel_arg_grad, has_grads)
             if has_grad
                 arg_grad[i][key] = grad

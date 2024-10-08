@@ -34,7 +34,6 @@
 
 - In the introduction section(s), provide at least a few sentences of high-level description of the feature, to orient the user. Include external links and internal links. Then, include some short code snippets showing a minimal example of the feature being used. If relevant, include some simple Tex math.
 
-- Build the docs locally to test that it builds and looks right:
-```sh
-./docs/build_docs_locally.sh
-```
+- Build the docs locally to test that it builds and looks right.
+
+- Once you have a made a PR and are assigned a PR `NUMBER`, update your PR description with a link to the automatically generated documentation preview at https://www.gen.dev/docs/previews/PR{NUMBER}.

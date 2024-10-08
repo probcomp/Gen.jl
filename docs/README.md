@@ -1,17 +1,18 @@
-# Website Docs
-- `pages.jl` to find skeleton of website.
-- `make.jl` to build the website index.
+# Gen.jl Documentation
 
-The docs are divided in roughly four sections:
+- `pages.jl` to find skeleton of the Gen.jl documentation.
+- `make.jl` to build the documentation website index.
+
+The documentation is divided into three sections:
 - Getting Started + Tutorials
 - How-to Guides
-- API = Modeling API + Inference API
-- Explanations + Internals
-
+- Reference Guides
 
 # Developing
-To build the docs, run `julia --make.jl` or alternatively startup the Julia REPL and include `make.jl`. For debugging, consider setting `draft=true` in the `makedocs` function found in `make.jl`.
-Currently you must write the tutorial directly in the docs rather than a source file (e.g. Quarto). See `getting_started` or `tutorials` for examples.
+
+To build the docs, run `julia --make.jl`. Alternatively, start the Julia REPL, activate the `Project.toml` in this directory, then include `make.jl`. For debugging, consider setting `draft=true` in the `makedocs` function found in `make.jl`. This will avoid running the `@example` blocks when generating the tutorials.
+
+Currently you must write the tutorial directly in the docs rather than in a source file. See `tutorials` for examples.
 
 Code snippets must use the triple backtick with a label to run. The environment carries over so long as the labels match. Example:
 

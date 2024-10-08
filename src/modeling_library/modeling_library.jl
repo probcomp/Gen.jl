@@ -24,7 +24,7 @@ function logpdf end
 """
     has::Bool = has_output_grad(dist::Distribution)
 
-Return true of the gradient if the distribution computes the gradient of the logpdf with respect to the value of the random choice.
+Return true if the distribution computes the gradient of the logpdf with respect to the value of the random choice.
 """
 function has_output_grad end
 
@@ -40,6 +40,11 @@ Otherwise, this element contains the gradient with respect to the `i`th argument
 """
 function logpdf_grad end
 
+"""
+    discrete::Bool = is_discrete(::Distribution)
+
+Return true if the distribution is discrete, false otherwise.
+"""
 is_discrete(::Distribution) = false # default
 
 # NOTE: has_argument_grad is documented and exported in gen_fn_interface.jl
