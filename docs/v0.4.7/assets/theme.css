@@ -1,0 +1,27 @@
+html body #documenter .docs-main {
+    margin-top: 4rem; 
+}
+
+html body #documenter .docs-sidebar.visible {
+    margin-top: 0px !important;
+}
+
+html div.light-biglogo {
+  display: block;
+}
+
+html.theme--documenter-dark div.light-biglogo {
+  display: none;
+}
+
+html div.dark-biglogo {
+  display: none;
+}
+
+html.theme--documenter-dark div.dark-biglogo {
+  display: block;
+}
+
+#documenter .docs-main article.content img {
+    width: 100%;
+}
