@@ -1,15 +1,3 @@
-function sample_momenta(n::Int)
-    Float64[random(normal, 0, 1) for _=1:n]
-end
-
-function assess_momenta(momenta)
-    logprob = 0.
-    for val in momenta
-        logprob += logpdf(normal, val, 0, 1)
-    end
-    logprob
-end
-
 """
     (new_trace, accepted) = hmc(
         trace, selection::Selection; L=10, eps=0.1,
