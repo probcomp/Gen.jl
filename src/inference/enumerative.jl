@@ -107,7 +107,7 @@ function expand_grid_spec_to_values(
             end
             return vs
         end
-        return ((addr, v) for v in Iterators.product(vals...))
+        return ((addr, collect(v)) for v in Iterators.product(vals...))
     else
         error("Support must be :discrete or :continuous")
     end
