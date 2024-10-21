@@ -17,7 +17,9 @@ Also return an estimate of the log marginal likelihood of the observations (`lml
 All addresses in the `observations` choice map must be sampled by the model when
 given the model arguments. The same constraint applies to choice maps enumerated
 over by `choice_vol_iter`, which must also avoid sharing addresses with the 
-`observations`.
+`observations`. When the choice maps in `choice_vol_iter` do not fully specify
+the values of all unobserved random choices, the unspecified choices are sampled
+from the internal proposal distribution of the model.
 """
 function enumerative_inference(
     model::GenerativeFunction{T,U}, model_args::Tuple,
