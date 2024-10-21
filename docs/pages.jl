@@ -30,6 +30,7 @@ pages = [
             "Custom Generative Functions" => "ref/modeling/custom_gen_fns.md",
         ],
         "Inference Library" => [
+            "Enumerative Inference" => "ref/inference/enumerative.md",
             "Importance Sampling" => "ref/inference/importance.md",
             "Markov Chain Monte Carlo" => "ref/inference/mcmc.md",
             "Particle Filtering & SMC" => "ref/inference/pf.md",
