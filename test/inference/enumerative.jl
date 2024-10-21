@@ -38,18 +38,18 @@
     @test size(grid) == (2, 10, 10, 10)
     @test length(grid) == 2000
 
-    choices, vol = first(grid)
+    choices, log_vol = first(grid)
     @test choices == choicemap(
         (:degree, 1), 
         ((:coeff, 0), -0.9), ((:coeff, 1), -0.9), ((:coeff, 2), -0.9),
     )
-    @test vol ≈ 0.2 * 0.2 * 0.2
+    @test log_vol ≈ log(0.2^3)
 
     test_choices(n::Int, cs) =
         cs[:degree] in 1:n && all(-1.0 <= cs[(:coeff, d)] <= 1.0 for d in 1:n)
 
-    @test all(test_choices(2, choices) for (choices, vol) in grid)
-    @test all(vol ≈ (0.2 * 0.2 * 0.2) for (choices, vol) in grid)
+    @test all(test_choices(2, choices) for (choices, _) in grid)
+    @test all(log_vol ≈ log(0.2^3) for (_, log_vol) in grid)
 
     # run enumerative inference over grid
     traces, log_norm_weights, lml_est =
