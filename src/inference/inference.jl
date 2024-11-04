@@ -21,6 +21,7 @@ include("hmc.jl")
 include("mala.jl")
 include("elliptical_slice.jl")
 
+include("enumerative.jl")
 include("importance.jl")
 include("particle_filter.jl")
 include("map_optimize.jl")
