@@ -334,7 +334,7 @@ plot!(ns, static_with_map_times, label="with map and static outer fn")
 plot!(ns, fully_static_with_map_times, label="with map and static outer and inner fns")
 ```
 
-# Checking the Inference Programs
+## Checking the Inference Programs
 
 Before wrapping up, let's confirm that all of our models are giving good results:
 
