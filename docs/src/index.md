@@ -46,7 +46,9 @@ Learn how to use Gen by following these tutorials:
 Pages = [
     "tutorials/getting_started.md",
     "tutorials/modeling_in_gen.md",
+    "tutorials/mcmc_map.md",
     "tutorials/smc.md",
+    "tutorials/vi.md",
     "tutorials/scaling_with_sml.md",
     "tutorials/learning_gen_fns.md"
 ]

@@ -1,4 +1,4 @@
-# [Introduction to Modeling in Gen](@id introduction_to_modeling_in_gen)
+# [Introduction to Modeling in Gen](@id modeling_tutorial)
 
 Welcome! In this tutorial, you'll get your feet wet with Gen, a
 multi-paradigm platform for probabilistic modeling and inference. By
