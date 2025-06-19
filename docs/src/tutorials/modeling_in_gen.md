@@ -444,7 +444,7 @@ observed data. That is, the inference program will try to find a trace that
 well explains the dataset we created above. We can inspect that trace to find
 estimates of the slope and intercept of a line that fits the data.
 
-Functions like `importance_resampling` expect us to provide a _model_ and
+Functions like [`importance_resampling`](@ref) expect us to provide a _model_ and
 also an _choice map_ representing our data set and relating it to the model.
 A choice map maps random choice addresses from the model to values from our
 data set. Here, we want to tie model addresses like `(:y, 4)` to data set
@@ -476,7 +476,7 @@ trace = do_inference(line_model, xs, ys, 100)
 render_trace(trace)
 ```
 
-We see that `importance_resampling` found a reasonable slope and intercept to explain the data. We can also visualize many samples in a grid:
+We see that [`importance_resampling`](@ref) found a reasonable slope and intercept to explain the data. We can also visualize many samples in a grid:
 
 ```@example modeling_tutorial
 traces = [do_inference(line_model, xs, ys, 100) for _=1:10];

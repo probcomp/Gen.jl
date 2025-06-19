@@ -39,9 +39,10 @@ Our model will take as input a vector of `x` coordinates, and produce as
 output corresponding `y` coordinates. 
 
 We will also use this opportunity to introduce some syntactic sugar.
-As described in [Introduction to Modeling in Gen](@ref modeling_tutorial), random choices in Gen are given
-_addresses_ using the syntax `{addr} ~ distribution(...)`. But this can
-be a bit verbose, and often leads to code that looks like the following:
+As described in [Introduction to Modeling in Gen](@ref modeling_tutorial),
+random choices in Gen are given _addresses_ using the syntax
+`{addr} ~ distribution(...)`. But this can be a bit verbose, and often leads to
+code that looks like the following:
 
 ```julia
 x = {:x} ~ normal(0, 1)
@@ -219,12 +220,12 @@ Plots.scatter(xs, ys, color="black", xlabel="X", ylabel="Y",
               label=nothing, title="Observations - regular data and outliers")
 ```
 
-We will to express our _observations_ as a `ChoiceMap` that constrains the
+We will to express our _observations_ as a [`ChoiceMap`](@ref) that constrains the
 values of certain random choices to equal their observed values. Here, we
 want to constrain the values of the choices with address `:data => i => :y`
 (that is, the sampled $y$ coordinates) to equal the observed $y$ values.
 Let's write a helper function that takes in a vector of $y$ values and
-creates a `ChoiceMap` that we can use to constrain our model:
+creates a [`ChoiceMap`](@ref) that we can use to constrain our model:
 
 ```@example mcmc_map_tutorial
 function make_constraints(ys::Vector{Float64})
@@ -282,10 +283,11 @@ algorithms for iteratively producing approximate samples from a distribution
 (when applied to Bayesian inference problems, the posterior distribution of
 unknown (hidden) model variables given data).
 
-There is a rich theory behind MCMC methods, but we focus on applying MCMC in
-Gen and introducing theoretical ideas only when necessary for understanding.
-As we will see, Gen provides abstractions that hide and automate much of the
-math necessary for implementing MCMC algorithms correctly.
+There is a rich theory behind MCMC methods (see [this paper](https://doi.org/10.1023/A:1020281327116)
+for an introduction), but we focus on applying MCMC in Gen, introducing 
+theoretical ideas only when necessary for understanding. As we will see, Gen
+provides abstractions that hide and automate much of the math necessary for
+implementing MCMC algorithms correctly.
 
 The general shape of an MCMC algorithm is as follows. We begin by sampling an
 intial setting of all unobserved variables; in Gen, we produce an initial
@@ -305,7 +307,7 @@ tries not to go down dead ends: it is more likely to take an exploratory step
 into a low-probability region if it knows it can easily get back to where it
 came from.
 
-Gen's `metropolis_hastings` function _automatically_ adds this
+Gen's [`metropolis_hastings`](@ref) function _automatically_ adds this
 "accept/reject" check (including the correct computation of the probability
 of acceptance or rejection), so that inference programmers need only
 think about what sorts of updates might be useful to propose. Starting in
@@ -318,7 +320,8 @@ One of the simplest strategies we can use is called Resimulation MH, and it
 works as follows.
 
 We begin, as in most iterative inference algorithms, by sampling an initial
-trace from our model, fixing the observed choices to their observed values.
+trace from our model using the [`generate`](@ref) API function, fixing the 
+observed choices to their observed values.
 
 ```julia
 # Gen's `generate` function accepts a model, a tuple of arguments to the model,
@@ -373,17 +376,16 @@ with the current hypothesized proportion of `is_outlier` choices that are
 set to `true`.
 
 Resimulating a block of variables is the simplest form of update that Gen's
-`metropolis_hastings` operator (or `mh` for short) supports. When supplied
-with a _current trace_ and a _selection_ of trace addresses to resimulate,
-`mh` performs the resimulation and the appropriate accept/reject check, then
-returns a possibly updated trace, along with a boolean indicating whether the 
-update was accepted or not. A selection is created using the `select`
-method. So a single update of the scheme we proposed above would look like
-this:
-
-Perform a single block resimulation update of a trace.
+[`metropolis_hastings`](@ref) operator (or [`mh`](@ref) for short) supports.
+When supplied with a _current trace_ and a _selection_ of trace addresses to
+resimulate, [`mh`](@ref) performs the resimulation and the appropriate
+accept/reject check, then returns a possibly updated trace, along with a Boolean
+indicating whether the  update was accepted or not. A selection is created using
+the [`select`](@ref) method. So a single update of the scheme we proposed above
+would look like this:
 
 ```@example mcmc_map_tutorial
+# Perform a single block resimulation update of a trace.
 function block_resimulation_update(tr)
     # Block 1: Update the line's parameters
     line_params = select(:noise, :slope, :intercept)
@@ -463,8 +465,9 @@ end
 gif(viz)
 ```
 
-We can see that although the algorithm keeps changing the inferences of which points are inliers and outliers, 
-it has a harder time refining the continuous parameters. We address this challenge next.
+We can see that although the algorithm keeps changing the inferences of which
+points are inliers and outliers,  it has a harder time refining the continuous
+parameters. We address this challenge next.
 
 ## MCMC Part 2: Gaussian Drift MH
 
@@ -503,7 +506,10 @@ end
 nothing # hide
 ```
 
-This is often called a "Gaussian drift" proposal, because it essentially amounts to proposing steps of a random walk. (What makes it different from a random walk is that we will still use an MH accept/reject step to make sure we don't wander into areas of very low probability.)
+This is often called a "Gaussian drift" proposal, because it essentially amounts
+to proposing steps of a random walk. (What makes it different from a random walk
+is that we will still use an MH accept/reject step to make sure we don't wander
+into areas of very low probability.)
 
 To use the proposal, we write:
 
@@ -520,8 +526,8 @@ Two things to note:
 2. The argument list to the proposal is an empty tuple, `()`. The
    `line_proposal` generative function does expect an argument, the previous
    trace, but this is supplied automatically to all MH custom proposals
-   (a proposal generative function for use with `mh` must take as its first argument the 
-   current trace of the model).
+   (a proposal generative function for use with [`mh`](@ref) must take as its
+   first argument the current trace of the model).
 
 Let's swap it into our update:
 
@@ -634,7 +640,6 @@ struct RANSACParams
     end
 end
 
-
 function ransac(xs::Vector{Float64}, ys::Vector{Float64}, params::RANSACParams)
     best_num_inliers::Int = -1
     best_slope::Float64 = NaN
@@ -681,14 +686,13 @@ nothing # hide
 
 (Notice that although `ransac` makes random choices, they are not addressed
 (and they happen outside of a Gen generative function), so Gen cannot reason
-about them. This is OK (see [1]). Writing proposals that have
-traced internal randomness (i.e., that make traced random choices that are
-not directly used in the proposal) can lead to better inference, but requires
-the use of a more complex version of Gen's `mh` operator, which is beyond the
-scope of this tutorial.)
+about them. This is OK (see [1]). Writing proposals that have traced internal
+randomness (i.e., that make traced random choices that are not directly used
+in the proposal) can lead to better inference, but requires the use of a more
+complex version of Gen's [`mh`](@ref) operator, which is beyond the scope of
+this tutorial.)
 
-[1] [Using probabilistic programs as
-proposals](https://arxiv.org/abs/1801.03612), Marco F. Cusumano-Towner, Vikash K. Mansinghka, 2018.
+[1] [Using probabilistic programs as proposals](https://arxiv.org/abs/1801.03612), Marco F. Cusumano-Towner, Vikash K. Mansinghka, 2018.
 
 One iteration of our update algorithm will now look like this:
 
@@ -777,12 +781,12 @@ gif(viz)
 ### Exercise
 #### Improving the heuristic
 Currently, the RANSAC heuristic does not use the current trace's information
-at all. Try changing it to use the current state as follows:
-Instead of a constant `eps` parameter that controls whether a point is
-considered an inlier, make this decision based on the currently hypothesized
-noise level.  Specifically, set `eps` to be equal to the `noise` parameter of the trace.
+at all. Try changing it to use the current state as follows: Instead of a
+constant `eps` parameter that controls whether a point is considered an inlier,
+make this decision based on the currently hypothesized noise level. 
+Specifically, set `eps` to be equal to the `noise` parameter of the trace.
 
-Examine whether this improves inference (no need to respond in words here).
+Examine whether this improves inference.
 
 ```@example mcmc_map_tutorial
 # Modify the function below (which currently is just a copy of `ransac_proposal`) 
@@ -869,8 +873,7 @@ currently classified as *inliers*, finds the line of best fit for this
 subset of points, and adds some noise.
 
 _Hint_: you can get the result for linear regression using least squares approximation by
-solving a linear system using Julia's [backslash operator, `\`](https://docs.julialang.org/en/v1/base/math/#Base.:\\-Tuple{Any,Any}) (as is done in the `ransac`
-function, above). 
+solving a linear system using Julia's [backslash operator, `\`](https://docs.julialang.org/en/v1/base/math/#Base.:\\-Tuple{Any,Any}) (as is done in the `ransac` function, above). 
 
 We provide some starter code. You can test your solution by modifying the plotting code above.
 
@@ -994,8 +997,7 @@ given observations.
 For example, let's say we wanted to take a trace and assign each point's
 `is_outlier` score to the most likely possibility. We can do this by
 iterating over both possible traces, scoring them, and choosing the one with
-the higher score. We can do this using Gen's
-[`update`](https://www.gen.dev/docs/stable/ref/gfi/#Update-1) function,
+the higher score. We can do this using Gen's [`update`](@ref) function,
 which allows us to manually update a trace to satisfy some constraints:
 
 ```@example mcmc_map_tutorial
@@ -1014,13 +1016,17 @@ end
 nothing # hide
 ```
 
-For continuous parameters, we can use Gen's `map_optimize` function, which uses _automatic differentiation_ to shift the selected parameters in the direction that causes the probability of the trace to increase most sharply:
+For continuous parameters, we can use Gen's [`map_optimize`](@ref) function,
+which uses _automatic differentiation_ to shift the selected parameters in the
+direction that causes the probability of the trace to increase most sharply:
 
 ```julia
 tr = map_optimize(tr, select(:slope, :intercept), max_step_size=1., min_step_size=1e-5)
 ```
 
-Putting these updates together, we can write an inference program that uses our RANSAC algorithm from above to get an initial trace, then tunes it using optimization:
+Putting these updates together, we can write an inference program that uses our
+RANSAC algorithm from above to get an initial trace, then tunes it using
+optimization:
 
 ```@example mcmc_map_tutorial
 using StatsBase: mean
@@ -1058,7 +1064,8 @@ println("Score after ransac: $(ransac_score). Final score: $(final_score).")
 gif(viz)
 ```
 
-Below, we evaluate the algorithm and we see that it gets our best scores yet, which is what it's meant to do:
+Below, we evaluate the algorithm and we see that it gets our best scores yet,
+which is what it's meant to do:
 
 ```@example mcmc_map_tutorial
 function map_inference(xs, ys, observations)
@@ -1279,4 +1286,7 @@ for (index, value) in enumerate([(1, 0), (-1, 0), ransac(xs, ys_bimodal, RANSACP
 end
 ```
 
-Although this experiment is imperfect, we can broadly see that the drift kernel often explores both modes within a single run, whereas this is rarer for the MAP kernel (in 25 runs, the MAP kernel visits on average 1.08 of the 2 modes, whereas the drift kernel visits 1.6).
+Although this experiment is imperfect, we can broadly see that the drift kernel
+often explores both modes within a single run, whereas this is rarer for the MAP
+kernel (in 25 runs, the MAP kernel visits on average 1.08 of the 2 modes,
+whereas the drift kernel visits 1.6).
