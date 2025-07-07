@@ -852,7 +852,7 @@ bar(prob_outlier_range, prob_outlier_grid,
     ylabel = "Conditional Posterior Probability")
 ```
 
-Conditional on the observed data and the true parameters (`slope = 2.8` and `intercept = -2.4`), the distribution over `slope_var` and `intercept_var` skews towards large values, while the distribution over `prob_outlier` skews towards low values. This avoids the failure mode that arose when the slope and interceptt priors were forced to be narrow. Instead, `slope_var`, `intercept_var` and `prob_outlier` can adjust upwards or downwards to adapt to the observed data.
+Conditional on the observed data and the true parameters (`slope = 2.8` and `intercept = -2.4`), the distribution over `slope_var` and `intercept_var` skews towards large values, while the distribution over `prob_outlier` skews towards low values. This avoids the failure mode that arose when the slope and intercept priors were forced to be narrow. Instead, `slope_var`, `intercept_var` and `prob_outlier` can adjust upwards or downwards to adapt to the observed data.
 
 Having gained confidence that our new model is well-specified by performing enumerative inference at a coarse-grained level, we can now use MCMC to approximate the posterior more efficiently, and with a higher degree of spatial resolution.
 
