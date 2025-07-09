@@ -36,7 +36,7 @@ end
 nothing # hide
 ```
 
-Since `x_mu` and `x_log_std`are not fixed to particular values, this generative function defines a *family* of distributions, not just one. Note that we intentionally chose to parameterize the distribution by the log standard deviation `x_log_std`, so that every parameter has full support over the real line, and we can perform unconstrained optimization of the parameters.
+Since `x_mu` and `x_log_std` are not fixed to particular values, this generative function defines a *family* of distributions, not just one. Note that we intentionally chose to parameterize the distribution by the log standard deviation `x_log_std`, so that every parameter has full support over the real line, and we can perform unconstrained optimization of the parameters.
 
 To perform variational inference, we need to initialize the variational parameters to their starting values:
 
