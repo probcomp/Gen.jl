@@ -14,10 +14,13 @@ export logsumexp
 
 include("trace_translators.jl")
 
+include("hmc_common.jl")
+
 # mcmc
 include("kernel_dsl.jl")
 include("mh.jl")
 include("hmc.jl")
+include("nuts.jl")
 include("mala.jl")
 include("elliptical_slice.jl")
 
