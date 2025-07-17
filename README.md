@@ -12,17 +12,11 @@ See [https://gen.dev](https://gen.dev/) for introduction, documentation, and tut
 ## Features
 
 *   Multi-paradigm Bayesian inference via [Sequential Monte Carlo](https://www.gen.dev/docs/stable/ref/inference/pf/), [variational inference](https://www.gen.dev/docs/stable/ref/inference/vi/), [MCMC](https://www.gen.dev/docs/stable/ref/inference/mcmc/), and more.
-    
 *   Gradient-based training of generative models via [parameter optimization](https://www.gen.dev/docs/stable/ref/inference/parameter_optimization/), [wake-sleep learning](https://www.gen.dev/docs/stable/ref/inference/wake_sleep/), etc.
-    
-*   An expressive and intuitive [modeling language](https://www.gen.dev/docs/stable/ref/modeling/dml/) for writing and composing probabilistic programs.
-    
+*   An expressive and intuitive [modeling language](https://www.gen.dev/docs/stable/ref/modeling/dml/) for writing and composing probabilistic programs.    
 *   Inference algorithms are _programmable_: Write [custom proposals](https://www.gen.dev/tutorials/data-driven-proposals/tutorial), [variational families](https://www.gen.dev/docs/stable/tutorials/vi/), [MCMC kernels](https://www.gen.dev/docs/stable/ref/inference/mcmc/) or [SMC updates](https://www.gen.dev/docs/stable/ref/inference/trace_translators/) without worrying about the math.
-    
 *   Support for Bayesian structure learning via [involutive MCMC](https://www.gen.dev/docs/stable/ref/inference/mcmc/#involutive_mcmc) and [SMCP³](https://www.gen.dev/docs/stable/ref/inference/pf/#advanced-particle-filtering).
-    
 *   [Specialized modeling constructs](https://www.gen.dev/docs/stable/tutorials/scaling_with_sml/) that speed-up inference by supporting incremental computation.
-    
 *   Well-defined APIs for implementing [custom generative models](https://www.gen.dev/docs/stable/how_to/custom_gen_fns/), [distributions](https://www.gen.dev/docs/stable/how_to/custom_distributions/), [gradients](https://www.gen.dev/docs/stable/how_to/custom_gradients/), etc.
 
 ## Installation
