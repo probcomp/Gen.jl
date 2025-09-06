@@ -1,0 +1,187 @@
+.bd-placeholder-img {
+    font-size: 1.125rem;
+    text-anchor: middle;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+
+  @media (min-width: 768px) {
+    .bd-placeholder-img-lg {
+      font-size: 3.5rem;
+    }
+  }
+
+
+.jumbotron {
+background-color: #e8f3ff;
+background-image: url(/assets/images/topography.svg);
+  color: #000;
+}
+
+.jumbotron .tagline {
+    font-size: 1.7em;
+}
+
+.jumbotron .display-3 {
+  font-size: 5em;
+  font-weight: 500;
+}
+
+.news .list-group-item {
+    border: 0px;
+    padding-left: 0rem;
+    padding-top: 0rem;
+    padding-bottom: 0.7rem;
+}
+
+.posts .list-group-item {
+    border: 0px;
+}
+
+h1[class=homepage] {
+    text-align: center;
+    margin: 2em 0 0.5em;
+    font-size: 2em;
+    font-weight: bold;
+    line-height: 1.2;
+}
+
+h3[class=homepage] {
+    margin: 2em 0 0.5em;
+    font-size: 1.4em;
+    font-weight: bold;
+    line-height: 1.2;
+}
+
+body {
+    //font-weight: 400;
+    //font-size: 1.2em;
+    font-family: -apple-system,BlinkMacSystemFont,"Roboto","Segoe UI","Helvetica Neue","Lucida Grande",Arial,sans-serif;
+    color: #40514e;
+    line-height: 1.5;
+}
+
+// *********** nav bar ************* //
+
+.bd-navbar {
+  min-height: 5rem;
+  box-shadow: 0 .5rem 1rem rgba(0, 0, 0, .05), inset 0 -1px 0 rgba(0, 0, 0, .1);
+
+  .navbar-nav {
+    .nav-link {
+      padding-right: .5rem;
+      padding-left: .5rem;
+      color: rgba(#fff, .85);
+
+      &.active,
+      &:hover {
+        color: #fff;
+        background-color: transparent;
+      }
+
+      &.active {
+        font-weight: 600;
+      }
+    }
+  }
+
+  .navbar-nav-svg {
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    vertical-align: text-top;
+  }
+
+}
+
+.navbar { 
+    background-color: #007bff !important;
+    font-size: 1.2em;
+}
+
+
+// Original code https://github.com/dwilliamson/donw.io/blob/master/public/css/main.css
+
+#gh-comments {
+  text-align: left;
+}
+
+#comments-table{
+margin: 1em 0em;
+}
+
+.gh-comment {
+  text-align: left;
+  background-color:#ffffff;
+  border:0px solid #b3b3b3;
+  margin:2.5em 1em;
+  padding:10px;
+}
+
+.gh-comment-hr {
+  border-top: inset 1px white;
+  margin: 8px 0px;
+}
+
+.gh-comment p {
+  margin:0px;
+}
+
+.gh-comment img {
+  display: inline;
+  vertical-align: middle;
+  margin: 2px 10px 2px 2px;
+}
+
+
+@import "gh-code";
+
+@import "github.css";
+
+// for div code blocks on home page
+
+pre {
+    //background: #edf5fc;
+    background-color: #f2f6fa;
+    padding: 1em;
+    border-radius: 4px;
+    margin-bottom: 1em;
+    position: relative;
+    line-height: 1.8;
+}
+
+// for home page institution logos
+
+.logo-table {
+  text-align: center;
+  border: none;
+}
+
+.logo-table table {
+  display: inline;
+  width: auto;
+  margin-left: auto;
+  margin-right: auto;
+  border: none;
+}
+
+.logo-table table, th, td {
+    border-collapse: collapse;
+}
+.logo-table td {
+    border:1px solid black;
+    border-top: none;
+    border-bottom: none;
+    border-left: none;
+    border-right: none;
+}
+
+// footer
+
+.page-footer {
+  color: #000;
+  //background-color: #007bff;
+  background-color: #f7f7f7;
+}
