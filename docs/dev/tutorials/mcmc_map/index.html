@@ -80,7 +80,7 @@ function visualize_trace(trace::Trace; title=&quot;&quot;)
 end</code></pre></details><br><p>We&#39;ll use these functions to visualize samples from our model.</p><pre><code class="language-julia hljs"># Generate nine traces and visualize them
 xs     = collect(range(-5, stop=5, length=20))
 traces = [Gen.simulate(regression_with_outliers, (xs,)) for i in 1:9]
-Plots.plot([visualize_trace(t) for t in traces]...)</code></pre><img src="6a4508a9.svg" alt="Example block output"/><h5 id="Legend:"><a class="docs-heading-anchor" href="#Legend:">Legend:</a><a id="Legend:-1"></a><a class="docs-heading-anchor-permalink" href="#Legend:" title="Permalink"></a></h5><ul><li>red points: outliers;</li><li>blue points: inliers (i.e. regular data);</li><li>dark grey shading: noise associated with inliers; and</li><li>light grey shading: noise associated with outliers.</li></ul><p>Note that an outlier can occur anywhere — including close to the line — and that our model is capable of generating datasets in which the vast majority of points are outliers.</p><h2 id="The-Limits-of-Importance-Sampling"><a class="docs-heading-anchor" href="#The-Limits-of-Importance-Sampling">The Limits of Importance Sampling</a><a id="The-Limits-of-Importance-Sampling-1"></a><a class="docs-heading-anchor-permalink" href="#The-Limits-of-Importance-Sampling" title="Permalink"></a></h2><p>To motivate the need for more complex inference algorithms, let&#39;s begin by using the simple importance sampling method from the <a href="../modeling_in_gen/#modeling_tutorial">Introduction to Modeling</a> tutorial, and thinking about where it fails.</p><p>First, let us create a synthetic dataset to do inference <em>about</em>.</p><pre><code class="language-julia hljs">function make_synthetic_dataset(n)
+Plots.plot([visualize_trace(t) for t in traces]...)</code></pre><img src="d4958a13.svg" alt="Example block output"/><h5 id="Legend:"><a class="docs-heading-anchor" href="#Legend:">Legend:</a><a id="Legend:-1"></a><a class="docs-heading-anchor-permalink" href="#Legend:" title="Permalink"></a></h5><ul><li>red points: outliers;</li><li>blue points: inliers (i.e. regular data);</li><li>dark grey shading: noise associated with inliers; and</li><li>light grey shading: noise associated with outliers.</li></ul><p>Note that an outlier can occur anywhere — including close to the line — and that our model is capable of generating datasets in which the vast majority of points are outliers.</p><h2 id="The-Limits-of-Importance-Sampling"><a class="docs-heading-anchor" href="#The-Limits-of-Importance-Sampling">The Limits of Importance Sampling</a><a id="The-Limits-of-Importance-Sampling-1"></a><a class="docs-heading-anchor-permalink" href="#The-Limits-of-Importance-Sampling" title="Permalink"></a></h2><p>To motivate the need for more complex inference algorithms, let&#39;s begin by using the simple importance sampling method from the <a href="../modeling_in_gen/#modeling_tutorial">Introduction to Modeling</a> tutorial, and thinking about where it fails.</p><p>First, let us create a synthetic dataset to do inference <em>about</em>.</p><pre><code class="language-julia hljs">function make_synthetic_dataset(n)
     Random.seed!(1)
     prob_outlier = 0.2
     true_inlier_noise = 0.5
@@ -102,7 +102,7 @@ end
 
 (xs, ys) = make_synthetic_dataset(20)
 Plots.scatter(xs, ys, color=&quot;black&quot;, xlabel=&quot;X&quot;, ylabel=&quot;Y&quot;,
-              label=nothing, title=&quot;Observations - regular data and outliers&quot;)</code></pre><img src="e802917c.svg" alt="Example block output"/><p>We will to express our <em>observations</em> as a <a href="../../ref/core/choice_maps/#Gen.ChoiceMap"><code>ChoiceMap</code></a> that constrains the values of certain random choices to equal their observed values. Here, we want to constrain the values of the choices with address <code>:data =&gt; i =&gt; :y</code> (that is, the sampled <span>$y$</span> coordinates) to equal the observed <span>$y$</span> values. Let&#39;s write a helper function that takes in a vector of <span>$y$</span> values and creates a <a href="../../ref/core/choice_maps/#Gen.ChoiceMap"><code>ChoiceMap</code></a> that we can use to constrain our model:</p><pre><code class="language-julia hljs">function make_constraints(ys::Vector{Float64})
+              label=nothing, title=&quot;Observations - regular data and outliers&quot;)</code></pre><img src="716efb77.svg" alt="Example block output"/><p>We will to express our <em>observations</em> as a <a href="../../ref/core/choice_maps/#Gen.ChoiceMap"><code>ChoiceMap</code></a> that constrains the values of certain random choices to equal their observed values. Here, we want to constrain the values of the choices with address <code>:data =&gt; i =&gt; :y</code> (that is, the sampled <span>$y$</span> coordinates) to equal the observed <span>$y$</span> values. Let&#39;s write a helper function that takes in a vector of <span>$y$</span> values and creates a <a href="../../ref/core/choice_maps/#Gen.ChoiceMap"><code>ChoiceMap</code></a> that we can use to constrain our model:</p><pre><code class="language-julia hljs">function make_constraints(ys::Vector{Float64})
     constraints = Gen.choicemap()
     for i=1:length(ys)
         constraints[:data =&gt; i =&gt; :y] = ys[i]
@@ -113,7 +113,7 @@ end</code></pre><p>We can apply it to our dataset&#39;s vector of <code>ys</code
 end</code></pre><pre><code class="language-julia hljs">traces    = [first(Gen.importance_resampling(regression_with_outliers, (xs,), observations, 2000)) for i in 1:9]
 log_probs = [get_score(t) for t in traces]
 println(&quot;Average log probability: $(logmeanexp(log_probs))&quot;)
-Plots.plot([visualize_trace(t) for t in traces]...)</code></pre><img src="67330b96.svg" alt="Example block output"/><p>We see here that importance resampling hasn&#39;t completely failed: it generally finds a reasonable position for the line. But the details are off: there is little logic to the outlier classification, and the inferred noise around the line is too wide. The problem is that there are just too many variables to get right, and so sampling everything in one go is highly unlikely to produce a perfect hit.</p><p>In the remainder of this tutorial, we&#39;ll explore techniques for finding the right solution <em>iteratively</em>, beginning with an initial guess and making many small changes, until we achieve a reasonable posterior sample.</p><h2 id="MCMC-Part-1:-Block-Resimulation"><a class="docs-heading-anchor" href="#MCMC-Part-1:-Block-Resimulation">MCMC Part 1: Block Resimulation</a><a id="MCMC-Part-1:-Block-Resimulation-1"></a><a class="docs-heading-anchor-permalink" href="#MCMC-Part-1:-Block-Resimulation" title="Permalink"></a></h2><h3 id="What-is-MCMC?"><a class="docs-heading-anchor" href="#What-is-MCMC?">What is MCMC?</a><a id="What-is-MCMC?-1"></a><a class="docs-heading-anchor-permalink" href="#What-is-MCMC?" title="Permalink"></a></h3><p><em>Markov Chain Monte Carlo</em> (&quot;MCMC&quot;) methods are a powerful family of algorithms for iteratively producing approximate samples from a distribution (when applied to Bayesian inference problems, the posterior distribution of unknown (hidden) model variables given data).</p><p>There is a rich theory behind MCMC methods (see <a href="https://doi.org/10.1023/A:1020281327116">this paper</a> for an introduction), but we focus on applying MCMC in Gen, introducing  theoretical ideas only when necessary for understanding. As we will see, Gen provides abstractions that hide and automate much of the math necessary for implementing MCMC algorithms correctly.</p><p>The general shape of an MCMC algorithm is as follows. We begin by sampling an intial setting of all unobserved variables; in Gen, we produce an initial <em>trace</em> consistent with (but not necessarily <em>probable</em> given) our observations. Then, in a long-running loop, we make small, stochastic changes to the trace; in order for the algorithm to be asymptotically correct, these stochastic updates must satisfy certain probabilistic properties.</p><p>One common way of ensuring that the updates do satisfy those properties is to compute a <em>Metropolis-Hastings acceptance ratio</em>. Essentially, after proposing a change to a trace, we add an &quot;accept or reject&quot; step that stochastically decides whether to commit the update or to revert it. This is an over-simplification, but generally speaking, this step ensures we are more likely to accept changes that make our trace fit the observed data better, and to reject ones that make our current trace worse. The algorithm also tries not to go down dead ends: it is more likely to take an exploratory step into a low-probability region if it knows it can easily get back to where it came from.</p><p>Gen&#39;s <a href="../../ref/inference/mcmc/#Gen.metropolis_hastings"><code>metropolis_hastings</code></a> function <em>automatically</em> adds this &quot;accept/reject&quot; check (including the correct computation of the probability of acceptance or rejection), so that inference programmers need only think about what sorts of updates might be useful to propose. Starting in this section, we&#39;ll look at several design patterns for MCMC updates, and how to apply them in Gen.</p><h3 id="Block-Resimulation"><a class="docs-heading-anchor" href="#Block-Resimulation">Block Resimulation</a><a id="Block-Resimulation-1"></a><a class="docs-heading-anchor-permalink" href="#Block-Resimulation" title="Permalink"></a></h3><p>One of the simplest strategies we can use is called Resimulation MH, and it works as follows.</p><p>We begin, as in most iterative inference algorithms, by sampling an initial trace from our model using the <a href="../../ref/core/gfi/#Gen.generate"><code>generate</code></a> API function, fixing the  observed choices to their observed values.</p><pre><code class="language-julia hljs"># Gen&#39;s `generate` function accepts a model, a tuple of arguments to the model,
+Plots.plot([visualize_trace(t) for t in traces]...)</code></pre><img src="884d7bc0.svg" alt="Example block output"/><p>We see here that importance resampling hasn&#39;t completely failed: it generally finds a reasonable position for the line. But the details are off: there is little logic to the outlier classification, and the inferred noise around the line is too wide. The problem is that there are just too many variables to get right, and so sampling everything in one go is highly unlikely to produce a perfect hit.</p><p>In the remainder of this tutorial, we&#39;ll explore techniques for finding the right solution <em>iteratively</em>, beginning with an initial guess and making many small changes, until we achieve a reasonable posterior sample.</p><h2 id="MCMC-Part-1:-Block-Resimulation"><a class="docs-heading-anchor" href="#MCMC-Part-1:-Block-Resimulation">MCMC Part 1: Block Resimulation</a><a id="MCMC-Part-1:-Block-Resimulation-1"></a><a class="docs-heading-anchor-permalink" href="#MCMC-Part-1:-Block-Resimulation" title="Permalink"></a></h2><h3 id="What-is-MCMC?"><a class="docs-heading-anchor" href="#What-is-MCMC?">What is MCMC?</a><a id="What-is-MCMC?-1"></a><a class="docs-heading-anchor-permalink" href="#What-is-MCMC?" title="Permalink"></a></h3><p><em>Markov Chain Monte Carlo</em> (&quot;MCMC&quot;) methods are a powerful family of algorithms for iteratively producing approximate samples from a distribution (when applied to Bayesian inference problems, the posterior distribution of unknown (hidden) model variables given data).</p><p>There is a rich theory behind MCMC methods (see <a href="https://doi.org/10.1023/A:1020281327116">this paper</a> for an introduction), but we focus on applying MCMC in Gen, introducing  theoretical ideas only when necessary for understanding. As we will see, Gen provides abstractions that hide and automate much of the math necessary for implementing MCMC algorithms correctly.</p><p>The general shape of an MCMC algorithm is as follows. We begin by sampling an intial setting of all unobserved variables; in Gen, we produce an initial <em>trace</em> consistent with (but not necessarily <em>probable</em> given) our observations. Then, in a long-running loop, we make small, stochastic changes to the trace; in order for the algorithm to be asymptotically correct, these stochastic updates must satisfy certain probabilistic properties.</p><p>One common way of ensuring that the updates do satisfy those properties is to compute a <em>Metropolis-Hastings acceptance ratio</em>. Essentially, after proposing a change to a trace, we add an &quot;accept or reject&quot; step that stochastically decides whether to commit the update or to revert it. This is an over-simplification, but generally speaking, this step ensures we are more likely to accept changes that make our trace fit the observed data better, and to reject ones that make our current trace worse. The algorithm also tries not to go down dead ends: it is more likely to take an exploratory step into a low-probability region if it knows it can easily get back to where it came from.</p><p>Gen&#39;s <a href="../../ref/inference/mcmc/#Gen.metropolis_hastings"><code>metropolis_hastings</code></a> function <em>automatically</em> adds this &quot;accept/reject&quot; check (including the correct computation of the probability of acceptance or rejection), so that inference programmers need only think about what sorts of updates might be useful to propose. Starting in this section, we&#39;ll look at several design patterns for MCMC updates, and how to apply them in Gen.</p><h3 id="Block-Resimulation"><a class="docs-heading-anchor" href="#Block-Resimulation">Block Resimulation</a><a id="Block-Resimulation-1"></a><a class="docs-heading-anchor-permalink" href="#Block-Resimulation" title="Permalink"></a></h3><p>One of the simplest strategies we can use is called Resimulation MH, and it works as follows.</p><p>We begin, as in most iterative inference algorithms, by sampling an initial trace from our model using the <a href="../../ref/core/gfi/#Gen.generate"><code>generate</code></a> API function, fixing the  observed choices to their observed values.</p><pre><code class="language-julia hljs"># Gen&#39;s `generate` function accepts a model, a tuple of arguments to the model,
 # and a `ChoiceMap` representing observations (or constraints to satisfy). It returns
 # a complete trace consistent with the observations, and an importance weight.  
 # In this call, we ignore the weight returned.
@@ -153,31 +153,31 @@ for i=1:10
     @time tr = block_resimulation_inference(xs, ys, observations)
     scores[i] = get_score(tr)
 end
-println(&quot;Log probability: &quot;, logmeanexp(scores))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">  0.761471 seconds (9.43 M allocations: 558.430 MiB, 6.67% gc time, 9.80% compilation time)
-  0.705899 seconds (9.38 M allocations: 555.468 MiB, 10.24% gc time)
-  0.671109 seconds (9.38 M allocations: 555.468 MiB, 5.98% gc time)
-  0.674133 seconds (9.38 M allocations: 555.468 MiB, 5.94% gc time)
-  0.673350 seconds (9.38 M allocations: 555.468 MiB, 5.94% gc time)
-  0.698674 seconds (9.38 M allocations: 555.468 MiB, 8.17% gc time)
-  0.678351 seconds (9.38 M allocations: 555.468 MiB, 5.91% gc time)
-  0.673486 seconds (9.38 M allocations: 555.468 MiB, 5.91% gc time)
-  0.696058 seconds (9.38 M allocations: 555.468 MiB, 9.02% gc time)
-  0.671963 seconds (9.38 M allocations: 555.468 MiB, 5.95% gc time)
+println(&quot;Log probability: &quot;, logmeanexp(scores))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">  0.788455 seconds (9.43 M allocations: 558.430 MiB, 6.75% gc time, 10.59% compilation time)
+  0.702718 seconds (9.38 M allocations: 555.468 MiB, 7.16% gc time)
+  0.715809 seconds (9.38 M allocations: 555.468 MiB, 8.84% gc time)
+  0.692997 seconds (9.38 M allocations: 555.468 MiB, 5.99% gc time)
+  0.692577 seconds (9.38 M allocations: 555.468 MiB, 6.03% gc time)
+  0.717431 seconds (9.38 M allocations: 555.468 MiB, 8.63% gc time)
+  0.694947 seconds (9.38 M allocations: 555.468 MiB, 6.00% gc time)
+  0.694738 seconds (9.38 M allocations: 555.468 MiB, 6.06% gc time)
+  0.694171 seconds (9.38 M allocations: 555.468 MiB, 6.14% gc time)
+  0.717542 seconds (9.38 M allocations: 555.468 MiB, 8.92% gc time)
 Log probability: -50.78536994535881</code></pre><p>We note that this is significantly better than importance sampling, even if we run importance sampling for about the same amount of (wall-clock) time per sample:</p><pre><code class="language-julia hljs">scores = Vector{Float64}(undef, 10)
 for i=1:10
     @time (tr, _) = importance_resampling(regression_with_outliers, (xs,), observations, 17000)
     scores[i] = get_score(tr)
 end
-println(&quot;Log probability: &quot;, logmeanexp(scores))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">  0.702821 seconds (11.80 M allocations: 794.800 MiB, 8.09% gc time)
-  0.716765 seconds (11.80 M allocations: 794.800 MiB, 11.00% gc time)
-  0.713724 seconds (11.80 M allocations: 794.800 MiB, 8.71% gc time)
-  0.705320 seconds (11.80 M allocations: 794.800 MiB, 8.03% gc time)
-  0.699485 seconds (11.80 M allocations: 794.800 MiB, 8.87% gc time)
-  0.730793 seconds (11.80 M allocations: 794.800 MiB, 10.97% gc time)
-  0.695620 seconds (11.80 M allocations: 794.800 MiB, 8.16% gc time)
-  0.708567 seconds (11.80 M allocations: 794.800 MiB, 8.86% gc time)
-  0.704721 seconds (11.80 M allocations: 794.800 MiB, 7.99% gc time)
-  0.719055 seconds (11.80 M allocations: 794.800 MiB, 11.02% gc time)
+println(&quot;Log probability: &quot;, logmeanexp(scores))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">  0.723307 seconds (11.80 M allocations: 794.800 MiB, 8.54% gc time)
+  0.728243 seconds (11.80 M allocations: 794.800 MiB, 8.82% gc time)
+  0.750059 seconds (11.80 M allocations: 794.800 MiB, 11.27% gc time)
+  0.723958 seconds (11.80 M allocations: 794.800 MiB, 8.43% gc time)
+  0.726807 seconds (11.80 M allocations: 794.800 MiB, 8.63% gc time)
+  0.725916 seconds (11.80 M allocations: 794.800 MiB, 8.42% gc time)
+  0.744230 seconds (11.80 M allocations: 794.800 MiB, 11.22% gc time)
+  0.731017 seconds (11.80 M allocations: 794.800 MiB, 8.76% gc time)
+  0.724367 seconds (11.80 M allocations: 794.800 MiB, 8.44% gc time)
+  0.726239 seconds (11.80 M allocations: 794.800 MiB, 8.91% gc time)
 Log probability: -53.7625847077635</code></pre><p>It&#39;s one thing to see a log probability increase; it&#39;s better to understand what the inference algorithm is actually doing, and to see <em>why</em> it&#39;s doing better.</p><p>A great tool for debugging and improving MCMC algorithms is visualization. We can use <code>Plots.@animate</code> to produce an animated visualization:</p><pre><code class="language-julia hljs">t, = generate(regression_with_outliers, (xs,), observations)
 
 viz = Plots.@animate for i in 1:500
@@ -226,16 +226,16 @@ for i=1:10
     @time tr = gaussian_drift_inference(xs, observations)
     scores[i] = get_score(tr)
 end
-println(&quot;Log probability: &quot;, logmeanexp(scores))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">  0.747917 seconds (10.26 M allocations: 601.866 MiB, 6.45% gc time, 1.24% compilation time)
-  0.749172 seconds (10.25 M allocations: 600.976 MiB, 8.52% gc time)
-  0.718700 seconds (10.25 M allocations: 600.976 MiB, 5.62% gc time)
-  0.719275 seconds (10.25 M allocations: 600.976 MiB, 5.66% gc time)
-  0.742795 seconds (10.25 M allocations: 600.976 MiB, 7.75% gc time)
-  0.726586 seconds (10.25 M allocations: 600.976 MiB, 5.58% gc time)
-  0.744234 seconds (10.25 M allocations: 600.976 MiB, 8.62% gc time)
-  0.718688 seconds (10.25 M allocations: 600.976 MiB, 5.69% gc time)
-  0.741264 seconds (10.25 M allocations: 600.976 MiB, 7.84% gc time)
-  0.726679 seconds (10.25 M allocations: 600.976 MiB, 5.55% gc time)
+println(&quot;Log probability: &quot;, logmeanexp(scores))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">  0.779406 seconds (10.26 M allocations: 601.865 MiB, 9.10% gc time, 1.36% compilation time)
+  0.737583 seconds (10.25 M allocations: 600.976 MiB, 5.79% gc time)
+  0.759306 seconds (10.25 M allocations: 600.976 MiB, 8.55% gc time)
+  0.737176 seconds (10.25 M allocations: 600.976 MiB, 5.81% gc time)
+  0.754446 seconds (10.25 M allocations: 600.976 MiB, 8.35% gc time)
+  0.739569 seconds (10.25 M allocations: 600.976 MiB, 5.78% gc time)
+  0.760547 seconds (10.25 M allocations: 600.976 MiB, 8.56% gc time)
+  0.738283 seconds (10.25 M allocations: 600.976 MiB, 5.84% gc time)
+  0.734221 seconds (10.25 M allocations: 600.976 MiB, 5.87% gc time)
+  0.760126 seconds (10.25 M allocations: 600.976 MiB, 8.28% gc time)
 Log probability: -44.24115015595737</code></pre><h2 id="MCMC-Part-3:-Heuristic-Guidance"><a class="docs-heading-anchor" href="#MCMC-Part-3:-Heuristic-Guidance">MCMC Part 3: Heuristic Guidance</a><a id="MCMC-Part-3:-Heuristic-Guidance-1"></a><a class="docs-heading-anchor-permalink" href="#MCMC-Part-3:-Heuristic-Guidance" title="Permalink"></a></h2><p>In this section, we&#39;ll look at another strategy for improving MCMC inference: using arbitrary heuristics to make smarter proposals. In particular, we&#39;ll use a method called &quot;Random Sample Consensus&quot; (or RANSAC) to quickly find promising settings of the slope and intercept parameters.</p><p>RANSAC works as follows:</p><ol><li>We repeatedly choose a small random subset of the points, say, of size 3.</li><li>We do least-squares linear regression to find a line of best fit for those points.</li><li>We count how many points (from the entire set) are near the line we found.</li><li>After a suitable number of iterations (say, 10), we return the line that had the highest score.</li></ol><p>Here&#39;s our implementation of the algorithm in Julia:</p><pre><code class="language-julia hljs">import StatsBase
 
 struct RANSACParams
@@ -323,16 +323,16 @@ for i=1:10
     @time tr = ransac_inference(xs, ys, observations)
     scores[i] = get_score(tr)
 end
-println(&quot;Log probability: &quot;, logmeanexp(scores))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">  0.772414 seconds (3.20 M allocations: 201.217 MiB, 3.91% gc time, 78.64% compilation time)
-  0.157701 seconds (2.06 M allocations: 124.602 MiB, 15.40% gc time)
-  0.142946 seconds (2.06 M allocations: 124.602 MiB)
-  0.164440 seconds (2.06 M allocations: 124.602 MiB, 16.33% gc time)
-  0.134684 seconds (2.06 M allocations: 124.602 MiB)
-  0.150282 seconds (2.06 M allocations: 124.602 MiB, 11.27% gc time)
-  0.143997 seconds (2.06 M allocations: 124.602 MiB)
-  0.159930 seconds (2.06 M allocations: 124.602 MiB, 14.22% gc time)
-  0.134039 seconds (2.06 M allocations: 124.602 MiB)
-  0.150888 seconds (2.06 M allocations: 124.602 MiB, 11.16% gc time)
+println(&quot;Log probability: &quot;, logmeanexp(scores))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">  0.808422 seconds (3.19 M allocations: 200.268 MiB, 3.75% gc time, 78.73% compilation time)
+  0.139177 seconds (2.06 M allocations: 124.602 MiB)
+  0.165988 seconds (2.06 M allocations: 124.602 MiB, 16.38% gc time)
+  0.141718 seconds (2.06 M allocations: 124.602 MiB)
+  0.162519 seconds (2.06 M allocations: 124.602 MiB, 13.67% gc time)
+  0.138972 seconds (2.06 M allocations: 124.602 MiB)
+  0.160334 seconds (2.06 M allocations: 124.602 MiB, 12.47% gc time)
+  0.141785 seconds (2.06 M allocations: 124.602 MiB)
+  0.162170 seconds (2.06 M allocations: 124.602 MiB, 13.58% gc time)
+  0.138723 seconds (2.06 M allocations: 124.602 MiB)
 Log probability: -42.80176245244315</code></pre><p>Let&#39;s visualize the algorithm:</p><pre><code class="language-julia hljs">(slope, intercept) = ransac(xs, ys, RANSACParams(10, 3, 1.))
 slope_intercept_init = choicemap()
 slope_intercept_init[:slope] = slope
@@ -414,16 +414,16 @@ for i=1:10
 end
 println(&quot;Log probability: &quot;, logmeanexp(scores))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Assignment to `tr` in soft scope is ambiguous because a global variable by the same name exists: `tr` will be treated as a new local. Disambiguate by using `local tr` to suppress this warning or `global tr` to assign to the existing global variable.
 └ @ timing.jl:279
-  0.198320 seconds (2.10 M allocations: 126.837 MiB, 13.60% gc time, 17.54% compilation time)
-  0.133882 seconds (2.06 M allocations: 124.603 MiB)
-  0.163569 seconds (2.06 M allocations: 124.603 MiB, 13.58% gc time)
-  0.141927 seconds (2.06 M allocations: 124.603 MiB)
-  0.158593 seconds (2.06 M allocations: 124.603 MiB, 14.53% gc time)
-  0.133932 seconds (2.06 M allocations: 124.603 MiB)
-  0.159349 seconds (2.06 M allocations: 124.603 MiB, 10.86% gc time)
-  0.140660 seconds (2.06 M allocations: 124.603 MiB)
-  0.158443 seconds (2.06 M allocations: 124.603 MiB, 14.62% gc time)
-  0.133818 seconds (2.06 M allocations: 124.603 MiB)
+  0.206421 seconds (2.10 M allocations: 126.837 MiB, 12.98% gc time, 18.63% compilation time)
+  0.139731 seconds (2.06 M allocations: 124.603 MiB)
+  0.163018 seconds (2.06 M allocations: 124.603 MiB, 15.15% gc time)
+  0.143144 seconds (2.06 M allocations: 124.603 MiB)
+  0.162861 seconds (2.06 M allocations: 124.603 MiB, 13.87% gc time)
+  0.140628 seconds (2.06 M allocations: 124.603 MiB)
+  0.157835 seconds (2.06 M allocations: 124.603 MiB, 12.51% gc time)
+  0.142297 seconds (2.06 M allocations: 124.603 MiB)
+  0.162720 seconds (2.06 M allocations: 124.603 MiB, 13.77% gc time)
+  0.140143 seconds (2.06 M allocations: 124.603 MiB)
 Log probability: -43.10325833566761</code></pre><hr/><h3 id="Exercise-2"><a class="docs-heading-anchor" href="#Exercise-2">Exercise</a><a class="docs-heading-anchor-permalink" href="#Exercise-2" title="Permalink"></a></h3><p>Implement a heuristic-based proposal that selects the points that are currently classified as <em>inliers</em>, finds the line of best fit for this  subset of points, and adds some noise.</p><p><em>Hint</em>: you can get the result for linear regression using least squares approximation by solving a linear system using Julia&#39;s <a href="https://docs.julialang.org/en/v1/base/math/#Base.:\\\\-Tuple{Any,Any}">backslash operator, <code>\</code></a> (as is done in the <code>ransac</code> function, above). </p><p>We provide some starter code. You can test your solution by modifying the plotting code above.</p><pre><code class="language-julia hljs">@gen function inlier_heuristic_proposal(prev_trace, xs, ys)
     # Put your code below, ensure that you compute values for
     # inlier_slope, inlier_intercept and delete the two placeholders
@@ -576,16 +576,16 @@ for i=1:10
 end
 println(logmeanexp(scores))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Assignment to `tr` in soft scope is ambiguous because a global variable by the same name exists: `tr` will be treated as a new local. Disambiguate by using `local tr` to suppress this warning or `global tr` to assign to the existing global variable.
 └ @ timing.jl:279
-  0.341518 seconds (3.98 M allocations: 226.854 MiB, 7.82% gc time, 24.86% compilation time)
-  0.238885 seconds (3.83 M allocations: 216.903 MiB)
-  0.251809 seconds (3.71 M allocations: 210.721 MiB, 11.40% gc time)
-  0.249354 seconds (3.70 M allocations: 210.277 MiB, 7.07% gc time)
-  0.255882 seconds (3.81 M allocations: 216.011 MiB, 9.09% gc time)
-  0.252724 seconds (3.83 M allocations: 217.081 MiB, 6.94% gc time)
-  0.259470 seconds (3.81 M allocations: 215.836 MiB, 9.06% gc time)
-  0.247529 seconds (3.83 M allocations: 216.814 MiB, 7.10% gc time)
-  0.240543 seconds (3.83 M allocations: 217.171 MiB)
-  0.253332 seconds (3.83 M allocations: 217.081 MiB, 9.35% gc time)
+  0.366964 seconds (3.98 M allocations: 226.854 MiB, 9.72% gc time, 25.07% compilation time)
+  0.269170 seconds (3.83 M allocations: 216.903 MiB, 10.69% gc time)
+  0.261845 seconds (3.71 M allocations: 210.721 MiB, 10.60% gc time)
+  0.250511 seconds (3.70 M allocations: 210.277 MiB, 8.23% gc time)
+  0.264210 seconds (3.81 M allocations: 216.011 MiB, 8.72% gc time)
+  0.258037 seconds (3.83 M allocations: 217.081 MiB, 7.94% gc time)
+  0.239545 seconds (3.81 M allocations: 215.836 MiB)
+  0.261381 seconds (3.83 M allocations: 216.814 MiB, 8.96% gc time)
+  0.262115 seconds (3.83 M allocations: 217.171 MiB, 7.98% gc time)
+  0.263288 seconds (3.83 M allocations: 217.081 MiB, 8.81% gc time)
 -41.23574210996263</code></pre><p>This doesn&#39;t necessarily mean that it&#39;s &quot;better,&quot; though. It finds the most probable explanation of the data, which is a different problem from the one we tackled with MCMC inference. There, the goal was to sample from the posterior, which allows us to better characterize our uncertainty. Using MCMC, there might be a borderline point that is sometimes classified as an outlier and sometimes not, reflecting our uncertainty; with MAP optimization, we will always be shown the most probable answer.</p><hr/><p>Below we generate a dataset for which there are two distinct possible explanations (the grey lines) under our model <code>regression_with_outliers</code>. </p><pre><code class="language-julia hljs">function make_bimodal_dataset(n)
     Random.seed!(4)
     prob_outlier = 0.2
@@ -617,7 +617,7 @@ observations_bimodal = make_constraints(ys_bimodal)
 
 Plots.scatter(xs, ys_bimodal, color=&quot;black&quot;, xlabel=&quot;X&quot;, ylabel=&quot;Y&quot;, label=nothing, title=&quot;Bimodal data&quot;)
 Plots.plot!(xs,m1.*xs.+b1, color=&quot;blue&quot;, label=nothing)
-Plots.plot!(xs,m2.*xs.+b2, color=&quot;green&quot;, label=nothing)</code></pre><img src="580c1fc7.svg" alt="Example block output"/><h3 id="Exercise-3"><a class="docs-heading-anchor" href="#Exercise-3">Exercise</a><a class="docs-heading-anchor-permalink" href="#Exercise-3" title="Permalink"></a></h3><p>For this dataset, the code below will run (i) Metropolis hastings with a Gaussian Drift proposal and (ii) MAP optimization, using implementations from above. Make sure you understand what it is doing. Do both algorithms explore both modes (i.e. both possible explanations)?  Play with running the algorithms multiple times.  </p><p>If one or both algorithms doesn&#39;t then explain in a few sentences why you think this is.</p><pre><code class="language-julia hljs">(slope, intercept) = ransac(xs, ys_bimodal, RANSACParams(10, 3, 1.))
+Plots.plot!(xs,m2.*xs.+b2, color=&quot;green&quot;, label=nothing)</code></pre><img src="94d17a6e.svg" alt="Example block output"/><h3 id="Exercise-3"><a class="docs-heading-anchor" href="#Exercise-3">Exercise</a><a class="docs-heading-anchor-permalink" href="#Exercise-3" title="Permalink"></a></h3><p>For this dataset, the code below will run (i) Metropolis hastings with a Gaussian Drift proposal and (ii) MAP optimization, using implementations from above. Make sure you understand what it is doing. Do both algorithms explore both modes (i.e. both possible explanations)?  Play with running the algorithms multiple times.  </p><p>If one or both algorithms doesn&#39;t then explain in a few sentences why you think this is.</p><pre><code class="language-julia hljs">(slope, intercept) = ransac(xs, ys_bimodal, RANSACParams(10, 3, 1.))
 slope_intercept_init = choicemap()
 slope_intercept_init[:slope] = slope
 slope_intercept_init[:intercept] = intercept
