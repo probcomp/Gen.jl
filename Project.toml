@@ -19,7 +19,7 @@ SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
 
 [compat]
 Compat = "3.25, 4"
-DataStructures = "0.15, 0.16, 0.17, 0.18"
+DataStructures = "0.15, 0.16, 0.17, 0.18, 0.19"
 Distributions = "0.24, 0.25"
 ForwardDiff = "0.10.10, 1"
 FunctionalCollections = "0.5"
