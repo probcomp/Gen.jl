@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Basics of MCMC and MAP Inference · Gen.jl</title><meta name="title" content="Basics of MCMC and MAP Inference · Gen.jl"/><meta property="og:title" content="Basics of MCMC and MAP Inference · Gen.jl"/><meta property="twitter:title" content="Basics of MCMC and MAP Inference · Gen.jl"/><meta name="description" content="Documentation for Gen.jl."/><meta property="og:description" content="Documentation for Gen.jl."/><meta property="twitter:description" content="Documentation for Gen.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">Gen.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Gen.jl</a></li><li><input class="collapse-toggle" id="menuitem-2" type="checkbox" checked/><label class="tocitem" for="menuitem-2"><span class="docs-label">Tutorials</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../getting_started/">Getting Started</a></li><li><a class="tocitem" href="../modeling_in_gen/">Introduction to Modeling in Gen</a></li><li class="is-active"><a class="tocitem" href>Basics of MCMC and MAP Inference</a><ul class="internal"><li><a class="tocitem" href="#Linear-Regression-with-Outliers"><span>Linear Regression with Outliers</span></a></li><li><a class="tocitem" href="#Writing-the-Model"><span>Writing the Model</span></a></li><li><a class="tocitem" href="#Visualizing-the-Model"><span>Visualizing the Model</span></a></li><li><a class="tocitem" href="#The-Limits-of-Importance-Sampling"><span>The Limits of Importance Sampling</span></a></li><li><a class="tocitem" href="#MCMC-Part-1:-Block-Resimulation"><span>MCMC Part 1: Block Resimulation</span></a></li><li><a class="tocitem" href="#MCMC-Part-2:-Gaussian-Drift-MH"><span>MCMC Part 2: Gaussian Drift MH</span></a></li><li><a class="tocitem" href="#MCMC-Part-3:-Heuristic-Guidance"><span>MCMC Part 3: Heuristic Guidance</span></a></li><li><a class="tocitem" href="#MAP-Optimization"><span>MAP Optimization</span></a></li></ul></li><li><a class="tocitem" href="../enumerative/">Debugging Models with Enumeration</a></li><li><a class="tocitem" href="../smc/">Object Tracking with SMC</a></li><li><a class="tocitem" href="../vi/">Variational Inference in Gen</a></li><li><a class="tocitem" href="../learning_gen_fns/">Learning Generative Functions</a></li><li><a class="tocitem" href="../scaling_with_sml/">Speeding Up Inference with the SML</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3" type="checkbox"/><label class="tocitem" for="menuitem-3"><span class="docs-label">How-to Guides</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../how_to/extending_gen/">Extending Gen</a></li><li><a class="tocitem" href="../../how_to/custom_distributions/">Adding New Distributions</a></li><li><a class="tocitem" href="../../how_to/custom_gen_fns/">Adding New Generative Functions</a></li><li><a class="tocitem" href="../../how_to/custom_gradients/">Custom Gradients</a></li><li><a class="tocitem" href="../../how_to/custom_incremental_computation/">Custom Incremental Computation</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-4" type="checkbox"/><label class="tocitem" for="menuitem-4"><span class="docs-label">Reference</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><input class="collapse-toggle" id="menuitem-4-1" type="checkbox"/><label class="tocitem" for="menuitem-4-1"><span class="docs-label">Core Interfaces</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../ref/core/gfi/">Generative Function Interface</a></li><li><a class="tocitem" href="../../ref/core/choice_maps/">Choice Maps</a></li><li><a class="tocitem" href="../../ref/core/selections/">Selections</a></li><li><a class="tocitem" href="../../ref/core/change_hints/">Change Hints</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-4-2" type="checkbox"/><label class="tocitem" for="menuitem-4-2"><span class="docs-label">Modeling Library</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../ref/modeling/dml/">Built-In Modeling Language</a></li><li><a class="tocitem" href="../../ref/modeling/sml/">Static Modeling Language</a></li><li><a class="tocitem" href="../../ref/modeling/distributions/">Probability Distributions</a></li><li><a class="tocitem" href="../../ref/modeling/combinators/">Combinators</a></li><li><a class="tocitem" href="../../ref/modeling/custom_gen_fns/">Custom Generative Functions</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-4-3" type="checkbox"/><label class="tocitem" for="menuitem-4-3"><span class="docs-label">Inference Library</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../ref/inference/enumerative/">Enumerative Inference</a></li><li><a class="tocitem" href="../../ref/inference/importance/">Importance Sampling</a></li><li><a class="tocitem" href="../../ref/inference/mcmc/">Markov Chain Monte Carlo</a></li><li><a class="tocitem" href="../../ref/inference/pf/">Particle Filtering &amp; SMC</a></li><li><a class="tocitem" href="../../ref/inference/trace_translators/">Trace Translators</a></li><li><a class="tocitem" href="../../ref/inference/parameter_optimization/">Parameter Optimization</a></li><li><a class="tocitem" href="../../ref/inference/map/">MAP Optimization</a></li><li><a class="tocitem" href="../../ref/inference/vi/">Variational Inference</a></li><li><a class="tocitem" href="../../ref/inference/wake_sleep/">Wake-Sleep Learning</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-4-4" type="checkbox"/><label class="tocitem" for="menuitem-4-4"><span class="docs-label">Internals</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../ref/internals/language_implementation/">Modeling Language Implementation</a></li></ul></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Basics of MCMC and MAP Inference</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Basics of MCMC and MAP Inference</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/probcomp/Gen.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/probcomp/Gen.jl/blob/master/docs/src/tutorials/mcmc_map.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="mcmc_map_tutorial"><a class="docs-heading-anchor" href="#mcmc_map_tutorial">Basics of MCMC and MAP Inference</a><a id="mcmc_map_tutorial-1"></a><a class="docs-heading-anchor-permalink" href="#mcmc_map_tutorial" title="Permalink"></a></h1><p>This tutorial introduces the basics of writing <em>Markov chain Monte Carlo (MCMC)</em> inference programs in Gen. We also briefly cover <em>maximum a posteriori (MAP)</em> inference, as another kind of iterative inference algorithm.</p><h2 id="Linear-Regression-with-Outliers"><a class="docs-heading-anchor" href="#Linear-Regression-with-Outliers">Linear Regression with Outliers</a><a id="Linear-Regression-with-Outliers-1"></a><a class="docs-heading-anchor-permalink" href="#Linear-Regression-with-Outliers" title="Permalink"></a></h2><p>As an example task, we consider a simple extension of the linear regression problem introduced in previous tutorials: <em>linear regression with outliers</em>. Suppose we have a dataset of points in the <span>$x,y$</span> plane that is <em>mostly</em> explained by a linear relationship, but which also has several outliers. Our goal will be to automatically identify the outliers, and to find a linear relationship (a slope and intercept, as well as an inherent noise level) that explains rest of the points:</p><div style="text-align:center">
+    <img src="../../assets/example-inference.png" alt="See https://dspace.mit.edu/bitstream/handle/1721.1/119255/MIT-CSAIL-TR-2018-020.pdf, Figure 2(a)" width="600"/>
+</div><p>This is a simple inference problem. But it has two features that make it ideal for introducing concepts in modeling and inference. </p><ol><li>First, we want not only to estimate the slope and intercept of the line that best fits the data, but also to classify each point as an inlier or outlier; that is, there are a large number of latent variables of interest, enough to make importance sampling an unreliable method (absent a more involved custom proposal that does the heavy lifting). </li><li>Second, several of the parameters we&#39;re estimating (the slope and intercept) are continuous and amenable to gradient-based search techniques, which will allow us to explore Gen&#39;s optimization capabilities.</li></ol><p>Let&#39;s get started!</p><h2 id="Writing-the-Model"><a class="docs-heading-anchor" href="#Writing-the-Model">Writing the Model</a><a id="Writing-the-Model-1"></a><a class="docs-heading-anchor-permalink" href="#Writing-the-Model" title="Permalink"></a></h2><p>We begin, as usual, by writing a model: a generative function responsible (conceptually) for simulating a synthetic dataset.</p><p>Our model will take as input a vector of <code>x</code> coordinates, and produce as output corresponding <code>y</code> coordinates. </p><p>We will also use this opportunity to introduce some syntactic sugar. As described in <a href="../modeling_in_gen/#modeling_tutorial">Introduction to Modeling in Gen</a>, random choices in Gen are given <em>addresses</em> using the syntax <code>{addr} ~ distribution(...)</code>. But this can be a bit verbose, and often leads to code that looks like the following:</p><pre><code class="language-julia hljs">x = {:x} ~ normal(0, 1)
+slope = {:slope} ~ normal(0, 1)</code></pre><p>In these examples, the variable name is duplicated as the address of the random choice. Because this is a common pattern, Gen provides syntactic sugar that makes it nicer to use:</p><pre><code class="language-julia hljs"># Desugars to &quot;x = {:x} ~ normal(0, 1)&quot;
+x ~ normal(0, 1)
+# Desugars to &quot;slope = {:slope} ~ normal(0, 1)&quot;
+slope ~ normal(0, 1)</code></pre><p>Note that sometimes, it is still necessary to use the <code>{...}</code> form, for example in loops:</p><pre><code class="language-julia hljs"># INVALID:
+for i=1:10
+    y ~ normal(0, 1) # The name :y will be used more than once!!
+    println(y)
+end
+
+# VALID:
+for i=1:10
+    y = {(:y, i)} ~ normal(0, 1) # OK: the address is different each time.
+    println(y)
+end</code></pre><p>We&#39;ll use this new syntax for writing our model of linear regression with outliers. As we&#39;ve seen before, the model generates parameters from a prior, and then simulates data based on those parameters:</p><pre><code class="language-julia hljs">@gen function regression_with_outliers(xs::Vector{&lt;:Real})
+    # First, generate some parameters of the model. We make these
+    # random choices, because later, we will want to infer them
+    # from data. The distributions we use here express our assumptions
+    # about the parameters: we think the slope and intercept won&#39;t be
+    # too far from 0; that the noise is relatively small; and that
+    # the proportion of the dataset that don&#39;t fit a linear relationship
+    # (outliers) could be anything between 0 and 1.
+    slope ~ normal(0, 2)
+    intercept ~ normal(0, 2)
+    noise ~ gamma(1, 1)
+    prob_outlier ~ uniform(0, 1)
+
+    # Next, we generate the actual y coordinates.
+    n = length(xs)
+    ys = Float64[]
+
+    for i = 1:n
+        # Decide whether this point is an outlier, and set
+        # mean and standard deviation accordingly
+        if ({:data =&gt; i =&gt; :is_outlier} ~ bernoulli(prob_outlier))
+            (mu, std) = (0., 10.)
+        else
+            (mu, std) = (xs[i] * slope + intercept, noise)
+        end
+        # Sample a y value for this point
+        push!(ys, {:data =&gt; i =&gt; :y} ~ normal(mu, std))
+    end
+    ys
+end</code></pre><h2 id="Visualizing-the-Model"><a class="docs-heading-anchor" href="#Visualizing-the-Model">Visualizing the Model</a><a id="Visualizing-the-Model-1"></a><a class="docs-heading-anchor-permalink" href="#Visualizing-the-Model" title="Permalink"></a></h2><p>Let&#39;s visualize what our model is doing by drawing some samples from the prior. We&#39;ll use the following helper functions.</p><details> <summary>Helper functions for visualization</summary><pre><code class="language-julia hljs">function serialize_trace(trace)
+    (xs,) = Gen.get_args(trace)
+    Dict(:slope =&gt; trace[:slope],
+         :intercept =&gt; trace[:intercept],
+         :inlier_std =&gt; trace[:noise],
+         :points =&gt; zip(xs, [trace[:data =&gt; i =&gt; :y] for i in 1:length(xs)]),
+         :outliers =&gt; [trace[:data =&gt; i =&gt; :is_outlier] for i in 1:length(xs)])
+end
+
+
+function visualize_trace(trace::Trace; title=&quot;&quot;)
+    trace = serialize_trace(trace)
+
+    outliers = [pt for (pt, outlier) in zip(trace[:points], trace[:outliers]) if outlier]
+    inliers =  [pt for (pt, outlier) in zip(trace[:points], trace[:outliers]) if !outlier]
+    Plots.scatter(map(first, inliers), map(last, inliers), markercolor=&quot;blue&quot;, label=nothing, xlims=[-5, 5], ylims=[-20, 20], title=title)
+    Plots.scatter!(map(first, outliers), map(last, outliers), markercolor=&quot;red&quot;, label=nothing)
+
+    inferred_line(x) = trace[:slope] * x + trace[:intercept]
+    left_x = -5
+    left_y  = inferred_line(left_x)
+    right_x = 5
+    right_y = inferred_line(right_x)
+    Plots.plot!([left_x, right_x], [left_y, right_y], color=&quot;black&quot;, label=nothing)
+
+    # Inlier noise
+    inlier_std = trace[:inlier_std]
+    noise_points = [(left_x, left_y + inlier_std),
+                    (right_x, right_y + inlier_std),
+                    (right_x, right_y - inlier_std),
+                    (left_x, left_y - inlier_std)]
+    Plots.plot!(Shape(map(first, noise_points), map(last, noise_points)), color=&quot;black&quot;, alpha=0.2, label=nothing)
+    Plots.plot!(Shape([-5, 5, 5, -5], [10, 10, -10, -10]), color=&quot;black&quot;, label=nothing, alpha=0.08)
+end</code></pre></details><br><p>We&#39;ll use these functions to visualize samples from our model.</p><pre><code class="language-julia hljs"># Generate nine traces and visualize them
+xs     = collect(range(-5, stop=5, length=20))
+traces = [Gen.simulate(regression_with_outliers, (xs,)) for i in 1:9]
+Plots.plot([visualize_trace(t) for t in traces]...)</code></pre><img src="0e79a92f.svg" alt="Example block output"/><h5 id="Legend:"><a class="docs-heading-anchor" href="#Legend:">Legend:</a><a id="Legend:-1"></a><a class="docs-heading-anchor-permalink" href="#Legend:" title="Permalink"></a></h5><ul><li>red points: outliers;</li><li>blue points: inliers (i.e. regular data);</li><li>dark grey shading: noise associated with inliers; and</li><li>light grey shading: noise associated with outliers.</li></ul><p>Note that an outlier can occur anywhere — including close to the line — and that our model is capable of generating datasets in which the vast majority of points are outliers.</p><h2 id="The-Limits-of-Importance-Sampling"><a class="docs-heading-anchor" href="#The-Limits-of-Importance-Sampling">The Limits of Importance Sampling</a><a id="The-Limits-of-Importance-Sampling-1"></a><a class="docs-heading-anchor-permalink" href="#The-Limits-of-Importance-Sampling" title="Permalink"></a></h2><p>To motivate the need for more complex inference algorithms, let&#39;s begin by using the simple importance sampling method from the <a href="../modeling_in_gen/#modeling_tutorial">Introduction to Modeling</a> tutorial, and thinking about where it fails.</p><p>First, let us create a synthetic dataset to do inference <em>about</em>.</p><pre><code class="language-julia hljs">function make_synthetic_dataset(n)
+    Random.seed!(1)
+    prob_outlier = 0.2
+    true_inlier_noise = 0.5
+    true_outlier_noise = 5.0
+    true_slope = -1
+    true_intercept = 2
+    xs = collect(range(-5, stop=5, length=n))
+    ys = Float64[]
+    for (i, x) in enumerate(xs)
+        if rand() &lt; prob_outlier
+            y = randn() * true_outlier_noise
+        else
+            y = true_slope * x + true_intercept + randn() * true_inlier_noise
+        end
+        push!(ys, y)
+    end
+    (xs, ys)
+end
+
+(xs, ys) = make_synthetic_dataset(20)
+Plots.scatter(xs, ys, color=&quot;black&quot;, xlabel=&quot;X&quot;, ylabel=&quot;Y&quot;,
+              label=nothing, title=&quot;Observations - regular data and outliers&quot;)</code></pre><img src="83c660ff.svg" alt="Example block output"/><p>We will to express our <em>observations</em> as a <a href="../../ref/core/choice_maps/#Gen.ChoiceMap"><code>ChoiceMap</code></a> that constrains the values of certain random choices to equal their observed values. Here, we want to constrain the values of the choices with address <code>:data =&gt; i =&gt; :y</code> (that is, the sampled <span>$y$</span> coordinates) to equal the observed <span>$y$</span> values. Let&#39;s write a helper function that takes in a vector of <span>$y$</span> values and creates a <a href="../../ref/core/choice_maps/#Gen.ChoiceMap"><code>ChoiceMap</code></a> that we can use to constrain our model:</p><pre><code class="language-julia hljs">function make_constraints(ys::Vector{Float64})
+    constraints = Gen.choicemap()
+    for i=1:length(ys)
+        constraints[:data =&gt; i =&gt; :y] = ys[i]
+    end
+    constraints
+end</code></pre><p>We can apply it to our dataset&#39;s vector of <code>ys</code> to make a set of constraints for doing inference:</p><pre><code class="language-julia hljs">observations = make_constraints(ys)</code></pre><p>Now, we use the library function <code>importance_resampling</code> to draw approximate posterior samples given those observations:</p><pre><code class="language-julia hljs">function logmeanexp(scores)
+    logsumexp(scores) - log(length(scores))
+end</code></pre><pre><code class="language-julia hljs">traces    = [first(Gen.importance_resampling(regression_with_outliers, (xs,), observations, 2000)) for i in 1:9]
+log_probs = [get_score(t) for t in traces]
+println(&quot;Average log probability: $(logmeanexp(log_probs))&quot;)
+Plots.plot([visualize_trace(t) for t in traces]...)</code></pre><img src="c4afce96.svg" alt="Example block output"/><p>We see here that importance resampling hasn&#39;t completely failed: it generally finds a reasonable position for the line. But the details are off: there is little logic to the outlier classification, and the inferred noise around the line is too wide. The problem is that there are just too many variables to get right, and so sampling everything in one go is highly unlikely to produce a perfect hit.</p><p>In the remainder of this tutorial, we&#39;ll explore techniques for finding the right solution <em>iteratively</em>, beginning with an initial guess and making many small changes, until we achieve a reasonable posterior sample.</p><h2 id="MCMC-Part-1:-Block-Resimulation"><a class="docs-heading-anchor" href="#MCMC-Part-1:-Block-Resimulation">MCMC Part 1: Block Resimulation</a><a id="MCMC-Part-1:-Block-Resimulation-1"></a><a class="docs-heading-anchor-permalink" href="#MCMC-Part-1:-Block-Resimulation" title="Permalink"></a></h2><h3 id="What-is-MCMC?"><a class="docs-heading-anchor" href="#What-is-MCMC?">What is MCMC?</a><a id="What-is-MCMC?-1"></a><a class="docs-heading-anchor-permalink" href="#What-is-MCMC?" title="Permalink"></a></h3><p><em>Markov Chain Monte Carlo</em> (&quot;MCMC&quot;) methods are a powerful family of algorithms for iteratively producing approximate samples from a distribution (when applied to Bayesian inference problems, the posterior distribution of unknown (hidden) model variables given data).</p><p>There is a rich theory behind MCMC methods (see <a href="https://doi.org/10.1023/A:1020281327116">this paper</a> for an introduction), but we focus on applying MCMC in Gen, introducing  theoretical ideas only when necessary for understanding. As we will see, Gen provides abstractions that hide and automate much of the math necessary for implementing MCMC algorithms correctly.</p><p>The general shape of an MCMC algorithm is as follows. We begin by sampling an intial setting of all unobserved variables; in Gen, we produce an initial <em>trace</em> consistent with (but not necessarily <em>probable</em> given) our observations. Then, in a long-running loop, we make small, stochastic changes to the trace; in order for the algorithm to be asymptotically correct, these stochastic updates must satisfy certain probabilistic properties.</p><p>One common way of ensuring that the updates do satisfy those properties is to compute a <em>Metropolis-Hastings acceptance ratio</em>. Essentially, after proposing a change to a trace, we add an &quot;accept or reject&quot; step that stochastically decides whether to commit the update or to revert it. This is an over-simplification, but generally speaking, this step ensures we are more likely to accept changes that make our trace fit the observed data better, and to reject ones that make our current trace worse. The algorithm also tries not to go down dead ends: it is more likely to take an exploratory step into a low-probability region if it knows it can easily get back to where it came from.</p><p>Gen&#39;s <a href="../../ref/inference/mcmc/#Gen.metropolis_hastings"><code>metropolis_hastings</code></a> function <em>automatically</em> adds this &quot;accept/reject&quot; check (including the correct computation of the probability of acceptance or rejection), so that inference programmers need only think about what sorts of updates might be useful to propose. Starting in this section, we&#39;ll look at several design patterns for MCMC updates, and how to apply them in Gen.</p><h3 id="Block-Resimulation"><a class="docs-heading-anchor" href="#Block-Resimulation">Block Resimulation</a><a id="Block-Resimulation-1"></a><a class="docs-heading-anchor-permalink" href="#Block-Resimulation" title="Permalink"></a></h3><p>One of the simplest strategies we can use is called Resimulation MH, and it works as follows.</p><p>We begin, as in most iterative inference algorithms, by sampling an initial trace from our model using the <a href="../../ref/core/gfi/#Gen.generate"><code>generate</code></a> API function, fixing the  observed choices to their observed values.</p><pre><code class="language-julia hljs"># Gen&#39;s `generate` function accepts a model, a tuple of arguments to the model,
+# and a `ChoiceMap` representing observations (or constraints to satisfy). It returns
+# a complete trace consistent with the observations, and an importance weight.  
+# In this call, we ignore the weight returned.
+(tr, _) = generate(regression_with_outliers, (xs,), observations)</code></pre><p>Then, in each iteration of our program, we propose changes to all our model&#39;s variables in &quot;blocks,&quot; by erasing a set of variables from our current trace and <em>resimulating</em> them from the model. After resimulating each block of choices, we perform an accept/reject step, deciding whether the proposed changes are worth making.</p><pre><code class="language-julia hljs"># Pseudocode
+for iter=1:500
+    tr = maybe_update_block_1(tr)
+    tr = maybe_update_block_2(tr)
+    ...
+    tr = maybe_update_block_n(tr)
+end</code></pre><p>The main design choice in designing a Block Resimulation MH algorithm is how to block the choices together for resimulation. At one extreme, we could put each random choice the model makes in its own block. At the other, we could put all variables into a single block (a strategy sometimes called &quot;independent&quot; MH, and which bears a strong similarity to importance resampling, as it involves repeatedly generating completely new traces and deciding whether to keep them or not). Usually, the right thing to do is somewhere in between.</p><p>For the regression problem, here is one possible blocking of choices:</p><p><strong>Block 1: <code>slope</code>, <code>intercept</code>, and <code>noise</code>.</strong> These parameters determine the linear relationship; resimulating them is like picking a new line. We know from our importance sampling experiment above that before too long, we&#39;re bound to sample something close to the right line.</p><p><strong>Blocks 2 through N+1: Each <code>is_outlier</code>, in its own block.</strong> One problem we saw with importance sampling in this problem was that it tried to sample <em>every</em> outlier classification at once, when in reality the chances of a single sample that correctly classifies all the points are very low. Here, we can choose to resimulate each <code>is_outlier</code> choice separately, and for each one, decide whether to use the resimulated value or not.</p><p><strong>Block N+2: <code>prob_outlier</code>.</strong> Finally, we can propose a new <code>prob_outlier</code> value; in general, we can expect to accept the proposal when it is in line  with the current hypothesized proportion of <code>is_outlier</code> choices that are  set to <code>true</code>.</p><p>Resimulating a block of variables is the simplest form of update that Gen&#39;s <a href="../../ref/inference/mcmc/#Gen.metropolis_hastings"><code>metropolis_hastings</code></a> operator (or <a href="../../ref/inference/mcmc/#Gen.mh"><code>mh</code></a> for short) supports. When supplied with a <em>current trace</em> and a <em>selection</em> of trace addresses to resimulate, <a href="../../ref/inference/mcmc/#Gen.mh"><code>mh</code></a> performs the resimulation and the appropriate accept/reject check, then returns a possibly updated trace, along with a Boolean indicating whether the  update was accepted or not. A selection is created using the <a href="../../ref/core/selections/#Gen.select"><code>select</code></a> method. So a single update of the scheme we proposed above would look like this:</p><pre><code class="language-julia hljs"># Perform a single block resimulation update of a trace.
+function block_resimulation_update(tr)
+    # Block 1: Update the line&#39;s parameters
+    line_params = select(:noise, :slope, :intercept)
+    (tr, _) = mh(tr, line_params)
+
+    # Blocks 2-N+1: Update the outlier classifications
+    (xs,) = get_args(tr)
+    n = length(xs)
+    for i=1:n
+        (tr, _) = mh(tr, select(:data =&gt; i =&gt; :is_outlier))
+    end
+
+    # Block N+2: Update the prob_outlier parameter
+    (tr, _) = mh(tr, select(:prob_outlier))
+
+    # Return the updated trace
+    tr
+end</code></pre><p>All that&#39;s left is to (a) obtain an initial trace, and then (b) run that update in a loop for as long as we&#39;d like:</p><pre><code class="language-julia hljs">function block_resimulation_inference(xs, ys, observations)
+    observations = make_constraints(ys)
+    (tr, _) = generate(regression_with_outliers, (xs,), observations)
+    for iter=1:500
+        tr = block_resimulation_update(tr)
+    end
+    tr
+end</code></pre><p>Let&#39;s test it out:</p><pre><code class="language-julia hljs">scores = Vector{Float64}(undef, 10)
+for i=1:10
+    @time tr = block_resimulation_inference(xs, ys, observations)
+    scores[i] = get_score(tr)
+end
+println(&quot;Log probability: &quot;, logmeanexp(scores))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">  0.766862 seconds (9.43 M allocations: 558.431 MiB, 6.75% gc time, 9.80% compilation time)
+  0.713829 seconds (9.38 M allocations: 555.468 MiB, 9.65% gc time)
+  0.686115 seconds (9.38 M allocations: 555.468 MiB, 5.95% gc time)
+  0.693566 seconds (9.38 M allocations: 555.468 MiB, 6.36% gc time)
+  0.690340 seconds (9.38 M allocations: 555.468 MiB, 6.10% gc time)
+  0.715409 seconds (9.38 M allocations: 555.468 MiB, 9.43% gc time)
+  0.688798 seconds (9.38 M allocations: 555.468 MiB, 6.30% gc time)
+  0.685327 seconds (9.38 M allocations: 555.468 MiB, 6.28% gc time)
+  0.706882 seconds (9.38 M allocations: 555.468 MiB, 8.94% gc time)
+  0.695271 seconds (9.38 M allocations: 555.468 MiB, 6.33% gc time)
+Log probability: -50.78536994535881</code></pre><p>We note that this is significantly better than importance sampling, even if we run importance sampling for about the same amount of (wall-clock) time per sample:</p><pre><code class="language-julia hljs">scores = Vector{Float64}(undef, 10)
+for i=1:10
+    @time (tr, _) = importance_resampling(regression_with_outliers, (xs,), observations, 17000)
+    scores[i] = get_score(tr)
+end
+println(&quot;Log probability: &quot;, logmeanexp(scores))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">  0.707348 seconds (11.80 M allocations: 794.800 MiB, 9.45% gc time)
+  0.704336 seconds (11.80 M allocations: 794.800 MiB, 8.80% gc time)
+  0.721781 seconds (11.80 M allocations: 794.800 MiB, 11.85% gc time)
+  0.709612 seconds (11.80 M allocations: 794.800 MiB, 9.28% gc time)
+  0.702608 seconds (11.80 M allocations: 794.800 MiB, 8.80% gc time)
+  0.721159 seconds (11.80 M allocations: 794.800 MiB, 11.77% gc time)
+  0.709113 seconds (11.80 M allocations: 794.800 MiB, 9.29% gc time)
+  0.699561 seconds (11.80 M allocations: 794.800 MiB, 8.59% gc time)
+  0.701370 seconds (11.80 M allocations: 794.800 MiB, 9.19% gc time)
+  0.728220 seconds (11.80 M allocations: 794.800 MiB, 11.58% gc time)
+Log probability: -53.7625847077635</code></pre><p>It&#39;s one thing to see a log probability increase; it&#39;s better to understand what the inference algorithm is actually doing, and to see <em>why</em> it&#39;s doing better.</p><p>A great tool for debugging and improving MCMC algorithms is visualization. We can use <code>Plots.@animate</code> to produce an animated visualization:</p><pre><code class="language-julia hljs">t, = generate(regression_with_outliers, (xs,), observations)
+
+viz = Plots.@animate for i in 1:500
+    global t
+    t = block_resimulation_update(t)
+    visualize_trace(t; title=&quot;Iteration $i/500&quot;)
+end
+gif(viz)</code></pre><img src="816d2bcf.gif" alt="Example block output"/><p>We can see that although the algorithm keeps changing the inferences of which points are inliers and outliers,  it has a harder time refining the continuous parameters. We address this challenge next.</p><h2 id="MCMC-Part-2:-Gaussian-Drift-MH"><a class="docs-heading-anchor" href="#MCMC-Part-2:-Gaussian-Drift-MH">MCMC Part 2: Gaussian Drift MH</a><a id="MCMC-Part-2:-Gaussian-Drift-MH-1"></a><a class="docs-heading-anchor-permalink" href="#MCMC-Part-2:-Gaussian-Drift-MH" title="Permalink"></a></h2><p>So far, we&#39;ve seen one form of incremental trace update:</p><pre><code class="language-julia hljs">(tr, did_accept) = mh(tr, select(:address1, :address2, ...))</code></pre><p>This update is incremental in that it only proposes changes to part of a trace (the selected addresses). But when computing <em>what</em> changes to propose, it ignores the current state completely and resimulates all-new values from the model.</p><p>That wholesale resimulation of values is often not the best way to search for improvements. To that end, Gen also offers a more general flavor of MH:</p><pre><code class="language-julia hljs">(tr, did_accept) = mh(tr, custom_proposal, custom_proposal_args)</code></pre><p>A &quot;custom proposal&quot; is just what it sounds like: whereas before, we were using the <em>default resimulation proposal</em> to come up with new values for the selected addresses, we can now pass in a generative function that samples proposed values however it wants.</p><p>For example, here is a custom proposal that takes in a current trace, and proposes a new slope and intercept by randomly perturbing the existing values:</p><pre><code class="language-julia hljs">@gen function line_proposal(current_trace)
+    slope ~ normal(current_trace[:slope], 0.5)
+    intercept ~ normal(current_trace[:intercept], 0.5)
+end</code></pre><p>This is often called a &quot;Gaussian drift&quot; proposal, because it essentially amounts to proposing steps of a random walk. (What makes it different from a random walk is that we will still use an MH accept/reject step to make sure we don&#39;t wander into areas of very low probability.)</p><p>To use the proposal, we write:</p><pre><code class="language-julia hljs">(tr, did_accept) = mh(tr, line_proposal, ())</code></pre><p>Two things to note:</p><ol><li><p>We no longer need to pass a selection of addresses. Instead, Gen assumes that whichever addresses are sampled by the proposal (in this case, <code>:slope</code> and <code>:intercept</code>) are being proposed to.</p></li><li><p>The argument list to the proposal is an empty tuple, <code>()</code>. The <code>line_proposal</code> generative function does expect an argument, the previous trace, but this is supplied automatically to all MH custom proposals (a proposal generative function for use with <a href="../../ref/inference/mcmc/#Gen.mh"><code>mh</code></a> must take as its first argument the current trace of the model).</p></li></ol><p>Let&#39;s swap it into our update:</p><pre><code class="language-julia hljs">function gaussian_drift_update(tr)
+    # Gaussian drift on line params
+    (tr, _) = mh(tr, line_proposal, ())
+
+    # Block resimulation: Update the outlier classifications
+    (xs,) = get_args(tr)
+    n = length(xs)
+    for i=1:n
+        (tr, _) = mh(tr, select(:data =&gt; i =&gt; :is_outlier))
+    end
+
+    # Block resimulation: Update the prob_outlier parameter
+    (tr, w) = mh(tr, select(:prob_outlier))
+    (tr, w) = mh(tr, select(:noise))
+    tr
+end</code></pre><p>If we compare the Gaussian Drift proposal visually with our old algorithm, we can see the new behavior:</p><pre><code class="language-julia hljs">tr1, = generate(regression_with_outliers, (xs,), observations)
+tr2 = tr1
+
+viz = Plots.@animate for i in 1:300
+    global tr1, tr2
+    tr1 = gaussian_drift_update(tr1)
+    tr2 = block_resimulation_update(tr2)
+    Plots.plot(visualize_trace(tr1; title=&quot;Drift Kernel (Iter $i)&quot;),
+               visualize_trace(tr2; title=&quot;Resim Kernel (Iter $i)&quot;))
+end
+gif(viz)</code></pre><img src="5cd19380.gif" alt="Example block output"/><hr/><h3 id="Exercise:-Analyzing-the-algorithms"><a class="docs-heading-anchor" href="#Exercise:-Analyzing-the-algorithms">Exercise: Analyzing the algorithms</a><a id="Exercise:-Analyzing-the-algorithms-1"></a><a class="docs-heading-anchor-permalink" href="#Exercise:-Analyzing-the-algorithms" title="Permalink"></a></h3><p>Run the cell above several times. Compare the two algorithms with respect to the following:</p><ul><li><p>How fast do they find a relatively good line?</p></li><li><p>Does one of them tend to get stuck more than the other? Under what conditions? Why?</p></li></ul><hr/><p>A more quantitative comparison demonstrates that our change has improved our inference quality:</p><pre><code class="language-julia hljs">function gaussian_drift_inference(xs, observations)
+    (tr, _) = generate(regression_with_outliers, (xs,), observations)
+    for iter=1:500
+        tr = gaussian_drift_update(tr)
+    end
+    tr
+end
+
+scores = Vector{Float64}(undef, 10)
+for i=1:10
+    @time tr = gaussian_drift_inference(xs, observations)
+    scores[i] = get_score(tr)
+end
+println(&quot;Log probability: &quot;, logmeanexp(scores))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">  0.743969 seconds (10.26 M allocations: 601.866 MiB, 6.61% gc time, 1.18% compilation time)
+  0.765585 seconds (10.25 M allocations: 600.976 MiB, 7.72% gc time)
+  0.732982 seconds (10.25 M allocations: 600.976 MiB, 5.61% gc time)
+  0.731979 seconds (10.25 M allocations: 600.976 MiB, 5.58% gc time)
+  0.755452 seconds (10.25 M allocations: 600.976 MiB, 8.71% gc time)
+  0.730940 seconds (10.25 M allocations: 600.976 MiB, 5.82% gc time)
+  0.747634 seconds (10.25 M allocations: 600.976 MiB, 8.05% gc time)
+  0.762716 seconds (10.25 M allocations: 600.976 MiB, 5.61% gc time)
+  0.754014 seconds (10.25 M allocations: 600.976 MiB, 8.52% gc time)
+  0.730319 seconds (10.25 M allocations: 600.976 MiB, 5.67% gc time)
+Log probability: -44.24115015595737</code></pre><h2 id="MCMC-Part-3:-Heuristic-Guidance"><a class="docs-heading-anchor" href="#MCMC-Part-3:-Heuristic-Guidance">MCMC Part 3: Heuristic Guidance</a><a id="MCMC-Part-3:-Heuristic-Guidance-1"></a><a class="docs-heading-anchor-permalink" href="#MCMC-Part-3:-Heuristic-Guidance" title="Permalink"></a></h2><p>In this section, we&#39;ll look at another strategy for improving MCMC inference: using arbitrary heuristics to make smarter proposals. In particular, we&#39;ll use a method called &quot;Random Sample Consensus&quot; (or RANSAC) to quickly find promising settings of the slope and intercept parameters.</p><p>RANSAC works as follows:</p><ol><li>We repeatedly choose a small random subset of the points, say, of size 3.</li><li>We do least-squares linear regression to find a line of best fit for those points.</li><li>We count how many points (from the entire set) are near the line we found.</li><li>After a suitable number of iterations (say, 10), we return the line that had the highest score.</li></ol><p>Here&#39;s our implementation of the algorithm in Julia:</p><pre><code class="language-julia hljs">import StatsBase
+
+struct RANSACParams
+    &quot;&quot;&quot;the number of random subsets to try&quot;&quot;&quot;
+    iters::Int
+
+    &quot;&quot;&quot;the number of points to use to construct a hypothesis&quot;&quot;&quot;
+    subset_size::Int
+
+    &quot;&quot;&quot;the error threshold below which a datum is considered an inlier&quot;&quot;&quot;
+    eps::Float64
+
+    function RANSACParams(iters, subset_size, eps)
+        if iters &lt; 1
+            error(&quot;iters &lt; 1&quot;)
+        end
+        new(iters, subset_size, eps)
+    end
+end
+
+function ransac(xs::Vector{Float64}, ys::Vector{Float64}, params::RANSACParams)
+    best_num_inliers::Int = -1
+    best_slope::Float64 = NaN
+    best_intercept::Float64 = NaN
+    for i=1:params.iters
+        # select a random subset of points
+        rand_ind = StatsBase.sample(1:length(xs), params.subset_size, replace=false)
+        subset_xs = xs[rand_ind]
+        subset_ys = ys[rand_ind]
+
+        # estimate slope and intercept using least squares
+        A = hcat(subset_xs, ones(length(subset_xs)))
+        slope, intercept = A \ subset_ys # use backslash operator for least sq soln
+
+        ypred = intercept .+ slope * xs
+
+        # count the number of inliers for this (slope, intercept) hypothesis
+        inliers = abs.(ys - ypred) .&lt; params.eps
+        num_inliers = sum(inliers)
+
+        if num_inliers &gt; best_num_inliers
+            best_slope, best_intercept = slope, intercept
+            best_num_inliers = num_inliers
+        end
+    end
+
+    # return the hypothesis that resulted in the most inliers
+    (best_slope, best_intercept)
+end</code></pre><p>We can now wrap it in a Gen proposal that calls out to RANSAC, then samples a slope and intercept near the one it proposed.</p><pre><code class="language-julia hljs">@gen function ransac_proposal(prev_trace, xs, ys)
+    (slope_guess, intercept_guess) = ransac(xs, ys, RANSACParams(10, 3, 1.))
+    slope ~ normal(slope_guess, 0.1)
+    intercept ~ normal(intercept_guess, 1.0)
+end</code></pre><p>(Notice that although <code>ransac</code> makes random choices, they are not addressed (and they happen outside of a Gen generative function), so Gen cannot reason about them. This is OK (see [1]). Writing proposals that have traced internal randomness (i.e., that make traced random choices that are not directly used in the proposal) can lead to better inference, but requires the use of a more complex version of Gen&#39;s <a href="../../ref/inference/mcmc/#Gen.mh"><code>mh</code></a> operator, which is beyond the scope of this tutorial.)</p><p>[1] <a href="https://arxiv.org/abs/1801.03612">Using probabilistic programs as proposals</a>, Marco F. Cusumano-Towner, Vikash K. Mansinghka, 2018.</p><p>One iteration of our update algorithm will now look like this:</p><pre><code class="language-julia hljs">function ransac_update(tr)
+    # Use RANSAC to (potentially) jump to a better line
+    # from wherever we are
+    (tr, _) = mh(tr, ransac_proposal, (xs, ys))
+
+    # Spend a while refining the parameters, using Gaussian drift
+    # to tune the slope and intercept, and resimulation for the noise
+    # and outliers.
+    for j=1:20
+        (tr, _) = mh(tr, select(:prob_outlier))
+        (tr, _) = mh(tr, select(:noise))
+        (tr, _) = mh(tr, line_proposal, ())
+        # Reclassify outliers
+        for i=1:length(get_args(tr)[1])
+            (tr, _) = mh(tr, select(:data =&gt; i =&gt; :is_outlier))
+        end
+    end
+    tr
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">ransac_update (generic function with 1 method)</code></pre><p>We can now run our main loop for just 5 iterations, and achieve pretty good results. (Of course, since we do 20 inner loop iterations in <code>ransac_update</code>, this is really closer to 100 iterations.) The running time is significantly less than before, without a real dip in quality:</p><pre><code class="language-julia hljs">function ransac_inference(xs, ys, observations)
+    (slope, intercept) = ransac(xs, ys, RANSACParams(10, 3, 1.))
+    slope_intercept_init = choicemap()
+    slope_intercept_init[:slope] = slope
+    slope_intercept_init[:intercept] = intercept
+    (tr, _) = generate(regression_with_outliers, (xs,), merge(observations, slope_intercept_init))
+    for iter=1:5
+        tr = ransac_update(tr)
+    end
+    tr
+end
+
+scores = Vector{Float64}(undef, 10)
+for i=1:10
+    @time tr = ransac_inference(xs, ys, observations)
+    scores[i] = get_score(tr)
+end
+println(&quot;Log probability: &quot;, logmeanexp(scores))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">  0.753632 seconds (3.20 M allocations: 200.712 MiB, 3.46% gc time, 77.98% compilation time)
+  0.141243 seconds (2.06 M allocations: 124.602 MiB)
+  0.166591 seconds (2.06 M allocations: 124.602 MiB, 17.77% gc time)
+  0.135432 seconds (2.06 M allocations: 124.602 MiB)
+  0.157222 seconds (2.06 M allocations: 124.602 MiB, 11.53% gc time)
+  0.141409 seconds (2.06 M allocations: 124.602 MiB)
+  0.162336 seconds (2.06 M allocations: 124.602 MiB, 13.74% gc time)
+  0.137010 seconds (2.06 M allocations: 124.602 MiB)
+  0.158494 seconds (2.06 M allocations: 124.602 MiB, 11.74% gc time)
+  0.141109 seconds (2.06 M allocations: 124.602 MiB)
+Log probability: -42.80176245244315</code></pre><p>Let&#39;s visualize the algorithm:</p><pre><code class="language-julia hljs">(slope, intercept) = ransac(xs, ys, RANSACParams(10, 3, 1.))
+slope_intercept_init = choicemap()
+slope_intercept_init[:slope] = slope
+slope_intercept_init[:intercept] = intercept
+(tr, _) = generate(regression_with_outliers, (xs,), merge(observations, slope_intercept_init))
+
+viz = Plots.@animate for i in 1:100
+    global tr
+
+    if i % 20 == 0
+        (tr, _) = mh(tr, ransac_proposal, (xs, ys))
+    end
+
+    # Spend a while refining the parameters, using Gaussian drift
+    # to tune the slope and intercept, and resimulation for the noise
+    # and outliers.
+    (tr, _) = mh(tr, select(:prob_outlier))
+    (tr, _) = mh(tr, select(:noise))
+    (tr, _) = mh(tr, line_proposal, ())
+
+    # Reclassify outliers
+    for i=1:length(get_args(tr)[1])
+        (tr, _) = mh(tr, select(:data =&gt; i =&gt; :is_outlier))
+    end
+
+    visualize_trace(tr; title=&quot;Iteration $i&quot;)
+end
+gif(viz)</code></pre><img src="1867381e.gif" alt="Example block output"/><hr/><h3 id="Exercise"><a class="docs-heading-anchor" href="#Exercise">Exercise</a><a id="Exercise-1"></a><a class="docs-heading-anchor-permalink" href="#Exercise" title="Permalink"></a></h3><h4 id="Improving-the-heuristic"><a class="docs-heading-anchor" href="#Improving-the-heuristic">Improving the heuristic</a><a id="Improving-the-heuristic-1"></a><a class="docs-heading-anchor-permalink" href="#Improving-the-heuristic" title="Permalink"></a></h4><p>Currently, the RANSAC heuristic does not use the current trace&#39;s information at all. Try changing it to use the current state as follows: Instead of a constant <code>eps</code> parameter that controls whether a point is considered an inlier, make this decision based on the currently hypothesized noise level.  Specifically, set <code>eps</code> to be equal to the <code>noise</code> parameter of the trace.</p><p>Examine whether this improves inference.</p><pre><code class="language-julia hljs"># Modify the function below (which currently is just a copy of `ransac_proposal`)
+# as described above so that implements a RANSAC proposal with inlier
+# status decided by the noise parameter of the previous trace
+# (do not modify the return value, which is unneccessary for a proposal,
+# but used for testing)
+
+@gen function ransac_proposal_noise_based(prev_trace, xs, ys)
+    params = RANSACParams(10, 3, 1.)
+    (slope_guess, intercept_guess) = ransac(xs, ys, params)
+    slope ~ normal(slope_guess, 0.1)
+    intercept ~ normal(intercept_guess, 1.0)
+    return params, slope, intercept # (return values just for testing)
+end</code></pre><details> <summary>Solution</summary><pre><code class="language-julia hljs">@gen function ransac_proposal_noise_based(prev_trace, xs, ys)
+    eps = prev_trace[:noise]
+    params = RANSACParams(10, 3, eps)
+    (slope_guess, intercept_guess) = ransac(xs, ys, params)
+    slope ~ normal(slope_guess, 0.1)
+    intercept ~ normal(intercept_guess, 1.0)
+    return params, slope, intercept # (return values just for testing)
+end</code></pre></details><hr/><p>The code below runs the RANSAC inference as above, but using <code>ransac_proposal_noise_based</code>.</p><pre><code class="language-julia hljs">function ransac_update_noise_based(tr)
+    # Use RANSAC to (potentially) jump to a better line
+    (tr, _) = mh(tr, ransac_proposal_noise_based, (xs, ys))
+    # Refining the parameters
+    for j=1:20
+        (tr, _) = mh(tr, select(:prob_outlier))
+        (tr, _) = mh(tr, select(:noise))
+        (tr, _) = mh(tr, line_proposal, ())
+        # Reclassify outliers
+        for i=1:length(get_args(tr)[1])
+            (tr, _) = mh(tr, select(:data =&gt; i =&gt; :is_outlier))
+        end
+    end
+    tr
+end
+function ransac_inference_noise_based(xs, ys, observations)
+    # Use an initial epsilon value of 1.
+    (slope, intercept) = ransac(xs, ys, RANSACParams(10, 3, 1.))
+    slope_intercept_init = choicemap()
+    slope_intercept_init[:slope] = slope
+    slope_intercept_init[:intercept] = intercept
+    (tr, _) = generate(regression_with_outliers, (xs,), merge(observations, slope_intercept_init))
+    for iter=1:5
+        tr = ransac_update_noise_based(tr)
+    end
+    tr
+end
+
+scores = Vector{Float64}(undef, 10)
+for i=1:10
+    @time tr = ransac_inference_noise_based(xs, ys, observations)
+    scores[i] = get_score(tr)
+end
+println(&quot;Log probability: &quot;, logmeanexp(scores))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Assignment to `tr` in soft scope is ambiguous because a global variable by the same name exists: `tr` will be treated as a new local. Disambiguate by using `local tr` to suppress this warning or `global tr` to assign to the existing global variable.
+└ @ timing.jl:279
+  0.194852 seconds (2.10 M allocations: 126.837 MiB, 11.70% gc time, 17.56% compilation time)
+  0.141495 seconds (2.06 M allocations: 124.603 MiB)
+  0.166110 seconds (2.06 M allocations: 124.603 MiB, 16.68% gc time)
+  0.136342 seconds (2.06 M allocations: 124.603 MiB)
+  0.156386 seconds (2.06 M allocations: 124.603 MiB, 11.81% gc time)
+  0.142665 seconds (2.06 M allocations: 124.603 MiB)
+  0.160105 seconds (2.06 M allocations: 124.603 MiB, 13.56% gc time)
+  0.136562 seconds (2.06 M allocations: 124.603 MiB)
+  0.156376 seconds (2.06 M allocations: 124.603 MiB, 11.95% gc time)
+  0.141764 seconds (2.06 M allocations: 124.603 MiB)
+Log probability: -43.10325833566761</code></pre><hr/><h3 id="Exercise-2"><a class="docs-heading-anchor" href="#Exercise-2">Exercise</a><a class="docs-heading-anchor-permalink" href="#Exercise-2" title="Permalink"></a></h3><p>Implement a heuristic-based proposal that selects the points that are currently classified as <em>inliers</em>, finds the line of best fit for this  subset of points, and adds some noise.</p><p><em>Hint</em>: you can get the result for linear regression using least squares approximation by solving a linear system using Julia&#39;s <a href="https://docs.julialang.org/en/v1/base/math/#Base.:\\\\-Tuple{Any,Any}">backslash operator, <code>\</code></a> (as is done in the <code>ransac</code> function, above). </p><p>We provide some starter code. You can test your solution by modifying the plotting code above.</p><pre><code class="language-julia hljs">@gen function inlier_heuristic_proposal(prev_trace, xs, ys)
+    # Put your code below, ensure that you compute values for
+    # inlier_slope, inlier_intercept and delete the two placeholders
+    # below.
+
+    inlier_slope = 10000. # &lt;delete -- placeholders&gt;
+    inlier_intercept = 10000. # &lt;delete -- placeholder&gt;
+
+
+    # Make a noisy proposal.
+    slope     ~ normal(inlier_slope, 0.5)
+    intercept ~ normal(inlier_intercept, 0.5)
+    # We return values here for testing; normally, proposals don&#39;t have to return values.
+    return inlier_slope, inlier_intercept
+end
+
+function inlier_heuristic_update(tr)
+    # Use inlier heuristics to (potentially) jump to a better line
+    # from wherever we are.
+    (tr, _) = mh(tr, inlier_heuristic_proposal, (xs, ys))
+    # Spend a while refining the parameters, using Gaussian drift
+    # to tune the slope and intercept, and resimulation for the noise
+    # and outliers.
+    for j=1:20
+        (tr, _) = mh(tr, select(:prob_outlier))
+        (tr, _) = mh(tr, select(:noise))
+        (tr, _) = mh(tr, line_proposal, ())
+        # Reclassify outliers
+        for i=1:length(get_args(tr)[1])
+            (tr, _) = mh(tr, select(:data =&gt; i =&gt; :is_outlier))
+        end
+    end
+    tr
+end</code></pre><pre><code class="language-julia hljs">tr, = Gen.generate(regression_with_outliers, (xs,), observations)
+viz = @animate for i in 1:50
+    global tr
+    tr = inlier_heuristic_update(tr)
+    visualize_trace(tr; title=&quot;Iteration $i&quot;)
+end
+gif(viz)</code></pre><img src="d0bd5976.gif" alt="Example block output"/><details> <summary>Solution</summary><pre><code class="language-julia hljs">@gen function inlier_heuristic_proposal(prev_trace, xs, ys)
+    # get_indeces for inliers.
+    inlier_indeces = filter(
+        i -&gt; !prev_trace[:data =&gt; i =&gt; :is_outlier], 
+        1:length(xs)
+    )
+    xs_inlier = xs[inlier_indeces]
+    ys_inlier = ys[inlier_indeces]
+    # estimate slope and intercept using least squares.
+    A = hcat(xs_inlier, ones(length(xs_inlier)))
+    inlier_slope, inlier_intercept = A \ ys_inlier
+    
+    # Make a noisy proposal.
+    slope     ~ normal(inlier_slope, 0.5)
+    intercept ~ normal(inlier_intercept, 0.5)
+    # We return values here for testing; normally, proposals don&#39;t have to return values.
+    return inlier_slope, inlier_intercept
+end;
+
+function inlier_heuristic_update(tr)
+    # Use inlier heuristics to (potentially) jump to a better line
+    # from wherever we are.
+    (tr, _) = mh(tr, inlier_heuristic_proposal, (xs, ys))    
+    # Spend a while refining the parameters, using Gaussian drift
+    # to tune the slope and intercept, and resimulation for the noise
+    # and outliers.
+    for j=1:20
+        (tr, _) = mh(tr, select(:prob_outlier))
+        (tr, _) = mh(tr, select(:noise))
+        (tr, _) = mh(tr, line_proposal, ())
+        # Reclassify outliers
+        for i=1:length(get_args(tr)[1])
+            (tr, _) = mh(tr, select(:data =&gt; i =&gt; :is_outlier))
+        end
+    end
+    tr
+end</code></pre></details><hr/><h3 id="Exercise:-Initialization"><a class="docs-heading-anchor" href="#Exercise:-Initialization">Exercise: Initialization</a><a id="Exercise:-Initialization-1"></a><a class="docs-heading-anchor-permalink" href="#Exercise:-Initialization" title="Permalink"></a></h3><p>In our inference program above, when generating an initial trace on which to iterate, we initialize the slope and intercept to values proposed by RANSAC. If we don&#39;t do this, the performance decreases sharply, despite the fact that we still propose new slope/intercept pairs from RANSAC once the loop starts. Why is this?</p><hr/><h2 id="MAP-Optimization"><a class="docs-heading-anchor" href="#MAP-Optimization">MAP Optimization</a><a id="MAP-Optimization-1"></a><a class="docs-heading-anchor-permalink" href="#MAP-Optimization" title="Permalink"></a></h2><p>Everything we&#39;ve done so far has been within the MCMC framework. But sometimes you&#39;re not interested in getting posterior samples—sometimes you just want a single likely explanation for your data. Gen also provides tools for <em>maximum a posteriori</em> estimation (&quot;MAP estimation&quot;), the problem of finding a trace that maximizes the posterior probability under the model given observations.</p><p>For example, let&#39;s say we wanted to take a trace and assign each point&#39;s <code>is_outlier</code> score to the most likely possibility. We can do this by iterating over both possible traces, scoring them, and choosing the one with the higher score. We can do this using Gen&#39;s <a href="../../ref/core/gfi/#Gen.update"><code>update</code></a> function, which allows us to manually update a trace to satisfy some constraints:</p><pre><code class="language-julia hljs">function is_outlier_map_update(tr)
+    (xs,) = get_args(tr)
+    for i=1:length(xs)
+        constraints = choicemap(:prob_outlier =&gt; 0.1)
+        constraints[:data =&gt; i =&gt; :is_outlier] = false
+        (trace1,) = update(tr, (xs,), (NoChange(),), constraints)
+        constraints[:data =&gt; i =&gt; :is_outlier] = true
+        (trace2,) = update(tr, (xs,), (NoChange(),), constraints)
+        tr = (get_score(trace1) &gt; get_score(trace2)) ? trace1 : trace2
+    end
+    tr
+end</code></pre><p>For continuous parameters, we can use Gen&#39;s <a href="../../ref/inference/map/#Gen.map_optimize"><code>map_optimize</code></a> function, which uses <em>automatic differentiation</em> to shift the selected parameters in the direction that causes the probability of the trace to increase most sharply:</p><pre><code class="language-julia hljs">tr = map_optimize(tr, select(:slope, :intercept), max_step_size=1., min_step_size=1e-5)</code></pre><p>Putting these updates together, we can write an inference program that uses our RANSAC algorithm from above to get an initial trace, then tunes it using optimization:</p><pre><code class="language-julia hljs">using StatsBase: mean
+
+(slope, intercept) = ransac(xs, ys, RANSACParams(10, 3, 1.))
+slope_intercept_init = choicemap()
+slope_intercept_init[:slope] = slope
+slope_intercept_init[:intercept] = intercept
+(tr,) = generate(regression_with_outliers, (xs,), merge(observations, slope_intercept_init))
+
+
+ransac_score, final_score = 0, 0
+viz = Plots.@animate for i in 1:35
+    global tr, ransac_score
+    if i &lt; 6
+        tr = ransac_update(tr)
+    else
+        tr = map_optimize(tr, select(:slope, :intercept), max_step_size=1., min_step_size=1e-5)
+        tr = map_optimize(tr, select(:noise), max_step_size=1e-2, min_step_size=1e-5)
+        tr = is_outlier_map_update(tr)
+        optimal_prob_outlier = mean([tr[:data =&gt; i =&gt; :is_outlier] for i in 1:length(xs)])
+        optimal_prob_outlier = min(0.5, max(0.05, optimal_prob_outlier))
+        tr, = update(tr, (xs,), (NoChange(),), choicemap(:prob_outlier =&gt; optimal_prob_outlier))
+    end
+
+    if i == 5
+        ransac_score = get_score(tr)
+    end
+
+    visualize_trace(tr; title=&quot;Iteration $i $(i &lt; 6 ? &quot;(RANSAC init)&quot; : &quot;(MAP optimization)&quot;)&quot;)
+end
+final_score = get_score(tr)
+
+println(&quot;Score after ransac: $(ransac_score). Final score: $(final_score).&quot;)
+gif(viz)</code></pre><img src="24ef126f.gif" alt="Example block output"/><p>Below, we evaluate the algorithm and we see that it gets our best scores yet, which is what it&#39;s meant to do:</p><pre><code class="language-julia hljs">function map_inference(xs, ys, observations)
+    (slope, intercept) = ransac(xs, ys, RANSACParams(10, 3, 1.))
+    slope_intercept_init = choicemap()
+    slope_intercept_init[:slope] = slope
+    slope_intercept_init[:intercept] = intercept
+    (tr, _) = generate(regression_with_outliers, (xs,), merge(observations, slope_intercept_init))
+    for iter=1:5
+        tr = ransac_update(tr)
+    end
+
+    for iter = 1:20
+        # Take a single gradient step on the line parameters.
+        tr = map_optimize(tr, select(:slope, :intercept), max_step_size=1., min_step_size=1e-5)
+        tr = map_optimize(tr, select(:noise), max_step_size=1e-2, min_step_size=1e-5)
+
+        # Choose the most likely classification of outliers.
+        tr = is_outlier_map_update(tr)
+
+        # Update the prob outlier
+        choices = get_choices(tr)
+        optimal_prob_outlier = count(i -&gt; choices[:data =&gt; i =&gt; :is_outlier], 1:length(xs)) / length(xs)
+        optimal_prob_outlier = min(0.5, max(0.05, optimal_prob_outlier))
+        (tr, _) = update(tr, (xs,), (NoChange(),), choicemap(:prob_outlier =&gt; optimal_prob_outlier))
+    end
+    tr
+end
+
+scores = Vector{Float64}(undef, 10)
+for i=1:10
+    @time tr = map_inference(xs,ys,observations)
+    scores[i] = get_score(tr)
+end
+println(logmeanexp(scores))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Assignment to `tr` in soft scope is ambiguous because a global variable by the same name exists: `tr` will be treated as a new local. Disambiguate by using `local tr` to suppress this warning or `global tr` to assign to the existing global variable.
+└ @ timing.jl:279
+  0.357462 seconds (3.98 M allocations: 226.862 MiB, 9.15% gc time, 23.25% compilation time)
+  0.233376 seconds (3.83 M allocations: 216.903 MiB)
+  0.259947 seconds (3.71 M allocations: 210.721 MiB, 10.16% gc time)
+  0.252170 seconds (3.70 M allocations: 210.277 MiB, 9.61% gc time)
+  0.256035 seconds (3.81 M allocations: 216.011 MiB, 8.02% gc time)
+  0.264686 seconds (3.83 M allocations: 217.081 MiB, 8.84% gc time)
+  0.253471 seconds (3.81 M allocations: 215.836 MiB, 7.80% gc time)
+  0.267171 seconds (3.83 M allocations: 216.814 MiB, 9.19% gc time)
+  0.234600 seconds (3.83 M allocations: 217.171 MiB)
+  0.261586 seconds (3.83 M allocations: 217.081 MiB, 7.91% gc time)
+-41.23574210996263</code></pre><p>This doesn&#39;t necessarily mean that it&#39;s &quot;better,&quot; though. It finds the most probable explanation of the data, which is a different problem from the one we tackled with MCMC inference. There, the goal was to sample from the posterior, which allows us to better characterize our uncertainty. Using MCMC, there might be a borderline point that is sometimes classified as an outlier and sometimes not, reflecting our uncertainty; with MAP optimization, we will always be shown the most probable answer.</p><hr/><p>Below we generate a dataset for which there are two distinct possible explanations (the grey lines) under our model <code>regression_with_outliers</code>. </p><pre><code class="language-julia hljs">function make_bimodal_dataset(n)
+    Random.seed!(4)
+    prob_outlier = 0.2
+    true_inlier_noise = 0.5
+    true_outlier_noise = 5.0
+    true_slope1 = 1
+    true_intercept1 = 0
+    true_slope2 = -2/3
+    true_intercept2 = 0
+    xs = collect(range(-5, stop=5, length=n))
+    ys = Float64[]
+    for (i, x) in enumerate(xs)
+        if rand() &lt; prob_outlier
+            y = randn() * true_outlier_noise
+        else
+            if rand((true,false))
+                y = true_slope1 * x + true_intercept1 + randn() * true_inlier_noise
+            else
+                y = true_slope2 * x + true_intercept2 + randn() * true_inlier_noise
+            end
+        end
+        push!(ys, y)
+    end
+    xs,ys,true_slope1,true_slope2,true_intercept1,true_intercept2
+end
+
+(xs, ys_bimodal, m1,m2,b1,b2) = make_bimodal_dataset(20)
+observations_bimodal = make_constraints(ys_bimodal)
+
+Plots.scatter(xs, ys_bimodal, color=&quot;black&quot;, xlabel=&quot;X&quot;, ylabel=&quot;Y&quot;, label=nothing, title=&quot;Bimodal data&quot;)
+Plots.plot!(xs,m1.*xs.+b1, color=&quot;blue&quot;, label=nothing)
+Plots.plot!(xs,m2.*xs.+b2, color=&quot;green&quot;, label=nothing)</code></pre><img src="d8a71b1b.svg" alt="Example block output"/><h3 id="Exercise-3"><a class="docs-heading-anchor" href="#Exercise-3">Exercise</a><a class="docs-heading-anchor-permalink" href="#Exercise-3" title="Permalink"></a></h3><p>For this dataset, the code below will run (i) Metropolis hastings with a Gaussian Drift proposal and (ii) MAP optimization, using implementations from above. Make sure you understand what it is doing. Do both algorithms explore both modes (i.e. both possible explanations)?  Play with running the algorithms multiple times.  </p><p>If one or both algorithms doesn&#39;t then explain in a few sentences why you think this is.</p><pre><code class="language-julia hljs">(slope, intercept) = ransac(xs, ys_bimodal, RANSACParams(10, 3, 1.))
+slope_intercept_init = choicemap()
+slope_intercept_init[:slope] = slope
+slope_intercept_init[:intercept] = intercept
+(tr,) = generate(
+    regression_with_outliers, (xs,),
+    merge(observations_bimodal, slope_intercept_init))
+
+tr_drift = tr
+tr_map   = tr
+
+viz = Plots.@animate for i in 1:305
+    global tr_map, tr_drift
+    if i &lt; 6
+        tr_drift = ransac_update(tr)
+        tr_map   = tr_drift
+    else
+        # Take a single gradient step on the line parameters.
+        tr_map = map_optimize(tr_map, select(:slope, :intercept), max_step_size=1., min_step_size=1e-5)
+        tr_map = map_optimize(tr_map, select(:noise), max_step_size=1e-2, min_step_size=1e-5)
+        # Choose the most likely classification of outliers.
+        tr_map = is_outlier_map_update(tr_map)
+        # Update the prob outlier
+        optimal_prob_outlier = mean([tr_map[:data =&gt; i =&gt; :is_outlier] for i in 1:length(xs)])
+        optimal_prob_outlier = min(0.5, max(0.05, optimal_prob_outlier))
+        tr_map, = update(tr_map, (xs,), (NoChange(),), choicemap(:prob_outlier =&gt; optimal_prob_outlier))
+
+        # Gaussian drift update:
+        tr_drift = gaussian_drift_update(tr_drift)
+    end
+
+    Plots.plot(visualize_trace(tr_drift; title=&quot;Drift (Iter $i)&quot;), visualize_trace(tr_map; title=&quot;MAP (Iter $i)&quot;))
+end
+
+drift_final_score = get_score(tr_drift)
+map_final_score = get_score(tr_map)
+println(&quot;i.   MH Gaussian drift score $(drift_final_score)&quot;)
+println(&quot;ii.  MAP final score: $(final_score).&quot;)
+
+gif(viz)</code></pre><img src="120c58d3.gif" alt="Example block output"/><p>The above was good for an overall qualitative examination, but let&#39;s also  examine a little more quantitatively how often the two proposals explore the two modes, by running multiple times and keeping track of how often the slope is positive/negative for each, for a few different initializations.</p><p><strong>Warning: the following cell may take a few minutes to run.</strong></p><pre><code class="language-julia hljs">total_runs = 25
+
+for (index, value) in enumerate([(1, 0), (-1, 0), ransac(xs, ys_bimodal, RANSACParams(10, 3, 1.))])
+    n_pos_drift = n_neg_drift = n_pos_map = n_neg_map = 0
+
+    for i=1:total_runs
+        pos_drift = neg_drift = pos_map = neg_map = false
+
+        #### RANSAC for initializing
+        (slope, intercept) = value # ransac(xs, ys_bimodal, RANSACParams(10, 3, 1.))
+        slope_intercept_init = choicemap()
+        slope_intercept_init[:slope] = slope
+        slope_intercept_init[:intercept] = intercept
+        (tr,) = generate(
+            regression_with_outliers, (xs,),
+            merge(observations_bimodal, slope_intercept_init))
+        for iter=1:5
+            tr = ransac_update(tr)
+        end
+        ransac_score = get_score(tr)
+        tr_drift = tr # version of the trace for the Gaussian drift algorithm
+        tr_map = tr   # version of the trace for the MAP optimization
+
+        #### Refine the parameters according to each of the algorithms
+        for iter = 1:300
+            # MAP optimiztion:
+            # Take a single gradient step on the line parameters.
+            tr_map = map_optimize(tr_map, select(:slope, :intercept), max_step_size=1., min_step_size=1e-5)
+            tr_map = map_optimize(tr_map, select(:noise), max_step_size=1e-2, min_step_size=1e-5)
+            # Choose the most likely classification of outliers.
+            tr_map = is_outlier_map_update(tr_map)
+            # Update the prob outlier
+            optimal_prob_outlier = count(i -&gt; tr_map[:data =&gt; i =&gt; :is_outlier], 1:length(xs)) / length(xs)
+            optimal_prob_outlier = min(0.5, max(0.05, optimal_prob_outlier))
+            (tr_map, _) = update(tr_map, (xs,), (NoChange(),), choicemap(:prob_outlier =&gt; optimal_prob_outlier))
+
+            # Gaussian drift update:
+            tr_drift = gaussian_drift_update(tr_drift)
+
+            if tr_drift[:slope] &gt; 0
+                pos_drift = true
+            elseif tr_drift[:slope] &lt; 0
+                neg_drift = true
+            end
+            if tr_map[:slope] &gt; 0
+                pos_map = true
+            elseif tr_map[:slope] &lt; 0
+                neg_map = true
+            end
+        end
+
+        if pos_drift
+            n_pos_drift += 1
+        end
+        if neg_drift
+            n_neg_drift += 1
+        end
+        if pos_map
+            n_pos_map += 1
+        end
+        if neg_map
+            n_neg_map += 1
+        end
+    end
+    (slope, intercept) = value
+    println(&quot;\n\nWITH INITIAL SLOPE $(slope) AND INTERCEPT $(intercept)&quot;)
+    println(&quot;TOTAL RUNS EACH: $(total_runs)&quot;)
+    println(&quot;\n       times neg. slope    times pos. slope&quot;)
+    println(&quot;\ndrift: $(n_neg_drift)                  $(n_pos_drift)&quot;)
+    println(&quot;\nMAP:   $(n_neg_map)                    $(n_pos_map)&quot;)
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Assignment to `slope` in soft scope is ambiguous because a global variable by the same name exists: `slope` will be treated as a new local. Disambiguate by using `local slope` to suppress this warning or `global slope` to assign to the existing global variable.
+└ @ mcmc_map.md:1225
+┌ Warning: Assignment to `intercept` in soft scope is ambiguous because a global variable by the same name exists: `intercept` will be treated as a new local. Disambiguate by using `local intercept` to suppress this warning or `global intercept` to assign to the existing global variable.
+└ @ mcmc_map.md:1225
+┌ Warning: Assignment to `slope_intercept_init` in soft scope is ambiguous because a global variable by the same name exists: `slope_intercept_init` will be treated as a new local. Disambiguate by using `local slope_intercept_init` to suppress this warning or `global slope_intercept_init` to assign to the existing global variable.
+└ @ mcmc_map.md:1226
+┌ Warning: Assignment to `tr` in soft scope is ambiguous because a global variable by the same name exists: `tr` will be treated as a new local. Disambiguate by using `local tr` to suppress this warning or `global tr` to assign to the existing global variable.
+└ @ mcmc_map.md:1229
+┌ Warning: Assignment to `ransac_score` in soft scope is ambiguous because a global variable by the same name exists: `ransac_score` will be treated as a new local. Disambiguate by using `local ransac_score` to suppress this warning or `global ransac_score` to assign to the existing global variable.
+└ @ mcmc_map.md:1235
+┌ Warning: Assignment to `tr_drift` in soft scope is ambiguous because a global variable by the same name exists: `tr_drift` will be treated as a new local. Disambiguate by using `local tr_drift` to suppress this warning or `global tr_drift` to assign to the existing global variable.
+└ @ mcmc_map.md:1236
+┌ Warning: Assignment to `tr_map` in soft scope is ambiguous because a global variable by the same name exists: `tr_map` will be treated as a new local. Disambiguate by using `local tr_map` to suppress this warning or `global tr_map` to assign to the existing global variable.
+└ @ mcmc_map.md:1237
+
+
+WITH INITIAL SLOPE 1 AND INTERCEPT 0
+TOTAL RUNS EACH: 25
+
+       times neg. slope    times pos. slope
+
+drift: 25                  20
+
+MAP:   14                    15
+
+
+WITH INITIAL SLOPE -1 AND INTERCEPT 0
+TOTAL RUNS EACH: 25
+
+       times neg. slope    times pos. slope
+
+drift: 25                  13
+
+MAP:   17                    9
+
+
+WITH INITIAL SLOPE -0.6257688854452014 AND INTERCEPT -0.32620717564321533
+TOTAL RUNS EACH: 25
+
+       times neg. slope    times pos. slope
+
+drift: 25                  12
+
+MAP:   19                    7</code></pre><p>Although this experiment is imperfect, we can broadly see that the drift kernel often explores both modes within a single run, whereas this is rarer for the MAP kernel (in 25 runs, the MAP kernel visits on average 1.08 of the 2 modes, whereas the drift kernel visits 1.6).</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../modeling_in_gen/">« Introduction to Modeling in Gen</a><a class="docs-footer-nextpage" href="../enumerative/">Debugging Models with Enumeration »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Saturday 6 September 2025 14:05">Saturday 6 September 2025</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

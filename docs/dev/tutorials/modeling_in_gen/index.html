@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Introduction to Modeling in Gen · Gen.jl</title><meta name="title" content="Introduction to Modeling in Gen · Gen.jl"/><meta property="og:title" content="Introduction to Modeling in Gen · Gen.jl"/><meta property="twitter:title" content="Introduction to Modeling in Gen · Gen.jl"/><meta name="description" content="Documentation for Gen.jl."/><meta property="og:description" content="Documentation for Gen.jl."/><meta property="twitter:description" content="Documentation for Gen.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">Gen.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Gen.jl</a></li><li><input class="collapse-toggle" id="menuitem-2" type="checkbox" checked/><label class="tocitem" for="menuitem-2"><span class="docs-label">Tutorials</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../getting_started/">Getting Started</a></li><li class="is-active"><a class="tocitem" href>Introduction to Modeling in Gen</a><ul class="internal"><li><a class="tocitem" href="#Gen-and-Julia"><span>Gen and Julia</span></a></li><li><a class="tocitem" href="#gfi_tutorial_section"><span>Generative Functions</span></a></li><li><a class="tocitem" href="#Posterior-Inference"><span>Posterior Inference</span></a></li><li><a class="tocitem" href="#Predicting-New-Data"><span>Predicting New Data</span></a></li><li><a class="tocitem" href="#Calling-Other-Generative-Functions"><span>Calling Other Generative Functions</span></a></li><li><a class="tocitem" href="#Modeling-with-an-Unbounded-Number-of-Parameters"><span>Modeling with an Unbounded Number of Parameters</span></a></li></ul></li><li><a class="tocitem" href="../mcmc_map/">Basics of MCMC and MAP Inference</a></li><li><a class="tocitem" href="../enumerative/">Debugging Models with Enumeration</a></li><li><a class="tocitem" href="../smc/">Object Tracking with SMC</a></li><li><a class="tocitem" href="../vi/">Variational Inference in Gen</a></li><li><a class="tocitem" href="../learning_gen_fns/">Learning Generative Functions</a></li><li><a class="tocitem" href="../scaling_with_sml/">Speeding Up Inference with the SML</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3" type="checkbox"/><label class="tocitem" for="menuitem-3"><span class="docs-label">How-to Guides</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../how_to/extending_gen/">Extending Gen</a></li><li><a class="tocitem" href="../../how_to/custom_distributions/">Adding New Distributions</a></li><li><a class="tocitem" href="../../how_to/custom_gen_fns/">Adding New Generative Functions</a></li><li><a class="tocitem" href="../../how_to/custom_gradients/">Custom Gradients</a></li><li><a class="tocitem" href="../../how_to/custom_incremental_computation/">Custom Incremental Computation</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-4" type="checkbox"/><label class="tocitem" for="menuitem-4"><span class="docs-label">Reference</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><input class="collapse-toggle" id="menuitem-4-1" type="checkbox"/><label class="tocitem" for="menuitem-4-1"><span class="docs-label">Core Interfaces</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../ref/core/gfi/">Generative Function Interface</a></li><li><a class="tocitem" href="../../ref/core/choice_maps/">Choice Maps</a></li><li><a class="tocitem" href="../../ref/core/selections/">Selections</a></li><li><a class="tocitem" href="../../ref/core/change_hints/">Change Hints</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-4-2" type="checkbox"/><label class="tocitem" for="menuitem-4-2"><span class="docs-label">Modeling Library</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../ref/modeling/dml/">Built-In Modeling Language</a></li><li><a class="tocitem" href="../../ref/modeling/sml/">Static Modeling Language</a></li><li><a class="tocitem" href="../../ref/modeling/distributions/">Probability Distributions</a></li><li><a class="tocitem" href="../../ref/modeling/combinators/">Combinators</a></li><li><a class="tocitem" href="../../ref/modeling/custom_gen_fns/">Custom Generative Functions</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-4-3" type="checkbox"/><label class="tocitem" for="menuitem-4-3"><span class="docs-label">Inference Library</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../ref/inference/enumerative/">Enumerative Inference</a></li><li><a class="tocitem" href="../../ref/inference/importance/">Importance Sampling</a></li><li><a class="tocitem" href="../../ref/inference/mcmc/">Markov Chain Monte Carlo</a></li><li><a class="tocitem" href="../../ref/inference/pf/">Particle Filtering &amp; SMC</a></li><li><a class="tocitem" href="../../ref/inference/trace_translators/">Trace Translators</a></li><li><a class="tocitem" href="../../ref/inference/parameter_optimization/">Parameter Optimization</a></li><li><a class="tocitem" href="../../ref/inference/map/">MAP Optimization</a></li><li><a class="tocitem" href="../../ref/inference/vi/">Variational Inference</a></li><li><a class="tocitem" href="../../ref/inference/wake_sleep/">Wake-Sleep Learning</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-4-4" type="checkbox"/><label class="tocitem" for="menuitem-4-4"><span class="docs-label">Internals</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../ref/internals/language_implementation/">Modeling Language Implementation</a></li></ul></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Introduction to Modeling in Gen</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Introduction to Modeling in Gen</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/probcomp/Gen.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/probcomp/Gen.jl/blob/master/docs/src/tutorials/modeling_in_gen.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="modeling_tutorial"><a class="docs-heading-anchor" href="#modeling_tutorial">Introduction to Modeling in Gen</a><a id="modeling_tutorial-1"></a><a class="docs-heading-anchor-permalink" href="#modeling_tutorial" title="Permalink"></a></h1><p>Welcome! In this tutorial, you&#39;ll get your feet wet with Gen, a multi-paradigm platform for probabilistic modeling and inference. By &quot;multi-paradigm,&quot; we mean that Gen supports many different approaches to modeling and inference:</p><ul><li><p>Unsupervised learning and posterior inference in generative models using Monte Carlo,  variational, EM, and stochastic gradient techniques.</p></li><li><p>Supervised learning of conditional inference models (e.g. supervised classification and regression).</p></li><li><p>Hybrid approaches including amortized inference / inference compilation, variational autoencoders, and semi-supervised learning.</p></li></ul><p>Don&#39;t worry if you haven&#39;t seen some of these approaches before. One goal of these tutorials will be to introduce you to a subset of them, from a unified probabilistic programming perspective.</p><h4 id="In-this-Tutorial"><a class="docs-heading-anchor" href="#In-this-Tutorial">In this Tutorial</a><a id="In-this-Tutorial-1"></a><a class="docs-heading-anchor-permalink" href="#In-this-Tutorial" title="Permalink"></a></h4><p>Approaching a problem from a probabilistic perspective requires both <em>modeling</em> and <em>inference</em>:</p><ul><li><strong>Modeling</strong>: You first need to frame the problem — and any assumptions you bring to the table — as a probabilistic model. A huge variety of problems can be viewed from a modeling &amp; inference lens, if you set them up properly.  <strong>This tutorial is about how to think of problems in this light, and how to use Gen</strong> <strong>to formally specify your assumptions and the tasks you wish to solve.</strong></li><li><strong>Inference</strong>: You then need to do the hard part: inference, that is,  solving the problem. In this tutorial, we&#39;ll use a particularly simple  <em>generic</em> inference algorithm: importance sampling with the prior as our proposal distributions. With enough computation, the algorithm  can in theory solve any modeling and inference problem, but in practice, for most problems of interest, it is too slow to achieve accurate results in a reasonable amount of time.  <strong>Future tutorials introduce some of Gen&#39;s programmable inference features</strong>,  which let you tailor the inference algorithm for use with more complex models (Gen will still automate the math!).</li></ul><p>Throughout this tutorial, we will emphasize key degrees of modeling flexibility afforded by the probabilistic programming approach, for example:</p><ul><li><p>Using a stochastic branching and function abstraction to express uncertainty about which of multiple models is appropriate.</p></li><li><p>Representing models with an unbounded number of parameters (a &#39;Bayesian non-parametric&#39; model) using loops and recursion.</p></li></ul><p>We&#39;ll also introduce a technique for validating a model and inference algorithm by predicting new data from inferred parameters, and comparing this data to the observed data set.</p><p>However, this tutorial does not exhaustively cover all features of Gen&#39;s modeling language.  For example, Gen&#39;s modeling combinators and its static modeling language enable improved performance, but are not covered here.</p><h2 id="Gen-and-Julia"><a class="docs-heading-anchor" href="#Gen-and-Julia">Gen and Julia</a><a id="Gen-and-Julia-1"></a><a class="docs-heading-anchor-permalink" href="#Gen-and-Julia" title="Permalink"></a></h2><p>Gen is a package for the Julia language. The package can be loaded with:</p><pre><code class="language-julia hljs">using Gen</code></pre><p>Gen programs typically consist of a combination of (i) probabilistic models written in modeling languages and (ii) inference programs written in regular Julia code. Gen provides a built-in modeling language that is itself based on Julia.  This tutorial uses the <a href="https://github.com/JuliaPlots/Plots.jl">Plots.jl</a> Julia package for plotting.</p><pre><code class="language-julia hljs">using Plots</code></pre><h2 id="gfi_tutorial_section"><a class="docs-heading-anchor" href="#gfi_tutorial_section">Generative Functions</a><a id="gfi_tutorial_section-1"></a><a class="docs-heading-anchor-permalink" href="#gfi_tutorial_section" title="Permalink"></a></h2><p>Probabilistic models are represented in Gen as <em>generative functions</em>. Generative functions are used to represent a variety of different types of probabilistic computations including generative models, inference models, custom proposal distributions, and variational approximations (see the <a href="../../">Gen documentation</a> or the  <a href="https://dl.acm.org/doi/10.1145/3314221.3314642">paper</a>). In this tutorial, we focus on implementing <em>generative models</em>. A generative model represents a data-generating process; as such, it encodes any assumptions we have about our data and our problem domain.</p><p>The simplest way to construct a generative function is by using the <a href="../../ref/modeling/dml/#dml">built-in modeling DSL</a>. Generative functions written in the built-in modeling DSL are based on Julia function definition syntax, but are prefixed with the <code>@gen</code> macro:</p><pre><code class="language-julia hljs">@gen function function_name_here(input_arguments)
+    # Function body...
+end</code></pre><p>The function represents the data-generating process we are modeling. Conceptually, every time we run the function, it should generate a new &quot;synthetic dataset&quot; in line with our assumptions. Along the way, it will make random choices; each random choice it makes can be thought of as adding a random variable to a probabilistic model.</p><p>Within the function body, most Julia code is permitted, but random choices use special syntax that annotates them with an <em>address</em>:</p><pre><code class="language-julia hljs">{addr} ~ distribution(parameters)</code></pre><p>A simple example of such an invocation is a normal distribution parametrized with mean 0 and standard deviation 1:</p><pre><code class="language-julia hljs">my_variable = {:my_variable_address} ~ normal(0, 1)</code></pre><p>Every random choice must be given an <em>address</em>, which can be an arbitrary value—but we often use a symbol.  (<code>:my_variable_address</code> is a symbol in the Julia language.) Think of the address as the name of a particular random choice, which is distinct from the name of the variable. For example, consider the following code:</p><pre><code class="language-julia hljs">x = {:initial_x} ~ normal(0, 1)
+if x &lt; 0
+    x = x + ({:addition_to_x} ~ normal(2, 1))
+end</code></pre><p>This code manipulates a single variable, <code>x</code>, but may make up to two random choices: <code>:initial_x</code> and <code>:addition_to_x</code>.</p><p>Note that we can only use <code>~</code> to give addresses to <em>random choices</em>.  The following will <em>not</em> work because the code is trying to trace the expression <code>sin(x)</code> which is an invocation of an ordinary Julia function, not a distribution. </p><pre><code class="language-Julia hljs"># INVALID:
+my_variable = {:not_a_random_choice} ~ sin(x)</code></pre><p>(We will see a bit later that it is <em>also</em> possible to use <code>~</code> to sample from helper <em>generative functions</em>, not just primitive  distributions like <code>normal</code>. But for now, think of <code>~</code> as being for making random choices.)</p><h3 id="Example-1:-Linear-regression"><a class="docs-heading-anchor" href="#Example-1:-Linear-regression">Example 1: Linear regression</a><a id="Example-1:-Linear-regression-1"></a><a class="docs-heading-anchor-permalink" href="#Example-1:-Linear-regression" title="Permalink"></a></h3><p>Suppose we have a dataset of points <span>$(x, y)$</span> in the plane, and we&#39;d like  to infer a likely slope and intercept that explains their (linear) relationship. To approach this problem from a probabilistic perspective, we first need to develop a model. The model answers the question: how might this dataset have come to be? It also encodes our assumptions, e.g., our assumption that our data is explained by a linear relationship between <span>$x$</span> and <span>$y$</span>.</p><p>The generative function below represents a probabilistic model of a linear relationship in the x-y plane. Given a set of <span>$x$</span> coordinates, it randomly chooses a line in the plane and generates corresponding <span>$y$</span> coordinates so that each <span>$(x, y)$</span> is near the line. We might think of this function as modeling house prices as a function of square footage, or the measured volume of a gas as a function of its measured temperature.</p><pre><code class="language-julia hljs">@gen function line_model(xs::Vector{Float64})
+    # We begin by sampling a slope and intercept for the line.
+    # Before we have seen the data, we don&#39;t know the values of
+    # these parameters, so we treat them as random choices. The
+    # distributions they are drawn from represent our prior beliefs
+    # about the parameters: in this case, that neither the slope nor the
+    # intercept will be more than a couple points away from 0.
+    slope = ({:slope} ~ normal(0, 1))
+    intercept = ({:intercept} ~ normal(0, 2))
+
+    # We define a function to compute y for a given x
+    function y(x)
+        return slope * x + intercept
+    end
+
+    # Given the slope and intercept, we can sample y coordinates
+    # for each of the x coordinates in our input vector.
+    for (i, x) in enumerate(xs)
+        # Note that we name each random choice in this loop
+        # slightly differently: the first time through,
+        # the name (:y, 1) will be used, then (:y, 2) for
+        # the second point, and so on.
+        ({(:y, i)} ~ normal(y(x), 0.1))
+    end
+
+    # Most of the time, we don&#39;t care about the return
+    # value of a model, only the random choices it makes.
+    # It can sometimems be useful to return something
+    # meaningful, however; here, we return the function `y`.
+    return y
+end</code></pre><p>The generative function takes as an argument a vector of x-coordinates. We create one below:</p><pre><code class="language-julia hljs">xs = [-5., -4., -3., -2., -1., 0., 1., 2., 3., 4., 5.]</code></pre><p>Given this vector, the generative function samples a random choice representing the slope of a line from a normal distribution with mean 0 and standard deviation 1, and a random choice representing the intercept of a line from a normal distribution with mean 0 and standard deviation 2. In Bayesian statistics terms, these distributions are the <em>prior distributions</em> of the slope and intercept respectively. Then, the function samples values for the y-coordinates corresponding to each of the provided x-coordinates.</p><p>This generative function returns a function <code>y</code> encoding the slope and intercept.  We can run the model like we run a regular Julia function:</p><pre><code class="language-julia hljs">y = line_model(xs)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">y (generic function with 1 method)</code></pre><p>This gives us the return value of the model, but we may be more interested in <em>the values of the random choices</em> that <code>line_model</code> makes. <strong>Crucially, each random choice is annotated with a unique <em>address</em>.</strong> A random choice is assigned an address using the <code>{addr} ~ ...</code> keyword. Addresses can be any Julia value. In this program, there are two types of addresses used – Julia symbols and tuples of symbols and integers. Note that within the <code>for</code> loop, the same line of code is executed multiple times, but each time, the random choice it makes is given a distinct address.</p><p>Although the random choices are not included in the return value, they <em>are</em> included in the <em>execution trace</em> of the generative function. We can run the generative function and obtain its trace using the <a href="../../ref/core/gfi/#Gen.simulate"><code>simulate</code></a> method from the Gen API:</p><pre><code class="language-julia hljs">trace = Gen.simulate(line_model, (xs,));</code></pre><p>This method takes the function to be executed, and a tuple of arguments to the function, and returns a trace and a second value that we will not be using in this tutorial. When we print the trace, we see that it is a complex data structure.</p><pre><code class="language-julia hljs">println(trace)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Gen.DynamicDSLTrace{DynamicDSLFunction{Any}}(DynamicDSLFunction{Any}(Dict{Symbol, Any}(), Dict{Symbol, Any}(), Type[Vector{Float64}], false, Union{Nothing, Some{Any}}[nothing], Main.var&quot;##line_model#2210&quot;, Bool[0], false), Trie{Any, Gen.ChoiceOrCallRecord}(Dict{Any, Gen.ChoiceOrCallRecord}((:y, 11) =&gt; Gen.ChoiceOrCallRecord{Float64}(-12.446294236289766, 1.1129464113200107, NaN, true), (:y, 3) =&gt; Gen.ChoiceOrCallRecord{Float64}(6.198834169160727, 1.2399378808263597, NaN, true), :intercept =&gt; Gen.ChoiceOrCallRecord{Float64}(-0.8541885233504207, -1.7032904679425647, NaN, true), (:y, 1) =&gt; Gen.ChoiceOrCallRecord{Float64}(10.706491441369261, 0.8323371601699021, NaN, true), (:y, 8) =&gt; Gen.ChoiceOrCallRecord{Float64}(-5.5755877895913395, 1.231708181677266, NaN, true), (:y, 7) =&gt; Gen.ChoiceOrCallRecord{Float64}(-3.0805846671284893, 0.8139647132789389, NaN, true), (:y, 5) =&gt; Gen.ChoiceOrCallRecord{Float64}(1.4855946412386793, 1.3814380672362723, NaN, true), (:y, 6) =&gt; Gen.ChoiceOrCallRecord{Float64}(-0.8979076448318876, 1.2880784806338101, NaN, true), (:y, 10) =&gt; Gen.ChoiceOrCallRecord{Float64}(-10.172176287047865, 1.3730458115801671, NaN, true), :slope =&gt; Gen.ChoiceOrCallRecord{Float64}(-2.3331371243347823, -3.6407029536792614, NaN, true), (:y, 4) =&gt; Gen.ChoiceOrCallRecord{Float64}(3.7379887427613356, 1.1091284185807648, NaN, true), (:y, 2) =&gt; Gen.ChoiceOrCallRecord{Float64}(8.29030451212983, -0.38459627695839993, NaN, true), (:y, 9) =&gt; Gen.ChoiceOrCallRecord{Float64}(-7.652803374334336, -0.6323156029856958, NaN, true)), Dict{Any, Trie{Any, Gen.ChoiceOrCallRecord}}()), false, 4.0216798237375695, 0.0, ([-5.0, -4.0, -3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0, 4.0, 5.0],), Main.var&quot;#y#1&quot;{Float64, Float64}(-0.8541885233504207, -2.3331371243347823))</code></pre><p>A trace of a generative function contains various information about an execution of the function. For example, it contains the arguments on which the function was run, which are available with the API method <a href="../../ref/core/gfi/#Gen.get_args"><code>get_args</code></a>:</p><pre><code class="language-julia hljs">Gen.get_args(trace)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">([-5.0, -4.0, -3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0, 4.0, 5.0],)</code></pre><p>The trace also contains the value of the random choices, stored in a map from address to value called a <em>choice map</em>. This map is available through the API method <a href="../../ref/core/gfi/#Gen.get_choices"><code>get_choices</code></a>:</p><pre><code class="language-julia hljs">Gen.get_choices(trace)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">│
+├── (:y, 11) : -12.446294236289766
+│
+├── (:y, 3) : 6.198834169160727
+│
+├── :intercept : -0.8541885233504207
+│
+├── (:y, 1) : 10.706491441369261
+│
+├── (:y, 8) : -5.5755877895913395
+│
+├── (:y, 7) : -3.0805846671284893
+│
+├── (:y, 5) : 1.4855946412386793
+│
+├── (:y, 6) : -0.8979076448318876
+│
+├── (:y, 10) : -10.172176287047865
+│
+├── :slope : -2.3331371243347823
+│
+├── (:y, 4) : 3.7379887427613356
+│
+├── (:y, 2) : 8.29030451212983
+│
+└── (:y, 9) : -7.652803374334336
+</code></pre><p>We can pull out individual values from this map using Julia&#39;s subscripting syntax <code>[...]</code>:</p><pre><code class="language-julia hljs">choices = Gen.get_choices(trace)
+choices[:slope]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">-2.3331371243347823</code></pre><p>We can also read the value of a random choice directly from the trace, without having to use <a href="../../ref/core/gfi/#Gen.get_choices"><code>get_choices</code></a> first:</p><pre><code class="language-julia hljs">trace[:slope]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">-2.3331371243347823</code></pre><p>The return value is also recorded in the trace, and is accessible with the <a href="../../ref/core/gfi/#Gen.get_retval"><code>get_retval</code></a> API method:</p><pre><code class="language-julia hljs">Gen.get_retval(trace)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">y (generic function with 1 method)</code></pre><p>Or we can access the return value directly from the trace via the syntactic sugar <code>trace[]</code>:</p><pre><code class="language-julia hljs">trace[]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">y (generic function with 1 method)</code></pre><p>In order to understand the probabilistic behavior of a generative function, it is helpful to be able to visualize its traces. Below, we define a function that uses PyPlot to render a trace of the generative function above. The rendering shows the x-y data points and the line that is represented by the slope and intercept choices.</p><pre><code class="language-julia hljs">function render_trace(trace; show_data=true)
+
+    # Pull out xs from the trace
+    xs, = get_args(trace)
+
+    xmin = minimum(xs)
+    xmax = maximum(xs)
+
+    # Pull out the return value, useful for plotting
+    y = get_retval(trace)
+
+    # Draw the line
+    test_xs = collect(range(-5, stop=5, length=1000))
+    fig = plot(test_xs, map(y, test_xs), color=&quot;black&quot;, alpha=0.5, label=nothing,
+                xlim=(xmin, xmax), ylim=(xmin, xmax))
+
+    if show_data
+        ys = [trace[(:y, i)] for i=1:length(xs)]
+
+        # Plot the data set
+        scatter!(xs, ys, c=&quot;black&quot;, label=nothing)
+    end
+
+    return fig
+end</code></pre><pre><code class="language-julia hljs">render_trace(trace)</code></pre><img src="9044fbc2.svg" alt="Example block output"/><p>Because a generative function is stochastic, we need to visualize many runs in order to understand its behavior. The cell below renders a grid of traces.</p><pre><code class="language-julia hljs">function grid(renderer::Function, traces)
+    Plots.plot(map(renderer, traces)...)
+end</code></pre><pre><code class="language-julia hljs">traces = [Gen.simulate(line_model, (xs,)) for _=1:12]
+grid(render_trace, traces)</code></pre><img src="c86b7a06.svg" alt="Example block output"/><hr/><h3 id="Exercise"><a class="docs-heading-anchor" href="#Exercise">Exercise</a><a id="Exercise-1"></a><a class="docs-heading-anchor-permalink" href="#Exercise" title="Permalink"></a></h3><p>Write a generative function that uses the same address twice. Run it to see what happens.</p><hr/><h3 id="Exercise-2"><a class="docs-heading-anchor" href="#Exercise-2">Exercise</a><a class="docs-heading-anchor-permalink" href="#Exercise-2" title="Permalink"></a></h3><p>Write a model that generates a sine wave with random phase, period and amplitude, and then generates y-coordinates from a given vector of x-coordinates by adding noise to the value of the wave at each x-coordinate. Use a  <code>gamma(1, 1)</code> prior distribution for the period, and a <code>gamma(1, 1)</code> prior distribution on the amplitude (see <a href="../../ref/modeling/distributions/#Gen.gamma"><code>Gen.gamma</code></a>). Sampling from a Gamma distribution will ensure to give us postive real values. Use a uniform distribution between 0 and <span>$2\pi$</span> for the phase (see <a href="../../ref/modeling/distributions/#Gen.uniform"><code>Gen.uniform</code></a>).</p><p>The sine wave should implement:</p><p>$ y(x) = a \sin(2\pi \frac{1}{p} x + \varphi)$,</p><p>where <span>$a$</span> is the amplitude, <span>$p$</span> is the period and <span>$\varphi$</span> is the phase.  In Julia the constant <span>$\pi$</span> can be expressed as either <code>pi</code> or <code>π</code> (unicode).</p><p>When calling <code>trace = Gen.simulate(sine_model, (xs,))</code>, the following choices should appear:</p><ul><li>amplitude: <code>trace[:amplitude]</code></li><li>period: <code>trace[:period]</code></li><li>phase: <code>trace[:phase]</code></li></ul><p>We have provided some starter code for the sine wave model:</p><pre><code class="language-julia hljs">@gen function sine_model(xs::Vector{Float64})
+    
+    # &lt; your code here, for sampling a phase, period, and amplitude &gt;
+
+    function y(x)
+        return 1 # &lt; Edit this line to compute y for a given x &gt;
+    end
+    
+    for (i, x) in enumerate(xs)
+        {(:y, i)} ~ normal(y(x), 0.1)
+    end
+    
+    return y # We return the y function so it can be used for plotting, below. 
+end</code></pre><details><summary>Solution</summary><pre><code class="language-julia hljs">@gen function sine_model(xs)
+    period = {:period} ~ gamma(1, 1)
+    amplitude = {:amplitude} ~ gamma(1, 1)
+    phase = {:phase} ~ uniform(0, 2*pi)
+
+    # Define a deterministic sine wave with the values above
+    function y(x)
+        return amplitude * sin(x * (2 * pi / period) + phase)
+    end
+
+    for (i, x) in enumerate(xs)
+        {(:y, i)} ~ normal(y(x), 0.1)
+    end
+
+    return y
+end</code></pre><pre><code class="language-julia hljs">traces = [Gen.simulate(sine_model, (xs,)) for _=1:12];
+grid(render_trace, traces)</code></pre><img src="3b05bc38.svg" alt="Example block output"/></details><h2 id="Posterior-Inference"><a class="docs-heading-anchor" href="#Posterior-Inference">Posterior Inference</a><a id="Posterior-Inference-1"></a><a class="docs-heading-anchor-permalink" href="#Posterior-Inference" title="Permalink"></a></h2><p>Of course, we don&#39;t really care about generating lots of pictures of lines (or sine waves). We&#39;d really like to begin with an actual dataset of observed <span>$(x, y)$</span> points, and infer the corresponding slope and intercept (or phase, period, and amplitude). This task is called <em>posterior inference</em>.</p><p>We now will provide a data set of y-coordinates and try to draw inferences about the process that generated the data. We begin with the following data set:</p><pre><code class="language-julia hljs">ys = [6.75003, 6.1568, 4.26414, 1.84894, 3.09686, 1.94026, 1.36411, -0.83959, -0.976, -1.93363, -2.91303];</code></pre><pre><code class="language-julia hljs">scatter(xs, ys, color=&quot;black&quot;, label=nothing, title=&quot;Observed data (linear)&quot;, xlabel=&quot;X&quot;, ylabel=&quot;Y&quot;)</code></pre><p>We will assume that the line model was responsible for generating the data, and infer values of the slope and intercept that explain the data.</p><p>To do this, we write a simple <em>inference program</em> that takes the model we are assuming generated our data, the data set, and the amount of computation to perform, and returns a trace of the function that is approximately sampled from the <em>posterior distribution</em> on traces of the function, given the observed data. That is, the inference program will try to find a trace that well explains the dataset we created above. We can inspect that trace to find estimates of the slope and intercept of a line that fits the data.</p><p>Functions like <a href="../../ref/inference/importance/#Gen.importance_resampling"><code>importance_resampling</code></a> expect us to provide a <em>model</em> and also an <em>choice map</em> representing our data set and relating it to the model. A choice map maps random choice addresses from the model to values from our data set. Here, we want to tie model addresses like <code>(:y, 4)</code> to data set values like <code>ys[4]</code>:</p><pre><code class="language-julia hljs">function do_inference(model, xs, ys, amount_of_computation)
+
+    # Create a choice map that maps model addresses (:y, i)
+    # to observed values ys[i]. We leave :slope and :intercept
+    # unconstrained, because we want them to be inferred.
+    observations = Gen.choicemap()
+    for (i, y) in enumerate(ys)
+        observations[(:y, i)] = y
+    end
+
+    # Call importance_resampling to obtain a likely trace consistent
+    # with our observations.
+    (trace, _) = Gen.importance_resampling(model, (xs,), observations, amount_of_computation);
+    return trace
+end</code></pre><p>We can run the inference program to obtain a trace, and then visualize the result:</p><pre><code class="language-julia hljs">trace = do_inference(line_model, xs, ys, 100)
+render_trace(trace)</code></pre><img src="2f7ae645.svg" alt="Example block output"/><p>We see that <a href="../../ref/inference/importance/#Gen.importance_resampling"><code>importance_resampling</code></a> found a reasonable slope and intercept to explain the data. We can also visualize many samples in a grid:</p><pre><code class="language-julia hljs">traces = [do_inference(line_model, xs, ys, 100) for _=1:10];
+grid(render_trace, traces)</code></pre><img src="e6eff2c6.svg" alt="Example block output"/><p>We can see here that there is some uncertainty: with our limited data, we can&#39;t be 100% sure exactly where the line is. We can get a better sense for the variability in the posterior distribution by visualizing all the traces in one plot, rather than in a grid. Each trace is going to have the same observed data points, so we only plot those once, based on the values in the first trace:</p><pre><code class="language-julia hljs">function overlay(renderer, traces; same_data=true, args...)
+    fig = renderer(traces[1], show_data=true, args...)
+
+    xs, = get_args(traces[1])
+    xmin = minimum(xs)
+    xmax = maximum(xs)
+
+    for i=2:length(traces)
+        y = get_retval(traces[i])
+        test_xs = collect(range(-5, stop=5, length=1000))
+        fig = plot!(test_xs, map(y, test_xs), color=&quot;black&quot;, alpha=0.5, label=nothing,
+                    xlim=(xmin, xmax), ylim=(xmin, xmax))
+    end
+    return fig
+end</code></pre><pre><code class="language-julia hljs">traces = [do_inference(line_model, xs, ys, 100) for _=1:10];
+overlay(render_trace, traces)</code></pre><img src="10b58e3f.svg" alt="Example block output"/><hr/><h3 id="Exercise-3"><a class="docs-heading-anchor" href="#Exercise-3">Exercise</a><a class="docs-heading-anchor-permalink" href="#Exercise-3" title="Permalink"></a></h3><p>The results above were obtained for <code>amount_of_computation = 100</code>. Run the algorithm with this value set to <code>1</code>, <code>10</code>, and <code>1000</code>, etc.  Which value seems like a good tradeoff between accuracy and running time? Discuss.</p><hr/><h3 id="Exercise-4"><a class="docs-heading-anchor" href="#Exercise-4">Exercise</a><a class="docs-heading-anchor-permalink" href="#Exercise-4" title="Permalink"></a></h3><p>Consider the following data set.</p><pre><code class="language-julia hljs">ys_sine = [2.89, 2.22, -0.612, -0.522, -2.65, -0.133, 2.70, 2.77, 0.425, -2.11, -2.76];</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">11-element Vector{Float64}:
+  2.89
+  2.22
+ -0.612
+ -0.522
+ -2.65
+ -0.133
+  2.7
+  2.77
+  0.425
+ -2.11
+ -2.76</code></pre><pre><code class="language-julia hljs">scatter(xs, ys_sine, color=&quot;black&quot;, label=nothing)</code></pre><img src="ceaf9a54.svg" alt="Example block output"/><p>Write an inference program that generates traces of <code>sine_model</code> that explain this data set. Visualize the resulting distribution of traces. Temporarily change the prior distribution on the period to be <code>gamma(1, 1)</code>  (by changing and re-running the cell that defines <code>sine_model</code> from a previous exercise). Can you explain the difference in inference results when using <code>gamma(1, 1)</code> vs <code>gamma(5, 1)</code> prior on the period? How much computation did you need to get good results?</p><hr/><h2 id="Predicting-New-Data"><a class="docs-heading-anchor" href="#Predicting-New-Data">Predicting New Data</a><a id="Predicting-New-Data-1"></a><a class="docs-heading-anchor-permalink" href="#Predicting-New-Data" title="Permalink"></a></h2><p>What if we&#39;d want to predict <code>ys</code> given <code>xs</code>?</p><p>Using the API method <a href="../../ref/core/gfi/#Gen.generate"><code>generate</code></a>, we can generate a trace of a generative function in which the values of certain random choices are constrained to given values. The constraints are a choice map that maps the addresses of the constrained random choices to their desired values.</p><p>For example:</p><pre><code class="language-julia hljs">constraints = Gen.choicemap()
+constraints[:slope] = 0.
+constraints[:intercept] = 0.
+(trace, _) = Gen.generate(line_model, (xs,), constraints)
+render_trace(trace)</code></pre><img src="c9f8915d.svg" alt="Example block output"/><p>Note that the random choices corresponding to the y-coordinates are still made randomly. Run the cell above a few times to verify this.</p><p>We will use the ability to run constrained executions of a generative function to predict the value of the y-coordinates at new x-coordinates by running new executions of the model generative function in which the random choices corresponding to the parameters have been constrained to their inferred values.  We have provided a function below (<code>predict_new_data</code>) that takes a trace, and a vector of new x-coordinates, and returns a vector of predicted y-coordinates corresponding to the x-coordinates in <code>new_xs</code>. We have designed this function to work with multiple models, so the set of parameter addresses is an argument (<code>param_addrs</code>):</p><pre><code class="language-julia hljs">function predict_new_data(model, trace, new_xs::Vector{Float64}, param_addrs)
+
+    # Copy parameter values from the inferred trace (`trace`)
+    # into a fresh set of constraints.
+    constraints = Gen.choicemap()
+    for addr in param_addrs
+        constraints[addr] = trace[addr]
+    end
+
+    # Run the model with new x coordinates, and with parameters
+    # fixed to be the inferred values.
+    (new_trace, _) = Gen.generate(model, (new_xs,), constraints)
+
+    # Pull out the y-values and return them.
+    ys = [new_trace[(:y, i)] for i=1:length(new_xs)]
+    return ys
+end</code></pre><p>To illustrate, we call the function above given the previous trace (which constrained slope and intercept to be zero).</p><pre><code class="language-julia hljs">predict_new_data(line_model, trace, [1., 2., 3.], [:slope, :intercept])</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">3-element Vector{Float64}:
+  0.06648221757051796
+ -0.028789803840623275
+  0.32040009584431617</code></pre><p>The cell below defines a function that first performs inference on an observed data set <code>(xs, ys)</code>, and then runs <code>predict_new_data</code> to generate predicted y-coordinates. It repeats this process <code>num_traces</code> times, and returns a vector of the resulting y-coordinate vectors.</p><pre><code class="language-julia hljs">function infer_and_predict(model, xs, ys, new_xs, param_addrs, num_traces, amount_of_computation)
+    pred_ys = []
+    for i=1:num_traces
+        trace = do_inference(model, xs, ys, amount_of_computation)
+        push!(pred_ys, predict_new_data(model, trace, new_xs, param_addrs))
+    end
+    pred_ys
+end</code></pre><p>To illustrate, we generate predictions at <code>[1., 2., 3.]</code> given one (approximate) posterior trace.</p><pre><code class="language-julia hljs">pred_ys = infer_and_predict(line_model, xs, ys, [1., 2., 3.], [:slope, :intercept], 1, 1000)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">1-element Vector{Any}:
+ [1.0808817248165432, -0.11747240072455473, -0.7131906712820001]</code></pre><p>Finally, we define a cell that plots the observed data set <code>(xs, ys)</code> as red dots, and the predicted data as small black dots.</p><pre><code class="language-julia hljs">function plot_predictions(xs, ys, new_xs, pred_ys; title=&quot;predictions&quot;)
+    fig = scatter(xs, ys, color=&quot;red&quot;, label=&quot;observed data&quot;, title=title)
+    for (i, pred_ys_single) in enumerate(pred_ys)
+        scatter!(new_xs, pred_ys_single, color=&quot;black&quot;, alpha=0.1, label=i == 1 ? &quot;predictions&quot; : nothing)
+    end
+    return fig
+end</code></pre><p>Recall the original dataset for the line model. The x-coordinates span the interval -5 to 5.</p><pre><code class="language-julia hljs">scatter(xs, ys, color=&quot;red&quot;, label=&quot;observed data&quot;)</code></pre><img src="33668cfc.svg" alt="Example block output"/><p>We will use the inferred values of the parameters to predict y-coordinates for x-coordinates in the interval 5 to 10 from which data was not observed. We will also predict new data within the interval -5 to 5, and we will compare this data to the original observed data. Predicting new data from inferred parameters, and comparing this new data to the observed data is the core idea behind <em>posterior predictive checking</em>. This tutorial does not intend to give a rigorous overview behind techniques for checking the quality of a model, but intends to give high-level intuition.</p><pre><code class="language-julia hljs">new_xs = collect(range(-5, stop=10, length=100));</code></pre><p>We generate and plot the predicted data:</p><pre><code class="language-julia hljs">pred_ys = infer_and_predict(line_model, xs, ys, new_xs, [:slope, :intercept], 20, 1000)
+plot_predictions(xs, ys, new_xs, pred_ys)</code></pre><img src="65c033cc.svg" alt="Example block output"/><p>The results look reasonable, both within the interval of observed data and in the extrapolated predictions on the right.</p><p>Now consider the same experiment run with the following data set, which has significantly more noise.</p><pre><code class="language-julia hljs">ys_noisy = [5.092, 4.781, 2.46815, 1.23047, 0.903318, 1.11819, 2.10808, 1.09198, 0.0203789, -2.05068, 2.66031];</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">11-element Vector{Float64}:
+  5.092
+  4.781
+  2.46815
+  1.23047
+  0.903318
+  1.11819
+  2.10808
+  1.09198
+  0.0203789
+ -2.05068
+  2.66031</code></pre><pre><code class="language-julia hljs">pred_ys = infer_and_predict(line_model, xs, ys_noisy, new_xs, [:slope, :intercept], 20, 1000)
+plot_predictions(xs, ys_noisy, new_xs, pred_ys)</code></pre><img src="8e35f80d.svg" alt="Example block output"/><p>It looks like the generated data is less noisy than the observed data in the regime where data was observed, and it looks like the forecasted data is too overconfident. This is a sign that our model is mis-specified. In our case, this is because we have assumed that the noise has value 0.1. However, the actual noise in the data appears to be much larger. We can correct this by making the noise a random choice as well and inferring its value along with the other parameters.</p><p>We first write a new version of the line model that samples a random choice for the noise from a <code>gamma(1, 1)</code> prior distribution.</p><pre><code class="language-julia hljs">@gen function line_model_fancy(xs::Vector{Float64})
+    slope = ({:slope} ~ normal(0, 1))
+    intercept = ({:intercept} ~ normal(0, 2))
+
+    function y(x)
+        return slope * x + intercept
+    end
+
+    noise = ({:noise} ~ gamma(1, 1))
+    for (i, x) in enumerate(xs)
+        {(:y, i)} ~ normal(slope * x + intercept, noise)
+    end
+    return y
+end;</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">DynamicDSLFunction{Any}(Dict{Symbol, Any}(), Dict{Symbol, Any}(), Type[Vector{Float64}], false, Union{Nothing, Some{Any}}[nothing], Main.var&quot;##line_model_fancy#2255&quot;, Bool[0], false)</code></pre><p>Then, we compare the predictions using inference of the unmodified and modified models on the <code>ys</code> data set:</p><pre><code class="language-julia hljs">pred_ys = infer_and_predict(line_model, xs, ys, new_xs, [:slope, :intercept], 20, 1000)
+fixed_noise_plot = plot_predictions(xs, ys, new_xs, pred_ys; title=&quot;fixed noise&quot;)
+
+pred_ys = infer_and_predict(line_model_fancy, xs, ys, new_xs, [:slope, :intercept, :noise], 20, 10000)
+inferred_noise_plot = plot_predictions(xs, ys, new_xs, pred_ys; title=&quot;inferred noise&quot;)
+
+plot(fixed_noise_plot, inferred_noise_plot)</code></pre><img src="46aa95d9.svg" alt="Example block output"/><p>Notice that there is more uncertainty in the predictions made using the modified model.</p><p>We also compare the predictions using inference of the unmodified and modified models on the <code>ys_noisy</code> data set:</p><pre><code class="language-julia hljs">pred_ys = infer_and_predict(line_model, xs, ys_noisy, new_xs, [:slope, :intercept], 20, 1000)
+fixed_noise_plot = plot_predictions(xs, ys_noisy, new_xs, pred_ys; title=&quot;fixed noise&quot;)
+
+pred_ys = infer_and_predict(line_model_fancy, xs, ys_noisy, new_xs, [:slope, :intercept, :noise], 20, 10000)
+inferred_noise_plot = plot_predictions(xs, ys_noisy, new_xs, pred_ys; title=&quot;inferred noise&quot;)
+
+plot(fixed_noise_plot, inferred_noise_plot)</code></pre><img src="387c021f.svg" alt="Example block output"/><p>Notice that while the unmodified model was very overconfident, the modified model has an appropriate level of uncertainty, while still capturing the general negative trend.</p><hr/><h3 id="Exercise-5"><a class="docs-heading-anchor" href="#Exercise-5">Exercise</a><a class="docs-heading-anchor-permalink" href="#Exercise-5" title="Permalink"></a></h3><p>Write a modified version of the sine model that makes noise into a random choice. Compare the predicted data with the observed data using <code>infer_and_predict</code> and <code>plot_predictions</code> for the unmodified and modified models, and for the <code>ys_sine</code> and <code>ys_noisy</code> data sets. Discuss the results. Experiment with the amount of inference computation used. The amount of inference computation will need to be higher for the model with the noise as a random choice.</p><p>We have provided you with starter code:</p><pre><code class="language-julia hljs">@gen function sine_model_fancy(xs::Vector{Float64})
+
+    # &lt; your code here &gt;
+
+    for (i, x) in enumerate(xs)
+        {(:y, i)} ~ normal(0., 0.1) # &lt; edit this line &gt;
+    end
+    return nothing
+end</code></pre><details><summary>Solution</summary><pre><code class="language-julia hljs">@gen function sine_model_fancy(xs::Vector{Float64})
+    period = ({:period} ~ gamma(5, 1))
+    amplitude = ({:amplitude} ~ gamma(1, 1))
+    phase = ({:phase} ~ uniform(0, 2*pi))
+    noise = ({:noise} ~ gamma(1, 1))
+
+    function y(x)
+        return amplitude * sin(x * (2 * pi / period) + phase)
+    end
+
+    for (i, x) in enumerate(xs)
+        {(:y, i)} ~ normal(y(x), noise)
+    end
+
+    return y
+end</code></pre><pre><code class="language-julia hljs"># Modify the line below to experiment with the amount_of_computation parameter
+pred_ys = infer_and_predict(sine_model, xs, ys_sine, new_xs, [], 20, 1)
+fixed_noise_plot = plot_predictions(xs, ys_sine, new_xs, pred_ys; title=&quot;Fixed noise level&quot;)
+
+# Modify the line below to experiment with the amount_of_computation parameter
+pred_ys = infer_and_predict(sine_model_fancy, xs, ys_sine, new_xs, [], 20, 1)
+inferred_noise_plot = plot_predictions(xs, ys_sine, new_xs, pred_ys; title=&quot;Inferred noise level&quot;)
+
+Plots.plot(fixed_noise_plot, inferred_noise_plot)</code></pre><img src="c08d79d9.svg" alt="Example block output"/><pre><code class="language-julia hljs"># Modify the line below to experiment with the amount_of_computation parameter
+pred_ys = infer_and_predict(sine_model, xs, ys_noisy, new_xs, [], 20, 1)
+fixed_noise_plot = plot_predictions(xs, ys_noisy, new_xs, pred_ys; title=&quot;Fixed noise level&quot;)
+
+# Modify the line below to experiment with the amount_of_computation parameter
+pred_ys = infer_and_predict(sine_model_fancy, xs, ys_noisy, new_xs, [], 20, 1)
+inferred_noise_plot = plot_predictions(xs, ys_noisy, new_xs, pred_ys; title=&quot;Inferred noise level&quot;)
+
+Plots.plot(fixed_noise_plot, inferred_noise_plot)</code></pre><img src="e6a142ef.svg" alt="Example block output"/></details><hr/><h2 id="Calling-Other-Generative-Functions"><a class="docs-heading-anchor" href="#Calling-Other-Generative-Functions">Calling Other Generative Functions</a><a id="Calling-Other-Generative-Functions-1"></a><a class="docs-heading-anchor-permalink" href="#Calling-Other-Generative-Functions" title="Permalink"></a></h2><p>In addition to making random choices, generative functions can invoke other generative functions. To illustrate this, we will write a probabilistic model that combines the line model and the sine model. This model is able to explain data using either model, and which model is chosen will depend on the data. This is called <em>model selection</em>.</p><p>A generative function can invoke another generative function in three ways:</p><ul><li><p><strong>(NOT RECOMMENDED)</strong> using regular Julia function call syntax: <code>f(x)</code></p></li><li><p>using the <code>~</code> snytax with an address for the call: <code>{addr} ~ f(x)</code></p></li><li><p>using the <code>~</code> syntax with a wildcard address: <code>{*} ~ f(x)</code></p></li></ul><p>When invoking using regular function call syntax, the random choices made by the callee function are not traced at all, and Gen cannot reason about them during inference.  When invoking using <code>~</code> with a <em>wildcard</em> address (<code>{*} ~ f(x)</code>), the random choices of the  callee function are imported directly into the caller&#39;s trace. So, for example, if <code>f</code> makes a choice called <code>:f_choice</code>, then the caller&#39;s trace will have a choice called <code>:f_choice</code> too.  Note that a downside of this is that if <code>f</code> is called <em>twice</em> by the same caller, then the two  choices called <code>:f_choice</code> will clash, leading to an error. In this case, it is best to provide an address (<code>{addr} ~ f(x)</code>): <code>f</code>&#39;s random choices will be placed under the <em>namespace</em> <code>addr</code>. </p><pre><code class="language-julia hljs">@gen function foo()
+    {:y} ~ normal(0, 1)
+end
+
+@gen function bar()
+    {:x} ~ bernoulli(0.5)
+    # Call `foo` with a wildcard address.
+    # Its choices (:y) will appear directly
+    # within the trace of `bar`.
+    {*} ~ foo()
+end
+
+@gen function bar_using_namespace()
+    {:x} ~ bernoulli(0.5)
+    # Call `foo` with the address `:z`.
+    # The internal choice `:y` of `foo`
+    # will appear in our trace at the
+    # hierarchical address `:z =&gt; :y`.
+    {:z} ~ foo()
+end</code></pre><p>We first show the addresses sampled by <code>bar</code>:</p><pre><code class="language-julia hljs">trace = Gen.simulate(bar, ())
+Gen.get_choices(trace)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">│
+├── :y : 0.22069852277453225
+│
+└── :x : true
+</code></pre><p>And the addresses sampled by <code>bar_using_namespace</code>:</p><pre><code class="language-julia hljs">trace = Gen.simulate(bar_using_namespace, ())
+Gen.get_choices(trace)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">│
+├── :x : true
+│
+└── :z
+    │
+    └── :y : 1.4919782363202905
+</code></pre><p>Using <code>{addr} ~ f()</code>, with a namespace, can help avoid address collisions for complex models.</p><p>A hierarchical address is represented as a Julia <code>Pair</code>, where the first element of the pair is the first element of the address and the second element of the pair is the rest of the address:</p><pre><code class="language-julia hljs">trace[Pair(:z, :y)]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">1.4919782363202905</code></pre><p>Julia uses the <code>=&gt;</code> operator as a shorthand for the <code>Pair</code> constructor, so we can access choices at hierarchical addresses like:</p><pre><code class="language-julia hljs">trace[:z =&gt; :y]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">1.4919782363202905</code></pre><p>If we have a hierarchical address with more than two elements, we can construct the address by chaining the <code>=&gt;</code> operator:</p><pre><code class="language-julia hljs">@gen function baz()
+    {:a} ~ bar_using_namespace()
+end
+
+trace = simulate(baz, ())
+
+trace[:a =&gt; :z =&gt; :y]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.4765469026308433</code></pre><p>Note that the <code>=&gt;</code> operator associated right, so this is equivalent to:</p><pre><code class="language-julia hljs">trace[Pair(:a, Pair(:z, :y))]</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">0.4765469026308433</code></pre><p>Now, we write a generative function that combines the line and sine models. It makes a Bernoulli random choice (e.g. a coin flip that returns true or false) that determines which of the two models will generate the data.</p><pre><code class="language-julia hljs">@gen function combined_model(xs::Vector{Float64})
+    if ({:is_line} ~ bernoulli(0.5))
+        # Call line_model_fancy on xs, and import
+        # its random choices directly into our trace.
+        return ({*} ~ line_model_fancy(xs))
+    else
+        # Call sine_model_fancy on xs, and import
+        # its random choices directly into our trace
+        return ({*} ~ sine_model_fancy(xs))
+    end
+end</code></pre><p>We visualize some traces, and see that sometimes it samples linear data and other times sinusoidal data.</p><pre><code class="language-julia hljs">traces = [Gen.simulate(combined_model, (xs,)) for _=1:12];
+grid(render_trace, traces)</code></pre><img src="070873df.svg" alt="Example block output"/><p>We run inference using this combined model on the <code>ys</code> data set and the <code>ys_sine</code> data set. </p><pre><code class="language-julia hljs">traces = [do_inference(combined_model, xs, ys, 10000) for _=1:10];
+linear_dataset_plot = overlay(render_trace, traces)
+traces = [do_inference(combined_model, xs, ys_sine, 10000) for _=1:10];
+sine_dataset_plot = overlay(render_trace, traces)
+Plots.plot(linear_dataset_plot, sine_dataset_plot)</code></pre><img src="4fa61a18.svg" alt="Example block output"/><p>The results should show that the line model was inferred for the <code>ys</code> data set, and the sine wave model was inferred for the <code>ys_sine</code> data set.</p><hr/><h3 id="Exercise-6"><a class="docs-heading-anchor" href="#Exercise-6">Exercise</a><a class="docs-heading-anchor-permalink" href="#Exercise-6" title="Permalink"></a></h3><p>Construct a data set for which it is ambiguous whether the line or sine wave model is best. Visualize the inferred traces using <code>render_combined</code> to illustrate the ambiguity. Write a program that takes the data set and returns an estimate of the posterior probability that the data was generated by the sine wave model, and run it on your data set.</p><p>Hint: To estimate the posterior probability that the data was generated by the sine wave model, run the inference program many times to compute a large number of traces, and then compute the fraction of those traces in which <code>:is_line</code> is false.</p><hr/><h2 id="Modeling-with-an-Unbounded-Number-of-Parameters"><a class="docs-heading-anchor" href="#Modeling-with-an-Unbounded-Number-of-Parameters">Modeling with an Unbounded Number of Parameters</a><a id="Modeling-with-an-Unbounded-Number-of-Parameters-1"></a><a class="docs-heading-anchor-permalink" href="#Modeling-with-an-Unbounded-Number-of-Parameters" title="Permalink"></a></h2><p>Gen&#39;s built-in modeling language can be used to express models that use an unbounded number of parameters. This section walks you through development of a model of data that does not a-priori specify an upper bound on the complexity of the model, but instead infers the complexity of the model as well as the parameters. This is a simple example of a <em>Bayesian nonparametric</em> model.</p><p>We will consider two data sets:</p><pre><code class="language-julia hljs">xs_dense = collect(range(-5, stop=5, length=50))
+ys_simple = fill(1., length(xs_dense)) .+ randn(length(xs_dense)) * 0.1
+ys_complex = [Int(floor(abs(x/3))) % 2 == 0 ? 2 : 0 for x in xs_dense] .+ randn(length(xs_dense)) * 0.1;</code></pre><pre><code class="language-julia hljs">simple_plot = scatter(xs_dense, ys_simple, color=&quot;black&quot;, label=nothing, title=&quot;ys-simple&quot;, ylim=(-1, 3))
+complex_plot = scatter(xs_dense, ys_complex, color=&quot;black&quot;, label=nothing, title=&quot;ys-complex&quot;, ylim=(-1, 3))
+Plots.plot(simple_plot, complex_plot)</code></pre><img src="636beeb1.svg" alt="Example block output"/><p>The data set on the left appears to be best explained as a contant function with some noise. The data set on the right appears to include two changepoints, with a constant function in between the changepoints. We want a model that does not a-priori choose the number of changepoints in the data. To do this, we will recursively partition the interval into regions. We define a Julia data structure that represents a binary tree of intervals; each leaf node represents a region in which the function is constant.</p><pre><code class="language-julia hljs">struct Interval
+    l::Float64
+    u::Float64
+end</code></pre><pre><code class="language-julia hljs">abstract type Node end
+
+struct InternalNode &lt;: Node
+    left::Node
+    right::Node
+    interval::Interval
+end
+
+struct LeafNode &lt;: Node
+    value::Float64
+    interval::Interval
+end</code></pre><p>We now write a generative function that randomly creates such a tree. Note the use of recursion in this function to create arbitrarily large trees representing arbitrarily many changepoints. Also note that we assign the address namespaces <code>:left</code> and <code>:right</code> to the calls made for the two recursive calls to <code>generate_segments</code>.</p><pre><code class="language-julia hljs">@gen function generate_segments(l::Float64, u::Float64)
+    interval = Interval(l, u)
+    if ({:isleaf} ~ bernoulli(0.7))
+        value = ({:value} ~ normal(0, 1))
+        return LeafNode(value, interval)
+    else
+        frac = ({:frac} ~ beta(2, 2))
+        mid  = l + (u - l) * frac
+        # Call generate_segments recursively!
+        # Because we will call it twice -- one for the left
+        # child and one for the right child -- we use
+        # addresses to distinguish the calls.
+        left = ({:left} ~ generate_segments(l, mid))
+        right = ({:right} ~ generate_segments(mid, u))
+        return InternalNode(left, right, interval)
+    end
+end</code></pre><p>We also define some helper functions to visualize traces of the <code>generate_segments</code> function.</p><pre><code class="language-julia hljs">function render_node!(node::LeafNode)
+    plot!([node.interval.l, node.interval.u], [node.value, node.value], label=nothing, linewidth=5)
+end
+
+function render_node!(node::InternalNode)
+    render_node!(node.left)
+    render_node!(node.right)
+end</code></pre><pre><code class="language-julia hljs">function render_segments_trace(trace; xlim=(0,1))
+    node = get_retval(trace)
+    fig = plot(xlim=xlim, ylim=(-3, 3))
+    render_node!(node)
+    return fig
+end</code></pre><p>We generate 12 traces from this function and visualize them below. We plot the piecewise constant function that was sampled by each run of the generative function. Different constant segments are shown in different colors. Run the cell a few times to get a better sense of the distribution on functions that is represented by the generative function.</p><pre><code class="language-julia hljs">traces = [Gen.simulate(generate_segments, (0., 1.)) for i=1:12]
+grid(render_segments_trace, traces)</code></pre><img src="c7ee8aad.svg" alt="Example block output"/><p>Because we only sub-divide an interval with 30% probability, most of these sampled traces have only one segment.</p><p>Now that we have a generative function that generates a random piecewise-constant function, we write a model that adds noise to the resulting constant functions to generate a data set of y-coordinates. The noise level will be a random choice.</p><pre><code class="language-julia hljs"># get_value_at searches a binary tree for
+# the leaf node containing some value.
+function get_value_at(x::Float64, node::LeafNode)
+    @assert x &gt;= node.interval.l &amp;&amp; x &lt;= node.interval.u
+    return node.value
+end
+
+function get_value_at(x::Float64, node::InternalNode)
+    @assert x &gt;= node.interval.l &amp;&amp; x &lt;= node.interval.u
+    if x &lt;= node.left.interval.u
+        get_value_at(x, node.left)
+    else
+        get_value_at(x, node.right)
+    end
+end
+
+# Our full model
+@gen function changepoint_model(xs::Vector{Float64})
+    node = ({:tree} ~ generate_segments(minimum(xs), maximum(xs)))
+    noise = ({:noise} ~ gamma(0.5, 0.5))
+    for (i, x) in enumerate(xs)
+        {(:y, i)} ~ normal(get_value_at(x, node), noise)
+    end
+    return node
+end</code></pre><p>We write a visualization for <code>changepoint_model</code> below:</p><pre><code class="language-julia hljs">function render_changepoint_model_trace(trace; show_data=true)
+    xs = Gen.get_args(trace)[1]
+    node = Gen.get_retval(trace)
+    fig = render_segments_trace(trace; xlim=(minimum(xs), maximum(xs)))
+    render_node!(node)
+    if show_data
+        ys = [trace[(:y, i)] for i=1:length(xs)]
+        scatter!(xs, ys, c=&quot;gray&quot;, label=nothing, alpha=0.3, markersize=3)
+    end
+end</code></pre><p>Finally, we generate some simulated data sets and visualize them on top of the underlying piecewise constant function from which they were generated:</p><pre><code class="language-julia hljs">traces = [Gen.simulate(changepoint_model, (xs_dense,)) for i=1:12]
+grid(render_changepoint_model_trace, traces)</code></pre><img src="c6c1474e.svg" alt="Example block output"/><p>Notice that the amount of variability around the piecewise constant mean function differs from trace to trace.</p><p>Now we perform inference for the simple data set:</p><pre><code class="language-julia hljs">traces = [do_inference(changepoint_model, xs_dense, ys_simple, 10000) for _=1:12];
+grid(render_changepoint_model_trace, traces)</code></pre><img src="4beb0e61.svg" alt="Example block output"/><p>We see that we inferred that the mean function that explains the data is a constant with very high probability.</p><p>For inference about the complex data set, we use more computation. You can experiment with different amounts of computation to see how the quality of the inferences degrade with less computation. Note that we are using a very simple generic inference algorithm in this tutorial, which really isn&#39;t suited for this more complex task. In later tutorials, we will learn how to write more efficient algorithms, so that accurate results can be obtained with significantly less computation. We will also see ways of annotating the model for better performance, no matter the inference algorithm.</p><div class="admonition is-warning" id="Warning-de1ec2450a822f59"><header class="admonition-header">Warning<a class="admonition-anchor" href="#Warning-de1ec2450a822f59" title="Permalink"></a></header><div class="admonition-body"><p>The following cell may run for 2-3 minutes.</p></div></div><pre><code class="language-julia hljs">traces = [do_inference(changepoint_model, xs_dense, ys_complex, 100000) for _=1:12];
+grid(render_changepoint_model_trace, traces)</code></pre><p>The results show that more segments are inferred for the more complex data set.</p><hr/><h3 id="Exercise-7"><a class="docs-heading-anchor" href="#Exercise-7">Exercise</a><a class="docs-heading-anchor-permalink" href="#Exercise-7" title="Permalink"></a></h3><p>Write a function that takes a data set of x- and y-coordinates and plots the histogram of the probability distribution on the number of changepoints. Show the results for the <code>ys_simple</code> and <code>ys_complex</code> data sets.</p><p>Hint: The return value of <code>changepoint_model</code> is the tree of <code>Node</code> values. Walk this tree.</p><hr/><h3 id="Exercise-8"><a class="docs-heading-anchor" href="#Exercise-8">Exercise</a><a class="docs-heading-anchor-permalink" href="#Exercise-8" title="Permalink"></a></h3><p>Write a new version of <code>changepoint_model</code> that uses <code>{*} ~ ...</code> without an address to make the recursive calls.</p><p>Hint: You will need to guarantee that all addresses are unique. How can you label each node in a binary tree using an integer?</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../getting_started/">« Getting Started</a><a class="docs-footer-nextpage" href="../mcmc_map/">Basics of MCMC and MAP Inference »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Saturday 6 September 2025 14:04">Saturday 6 September 2025</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

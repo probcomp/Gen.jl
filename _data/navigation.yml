@@ -1,0 +1,12 @@
+  - name: Home
+    link: /
+  - name: "Documentation"
+    link: /docs/
+  - name: "Tutorials"
+    link: /tutorials/
+  - name: "Source"
+    link: https://github.com/probcomp/Gen.jl
+  - name: "Ecosystem"
+    link: /ecosystem/
+  #- name: Blog
+    #link: /posts.html

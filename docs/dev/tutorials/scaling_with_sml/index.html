@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Speeding Up Inference with the SML · Gen.jl</title><meta name="title" content="Speeding Up Inference with the SML · Gen.jl"/><meta property="og:title" content="Speeding Up Inference with the SML · Gen.jl"/><meta property="twitter:title" content="Speeding Up Inference with the SML · Gen.jl"/><meta name="description" content="Documentation for Gen.jl."/><meta property="og:description" content="Documentation for Gen.jl."/><meta property="twitter:description" content="Documentation for Gen.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">Gen.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Gen.jl</a></li><li><input class="collapse-toggle" id="menuitem-2" type="checkbox" checked/><label class="tocitem" for="menuitem-2"><span class="docs-label">Tutorials</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../getting_started/">Getting Started</a></li><li><a class="tocitem" href="../modeling_in_gen/">Introduction to Modeling in Gen</a></li><li><a class="tocitem" href="../mcmc_map/">Basics of MCMC and MAP Inference</a></li><li><a class="tocitem" href="../enumerative/">Debugging Models with Enumeration</a></li><li><a class="tocitem" href="../smc/">Object Tracking with SMC</a></li><li><a class="tocitem" href="../vi/">Variational Inference in Gen</a></li><li><a class="tocitem" href="../learning_gen_fns/">Learning Generative Functions</a></li><li class="is-active"><a class="tocitem" href>Speeding Up Inference with the SML</a><ul class="internal"><li><a class="tocitem" href="#Introduction"><span>Introduction</span></a></li><li><a class="tocitem" href="#A-Slow-Inference-Program"><span>A Slow Inference Program</span></a></li><li><a class="tocitem" href="#Rewriting-the-Program-with-Combinators"><span>Rewriting the Program with Combinators</span></a></li><li><a class="tocitem" href="#Rewriting-in-the-Static-Modeling-Language"><span>Rewriting in the Static Modeling Language</span></a></li><li><a class="tocitem" href="#Benchmarking-the-Performance-Gain"><span>Benchmarking the Performance Gain</span></a></li><li><a class="tocitem" href="#Checking-the-Inference-Programs"><span>Checking the Inference Programs</span></a></li></ul></li></ul></li><li><input class="collapse-toggle" id="menuitem-3" type="checkbox"/><label class="tocitem" for="menuitem-3"><span class="docs-label">How-to Guides</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../how_to/extending_gen/">Extending Gen</a></li><li><a class="tocitem" href="../../how_to/custom_distributions/">Adding New Distributions</a></li><li><a class="tocitem" href="../../how_to/custom_gen_fns/">Adding New Generative Functions</a></li><li><a class="tocitem" href="../../how_to/custom_gradients/">Custom Gradients</a></li><li><a class="tocitem" href="../../how_to/custom_incremental_computation/">Custom Incremental Computation</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-4" type="checkbox"/><label class="tocitem" for="menuitem-4"><span class="docs-label">Reference</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><input class="collapse-toggle" id="menuitem-4-1" type="checkbox"/><label class="tocitem" for="menuitem-4-1"><span class="docs-label">Core Interfaces</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../ref/core/gfi/">Generative Function Interface</a></li><li><a class="tocitem" href="../../ref/core/choice_maps/">Choice Maps</a></li><li><a class="tocitem" href="../../ref/core/selections/">Selections</a></li><li><a class="tocitem" href="../../ref/core/change_hints/">Change Hints</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-4-2" type="checkbox"/><label class="tocitem" for="menuitem-4-2"><span class="docs-label">Modeling Library</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../ref/modeling/dml/">Built-In Modeling Language</a></li><li><a class="tocitem" href="../../ref/modeling/sml/">Static Modeling Language</a></li><li><a class="tocitem" href="../../ref/modeling/distributions/">Probability Distributions</a></li><li><a class="tocitem" href="../../ref/modeling/combinators/">Combinators</a></li><li><a class="tocitem" href="../../ref/modeling/custom_gen_fns/">Custom Generative Functions</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-4-3" type="checkbox"/><label class="tocitem" for="menuitem-4-3"><span class="docs-label">Inference Library</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../ref/inference/enumerative/">Enumerative Inference</a></li><li><a class="tocitem" href="../../ref/inference/importance/">Importance Sampling</a></li><li><a class="tocitem" href="../../ref/inference/mcmc/">Markov Chain Monte Carlo</a></li><li><a class="tocitem" href="../../ref/inference/pf/">Particle Filtering &amp; SMC</a></li><li><a class="tocitem" href="../../ref/inference/trace_translators/">Trace Translators</a></li><li><a class="tocitem" href="../../ref/inference/parameter_optimization/">Parameter Optimization</a></li><li><a class="tocitem" href="../../ref/inference/map/">MAP Optimization</a></li><li><a class="tocitem" href="../../ref/inference/vi/">Variational Inference</a></li><li><a class="tocitem" href="../../ref/inference/wake_sleep/">Wake-Sleep Learning</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-4-4" type="checkbox"/><label class="tocitem" for="menuitem-4-4"><span class="docs-label">Internals</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../ref/internals/language_implementation/">Modeling Language Implementation</a></li></ul></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Speeding Up Inference with the SML</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Speeding Up Inference with the SML</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/probcomp/Gen.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/probcomp/Gen.jl/blob/master/docs/src/tutorials/scaling_with_sml.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="scaling_with_sml_tutorial"><a class="docs-heading-anchor" href="#scaling_with_sml_tutorial">Speeding Up Inference with the Static Modeling Language</a><a id="scaling_with_sml_tutorial-1"></a><a class="docs-heading-anchor-permalink" href="#scaling_with_sml_tutorial" title="Permalink"></a></h1><h2 id="Introduction"><a class="docs-heading-anchor" href="#Introduction">Introduction</a><a id="Introduction-1"></a><a class="docs-heading-anchor-permalink" href="#Introduction" title="Permalink"></a></h2><p>For prototyping models and working with dynamic structures, Gen&#39;s <a href="../../ref/modeling/dml/#dml">Dynamic Modeling Language</a> is a great (and the default) way of writing probabilistic programs in nearly pure Julia. However, better performance and scaling characteristics can be obtained using specialized modeling languages or modeling constructs. This tutorial introduces a more specialized modeling language known as the <a href="../../ref/modeling/sml/#sml">Static Modeling Language</a> (SML) which is also built into Gen. The SML provides model speedups by carefully analyzing what work is necessary during inference.</p><p>This tutorial will take a robust regression model with outliers and optimize the speed of inference using the SML.</p><h2 id="A-Slow-Inference-Program"><a class="docs-heading-anchor" href="#A-Slow-Inference-Program">A Slow Inference Program</a><a id="A-Slow-Inference-Program-1"></a><a class="docs-heading-anchor-permalink" href="#A-Slow-Inference-Program" title="Permalink"></a></h2><pre><code class="language-julia hljs">using Gen
+using Plots
+
+@gen function model(xs::Vector{Float64})
+    slope ~ normal(0, 2)
+    intercept ~ normal(0, 2)
+    noise ~ gamma(1, 1)
+    prob_outlier ~ uniform(0, 1)
+
+    n = length(xs)
+    ys = Vector{Float64}(undef, n)
+
+    for i = 1:n
+        if ({:data =&gt; i =&gt; :is_outlier} ~ bernoulli(prob_outlier))
+            (mu, std) = (0., 10.)
+        else
+            (mu, std) = (xs[i] * slope + intercept, noise)
+        end
+        ys[i] = {:data =&gt; i =&gt; :y} ~ normal(mu, std)
+    end
+    ys
+end</code></pre><p>We wrote a Markov chain Monte Carlo inference update for this model that performs updates on each of the &#39;global&#39; parameters (noise, slope, intercept, and prob<em>outlier), as well as the &#39;local&#39; `is</em>outlier` variable associated with each data point. The update takes a trace as input, and returns the new trace as output. We reproduce this here:</p><pre><code class="language-julia hljs">function block_resimulation_update(tr)
+
+    # Block 1: Update the line&#39;s parameters
+    line_params = select(:noise, :slope, :intercept)
+    (tr, _) = mh(tr, line_params)
+
+    # Blocks 2-N+1: Update the outlier classifications
+    (xs,) = get_args(tr)
+    n = length(xs)
+    for i=1:n
+        (tr, _) = mh(tr, select(:data =&gt; i =&gt; :is_outlier))
+    end
+
+    # Block N+2: Update the prob_outlier parameter
+    (tr, _) = mh(tr, select(:prob_outlier))
+
+    # Return the updated trace
+    tr
+end</code></pre><p>We write a helper function that takes a vector of y-coordinates and populates a constraints choice map:</p><pre><code class="language-julia hljs">function make_constraints(ys::Vector{Float64})
+    constraints = choicemap()
+    for i=1:length(ys)
+        constraints[:data =&gt; i =&gt; :y] = ys[i]
+    end
+    constraints
+end</code></pre><p>Finally, we package this into an inference program that takes the data set of all x- and y-coordinates ,and returns a trace. We will be experimenting with different variants of the model, so we make the model an argument to this function:</p><pre><code class="language-julia hljs">function block_resimulation_inference(model, xs, ys)
+    observations = make_constraints(ys)
+    (tr, _) = generate(model, (xs,), observations)
+    for iter=1:500
+        tr = block_resimulation_update(tr)
+    end
+    tr
+end</code></pre><p>Let&#39;s see how the running time of this inference program changes as we increase the number of data points. We don&#39;t expect the running time to depend too much on the actual values of the data points, so we just construct a random data set for each run:</p><pre><code class="language-julia hljs">ns = [1, 3, 7, 10, 30, 70, 100]
+times = []
+for n in ns
+    xs = rand(n)
+    ys = rand(n)
+    start = time_ns()
+    tr = block_resimulation_inference(model, xs, ys)
+    push!(times, (time_ns() - start) / 1e9)
+end</code></pre><p>We now plot the running time versus the number of data points:</p><pre><code class="language-julia hljs">plot(ns, times, xlabel=&quot;number of data points&quot;, ylabel=&quot;running time (seconds)&quot;, label=nothing)</code></pre><img src="bdf69918.svg" alt="Example block output"/><p>The inference program seems to scale quadratically in the number of data points.</p><p>To understand why, consider the block of code inside <code>block_resimulation_update</code> that loops over the data points:</p><pre><code class="language-julia hljs"># Blocks 2-N+1: Update the outlier classifications
+(xs,) = get_args(tr)
+n = length(xs)
+for i=1:n
+    (tr, _) = mh(tr, select(:data =&gt; i =&gt; :is_outlier))
+end
+nothing # hide</code></pre><p>The reason for the quadratic scaling is that the running time of the call to <code>mh</code> inside this loop also grows in proportion to the number of data points. This is because the updates to a trace of a model written the generic built-in modeling language always involve re-running <strong>the entire</strong> model generative function.</p><p>However, it should be possible for the algorithm to scale linearly in the number of data points. Briefly, deciding whether to update a given <code>is_outlier</code> variable can be done without referencing the other data points. This is because each <code>is_outiler</code> variable is conditionally independent of the outlier variables and y-coordinates of the other data points, conditioned on the parameters.</p><p>We can make this conditional independence structure explicit using the <a href="../../ref/modeling/combinators/#Gen.Map">Map generative function combinator</a>. Combinators like map encapsulate common modeling patterns (e.g., a loop in which each iteration is making independent choices), and when you use them, Gen can take advantage of the restrictions they enforce to implement performance optimizations automatically during inference. The <code>Map</code> combinator, like the <code>map</code> function in a functional programming language, helps to execute the same generative code repeatedly. </p><h2 id="Rewriting-the-Program-with-Combinators"><a class="docs-heading-anchor" href="#Rewriting-the-Program-with-Combinators">Rewriting the Program with Combinators</a><a id="Rewriting-the-Program-with-Combinators-1"></a><a class="docs-heading-anchor-permalink" href="#Rewriting-the-Program-with-Combinators" title="Permalink"></a></h2><p>To use the map combinator to express the conditional independences in our model, we first write a generative function to generate the <code>is_outlier</code> variable and the y-coordinate for a single data point:</p><pre><code class="language-julia hljs">@gen function generate_single_point(x::Float64, prob_outlier::Float64, noise::Float64,
+                                    slope::Float64, intercept::Float64)
+    is_outlier ~ bernoulli(prob_outlier)
+    mu  = is_outlier ? 0. : x * slope + intercept
+    std = is_outlier ? 10. : noise
+    y ~ normal(mu, std)
+    return y
+end</code></pre><p>We then apply the <a href="../../ref/modeling/combinators/#Gen.Map"><code>Map</code></a>, which is a Julia function, to this generative function, to obtain a new generative function:</p><pre><code class="language-julia hljs">generate_all_points = Map(generate_single_point)</code></pre><p>This new generative function has one argument for each argument of <code>generate_single_point</code>, except that these arguments are now vector-valued instead of scalar-valued. We can run the generative function on some fake data to test this:</p><pre><code class="language-julia hljs">xs = Float64[0, 1, 2, 3, 4]
+prob_outliers = fill(0.5, 5)
+noises = fill(0.2, 5)
+slopes = fill(0.7, 5)
+intercepts = fill(-2.0, 5)
+trace = simulate(generate_all_points, (xs, prob_outliers, noises, slopes, intercepts));</code></pre><p>We see that the <code>generate_all_points</code> function has traced 5 calls to <code>generate_single_point</code>, under namespaces <code>1</code> through <code>5</code>.  The <code>Map</code> combinator automatically adds these indices to the trace address.</p><pre><code class="language-julia hljs">get_choices(trace)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">│
+├── 1
+│   │
+│   ├── :y : -1.960051468617122
+│   │
+│   └── :is_outlier : false
+│
+├── 2
+│   │
+│   ├── :y : -1.1190643121693755
+│   │
+│   └── :is_outlier : false
+│
+├── 3
+│   │
+│   ├── :y : -0.540835010897935
+│   │
+│   └── :is_outlier : false
+│
+├── 4
+│   │
+│   ├── :y : -14.889592087221128
+│   │
+│   └── :is_outlier : true
+│
+└── 5
+    │
+    ├── :y : 4.2540323669269
+    │
+    └── :is_outlier : true
+</code></pre><p>Now, let&#39;s replace the Julia <code>for</code> loop in our model with a call to this new function:</p><pre><code class="language-julia hljs">@gen function model_with_map(xs::Vector{Float64})
+    slope ~ normal(0, 2)
+    intercept ~ normal(0, 2)
+    noise ~ gamma(1, 1)
+    prob_outlier ~ uniform(0, 1)
+    n = length(xs)
+    data ~ generate_all_points(xs, fill(prob_outlier, n), fill(noise, n), fill(slope, n), fill(intercept, n))
+    return data
+end</code></pre><p>Note that this new model has the same address structure as our original model had, so our inference code will not need to change. For example, the 5th data point&#39;s <span>$y$</span> coordinate will be stored at the address <code>:data =&gt; 5 =&gt; :y</code>, just as before. (The <code>:data</code> comes from our <code>data ~ ...</code> invocation in the <code>better_model</code> definition, and the <code>:y</code> comes from <code>generate_point</code>; only the <code>5</code> has been inserted automatically by <code>Map</code>.)</p><pre><code class="language-julia hljs">trace = simulate(model_with_map, (xs,));
+get_choices(trace)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">│
+├── :intercept : -1.0431186568265207
+│
+├── :slope : 0.9485794150858129
+│
+├── :prob_outlier : 0.8169418965227757
+│
+├── :noise : 0.4388037783184999
+│
+└── :data
+    │
+    ├── 1
+    │   │
+    │   ├── :y : -0.5583912880807567
+    │   │
+    │   └── :is_outlier : true
+    │
+    ├── 2
+    │   │
+    │   ├── :y : -1.3487143187301092
+    │   │
+    │   └── :is_outlier : true
+    │
+    ├── 3
+    │   │
+    │   ├── :y : -5.547588635326822
+    │   │
+    │   └── :is_outlier : true
+    │
+    ├── 4
+    │   │
+    │   ├── :y : -14.70423722680545
+    │   │
+    │   └── :is_outlier : true
+    │
+    └── 5
+        │
+        ├── :y : 5.232173688665574
+        │
+        └── :is_outlier : true
+</code></pre><p>Let&#39;s test the running time of the inference program, applied to this new model:</p><pre><code class="language-julia hljs">with_map_times = []
+for n in ns
+    xs = rand(n)
+    ys = rand(n)
+    start = time_ns()
+    tr = block_resimulation_inference(model_with_map, xs, ys)
+    push!(with_map_times, (time_ns() - start) / 1e9)
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Assignment to `xs` in soft scope is ambiguous because a global variable by the same name exists: `xs` will be treated as a new local. Disambiguate by using `local xs` to suppress this warning or `global xs` to assign to the existing global variable.
+└ @ scaling_with_sml.md:200</code></pre><p>We plot the results and compare them to the original model, which used the Julia <code>for</code> loop:</p><pre><code class="language-julia hljs">plot(ns, times, label=&quot;original&quot;, xlabel=&quot;number of data points&quot;, ylabel=&quot;running time (seconds)&quot;)
+plot!(ns, with_map_times, label=&quot;with map&quot;)</code></pre><img src="afe36464.svg" alt="Example block output"/><p>We see that the quadratic scaling did not improve. We can understand why we still have quadratic scaling, by examining the call to <code>generate_single_point</code>:</p><pre><code class="language-julia hljs">data ~ generate_all_points(xs, fill(prob_outlier, n), fill(noise, n), fill(slope, n), fill(intercept, n))</code></pre><p>Even though the function <code>generate_all_points</code> knows that each of the calls to <code>generate_single_point</code> is conditionally independent, and even it knows that each update to <code>is_outlier</code> only involves a single application of <code>generate_single_point</code>, it does not know that <strong>none of its arguments change</strong> within an update to <code>is_outlier</code>. Therefore, it needs to visit each call to <code>generate_single_point</code>. The generic built-in modeling language does not provide this information the generative functions that it invokes.</p><h2 id="Rewriting-in-the-Static-Modeling-Language"><a class="docs-heading-anchor" href="#Rewriting-in-the-Static-Modeling-Language">Rewriting in the Static Modeling Language</a><a id="Rewriting-in-the-Static-Modeling-Language-1"></a><a class="docs-heading-anchor-permalink" href="#Rewriting-in-the-Static-Modeling-Language" title="Permalink"></a></h2><p>In order to provide <code>generate_all_points</code> with the knowledge that its arguments do not change during an update to the <code>is_outlier</code> variable, we need to write the top-level model generative function that calls <code>generate_all_points</code> in the <a href="../../ref/modeling/sml/#sml">Static Modeling Language</a>, which is a restricted variant of the built-in modeling language that uses static analysis of the computation graph to generate specialized trace data structures and specialized implementations of trace operations. We indicate that a function is to be interpreted using the static language using the <code>static</code> annotation:</p><pre><code class="language-julia hljs">@gen (static) function static_model_with_map(xs::Vector{Float64})
+    slope ~ normal(0, 2)
+    intercept ~ normal(0, 2)
+    noise ~ gamma(1, 1)
+    prob_outlier ~ uniform(0, 1)
+    n = length(xs)
+    data ~ generate_all_points(xs, fill(prob_outlier, n), fill(noise, n), fill(slope, n), fill(intercept, n))
+    return data
+end</code></pre><p>The static language has a number of restrictions that make it more amenable to static analysis than the unrestricted modeling language. For example, we cannot use Julia <code>for</code> loops, and the return value needs to explicitly use the <code>return</code> keyword, followed by a symbol (e.g. <code>data</code>). Also, each symbol used on the left-hand side of an assignment must be unique. A more complete list of restrictions is given in the documentation.</p><p>Below, we show the static dependency graph that Gen builds for this function. Arguments are shown as diamonds, Julia computations are shown as squares, random choices are shown as circles, and calls to other generative function are shown as stars. The call that produces the return value of the function is shaded in blue.</p><div style="text-align:center">
+    <img src="../../assets/scaling_with_sml_graph.png" alt="static dependency graph" width="100%"/>
+</div><p>Now, consider the update to the <code>is_outlier</code> variable:</p><pre><code class="language-julia hljs">(tr, _) = mh(tr, select(:data =&gt; i =&gt; :is_outlier))</code></pre><p>Because this update only causes values under address <code>:data</code> to change, the <code>static_model_with_map</code> function can use the graph above to infer that none of the arguments to <code>generate_all_point</code> could have possibly changed. This will allow us to obtain the linear scaling we expected.</p><p>Now we can re-run the experiment with our model that combines the map combinator with the static language:</p><pre><code class="language-julia hljs">static_with_map_times = []
+for n in ns
+    xs = rand(n)
+    ys = rand(n)
+    start = time_ns()
+    tr = block_resimulation_inference(static_model_with_map, xs, ys)
+    push!(static_with_map_times, (time_ns() - start) / 1e9)
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">┌ Warning: Assignment to `xs` in soft scope is ambiguous because a global variable by the same name exists: `xs` will be treated as a new local. Disambiguate by using `local xs` to suppress this warning or `global xs` to assign to the existing global variable.
+└ @ scaling_with_sml.md:263</code></pre><p>We compare the results to the results for the earlier models:</p><pre><code class="language-julia hljs">plot(ns, times, label=&quot;original&quot;, xlabel=&quot;number of data points&quot;, ylabel=&quot;running time (seconds)&quot;)
+plot!(ns, with_map_times, label=&quot;with map&quot;)
+plot!(ns, static_with_map_times, label=&quot;with map and static outer fn&quot;)</code></pre><img src="3f7f5f5f.svg" alt="Example block output"/><p>We see that we now have the linear running time that we expected.</p><h2 id="Benchmarking-the-Performance-Gain"><a class="docs-heading-anchor" href="#Benchmarking-the-Performance-Gain">Benchmarking the Performance Gain</a><a id="Benchmarking-the-Performance-Gain-1"></a><a class="docs-heading-anchor-permalink" href="#Benchmarking-the-Performance-Gain" title="Permalink"></a></h2><p><strong>Note:</strong> <em>the following section was drafted using an earlier version of Julia. As of Julia 1.7, the dynamic modeling language is fast enough in some cases that you may not see constant-factor performance gains by switching simple dynamic models, with few choices and no control flow, to use the static modeling language. Based on the experiment below, this model falls into that category.</em></p><p>Note that in our latest model above, <code>generate_single_point</code> was still written in the dynamic modeling language. It is not necessary to write <code>generate_single_point</code> in the static language, but doing so might provide modest constant-factor performance improvements. Here we rewrite this function in the static language. The static modeling language does not support <code>if</code> statements, but does support ternary expressions (<code>a ? b : c</code>):</p><pre><code class="language-julia hljs">@gen (static) function static_generate_single_point(x::Float64, prob_outlier::Float64, noise::Float64,
+                                    slope::Float64, intercept::Float64)
+    is_outlier ~ bernoulli(prob_outlier)
+    mu = is_outlier ? 0. : x * slope + intercept
+    std = is_outlier ? 10. : noise
+    y ~ normal(mu, std)
+    return y
+end;
+
+static_generate_all_points = Map(static_generate_single_point);
+
+@gen (static) function fully_static_model_with_map(xs::Vector{Float64})
+    slope ~ normal(0, 2)
+    intercept ~ normal(0, 2)
+    noise ~ gamma(1, 1)
+    prob_outlier ~ uniform(0, 1)
+    n = length(xs)
+    data ~ static_generate_all_points(xs, fill(prob_outlier, n), fill(noise, n), fill(slope, n), fill(intercept, n))
+    return data
+end;</code></pre><p>Now, we re-run the experiment with our new model:</p><pre><code class="language-julia hljs">fully_static_with_map_times = []
+let # end
+for n in ns
+    xs = rand(n)
+    ys = rand(n)
+    start = time_ns()
+    tr = block_resimulation_inference(fully_static_model_with_map, xs, ys)
+    push!(fully_static_with_map_times, (time_ns() - start) / 1e9)
+end</code></pre><p>In earlier versions of Julia, we saw a modest improvement in running time, but here we see it makes little to no difference:</p><pre><code class="language-julia hljs">plot(ns, times, label=&quot;original&quot;, xlabel=&quot;number of data points&quot;, ylabel=&quot;running time (seconds)&quot;)
+plot!(ns, with_map_times, label=&quot;with map&quot;)
+plot!(ns, static_with_map_times, label=&quot;with map and static outer fn&quot;)
+plot!(ns, fully_static_with_map_times, label=&quot;with map and static outer and inner fns&quot;)</code></pre><img src="af275377.svg" alt="Example block output"/><h2 id="Checking-the-Inference-Programs"><a class="docs-heading-anchor" href="#Checking-the-Inference-Programs">Checking the Inference Programs</a><a id="Checking-the-Inference-Programs-1"></a><a class="docs-heading-anchor-permalink" href="#Checking-the-Inference-Programs" title="Permalink"></a></h2><p>Before wrapping up, let&#39;s confirm that all of our models are giving good results:</p><p>Let&#39;s use a synthetic data set:</p><pre><code class="language-julia hljs">true_inlier_noise = 0.5
+true_outlier_noise = 10.
+prob_outlier = 0.1
+true_slope = -1
+true_intercept = 2
+xs = collect(range(-5, stop=5, length=50))
+ys = Float64[]
+for (i, x) in enumerate(xs)
+    if rand() &lt; prob_outlier
+        y = 0. + randn() * true_outlier_noise
+    else
+        y = true_slope * x + true_intercept + randn() * true_inlier_noise
+    end
+    push!(ys, y)
+end
+ys[end-3] = 14
+ys[end-5] = 13;
+
+scatter(xs, ys, xlim=(-7,7), ylim=(-7,15), label=nothing)</code></pre><img src="19ab4686.svg" alt="Example block output"/><p>We write a trace rendering function that shows the inferred line on top of the observed data set:</p><pre><code class="language-julia hljs">function render_trace(trace, title)
+    xs,  = get_args(trace)
+    xlim = [-5, 5]
+    slope = trace[:slope]
+    intercept = trace[:intercept]
+    plot(xlim, slope * xlim .+ intercept, color=&quot;black&quot;, xlim=(-7,7), ylim=(-7,15), title=title, label=nothing)
+    ys = [trace[:data =&gt; i =&gt; :y] for i=1:length(xs)]
+    scatter!(xs, ys, label=nothing)
+end;</code></pre><p>Finally, we run the experiment. We will visualize just one trace produced by applying our inference program to each of the four variants of our model:</p><pre><code class="language-julia hljs">tr = block_resimulation_inference(model, xs, ys)
+fig1 = render_trace(tr, &quot;model&quot;)
+
+tr = block_resimulation_inference(model_with_map, xs, ys)
+fig2 = render_trace(tr, &quot;model with map&quot;)
+
+tr = block_resimulation_inference(static_model_with_map, xs, ys)
+fig3 = render_trace(tr, &quot;static model with map&quot;)
+
+tr = block_resimulation_inference(fully_static_model_with_map, xs, ys)
+fig4 = render_trace(tr, &quot;fully static model with map&quot;)
+
+plot(fig1, fig2, fig3, fig4)</code></pre><img src="a0970fef.svg" alt="Example block output"/><p>It looks like inference in all the models seems to be working reasonably.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../learning_gen_fns/">« Learning Generative Functions</a><a class="docs-footer-nextpage" href="../../how_to/extending_gen/">Extending Gen »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Saturday 6 September 2025 14:05">Saturday 6 September 2025</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

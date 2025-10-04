@@ -1,0 +1,25 @@
+{% if page.github_comments_issueid and site.github_comments_repository %}
+    
+<div id="gh-comments">
+    <br/><br/>
+    <h3>Comments</h3>
+    <div id="gh-comments-list"></div>
+</div>
+
+<script
+  src="https://code.jquery.com/jquery-3.2.1.min.js"
+  integrity="sha256-hwg4gsxgFZhOsEEamdOYGBf13FyQuiTwlAQgxVSNgt4="
+  crossorigin="anonymous"></script>
+
+<script src="{{ site.baseurl }}/js/github-comments.js"> </script>
+
+<script type="text/javascript"> 
+    DoGithubComments ( 
+        "{{ site.github_comments_repository }}" , 
+        "{{ page.github_comments_issueid }}" 
+    ); 
+</script>
+
+<noscript>Please enable JavaScript to view comments.</noscript>
+
+{% endif %}

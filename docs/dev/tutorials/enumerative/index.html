@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Debugging Models with Enumeration · Gen.jl</title><meta name="title" content="Debugging Models with Enumeration · Gen.jl"/><meta property="og:title" content="Debugging Models with Enumeration · Gen.jl"/><meta property="twitter:title" content="Debugging Models with Enumeration · Gen.jl"/><meta name="description" content="Documentation for Gen.jl."/><meta property="og:description" content="Documentation for Gen.jl."/><meta property="twitter:description" content="Documentation for Gen.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">Gen.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Gen.jl</a></li><li><input class="collapse-toggle" id="menuitem-2" type="checkbox" checked/><label class="tocitem" for="menuitem-2"><span class="docs-label">Tutorials</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../getting_started/">Getting Started</a></li><li><a class="tocitem" href="../modeling_in_gen/">Introduction to Modeling in Gen</a></li><li><a class="tocitem" href="../mcmc_map/">Basics of MCMC and MAP Inference</a></li><li class="is-active"><a class="tocitem" href>Debugging Models with Enumeration</a><ul class="internal"><li><a class="tocitem" href="#Enumeration-for-Discrete-Models"><span>Enumeration for Discrete Models</span></a></li><li><a class="tocitem" href="#Enumeration-for-Continuous-Models"><span>Enumeration for Continuous Models</span></a></li><li><a class="tocitem" href="#Diagnosing-Model-Misspecification"><span>Diagnosing Model Misspecification</span></a></li><li><a class="tocitem" href="#Addressing-Model-Misspecification"><span>Addressing Model Misspecification</span></a></li></ul></li><li><a class="tocitem" href="../smc/">Object Tracking with SMC</a></li><li><a class="tocitem" href="../vi/">Variational Inference in Gen</a></li><li><a class="tocitem" href="../learning_gen_fns/">Learning Generative Functions</a></li><li><a class="tocitem" href="../scaling_with_sml/">Speeding Up Inference with the SML</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3" type="checkbox"/><label class="tocitem" for="menuitem-3"><span class="docs-label">How-to Guides</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../how_to/extending_gen/">Extending Gen</a></li><li><a class="tocitem" href="../../how_to/custom_distributions/">Adding New Distributions</a></li><li><a class="tocitem" href="../../how_to/custom_gen_fns/">Adding New Generative Functions</a></li><li><a class="tocitem" href="../../how_to/custom_gradients/">Custom Gradients</a></li><li><a class="tocitem" href="../../how_to/custom_incremental_computation/">Custom Incremental Computation</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-4" type="checkbox"/><label class="tocitem" for="menuitem-4"><span class="docs-label">Reference</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><input class="collapse-toggle" id="menuitem-4-1" type="checkbox"/><label class="tocitem" for="menuitem-4-1"><span class="docs-label">Core Interfaces</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../ref/core/gfi/">Generative Function Interface</a></li><li><a class="tocitem" href="../../ref/core/choice_maps/">Choice Maps</a></li><li><a class="tocitem" href="../../ref/core/selections/">Selections</a></li><li><a class="tocitem" href="../../ref/core/change_hints/">Change Hints</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-4-2" type="checkbox"/><label class="tocitem" for="menuitem-4-2"><span class="docs-label">Modeling Library</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../ref/modeling/dml/">Built-In Modeling Language</a></li><li><a class="tocitem" href="../../ref/modeling/sml/">Static Modeling Language</a></li><li><a class="tocitem" href="../../ref/modeling/distributions/">Probability Distributions</a></li><li><a class="tocitem" href="../../ref/modeling/combinators/">Combinators</a></li><li><a class="tocitem" href="../../ref/modeling/custom_gen_fns/">Custom Generative Functions</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-4-3" type="checkbox"/><label class="tocitem" for="menuitem-4-3"><span class="docs-label">Inference Library</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../ref/inference/enumerative/">Enumerative Inference</a></li><li><a class="tocitem" href="../../ref/inference/importance/">Importance Sampling</a></li><li><a class="tocitem" href="../../ref/inference/mcmc/">Markov Chain Monte Carlo</a></li><li><a class="tocitem" href="../../ref/inference/pf/">Particle Filtering &amp; SMC</a></li><li><a class="tocitem" href="../../ref/inference/trace_translators/">Trace Translators</a></li><li><a class="tocitem" href="../../ref/inference/parameter_optimization/">Parameter Optimization</a></li><li><a class="tocitem" href="../../ref/inference/map/">MAP Optimization</a></li><li><a class="tocitem" href="../../ref/inference/vi/">Variational Inference</a></li><li><a class="tocitem" href="../../ref/inference/wake_sleep/">Wake-Sleep Learning</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-4-4" type="checkbox"/><label class="tocitem" for="menuitem-4-4"><span class="docs-label">Internals</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../ref/internals/language_implementation/">Modeling Language Implementation</a></li></ul></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Debugging Models with Enumeration</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Debugging Models with Enumeration</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/probcomp/Gen.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/probcomp/Gen.jl/blob/master/docs/src/tutorials/enumerative.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="enumerative_tutorial"><a class="docs-heading-anchor" href="#enumerative_tutorial">Debugging Models with Enumerative Inference</a><a id="enumerative_tutorial-1"></a><a class="docs-heading-anchor-permalink" href="#enumerative_tutorial" title="Permalink"></a></h1><p>When working with probabilistic models, we often rely on Monte Carlo methods like importance sampling (as introduced in <a href="../modeling_in_gen/#modeling_tutorial">Introduction to Modeling</a>) and MCMC (as introduced in <a href="../mcmc_map/#mcmc_map_tutorial">Basics of MCMC</a>) to approximate posterior distributions. But how can we tell if these approximations are actually working correctly? Sometimes poor inference results stem from bugs in our inference algorithms, while other times they reveal fundamental issues with our model specification.</p><p>This tutorial introduces <em>enumerative inference</em> as a debugging tool. Unlike the sampling-based methods we&#39;ve seen in previous tutorials, which draw samples that are approximately distributed according to the posterior distribution over latent values, enumerative inference systematically evaluates the posterior probability of every value in the latent space (or a discretized version of this space).</p><p>When the latent space isn&#39;t too large (e.g. not too many dimensions), this approach can compute a &quot;gold standard&quot; posterior approximation that other methods can be compared against, helping us distinguish between inference failures and model misspecification. Enumerative inference is often slower than a well-tuned Monte Carlo algorithm (since it may enumerate over regions with very low probability), but having a gold-standard posterior allows us to check that faster and more efficient algorithms are working correctly.</p><h2 id="Enumeration-for-Discrete-Models"><a class="docs-heading-anchor" href="#Enumeration-for-Discrete-Models">Enumeration for Discrete Models</a><a id="Enumeration-for-Discrete-Models-1"></a><a class="docs-heading-anchor-permalink" href="#Enumeration-for-Discrete-Models" title="Permalink"></a></h2><p>Let&#39;s start with a simple example where enumeration can be used to perform <em>exact inference</em>, computing the exact posterior probability for every possible combination of discrete latent variables. We&#39;ll build a robust Bayesian linear regression model, but unlike the continuous model from the MCMC tutorial, we&#39;ll use discrete priors for all latent variables.</p><pre><code class="language-julia hljs">@gen function discrete_regression(xs::Vector{&lt;:Real})
+    # Discrete priors for slope and intercept
+    slope ~ uniform_discrete(-2, 2)  # Slopes: -2, -1, 0, 1, 2
+    intercept ~ uniform_discrete(-2, 2)  # Intercepts: -2, -1, 0, 1, 2
+
+    # Sample outlier classification and y value for each x value
+    n = length(xs)
+    ys = Float64[]
+    for i = 1:n
+        # Prior on outlier probability
+        is_outlier = {:data =&gt; i =&gt; :is_outlier} ~ bernoulli(0.1)
+
+        if is_outlier
+            # Outliers have large noise
+            y = {:data =&gt; i =&gt; :y} ~ normal(0., 5.)
+        else
+            # Inliers follow the linear relationship, with low noise
+            y_mean = slope * xs[i] + intercept
+            y = {:data =&gt; i =&gt; :y} ~ normal(y_mean, 1.)
+        end
+        push!(ys, y)
+    end
+
+    return ys
+end</code></pre><p>Let&#39;s generate some synthetic data with a true slope of 1 and intercept of 0:</p><pre><code class="language-julia hljs"># Generate synthetic data
+true_slope = 1
+true_intercept = 0
+xs = [-2., -1., 0., 1., 2.]
+ys = true_slope .* xs .+ true_intercept .+ 1.0 * randn(5)
+
+# Make one point an outlier
+ys[3] = 4.0
+
+# Visualize the data
+point_colors = [:blue, :blue, :red, :blue, :blue]
+scatter(xs, ys, label=&quot;Observations&quot;, markersize=6, xlabel=&quot;x&quot;, ylabel=&quot;y&quot;,
+        color=point_colors)
+plot!(xs, true_slope .* xs .+ true_intercept,
+      label=&quot;True line&quot;, linestyle=:dash, linewidth=2, color=:black)</code></pre><img src="3f1c0627.svg" alt="Example block output"/><p>Now we can use enumerative inference to compute the exact posterior. We&#39;ll enumerate over all possible combinations of slope, intercept, and outlier classifications:</p><pre><code class="language-julia hljs"># Create observations choicemap
+observations = choicemap()
+for (i, y) in enumerate(ys)
+    observations[:data =&gt; i =&gt; :y] = y
+end
+
+# Set up the enumeration grid
+# We enumerate over discrete slope, intercept, and outlier classifications
+grid_specs = Tuple[
+    (:slope, -2:2),  # 5 possible slopes
+    (:intercept, -2:2),  # 3 possible intercepts
+]
+for i in 1:length(xs)
+    push!(grid_specs, (:data =&gt; i =&gt; :is_outlier, [false, true]))
+end
+
+# Create the enumeration grid
+grid = choice_vol_grid(grid_specs...)</code></pre><p>Here, we used <a href="../../ref/inference/enumerative/#Gen.choice_vol_grid"><code>choice_vol_grid</code></a> to enumerate over all possible combinations of slope, intercept, and outlier classifications. The resulting <code>grid</code> object is a multi-dimensional iterator, where each element consists of a <a href="../../ref/core/choice_maps/#Gen.ChoiceMap"><code>ChoiceMap</code></a> that specifies the values of all latent variables, and the log-volume of latent space covered by that element of the grid. Since all latent variables are discrete, the volume of latent space covered by each element is equal to 1 (and hence the log-volume is 0). We can inspect the first element of this grid using the <code>first</code> function:</p><pre><code class="language-julia hljs">choices, log_vol = first(grid)
+println(&quot;Log volume: &quot;, log_vol)
+println(&quot;Choices: &quot;)
+show(stdout, &quot;text/plain&quot;, choices)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Log volume: 0.0
+Choices:
+│
+├── :intercept : -2
+│
+├── :slope : -2
+│
+└── :data
+    │
+    ├── 5
+    │   │
+    │   └── :is_outlier : false
+    │
+    ├── 4
+    │   │
+    │   └── :is_outlier : false
+    │
+    ├── 2
+    │   │
+    │   └── :is_outlier : false
+    │
+    ├── 3
+    │   │
+    │   └── :is_outlier : false
+    │
+    └── 1
+        │
+        └── :is_outlier : false</code></pre><p>Having constructed the enumeration grid, we now pass this to the <a href="../../ref/inference/enumerative/#Gen.enumerative_inference"><code>enumerative_inference</code></a> function, along with the generative model (<code>discrete_regression</code>), model arguments (in this case, <code>xs</code>), and the <code>observations</code>:</p><pre><code class="language-julia hljs"># Run enumerative inference
+traces, log_norm_weights, lml_est =
+    enumerative_inference(discrete_regression, (xs,), observations, grid)
+
+println(&quot;Grid size: &quot;, size(grid))
+println(&quot;Log marginal likelihood: &quot;, lml_est)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Grid size: (5, 5, 2, 2, 2, 2, 2)
+Log marginal likelihood: -12.722563509665394</code></pre><p>The <a href="../../ref/inference/enumerative/#Gen.enumerative_inference"><code>enumerative_inference</code></a> function returns an array of <code>traces</code> and an array of normalized log posterior probabilities (<code>log_norm_weights</code>) with the same shape as the input <code>grid</code>. It also returns an estimate of the log marginal likelihood (<code>lml_est</code>) of the observations. The estimate is <em>exact</em> in this case, since we enumerated over all possible combinations of latent variables.</p><p>Each trace corresponds to a full combination of the latent variables that were enumerated over. As such, the <code>log_norm_weights</code> array represents the <em>joint</em> posterior distribution over all latent variables. By summing over all traces which have the same value for a specific latent variable (or equivalently, by summing over a dimension of the <code>log_norm_weights</code> array), we can compute the <em>marginal</em> posterior distribution for that variable.  We&#39;ll do this below for the <code>slope</code> and <code>intercept</code> variables:</p><pre><code class="language-julia hljs"># Compute 2D marginal posterior over slope and intercept
+sum_dims = Tuple(3:ndims(log_norm_weights)) # Sum over all other variables
+posterior_grid = sum(exp.(log_norm_weights), dims=sum_dims)
+posterior_grid = dropdims(posterior_grid; dims=sum_dims)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">5×5 Matrix{Float64}:
+ 1.3531e-5    2.68884e-6   7.05808e-7   3.05398e-6   0.000134403
+ 0.000372834  8.65457e-5   4.30255e-5   0.000225825  0.00450789
+ 0.00057764   0.037458     0.230767     0.0620908    0.00513047
+ 0.000533125  0.06785      0.453437     0.121658     0.00764571
+ 0.000229634  0.000396352  0.000492351  0.00163639   0.00470739</code></pre><p>Let&#39;s visualize the marginal posteriors over these variables, as well the joint posterior for both variables together. Below is some code to plot a 2D posterior heatmap with 1D marginals as histograms.</p><details> <summary>Code to plot 2D grid of posterior values</summary><pre><code class="language-julia hljs">using Plots
+
+function plot_posterior_grid(
+    x_range, y_range, xy_probs;
+    is_discrete = true, x_true = missing, y_true = missing,
+    xlabel = &quot;&quot;, ylabel = &quot;&quot;
+)
+    # Create the main heatmap
+    p_main = heatmap(x_range, y_range, xy_probs, colorbar=false, widen=false,
+                     color=:grays, xlabel=xlabel, ylabel=ylabel)
+    if is_discrete
+        # Add true parameters
+        scatter!(p_main, [x_true], [y_true], legend=true,
+                 markersize=36, markershape=:rect, color=:white,
+                 markerstrokecolor=:red, label=&quot;True Parameters&quot;)
+        # Annotate each cell with its posterior probability
+        for idx in CartesianIndices(xy_probs)
+            i, j = Tuple(idx)
+            prob_str = @sprintf(&quot;%.3f&quot;, xy_probs[j, i])
+            prob_color = xy_probs[j, i] &gt; 0.2 ? :black : :white
+            annotate!(x_range[i], y_range[j],
+                      text(prob_str, color = prob_color, pointsize=12))
+        end
+    else
+        # Add true parameters
+        if !ismissing(x_true) &amp;&amp; !ismissing(y_true)
+            scatter!(p_main, [x_true], [y_true], legend=true,
+                     markersize=6, color=:red, markershape=:cross,
+                     label=&quot;True Parameters&quot;)
+        end
+        if !ismissing(x_true)
+            vline!([x_true], linestyle=:dash, linewidth=1, color=:red,
+                   label=&quot;&quot;, alpha=0.5)
+        end
+        if !ismissing(y_true)
+            hline!([y_true], linestyle=:dash, linewidth=1, color=:red,
+                   label=&quot;&quot;, alpha=0.5)
+        end
+    end
+
+    # Create 1D marginal histograms
+    x_probs = vec(sum(xy_probs, dims=1))
+    y_probs = vec(sum(xy_probs, dims=2))
+    p_top = bar(x_range, x_probs, orientation=:v, ylims=(0, maximum(x_probs)),
+                bar_width=diff(x_range)[1], linewidth=0, color=:black,
+                showaxis=true, ticks=false, legend=false, widen=false)
+    p_right = bar(y_range, y_probs, orientation=:h, xlims=(0, maximum(y_probs)),
+                  bar_width=diff(y_range)[1], linewidth=0, color=:black,
+                  showaxis=true, ticks=false, legend=false, widen=false)
+    if !is_discrete
+        xlims!(p_top, xlims(p_main))
+        ylims!(p_right, ylims(p_main))
+        if !ismissing(x_true)
+            vline!(p_top, [x_true], linestyle=:dash,
+                   linewidth=1, color=:red, legend=false)
+        end
+        if !ismissing(y_true)
+            hline!(p_right, [y_true], linestyle=:dash,
+                   linewidth=1, color=:red, legend=false)
+        end
+    end
+
+    # Create empty plot for top-right corner
+    p_empty = plot(legend=false, grid=false, showaxis=false, ticks=false)
+
+    # Combine plots using layout
+    plot(p_top, p_empty, p_main, p_right,
+         layout=@layout([a{0.9w,0.1h} b{0.1w,0.1h}; c{0.9w,0.9h} d{0.1w,0.9h}]),
+         size=(750, 750))
+end</code></pre></details><pre><code class="language-julia hljs"># Extract parameter ranges
+slope_range = [trs[1][:slope] for trs in eachslice(traces, dims=1)]
+intercept_range = [trs[1][:intercept] for trs in eachslice(traces, dims=2)]
+
+# Plot 2D posterior heatmap with 1D marginals as histograms
+plot_posterior_grid(intercept_range, slope_range, posterior_grid,
+                    x_true = true_intercept, y_true = true_slope,
+                    xlabel = &quot;Intercept&quot;, ylabel = &quot;Slope&quot;,
+                    is_discrete = true)</code></pre><img src="f7d5055b.svg" alt="Example block output"/><p>As can be seen, the posterior concentrates around the true values of the slope and intercept, though there is some uncertainty about both.</p><p>We can also examine which points are most likely to be outliers:</p><pre><code class="language-julia hljs"># Compute posterior probability of each point being an outlier
+outlier_probs = zeros(length(xs))
+for (j, trace) in enumerate(traces)
+    for i in 1:length(xs)
+        if trace[:data =&gt; i =&gt; :is_outlier]
+            outlier_probs[i] += exp(log_norm_weights[j])
+        end
+    end
+end
+
+bar(1:length(xs), outlier_probs,
+    xlabel=&quot;x&quot;, ylabel=&quot;P(outlier | data)&quot;,
+    color=:black, ylim=(0, 1), legend=false)</code></pre><img src="5d72fb31.svg" alt="Example block output"/><p>Notice that enumerative inference correctly identifies that point 3 (which we made an outlier) has a high probability of being an outlier, while maintaining uncertainty about the exact classifications.</p><h2 id="Enumeration-for-Continuous-Models"><a class="docs-heading-anchor" href="#Enumeration-for-Continuous-Models">Enumeration for Continuous Models</a><a id="Enumeration-for-Continuous-Models-1"></a><a class="docs-heading-anchor-permalink" href="#Enumeration-for-Continuous-Models" title="Permalink"></a></h2><p>Many generative models of interest have continuous latent variables. While we can&#39;t enumerate over continuous spaces exactly, we can create a discrete approximation of a continuous target distribution by defining a grid. Let&#39;s extend our model to use continuous priors:</p><pre><code class="language-julia hljs">@gen function continuous_regression(xs::Vector{&lt;:Real})
+    # Continuous slope and intercept priors
+    slope ~ normal(0, 1)
+    intercept ~ normal(0, 2)
+
+    # Sample outlier classification and y value for each x value
+    n = length(xs)
+    ys = Float64[]
+    for i = 1:n
+        # Prior on outlier probability
+        is_outlier = {:data =&gt; i =&gt; :is_outlier} ~ bernoulli(0.1)
+
+        if is_outlier
+            # Outliers have large noise
+            y = {:data =&gt; i =&gt; :y} ~ normal(0., 5.)
+        else
+            # Inliers follow the linear relationship, with low noise
+            y_mean = slope * xs[i] + intercept
+            y = {:data =&gt; i =&gt; :y} ~ normal(y_mean, 1.)
+        end
+        push!(ys, y)
+    end
+
+    return ys
+end</code></pre><p>We now construct a grid over the latent space using <a href="../../ref/inference/enumerative/#Gen.choice_vol_grid"><code>choice_vol_grid</code></a>. For continuous variables, we need to provide a range of grid points (including start and end points), and specify that the variable is <code>:continuous</code>:</p><pre><code class="language-julia hljs">grid = choice_vol_grid(
+    (:slope, -3:0.25:3, :continuous),  # 24 grid intervals
+    (:intercept, -4:0.5:4, :continuous),  # 16 grid intervals
+    # Still enumerate exactly over outlier classifications
+    (:data =&gt; 1 =&gt; :is_outlier, [false, true]),
+    (:data =&gt; 2 =&gt; :is_outlier, [false, true]),
+    (:data =&gt; 3 =&gt; :is_outlier, [false, true]),
+    (:data =&gt; 4 =&gt; :is_outlier, [false, true]),
+    (:data =&gt; 5 =&gt; :is_outlier, [false, true]);
+    anchor = :midpoint # Anchor evaluation point at midpoint of each interval
+)
+
+println(&quot;Grid size for continuous model: &quot;, size(grid))
+println(&quot;Number of grid elements: &quot;, length(grid))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Grid size for continuous model: (24, 16, 2, 2, 2, 2, 2)
+Number of grid elements: 12288</code></pre><p>When some variables are specified as <code>:continuous</code>, the <a href="../../ref/inference/enumerative/#Gen.choice_vol_grid"><code>choice_vol_grid</code></a> function automatically computes the log-volume of each grid cell. Inspecting the first element of the grid, we see that the log-volume is equal to <code>log(0.25 * 0.5) ≈ -2.0794</code>, since that grid cell is covers a volume of 0.25 * 0.5 = 0.125 of the slope-intercept latent space. We also see that the <code>slope</code> and <code>intercept</code> variables lie at the midpoint of this grid cell, since the <code>anchor</code> keyword argument was set to <code>:midpoint</code>:</p><pre><code class="language-julia hljs">choices, log_vol = first(grid)
+println(&quot;Log volume: &quot;, log_vol)
+println(&quot;Choices: &quot;)
+choices</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">│
+├── :intercept : -3.75
+│
+├── :slope : -2.875
+│
+└── :data
+    │
+    ├── 5
+    │   │
+    │   └── :is_outlier : false
+    │
+    ├── 4
+    │   │
+    │   └── :is_outlier : false
+    │
+    ├── 2
+    │   │
+    │   └── :is_outlier : false
+    │
+    ├── 3
+    │   │
+    │   └── :is_outlier : false
+    │
+    └── 1
+        │
+        └── :is_outlier : false
+</code></pre><p>Now let&#39;s generate some synthetic data to do inference on. We&#39;ll use ground-truth continuous parameters that don&#39;t lie exactly on the grid, in order to show that enumerative inference can still produce a reasonable approximation when the posterior is sufficiently smooth.</p><pre><code class="language-julia hljs"># Generate synthetic data
+true_slope = -1.21
+true_intercept = 2.56
+xs = [-2., -1., 0., 1., 2.]
+ys = true_slope .* xs .+ true_intercept .+ 1.0 * randn(5)
+
+# Make one point an outlier
+ys[2] = 0.
+
+# Create observations choicemap
+observations = choicemap()
+for (i, y) in enumerate(ys)
+    observations[:data =&gt; i =&gt; :y] = y
+end
+
+# Visualize the data
+point_colors = [:blue, :red, :blue, :blue, :blue]
+scatter(xs, ys, label=&quot;Observations&quot;, markersize=6, xlabel=&quot;x&quot;, ylabel=&quot;y&quot;,
+        color=point_colors)
+plot!(xs, true_slope .* xs .+ true_intercept,
+      label=&quot;True line&quot;, linestyle=:dash, linewidth=2, color=:black)</code></pre><img src="a43b5d4e.svg" alt="Example block output"/><p>As in the discrete case, we can use <a href="../../ref/inference/enumerative/#Gen.enumerative_inference"><code>enumerative_inference</code></a> to perform inference on the continuous model:</p><pre><code class="language-julia hljs"># Run inference on the continuous model
+traces, log_norm_weights, lml_est =
+    enumerative_inference(continuous_regression, (xs,), observations, grid)
+
+println(&quot;Log marginal likelihood: &quot;, lml_est)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Log marginal likelihood: -12.30130413852108</code></pre><p>Again, we can visualize the joint posterior over the <code>slope</code> and <code>intercept</code> variables with the help of some plotting code.</p><pre><code class="language-julia hljs"># Compute marginal posterior over slope and intercept
+sum_dims = Tuple(3:ndims(log_norm_weights)) # Sum over all other variables
+posterior_grid = sum(exp.(log_norm_weights), dims=sum_dims)
+posterior_grid = dropdims(posterior_grid; dims=sum_dims)
+
+# Extract parameter ranges
+slope_range = [trs[1][:slope] for trs in eachslice(traces, dims=1)]
+intercept_range = [trs[1][:intercept] for trs in eachslice(traces, dims=2)]
+
+# Plot 2D posterior heatmap with 1D marginals as histograms
+p = plot_posterior_grid(intercept_range, slope_range, posterior_grid,
+                    x_true = true_intercept, y_true = true_slope,
+                    xlabel = &quot;Intercept&quot;, ylabel = &quot;Slope&quot;, is_discrete = false)</code></pre><img src="03f3873b.svg" alt="Example block output"/><p>We can see that the true parameters lie in a cell with reasonably high posterior probability, though there is a fair amount of uncertainty due to bimodal nature of the posterior distribution. This manifests in the posterior over outlier classifications as well:</p><pre><code class="language-julia hljs"># Compute posterior probability of each point being an outlier
+outlier_probs = zeros(length(xs))
+for i = 1:length(xs)
+    for (j, trace) in enumerate(traces)
+        if trace[:data =&gt; i =&gt; :is_outlier]
+            outlier_probs[i] += exp(log_norm_weights[j])
+        end
+    end
+end
+
+# Plot posterior probability of each point being an outlier
+bar(1:length(xs), outlier_probs,
+    xlabel=&quot;x&quot;, ylabel=&quot;P(outlier | data)&quot;,
+    color=:black, ylim=(0, 1), legend=false)</code></pre><img src="56a56dcc.svg" alt="Example block output"/><p>The points at both <code>x=1</code> and <code>x=2</code> are inferred to be possible outliers, corresponding to each possible mode of the full posterior distribution. By extracting the slice of the <code>log_norm_weights</code> array that corresponds to <code>x=2</code> being an outlier (i.e., when <code>data =&gt; 2 =&gt; :is_outlier</code> is <code>true</code>), we can visualize the posterior distribution over the <code>slope</code> and <code>intercept</code> variables conditional on <code>x=2</code> being an outlier. As shown below, this conditional posterior is no longer bimodal, and concentrates more closely around the true parameters.</p><pre><code class="language-julia hljs"># Extract slice of weights corresponding to x=2 being an outlier
+cond_log_norm_weights = log_norm_weights[:,:,:,end:end,:,:,:]
+
+# Compute marginal posterior over slope &amp; intercept given that x=2 is an outlier
+sum_dims = Tuple(3:ndims(cond_log_norm_weights)) # Sum over all other variables
+posterior_grid = sum(exp.(cond_log_norm_weights), dims=sum_dims)
+posterior_grid = dropdims(posterior_grid; dims=sum_dims)
+
+# Extract parameter ranges
+slope_range = [trs[1][:slope] for trs in eachslice(traces, dims=1)]
+intercept_range = [trs[1][:intercept] for trs in eachslice(traces, dims=2)]
+
+# Plot 2D posterior heatmap with 1D marginals as histograms
+plot_posterior_grid(intercept_range, slope_range, posterior_grid,
+                    x_true = true_intercept, y_true = true_slope,
+                    xlabel = &quot;Intercept&quot;, ylabel = &quot;Slope&quot;, is_discrete = false)</code></pre><img src="2268b0b1.svg" alt="Example block output"/><p>Instead of extracting a slice of the full weight array, we could also have used <a href="../../ref/inference/enumerative/#Gen.choice_vol_grid"><code>choice_vol_grid</code></a> to construct an enumeration grid with <code>data =&gt; 2 =&gt; :is_outlier</code> constrained to <code>true</code>, and then called <a href="../../ref/inference/enumerative/#Gen.enumerative_inference"><code>enumerative_inference</code></a> with this conditional grid. This ability to compute conditional posteriors is another useful aspect of enumerative inference: Even when the latent space becomes too high-dimensional for enumeration over the full joint posterior, we can still inspect the conditional posteriors over some variables conditioned on the values of other variables, and check whether they make sense.</p><h2 id="Diagnosing-Model-Misspecification"><a class="docs-heading-anchor" href="#Diagnosing-Model-Misspecification">Diagnosing Model Misspecification</a><a id="Diagnosing-Model-Misspecification-1"></a><a class="docs-heading-anchor-permalink" href="#Diagnosing-Model-Misspecification" title="Permalink"></a></h2><p>As we have seen above, enumerative inference allows us to approximate a posterior distribution with a high degree of fidelity (at the expense of additional computation). This allows us to distinguish between two ways that inference in a Bayesian model can go wrong:</p><ul><li><p><strong>Inference Failure:</strong> The inference algorithm fails to approximate the true posterior distribution well (e.g. due to a bad importance sampling proposal, a poorly-designed MCMC kernel, or insufficient computation).</p></li><li><p><strong>Model Misspecification:</strong> The Bayesian model itself is misspecified, such that the true posterior distribution does not correspond with our intuitions about what the posterior should look like.</p></li></ul><p>Both of these issues can occur at the same time: an algorithm might fail to converge to the true posterior, and the model might be misspecified. Regardless, since enumerative inference can approximate the true posterior distribution arbitrarily well (by making the grid arbitrarily large and fine), we can use it to check whether some other algorithm converges to the true posterior, and also whether the true posterior itself concords with our intuitions.</p><p>As a demonstration, let us write a version of the continuous regression model with narrow slope and intercept priors, and a high probability of outliers:</p><pre><code class="language-julia hljs">@gen function misspecified_regression(xs::Vector{&lt;:Real})
+    # Narrow slope and intercept priors
+    slope ~ normal(0, sqrt(0.5))
+    intercept ~ normal(0, sqrt(0.5))
+
+    # Sample outlier classification and y value for each x value
+    n = length(xs)
+    ys = Float64[]
+    for i = 1:n
+        # High (25% chance) prior probability of being an outlier
+        is_outlier = {:data =&gt; i =&gt; :is_outlier} ~ bernoulli(0.25)
+
+        if is_outlier
+            # Outliers have large noise
+            y = {:data =&gt; i =&gt; :y} ~ normal(0., 5.)
+        else
+            # Inliers follow the linear relationship, with low noise
+            y_mean = slope * xs[i] + intercept
+            y = {:data =&gt; i =&gt; :y} ~ normal(y_mean, 1.)
+        end
+        push!(ys, y)
+    end
+
+    return ys
+end</code></pre><p>To create a case where the model is misspecified, we generate data with a steep slope and a large intercept, but no outliers:</p><pre><code class="language-julia hljs"># Generate synthetic data
+true_slope = 2.8
+true_intercept = -2.4
+xs = [-2., -1., 0., 1., 2.]
+ys = true_slope .* xs .+ true_intercept .+ 1.0 * randn(5)
+
+# Create observations choicemap
+observations = choicemap()
+for (i, y) in enumerate(ys)
+    observations[:data =&gt; i =&gt; :y] = y
+end
+
+# Visualize the data
+point_colors = [:blue, :blue, :blue, :blue, :blue]
+scatter(xs, ys, label=&quot;Observations&quot;, markersize=6, xlabel=&quot;x&quot;, ylabel=&quot;y&quot;,
+        color=point_colors)
+plot!(xs, true_slope .* xs .+ true_intercept,
+      label=&quot;True line&quot;, linestyle=:dash, linewidth=2, color=:black)</code></pre><img src="13529cf0.svg" alt="Example block output"/><p>Now let us try using <a href="../../ref/inference/importance/#Gen.importance_resampling"><code>importance_resampling</code></a> to approximate the posterior distribution under the misspecified model:</p><pre><code class="language-julia hljs"># Try importance resampling with 2000 inner samples and 100 outer samples
+println(&quot;Running importance sampling...&quot;)
+traces = [importance_resampling(misspecified_regression, (xs,), observations, 2000)[1] for i in 1:100]
+
+# Compute the mean slope and intercept
+mean_slope = sum(trace[:slope] for trace in traces) / length(traces)
+mean_intercept = sum(trace[:intercept] for trace in traces) / length(traces)
+
+println(&quot;Mean slope: &quot;, mean_slope)
+println(&quot;Mean intercept: &quot;, mean_intercept)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Running importance sampling...
+Mean slope: 0.6845744503430494
+Mean intercept: -0.3749851099815777</code></pre><p>Instead of recovering anything close to the true parameters, importance sampling infers a much smaller mean for the slope and intercept. We can also visualize the joint posterior over the slope and intercept by plotting a 2D histogram from the samples:</p><details> <summary>Code to plot posterior samples</summary><pre><code class="language-julia hljs">function plot_posterior_samples(
+    x_range, y_range, x_values, y_values;
+    x_true = missing, y_true = missing,
+    xlabel = &quot;&quot;, ylabel = &quot;&quot;
+)
+    # Create the main heatmap
+    p_main = histogram2d(x_values, y_values, bins=(x_range, y_range),
+                         show_empty_bins=true, normalize=:probability,
+                         color=:grays, colorbar=false, legend=false,
+                         xlabel=xlabel, ylabel=ylabel)
+    xlims!(p_main, minimum(x_range), maximum(x_range))
+    ylims!(p_main, minimum(y_range), maximum(y_range))
+    # Add true parameters
+    if !ismissing(x_true) &amp;&amp; !ismissing(y_true)
+        scatter!(p_main, [true_intercept], [true_slope],
+                 markersize=6, color=:red, markershape=:cross,
+                 label=&quot;True Parameters&quot;, legend=true)
+    end
+    if !ismissing(x_true)
+        vline!([x_true], linestyle=:dash, linewidth=1, color=:red,
+                label=&quot;&quot;, alpha=0.5)
+    end
+    if !ismissing(y_true)
+        hline!([y_true], linestyle=:dash, linewidth=1, color=:red,
+                label=&quot;&quot;, alpha=0.5)
+    end
+
+    # Create 1D marginal histograms
+    p_top = histogram(x_values, bins=x_range, orientation=:v, legend=false,
+                      normalize=:probability, linewidth=0, color=:black,
+                      showaxis=true, ticks=false)
+    x_probs_max = maximum(p_top.series_list[2].plotattributes[:y])
+    ylims!(p_top, 0, x_probs_max)
+    xlims!(p_top, minimum(x_range), maximum(x_range))
+    p_right = histogram(y_values, bins=y_range, orientation=:h, legend=false,
+                        normalize=:probability, linewidth=0, color=:black,
+                        showaxis=true, ticks=false)
+    y_probs_max = maximum(p_right.series_list[2].plotattributes[:y])
+    xlims!(p_right, 0, y_probs_max)
+    ylims!(p_right, minimum(y_range), maximum(y_range))
+    # Add true parameters
+    if !ismissing(x_true)
+        vline!(p_top, [x_true], linestyle=:dash,
+               linewidth=1, color=:red, legend=false)
+    end
+    if !ismissing(y_true)
+        hline!(p_right, [y_true], linestyle=:dash,
+               linewidth=1, color=:red, legend=false)
+    end
+
+    # Create empty plot for top-right corner
+    p_empty = plot(legend=false, grid=false, showaxis=false, ticks=false)
+
+    # Combine plots using layout
+    plot(p_top, p_empty, p_main, p_right,
+         layout=@layout([a{0.9w,0.1h} b{0.1w,0.1h}; c{0.9w,0.9h} d{0.1w,0.9h}]),
+         size=(750, 750))
+end</code></pre></details><pre><code class="language-julia hljs"># Plot a 2D histogram for the slope and intercept variables
+slopes = [trace[:slope] for trace in traces]
+intercepts = [trace[:intercept] for trace in traces]
+plot_posterior_samples(-4:0.25:4, -4:0.25:4, intercepts, slopes,
+                       x_true=true_intercept, y_true=true_slope,
+                       xlabel=&quot;Intercept&quot;, ylabel=&quot;Slope&quot;)</code></pre><img src="53b12cf8.svg" alt="Example block output"/><p>The distribution of samples produced by importance sampling lies far from the true slope and intercept, and concentrates around values that do not intuitively make sense given the data. The distribution over outlier classifications sheds some light on the problem:</p><pre><code class="language-julia hljs"># Estimate posterior probability of each point being an outlier
+outlier_probs = zeros(length(xs))
+for i = 1:length(xs)
+    for (j, trace) in enumerate(traces)
+        if trace[:data =&gt; i =&gt; :is_outlier]
+            outlier_probs[i] += 1/length(traces)
+        end
+    end
+end
+
+# Plot posterior probability of each point being an outlier
+bar(1:length(xs), outlier_probs,
+    xlabel=&quot;x&quot;, ylabel=&quot;P(outlier | data)&quot;,
+    color=:black, ylim=(0, 1), legend=false)</code></pre><img src="70c5d64a.svg" alt="Example block output"/><p>Importance sampling infers that many of the points are likely to be outliers. That is, instead of inferring a steep slope and a negative intercept, importance sampling prefers to explain the data as a flatter line with <em>many</em> outliers. </p><p>These inferences are indicative of model misspecification. Still, we can&#39;t be confident that this isn&#39;t just an inference failure. After all, we used importance sampling with the prior as our proposal distribution. Since the prior over slopes and intercepts is very narrow, it is very likely that <em>none</em> of the 2000 inner samples used by <a href="../../ref/inference/importance/#Gen.importance_resampling"><code>importance_resampling</code></a> came close to the true slope and intercept. So it is possible that the issues above arise because importance sampling fails to produce a good approximation of the true posterior.</p><p>Before using enumerative inference to resolve this ambiguity, let us try using an MCMC inference algorithm, which might avoid the inference failures of importance sampling by exploring a broader region of the latent space. Similar to the <a href="../mcmc_map/#mcmc_map_tutorial">tutorial on MCMC</a>, we&#39;ll use an MCMC kernel that performs Gaussian drift on the continuous parameters, followed by block resimulation on the outlier classifications:</p><pre><code class="language-julia hljs">@gen function line_proposal(trace)
+    slope ~ normal(trace[:slope], 0.5)
+    intercept ~ normal(trace[:intercept], 0.5)
+end
+
+function mcmc_kernel(trace)
+    # Gaussian drift on line parameters
+    (trace, _) = mh(trace, line_proposal, ())
+
+    # Block resimulation: Update the outlier classifications
+    (xs,) = get_args(trace)
+    n = length(xs)
+    for i=1:n
+        (trace, _) = mh(trace, select(:data =&gt; i =&gt; :is_outlier))
+    end
+    return trace
+end
+
+function mcmc_sampler(kernel, trace, n_iters::Int, n_burnin::Int = 0)
+    traces = Vector{typeof(trace)}()
+    for i in 1:(n_iters + n_burnin)
+        trace = kernel(trace)
+        if i &gt; n_burnin
+            push!(traces, trace)
+        end
+    end
+    return traces
+end</code></pre><p>In addition, we will intiialize MCMC at the true slope and intercept. This way, we can rule out the possibility that MCMC never explores the region of latent space near the true parameters.</p><pre><code class="language-julia hljs"># Generate initial trace at true slope and intercept
+constraints = choicemap(
+    :slope =&gt; true_slope,
+    :intercept =&gt; true_intercept
+)
+constraints = merge(constraints, observations)
+(trace, _) = Gen.generate(misspecified_regression, (xs,), constraints)
+
+# Run MCMC for 10,000 iterations with a burn-in of 500
+traces = mcmc_sampler(mcmc_kernel, trace, 10000, 500)
+
+# Compute the mean slope and intercept
+mean_slope = sum(trace[:slope] for trace in traces) / length(traces)
+mean_intercept = sum(trace[:intercept] for trace in traces) / length(traces)
+
+println(&quot;Mean slope: &quot;, mean_slope)
+println(&quot;Mean intercept: &quot;, mean_intercept)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Mean slope: 0.6144828280922457
+Mean intercept: -0.4148490178236548</code></pre><p>Like importance sampling, MCMC infers a much smaller slope and intercept than the true parameters. Let us visualize the joint posterior.</p><pre><code class="language-julia hljs"># Plot posterior samples
+slopes = [trace[:slope] for trace in traces]
+intercepts = [trace[:intercept] for trace in traces]
+plot_posterior_samples(-4:0.25:4, -4:0.25:4, intercepts, slopes,
+                       x_true=true_intercept, y_true=true_slope,
+                       xlabel=&quot;Intercept&quot;, ylabel=&quot;Slope&quot;)</code></pre><img src="da3f257d.svg" alt="Example block output"/><p>Let us also plot the inferred outlier probabilities:</p><pre><code class="language-julia hljs"># Estimate posterior probability of each point being an outlier
+outlier_probs = zeros(length(xs))
+for i = 1:length(xs)
+    for (j, trace) in enumerate(traces)
+        if trace[:data =&gt; i =&gt; :is_outlier]
+            outlier_probs[i] += 1/length(traces)
+        end
+    end
+end
+
+# Plot posterior probability of each point being an outlier
+bar(1:length(xs), outlier_probs,
+    xlabel=&quot;x&quot;, ylabel=&quot;P(outlier | data)&quot;,
+    color=:black, ylim=(0, 1), legend=false)</code></pre><img src="727413dc.svg" alt="Example block output"/><p>Both MCMC and importance sampling produce similar inferences, inferring a flat slope with many outliers rather than a steep slope with few outliers. This is despite the fact that MCMC was initialized at the true parameters, strongly indicating that model misspecification is at play here.</p><p>In general, however, we don&#39;t have access to the true parameters, nor do we always know if MCMC will converge to the posterior given a finite sample budget. To decisively diagnose model misspecification, we now use enumerative inference with a sufficiently fine grid, ensuring systemic coverage over the latent space.</p><pre><code class="language-julia hljs"># Construct enumeration grid
+grid = choice_vol_grid(
+    (:slope, -4:0.25:4, :continuous),  # 32 grid intervals
+    (:intercept, -4:0.25:4, :continuous),  # 32 grid intervals
+    # Enumerate exactly over outlier classifications
+    (:data =&gt; 1 =&gt; :is_outlier, [false, true]),
+    (:data =&gt; 2 =&gt; :is_outlier, [false, true]),
+    (:data =&gt; 3 =&gt; :is_outlier, [false, true]),
+    (:data =&gt; 4 =&gt; :is_outlier, [false, true]),
+    (:data =&gt; 5 =&gt; :is_outlier, [false, true]);
+    anchor = :midpoint # Anchor evaluation point at midpoint of each interval
+)
+
+# Run enumerative inference
+traces, log_norm_weights, lml_est =
+    enumerative_inference(misspecified_regression, (xs,), observations, grid)
+
+# Compute marginal posterior over slope and intercept
+sum_dims = Tuple(3:ndims(log_norm_weights)) # Sum over all other variables
+posterior_grid = sum(exp.(log_norm_weights), dims=sum_dims)
+posterior_grid = dropdims(posterior_grid; dims=sum_dims)
+
+# Extract parameter ranges
+slope_range = [trs[1][:slope] for trs in eachslice(traces, dims=1)]
+intercept_range = [trs[1][:intercept] for trs in eachslice(traces, dims=2)]
+
+# Plot 2D posterior heatmap with 1D marginals as histograms
+plot_posterior_grid(intercept_range, slope_range, posterior_grid,
+                    x_true = true_intercept, y_true = true_slope,
+                    xlabel = &quot;Intercept&quot;, ylabel = &quot;Slope&quot;, is_discrete = false)</code></pre><img src="8d9fe1eb.svg" alt="Example block output"/><p>While enumerative inference produces a posterior approximation that is smoother than both importance sampling and MCMC, it still assigns a very low posterior density to the true slope and intercept. Inspecting the outlier classifications, we see that many points are inferred as likely outliers:</p><pre><code class="language-julia hljs"># Compute posterior probability of each point being an outlier
+outlier_probs = zeros(length(xs))
+for (j, trace) in enumerate(traces)
+    for i in 1:length(xs)
+        if trace[:data =&gt; i =&gt; :is_outlier]
+            outlier_probs[i] += exp(log_norm_weights[j])
+        end
+    end
+end
+
+bar(1:length(xs), outlier_probs,
+    xlabel=&quot;x&quot;, ylabel=&quot;P(outlier | data)&quot;,
+    color=:black, ylim=(0, 1), legend=false)</code></pre><img src="b957bda6.svg" alt="Example block output"/><p>This confirms that <em>model misspecification is the underlying issue</em>: The generative model we wrote doesn&#39;t capture our intuitions about what posterior inference from the data should give us.</p><h2 id="Addressing-Model-Misspecification"><a class="docs-heading-anchor" href="#Addressing-Model-Misspecification">Addressing Model Misspecification</a><a id="Addressing-Model-Misspecification-1"></a><a class="docs-heading-anchor-permalink" href="#Addressing-Model-Misspecification" title="Permalink"></a></h2><p>Now that we know our model is misspecified, how do we fix it? In the specific example we considered, the priors over the slope and intercept are too narrow, whereas the outlier probability is too high. A straightforward fix would thus be to widen the slope and intercept priors, while lowering the outlier probability.</p><p>However, this change might not generalize to other sets of observations. If some data really is well-characterized by a shallow slope with many outliers, we would like to infer this as well. A more robust solution then, is to introduce <em>hyper-priors</em>: Priors on the parameters of the slope and intercept priors and the outlier probability. Adding hyper-priors results in a hierarchical Bayesian model:</p><pre><code class="language-julia hljs">@gen function h_bayes_regression(xs::Vector{&lt;:Real})
+    # Hyper-prior on slope and intercept prior variances
+    slope_var ~ inv_gamma(1, 1)
+    intercept_var ~ inv_gamma(1, 1)
+    # Slope and intercept priors
+    slope ~ normal(0, sqrt(slope_var))
+    intercept ~ normal(0, sqrt(intercept_var))
+    # Prior on outlier probability
+    prob_outlier ~ beta(1, 1)
+
+    # Sample outlier classification and y value for each x value
+    n = length(xs)
+    ys = Float64[]
+    for i = 1:n
+        # Sample outlier classification
+        is_outlier = {:data =&gt; i =&gt; :is_outlier} ~ bernoulli(prob_outlier)
+
+        if is_outlier
+            # Outliers have large noise
+            y = {:data =&gt; i =&gt; :y} ~ normal(0., 5.)
+        else
+            # Inliers follow the linear relationship, with low noise
+            y_mean = slope * xs[i] + intercept
+            y = {:data =&gt; i =&gt; :y} ~ normal(y_mean, 1.)
+        end
+        push!(ys, y)
+    end
+
+    return ys
+end</code></pre><p>Let&#39;s run enumerative inference on this expanded model, using a coarser grid to compensate for the increased dimensionality of the latent space:</p><pre><code class="language-julia hljs"># Construct enumeration grid
+grid = choice_vol_grid(
+    (:slope, -4:1:4, :continuous),  # 8 grid intervals
+    (:intercept, -4:1:4, :continuous),  # 8 grid intervals
+    (:slope_var, 0:1:5, :continuous),  # 5 grid intervals
+    (:intercept_var, 0:1:5, :continuous),  # 5 grid intervals
+    (:prob_outlier, 0.0:0.2:1.0, :continuous),  # 5 grid intervals
+    # Enumerate exactly over outlier classifications
+    (:data =&gt; 1 =&gt; :is_outlier, [false, true]),
+    (:data =&gt; 2 =&gt; :is_outlier, [false, true]),
+    (:data =&gt; 3 =&gt; :is_outlier, [false, true]),
+    (:data =&gt; 4 =&gt; :is_outlier, [false, true]),
+    (:data =&gt; 5 =&gt; :is_outlier, [false, true]);
+    anchor = :midpoint # Anchor evaluation point at midpoint of each interval
+)
+
+# Run enumerative inference (this may take a while)
+traces, log_norm_weights, lml_est =
+    enumerative_inference(h_bayes_regression, (xs,), observations, grid)
+
+# Compute marginal posterior over slope and intercept
+sum_dims = Tuple(3:ndims(log_norm_weights)) # Sum over all other variables
+posterior_grid = sum(exp.(log_norm_weights), dims=sum_dims)
+posterior_grid = dropdims(posterior_grid; dims=sum_dims)
+
+# Extract parameter ranges
+slope_range = [trs[1][:slope] for trs in eachslice(traces, dims=1)]
+intercept_range = [trs[1][:intercept] for trs in eachslice(traces, dims=2)]
+
+# Plot 2D posterior heatmap with 1D marginals as histograms
+plot_posterior_grid(intercept_range, slope_range, posterior_grid,
+                    x_true = true_intercept, y_true = true_slope,
+                    xlabel = &quot;Intercept&quot;, ylabel = &quot;Slope&quot;, is_discrete = false)</code></pre><img src="dcae7bb9.svg" alt="Example block output"/><p>We see that the mode of the posterior distribution is now close to the true parameters (though there is also a secondary mode corresponding to the interpretation that the data has a shallow slope with outliers). To get a sense of why inference is now reasonable under our new model, let us visualize the conditional posteriors over <code>slope_var</code>, <code>intercept_var</code> and <code>prob_outlier</code> when <code>slope</code> and <code>intercept</code> are fixed at their true values.</p><pre><code class="language-julia hljs"># Construct enumeration grid conditional on true slope and intercept
+cond_grid = choice_vol_grid(
+    (:slope_var, 0.0:0.5:5.0, :continuous),  # 10 grid intervals
+    (:intercept_var, 0.0:0.5:5.0, :continuous),  # 10 grid intervals
+    (:prob_outlier, 0.0:0.1:1.0, :continuous),  # 10 grid intervals
+    # Enumerate exactly over outlier classifications
+    (:data =&gt; 1 =&gt; :is_outlier, [false, true]),
+    (:data =&gt; 2 =&gt; :is_outlier, [false, true]),
+    (:data =&gt; 3 =&gt; :is_outlier, [false, true]),
+    (:data =&gt; 4 =&gt; :is_outlier, [false, true]),
+    (:data =&gt; 5 =&gt; :is_outlier, [false, true]);
+    anchor = :midpoint # Anchor evaluation point at the right of each interval
+)
+
+# Run enumerative inference over conditional posterior
+constraints = choicemap(:slope =&gt; true_slope, :intercept =&gt; true_intercept)
+constraints = merge(constraints, observations)
+traces, log_norm_weights, lml_est =
+    enumerative_inference(h_bayes_regression, (xs,), constraints, cond_grid)
+
+# Compute marginal posterior over slope_var and intercept_var
+sum_dims = Tuple(3:ndims(log_norm_weights)) # Sum over all other variables
+posterior_grid = sum(exp.(log_norm_weights), dims=sum_dims)
+posterior_grid = dropdims(posterior_grid; dims=sum_dims)
+
+# Extract parameter ranges
+slope_var_range = [trs[1][:slope_var] for trs in eachslice(traces, dims=1)]
+intercept_var_range = [trs[1][:intercept_var] for trs in eachslice(traces, dims=2)]
+
+# Plot 2D posterior heatmap with 1D marginals as histograms
+plot_posterior_grid(intercept_var_range, slope_var_range, posterior_grid,
+                    xlabel = &quot;Intercept Variance&quot;, ylabel = &quot;Slope Variance&quot;,
+                    is_discrete = false)</code></pre><img src="9ffb35f7.svg" alt="Example block output"/><pre><code class="language-julia hljs"># Compute marginal posterior over prob_outlier
+sum_dims = (1, 2, 4:ndims(log_norm_weights)...) # Sum over all other variables
+prob_outlier_grid = sum(exp.(log_norm_weights), dims=sum_dims)
+prob_outlier_grid = dropdims(prob_outlier_grid; dims=sum_dims)
+prob_outlier_range = [trs[1][:prob_outlier] for trs in eachslice(traces, dims=3)]
+
+# Plot marginal posterior distribution over prob_outlier
+bar(prob_outlier_range, prob_outlier_grid,
+    legend=false, bar_width=diff(prob_outlier_range)[1],
+    linewidth=0, color=:black, widen=false, xlims=(0, 1),
+    xlabel = &quot;Outlier Probability (prob_outlier)&quot;,
+    ylabel = &quot;Conditional Posterior Probability&quot;)</code></pre><img src="cee9be86.svg" alt="Example block output"/><p>Conditional on the observed data and the true parameters (<code>slope = 2.8</code> and <code>intercept = -2.4</code>), the distribution over <code>slope_var</code> and <code>intercept_var</code> skews towards large values, while the distribution over <code>prob_outlier</code> skews towards low values. This avoids the failure mode that arose when the slope and intercept priors were forced to be narrow. Instead, <code>slope_var</code>, <code>intercept_var</code> and <code>prob_outlier</code> can adjust upwards or downwards to adapt to the observed data.</p><p>Having gained confidence that our new model is well-specified by performing enumerative inference at a coarse-grained level, we can now use MCMC to approximate the posterior more efficiently, and with a higher degree of spatial resolution.</p><pre><code class="language-julia hljs">function h_bayes_mcmc_kernel(trace)
+    # Gaussian drift on line parameters
+    (trace, _) = mh(trace, line_proposal, ())
+
+    # Block resimulation: Update the outlier classifications
+    (xs,) = get_args(trace)
+    n = length(xs)
+    for i=1:n
+        (trace, _) = mh(trace, select(:data =&gt; i =&gt; :is_outlier))
+    end
+
+    # Block resimulation: Update the prior parameters
+    (trace, _) = mh(trace, select(:slope_var))
+    (trace, _) = mh(trace, select(:intercept_var))
+    (trace, _) = mh(trace, select(:prob_outlier))
+    return trace
+end
+
+# Generate initial trace from prior
+trace, _ = Gen.generate(h_bayes_regression, (xs,), observations)
+
+# Run MCMC for 20,000 iterations with a burn-in of 500
+traces = mcmc_sampler(h_bayes_mcmc_kernel, trace, 20000, 500)
+
+# Plot posterior samples
+slopes = [trace[:slope] for trace in traces]
+intercepts = [trace[:intercept] for trace in traces]
+plot_posterior_samples(-4:0.25:4, -4:0.25:4, intercepts, slopes,
+                       x_true=true_intercept, y_true=true_slope,
+                       xlabel=&quot;Intercept&quot;, ylabel=&quot;Slope&quot;)</code></pre><img src="bfd9ba99.svg" alt="Example block output"/><p>MCMC produces samples that concentrate around the true parameters, while still exhibiting some of the bimodality we saw when using coarse-grained enumerative inference.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../mcmc_map/">« Basics of MCMC and MAP Inference</a><a class="docs-footer-nextpage" href="../smc/">Object Tracking with SMC »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Saturday 6 September 2025 14:04">Saturday 6 September 2025</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

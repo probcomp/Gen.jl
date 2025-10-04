@@ -1,0 +1,138 @@
+
+@media all and (max-width: 560px) {
+    header.navigation {
+        position: fixed !important;
+        left:0;
+        top: 0;
+        width: 100%;
+    }
+
+    header.navigation div.container {
+        margin-left: 0rem;
+    }
+
+    header.navigation div.container nav.navbar {
+        min-height: 1rem !important;
+    }
+
+    header.navigation div.container nav.navbar ul.navbar-nav {
+        min-height: 1rem !important;
+        margin-left: 0.5rem !important;
+    }
+
+    header.navigation div.container nav.navbar ul.navbar-nav li.small-item {
+        visibility: visible !important;
+        display: block !important;
+        margin: 0.5rem;
+    }
+    
+    header.navigation div.container nav.navbar ul.navbar-nav li.nav-item {
+        visibility: hidden;
+        display: none;
+    }
+
+    header.navigation div.container nav.navbar ul.navbar-nav li.nav-item a {
+        visibility: hidden;
+        display: none;
+    }
+
+    html:not(.theme--documenter-dark) body #documenter .docs-main {
+        margin-top: 2rem !important;
+    }
+}
+
+@media all and (max-width: 1055px) and (min-width: 561px){
+    header.navigation {
+        position: fixed !important;
+        left:0;
+        top: 0;
+        width: 100%;
+    }
+
+    header.navigation div.container {
+        margin-left: 0rem;
+    }
+    
+    header.navigation div.container nav.navbar ul.navbar-nav {
+        width: 80% !important;
+    }
+}
+
+@media all and (min-width: 1056px) {
+    header.navigation {
+        position: fixed !important;
+        left:0;
+        top: 0;
+        width: 100%;
+    }
+
+    header.navigation div.container {
+        margin-left: 18rem;
+    }
+
+}
+
+html.theme--documenter-dark header.navigation {
+    background-color: #1f2424 !important;
+}
+
+html.theme--documenter-dark header.navigation div.container {
+    border-bottom: 1px solid #5e6d6f;
+}
+
+html.theme--documenter-dark header.navigation div.container nav.navbar {
+    background-color: #1f2424 !important;
+}
+
+html.theme--documenter-dark header.navigation div.container nav.navbar ul.navbar-nav li.nav-item a.nav-link {
+    color: white;
+    transition: color 100ms;
+}
+
+html.theme--documenter-dark header.navigation div.container nav.navbar ul.navbar-nav li.nav-item a.nav-link:hover {
+    color: #0aa8a7
+}
+
+html header.navigation {
+    background-color: white !important;
+}
+
+html header.navigation div.container {
+    border-bottom: 1px solid #dbdbdb;
+}
+
+html header.navigation div.container nav.navbar ul.navbar-nav li.nav-item a.nav-link {
+    color: #222;
+    transition: color 100ms;
+}
+
+html header.navigation div.container nav.navbar ul.navbar-nav li.nav-item a.nav-link:hover {
+    color: #0aa8a7
+}
+
+header.navigation {
+    z-index: 3;
+}
+
+header.navigation div.container nav.navbar ul.navbar-nav {
+    margin-left: 4rem;
+    min-height: 3.25rem;
+    width: 70%;
+    display: flex;
+    align-self: auto;
+    flex-direction: row;
+    justify-content: space-around;
+}
+
+header.navigation div.container nav.navbar ul.navbar-nav li.nav-item {
+    align-self: stretch;
+    align-content: space-around;
+    justify-content: center;
+    display: flex;
+    flex-direction: column;
+}
+
+header.navigation div.container nav.navbar ul.navbar-nav li.small-item {
+    visibility: hidden;
+    display: none;
+}

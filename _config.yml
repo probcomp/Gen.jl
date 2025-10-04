@@ -1,0 +1,10 @@
+url: "" # the base hostname & protocol for your site, e.g. http://example.com
+baseurl: "" # the subpath of your site, e.g. /blog
+title: "Gen" # the name of your site, e.g. ACME Corp.
+
+github_comments_repository: probcomp/gen-blog-comments
+
+exclude:
+    - src
+    - examples
+    - test
