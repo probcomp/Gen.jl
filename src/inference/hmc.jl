@@ -5,6 +5,7 @@ function sample_momenta(n::Int)
 end
 
 function sample_momenta(n::Int, metric::AbstractVector)
+    @assert all(>(0), metric) "All diagonal metric values must be positive"
     return sqrt.(metric) .* sample_momenta(n)
 end
 
