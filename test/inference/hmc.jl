@@ -76,10 +76,6 @@ end
 
 @testset "hmc metric behavior" begin
     import LinearAlgebra, Random
-    
-    # RNG state for reproducibility
-    # As per Julia 1.12 this can be passed to the testset but would fail ci
-    rng=Random.Xoshiro(0x2e026445595ed28e)
 
     # test that different metrics produce different behavior
     @gen function test_metric_effect()
@@ -92,13 +88,13 @@ end
     
 
     # Set RNG to a known state for comparison
-    Random.seed!(rng, 1)
+    Random.seed!(1)
 
     # Run HMC with identity metric (default)
     (trace_identity, _) = hmc(trace1, select(:x, :y); L=5)
     
     # Reset RNG to same state for comparison
-    Random.seed!(rng, 1)
+    Random.seed!(1)
     
     # Run HMC with scaled metric (should behave differently)
     metric_scaled = [10.0, 0.1]  # Very different scales
@@ -114,12 +110,12 @@ end
     
     for i in 1:50
         # Reset to predictable state for each iteration
-        Random.seed!(rng, i)
+        Random.seed!(i)
         (_, accepted_diag) = hmc(trace1, select(:x, :y); 
                                 metric=LinearAlgebra.Diagonal([2.0, 3.0]))
         
         # Reset to same state for comparison
-        Random.seed!(rng, i)
+        Random.seed!(i)
         (_, accepted_dense) = hmc(trace1, select(:x, :y); 
                                  metric=[2.0 0.0; 0.0 3.0])
         
