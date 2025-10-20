@@ -345,7 +345,7 @@ end
     # check input gradient
     @test isapprox(mu_a_grad, finite_diff(f, (mu_a, a, b, z, out), 1, dx))
 
-    # check value trie
+    # check value from choicemap
     @test get_value(choices, :a) == a
     @test get_value(choices, :out) == out
     @test get_value(choices, :bar => :z) == z
@@ -353,7 +353,7 @@ end
     @test length(collect(get_submaps_shallow(choices))) == 1
     @test length(collect(get_values_shallow(choices))) == 2
 
-    # check gradient trie
+    # check gradient from choicemap
     @test length(collect(get_submaps_shallow(gradients))) == 1
     @test length(collect(get_values_shallow(gradients))) == 2
     @test !has_value(gradients, :b) # was not selected
