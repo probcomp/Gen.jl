@@ -373,7 +373,7 @@ function accumulate_param_gradients!(trace)
 end
 
 """
-    (arg_grads, choice_values, choice_grads) = choice_gradients(
+    (arg_grads, choice_values, choice_gradient) = choice_gradients(
         trace, selection=EmptySelection(), retgrad=nothing)
 
 Given a previous trace \$(x, t)\$ (`trace`) and a gradient with respect to the

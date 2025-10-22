@@ -20,9 +20,9 @@
     (new_trace, accepted) = hmc(trace, select(:x))
 
     # For Normal(0,1), grad should be -x
-    (_, values_trie, gradient_trie) = choice_gradients(trace, select(:x), 0)
-    values = to_array(values_trie, Float64)
-    grad = to_array(gradient_trie, Float64)
+    (_, value_choices, gradient_choices) = choice_gradients(trace, select(:x), 0)
+    values = to_array(value_choices, Float64)
+    grad = to_array(gradient_choices, Float64)
     @test values ≈ -grad
 
     # smoke test with vector metric
@@ -58,9 +58,9 @@
     (new_trace, accepted) = hmc(trace, select(:x, :y); metric=metric_vec)
 
     # For each Normal(0,1), grad should be -x
-    (_, values_trie, gradient_trie) = choice_gradients(trace, select(:x, :y), 0)
-    values = to_array(values_trie, Float64)
-    grad = to_array(gradient_trie, Float64)
+    (_, value_choices, gradient_choices) = choice_gradients(trace, select(:x, :y), 0)
+    values = to_array(value_choices, Float64)
+    grad = to_array(gradient_choices, Float64)
     @test values ≈ -grad
 
     # smoke test with Diagonal metric and retval gradient

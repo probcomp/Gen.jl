@@ -88,9 +88,9 @@ function hmc(
 
     # run leapfrog dynamics
     new_trace = trace
-    (_, values_trie, gradient_trie) = choice_gradients(new_trace, selection, retval_grad)
-    values = to_array(values_trie, Float64)
-    gradient = to_array(gradient_trie, Float64)
+    (_, value_choices, gradient_choices) = choice_gradients(new_trace, selection, retval_grad)
+    values = to_array(value_choices, Float64)
+    gradient = to_array(gradient_choices, Float64)
     momenta = sample_momenta(length(values), metric)
     prev_momenta_score = assess_momenta(momenta, metric)
     for step=1:L
@@ -102,10 +102,10 @@ function hmc(
         values += eps * momenta
 
         # get new gradient
-        values_trie = from_array(values_trie, values)
-        (new_trace, _, _) = update(new_trace, args, argdiffs, values_trie)
-        (_, _, gradient_trie) = choice_gradients(new_trace, selection, retval_grad)
-        gradient = to_array(gradient_trie, Float64)
+        value_choices = from_array(value_choices, values)
+        (new_trace, _, _) = update(new_trace, args, argdiffs, value_choices)
+        (_, _, gradient_choices) = choice_gradients(new_trace, selection, retval_grad)
+        gradient = to_array(gradient_choices, Float64)
 
         # half step on momenta
         momenta += (eps / 2) * gradient
