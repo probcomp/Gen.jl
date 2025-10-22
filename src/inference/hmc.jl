@@ -64,13 +64,9 @@ Hamilton's equations are numerically integrated using leapfrog integration with
 step size `eps` for `L` steps and initial momenta sampled from a Gaussian distribution with
 covariance given by `metric` (mass matrix). 
 
-## `metric` options
-
 Sampling with HMC is improved by using a metric/mass matrix that approximates the 
 **inverse** covariance of the target distribution, and is equivalent to a linear transformation
-of the parameter space (see Neal, 2011).
-
-The following options are supported for `metric`:
+of the parameter space (see Neal, 2011). The following options are supported for `metric`:
 
 - `nothing` (default): identity matrix
 - `Vector`: diagonal matrix with the given vector as the diagonal
