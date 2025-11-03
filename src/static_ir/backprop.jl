@@ -275,7 +275,7 @@ function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
 
     if node in fwd_marked
         input_grads = gensym("call_input_grads")
-        choice_value = value_choices_var(node)
+        value_choices = value_choices_var(node)
         choice_gradient = gradient_choices_var(node)
         subtrace_fieldname = get_subtrace_fieldname(node)
         call_selection = gensym("call_selection")
@@ -285,7 +285,7 @@ function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
             push!(stmts, :($call_selection = EmptySelection()))
         end
         retval_grad = node in back_marked ? gradient_var(node) : :(nothing)
-        push!(stmts, :(($input_grads, $choice_value, $choice_gradient) = choice_gradients(
+        push!(stmts, :(($input_grads, $value_choices, $choice_gradient) = choice_gradients(
             trace.$subtrace_fieldname, $call_selection, $retval_grad)))
     end
 
@@ -297,7 +297,7 @@ function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
         end
     end
 
-    # NOTE: the choice_value and choice_gradient are dealt with later
+    # NOTE: the value_choices and choice_gradient are dealt with later
 end
 
 function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
@@ -327,7 +327,7 @@ end
 
 function generate_value_choice_gradient(selected_choices::Set{RandomChoiceNode},
                                       selected_calls::Set{GenerativeFunctionCallNode},
-                                      choice_value::Symbol, choice_gradient::Symbol)
+                                      value_choices::Symbol, choice_gradient::Symbol)
     selected_choices_vec = collect(selected_choices)
     quoted_leaf_keys = map((node) -> QuoteNode(node.addr), selected_choices_vec)
     leaf_values = map((node) -> :(trace.$(get_value_fieldname(node))), selected_choices_vec)
@@ -339,7 +339,7 @@ function generate_value_choice_gradient(selected_choices::Set{RandomChoiceNode},
                           selected_calls_vec)
     internal_gradients = map((node) -> gradient_choices_var(node), selected_calls_vec)
     quote
-        $choice_value = StaticChoiceMap(
+        $value_choices = StaticChoiceMap(
             NamedTuple{($(quoted_leaf_keys...),)}(($(leaf_values...),)),
             NamedTuple{($(quoted_internal_keys...),)}(($(internal_values...),)))
         $choice_gradient = StaticChoiceMap(
@@ -429,18 +429,18 @@ function codegen_choice_gradients(trace_type::Type{T}, selection_type::Type,
         back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked, node, BackpropTraceMode())
     end
 
-    # assemble choice_value and choice_gradient
-    choice_value = gensym("choice_value")
+    # assemble value_choices and choice_gradient
+    value_choices = gensym("value_choices")
     choice_gradient = gensym("choice_gradient")
     push!(stmts, generate_value_choice_gradient(selected_choices, selected_calls,
-        choice_value, choice_gradient))
+        value_choices, choice_gradient))
 
     # gradients with respect to inputs
     arg_grad = (node::ArgumentNode) -> node.compute_grad ? gradient_var(node) : :(nothing)
     input_grads = Expr(:tuple, map(arg_grad, ir.arg_nodes)...)
 
     # return values
-    push!(stmts, :(return ($input_grads, $choice_value, $choice_gradient)))
+    push!(stmts, :(return ($input_grads, $value_choices, $choice_gradient)))
 
     Expr(:block, stmts...)
 end
