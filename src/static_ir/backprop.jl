@@ -8,7 +8,7 @@ const value_choices_prefix = gensym("value_choices")
 value_choices_var(node::GenerativeFunctionCallNode) = Symbol("$(value_choices_prefix)_$(node.addr)")
 
 const gradient_choices_prefix = gensym("gradient_choices")
-choice_gradient_var(node::GenerativeFunctionCallNode) = Symbol("$(choice_gradient_prefix)_$(node.addr)")
+gradient_choices_var(node::GenerativeFunctionCallNode) = Symbol("$(gradient_choices_prefix)_$(node.addr)")
 
 const tape_prefix = gensym("tape")
 tape_var(node::JuliaNode) = Symbol("$(tape_prefix)_$(node.name)")
@@ -276,7 +276,7 @@ function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
     if node in fwd_marked
         input_grads = gensym("call_input_grads")
         choice_value = value_choices_var(node)
-        choice_gradient = choice_gradient_var(node)
+        choice_gradient = gradient_choices_var(node)
         subtrace_fieldname = get_subtrace_fieldname(node)
         call_selection = gensym("call_selection")
         if node in selected_calls
@@ -337,7 +337,7 @@ function generate_value_choice_gradient(selected_choices::Set{RandomChoiceNode},
     quoted_internal_keys = map((node) -> QuoteNode(node.addr), selected_calls_vec)
     internal_values = map((node) -> :(get_choices(trace.$(get_subtrace_fieldname(node)))),
                           selected_calls_vec)
-    internal_gradients = map((node) -> choice_gradient_var(node), selected_calls_vec)
+    internal_gradients = map((node) -> gradient_choices_var(node), selected_calls_vec)
     quote
         $choice_value = StaticChoiceMap(
             NamedTuple{($(quoted_leaf_keys...),)}(($(leaf_values...),)),
