@@ -325,7 +325,7 @@ function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
     end
 end
 
-function generate_value_choice_gradient(selected_choices::Set{RandomChoiceNode},
+function generate_value_gradient_choices(selected_choices::Set{RandomChoiceNode},
                                       selected_calls::Set{GenerativeFunctionCallNode},
                                       value_choices::Symbol, gradient_choices::Symbol)
     selected_choices_vec = collect(selected_choices)
@@ -432,7 +432,7 @@ function codegen_choice_gradients(trace_type::Type{T}, selection_type::Type,
     # assemble value_choices and gradient_choices
     value_choices = gensym("value_choices")
     gradient_choices = gensym("gradient_choices")
-    push!(stmts, generate_value_choice_gradient(selected_choices, selected_calls,
+    push!(stmts, generate_value_gradient_choices(selected_choices, selected_calls,
         value_choices, gradient_choices))
 
     # gradients with respect to inputs
