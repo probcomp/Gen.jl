@@ -373,7 +373,7 @@ function accumulate_param_gradients!(trace)
 end
 
 """
-    (arg_grads, choice_values, choice_gradient) = choice_gradients(
+    (arg_grads, value_choices, gradient_choices) = choice_gradients(
         trace, selection=EmptySelection(), retgrad=nothing)
 
 Given a previous trace \$(x, t)\$ (`trace`) and a gradient with respect to the
@@ -389,7 +389,7 @@ If an argument is not annotated with `(grad)`, the corresponding value in
 `arg_grads` will be `nothing`.
 
 Also given a set of addresses \$A\$ (`selection`) that are continuous-valued
-random choices, return the folowing gradient (`choice_grads`) with respect to
+random choices, return the folowing gradient (`gradient_choices`) with respect to
 the values of these choices:
 ```math
 ∇_A \\left( \\log P(t; x) + J \\right)
@@ -397,7 +397,7 @@ the values of these choices:
 The gradient is represented as a choicemap whose value at (hierarchical)
 address `addr` is \$∂J/∂t[\\texttt{addr}]\$.
 
-Also return the choicemap (`choice_values`) that is the restriction of \$t\$ to \$A\$.
+Also return the choicemap (`value_choices`) that is the restriction of \$t\$ to \$A\$.
 """
 function choice_gradients(trace, selection::Selection, retgrad)
     error("Not implemented")
