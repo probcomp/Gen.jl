@@ -429,18 +429,18 @@ function codegen_choice_gradients(trace_type::Type{T}, selection_type::Type,
         back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked, node, BackpropTraceMode())
     end
 
-    # assemble value_choices and choice_gradient
+    # assemble value_choices and gradient_choices
     value_choices = gensym("value_choices")
-    choice_gradient = gensym("choice_gradient")
+    gradient_choices = gensym("gradient_choices")
     push!(stmts, generate_value_choice_gradient(selected_choices, selected_calls,
-        value_choices, choice_gradient))
+        value_choices, gradient_choices))
 
     # gradients with respect to inputs
     arg_grad = (node::ArgumentNode) -> node.compute_grad ? gradient_var(node) : :(nothing)
     input_grads = Expr(:tuple, map(arg_grad, ir.arg_nodes)...)
 
     # return values
-    push!(stmts, :(return ($input_grads, $value_choices, $choice_gradient)))
+    push!(stmts, :(return ($input_grads, $value_choices, $gradient_choices)))
 
     Expr(:block, stmts...)
 end
