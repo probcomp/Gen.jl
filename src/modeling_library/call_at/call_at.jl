@@ -144,11 +144,11 @@ end
 
 function choice_gradients(trace::CallAtTrace, selection::Selection, retval_grad)
     subselection = selection[trace.key]
-    (kernel_input_grads, value_submap, gradient_submap) = choice_gradients(
+    (kernel_input_grads, value_choices_submap, gradient_choices_submap) = choice_gradients(
         trace.subtrace, subselection, retval_grad)
     input_grads = (kernel_input_grads..., nothing)
-    value_choices = CallAtChoiceMap(trace.key, value_submap)
-    gradient_choices = CallAtChoiceMap(trace.key, gradient_submap)
+    value_choices = CallAtChoiceMap(trace.key, value_choices_submap)
+    gradient_choices = CallAtChoiceMap(trace.key, gradient_choices_submap)
     (input_grads, value_choices, gradient_choices)
 end
 

@@ -351,26 +351,26 @@ end
     selection = select(:bar => :z, :a, :out)
     selection = StaticSelection(selection)
     retval_grad = 2.
-    ((mu_a_grad,), value_trie, gradient_trie) = choice_gradients(trace, selection, retval_grad)
+    ((mu_a_grad,), value_choices, gradient_choices) = choice_gradients(trace, selection, retval_grad)
 
     # check input gradient
     @test isapprox(mu_a_grad, finite_diff(f, (mu_a, theta, a, b, z, out), 1, dx))
 
-    # check value trie
-    @test get_value(value_trie, :a) == a
-    @test get_value(value_trie, :out) == out
-    @test get_value(value_trie, :bar => :z) == z
-    @test !has_value(value_trie, :b) # was not selected
-    @test length(get_submaps_shallow(value_trie)) == 1
-    @test length(get_values_shallow(value_trie)) == 2
+    # check value from choice map
+    @test get_value(value_choices, :a) == a
+    @test get_value(value_choices, :out) == out
+    @test get_value(value_choices, :bar => :z) == z
+    @test !has_value(value_choices, :b) # was not selected
+    @test length(get_submaps_shallow(value_choices)) == 1
+    @test length(get_values_shallow(value_choices)) == 2
 
-    # check gradient trie
-    @test length(get_submaps_shallow(gradient_trie)) == 1
-    @test length(get_values_shallow(gradient_trie)) == 2
-    @test !has_value(gradient_trie, :b) # was not selected
-    @test isapprox(get_value(gradient_trie, :a), finite_diff(f, (mu_a, theta, a, b, z, out), 3, dx))
-    @test isapprox(get_value(gradient_trie, :out), finite_diff(f, (mu_a, theta, a, b, z, out), 6, dx))
-    @test isapprox(get_value(gradient_trie, :bar => :z), finite_diff(f, (mu_a, theta, a, b, z, out), 5, dx))
+    # check gradient from choice map
+    @test length(get_submaps_shallow(gradient_choices)) == 1
+    @test length(get_values_shallow(gradient_choices)) == 2
+    @test !has_value(gradient_choices, :b) # was not selected
+    @test isapprox(get_value(gradient_choices, :a), finite_diff(f, (mu_a, theta, a, b, z, out), 3, dx))
+    @test isapprox(get_value(gradient_choices, :out), finite_diff(f, (mu_a, theta, a, b, z, out), 6, dx))
+    @test isapprox(get_value(gradient_choices, :bar => :z), finite_diff(f, (mu_a, theta, a, b, z, out), 5, dx))
 
     # reset the trainable parameter gradient
     zero_param_grad!(foo, :theta)

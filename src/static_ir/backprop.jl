@@ -4,11 +4,11 @@ struct BackpropParamsMode end
 const gradient_prefix = gensym("gradient")
 gradient_var(node::StaticIRNode) = Symbol("$(gradient_prefix)_$(node.name)")
 
-const value_trie_prefix = gensym("value_trie")
-value_trie_var(node::GenerativeFunctionCallNode) = Symbol("$(value_trie_prefix)_$(node.addr)")
+const value_choices_prefix = gensym("value_choices")
+value_choices_var(node::GenerativeFunctionCallNode) = Symbol("$(value_choices_prefix)_$(node.addr)")
 
-const gradient_trie_prefix = gensym("gradient_trie")
-gradient_trie_var(node::GenerativeFunctionCallNode) = Symbol("$(gradient_trie_prefix)_$(node.addr)")
+const gradient_choices_prefix = gensym("gradient_choices")
+gradient_choices_var(node::GenerativeFunctionCallNode) = Symbol("$(gradient_choices_prefix)_$(node.addr)")
 
 const tape_prefix = gensym("tape")
 tape_var(node::JuliaNode) = Symbol("$(tape_prefix)_$(node.name)")
@@ -128,7 +128,7 @@ function fwd_codegen!(stmts, fwd_marked, back_marked, node::JuliaNode)
         # we need the value for initializing gradient to zero (to get the type
         # and e.g. shape), and for reference by other nodes during
         # back_codegen! we could be more selective about which JuliaNodes need
-        # to be evalutaed, that is a performance optimization for the future
+        # to be evaluated, that is a performance optimization for the future
         args = map((input_node) -> input_node.name, node.inputs)
         push!(stmts, :($(node.name) = $(QuoteNode(node.fn))($(args...))))
     end
@@ -275,8 +275,8 @@ function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
 
     if node in fwd_marked
         input_grads = gensym("call_input_grads")
-        value_trie = value_trie_var(node)
-        gradient_trie = gradient_trie_var(node)
+        value_choices = value_choices_var(node)
+        gradient_choices = gradient_choices_var(node)
         subtrace_fieldname = get_subtrace_fieldname(node)
         call_selection = gensym("call_selection")
         if node in selected_calls
@@ -285,7 +285,7 @@ function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
             push!(stmts, :($call_selection = EmptySelection()))
         end
         retval_grad = node in back_marked ? gradient_var(node) : :(nothing)
-        push!(stmts, :(($input_grads, $value_trie, $gradient_trie) = choice_gradients(
+        push!(stmts, :(($input_grads, $value_choices, $gradient_choices) = choice_gradients(
             trace.$subtrace_fieldname, $call_selection, $retval_grad)))
     end
 
@@ -297,7 +297,7 @@ function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
         end
     end
 
-    # NOTE: the value_trie and gradient_trie are dealt with later
+    # NOTE: the value_choices and gradient_choices are dealt with later
 end
 
 function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
@@ -325,9 +325,9 @@ function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
     end
 end
 
-function generate_value_gradient_trie(selected_choices::Set{RandomChoiceNode},
+function generate_value_gradient_choices(selected_choices::Set{RandomChoiceNode},
                                       selected_calls::Set{GenerativeFunctionCallNode},
-                                      value_trie::Symbol, gradient_trie::Symbol)
+                                      value_choices::Symbol, gradient_choices::Symbol)
     selected_choices_vec = collect(selected_choices)
     quoted_leaf_keys = map((node) -> QuoteNode(node.addr), selected_choices_vec)
     leaf_values = map((node) -> :(trace.$(get_value_fieldname(node))), selected_choices_vec)
@@ -337,12 +337,12 @@ function generate_value_gradient_trie(selected_choices::Set{RandomChoiceNode},
     quoted_internal_keys = map((node) -> QuoteNode(node.addr), selected_calls_vec)
     internal_values = map((node) -> :(get_choices(trace.$(get_subtrace_fieldname(node)))),
                           selected_calls_vec)
-    internal_gradients = map((node) -> gradient_trie_var(node), selected_calls_vec)
+    internal_gradients = map((node) -> gradient_choices_var(node), selected_calls_vec)
     quote
-        $value_trie = StaticChoiceMap(
+        $value_choices = StaticChoiceMap(
             NamedTuple{($(quoted_leaf_keys...),)}(($(leaf_values...),)),
             NamedTuple{($(quoted_internal_keys...),)}(($(internal_values...),)))
-        $gradient_trie = StaticChoiceMap(
+        $gradient_choices = StaticChoiceMap(
             NamedTuple{($(quoted_leaf_keys...),)}(($(leaf_gradients...),)),
             NamedTuple{($(quoted_internal_keys...),)}(($(internal_gradients...),)))
     end
@@ -429,18 +429,18 @@ function codegen_choice_gradients(trace_type::Type{T}, selection_type::Type,
         back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked, node, BackpropTraceMode())
     end
 
-    # assemble value_trie and gradient_trie
-    value_trie = gensym("value_trie")
-    gradient_trie = gensym("gradient_trie")
-    push!(stmts, generate_value_gradient_trie(selected_choices, selected_calls,
-        value_trie, gradient_trie))
+    # assemble value_choices and gradient_choices
+    value_choices = gensym("value_choices")
+    gradient_choices = gensym("gradient_choices")
+    push!(stmts, generate_value_gradient_choices(selected_choices, selected_calls,
+        value_choices, gradient_choices))
 
     # gradients with respect to inputs
     arg_grad = (node::ArgumentNode) -> node.compute_grad ? gradient_var(node) : :(nothing)
     input_grads = Expr(:tuple, map(arg_grad, ir.arg_nodes)...)
 
     # return values
-    push!(stmts, :(return ($input_grads, $value_trie, $gradient_trie)))
+    push!(stmts, :(return ($input_grads, $value_choices, $gradient_choices)))
 
     Expr(:block, stmts...)
 end

@@ -11,16 +11,16 @@ function map_optimize(trace, selection::Selection;
     argdiffs = map((_) -> NoChange(), args)
     retval_grad = accepts_output_grad(get_gen_fn(trace)) ? zero(get_retval(trace)) : nothing
 
-    (_, values, gradient) = choice_gradients(trace, selection, retval_grad)
-    values_vec = to_array(values, Float64)
-    gradient_vec = to_array(gradient, Float64)
+    (_, value_choices, gradient_choices) = choice_gradients(trace, selection, retval_grad)
+    values_vec = to_array(value_choices, Float64)
+    gradient_vec = to_array(gradient_choices, Float64)
     step_size = max_step_size
     score = get_score(trace)
     while true
         new_values_vec = values_vec + gradient_vec * step_size
-        values = from_array(values, new_values_vec)
+        value_choices = from_array(value_choices, new_values_vec)
         # TODO discard and weight are not actually needed, there should be a more specialized variant
-        (new_trace, _, _, discard) = update(trace, args, argdiffs, values)
+        (new_trace, _, _, discard) = update(trace, args, argdiffs, value_choices)
         new_score = get_score(new_trace)
         change = new_score - score
         if verbose
