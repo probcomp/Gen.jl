@@ -297,7 +297,7 @@ function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
         end
     end
 
-    # NOTE: the value_choices and choice_gradient are dealt with later
+    # NOTE: the value_choices and gradient_choices are dealt with later
 end
 
 function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
@@ -327,7 +327,7 @@ end
 
 function generate_value_choice_gradient(selected_choices::Set{RandomChoiceNode},
                                       selected_calls::Set{GenerativeFunctionCallNode},
-                                      value_choices::Symbol, choice_gradient::Symbol)
+                                      value_choices::Symbol, gradient_choices::Symbol)
     selected_choices_vec = collect(selected_choices)
     quoted_leaf_keys = map((node) -> QuoteNode(node.addr), selected_choices_vec)
     leaf_values = map((node) -> :(trace.$(get_value_fieldname(node))), selected_choices_vec)
@@ -342,7 +342,7 @@ function generate_value_choice_gradient(selected_choices::Set{RandomChoiceNode},
         $value_choices = StaticChoiceMap(
             NamedTuple{($(quoted_leaf_keys...),)}(($(leaf_values...),)),
             NamedTuple{($(quoted_internal_keys...),)}(($(internal_values...),)))
-        $choice_gradient = StaticChoiceMap(
+        $gradient_choices = StaticChoiceMap(
             NamedTuple{($(quoted_leaf_keys...),)}(($(leaf_gradients...),)),
             NamedTuple{($(quoted_internal_keys...),)}(($(internal_gradients...),)))
     end
