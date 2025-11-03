@@ -276,7 +276,7 @@ function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
     if node in fwd_marked
         input_grads = gensym("call_input_grads")
         value_choices = value_choices_var(node)
-        choice_gradient = gradient_choices_var(node)
+        gradient_choices = gradient_choices_var(node)
         subtrace_fieldname = get_subtrace_fieldname(node)
         call_selection = gensym("call_selection")
         if node in selected_calls
@@ -285,7 +285,7 @@ function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
             push!(stmts, :($call_selection = EmptySelection()))
         end
         retval_grad = node in back_marked ? gradient_var(node) : :(nothing)
-        push!(stmts, :(($input_grads, $value_choices, $choice_gradient) = choice_gradients(
+        push!(stmts, :(($input_grads, $value_choices, $gradient_choices) = choice_gradients(
             trace.$subtrace_fieldname, $call_selection, $retval_grad)))
     end
 
