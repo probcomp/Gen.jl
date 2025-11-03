@@ -4,10 +4,10 @@ struct BackpropParamsMode end
 const gradient_prefix = gensym("gradient")
 gradient_var(node::StaticIRNode) = Symbol("$(gradient_prefix)_$(node.name)")
 
-const choice_value_prefix = gensym("choice_value")
-choice_value_var(node::GenerativeFunctionCallNode) = Symbol("$(choice_value_prefix)_$(node.addr)")
+const value_choices_prefix = gensym("value_choices")
+value_choices_var(node::GenerativeFunctionCallNode) = Symbol("$(value_choices_prefix)_$(node.addr)")
 
-const choice_gradient_prefix = gensym("choice_gradient")
+const gradient_choices_prefix = gensym("gradient_choices")
 choice_gradient_var(node::GenerativeFunctionCallNode) = Symbol("$(choice_gradient_prefix)_$(node.addr)")
 
 const tape_prefix = gensym("tape")
@@ -275,7 +275,7 @@ function back_codegen!(stmts, ir, selected_calls, fwd_marked, back_marked,
 
     if node in fwd_marked
         input_grads = gensym("call_input_grads")
-        choice_value = choice_value_var(node)
+        choice_value = value_choices_var(node)
         choice_gradient = choice_gradient_var(node)
         subtrace_fieldname = get_subtrace_fieldname(node)
         call_selection = gensym("call_selection")
