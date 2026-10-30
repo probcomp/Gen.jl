@@ -481,15 +481,15 @@ foo = Unfold(kernel)
     @testset "test 1 - accumulate_param_gradients!" begin
 
         @gen function kernel(t::Int, x_prev::Float64, (grad)(alpha::Float64), (grad)(beta::Float64))
-            @param std::Float64
-            x = @trace(normal(x_prev * alpha + beta, std), :x)
+            @param std_param::Float64
+            x = @trace(normal(x_prev * alpha + beta, std_param), :x)
             return x
         end
 
         foo = Unfold(kernel)
 
         std = 1.
-        set_param!(kernel, :std, std)
+        set_param!(kernel, :std_param, std)
 
         x_init = 0.1
         alpha = 0.2
@@ -502,7 +502,7 @@ foo = Unfold(kernel)
         constraints[2 => :x] = x2
         (trace, _) = generate(foo, (2, x_init, alpha, beta), constraints)
 
-        zero_param_grad!(kernel, :std)
+        zero_param_grad!(kernel, :std_param)
         input_grads = accumulate_param_gradients!(trace, nothing)
         expected_xs_grad = logpdf_grad(normal, x1, x_init * alpha + beta, std)[2] * x_init + logpdf_grad(normal, x2, x1 * alpha + beta, std)[2] * x1
         expected_ys_grad = logpdf_grad(normal, x1, x_init * alpha + beta, std)[2] + logpdf_grad(normal, x2, x1 * alpha + beta, std)[2]
@@ -513,7 +513,7 @@ foo = Unfold(kernel)
         @test isapprox(input_grads[4], expected_ys_grad) # beta
         expected_std_grad = (logpdf_grad(normal, x1, x_init * alpha + beta, std)[3]
                              + logpdf_grad(normal, x2, x1 * alpha + beta, std)[3])
-        @test isapprox(get_param_grad(kernel, :std), expected_std_grad)
+        @test isapprox(get_param_grad(kernel, :std_param), expected_std_grad)
     end
 
     @gen (grad) function ker(t, (grad)(x::Float64))
