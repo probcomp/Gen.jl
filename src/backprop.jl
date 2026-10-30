@@ -9,12 +9,27 @@ new_tape() = ReverseDiff.InstructionTape()
 track(value, tape) = ReverseDiff.track(value, tape)
 value(maybe_tracked) = ReverseDiff.value(maybe_tracked)
 deriv!(maybe_tracked, deriv) = ReverseDiff.deriv!(maybe_tracked, deriv)
-reverse_pass!(tape) = ReverseDiff.reverse_pass!(tape)
 deriv(tracked) = ReverseDiff.deriv(tracked)
 istracked(maybe_tracked) = ReverseDiff.istracked(maybe_tracked)
 record!(tape, instruction_type, args...) = ReverseDiff.record!(tape, instruction_type, args...)
 increment_deriv!(arg, deriv) = ReverseDiff.increment_deriv!(arg, deriv)
 seed!(tracked) = ReverseDiff.seed!(tracked)
 unseed!(tracked) = ReverseDiff.unseed!(tracked)
+
+# Call finish! before reverse_pass! for ReverseDiff versions that require it
+if isdefined(ReverseDiff, :finish!)
+    @eval begin
+        function reverse_pass!(tape)
+            ReverseDiff.finish!(tape)
+            ReverseDiff.reverse_pass!(tape)
+        end
+    end
+else
+    @eval begin
+        function reverse_pass!(tape)
+            ReverseDiff.reverse_pass!(tape)
+        end
+    end
+end
 
 using ReverseDiff: InstructionTape, TrackedReal, TrackedArray
