@@ -74,81 +74,64 @@ $(document).ready(function() {
 ////////////////////////////////////////////////////////////////////////////////
 require(['jquery'], function($) {
 
-let timer = 0;
-var isExpanded = true;
+///////////////////////////////////
 
-$(document).on(
-  "click",
-  ".docstring .docstring-article-toggle-button",
-  function () {
-    let articleToggleTitle = "Expand docstring";
-    const parent = $(this).parent();
-
-    debounce(() => {
-      if (parent.siblings("section").is(":visible")) {
-        parent
-          .find("a.docstring-article-toggle-button")
-          .removeClass("fa-chevron-down")
-          .addClass("fa-chevron-right");
-      } else {
-        parent
-          .find("a.docstring-article-toggle-button")
-          .removeClass("fa-chevron-right")
-          .addClass("fa-chevron-down");
-
-        articleToggleTitle = "Collapse docstring";
-      }
-
-      parent
-        .children(".docstring-article-toggle-button")
-        .prop("title", articleToggleTitle);
-      parent.siblings("section").slideToggle();
-    });
-  },
-);
-
-$(document).on("click", ".docs-article-toggle-button", function (event) {
-  let articleToggleTitle = "Expand docstring";
-  let navArticleToggleTitle = "Expand all docstrings";
-  let animationSpeed = event.noToggleAnimation ? 0 : 400;
-
-  debounce(() => {
-    if (isExpanded) {
-      $(this).removeClass("fa-chevron-up").addClass("fa-chevron-down");
-      $("a.docstring-article-toggle-button")
-        .removeClass("fa-chevron-down")
-        .addClass("fa-chevron-right");
-
-      isExpanded = false;
-
-      $(".docstring section").slideUp(animationSpeed);
-    } else {
-      $(this).removeClass("fa-chevron-down").addClass("fa-chevron-up");
-      $("a.docstring-article-toggle-button")
-        .removeClass("fa-chevron-right")
-        .addClass("fa-chevron-down");
-
-      isExpanded = true;
-      articleToggleTitle = "Collapse docstring";
-      navArticleToggleTitle = "Collapse all docstrings";
-
-      $(".docstring section").slideDown(animationSpeed);
+// to open and scroll to
+function openTarget() {
+  const hash = decodeURIComponent(location.hash.substring(1));
+  if (hash) {
+    const target = document.getElementById(hash);
+    if (target) {
+      const details = target.closest("details");
+      if (details) details.open = true;
     }
-
-    $(this).prop("title", navArticleToggleTitle);
-    $(".docstring-article-toggle-button").prop("title", articleToggleTitle);
-  });
-});
-
-function debounce(callback, timeout = 300) {
-  if (Date.now() - timer > timeout) {
-    callback();
   }
-
-  clearTimeout(timer);
-
-  timer = Date.now();
 }
+openTarget(); // onload
+window.addEventListener("hashchange", openTarget);
+window.addEventListener("load", openTarget);
+
+//////////////////////////////////////
+// for the global expand/collapse butter
+
+function accordion() {
+  document.body
+    .querySelectorAll("details.docstring")
+    .forEach((e) => e.setAttribute("open", "true"));
+}
+
+function noccordion() {
+  document.body
+    .querySelectorAll("details.docstring")
+    .forEach((e) => e.removeAttribute("open"));
+}
+
+function expandAll() {
+  let me = document.getElementById("documenter-article-toggle-button");
+  me.setAttribute("open", "true");
+  $(me).removeClass("fa-chevron-down").addClass("fa-chevron-up");
+  $(me).prop("title", "Collapse all docstrings");
+  accordion();
+}
+
+function collapseAll() {
+  let me = document.getElementById("documenter-article-toggle-button");
+  me.removeAttribute("open");
+  $(me).removeClass("fa-chevron-up").addClass("fa-chevron-down");
+  $(me).prop("title", "Expand all docstrings");
+  noccordion();
+}
+
+$(document).on("click", ".docs-article-toggle-button", function () {
+  var isExpanded = this.hasAttribute("open");
+  if (isExpanded) {
+    collapseAll();
+    isExpanded = false;
+  } else {
+    expandAll();
+    isExpanded = true;
+  }
+});
 
 })
 ////////////////////////////////////////////////////////////////////////////////
@@ -216,6 +199,99 @@ if (document.readyState === "loading") {
 
 })
 ////////////////////////////////////////////////////////////////////////////////
+require(['jquery'], function($) {
+$(document).ready(function () {
+  // Gap between the reference and the preview, and the minimum distance the preview keeps
+  // from the edges of the viewport.
+  var MARGIN = 10;
+  // Grace period that lets the pointer travel from the reference to the preview.
+  var HIDE_DELAY = 200;
+
+  var hideTimer = null;
+  var $visible = null;
+
+  function show($ref) {
+    clearTimeout(hideTimer);
+    var $preview = $ref.next(".footnote-preview");
+    if ($visible && $visible[0] !== $preview[0]) {
+      hideNow();
+    }
+    var content = $($ref.attr("href")).clone().find("a").remove().end().html();
+    $preview
+      .empty()
+      .append($("<div>", { class: "footnote-preview-content" }).html(content))
+      .css("display", "block");
+    $visible = $preview;
+    reposition();
+  }
+
+  function hideNow() {
+    if (!$visible) return;
+    $visible
+      .removeClass("is-above")
+      .css({ display: "", top: "", left: "", "--arrow-left": "" })
+      .empty();
+    $visible = null;
+  }
+
+  function hideSoon() {
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(hideNow, HIDE_DELAY);
+  }
+
+  // The preview is positioned with `position: fixed` so that it is never clipped by an
+  // ancestor that scrolls or hides its overflow, such as a table or a code block.
+  function reposition() {
+    if (!$visible) return;
+    var $preview = $visible;
+    var $content = $preview.children(".footnote-preview-content");
+    var $ref = $preview.prev(".footnote-ref");
+    var refRect = $ref[0].getBoundingClientRect();
+    var viewportWidth = document.documentElement.clientWidth;
+    var viewportHeight = document.documentElement.clientHeight;
+
+    // Measure the unconstrained size first, to decide whether the preview fits below.
+    $preview.css({ top: 0, left: 0 });
+    $content.css("max-height", "");
+    var spaceBelow = viewportHeight - refRect.bottom - 2 * MARGIN;
+    var spaceAbove = refRect.top - 2 * MARGIN;
+    var above =
+      $preview[0].offsetHeight > spaceBelow && spaceAbove > spaceBelow;
+
+    // Cap the content, not the box itself, so that the arrow is not clipped away.
+    var padding = $preview[0].offsetHeight - $content[0].offsetHeight;
+    var space = (above ? spaceAbove : spaceBelow) - padding;
+    $content.css("max-height", Math.max(space, 0));
+
+    var width = $preview[0].offsetWidth;
+    var height = $preview[0].offsetHeight;
+
+    var left = refRect.left + refRect.width / 2 - width / 2;
+    left = Math.min(left, viewportWidth - width - MARGIN);
+    left = Math.max(left, MARGIN);
+
+    $preview.toggleClass("is-above", above).css({
+      left: left,
+      top: above ? refRect.top - height - MARGIN : refRect.bottom + MARGIN,
+      "--arrow-left": refRect.left + refRect.width / 2 - left + "px",
+    });
+  }
+
+  $(document)
+    .on("mouseenter", ".footnote-ref", function () {
+      show($(this));
+    })
+    .on("mouseleave", ".footnote-ref", hideSoon)
+    .on("mouseenter", ".footnote-preview", function () {
+      clearTimeout(hideTimer);
+    })
+    .on("mouseleave", ".footnote-preview", hideSoon);
+
+  $(window).on("scroll resize", reposition);
+});
+
+})
+////////////////////////////////////////////////////////////////////////////////
 require(['jquery', 'headroom', 'headroom-jquery'], function($, Headroom) {
 
 // Manages the top navigation bar (hides it when the user starts scrolling down on the
@@ -233,26 +309,10 @@ require(['jquery'], function($) {
 
 $(document).ready(function () {
   let meta = $("div[data-docstringscollapsed]").data();
-
-  if (meta?.docstringscollapsed) {
+  if (!meta?.docstringscollapsed) {
     $("#documenter-article-toggle-button").trigger({
       type: "click",
-      noToggleAnimation: true,
     });
-
-    setTimeout(function () {
-      if (window.location.hash) {
-        const targetId = window.location.hash.substring(1);
-        const targetElement = document.getElementById(targetId);
-
-        if (targetElement) {
-          targetElement.scrollIntoView({
-            behavior: "smooth",
-            block: "center",
-          });
-        }
-      }
-    }, 100);
   }
 });
 
@@ -326,7 +386,7 @@ update_search
 
 function worker_function(documenterSearchIndex, documenterBaseURL, filters) {
   importScripts(
-    "https://cdn.jsdelivr.net/npm/minisearch@6.1.0/dist/umd/index.min.js",
+    "https://cdnjs.cloudflare.com/ajax/libs/minisearch/6.2.0/umd/index.min.js",
   );
 
   let data = documenterSearchIndex.map((x, key) => {
@@ -451,10 +511,10 @@ function worker_function(documenterSearchIndex, documenterBaseURL, filters) {
     processTerm: (term) => {
       let word = stopWords.has(term) ? null : term;
       if (word) {
-        // custom trimmer that doesn't strip @ and !, which are used in julia macro and function names
+        // custom trimmer that doesn't strip special characters `@!+-*/^&|%<>=:.` which are used in julia macro and function names.
         word = word
-          .replace(/^[^a-zA-Z0-9@!]+/, "")
-          .replace(/[^a-zA-Z0-9@!]+$/, "");
+          .replace(/^[^a-zA-Z0-9@!+\-/*^&%|<>._=:]+/, "")
+          .replace(/[^a-zA-Z0-9@!+\-/*^&%|<>._=:]+$/, "");
 
         word = word.toLowerCase();
       }
@@ -463,7 +523,55 @@ function worker_function(documenterSearchIndex, documenterBaseURL, filters) {
     },
     // add . as a separator, because otherwise "title": "Documenter.Anchors.add!", would not
     // find anything if searching for "add!", only for the entire qualification
-    tokenize: (string) => string.split(/[\s\-\.]+/),
+    tokenize: (string) => {
+      const tokens = [];
+      const tokenSet = new Set();
+      let remaining = string;
+
+      // julia specific patterns
+      const patterns = [
+        // Module qualified names (e.g., Base.sort, Module.Submodule. function)
+        /\b[A-Za-z0-9_1*(?:\.[A-Z][A-Za-z0-9_1*)*\.[a-z_][A-Za-z0-9_!]*\b/g,
+        // Macro calls (e.g., @time, @async)
+        /@[A-Za-z0-9_]*/g,
+        // Type parameters (e.g., Array{T,N}, Vector{Int})
+        /\b[A-Za-z0-9_]*\{[^}]+\}/g,
+        // Function names with module qualification (e.g., Base.+, Base.:^)
+        /\b[A-Za-z0-9_]*\.:[A-Za-z0-9_!+\-*/^&|%<>=.]+/g,
+        // Operators as complete tokens (e.g., !=, aã, ||, ^, .=, →)
+        /[!<>=+\-*/^&|%:.]+/g,
+        // Function signatures with type annotations (e.g., f(x::Int))
+        /\b[A-Za-z0-9_!]*\([^)]*::[^)]*\)/g,
+        // Numbers (integers, floats, scientific notation)
+        /\b\d+(?:\.\d+)? (?:[eE][+-]?\d+)?\b/g,
+      ];
+
+      // apply patterns in order of specificity
+      for (const pattern of patterns) {
+        pattern.lastIndex = 0; //reset regex state
+        let match;
+        while ((match = pattern.exec(remaining)) != null) {
+          const token = match[0].trim();
+          if (token && !tokenSet.has(token)) {
+            tokens.push(token);
+            tokenSet.add(token);
+          }
+        }
+      }
+
+      // splitting the content if something remains
+      const basicTokens = remaining
+        .split(/[\s\-,;()[\]{}]+/)
+        .filter((t) => t.trim());
+      for (const token of basicTokens) {
+        if (token && !tokenSet.has(token)) {
+          tokens.push(token);
+          tokenSet.add(token);
+        }
+      }
+
+      return tokens.filter((token) => token.length > 0);
+    },
     // options which will be applied during the search
     searchOptions: {
       prefix: true,
@@ -586,6 +694,35 @@ function worker_function(documenterSearchIndex, documenterBaseURL, filters) {
     return result_div;
   }
 
+  function calculateCustomScore(result, query) {
+    const titleLower = result.title.toLowerCase();
+    const queryLower = query.toLowerCase();
+
+    // Tier 1 : Exact title match
+    if (titleLower == queryLower) {
+      return 10000 + result.score;
+    }
+
+    // Tier 2 : Title contains exact query
+    if (titleLower.includes(queryLower)) {
+      const position = titleLower.indexOf(queryLower);
+      // prefer matches at the beginning
+      return 5000 + result.score - position * 10;
+    }
+
+    // Tier 3 : All query words in title
+    const queryWords = queryLower.trim().split(/\s+/);
+    const titleWords = titleLower.trim().split(/\s+/);
+    const allWordsInTitle = queryWords.every((qw) =>
+      titleWords.some((tw) => tw.includes(qw)),
+    );
+    if (allWordsInTitle) {
+      return 2000 + result.score;
+    }
+
+    return result.score;
+  }
+
   self.onmessage = function (e) {
     let query = e.data;
     let results = index.search(query, {
@@ -595,6 +732,15 @@ function worker_function(documenterSearchIndex, documenterBaseURL, filters) {
       },
       combineWith: "AND",
     });
+
+    // calculate custom scores for all results
+    results = results.map((result) => ({
+      ...result,
+      customScore: calculateCustomScore(result, query),
+    }));
+
+    // sort by custom score in descending order
+    results.sort((a, b) => b.customScore - a.customScore);
 
     // Pre-filter to deduplicate and limit to 200 per category to the extent
     // possible without knowing what the filters are.
@@ -865,11 +1011,14 @@ function waitUntilSearchIndexAvailable() {
   // has finished loading and documenterSearchIndex gets defined.
   // So we need to wait until the search index actually loads before setting
   // up all the search-related stuff.
-  if (typeof documenterSearchIndex !== "undefined") {
+  if (
+    typeof documenterSearchIndex !== "undefined" &&
+    typeof $ !== "undefined"
+  ) {
     runSearchMainCode();
   } else {
-    console.warn("Search Index not available, waiting");
-    setTimeout(waitUntilSearchIndexAvailable, 1000);
+    console.warn("Search Index or jQuery not available, waiting");
+    setTimeout(waitUntilSearchIndexAvailable, 100);
   }
 }
 
@@ -923,12 +1072,21 @@ $(document).ready(function () {
   `;
 
   let search_modal_footer = `
-    <footer class="modal-card-foot">
-      <span>
-        <kbd class="search-modal-key-hints">Ctrl</kbd> +
-        <kbd class="search-modal-key-hints">/</kbd> to search
-      </span>
-      <span class="ml-3"> <kbd class="search-modal-key-hints">esc</kbd> to close </span>
+    <footer class="modal-card-foot is-flex is-justify-content-space-between is-align-items-center">
+      <div class="is-flex gap-3 is-flex-wrap-wrap">
+        <span>
+          <kbd class="search-modal-key-hints">Ctrl</kbd> +
+          <kbd class="search-modal-key-hints">/</kbd> to search
+        </span>
+        <span> <kbd class="search-modal-key-hints">esc</kbd> to close </span>
+      </div>
+      <div class="is-flex gap-3 is-flex-wrap-wrap">
+        <span>
+          <kbd class="search-modal-key-hints">↑</kbd>
+          <kbd class="search-modal-key-hints">↓</kbd> to navigate
+        </span>
+        <span> <kbd class="search-modal-key-hints">Enter</kbd> to select </span>
+      </div>
     </footer>
   `;
 
@@ -979,9 +1137,33 @@ $(document).ready(function () {
       openModal();
     } else if (event.key === "Escape") {
       closeModal();
-    }
+    } else if (
+      document.querySelector("#search-modal")?.classList.contains("is-active")
+    ) {
+      const searchResults = document.querySelectorAll(".search-result-link");
 
-    return false;
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        if (searchResults.length > 0) {
+          const currentFocused = document.activeElement;
+          const currentIndex =
+            Array.from(searchResults).indexOf(currentFocused);
+          const nextIndex =
+            currentIndex < searchResults.length - 1 ? currentIndex + 1 : 0;
+          searchResults[nextIndex].focus();
+        }
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        if (searchResults.length > 0) {
+          const currentFocused = document.activeElement;
+          const currentIndex =
+            Array.from(searchResults).indexOf(currentFocused);
+          const prevIndex =
+            currentIndex > 0 ? currentIndex - 1 : searchResults.length - 1;
+          searchResults[prevIndex].focus();
+        }
+      }
+    }
   });
 
   //event listener for the link icon to copy the URL
@@ -1145,7 +1327,58 @@ $(document).ready(function () {
     target_href = version_selector_select
       .children("option:selected")
       .get(0).value;
-    window.location.href = target_href;
+
+    // if the target is just "#", don't navigate (it's the current version)
+    if (target_href === "#") {
+      return;
+    }
+
+    // try to stay on the same page when switching versions
+    // get the current page path relative to the version root
+    var current_page = window.location.pathname;
+
+    // resolve the documenterBaseURL to an absolute path
+    // documenterBaseURL is a relative path (usually "."), so we need to resolve it
+    var base_url_absolute = new URL(documenterBaseURL, window.location.href)
+      .pathname;
+    if (!base_url_absolute.endsWith("/")) {
+      base_url_absolute = base_url_absolute + "/";
+    }
+
+    // extract the page path after the version directory
+    // e.g., if we're on /stable/man/guide.html, we want "man/guide.html"
+    var page_path = "";
+    if (current_page.startsWith(base_url_absolute)) {
+      page_path = current_page.substring(base_url_absolute.length);
+    }
+
+    // construct the target URL with the same page path
+    var target_url = target_href;
+    if (page_path && page_path !== "" && page_path !== "index.html") {
+      // ensure target_href ends with a slash before appending page path
+      if (!target_url.endsWith("/")) {
+        target_url = target_url + "/";
+      }
+      target_url = target_url + page_path;
+    }
+
+    // preserve the anchor (hash) from the current page
+    var current_hash = window.location.hash;
+
+    // check if the target page exists, fallback to homepage if it doesn't
+    fetch(target_url, { method: "HEAD" })
+      .then(function (response) {
+        if (response.ok) {
+          window.location.href = target_url + current_hash;
+        } else {
+          // page doesn't exist in the target version, go to homepage
+          window.location.href = target_href;
+        }
+      })
+      .catch(function (error) {
+        // network error or other failure - use homepage
+        window.location.href = target_href;
+      });
   });
 
   // add the current version to the selector based on siteinfo.js, but only if the selector is empty
