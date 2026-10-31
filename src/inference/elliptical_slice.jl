@@ -27,10 +27,12 @@ function elliptical_slice(
 
     # previous value
     f = trace[addr] .- mu
+    prev_prior_score = logpdf(mvnormal, trace[addr], mu, cov)
 
     new_f = f * cos(theta) + nu * sin(theta)
     new_trace, weight = update(trace, args, argdiffs, choicemap((addr, new_f .+ mu)))
-    while weight <= log(u)
+    log_lik_ratio = weight - (logpdf(mvnormal, new_f .+ mu, mu, cov) - prev_prior_score)
+    while log_lik_ratio <= log(u)
         if theta < 0
             theta_min = theta
         else
@@ -39,6 +41,7 @@ function elliptical_slice(
         theta = uniform(theta_min, theta_max)
         new_f = f * cos(theta) + nu * sin(theta)
         new_trace, weight = update(trace, args, argdiffs, choicemap((addr, new_f .+ mu)))
+        log_lik_ratio = weight - (logpdf(mvnormal, new_f .+ mu, mu, cov) - prev_prior_score)
     end
     check && check_observations(get_choices(new_trace), observations)
     return new_trace

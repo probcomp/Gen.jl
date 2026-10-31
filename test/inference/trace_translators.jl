@@ -165,6 +165,19 @@ end
     t1, _ = generate(p1, (), choicemap(:x => 0.05, :y => 0.95))
     t2, log_weight = translator(t1; check=true)
     @test t2[:i] == 1 && t2[:j] == 10
+    @test isapprox(log_weight, 0., atol=1e-12)
+
+    # reverse direction, where the forward proposal makes random choices
+    inv_translator = GeneralTraceTranslator(
+        p_new=p1, p_new_args=(),
+        new_observations=choicemap(),
+        q_forward=q2, q_forward_args=(),
+        q_backward=q1, q_backward_args=(), f=f_inv)
+
+    t2, _ = generate(p2, (), choicemap(:i => 1, :j => 10))
+    t1, log_weight = inv_translator(t2; check=true)
+    @test 0. <= t1[:x] <= 0.1 && 0.9 <= t1[:y] <= 1.
+    @test isapprox(log_weight, 0., atol=1e-12)
 
 end
 

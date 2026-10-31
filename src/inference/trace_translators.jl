@@ -794,7 +794,7 @@ function (translator::GeneralTraceTranslator)(
     forward_proposal_score = get_score(forward_proposal_trace)
     backward_proposal_score = get_score(backward_proposal_trace)
     log_weight = new_model_score - prev_model_score +
-        backward_proposal_score + forward_proposal_score + log_abs_determinant
+        backward_proposal_score - forward_proposal_score + log_abs_determinant
 
     if check
         inverter = inverse(translator, prev_model_trace, prev_observations)
