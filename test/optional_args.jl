@@ -191,8 +191,8 @@ end
     tr, w = generate(bar1, (1, 1), constraints)
     @test get_retval(tr) == 2
     constraints[(2, Val(:production)) => :branch] = true
-    tr, w = zip([generate(bar1, (1, 1), constraints) for i in 1:100]...)
-    @test all(get_retval.(tr) .>= 2)
+    trs = [first(generate(bar1, (1, 1), constraints)) for i in 1:100]
+    @test all(get_retval.(trs) .>= 2)
 
     @gen new_prod(d::Int) =
         @trace(production(d, 2))
