@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Object Tracking with SMC · Gen.jl</title><meta name="title" content="Object Tracking with SMC · Gen.jl"/><meta property="og:title" content="Object Tracking with SMC · Gen.jl"/><meta property="twitter:title" content="Object Tracking with SMC · Gen.jl"/><meta name="description" content="Documentation for Gen.jl."/><meta property="og:description" content="Documentation for Gen.jl."/><meta property="twitter:description" content="Documentation for Gen.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">Gen.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Gen.jl</a></li><li><input class="collapse-toggle" id="menuitem-2" type="checkbox" checked/><label class="tocitem" for="menuitem-2"><span class="docs-label">Tutorials</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../getting_started/">Getting Started</a></li><li><a class="tocitem" href="../modeling_in_gen/">Introduction to Modeling in Gen</a></li><li><a class="tocitem" href="../mcmc_map/">Basics of MCMC and MAP Inference</a></li><li><a class="tocitem" href="../enumerative/">Debugging Models with Enumeration</a></li><li class="is-active"><a class="tocitem" href>Object Tracking with SMC</a><ul class="internal"><li><a class="tocitem" href="#Introduction"><span>Introduction</span></a></li><li><a class="tocitem" href="#Implementing-the-Generative-Model"><span>Implementing the Generative Model</span></a></li><li><a class="tocitem" href="#Implementing-a-Basic-Particle-Filter"><span>Implementing a Basic Particle Filter</span></a></li><li><a class="tocitem" href="#Adding-Rejuvenation-Moves"><span>Adding Rejuvenation Moves</span></a></li><li><a class="tocitem" href="#Speeding-Up-Inference-Using-the-Unfold-Combinator"><span>Speeding Up Inference Using the <code>Unfold</code> Combinator</span></a></li></ul></li><li><a class="tocitem" href="../vi/">Variational Inference in Gen</a></li><li><a class="tocitem" href="../learning_gen_fns/">Learning Generative Functions</a></li><li><a class="tocitem" href="../scaling_with_sml/">Speeding Up Inference with the SML</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-3" type="checkbox"/><label class="tocitem" for="menuitem-3"><span class="docs-label">How-to Guides</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../how_to/extending_gen/">Extending Gen</a></li><li><a class="tocitem" href="../../how_to/custom_distributions/">Adding New Distributions</a></li><li><a class="tocitem" href="../../how_to/custom_gen_fns/">Adding New Generative Functions</a></li><li><a class="tocitem" href="../../how_to/custom_gradients/">Custom Gradients</a></li><li><a class="tocitem" href="../../how_to/custom_incremental_computation/">Custom Incremental Computation</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-4" type="checkbox"/><label class="tocitem" for="menuitem-4"><span class="docs-label">Reference</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><input class="collapse-toggle" id="menuitem-4-1" type="checkbox"/><label class="tocitem" for="menuitem-4-1"><span class="docs-label">Core Interfaces</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../ref/core/gfi/">Generative Function Interface</a></li><li><a class="tocitem" href="../../ref/core/choice_maps/">Choice Maps</a></li><li><a class="tocitem" href="../../ref/core/selections/">Selections</a></li><li><a class="tocitem" href="../../ref/core/change_hints/">Change Hints</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-4-2" type="checkbox"/><label class="tocitem" for="menuitem-4-2"><span class="docs-label">Modeling Library</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../ref/modeling/dml/">Built-In Modeling Language</a></li><li><a class="tocitem" href="../../ref/modeling/sml/">Static Modeling Language</a></li><li><a class="tocitem" href="../../ref/modeling/distributions/">Probability Distributions</a></li><li><a class="tocitem" href="../../ref/modeling/combinators/">Combinators</a></li><li><a class="tocitem" href="../../ref/modeling/custom_gen_fns/">Custom Generative Functions</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-4-3" type="checkbox"/><label class="tocitem" for="menuitem-4-3"><span class="docs-label">Inference Library</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../ref/inference/enumerative/">Enumerative Inference</a></li><li><a class="tocitem" href="../../ref/inference/importance/">Importance Sampling</a></li><li><a class="tocitem" href="../../ref/inference/mcmc/">Markov Chain Monte Carlo</a></li><li><a class="tocitem" href="../../ref/inference/pf/">Particle Filtering &amp; SMC</a></li><li><a class="tocitem" href="../../ref/inference/trace_translators/">Trace Translators</a></li><li><a class="tocitem" href="../../ref/inference/parameter_optimization/">Parameter Optimization</a></li><li><a class="tocitem" href="../../ref/inference/map/">MAP Optimization</a></li><li><a class="tocitem" href="../../ref/inference/vi/">Variational Inference</a></li><li><a class="tocitem" href="../../ref/inference/wake_sleep/">Wake-Sleep Learning</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-4-4" type="checkbox"/><label class="tocitem" for="menuitem-4-4"><span class="docs-label">Internals</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="../../ref/internals/language_implementation/">Modeling Language Implementation</a></li></ul></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Object Tracking with SMC</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Object Tracking with SMC</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/probcomp/Gen.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/probcomp/Gen.jl/blob/master/docs/src/tutorials/smc.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="smc_tutorial"><a class="docs-heading-anchor" href="#smc_tutorial">Object Tracking with Sequential Monte Carlo</a><a id="smc_tutorial-1"></a><a class="docs-heading-anchor-permalink" href="#smc_tutorial" title="Permalink"></a></h1><h2 id="Introduction"><a class="docs-heading-anchor" href="#Introduction">Introduction</a><a id="Introduction-1"></a><a class="docs-heading-anchor-permalink" href="#Introduction" title="Permalink"></a></h2><p>So far, we&#39;ve seen two general classes of inference algorithm, importance sampling and MCMC. Very informally, and focusing only on one aspect of the algorithms, we might describe them as follows:</p><ul><li><p><em>Importance Sampling</em>: guesses solutions &quot;all at once&quot; using a proposal distribution. That proposal may be &quot;smart&quot; (e.g., a neural network), but still guesses an entire solution in one go. We make many guesses, and weight them according to the importance weighting formula.</p></li><li><p><em>MCMC</em>: beginning with an initial guess, iteratively refine the guess to explore the space of  possible solutions. At every iteration, the current state is an entire proposed solution to the problem.</p></li></ul><p>In this tutorial, we will explore a third paradigm: <strong>Sequential Monte Carlo (SMC)</strong>. SMC methods, such as particle filtering, iteratively solve a <em>sequence of inference problems</em> using techniques  based on importance sampling and in some cases MCMC <sup class="footnote-reference"><a id="citeref-1" href="#footnote-1">[1]</a></sup><sup class="footnote-reference"><a id="citeref-2" href="#footnote-2">[2]</a></sup>. The solution to each problem in the sequence  is represented as a collection of samples or <em>particles</em>. The particles for each problem are based on  extending or adjusting the particles for the previous problem in the sequence.</p><p>The sequence of inference problems that are solved often arise naturally from observations that arrive incrementally, as in <em>particle filtering</em>. Particle filtering algorithms are a subclass of SMC algorithms, often applied to state-space models in which we observe an evolving process over time. We begin by only considering the first time step, inferring the latent variables at that time step given that time step&#39;s observations. We then consider a slightly more difficult inference problem: joint inference of the first <em>two</em> time steps&#39; latent variables, given both time steps&#39; observations. And so on, until the observations stop.</p><p>SMC is a more general algorithm than the particle filter might suggest. Sometimes, the sequence of problems does not arise from data arriving incrementally, but is rather constructed instrumentally to facilitate inference, as in annealed importance sampling <sup class="footnote-reference"><a id="citeref-3" href="#footnote-3">[3]</a></sup>. </p><p>However, this tutorial focuses on particle filtering for a typical tracking problem. We show how Gen&#39;s support for SMC integrates with its support for MCMC, enabling &quot;rejuvenation&quot; MCMC moves. Specifically, we will address the &quot;bearings only tracking&quot; problem described in <sup class="footnote-reference"><a id="citeref-4" href="#footnote-4">[4]</a></sup>. </p><p>This tutorial will also introduce you to the  <a href="../../ref/modeling/combinators/#Gen.Unfold"><code>Unfold</code></a> combinator,  which can be used to improve performance of SMC. <code>Unfold</code> is just one example of the levers that Gen provides for improving performance; once you understand it, you can check Gen&#39;s documentation to see how similar principles apply to the  <a href="../../ref/modeling/combinators/#Gen.Map"><code>Map</code></a> combinator  and to the static DSL. (These features are also covered in the previous tutorial, <a href="../scaling_with_sml/#scaling_with_sml_tutorial">Scaling with the Static Modeling Language</a>)</p><p><strong>Prerequisites for this tutorial</strong></p><ul><li><a href="../scaling_with_sml/#scaling_with_sml_tutorial">Static Modeling Language</a> for the second half of the tutorial.</li></ul><h2 id="Implementing-the-Generative-Model"><a class="docs-heading-anchor" href="#Implementing-the-Generative-Model">Implementing the Generative Model</a><a id="Implementing-the-Generative-Model-1"></a><a class="docs-heading-anchor-permalink" href="#Implementing-the-Generative-Model" title="Permalink"></a></h2><p>We will implement a generative model for the movement of a point in the x-y plane and bearing measurements of the location of this point relative to the origin over time. We imagine, for example, that we are located at the origin, and can measure the location of a far-away ship (the object we are tracking) only by measuring its <em>bearing</em> relative to us, i.e., the angle formed with the x axis by the ray connecting us to the ship. We would like to infer its (x, y) position over time.</p><p>We assume that we know the approximate initial position and velocity of the ship. We assume the point&#39;s x- and y- velocity are subject to random perturbations drawn from some normal distribution with a known variance. Each bearing measurement consists of the angle of the point being tracked relative to the positive x-axis.</p><p>We write the generative model as a generative function below. The function first samples the initial state of the ship from a prior distribution, and then generates <code>T</code> successive states in a <code>for</code> loop. The argument to the model (<code>T</code>) is the number of time steps not including the initial state.</p><pre><code class="language-julia hljs">using Gen, Plots
+bearing(x, y) = atan(y, x)
+
+@gen function model(T::Int)
+
+    measurement_noise = 0.005
+    velocity_var = 1e-6
+
+    xs = Vector{Float64}(undef, T+1)
+    ys = Vector{Float64}(undef, T+1)
+
+    # prior on initial x-coordinate
+    x = {:x0} ~ normal(0.01, 0.01)
+
+    # prior on initial y-coordinate
+    y = {:y0} ~ normal(0.95, 0.01)
+
+    # prior on x-component of initial velocity
+    vx = {:vx0} ~ normal(0.002, 0.01)
+
+    # prior on y-component of initial velocity
+    vy = {:vy0} ~ normal(-0.013, 0.01)
+
+    # initial bearing measurement
+    z0 ~ normal(bearing(x, y), measurement_noise)
+
+    # record position
+    xs[1] = x
+    ys[1] = y
+
+    # generate successive states and measurements
+    for t=1:T
+
+        # update the state of the point
+        vx = {(:vx, t)} ~ normal(vx, sqrt(velocity_var))
+        vy = {(:vy, t)} ~ normal(vy, sqrt(velocity_var))
+        x += vx
+        y += vy
+
+        # bearing measurement
+        {(:z, t)} ~ normal(bearing(x, y), measurement_noise)
+
+        # record position
+        xs[t+1] = x
+        ys[t+1] = y
+    end
+
+    # return the sequence of positions
+    return (xs, ys)
+end</code></pre><p>Note that the <code>model</code> function itself uses mutation to evolve the variables <code>x</code>, <code>y</code>, <code>vx</code>, and <code>vy</code> over time. The <code>{addr} ~ distribution()</code> syntax keeps the names of traced random variables (for which each address may only be used once) separate from the names of program variables, like <code>x</code>, which may be reassigned multiple times during the function&#39;s execution.</p><p>We generate a data set of positions, and observed bearings, by sampling from this model, with <code>T=50</code>:</p><pre><code class="language-julia hljs">import Random
+Random.seed!(3)
+
+# generate trace with specific initial conditions
+T = 50
+constraints = Gen.choicemap((:x0, 0.01), (:y0, 0.95), (:vx0, 0.002), (:vy0, -0.013))
+(trace, _) = Gen.generate(model, (T,), constraints)</code></pre><p>Let&#39;s extract the observed data <code>zs</code> from the trace</p><pre><code class="language-julia hljs">choices = Gen.get_choices(trace)
+zs = Vector{Float64}(undef, T+1)
+zs[1] = choices[:z0]
+for t=1:T
+    zs[t+1] = choices[(:z, t)]
+end
+zs</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">51-element Vector{Float64}:
+ 1.5569515820053956
+ 1.559940222494461
+ 1.5555748622959977
+ 1.539004963031524
+ 1.5375002927561212
+ 1.5356854175675778
+ 1.5349969772844136
+ 1.5334402742944055
+ 1.521557393605725
+ 1.5280309669062548
+ ⋮
+ 0.6007173726264807
+ 0.5609439789016252
+ 0.5376726464625248
+ 0.4944152376356873
+ 0.47708211036041753
+ 0.44167546400406715
+ 0.4078322778075443
+ 0.3861889714842492
+ 0.34831374185576564</code></pre><p>We next write a visualization for full traces of this model. It shows the ship&#39;s positions (as dots) as well as the observed bearings (as fixed length line  segments from the origin):</p><pre><code class="language-julia hljs">function render(trace; show_data=true, max_T=get_args(trace)[1], overlay=false)
+    (T,) = Gen.get_args(trace)
+    (xs, ys) = Gen.get_retval(trace)
+
+    zs = Vector{Float64}(undef, T+1)
+    zs[1] = trace[:z0]
+    for t=1:T
+        zs[t+1] = trace[(:z, t)]
+    end
+
+    f = overlay ? scatter! : scatter
+    fig = f(xs[1:max_T+1], ys[1:max_T+1], msize=3, msw=1, label=nothing)
+
+    if show_data
+        for z in zs[1:max_T+1]
+            dx = cos(z) * 0.5
+            dy = sin(z) * 0.5
+            plot!([0., dx], [0., dy], color=&quot;red&quot;, alpha=0.3, label=nothing)
+        end
+    end
+
+    return fig
+end</code></pre><p>We visualize the synthetic trace below:</p><pre><code class="language-julia hljs">render(trace)
+title!(&quot;Observed bearings (lines) and positions (dots)&quot;)</code></pre><img src="6018f772.svg" alt="Example block output"/><p>Note that these are the observed <em>bearings</em>, but we are not plotting the &quot;ground truth&quot; <em>locations</em> of the ship. There are many trajectories consistent with these bearings; for each of the red rays in the above plot, the ship could be anywhere along the ray (or even slightly off it, given that our measurements are noisy). However, our assumptions about the dynamics of the situation &amp;mdash; that is, the conditional distributions <span>$P(x_{t+1}, y_{t+1} \mid x_t, y_t)$</span> &amp;mdash; will ensure that physics-defying trajectories (e.g., where the ship moves from a very high Y coordinate to a very low one in a short time) are ruled out.</p><h2 id="Implementing-a-Basic-Particle-Filter"><a class="docs-heading-anchor" href="#Implementing-a-Basic-Particle-Filter">Implementing a Basic Particle Filter</a><a id="Implementing-a-Basic-Particle-Filter-1"></a><a class="docs-heading-anchor-permalink" href="#Implementing-a-Basic-Particle-Filter" title="Permalink"></a></h2><p>In Gen, a <strong>particle is represented as a trace</strong> and the particle filter state contains a weighted collection of traces. Below we define an inference program that runs a particle filter on an observed data set of bearings (<code>zs</code>). We use <code>num_particles</code> particles internally, and then we return a sample of <code>num_samples</code> traces from the weighted collection that the particle filter produces.</p><p>Gen provides methods for initializing and updating the state of a particle filter, documented in <a href="../../ref/inference/pf/#particle_filtering">Particle Filtering</a>.</p><ul><li><p><a href="../../ref/inference/pf/#Gen.initialize_particle_filter"><code>Gen.initialize_particle_filter</code></a></p></li><li><p><a href="../../ref/inference/pf/#Gen.particle_filter_step!"><code>Gen.particle_filter_step!</code></a></p></li></ul><p>Both of these methods can used either with the default proposal or a custom proposal. In this problem, we will use the default proposal. There is also a method that resamples particles based on their weights, which serves to redistribute the particles to more promising parts of the latent space.</p><ul><li><a href="../../ref/inference/pf/#Gen.maybe_resample!"><code>Gen.maybe_resample!</code></a></li></ul><p>Gen also provides a method for sampling a collection of unweighted traces from the current weighted collection in the particle filter state:</p><ul><li><a href="../../ref/inference/pf/#Gen.sample_unweighted_traces"><code>Gen.sample_unweighted_traces</code></a></li></ul><pre><code class="language-julia hljs">function particle_filter(num_particles::Int, zs::Vector{Float64}, num_samples::Int)
+
+    # construct initial observations
+    init_obs = Gen.choicemap((:z0, zs[1]))
+    state = Gen.initialize_particle_filter(model, (0,), init_obs, num_particles)
+
+    # steps
+    for t=1:length(zs)-1
+        Gen.maybe_resample!(state, ess_threshold=num_particles/2)
+        obs = Gen.choicemap(((:z, t), zs[t+1]))
+        Gen.particle_filter_step!(state, (t,), (UnknownChange(),), obs)
+    end
+
+    # return a sample of unweighted traces from the weighted collection
+    return Gen.sample_unweighted_traces(state, num_samples)
+end</code></pre><p>The initial state is obtained by providing the following to <code>initialize_particle_filter</code>:</p><ul><li><p>The generative function for the generative model (<code>model</code>)</p></li><li><p>The initial arguments to the generative function.</p></li><li><p>The initial observations, expressed as a map from choice address to values (<code>init_obs</code>).</p></li><li><p>The number of particles.</p></li></ul><p>At each step, we resample from the collection of traces (<code>maybe_resample!</code>) and then we introduce one additional bearing measurement by calling <code>particle_filter_step!</code> on the state. We pass the following arguments to <code>particle_filter_step!</code>:</p><ul><li><p>The state (it will be mutated)</p></li><li><p>The new arguments to the generative function for this step. In our case, this is the number of measurements beyond the first measurement.</p></li><li><p>The <a href="../../ref/core/change_hints/">argdiff</a> value, which provides detailed information about the change to the arguments between the previous step and this step. We will revisit this value later.  For now, we indicate that we do not know how the <code>T::Int</code> argument will change with each step.</p></li><li><p>The new observations associated with the new step. In our case, this just contains the latest measurement.</p></li></ul><p>We run this particle filter with 5000 particles, and return a sample of 200 particles. This will take 30-60 seconds. We will see one way of speeding up the particle filter in a later section.</p><pre><code class="language-julia hljs">@time pf_traces = particle_filter(5000, zs, 200);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"> 31.023842 seconds (349.32 M allocations: 11.417 GiB, 23.33% gc time, 2.26% compilation time)</code></pre><p>To render these traces, we first define a function that overlays many renderings:</p><pre><code class="language-julia hljs">function overlay(renderer, traces; same_data=true, args...)
+    fig = plot(xlabel=&quot;X&quot;, ylabel=&quot;Y&quot;,
+        title=&quot;Observed bearings (red) and \npositions of individual traces (one color per trace)&quot;)
+
+    renderer(traces[1], show_data=true, overlay=true, args...)
+    for i=2:length(traces)
+        renderer(traces[i], show_data=!same_data, overlay=true, args...)
+    end
+    fig
+end</code></pre><p>We then render the traces from the particle filter:</p><pre><code class="language-julia hljs">overlay(render, pf_traces)</code></pre><img src="5460365c.svg" alt="Example block output"/><p>We see a broad posterior; many trajectories (i.e. x- and y-positions) explain the observed bearings.</p><p>Notice that as during the period of denser bearing measurements, the trajectories tend to turn so that the heading is more parallel to the bearing vector. An alternative explanation is that the point maintained a constant heading, but just slowed down significantly. It is interesting to see that the inferences favor the &quot;turning explanation&quot; over the &quot;slowing down explanation&quot;.</p><div class="admonition is-info" id="Note-d7be568561625de9"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-d7be568561625de9" title="Permalink"></a></header><div class="admonition-body"><p>Run the particle filter with fewer particles and visualize the results.</p><p>Run the particle filter without the <code>maybe_resample!</code> step, and visualize the results.  What do you observe? Why do you think this is? Answer in the free response section below.</p></div></div><p>The code for particle_filter (from above) is copied in the body of the function below. Modify it so that it does NOT perform resampling after each time step.</p><pre><code class="language-julia hljs">function particle_filter_no_resampling(num_particles::Int, zs::Vector{Float64}, num_samples::Int)
+
+    # construct initial observations
+    init_obs = Gen.choicemap((:z0, zs[1]))
+    state = Gen.initialize_particle_filter(model, (0,), init_obs, num_particles)
+
+    # steps
+    for t=1:length(zs)-1
+        Gen.maybe_resample!(state, ess_threshold=num_particles/2)
+        obs = Gen.choicemap(((:z, t), zs[t+1]))
+        Gen.particle_filter_step!(state, (t,), (UnknownChange(),), obs)
+    end
+
+    # return a sample of unweighted traces from the weighted collection
+    return Gen.sample_unweighted_traces(state, num_samples)
+end
+
+@time pf_traces_no_resampling = particle_filter_no_resampling(5000, zs, 200);
+overlay(render, pf_traces_no_resampling)</code></pre><img src="d326af96.svg" alt="Example block output"/><div class="admonition is-info" id="Note-52d2a1f4d8199c11"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-52d2a1f4d8199c11" title="Permalink"></a></header><div class="admonition-body"><p>Describe how the inference differs with and without resampling (based on the two plots above). Why do you think that is? Is it desirable?</p></div></div><pre><code class="language-julia hljs">function particle_filter_no_resampling(num_particles::Int, zs::Vector{Float64}, num_samples::Int)
+
+    # construct initial observations
+    init_obs = Gen.choicemap((:z0, zs[1]))
+    state = Gen.initialize_particle_filter(model, (0,), init_obs, num_particles)
+
+    # steps
+    for t=1:length(zs)-1
+        obs = Gen.choicemap(((:z, t), zs[t+1]))
+        Gen.particle_filter_step!(state, (t,), (UnknownChange(),), obs)
+    end
+
+    # return a sample of unweighted traces from the weighted collection
+    return Gen.sample_unweighted_traces(state, num_samples)
+end</code></pre><p>Without resampling, we get particle collapse, because the model converges on one best guess. This is not desirable; we have lost diversity in our samples.</p><h2 id="Adding-Rejuvenation-Moves"><a class="docs-heading-anchor" href="#Adding-Rejuvenation-Moves">Adding Rejuvenation Moves</a><a id="Adding-Rejuvenation-Moves-1"></a><a class="docs-heading-anchor-permalink" href="#Adding-Rejuvenation-Moves" title="Permalink"></a></h2><p>The particle filter we developed above works as follows:</p><ul><li>At the start, guess many possible initial positions and velocities for the ship.</li><li>Score these proposals based on the initial observation, <code>z0</code>. </li><li>Use <code>maybe_resample!</code> to clone the guesses that explain <code>z0</code> well, and cull the guesses that explain it poorly.</li><li>For each data point:<ol><li>For each guess (particle) from the previous time step, guess many possible  <em>extensions</em> of the particle to include values of <code>vx</code> and <code>vy</code> for the next  time step.</li><li>Score these extended proposed particles based on the latest bearing.</li><li>Use <code>maybe_resample!</code> to clone the guesses that explain the <code>z</code>&#39;s so far, and cull the guesses that don&#39;t.</li></ol></li></ul><p>A problem with this procedure is that after the initial guesses for a quantity have been made, they are never revised. This is despite the fact that learning about later bearings may tell us a lot about earlier positions. This can be especially problematic in the presence of <em>resampling</em>: notice how, in the above results, the starting locations of all the particles are likely nearly identical, even though the paths become more diverse as time goes on. This is because &quot;good&quot; particles at the first step were likely cloned and propagated through the particle filter, never changing the <code>x0</code> and <code>y0</code> values.</p><p>Therefore, it is sometimes useful to add MCMC moves to particles in a particle filter between steps. These MCMC moves are often called &quot;rejuvenation moves&quot; <sup class="footnote-reference"><a id="citeref-4" href="#footnote-4">[4]</a></sup>.  Each rejuvenation move targets the <em>current posterior distribution</em> at the given step. For example, when applying the rejuvenation move after incorporating 3 observations, our rejuvenation moves have as their stationary distribution the conditional distribution on the latent variables, given the first three observations.</p><p>Rejuvenation moves can target any portion of the latent space. It is common for rejuvenation moves to target &quot;global&quot; variables that affect every time step (e.g., the initial position of the ship), or a sliding window of <em>recent</em> variables, e.g., the velocities from the previous five time steps. </p><p>In this section, we write two new versions of the particle filter, each of which uses Metropolis-Hastings rejuvenation moves to adjust each particle at every time step.  The first version uses so-called &quot;resimulation MH&quot; to adjust the initial choices (<code>x0</code>, <code>y0</code>, and the initial velocities). This means that the proposal distribution for MH is equal to the prior of the generative model.  The proposed next state under this rejuvenation move is independent of the current state.  By contrast, the second version we write will use Gaussian drift proposals, and therefore we refer to it as &quot;random walk MH.&quot; The Gaussian drift rejuvenation moves will target a sliding window of recent velocities, perturbing them to see if &amp;mdash; in light of new data &amp;mdash; we can find better values for them.</p><p>First, the resimulation MH rejuvenation move (this function is the same as the previous, but with the addition of a rejuvenation move targeting the initial choices of each particle):</p><pre><code class="language-julia hljs">function particle_filter_rejuv_resim(num_particles::Int, zs::Vector{Float64}, num_samples::Int)
+    init_obs = Gen.choicemap((:z0, zs[1]))
+    state = Gen.initialize_particle_filter(model, (0,), init_obs, num_particles)
+    for t=1:length(zs)-1
+
+        # apply a rejuvenation move to each particle
+        for i=1:num_particles
+            initial_choices = select(:x0, :y0, :vx0, :vy0)
+            state.traces[i], _  = mh(state.traces[i], initial_choices)
+        end
+
+        Gen.maybe_resample!(state, ess_threshold=num_particles/2)
+        obs = Gen.choicemap(((:z, t), zs[t+1]))
+        Gen.particle_filter_step!(state, (t,), (UnknownChange(),), obs)
+    end
+
+    # return a sample of unweighted traces from the weighted collection
+    return Gen.sample_unweighted_traces(state, num_samples)
+end
+
+@time pf_rejuv_resim_traces = particle_filter_rejuv_resim(5000, zs, 200);
+overlay(render, pf_rejuv_resim_traces)
+title!(&quot;Rejuvenation with resimulation MH on the starting points&quot;)</code></pre><img src="e05db286.svg" alt="Example block output"/><p>You may notice slightly more variety in the initial state, compared to our first round of particle filtering.</p><div class="admonition is-info" id="Note-3bfafd6a820f0cea"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-3bfafd6a820f0cea" title="Permalink"></a></header><div class="admonition-body"><p>Write a random walk MH rejuvenation move that perturbs the velocity vectors for a block of time steps between <code>a</code> and <code>b</code> inclusive. In this move, draw the perturbation from a normal distribution with standard deviation <code>1e-3</code>. When sampling a new <code>vx</code> and <code>vy</code> for time step <code>t</code> (where <code>a &lt;= t &lt;= b</code>), make sure you use the right <em>address</em> –- <strong>you want to use the same address in your proposal as was used in the model.</strong></p></div></div><pre><code class="language-julia hljs">@gen function perturbation_proposal(prev_trace, a::Int, b::Int)
+    choices = get_choices(prev_trace)
+    (T,) = get_args(prev_trace)
+    speed = Array{Float64}(undef, 2, 1)
+    for t=a:b
+        speed[1] = {(:vx, t)} ~ normal(choices[(:vx, t)], 1e-3)
+        speed[2] = {(:vy, t)} ~ normal(choices[(:vy, t)], 1e-3)
+    end
+    return speed
+end
+
+function perturbation_move(trace, a::Int, b::Int)
+    Gen.metropolis_hastings(trace, perturbation_proposal, (a, b))
+end;</code></pre><p>We add this into our particle filtering inference program below. We apply the rejuvenation move to adjust the velocities for the previous 5 time steps.</p><pre><code class="language-julia hljs">function particle_filter_rejuv(num_particles::Int, zs::Vector{Float64}, num_samples::Int)
+    init_obs = Gen.choicemap((:z0, zs[1]))
+    state = Gen.initialize_particle_filter(model, (0,), init_obs, num_particles)
+    for t=1:length(zs)-1
+
+        # apply a rejuvenation move to each particle
+        for i=1:num_particles
+            state.traces[i], _ = perturbation_move(state.traces[i], max(1, t-5), t-1)
+        end
+
+        Gen.maybe_resample!(state, ess_threshold=num_particles/2)
+        obs = Gen.choicemap(((:z, t), zs[t+1]))
+        Gen.particle_filter_step!(state, (t,), (UnknownChange(),), obs)
+    end
+
+    # return a sample of unweighted traces from the weighted collection
+    return Gen.sample_unweighted_traces(state, num_samples)
+end</code></pre><p>We run the particle filter with rejuvenation below. This will take a minute or two. We will see one way of speeding up the particle filter in a later section.</p><pre><code class="language-julia hljs">@time pf_rejuv_traces = particle_filter_rejuv(5000, zs, 200);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"> 57.327779 seconds (742.53 M allocations: 24.349 GiB, 17.02% gc time, 0.19% compilation time)</code></pre><p>We render the traces:</p><pre><code class="language-julia hljs">overlay(render, pf_rejuv_traces)
+title!(&quot;Rejuvenation with resimulation MH on the starting points&quot;)</code></pre><img src="8850c49e.svg" alt="Example block output"/><h2 id="Speeding-Up-Inference-Using-the-Unfold-Combinator"><a class="docs-heading-anchor" href="#Speeding-Up-Inference-Using-the-Unfold-Combinator">Speeding Up Inference Using the <code>Unfold</code> Combinator</a><a id="Speeding-Up-Inference-Using-the-Unfold-Combinator-1"></a><a class="docs-heading-anchor-permalink" href="#Speeding-Up-Inference-Using-the-Unfold-Combinator" title="Permalink"></a></h2><p>For the particle filtering algorithms above, within an update step it is only necessary to revisit the most recent state (or the most recent 5 states if the rejuvenation moves are used) because the initial states are never updated, and the contribution of these states to the weight computation cancel.</p><p>However, each update step of the particle filter inference programs above scales <em>linearly</em> in the size of the trace because it visits every state when computing the weight update. This is because the built-in modeling DSL by default always performs an end-to-end execution of the generative function body whenever performing a trace update. This allows the built-in modeling DSL to be very flexible and to have a simple implementation, at the cost of performance. There are several ways of improving performance after one has a prototype written in the built-in modeling DSL. One of these is <a href="../../ref/modeling/combinators/#combinators">Generative Function Combinators</a>, which make  the flow of information through the generative process more explicit to Gen,  and enable asymptotically more efficient inference programs.</p><p>To exploit the opportunity for incremental computation, and improve the scaling behavior of our particle filter inference programs, we will write a new model using a generative function combinator to replaces the following  Julia <code>for</code> loop in our model.</p><pre><code class="language-julia hljs">    # generate successive states and measurements
+    for t=1:T
+
+        # update the state of the point
+        vx = {(:vx, t)} ~ normal(vx, sqrt(velocity_var))
+        vy = {(:vy, t)} ~ normal(vy, sqrt(velocity_var))
+        x += vx
+        y += vy
+
+        # bearing measurement
+        {(:z, t)} ~ normal(bearing(x, y), measurement_noise)
+
+        # record position
+        xs[t+1] = x
+        ys[t+1] = y
+    end</code></pre><p>This <code>for</code> loop has a very specific pattern of information flow&amp;mdash;there is a sequence of states (represented by <code>x</code>, <code>y</code>, <code>vx</code>, and <code>vy</code>), and each state is generated from the previous state. This is exactly the pattern that the <a href="../../ref/modeling/combinators/#Gen.Unfold"><code>Unfold</code></a> generative function combinator is designed to handle.</p><p>Below, we re-express the Julia <code>for</code> loop over the state sequence using the Unfold combinator. Specifically, we define a generative function (<code>kernel</code>) that takes the prevous state as its second argument, and returns the new state. The Unfold combinator takes the kernel and returns a new generative function (<code>chain</code>) that applies kernel repeatedly. Read the Unfold combinator documentation for details on the behavior of the resulting generative function (<code>chain</code>).</p><pre><code class="language-julia hljs">struct State
+    x::Float64
+    y::Float64
+    vx::Float64
+    vy::Float64
+end
+
+@gen (static) function kernel(t::Int, prev_state::State,
+                              velocity_var::Float64, measurement_noise::Float64)
+    vx ~ normal(prev_state.vx, sqrt(velocity_var))
+    vy ~ normal(prev_state.vy, sqrt(velocity_var))
+    x = prev_state.x + vx
+    y = prev_state.y + vy
+    z ~ normal(bearing(x, y), measurement_noise)
+    next_state = State(x, y, vx, vy)
+    return next_state
+end
+
+chain = Gen.Unfold(kernel)</code></pre><p>We can understand the behavior of <code>chain</code> by getting a trace of it and printing the random choices:</p><p>trace = Gen.simulate(chain, (4, State(0., 0., 0., 0.), 0.01, 0.01)) Gen.get_choices(trace)</p><p>We now write a new version of the generative model that invokes <code>chain</code> instead of using the Julia <code>for</code> loop:</p><pre><code class="language-julia hljs">@gen (static) function unfold_model(T::Int)
+
+    # parameters
+    measurement_noise = 0.005
+    velocity_var = 1e-6
+
+    # initial conditions
+    x0  ~ normal(0.01, 0.01)
+    y0  ~ normal(0.95, 0.01)
+    vx0 ~ normal(0.002, 0.01)
+    vy0 ~ normal(-0.013, 0.01)
+
+    # initial measurement
+    z0 ~ normal(bearing(x0, y0), measurement_noise)
+
+    # record initial state
+    init_state = State(x0, y0, vx0, vy0)
+
+    # run `chain` function under address namespace `:chain`, producing a vector of states
+    chain ~ chain(T, init_state, velocity_var, measurement_noise)
+
+    result = (init_state, chain)
+    return result
+end</code></pre><p>Let&#39;s generate a trace of this new model program to understand its structure:</p><pre><code class="language-julia hljs">(trace, _) = Gen.generate(unfold_model, (4,))
+Gen.get_choices(trace)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">│
+├── :x0 : 0.007935872812712914
+│
+├── :y0 : 0.9297701277410589
+│
+├── :vx0 : -0.007631209070834873
+│
+├── :vy0 : -0.006004649733301458
+│
+├── :z0 : 1.5679154128811352
+│
+└── :chain
+    │
+    ├── 1
+    │   │
+    │   ├── :vx : -0.007894295609195306
+    │   │
+    │   ├── :vy : -0.004528746080233013
+    │   │
+    │   └── :z : 1.5722223994044138
+    │
+    ├── 2
+    │   │
+    │   ├── :vx : -0.007895227156630985
+    │   │
+    │   ├── :vy : -0.004132725765572809
+    │   │
+    │   └── :z : 1.5858791223163373
+    │
+    ├── 3
+    │   │
+    │   ├── :vx : -0.005696580481539929
+    │   │
+    │   ├── :vy : -0.003619310973617676
+    │   │
+    │   └── :z : 1.5823274783605616
+    │
+    └── 4
+        │
+        ├── :vx : -0.006169316431423922
+        │
+        ├── :vy : -0.004237910268894962
+        │
+        └── :z : 1.606672935456438
+</code></pre><p>We can now run a particle filter on the Unfold model and see a speedup:</p><pre><code class="language-julia hljs">function unfold_particle_filter(num_particles::Int, zs::Vector{Float64}, num_samples::Int)
+    init_obs = Gen.choicemap((:z0, zs[1]))
+    state = Gen.initialize_particle_filter(unfold_model, (0,), init_obs, num_particles)
+
+    for t=1:length(zs)-1
+        maybe_resample!(state, ess_threshold=num_particles/2)
+        obs = Gen.choicemap((:chain =&gt; t =&gt; :z, zs[t+1]))
+        Gen.particle_filter_step!(state, (t,), (UnknownChange(),), obs)
+    end
+
+    # return a sample of traces from the weighted collection:
+    return Gen.sample_unweighted_traces(state, num_samples)
+end
+
+@time unfold_pf_traces = unfold_particle_filter(5000, zs, 200);
+
+function unfold_render(trace; show_data=true, max_T=get_args(trace)[1], overlay=false)
+    (T,) = Gen.get_args(trace)
+    choices = Gen.get_choices(trace)
+    (init_state, states) = Gen.get_retval(trace)
+    xs = Vector{Float64}(undef, T+1)
+    ys = Vector{Float64}(undef, T+1)
+    zs = Vector{Float64}(undef, T+1)
+    xs[1] = init_state.x
+    ys[1] = init_state.y
+    zs[1] = choices[:z0]
+    for t=1:T
+        xs[t+1] = states[t].x
+        ys[t+1] = states[t].y
+        zs[t+1] = choices[:chain =&gt; t =&gt; :z]
+    end
+    f = overlay ? scatter! : scatter
+    fig = f(xs[1:max_T+1], ys[1:max_T+1], msize=3, msw=1, label=nothing)
+    if show_data
+        for z in zs[1:max_T+1]
+            dx = cos(z) * 0.5
+            dy = sin(z) * 0.5
+            plot!([0., dx], [0., dy], color=&quot;red&quot;, alpha=0.3, label=nothing)
+        end
+    end
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">  5.255181 seconds (35.20 M allocations: 3.292 GiB, 25.21% gc time, 26.68% compilation time)</code></pre><p>Let&#39;s check that the results are reasonable:</p><pre><code class="language-julia hljs">overlay(unfold_render, unfold_pf_traces, same_data=true)</code></pre><img src="f5435a2d.svg" alt="Example block output"/><p>We now empirically investigate the scaling behavior of </p><ol><li>the inference program that uses the Julia <code>for</code> loop (<code>particle_filter</code>),</li></ol><p>and </p><ol><li>the equivalent inference program that uses <code>Unfold</code></li></ol><p>(<code>unfold_particle_filter</code>). </p><p>We will use a synthetic long vector of z data, and we will investigate how the running time depends on the number of observations.</p><pre><code class="language-julia hljs">fake_zs = rand(1000);
+
+function timing_experiment(num_observations_list::Vector{Int}, num_particles::Int, num_samples::Int)
+    times = Vector{Float64}()
+    times_unfold = Vector{Float64}()
+    for num_observations in num_observations_list
+        println(&quot;evaluating inference programs for num_observations: $num_observations&quot;)
+        tstart = time_ns()
+        traces = particle_filter(num_particles, fake_zs[1:num_observations], num_samples)
+        push!(times, (time_ns() - tstart) / 1e9)
+
+        tstart = time_ns()
+        traces = unfold_particle_filter(num_particles, fake_zs[1:num_observations], num_samples)
+        push!(times_unfold, (time_ns() - tstart) / 1e9)
+
+    end
+    (times, times_unfold)
+end;
+
+num_observations_list = [1, 3, 10, 30, 50, 100, 150, 200, 500]
+(times, times_unfold) = timing_experiment(num_observations_list, 100, 20);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">evaluating inference programs for num_observations: 1
+evaluating inference programs for num_observations: 3
+evaluating inference programs for num_observations: 10
+evaluating inference programs for num_observations: 30
+evaluating inference programs for num_observations: 50
+evaluating inference programs for num_observations: 100
+evaluating inference programs for num_observations: 150
+evaluating inference programs for num_observations: 200
+evaluating inference programs for num_observations: 500</code></pre><p>Notice that the running time of the inference program without unfold appears to be quadratic in the number of observations, whereas the inference program that uses unfold appears to scale linearly:</p><pre><code class="language-julia hljs">plot(num_observations_list, times, color=&quot;blue&quot;,
+    xlabel=&quot;# observations&quot;, ylabel=&quot;running time (sec.)&quot;, label=&quot;for loop&quot;)
+plot!(num_observations_list, times_unfold, color=&quot;red&quot;, label=&quot;unfold&quot;)</code></pre><img src="fb950c19.svg" alt="Example block output"/><section class="footnotes is-size-7"><ul><li class="footnote" id="footnote-1"><a class="tag is-link" href="#citeref-1">1</a>Doucet, Arnaud, Nando De Freitas, and Neil Gordon. &quot;An introduction to sequential Monte Carlo methods.&quot; Sequential Monte Carlo methods in practice. Springer, New York, NY, 2001. 3-14.</li><li class="footnote" id="footnote-2"><a class="tag is-link" href="#citeref-2">2</a>Del Moral, Pierre, Arnaud Doucet, and Ajay Jasra. &quot;Sequential Monte Carlo samplers.&quot; Journal of the Royal Statistical Society: Series B (Statistical Methodology) 68.3 (2006): 411-436.</li><li class="footnote" id="footnote-3"><a class="tag is-link" href="#citeref-3">3</a>Neal, Radford M. &quot;Annealed importance sampling.&quot; Statistics and computing 11.2 (2001): 125-139.</li><li class="footnote" id="footnote-4"><a class="tag is-link" href="#citeref-4">4</a>Gilks, Walter R., and Carlo Berzuini. &quot;Following a moving target—Monte Carlo inference for dynamic Bayesian models.&quot; Journal of the Royal Statistical Society: Series B (Statistical Methodology) 63.1 (2001): 127-146. <a href="http://www.mathcics.emory.edu/~whalen/Papers/BNs/MonteCarlo-DBNs.pdf">PDF</a></li></ul></section></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../enumerative/">« Debugging Models with Enumeration</a><a class="docs-footer-nextpage" href="../vi/">Variational Inference in Gen »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.14.1 on <span class="colophon-date" title="Saturday 12 July 2025 00:53">Saturday 12 July 2025</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
