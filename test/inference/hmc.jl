@@ -74,6 +74,37 @@
     (new_trace, accepted) = hmc(trace, select(:x, :y); metric=metric_dense)
 end
 
+@testset "hmc leapfrog position update" begin
+    import LinearAlgebra, Random
+
+    @gen function gaussian_target()
+        x = @trace(mvnormal(zeros(2), Matrix{Float64}(LinearAlgebra.I, 2, 2)), :x)
+        return x
+    end
+
+    initial = [0.4, -0.8]
+    (trace, _) = generate(gaussian_target, (), choicemap((:x, initial)))
+    eps = 0.1
+    metrics = (nothing, [2.0, 3.0], LinearAlgebra.Diagonal([2.0, 3.0]),
+               [2.0 0.7; 0.7 3.0])
+
+    for metric in metrics
+        # Replay the initial momentum, then compute the position after one
+        # leapfrog step independently. For this target, grad(log p(x)) = -x.
+        Random.seed!(1)
+        momentum = Gen.sample_momenta(length(initial), metric)
+        mass = metric === nothing ? Matrix{Float64}(LinearAlgebra.I, 2, 2) :
+               metric isa AbstractVector ? LinearAlgebra.Diagonal(metric) : metric
+        expected = initial + eps * (mass \ (momentum - (eps / 2) * initial))
+
+        Random.seed!(1)
+        (new_trace, accepted) = hmc(trace, select(:x); L=1, eps=eps, metric=metric)
+        # Ensure rejection cannot hide an incorrect proposal.
+        @test accepted
+        @test new_trace[:x] ≈ expected
+    end
+end
+
 @testset "hmc metric behavior" begin
     import LinearAlgebra, Random
 
