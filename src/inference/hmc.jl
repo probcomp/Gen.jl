@@ -51,6 +51,22 @@ function assess_momenta(momenta, metric::Nothing)
     assess_momenta(momenta)
 end
 
+function value_update(eps, momenta, metric::Nothing)
+    return eps * momenta
+end
+
+function value_update(eps, momenta, metric::AbstractVector)
+    return eps * (momenta ./ metric)
+end
+
+function value_update(eps, momenta, metric::LinearAlgebra.Diagonal)
+    return value_update(eps, momenta, LinearAlgebra.diag(metric))
+end
+
+function value_update(eps, momenta, metric::AbstractMatrix)
+    return eps * (metric \ momenta)
+end
+
 """
     (new_trace, accepted) = hmc(
         trace, selection::Selection; L=10, eps=0.1,
@@ -99,7 +115,7 @@ function hmc(
         momenta += (eps / 2) * gradient
 
         # full step on positions
-        values += eps * momenta
+        values += value_update(eps, momenta, metric)
 
         # get new gradient
         value_choices = from_array(value_choices, values)
